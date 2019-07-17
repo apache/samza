@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
@@ -39,7 +41,6 @@ import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -69,7 +70,9 @@ import org.slf4j.LoggerFactory;
   static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    validateJobConfigs(originalConfig, generatedConfig);
     Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
+
     originalConfig.forEach((k, v) -> {
         if (generatedConfig.containsKey(k) && !Objects.equals(generatedConfig.get(k), v)) {
           LOG.info("Replacing generated config for key: {} value: {} with original config value: {}", k, generatedConfig.get(k), v);
@@ -78,6 +81,27 @@ import org.slf4j.LoggerFactory;
       });
 
     return Util.rewriteConfig(new MapConfig(mergedConfig));
+  }
+
+  static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    String userConfiguredJobId = originalConfig.get(JobConfig.JOB_ID());
+    String userConfiguredJobName = originalConfig.get(JobConfig.JOB_NAME());
+    String generatedJobId = generatedConfig.get(JobConfig.JOB_ID());
+    String generatedJobName = generatedConfig.get(JobConfig.JOB_NAME());
+
+    if (generatedJobName != null && userConfiguredJobName != null && !StringUtils.equals(generatedJobName,
+        userConfiguredJobName)) {
+      throw new SamzaException(String.format(
+          "Generated job.name = %s from app.name = %s does not match user configured job.name = %s, please configure job.name same as app.name",
+          generatedJobName, originalConfig.get(ApplicationConfig.APP_NAME), userConfiguredJobName));
+    }
+
+    if (generatedJobId != null && userConfiguredJobId != null && !StringUtils.equals(generatedJobId,
+        userConfiguredJobId)) {
+      throw new SamzaException(String.format(
+          "Generated job.id = %s from app.id = %s does not match user configured job.id = %s, please configure job.id same as app.id",
+          generatedJobId, originalConfig.get(ApplicationConfig.APP_ID), userConfiguredJobId));
+    }
   }
 
   JobConfig generateJobConfig(JobNode jobNode, String executionPlanJson) {
@@ -105,7 +129,11 @@ import org.slf4j.LoggerFactory;
     for (StreamEdge inEdge : inEdges.values()) {
       String formattedSystemStream = inEdge.getName();
       if (inEdge.isBroadcast()) {
-        broadcastInputs.add(formattedSystemStream + "#0");
+        if (inEdge.getPartitionCount() > 1) {
+          broadcastInputs.add(formattedSystemStream + "#[0-" + (inEdge.getPartitionCount() - 1) + "]");
+        } else {
+          broadcastInputs.add(formattedSystemStream + "#0");
+        }
       } else {
         inputs.add(formattedSystemStream);
       }
@@ -135,7 +163,7 @@ import org.slf4j.LoggerFactory;
     configureTables(generatedConfig, originalConfig, reachableTables, inputs);
 
     // generate the task.inputs configuration
-    generatedConfig.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+    generatedConfig.put(TaskConfig.INPUT_STREAMS, Joiner.on(',').join(inputs));
 
     LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), generatedConfig);
 
@@ -153,11 +181,11 @@ import org.slf4j.LoggerFactory;
     if (broadcastStreams.isEmpty()) {
       return;
     }
-    String broadcastInputs = config.get(TaskConfigJava.BROADCAST_INPUT_STREAMS);
+    String broadcastInputs = config.get(TaskConfig.BROADCAST_INPUT_STREAMS);
     if (StringUtils.isNotBlank(broadcastInputs)) {
       broadcastStreams.add(broadcastInputs);
     }
-    configs.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcastStreams));
+    configs.put(TaskConfig.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcastStreams));
   }
 
   private void configureWindowInterval(Map<String, String> configs, Config config,
@@ -171,7 +199,7 @@ import org.slf4j.LoggerFactory;
     long triggerInterval = computeTriggerInterval(reachableOperators);
     LOG.info("Using triggering interval: {}", triggerInterval);
 
-    configs.put(TaskConfig.WINDOW_MS(), String.valueOf(triggerInterval));
+    configs.put(TaskConfig.WINDOW_MS, String.valueOf(triggerInterval));
   }
 
   /**
@@ -280,7 +308,7 @@ import org.slf4j.LoggerFactory;
     serdes.forEach(serde -> {
         String serdeName = serdeUUIDs.computeIfAbsent(serde,
             s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
+        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
             base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
       });
 
@@ -299,12 +327,12 @@ import org.slf4j.LoggerFactory;
 
     // set key and msg serdes for stores to the serde names generated above
     storeKeySerdes.forEach((storeName, serde) -> {
-        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE(), storeName);
+        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE, storeName);
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     storeMsgSerdes.forEach((storeName, serde) -> {
-        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
+        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE, storeName);
         configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
       });
 

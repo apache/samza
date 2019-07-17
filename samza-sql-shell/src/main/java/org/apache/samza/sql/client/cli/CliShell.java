@@ -19,9 +19,13 @@
 
 package org.apache.samza.sql.client.cli;
 
+import java.util.stream.Collectors;
 import org.apache.samza.sql.client.interfaces.*;
 import org.apache.samza.sql.client.util.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
+import org.apache.samza.sql.schema.SqlFieldSchema;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
@@ -33,6 +37,8 @@ import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 import org.jline.utils.InfoCmp;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,18 +51,19 @@ import java.util.*;
  * The shell UI.
  */
 class CliShell {
+  private static final Logger LOG = LoggerFactory.getLogger(CliShell.class);
   private final Terminal terminal;
   private final PrintWriter writer;
   private final LineReader lineReader;
   private final String firstPrompt;
-  private final SqlExecutor executor;
+  private SqlExecutor executor;
   private final ExecutionContext exeContext;
   private CliEnvironment env;
   private boolean keepRunning = true;
   private Map<Integer, String> executions = new TreeMap<>();
 
-  public CliShell(SqlExecutor executor, CliEnvironment environment, ExecutionContext execContext) {
-    if (executor == null || environment == null || execContext == null) {
+  CliShell(CliEnvironment environment) throws ExecutorException{
+    if (environment == null) {
       throw new IllegalArgumentException();
     }
 
@@ -92,18 +99,13 @@ class CliShell {
 
     // Execution context and executor
     env = environment;
-    env.takeEffect();
-    exeContext = execContext;
-    this.executor = executor;
-    this.executor.start(exeContext);
+    executor = env.getExecutor();
+    exeContext = new ExecutionContext();
+    executor.start(exeContext);
   }
 
   Terminal getTerminal() {
     return terminal;
-  }
-
-  CliEnvironment getEnvironment() {
-    return env;
   }
 
   SqlExecutor getExecutor() {
@@ -117,11 +119,16 @@ class CliShell {
   /**
    * Actually run the shell. Does not return until user choose to exit.
    */
-  public void open() {
+  void open(String message) {
     // Remember we cannot enter alternate screen mode here as there is only one alternate
     // screen and we need it to show streaming results. Clear the screen instead.
     clearScreen();
     writer.write(CliConstants.WELCOME_MESSAGE);
+    printVersion();
+    if(!CliUtil.isNullOrEmpty(message)) {
+      writer.println(message);
+    }
+    writer.println();
 
     try {
       // Check if jna.jar exists in class path
@@ -143,11 +150,14 @@ class CliShell {
           break;
         }
 
-        if (!CliUtil.isNullOrEmpty(line)) {
-          CliCommand command = parseLine(line);
-          if (command == null)
-            continue;
+        if (CliUtil.isNullOrEmpty(line))
+          continue;
 
+        CliCommand command = parseLine(line);
+        if (command == null)
+          continue;
+
+        try {
           switch (command.getCommandType()) {
             case CLEAR:
               commandClear();
@@ -202,17 +212,24 @@ class CliShell {
               commandStop(command);
               break;
 
+            case VERSION:
+              commandVersion(command);
+              break;
+
             case INVALID_COMMAND:
               printHelpMessage();
               break;
 
             default:
-              writer.write("UNDER DEVELOPEMENT. Command:" + command.getCommandType() + "\n");
-              writer.write("Parameters:" +
-                      (CliUtil.isNullOrEmpty(command.getParameters()) ? "NULL" : command.getParameters())
-                      + "\n\n");
+              writer.println("UNDER DEVELOPEMENT. Command:" + command.getCommandType());
+              writer.println("Parameters:" +
+                      (CliUtil.isNullOrEmpty(command.getParameters()) ? "NULL" : command.getParameters()));
               writer.flush();
           }
+        } catch (ExecutorException e) {
+          writer.println("Error: " + e);
+          LOG.error("Error in {}: ", command.getCommandType(), e);
+          writer.flush();
         }
       }
     } catch (Exception e) {
@@ -221,100 +238,117 @@ class CliShell {
       writer.println(e.getMessage());
       e.printStackTrace(writer);
       writer.println();
-      writer.println("We are sorry but SamzaSqlShell has encountered a problem and needs to stop.");
+      writer.println("We are sorry but SamzaSqlShell has encountered a problem and must stop.");
     }
 
     writer.write("Cleaning up... ");
     writer.flush();
-    executor.stop(exeContext);
-
-    writer.write("Done.\nBye.\n\n");
-    writer.flush();
-
     try {
+      executor.stop(exeContext);
+      writer.write("Done.\nBye.\n\n");
+      writer.flush();
       terminal.close();
-    } catch (IOException e) {
+    } catch (IOException | ExecutorException e) {
       // Doesn't matter
     }
+  }
+
+  private void commandVersion(CliCommand command) {
+    printVersion();
+  }
+
+  private void printVersion() {
+    String version = String.format("Shell version %s, Executor is %s, version %s",
+            this.getClass().getPackage().getImplementationVersion(),
+            executor.getClass().getName(),
+            executor.getVersion());
+    writer.println(version);
   }
 
   private void commandClear() {
     clearScreen();
   }
 
-  private void commandDescribe(CliCommand command) {
+  private void commandDescribe(CliCommand command) throws ExecutorException {
     String parameters = command.getParameters();
     if (CliUtil.isNullOrEmpty(parameters)) {
       writer.println(command.getCommandType().getUsage());
-      writer.println();
       writer.flush();
       return;
     }
 
     SqlSchema schema = executor.getTableSchema(exeContext, parameters);
-
-    if (schema == null) {
-      writer.println("Failed to get schema. Error: " + executor.getErrorMsg());
-    } else {
-      writer.println();
-      List<String> lines = formatSchema4Display(schema);
-      for (String line : lines) {
-        writer.println(line);
-      }
+    List<String> lines = formatSchema4Display(schema);
+    for (String line : lines) {
+      writer.println(line);
     }
-    writer.println();
     writer.flush();
   }
 
-  private void commandSet(CliCommand command) {
+  private void commandSet(CliCommand command) throws ExecutorException{
     String param = command.getParameters();
     if (CliUtil.isNullOrEmpty(param)) {
-      try {
-        env.printAll(writer);
-      } catch (IOException e) {
-        e.printStackTrace(writer);
-      }
-      writer.println();
+      env.printAll(writer);
       writer.flush();
       return;
     }
-    String[] params = param.split("=");
-    if (params.length != 2) {
+    String[] params = null;
+    boolean syntaxValid = param.split(" ").length == 1;
+    if(syntaxValid) {
+      params = param.split("=");
+      if(params.length == 1) {
+        String value = env.getEnvironmentVariable(param);
+        if(!CliUtil.isNullOrEmpty(value)) {
+          env.printVariable(writer, param, value);
+        }
+        return;
+      } else {
+        syntaxValid = params.length == 2;
+      }
+    }
+    if(!syntaxValid) {
       writer.println(command.getCommandType().getUsage());
-      writer.println();
       writer.flush();
       return;
     }
 
-    int ret = env.setEnvironmentVariable(params[0], params[1]);
+    String name = params[0].trim().toLowerCase();
+    String value = params[1].trim();
+    int ret = env.setEnvironmentVariable(name, value);
     if (ret == 0) {
-      writer.print(params[0]);
+      writer.print(name);
       writer.print(" set to ");
-      writer.println(params[1]);
+      writer.println(value);
+      if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
+        executor.stop(exeContext);
+        executor = env.getExecutor();
+        executor.start(exeContext);
+      }
     } else if (ret == -1) {
       writer.print("Unknow variable: ");
-      writer.println(params[0]);
+      writer.println(name);
     } else if (ret == -2) {
       writer.print("Invalid value: ");
-      writer.println(params[1]);
-      List<String> vals = env.getPossibleValues(params[0]);
-      writer.print("Possible values:");
-      for (String s : vals) {
-        writer.print(CliConstants.SPACE);
-        writer.print(s);
+      writer.print(value);
+      String[] vals = env.getPossibleValues(name);
+      if(vals != null && vals.length != 0) {
+        writer.print(" Possible values:");
+        for (String s : vals) {
+          writer.print(CliConstants.SPACE);
+          writer.print(s);
+        }
+        writer.println();
       }
-      writer.println();
     }
 
-    writer.println();
     writer.flush();
   }
 
-  private void commandExecuteFile(CliCommand command) {
+  private void commandExecuteFile(CliCommand command) throws ExecutorException{
     String fullCmdStr = command.getFullCommand();
     String parameters = command.getParameters();
     if (CliUtil.isNullOrEmpty(parameters)) {
-      writer.println("Usage: execute <fileuri>\n");
+      writer.println("Usage: execute <fileuri>");
       writer.flush();
       return;
     }
@@ -328,26 +362,18 @@ class CliShell {
     } catch (URISyntaxException e) {
     }
     if (!valid) {
-      writer.println("Invalid URI.\n");
+      writer.println("Invalid URI.");
       writer.flush();
       return;
     }
 
     NonQueryResult nonQueryResult = executor.executeNonQuery(exeContext, file);
-    if (!nonQueryResult.succeeded()) {
-      writer.print("Execution error: ");
-      writer.println(executor.getErrorMsg());
-      writer.println();
-      writer.flush();
-      return;
-    }
-
     executions.put(nonQueryResult.getExecutionId(), fullCmdStr);
     List<String> submittedStmts = nonQueryResult.getSubmittedStmts();
     List<String> nonsubmittedStmts = nonQueryResult.getNonSubmittedStmts();
 
     writer.println("Sql file submitted. Execution ID: " + nonQueryResult.getExecutionId());
-    writer.println("Submitted statements: \n");
+    writer.println("Submitted statements:");
     if (submittedStmts == null || submittedStmts.size() == 0) {
       writer.println("\tNone.");
     } else {
@@ -355,38 +381,29 @@ class CliShell {
         writer.print("\t");
         writer.println(statement);
       }
-      writer.println();
     }
 
     if (nonsubmittedStmts != null && nonsubmittedStmts.size() != 0) {
-      writer.println("Statements NOT submitted: \n");
+      writer.println("Statements NOT submitted:");
       for (String statement : nonsubmittedStmts) {
         writer.print("\t");
         writer.println(statement);
       }
-      writer.println();
     }
 
     writer.println("Note: All query statements in a sql file are NOT submitted.");
-    writer.println();
     writer.flush();
   }
 
-  private void commandInsertInto(CliCommand command) {
+  private void commandInsertInto(CliCommand command) throws ExecutorException {
     String fullCmdStr = command.getFullCommand();
     NonQueryResult result = executor.executeNonQuery(exeContext,
             Collections.singletonList(fullCmdStr));
 
-    if (result.succeeded()) {
-      writer.print("Execution submitted successfully. Id: ");
-      writer.println(String.valueOf(result.getExecutionId()));
-      executions.put(result.getExecutionId(), fullCmdStr);
-    } else {
-      writer.write("Execution failed to submit. Error: ");
-      writer.println(executor.getErrorMsg());
-    }
+    writer.print("Execution submitted successfully. Id: ");
+    writer.println(String.valueOf(result.getExecutionId()));
+    executions.put(result.getExecutionId(), fullCmdStr);
 
-    writer.println();
     writer.flush();
   }
 
@@ -409,12 +426,10 @@ class CliShell {
       }
     }
     if (execIds.size() == 0) {
-      writer.println();
       return;
     }
 
     execIds.sort(Integer::compareTo);
-
     final int terminalWidth = terminal.getWidth();
     final int ID_WIDTH = 3;
     final int STATUS_WIDTH = 20;
@@ -431,9 +446,9 @@ class CliShell {
       String status = "UNKNOWN";
       try {
         ExecutionStatus execStatus = executor.queryExecutionStatus(id);
-        if (execStatus != null)
-          status = execStatus.name();
-      } catch (ExecutionException e) {
+        status = execStatus.name();
+      } catch (ExecutorException e) {
+        LOG.error("Error in commandLs: ", e);
       }
 
       int cmdStartIdx = 0;
@@ -466,7 +481,6 @@ class CliShell {
         }
       }
     }
-    writer.println();
     writer.flush();
   }
 
@@ -474,7 +488,6 @@ class CliShell {
     String parameters = command.getParameters();
     if (CliUtil.isNullOrEmpty(parameters)) {
       writer.println(command.getCommandType().getUsage());
-      writer.println();
       writer.flush();
       return;
     }
@@ -497,30 +510,19 @@ class CliShell {
     }
 
     for (Integer id : execIds) {
-      ExecutionStatus status = null;
       try {
-        status = executor.queryExecutionStatus(id);
-      } catch (ExecutionException e) {
-      }
-      if (status == null) {
-        writer.println(String.format("Error: failed to get execution status for %d. %s",
-                id, executor.getErrorMsg()));
-        continue;
-      }
-      if (status == ExecutionStatus.Running) {
-        writer.println(String.format("Execution %d is still running. Stop it first.", id));
-        continue;
-      }
-      if (executor.removeExecution(exeContext, id)) {
-        writer.println(String.format("Execution %d was removed.", id));
+        ExecutionStatus status = executor.queryExecutionStatus(id);
+        if (status == ExecutionStatus.Running) {
+          writer.println(String.format("Execution %d is still running. Stop it first.", id));
+          continue;
+        }
+        executor.removeExecution(exeContext, id);
         executions.remove(id);
-      } else {
-        writer.println(String.format("Error: failed to remove execution %d. %s",
-                id, executor.getErrorMsg()));
+      } catch (ExecutorException e) {
+        writer.println("Error: " + e);
+        LOG.error("Error in commandRm: ", e);
       }
-
     }
-    writer.println();
     writer.flush();
   }
 
@@ -528,48 +530,26 @@ class CliShell {
     keepRunning = false;
   }
 
-  private void commandSelect(CliCommand command) {
+  private void commandSelect(CliCommand command) throws ExecutorException{
     QueryResult queryResult = executor.executeQuery(exeContext, command.getFullCommand());
-
-    if (queryResult.succeeded()) {
-      CliView view = new QueryResultLogView();
-      view.open(this, queryResult);
-      executor.stopExecution(exeContext, queryResult.getExecutionId());
-    } else {
-      writer.write("Execution failed. Error: ");
-      writer.println(executor.getErrorMsg());
-      writer.println();
-      writer.flush();
-    }
+    CliView view = new QueryResultLogView();
+    view.open(this, queryResult);
+    executor.stopExecution(exeContext, queryResult.getExecutionId());
   }
 
-  private void commandShowTables(CliCommand command) {
+  private void commandShowTables(CliCommand command) throws ExecutorException {
     List<String> tableNames = executor.listTables(exeContext);
-
-    if (tableNames != null) {
-      for (String tableName : tableNames) {
-        writer.println(tableName);
-      }
-    } else {
-      writer.print("Failed to list tables. Error: ");
-      writer.println(executor.getErrorMsg());
+    for (String tableName : tableNames) {
+      writer.println(tableName);
     }
-    writer.println();
     writer.flush();
   }
 
-  private void commandShowFunctions(CliCommand command) {
+  private void commandShowFunctions(CliCommand command) throws ExecutorException {
     List<SqlFunction> fns = executor.listFunctions(exeContext);
-
-    if (fns != null) {
-      for (SqlFunction fn : fns) {
-        writer.println(fn.toString());
-      }
-    } else {
-      writer.print("Failed to list functions. Error: ");
-      writer.println(executor.getErrorMsg());
+    for (SqlFunction fn : fns) {
+      writer.println(fn.toString());
     }
-    writer.println();
     writer.flush();
   }
 
@@ -577,7 +557,6 @@ class CliShell {
     String parameters = command.getParameters();
     if (CliUtil.isNullOrEmpty(parameters)) {
       writer.println(command.getCommandType().getUsage());
-      writer.println();
       writer.flush();
       return;
     }
@@ -600,13 +579,14 @@ class CliShell {
     }
 
     for (Integer id : execIds) {
-      if (executor.stopExecution(exeContext, id)) {
+      try {
+        executor.stopExecution(exeContext, id);
         writer.println(String.format("Request to stop execution %d was sent.", id));
-      } else {
-        writer.println(String.format("Failed to stop %d: %s", id, executor.getErrorMsg()));
+      } catch (ExecutorException e) {
+        writer.println("Error: " + e);
+        LOG.error("Error in commandStop: ", e);
       }
     }
-    writer.println();
     writer.flush();
   }
 
@@ -622,7 +602,6 @@ class CliShell {
       String cmdText = cmdType.getCommandName();
       if (cmdText.equals(parameters)) {
         writer.println(cmdType.getUsage());
-        writer.println();
         writer.flush();
         return;
       }
@@ -630,7 +609,6 @@ class CliShell {
 
     writer.print("Unknown command: ");
     writer.println(parameters);
-    writer.println();
     writer.flush();
   }
 
@@ -657,7 +635,6 @@ class CliShell {
   }
 
   private void printHelpMessage() {
-    writer.println();
     AttributedStringBuilder builder = new AttributedStringBuilder();
     builder.append("The following commands are supported by ")
             .append(CliConstants.APP_NAME)
@@ -679,7 +656,7 @@ class CliShell {
     }
 
     writer.println(builder.toAnsi());
-    writer.println("HELP <COMMAND> to get help for a specific command.\n");
+    writer.println("HELP <COMMAND> to get help for a specific command.");
     writer.flush();
   }
 
@@ -711,13 +688,14 @@ class CliShell {
     int seperatorPos = HEADER_FIELD.length() + 2;
     int minRowNeeded = Integer.MAX_VALUE;
     int longestLineCharNum = 0;
-    int rowCount = schema.getFieldCount();
+    int rowCount = schema.getFields().size();
     for (int j = seperatorPos; j < terminalWidth - HEADER_TYPE.length() - 2; ++j) {
       boolean fieldWrapped = false;
       int rowNeeded = 0;
       for (int i = 0; i < rowCount; ++i) {
-        int fieldLen = schema.getFieldName(i).length();
-        int typeLen = schema.getFieldTypeName(i).length();
+        SqlSchema.SqlField field = schema.getFields().get(i);
+        int fieldLen = field.getFieldName().length();
+        int typeLen = field.getFieldSchema().getFieldType().toString().length();
         int fieldRowNeeded = CliUtil.ceilingDiv(fieldLen, j - 2);
         int typeRowNeeded = CliUtil.ceilingDiv(typeLen, terminalWidth - 1 - j - 2);
 
@@ -753,14 +731,15 @@ class CliShell {
     lines.add(line.toString());
 
     // Body
-    AttributedStyle oddLineStyle = AttributedStyle.DEFAULT.BOLD.foreground(AttributedStyle.BLUE);
-    AttributedStyle evenLineStyle = AttributedStyle.DEFAULT.BOLD.foreground(AttributedStyle.CYAN);
+    AttributedStyle oddLineStyle = AttributedStyle.BOLD.foreground(AttributedStyle.BLUE);
+    AttributedStyle evenLineStyle = AttributedStyle.BOLD.foreground(AttributedStyle.CYAN);
 
     final int fieldColSize = seperatorPos - 2;
     final int typeColSize = terminalWidth - seperatorPos - 1 - 2;
     for (int i = 0; i < rowCount; ++i) {
-      String field = schema.getFieldName(i);
-      String type = schema.getFieldTypeName(i);
+      SqlSchema.SqlField sqlField = schema.getFields().get(i);
+      String field = sqlField.getFieldName();
+      String type = getFieldDisplayValue(sqlField.getFieldSchema());
       int fieldLen = field.length();
       int typeLen = type.length();
       int fieldStartIdx = 0, typeStartIdx = 0;
@@ -799,6 +778,34 @@ class CliShell {
     CliUtil.appendTo(line, longestLineCharNum - 1, LINE_SEP);
     lines.add(line.toString());
     return lines;
+  }
+
+  private String getFieldDisplayValue(SqlFieldSchema fieldSchema) {
+    if (!isComplexField(fieldSchema.getFieldType())) {
+      return fieldSchema.getFieldType().toString();
+    }
+    SamzaSqlFieldType fieldType = fieldSchema.getFieldType();
+    switch (fieldType) {
+      case ARRAY:
+        return String.format("ARRAY(%s)", getFieldDisplayValue(fieldSchema.getElementSchema()));
+      case MAP:
+        return String.format("MAP(%s, %s)", SamzaSqlFieldType.STRING.toString(),
+            getFieldDisplayValue(fieldSchema.getValueScehma()));
+      case ROW:
+        String rowDisplayValue = fieldSchema.getRowSchema()
+            .getFields()
+            .stream()
+            .map(f -> getFieldDisplayValue(f.getFieldSchema()))
+            .collect(Collectors.joining(","));
+        return String.format("ROW(%s)", rowDisplayValue);
+      default:
+        throw new UnsupportedOperationException("Unknown field type " + fieldType);
+    }
+  }
+
+  private boolean isComplexField(SamzaSqlFieldType fieldtype) {
+    return fieldtype == SamzaSqlFieldType.ARRAY || fieldtype == SamzaSqlFieldType.MAP
+        || fieldtype == SamzaSqlFieldType.ROW;
   }
 
   // Trims: leading spaces; trailing spaces and ";"s

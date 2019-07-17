@@ -39,9 +39,4 @@ public final class GenericInputDescriptor<StreamMessageType>
   GenericInputDescriptor(String streamId, SystemDescriptor systemDescriptor, Serde serde) {
     super(streamId, serde, systemDescriptor, null);
   }
-
-  @Override
-  public GenericInputDescriptor<StreamMessageType> withPhysicalName(String physicalName) {
-    return super.withPhysicalName(physicalName);
-  }
 }

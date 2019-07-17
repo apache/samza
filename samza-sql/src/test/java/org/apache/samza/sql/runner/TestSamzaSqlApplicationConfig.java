@@ -30,14 +30,13 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
-import org.apache.samza.sql.testutil.JsonUtil;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
-import org.apache.samza.sql.testutil.SamzaSqlTestConfig;
+import org.apache.samza.sql.util.JsonUtil;
+import org.apache.samza.sql.util.SamzaSqlQueryParser;
+import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.junit.Assert;
 import org.junit.Test;
 
 import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
-import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 
 public class TestSamzaSqlApplicationConfig {
@@ -53,10 +52,10 @@ public class TestSamzaSqlApplicationConfig {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-            .collect(Collectors.toSet()),
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
-    Assert.assertEquals(numUdfs, samzaSqlApplicationConfig.getUdfMetadata().size());
+    Assert.assertEquals(numUdfs + 1, samzaSqlApplicationConfig.getUdfMetadata().size());
     Assert.assertEquals(1, samzaSqlApplicationConfig.getInputSystemStreamConfigBySource().size());
     Assert.assertEquals(1, samzaSqlApplicationConfig.getOutputSystemStreamConfigsBySource().size());
   }
@@ -80,8 +79,8 @@ public class TestSamzaSqlApplicationConfig {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
     new SamzaSqlApplicationConfig(new MapConfig(config),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-            .collect(Collectors.toSet()),
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
     testWithoutConfigShouldFail(config, SamzaSqlApplicationConfig.CFG_IO_RESOLVER);
     testWithoutConfigShouldFail(config, SamzaSqlApplicationConfig.CFG_UDF_RESOLVER);
@@ -98,7 +97,7 @@ public class TestSamzaSqlApplicationConfig {
   }
 
   @Test
-  public void testGetInputAndOutputStreamConfigs() {
+  public void testGetInputAndOutputStreamConfigsFanOut() {
     List<String> sqlStmts = Arrays.asList("Insert into testavro.COMPLEX1 select * from testavro.SIMPLE1",
         "insert into testavro.Profile select * from testavro.SIMPLE1");
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
@@ -107,16 +106,48 @@ public class TestSamzaSqlApplicationConfig {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
     SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-            .collect(Collectors.toSet()),
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
     Set<String> inputKeys = samzaSqlApplicationConfig.getInputSystemStreamConfigBySource().keySet();
     Set<String> outputKeys = samzaSqlApplicationConfig.getOutputSystemStreamConfigsBySource().keySet();
+    List<String> outputStreamList = samzaSqlApplicationConfig.getOutputSystemStreams();
+
     Assert.assertEquals(1, inputKeys.size());
     Assert.assertTrue(inputKeys.contains("testavro.SIMPLE1"));
     Assert.assertEquals(2, outputKeys.size());
     Assert.assertTrue(outputKeys.contains("testavro.COMPLEX1"));
     Assert.assertTrue(outputKeys.contains("testavro.Profile"));
+    Assert.assertEquals(2, outputStreamList.size());
+    Assert.assertEquals("testavro.COMPLEX1", outputStreamList.get(0));
+    Assert.assertEquals("testavro.Profile", outputStreamList.get(1));
+  }
+
+  @Test
+  public void testGetInputAndOutputStreamConfigsFanIn() {
+    List<String> sqlStmts = Arrays.asList("Insert into testavro.COMPLEX1 select * from testavro.SIMPLE1",
+        "insert into testavro.COMPLEX1 select * from testavro.SIMPLE2");
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    SamzaSqlApplicationConfig samzaSqlApplicationConfig = new SamzaSqlApplicationConfig(new MapConfig(config),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
+
+    Set<String> inputKeys = samzaSqlApplicationConfig.getInputSystemStreamConfigBySource().keySet();
+    Set<String> outputKeys = samzaSqlApplicationConfig.getOutputSystemStreamConfigsBySource().keySet();
+    List<String> outputStreamList = samzaSqlApplicationConfig.getOutputSystemStreams();
+
+    Assert.assertEquals(2, inputKeys.size());
+    Assert.assertTrue(inputKeys.contains("testavro.SIMPLE1"));
+    Assert.assertTrue(inputKeys.contains("testavro.SIMPLE2"));
+    Assert.assertEquals(1, outputKeys.size());
+    Assert.assertTrue(outputKeys.contains("testavro.COMPLEX1"));
+    Assert.assertEquals(2, outputStreamList.size());
+    Assert.assertEquals("testavro.COMPLEX1", outputStreamList.get(0));
+    Assert.assertEquals("testavro.COMPLEX1", outputStreamList.get(1));
   }
 
   private void testWithoutConfigShouldPass(Map<String, String> config, String configKey) {
@@ -126,8 +157,8 @@ public class TestSamzaSqlApplicationConfig {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
     new SamzaSqlApplicationConfig(new MapConfig(badConfigs),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-            .collect(Collectors.toSet()),
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
   }
 
   private void testWithoutConfigShouldFail(Map<String, String> config, String configKey) {
@@ -138,8 +169,8 @@ public class TestSamzaSqlApplicationConfig {
       List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
       new SamzaSqlApplicationConfig(new MapConfig(badConfigs),
           queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-              .collect(Collectors.toSet()),
-          queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+              .collect(Collectors.toList()),
+          queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
       Assert.fail();
     } catch (IllegalArgumentException e) {
       // swallow

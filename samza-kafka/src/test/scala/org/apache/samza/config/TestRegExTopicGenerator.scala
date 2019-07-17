@@ -20,11 +20,9 @@
 package org.apache.samza.config
 
 import collection.JavaConverters._
-
 import org.junit.Assert._
 import org.junit.Test
-
-import KafkaConfig._
+import JobConfig._
 
 class TestRegExTopicGenerator {
 
@@ -48,7 +46,7 @@ class TestRegExTopicGenerator {
 
     // Don't actually talk to ZooKeeper
     val rewriter = new RegExTopicGenerator() {
-      override def getTopicsFromZK(rewriterName: String, config: Config): Seq[String] = List("catdog", "dogtired", "cow", "scaredycat", "Homer", "crazycat")
+      override def getTopicsFromSystemAdmin(rewriterName: String, config: Config): Seq[String] = List("catdog", "dogtired", "cow", "scaredycat", "Homer", "crazycat")
     }
 
     val rewritten = rewriter.rewrite(REWRITER_NAME, config)
@@ -79,7 +77,7 @@ class TestRegExTopicGenerator {
       getRegexConfigInherited + ".config.zorp" -> "morp")
 
     val rewriter = new RegExTopicGenerator() {
-      override def getTopicsFromZK(rewriterName: String, config: Config): Seq[String] = List("yoyoyo")
+      override def getTopicsFromSystemAdmin(rewriterName: String, config: Config): Seq[String] = List("yoyoyo")
     }
 
     val config = rewriter.rewrite(REWRITER_NAME, new MapConfig(map.asJava))

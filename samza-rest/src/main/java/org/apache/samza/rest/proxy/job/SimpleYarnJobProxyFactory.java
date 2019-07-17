@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Factory to produce SimpleJobProxy instances.
  *
- * See {@link AbstractJobProxy#fromFactory(JobsResourceConfig)}
+ * See {@link AbstractJobProxy#fromFactory(JobsResourceConfig, ClassLoader)}
  */
 public class SimpleYarnJobProxyFactory implements JobProxyFactory {
 

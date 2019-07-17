@@ -33,6 +33,7 @@ import org.apache.commons.lang.RandomStringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.InMemorySystemConfig;
@@ -42,7 +43,10 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
+import org.apache.samza.context.ExternalContext;
+import org.apache.samza.execution.JobPlanner;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory;
 import org.apache.samza.operators.KV;
 import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
@@ -52,12 +56,12 @@ import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.descriptors.StreamDescriptor;
 import org.apache.samza.system.inmemory.InMemorySystemFactory;
+import org.apache.samza.system.inmemory.InMemorySystemProducer;
 import org.apache.samza.task.AsyncStreamTask;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
@@ -77,7 +81,7 @@ import org.slf4j.LoggerFactory;
  *  <ol>
  *    <li>"job.coordination.factory" = {@link PassthroughJobCoordinatorFactory}</li>
  *    <li>"task.name.grouper.factory" = {@link SingleContainerGrouperFactory}</li>
- *    <li>"job.name" = "test-samza"</li>
+ *    <li>"app.name" = "test-samza"</li>
  *    <li>"processor.id" = "1"</li>
  *    <li>"job.default.system" = {@code JOB_DEFAULT_SYSTEM}</li>
  *    <li>"job.host-affinity.enabled" = "false"</li>
@@ -88,10 +92,11 @@ import org.slf4j.LoggerFactory;
 public class TestRunner {
   private static final Logger LOG = LoggerFactory.getLogger(TestRunner.class);
   private static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
-  private static final String JOB_NAME = "samza-test";
+  private static final String APP_NAME = "samza-test";
 
   private Map<String, String> configs;
   private SamzaApplication app;
+  private ExternalContext externalContext;
   /*
    * inMemoryScope is a unique global key per TestRunner, this key when configured with {@link InMemorySystemDescriptor}
    * provides an isolated state to run with in memory system
@@ -101,10 +106,11 @@ public class TestRunner {
   private TestRunner() {
     this.configs = new HashMap<>();
     this.inMemoryScope = RandomStringUtils.random(10, true, true);
-    configs.put(JobConfig.JOB_NAME(), JOB_NAME);
+    configs.put(ApplicationConfig.APP_NAME, APP_NAME);
     configs.put(JobConfig.PROCESSOR_ID(), "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
-    configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY(), InMemoryMetadataStoreFactory.class.getCanonicalName());
+    configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
     // Changing the base directory for non-changelog stores used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
     configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
@@ -113,7 +119,7 @@ public class TestRunner {
         new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-logged").getAbsolutePath());
     addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
     // Disabling host affinity since it requires reading locality information from a Kafka coordinator stream
-    addConfig(ClusterManagerConfig.CLUSTER_MANAGER_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
+    addConfig(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
     addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
     addConfig(new InMemorySystemDescriptor(JOB_DEFAULT_SYSTEM).withInMemoryScope(inMemoryScope).toConfig());
   }
@@ -125,7 +131,7 @@ public class TestRunner {
   private TestRunner(Class taskClass) {
     this();
     Preconditions.checkNotNull(taskClass);
-    configs.put(TaskConfig.TASK_CLASS(), taskClass.getName());
+    configs.put(TaskConfig.TASK_CLASS, taskClass.getName());
     this.app = new LegacyTaskApplication(taskClass.getName());
   }
 
@@ -176,13 +182,25 @@ public class TestRunner {
   }
 
   /**
-   * Only adds a config from {@code config} to samza job {@code configs} if they dont exist in it.
+   * Adds a config to Samza application. This config takes precedence over default configs and descriptor generated configs
    * @param config configs for the application
    * @return this {@link TestRunner}
    */
   public TestRunner addConfig(Map<String, String> config) {
     Preconditions.checkNotNull(config);
     configs.putAll(config);
+    return this;
+  }
+
+  /**
+   * Passes the user provided external context to {@link LocalApplicationRunner}
+   *
+   * @param externalContext external context provided by user
+   * @return this {@link TestRunner}
+   */
+  public TestRunner addExternalContext(ExternalContext externalContext) {
+    Preconditions.checkNotNull(externalContext);
+    this.externalContext = externalContext;
     return this;
   }
 
@@ -264,8 +282,9 @@ public class TestRunner {
     Preconditions.checkState(!timeout.isZero() || !timeout.isNegative(), "Timeouts should be positive");
     // Cleaning store directories to ensure current run does not pick up state from previous run
     deleteStoreDirectories();
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, new MapConfig(configs));
-    runner.run();
+    Config config = new MapConfig(JobPlanner.generateSingleJobConfig(configs));
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
+    runner.run(externalContext);
     if (!runner.waitForFinish(timeout)) {
       throw new SamzaException("Timed out waiting for application to finish");
     }
@@ -354,11 +373,15 @@ public class TestRunner {
       Map<Integer, Iterable<StreamMessageType>> partitionData) {
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
-    if (configs.containsKey(TaskConfig.INPUT_STREAMS())) {
-      configs.put(TaskConfig.INPUT_STREAMS(),
-          configs.get(TaskConfig.INPUT_STREAMS()).concat("," + systemName + "." + streamName));
-    } else {
-      configs.put(TaskConfig.INPUT_STREAMS(), systemName + "." + streamName);
+    if (this.app instanceof LegacyTaskApplication) {
+      // task.inputs is generated using descriptors for Task/StreamApplication, but needs to be generated here
+      // for legacy applications that only specify task.class.
+      if (configs.containsKey(TaskConfig.INPUT_STREAMS)) {
+        configs.put(TaskConfig.INPUT_STREAMS,
+            configs.get(TaskConfig.INPUT_STREAMS).concat("," + systemName + "." + streamName));
+      } else {
+        configs.put(TaskConfig.INPUT_STREAMS, systemName + "." + streamName);
+      }
     }
     InMemorySystemDescriptor imsd = (InMemorySystemDescriptor) descriptor.getSystemDescriptor();
     imsd.withInMemoryScope(this.inMemoryScope);
@@ -369,13 +392,17 @@ public class TestRunner {
     SystemFactory factory = new InMemorySystemFactory();
     Config config = new MapConfig(descriptor.toConfig(), descriptor.getSystemDescriptor().toConfig());
     factory.getAdmin(systemName, config).createStream(spec);
-    SystemProducer producer = factory.getProducer(systemName, config, null);
+    InMemorySystemProducer producer = (InMemorySystemProducer) factory.getProducer(systemName, config, null);
     SystemStream sysStream = new SystemStream(systemName, streamName);
     partitionData.forEach((partitionId, partition) -> {
         partition.forEach(e -> {
             Object key = e instanceof KV ? ((KV) e).getKey() : null;
             Object value = e instanceof KV ? ((KV) e).getValue() : e;
-            producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
+            if (value instanceof IncomingMessageEnvelope) {
+              producer.send((IncomingMessageEnvelope) value);
+            } else {
+              producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
+            }
           });
         producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
             new EndOfStreamMessage(null)));

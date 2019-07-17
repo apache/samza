@@ -29,6 +29,7 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.system.{StreamSpec, SystemAdmins}
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{CoordinatorStreamUtil, Logging, StreamUtil, Util}
 
 import scala.collection.JavaConverters._
@@ -85,14 +86,8 @@ class JobRunner(config: Config) extends Logging {
     info("Creating coordinator stream")
     val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
     val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
-    val streamName = coordinatorSystemStream.getStream
-    val coordinatorSpec = StreamSpec.createCoordinatorStreamSpec(streamName, coordinatorSystemStream.getSystem)
     coordinatorSystemAdmin.start()
-    if (coordinatorSystemAdmin.createStream(coordinatorSpec)) {
-      info("Created coordinator stream %s." format streamName)
-    } else {
-      info("Coordinator stream %s already exists." format streamName)
-    }
+    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin)
     coordinatorSystemAdmin.stop()
 
     if (resetJobConfig) {
@@ -119,9 +114,11 @@ class JobRunner(config: Config) extends Logging {
     // if diagnostics is enabled, create diagnostics stream if it doesnt exist
     if (new JobConfig(config).getDiagnosticsEnabled) {
       val DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id"
-      val diagnosticsSystemStreamName = new MetricsConfig(config).
-        getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS).
-        getOrElse(throw new ConfigException("Missing required config: " +
+      val diagnosticsSystemStreamName = JavaOptionals.toRichOptional(
+        new MetricsConfig(config)
+          .getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS))
+        .toOption
+        .getOrElse(throw new ConfigException("Missing required config: " +
           String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM,
             MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)))
 

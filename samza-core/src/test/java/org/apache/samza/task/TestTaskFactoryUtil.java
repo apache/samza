@@ -31,9 +31,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 
 /**
@@ -73,17 +71,15 @@ public class TestTaskFactoryUtil {
   public void testFinalizeTaskFactory() throws NoSuchFieldException, IllegalAccessException {
     TaskFactory mockFactory = mock(TaskFactory.class);
     try {
-      TaskFactoryUtil.finalizeTaskFactory(mockFactory, true, null);
+      TaskFactoryUtil.finalizeTaskFactory(mockFactory, null);
       fail("Should have failed with validation");
     } catch (SamzaException se) {
       // expected
     }
     StreamTaskFactory mockStreamFactory = mock(StreamTaskFactory.class);
-    Object retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, true, null);
-    assertEquals(retFactory, mockStreamFactory);
 
     ExecutorService mockThreadPool = mock(ExecutorService.class);
-    retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, false, mockThreadPool);
+    TaskFactory retFactory = TaskFactoryUtil.finalizeTaskFactory(mockStreamFactory, mockThreadPool);
     assertTrue(retFactory instanceof AsyncStreamTaskFactory);
     assertTrue(((AsyncStreamTaskFactory) retFactory).createInstance() instanceof AsyncStreamTaskAdapter);
     AsyncStreamTaskAdapter taskAdapter = (AsyncStreamTaskAdapter) ((AsyncStreamTaskFactory) retFactory).createInstance();
@@ -93,15 +89,21 @@ public class TestTaskFactoryUtil {
     assertEquals(executor, mockThreadPool);
 
     AsyncStreamTaskFactory mockAsyncStreamFactory = mock(AsyncStreamTaskFactory.class);
-    try {
-      TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, true, null);
-      fail("Should have failed");
-    } catch (SamzaException se) {
-      // expected
-    }
-
-    retFactory = TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, false, null);
+    retFactory = TaskFactoryUtil.finalizeTaskFactory(mockAsyncStreamFactory, null);
     assertEquals(retFactory, mockAsyncStreamFactory);
+  }
+
+  @Test
+  public void testFinalizeTaskFactoryForStreamOperatorTask() {
+    TaskFactory mockFactory = mock(StreamOperatorTaskFactory.class);
+    StreamOperatorTask mockStreamOperatorTask = mock(StreamOperatorTask.class);
+    when(mockFactory.createInstance())
+        .thenReturn(mockStreamOperatorTask);
+
+    ExecutorService mockThreadPool = mock(ExecutorService.class);
+    TaskFactory finalizedFactory = TaskFactoryUtil.finalizeTaskFactory(mockFactory, mockThreadPool);
+    finalizedFactory.createInstance();
+    verify(mockStreamOperatorTask, times(1)).setTaskThreadPool(eq(mockThreadPool));
   }
 
   // test getTaskFactory with StreamApplicationDescriptor
@@ -111,8 +113,8 @@ public class TestTaskFactoryUtil {
     OperatorSpecGraph mockSpecGraph = mock(OperatorSpecGraph.class);
     when(mockStreamApp.getOperatorSpecGraph()).thenReturn(mockSpecGraph);
     TaskFactory streamTaskFactory = TaskFactoryUtil.getTaskFactory(mockStreamApp);
-    assertTrue(streamTaskFactory instanceof StreamTaskFactory);
-    StreamTask streamTask = ((StreamTaskFactory) streamTaskFactory).createInstance();
+    assertTrue(streamTaskFactory instanceof StreamOperatorTaskFactory);
+    AsyncStreamTask streamTask = ((StreamOperatorTaskFactory) streamTaskFactory).createInstance();
     assertTrue(streamTask instanceof StreamOperatorTask);
     verify(mockSpecGraph).clone();
   }

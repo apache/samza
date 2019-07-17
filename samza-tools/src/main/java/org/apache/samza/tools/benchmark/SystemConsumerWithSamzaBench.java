@@ -31,10 +31,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.cli.ParseException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.system.descriptors.GenericSystemDescriptor;
@@ -64,12 +65,12 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
   public void addMoreSystemConfigs(Properties props) {
     props.put("app.runner.class", LocalApplicationRunner.class.getName());
     List<Integer> partitions = IntStream.range(startPartition, endPartition).boxed().collect(Collectors.toList());
-    props.put(JobConfig.JOB_NAME(), "SamzaBench");
+    props.put(ApplicationConfig.APP_NAME, "SamzaBench");
     props.put(JobConfig.PROCESSOR_ID(), "1");
     props.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     props.put(String.format(ConfigBasedSspGrouperFactory.CONFIG_STREAM_PARTITIONS, streamId),
         Joiner.on(",").join(partitions));
-    props.put(TaskConfig.GROUPER_FACTORY(), ConfigBasedSspGrouperFactory.class.getName());
+    props.put(TaskConfig.GROUPER_FACTORY, ConfigBasedSspGrouperFactory.class.getName());
   }
 
   public void start() throws IOException, InterruptedException {

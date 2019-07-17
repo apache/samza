@@ -23,17 +23,20 @@ import org.apache.samza.application.ApplicationUtil
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil
 import org.apache.samza.config.JobConfig._
 import org.apache.samza.config.ShellCommandConfig._
-import org.apache.samza.config.{Config, JobConfig, TaskConfigJava}
+import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.{SamzaContainer, SamzaContainerListener, TaskName}
-import org.apache.samza.context.JobContextImpl
-import org.apache.samza.coordinator.JobModelManager
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager
+import org.apache.samza.context.{ExternalContext, JobContextImpl}
+import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
+import org.apache.samza.job.model.JobModelUtil
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.{JmxServer, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.runtime.ProcessorContext
+import org.apache.samza.startpoint.StartpointManager
 import org.apache.samza.storage.ChangelogStreamManager
 import org.apache.samza.task.{TaskFactory, TaskFactoryUtil}
-import org.apache.samza.util.Logging
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging}
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -46,14 +49,16 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     info("Creating a ThreadJob, which is only meant for debugging.")
 
     val metricsRegistry = new MetricsRegistryMap()
-    val coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry)
-    coordinatorStreamManager.register(getClass.getSimpleName)
-    coordinatorStreamManager.start
-    coordinatorStreamManager.bootstrap
-    val changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager)
+    val coordinatorStreamStore: CoordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap())
+    coordinatorStreamStore.init()
 
-    val coordinator = JobModelManager(coordinatorStreamManager.getConfig, changelogStreamManager.readPartitionMapping())
+    val configFromCoordinatorStream: Config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore)
 
+    val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
+
+    val classLoader = getClass.getClassLoader
+    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
+      coordinatorStreamStore, classLoader, metricsRegistry)
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
@@ -66,17 +71,22 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val checkpointManager = new TaskConfigJava(jobModel.getConfig).getCheckpointManager(metricsRegistry)
-    if (checkpointManager != null) {
-      checkpointManager.createResources()
-      checkpointManager.stop()
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader)
+    metadataResourceUtil.createResources()
+
+    // fan out the startpoints
+    val startpointManager = new StartpointManager(coordinatorStreamStore)
+    startpointManager.start()
+    try {
+      startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel))
+    } finally {
+      startpointManager.stop()
     }
-    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
 
     val containerId = "0"
     var jmxServer: JmxServer = null
     if (new JobConfig(config).getJMXEnabled) {
-      jmxServer = new JmxServer();
+      jmxServer = new JmxServer()
     }
 
     val appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config)
@@ -121,7 +131,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         taskFactory,
         JobContextImpl.fromConfigWithDefaults(config),
         Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
-        Option(appDesc.getApplicationTaskContextFactory.orElse(null))
+        Option(appDesc.getApplicationTaskContextFactory.orElse(null)),
+        buildExternalContext(config),
+        classLoader
       )
       container.setContainerListener(containerListener)
 
@@ -129,10 +141,19 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       threadJob
     } finally {
       coordinator.stop
-      coordinatorStreamManager.stop()
       if (jmxServer != null) {
         jmxServer.stop
       }
+      coordinatorStreamStore.close()
     }
+  }
+
+  private def buildExternalContext(config: Config): Option[ExternalContext] = {
+    /*
+     * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
+     * a non-empty ExternalContext to SamzaContainer. Only config should be used to build the external context. In the
+     * future, components like the application descriptor may not be available.
+     */
+    None
   }
 }

@@ -44,7 +44,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.clustermanager.SamzaResource;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GroupByContainerCount;
@@ -110,12 +109,12 @@ public class TestApplicationMasterRestClient {
 
     Map<String, Object> amMetricsGroup = metricsResult.get(group);
     assertEquals(7, amMetricsGroup.size());
-    assertEquals(samzaAppState.runningContainers.size(),  amMetricsGroup.get("running-containers"));
-    assertEquals(samzaAppState.neededContainers.get(),    amMetricsGroup.get("needed-containers"));
-    assertEquals(samzaAppState.completedContainers.get(), amMetricsGroup.get("completed-containers"));
+    assertEquals(samzaAppState.runningProcessors.size(),  amMetricsGroup.get("running-containers"));
+    assertEquals(samzaAppState.neededProcessors.get(),    amMetricsGroup.get("needed-containers"));
+    assertEquals(samzaAppState.completedProcessors.get(), amMetricsGroup.get("completed-containers"));
     assertEquals(samzaAppState.failedContainers.get(),    amMetricsGroup.get("failed-containers"));
     assertEquals(samzaAppState.releasedContainers.get(),  amMetricsGroup.get("released-containers"));
-    assertEquals(samzaAppState.containerCount.get(),      amMetricsGroup.get("container-count"));
+    assertEquals(samzaAppState.processorCount.get(),      amMetricsGroup.get("container-count"));
     assertEquals(samzaAppState.jobHealthy.get() ? 1 : 0,  amMetricsGroup.get("job-healthy"));
   }
 
@@ -169,7 +168,7 @@ public class TestApplicationMasterRestClient {
     assertEquals(String.format("%s:%s", yarnAppState.nodeHost, yarnAppState.rpcUrl.getPort()), amStateResult.get("host"));
     assertEquals(containerId.toString(), amStateResult.get("container-id"));
     // Can only validate the keys because up-time changes everytime it's requested
-    assertEquals(buildExpectedContainerResponse(yarnAppState.runningYarnContainers, samzaAppState).keySet(),
+    assertEquals(buildExpectedContainerResponse(yarnAppState.runningProcessors, samzaAppState).keySet(),
         ((Map<String, Object>) amStateResult.get("containers")).keySet());
     assertEquals(attemptId.toString(), amStateResult.get("app-attempt-id"));
   }
@@ -239,9 +238,9 @@ public class TestApplicationMasterRestClient {
 
     SamzaApplicationState samzaApplicationState = new SamzaApplicationState(mockJobModelManager);
 
-    samzaApplicationState.runningContainers.put(YARN_CONTAINER_ID_3,
+    samzaApplicationState.runningProcessors.put(YARN_CONTAINER_ID_3,
         new SamzaResource(1, 2, "dummyNodeHost1", "dummyResourceId1"));
-    samzaApplicationState.runningContainers.put(YARN_CONTAINER_ID_2,
+    samzaApplicationState.runningProcessors.put(YARN_CONTAINER_ID_2,
         new SamzaResource(2, 4, "dummyNodeHost2", "dummyResourceId2"));
     return samzaApplicationState;
   }
@@ -249,7 +248,7 @@ public class TestApplicationMasterRestClient {
   private YarnAppState createYarnAppState(ContainerId containerId) throws MalformedURLException {
     YarnAppState yarnAppState = new YarnAppState(2, containerId, AM_HOST_NAME, AM_RPC_PORT, AM_HTTP_PORT);
     yarnAppState.rpcUrl = new URL(new HttpHost(AM_HOST_NAME, AM_RPC_PORT).toURI());
-    yarnAppState.runningYarnContainers.put("0", new YarnContainer(Container.newInstance(
+    yarnAppState.runningProcessors.put("0", new YarnContainer(Container.newInstance(
         ConverterUtils.toContainerId(YARN_CONTAINER_ID_2),
         ConverterUtils.toNodeIdWithDefaultPort("dummyNodeHost1"),
         "dummyNodeHttpHost1",
@@ -257,7 +256,7 @@ public class TestApplicationMasterRestClient {
         null,
         null
     )));
-    yarnAppState.runningYarnContainers.put("1", new YarnContainer(Container.newInstance(
+    yarnAppState.runningProcessors.put("1", new YarnContainer(Container.newInstance(
         ConverterUtils.toContainerId(YARN_CONTAINER_ID_3),
         ConverterUtils.toNodeIdWithDefaultPort("dummyNodeHost2"),
         "dummyNodeHttpHost2",
@@ -276,9 +275,7 @@ public class TestApplicationMasterRestClient {
         new TaskModel(new TaskName("task2"),
             ImmutableSet.of(new SystemStreamPartition(new SystemStream("system1", "stream1"), new Partition(1))),
             new Partition(1)));
-    Map<String, String> config = new HashMap<>();
-    config.put(JobConfig.JOB_CONTAINER_COUNT(), String.valueOf(2));
-    GroupByContainerCount grouper = new GroupByContainerCount(new MapConfig(config));
+    GroupByContainerCount grouper = new GroupByContainerCount(2);
     Set<ContainerModel> containerModels = grouper.group(taskModels);
     HashMap<String, ContainerModel> containers = new HashMap<>();
     for (ContainerModel containerModel : containerModels) {
@@ -307,15 +304,16 @@ public class TestApplicationMasterRestClient {
   }
 
   private void assignMetricValues(SamzaApplicationState samzaAppState, MetricsRegistryMap registry) {
-    SamzaAppMasterMetrics metrics = new SamzaAppMasterMetrics(new MapConfig(), samzaAppState, registry);
+    SamzaAppMasterMetrics metrics =
+        new SamzaAppMasterMetrics(new MapConfig(), samzaAppState, registry, getClass().getClassLoader());
     metrics.start();
-    samzaAppState.runningContainers.put("dummyContainer",
+    samzaAppState.runningProcessors.put("dummyContainer",
         new SamzaResource(1, 2, AM_HOST_NAME, "dummyResourceId")); // 1 container
-    samzaAppState.neededContainers.set(2);
-    samzaAppState.completedContainers.set(3);
+    samzaAppState.neededProcessors.set(2);
+    samzaAppState.completedProcessors.set(3);
     samzaAppState.failedContainers.set(4);
     samzaAppState.releasedContainers.set(5);
-    samzaAppState.containerCount.set(6);
+    samzaAppState.processorCount.set(6);
     samzaAppState.jobHealthy.set(true);
   }
 

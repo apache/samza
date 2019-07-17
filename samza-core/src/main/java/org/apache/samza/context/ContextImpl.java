@@ -30,6 +30,7 @@ public class ContextImpl implements Context {
   private final TaskContext taskContext;
   private final Optional<ApplicationContainerContext> applicationContainerContextOptional;
   private final Optional<ApplicationTaskContext> applicationTaskContextOptional;
+  private final Optional<ExternalContext> externalContextOptional;
 
   /**
    * @param jobContext non-null job context
@@ -37,17 +38,18 @@ public class ContextImpl implements Context {
    * @param taskContext non-null framework task context
    * @param applicationContainerContextOptional optional application-defined container context
    * @param applicationTaskContextOptional optional application-defined task context
+   * @param externalContextOptional optional external context
    */
-  public ContextImpl(JobContext jobContext,
-      ContainerContext containerContext,
-      TaskContext taskContext,
+  public ContextImpl(JobContext jobContext, ContainerContext containerContext, TaskContext taskContext,
       Optional<ApplicationContainerContext> applicationContainerContextOptional,
-      Optional<ApplicationTaskContext> applicationTaskContextOptional) {
+      Optional<ApplicationTaskContext> applicationTaskContextOptional,
+      Optional<ExternalContext> externalContextOptional) {
     this.jobContext = Preconditions.checkNotNull(jobContext, "Job context can not be null");
     this.containerContext = Preconditions.checkNotNull(containerContext, "Container context can not be null");
     this.taskContext = Preconditions.checkNotNull(taskContext, "Task context can not be null");
     this.applicationContainerContextOptional = applicationContainerContextOptional;
     this.applicationTaskContextOptional = applicationTaskContextOptional;
+    this.externalContextOptional = externalContextOptional;
   }
 
   @Override
@@ -67,18 +69,22 @@ public class ContextImpl implements Context {
 
   @Override
   public ApplicationContainerContext getApplicationContainerContext() {
-    if (!this.applicationContainerContextOptional.isPresent()) {
-      throw new IllegalStateException("No application-defined container context exists");
-    }
+    Preconditions.checkState(this.applicationContainerContextOptional.isPresent(),
+        "No application-defined container context exists");
     return this.applicationContainerContextOptional.get();
   }
 
   @Override
   public ApplicationTaskContext getApplicationTaskContext() {
-    if (!this.applicationTaskContextOptional.isPresent()) {
-      throw new IllegalStateException("No application-defined task context exists");
-    }
+    Preconditions.checkState(this.applicationTaskContextOptional.isPresent(),
+        "No application-defined task context exists");
     return this.applicationTaskContextOptional.get();
+  }
+
+  @Override
+  public ExternalContext getExternalContext() {
+    Preconditions.checkState(this.externalContextOptional.isPresent(), "No external context exists");
+    return this.externalContextOptional.get();
   }
 
   @Override
@@ -93,12 +99,13 @@ public class ContextImpl implements Context {
     return Objects.equals(jobContext, context.jobContext) && Objects.equals(containerContext, context.containerContext)
         && Objects.equals(taskContext, context.taskContext) && Objects.equals(applicationContainerContextOptional,
         context.applicationContainerContextOptional) && Objects.equals(applicationTaskContextOptional,
-        context.applicationTaskContextOptional);
+        context.applicationTaskContextOptional) && Objects.equals(externalContextOptional,
+        context.externalContextOptional);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(jobContext, containerContext, taskContext, applicationContainerContextOptional,
-        applicationTaskContextOptional);
+        applicationTaskContextOptional, externalContextOptional);
   }
 }

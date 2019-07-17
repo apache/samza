@@ -20,8 +20,6 @@
 package org.apache.samza.storage;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-
 import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
@@ -34,12 +32,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.serializers.model.SamzaObjectMapper;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -50,10 +47,6 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
-
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.map.ObjectWriter;
-import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
@@ -65,30 +58,27 @@ import scala.collection.JavaConverters;
  */
 public class TaskSideInputStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(TaskSideInputStorageManager.class);
-  private static final String OFFSET_FILE = "SIDE-INPUT-OFFSETS";
   private static final long STORE_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1); // same as changelog delete retention
-  private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
-  private static final TypeReference<HashMap<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
-      new TypeReference<HashMap<SystemStreamPartition, String>>() { };
-  private static final ObjectWriter OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
 
   private final Clock clock;
   private final Map<String, SideInputsProcessor> storeToProcessor;
   private final Map<String, StorageEngine> stores;
-  private final String storeBaseDir;
+  private final File storeBaseDir;
   private final Map<String, Set<SystemStreamPartition>> storeToSSps;
   private final Map<SystemStreamPartition, Set<String>> sspsToStores;
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final TaskName taskName;
+  private final TaskMode taskMode;
   private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
   public TaskSideInputStorageManager(
       TaskName taskName,
+      TaskMode taskMode,
       StreamMetadataCache streamMetadataCache,
-      String storeBaseDir,
+      File storeBaseDir,
       Map<String, StorageEngine> sideInputStores,
       Map<String, SideInputsProcessor> storesToProcessor,
       Map<String, Set<SystemStreamPartition>> storesToSSPs,
@@ -102,6 +92,7 @@ public class TaskSideInputStorageManager {
     this.streamMetadataCache = streamMetadataCache;
     this.systemAdmins = systemAdmins;
     this.taskName = taskName;
+    this.taskMode = taskMode;
     this.storeToProcessor = storesToProcessor;
 
     validateStoreConfiguration();
@@ -141,8 +132,9 @@ public class TaskSideInputStorageManager {
 
   /**
    * Flushes the contents of the underlying store and writes the offset file to disk.
+   * Synchronized inorder to be exclusive with process()
    */
-  public void flush() {
+  public synchronized void flush() {
     LOG.info("Flushing the side input stores.");
     stores.values().forEach(StorageEngine::flush);
     writeOffsetFiles();
@@ -181,6 +173,11 @@ public class TaskSideInputStorageManager {
     return startingOffsets.get(ssp);
   }
 
+  // Get the taskName associated with this instance.
+  public TaskName getTaskName() {
+    return this.taskName;
+  }
+
   /**
    * Gets the last processed offset for the given side input {@link SystemStreamPartition}.
    *
@@ -201,10 +198,11 @@ public class TaskSideInputStorageManager {
 
   /**
    * Processes the incoming side input message envelope and updates the last processed offset for its SSP.
+   * Synchronized inorder to be exclusive with flush().
    *
    * @param message incoming message to be processed
    */
-  public void process(IncomingMessageEnvelope message) {
+  public synchronized void process(IncomingMessageEnvelope message) {
     SystemStreamPartition ssp = message.getSystemStreamPartition();
     Set<String> storeNames = sspsToStores.get(ssp);
 
@@ -213,7 +211,19 @@ public class TaskSideInputStorageManager {
 
       KeyValueStore keyValueStore = (KeyValueStore) stores.get(storeName);
       Collection<Entry<?, ?>> entriesToBeWritten = sideInputsProcessor.process(message, keyValueStore);
-      keyValueStore.putAll(ImmutableList.copyOf(entriesToBeWritten));
+
+      // Iterate over the list to be written.
+      // TODO: SAMZA-2255: Optimize value writes in TaskSideInputStorageManager
+      for (Entry entry : entriesToBeWritten) {
+        // If the key is null we ignore, if the value is null, we issue a delete, else we issue a put
+        if (entry.getKey() != null) {
+          if (entry.getValue() != null) {
+            keyValueStore.put(entry.getKey(), entry.getValue());
+          } else {
+            keyValueStore.delete(entry.getKey());
+          }
+        }
+      }
     }
 
     // update the last processed offset
@@ -258,9 +268,7 @@ public class TaskSideInputStorageManager {
               .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
             try {
-              String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
-              File offsetFile = new File(getStoreLocation(storeName), OFFSET_FILE);
-              FileUtil.writeWithChecksum(offsetFile, fileContents);
+              StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, taskMode, offsets, true);
             } catch (Exception e) {
               throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
             }
@@ -284,8 +292,8 @@ public class TaskSideInputStorageManager {
         File storeLocation = getStoreLocation(storeName);
         if (isValidSideInputStore(storeName, storeLocation)) {
           try {
-            String fileContents = StorageManagerUtil.readOffsetFile(storeLocation, OFFSET_FILE);
-            Map<SystemStreamPartition, String> offsets = OBJECT_MAPPER.readValue(fileContents, OFFSETS_TYPE_REFERENCE);
+
+            Map<SystemStreamPartition, String> offsets = StorageManagerUtil.readOffsetFile(storeLocation, storeToSSps.get(storeName), true);
             fileOffsets.putAll(offsets);
           } catch (Exception e) {
             LOG.warn("Failed to load the offset file for side input store:" + storeName, e);
@@ -298,7 +306,7 @@ public class TaskSideInputStorageManager {
 
   @VisibleForTesting
   File getStoreLocation(String storeName) {
-    return new File(storeBaseDir, (storeName + File.separator + taskName.toString()).replace(' ', '_'));
+    return StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskName, taskMode);
   }
 
   /**
@@ -368,8 +376,8 @@ public class TaskSideInputStorageManager {
 
   private boolean isValidSideInputStore(String storeName, File storeLocation) {
     return isPersistedStore(storeName)
-        && !StorageManagerUtil.isStaleStore(storeLocation, OFFSET_FILE, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis())
-        && StorageManagerUtil.isOffsetFileValid(storeLocation, OFFSET_FILE);
+        && !StorageManagerUtil.isStaleStore(storeLocation, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis(), true)
+        && StorageManagerUtil.isOffsetFileValid(storeLocation, storeToSSps.get(storeName), true);
   }
 
   private boolean isPersistedStore(String storeName) {

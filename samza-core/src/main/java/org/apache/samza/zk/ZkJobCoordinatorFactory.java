@@ -27,15 +27,15 @@ import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
-  private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-coordinationData";
+  private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-%s-coordinationData";
   private static final String DEFAULT_JOB_NAME = "defaultJob";
+  private static final String PROTOCOL_VERSION = "2.0";
 
   /**
    * Instantiates an {@link ZkJobCoordinator} using the {@link Config}.
@@ -44,13 +44,13 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
    * @return An instance of {@link ZkJobCoordinator}
    */
   @Override
-  public JobCoordinator getJobCoordinator(Config config) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
     // TODO: Separate JC related configs into a "ZkJobCoordinatorConfig"
-    MetricsRegistry metricsRegistry = new MetricsRegistryMap();
     String jobCoordinatorZkBasePath = getJobCoordinationZkPath(config);
     ZkUtils zkUtils = getZkUtils(config, metricsRegistry, jobCoordinatorZkBasePath);
     LOG.debug("Creating ZkJobCoordinator with config: {}.", config);
-    return new ZkJobCoordinator(config, metricsRegistry, zkUtils);
+    ZkMetadataStore metadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getRootPath(), config, metricsRegistry);
+    return new ZkJobCoordinator(processorId, config, metricsRegistry, zkUtils, metadataStore);
   }
 
   private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry, String coordinatorZkBasePath) {
@@ -69,6 +69,6 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
         : DEFAULT_JOB_NAME;
     String jobId = jobConfig.getJobId();
 
-    return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId);
+    return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId, PROTOCOL_VERSION);
   }
 }

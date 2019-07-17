@@ -25,24 +25,20 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
+/**
+ * An implementation of {@link SystemStreamPartitionGrouper} that assigns each input {@link SystemStreamPartition} to a separate task.
+ * Provides increased parallelism in message processing within a container. Useful in message processing scenarios involving remote I/O.
+ */
 public class GroupBySystemStreamPartition implements SystemStreamPartitionGrouper {
-  private TaskConfigJava taskConfig = null;
-  private Set<SystemStreamPartition> broadcastStreams = new HashSet<SystemStreamPartition>();
+  private final Set<SystemStreamPartition> broadcastStreams;
 
-  /**
-   * A constructor that accepts job config as the parameter
-   *
-   * @param config job config
-   */
   public GroupBySystemStreamPartition(Config config) {
-    if (config.containsKey(TaskConfigJava.BROADCAST_INPUT_STREAMS)) {
-      taskConfig = new TaskConfigJava(config);
-      broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
-    }
+    TaskConfig taskConfig = new TaskConfig(config);
+    broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
   }
 
   @Override
@@ -62,13 +58,10 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
     // assign the broadcast streams to all the taskNames
     if (!broadcastStreams.isEmpty()) {
       for (Set<SystemStreamPartition> value : groupedMap.values()) {
-        for (SystemStreamPartition ssp : broadcastStreams) {
-          value.add(ssp);
-        }
+        value.addAll(broadcastStreams);
       }
     }
 
     return groupedMap;
   }
-
 }

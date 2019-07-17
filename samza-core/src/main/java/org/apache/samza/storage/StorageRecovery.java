@@ -20,44 +20,40 @@
 package org.apache.samza.storage;
 
 import java.io.File;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JavaStorageConfig;
-import org.apache.samza.config.JavaSystemConfig;
+import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.SystemConfig;
+import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ContainerContextImpl;
 import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.serializers.ByteSerde;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.SSPMetadataCache;
+import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
-import org.apache.samza.util.ScalaJavaUtil;
+import org.apache.samza.util.CoordinatorStreamUtil;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.StreamUtil;
 import org.apache.samza.util.SystemClock;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 /**
  * Recovers the state storages from the changelog streams and store the storages
@@ -65,16 +61,17 @@ import org.slf4j.LoggerFactory;
  * from the job's config file.
  */
 public class StorageRecovery extends CommandLine {
+  private static final Logger LOG = LoggerFactory.getLogger(StorageRecovery.class);
 
-  private Config jobConfig;
+  private final Config jobConfig;
+  private final File storeBaseDir;
+  private final SystemAdmins systemAdmins;
+  private final Map<String, SystemStream> changeLogSystemStreams = new HashMap<>();
+  private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories = new HashMap<>();
+  private final Map<String, ContainerStorageManager> containerStorageManagers = new HashMap<>();
+
   private int maxPartitionNumber = 0;
-  private File storeBaseDir = null;
-  private HashMap<String, SystemStream> changeLogSystemStreams = new HashMap<>();
-  private HashMap<String, StorageEngineFactory<?, ?>> storageEngineFactories = new HashMap<>();
   private Map<String, ContainerModel> containers = new HashMap<>();
-  private List<TaskStorageManager> taskStorageManagers = new ArrayList<>();
-  private Logger log = LoggerFactory.getLogger(StorageRecovery.class);
-  private SystemAdmins systemAdmins = null;
 
   /**
    * Construct the StorageRecovery
@@ -95,12 +92,12 @@ public class StorageRecovery extends CommandLine {
    * tasks.
    */
   private void setup() {
-    log.info("setting up the recovery...");
+    LOG.info("setting up the recovery...");
 
     getContainerModels();
     getChangeLogSystemStreamsAndStorageFactories();
     getChangeLogMaxPartitionNumber();
-    getTaskStorageManagers();
+    getContainerStorageManagers();
   }
 
   /**
@@ -109,78 +106,67 @@ public class StorageRecovery extends CommandLine {
   public void run() {
     setup();
 
-    log.info("start recovering...");
+    LOG.info("start recovering...");
 
     systemAdmins.start();
-    for (TaskStorageManager taskStorageManager : taskStorageManagers) {
-      taskStorageManager.init();
-      taskStorageManager.stopStores();
-      log.debug("restored " + taskStorageManager.toString());
-    }
+    this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
+        containerStorageManager.start();
+      });
+    this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
+        containerStorageManager.shutdown();
+      });
     systemAdmins.stop();
 
-    log.info("successfully recovered in " + storeBaseDir.toString());
+    LOG.info("successfully recovered in " + storeBaseDir.toString());
   }
 
   /**
-   * build the ContainerModels from job config file and put the results in the
-   * map
+   * Build ContainerModels from job config file and put the results in the containerModels map.
    */
   private void getContainerModels() {
-    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(jobConfig, new MetricsRegistryMap());
-    coordinatorStreamManager.register(getClass().getSimpleName());
-    coordinatorStreamManager.start();
-    coordinatorStreamManager.bootstrap();
-    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
-    JobModel jobModel = JobModelManager.apply(coordinatorStreamManager.getConfig(), changelogStreamManager.readPartitionMapping()).jobModel();
-    containers = jobModel.getContainers();
-    coordinatorStreamManager.stop();
+    MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
+    CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(jobConfig, metricsRegistryMap);
+    coordinatorStreamStore.init();
+    try {
+      Config configFromCoordinatorStream = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
+      ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamStore);
+      JobModelManager jobModelManager =
+          JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
+              coordinatorStreamStore, getClass().getClassLoader(), metricsRegistryMap);
+      JobModel jobModel = jobModelManager.jobModel();
+      containers = jobModel.getContainers();
+    } finally {
+      coordinatorStreamStore.close();
+    }
   }
 
   /**
-   * get the changelog streams and the storage factories from the config file
+   * Get the changelog streams and the storage factories from the config file
    * and put them into the maps
    */
   private void getChangeLogSystemStreamsAndStorageFactories() {
-    JavaStorageConfig config = new JavaStorageConfig(jobConfig);
+    StorageConfig config = new StorageConfig(jobConfig);
     List<String> storeNames = config.getStoreNames();
 
-    log.info("Got store names: " + storeNames.toString());
+    LOG.info("Got store names: " + storeNames.toString());
 
     for (String storeName : storeNames) {
-      String streamName = config.getChangelogStream(storeName);
+      Optional<String> streamName = config.getChangelogStream(storeName);
 
-      log.info("stream name for " + storeName + " is " + streamName);
+      LOG.info("stream name for " + storeName + " is " + streamName.orElse(null));
 
-      if (streamName != null) {
-        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName));
+      if (streamName.isPresent()) {
+        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName.get()));
       }
 
-      String factoryClass = config.getStorageFactoryClassName(storeName);
-      if (factoryClass != null) {
-        storageEngineFactories.put(storeName, Util.getObj(factoryClass, StorageEngineFactory.class));
+      Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
+      if (factoryClass.isPresent()) {
+        storageEngineFactories.put(storeName,
+            ReflectionUtil.getObj(getClass().getClassLoader(), factoryClass.get(), StorageEngineFactory.class));
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }
     }
-  }
-
-  /**
-   * get the SystemConsumers for the stores
-   */
-  private HashMap<String, SystemConsumer> getStoreConsumers() {
-    HashMap<String, SystemConsumer> storeConsumers = new HashMap<>();
-    Map<String, SystemFactory> systemFactories = new JavaSystemConfig(jobConfig).getSystemFactories();
-
-    for (Entry<String, SystemStream> entry : changeLogSystemStreams.entrySet()) {
-      String storeSystem = entry.getValue().getSystem();
-      if (!systemFactories.containsKey(storeSystem)) {
-        throw new SamzaException("Changelog system " + storeSystem + " for store " + entry.getKey() + " does not exist in the config.");
-      }
-      storeConsumers.put(entry.getKey(), systemFactories.get(storeSystem).getConsumer(storeSystem, jobConfig, new MetricsRegistryMap()));
-    }
-
-    return storeConsumers;
   }
 
   /**
@@ -196,65 +182,60 @@ public class StorageRecovery extends CommandLine {
     maxPartitionNumber = maxPartitionId + 1;
   }
 
+  private Map<String, Serde<Object>> getSerdes() {
+    Map<String, Serde<Object>> serdeMap = new HashMap<>();
+    SerializerConfig serializerConfig = new SerializerConfig(jobConfig);
+
+    // Adding all serdes from factories
+    serializerConfig.getSerdeNames()
+        .forEach(serdeName -> {
+            String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
+              .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
+            Serde serde = ReflectionUtil.getObj(getClass().getClassLoader(), serdeClassName, SerdeFactory.class)
+                .getSerde(serdeName, serializerConfig);
+            serdeMap.put(serdeName, serde);
+          });
+
+    return serdeMap;
+  }
+
   /**
    * create one TaskStorageManager for each task. Add all of them to the
    * List<TaskStorageManager>
    */
-  @SuppressWarnings({ "unchecked", "rawtypes" })
-  private void getTaskStorageManagers() {
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private void getContainerStorageManagers() {
     Clock clock = SystemClock.instance();
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
-    SSPMetadataCache sspMetadataCache =
-        new SSPMetadataCache(systemAdmins, Duration.ofSeconds(5), clock, Collections.emptySet());
+
+    Map<String, SystemFactory> systemFactories = new SystemConfig(jobConfig).getSystemFactories();
 
     for (ContainerModel containerModel : containers.values()) {
-      HashMap<String, StorageEngine> taskStores = new HashMap<String, StorageEngine>();
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
 
-      for (TaskModel taskModel : containerModel.getTasks().values()) {
-        HashMap<String, SystemConsumer> storeConsumers = getStoreConsumers();
-
-        for (Entry<String, StorageEngineFactory<?, ?>> entry : storageEngineFactories.entrySet()) {
-          String storeName = entry.getKey();
-
-          if (changeLogSystemStreams.containsKey(storeName)) {
-            SystemStreamPartition changeLogSystemStreamPartition = new SystemStreamPartition(changeLogSystemStreams.get(storeName),
-                taskModel.getChangelogPartition());
-            File storePartitionDir = TaskStorageManager.getStorePartitionDir(storeBaseDir, storeName, taskModel.getTaskName());
-
-            log.info("Got storage engine directory: " + storePartitionDir);
-
-            StorageEngine storageEngine = (entry.getValue()).getStorageEngine(
-                storeName,
-                storePartitionDir,
-                (Serde) new ByteSerde(),
-                (Serde) new ByteSerde(),
-                null,
-                new MetricsRegistryMap(),
-                changeLogSystemStreamPartition,
-                JobContextImpl.fromConfigWithDefaults(jobConfig),
-                containerContext);
-            taskStores.put(storeName, storageEngine);
-          }
-        }
-        TaskStorageManager taskStorageManager = new TaskStorageManager(
-            taskModel.getTaskName(),
-            ScalaJavaUtil.toScalaMap(taskStores),
-            ScalaJavaUtil.toScalaMap(storeConsumers),
-            ScalaJavaUtil.toScalaMap(changeLogSystemStreams),
-            maxPartitionNumber,
-            streamMetadataCache,
-            sspMetadataCache,
-            storeBaseDir,
-            storeBaseDir,
-            taskModel.getChangelogPartition(),
-            systemAdmins,
-            new StorageConfig(jobConfig).getChangeLogDeleteRetentionsInMs(),
-            new SystemClock());
-
-        taskStorageManagers.add(taskStorageManager);
-      }
+      ContainerStorageManager containerStorageManager =
+          new ContainerStorageManager(containerModel,
+              streamMetadataCache,
+              systemAdmins,
+              changeLogSystemStreams,
+              new HashMap<>(),
+              storageEngineFactories,
+              systemFactories,
+              this.getSerdes(),
+              jobConfig,
+              new HashMap<>(),
+              new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
+              JobContextImpl.fromConfigWithDefaults(jobConfig),
+              containerContext,
+              new HashMap<>(),
+              storeBaseDir,
+              storeBaseDir,
+              maxPartitionNumber,
+              null,
+              new SystemClock(),
+              getClass().getClassLoader());
+      this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }
 }

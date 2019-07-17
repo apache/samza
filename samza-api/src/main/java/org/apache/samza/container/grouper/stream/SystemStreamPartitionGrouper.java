@@ -18,11 +18,10 @@
  */
 package org.apache.samza.container.grouper.stream;
 
+import java.util.*;
+
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
-
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Group a set of SystemStreamPartitions into logical taskNames that share a common characteristic, defined
@@ -37,5 +36,11 @@ import java.util.Set;
  * the TaskNames.
  */
 public interface SystemStreamPartitionGrouper {
-  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps);
+
+  /**
+   * Groups the input systemStreamPartitions into the logical taskNames.
+   * @param systemStreamPartitions the input system stream partitions.
+   * @return the grouped {@link TaskName} to {@link SystemStreamPartition} assignments.
+   */
+  Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> systemStreamPartitions);
 }

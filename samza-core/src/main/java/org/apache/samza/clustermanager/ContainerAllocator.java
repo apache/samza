@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,17 +26,20 @@ import org.slf4j.LoggerFactory;
 /**
  * This is the default allocator that will be used by ContainerProcessManager.
  *
- * When host-affinity is not enabled, this periodically wakes up to assign a container to *ANY* allocated resource.
- * If there aren't enough containers, it waits by sleeping for {@code allocatorSleepIntervalMs} milliseconds.
+ * When host-affinity is not enabled, this periodically wakes up to assign a processor to *ANY* allocated resource.
+ * If there aren't enough resources, it waits by sleeping for {@code allocatorSleepIntervalMs} milliseconds.
+ *
+ * This class is instantiated by the ContainerProcessManager (which in turn is created by the JC from run-jc.sh),
+ * when host-affinity is off. Otherwise, the HostAwareContainerAllocator is instantiated.
  */
-//This class is used in the refactored code path as called by run-jc.sh
-
 public class ContainerAllocator extends AbstractContainerAllocator {
   private static final Logger log = LoggerFactory.getLogger(ContainerAllocator.class);
 
   public ContainerAllocator(ClusterResourceManager manager,
-                            Config config, SamzaApplicationState state) {
-    super(manager, new ResourceRequestState(false, manager), config, state);
+      Config config,
+      SamzaApplicationState state,
+      ClassLoader pluginClassloader) {
+    super(manager, new ResourceRequestState(false, manager), config, state, pluginClassloader);
   }
 
   /**
@@ -52,4 +56,20 @@ public class ContainerAllocator extends AbstractContainerAllocator {
       runStreamProcessor(request, ResourceRequestState.ANY_HOST);
     }
   }
+
+  /**
+   * Since host-affinity is not enabled, the processor id to host mappings will be ignored and all resources will be
+   * matched to any available host.
+   *
+   * @param processorToHostMapping A Map of [processorId, hostName] ID of the processor to run on the resource.
+   *                               The hostName will be ignored and each processor will be matched to any available host.
+   */
+  @Override
+  public void requestResources(Map<String, String> processorToHostMapping)  {
+    for (Map.Entry<String, String> entry : processorToHostMapping.entrySet()) {
+      String processorId = entry.getKey();
+      requestResource(processorId, ResourceRequestState.ANY_HOST);
+    }
+  }
+
 }

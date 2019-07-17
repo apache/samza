@@ -18,6 +18,7 @@
  */
 package org.apache.samza.zk;
 
+import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,15 +38,15 @@ import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.runtime.LocationId;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -56,8 +57,8 @@ public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
   private static final ZkKeyBuilder KEY_BUILDER = new ZkKeyBuilder("test");
   private ZkClient zkClient = null;
-  private static final int SESSION_TIMEOUT_MS = 500;
-  private static final int CONNECTION_TIMEOUT_MS = 1000;
+  private static final int SESSION_TIMEOUT_MS = 5000;
+  private static final int CONNECTION_TIMEOUT_MS = 10000;
   private ZkUtils zkUtils;
 
   @Rule
@@ -67,19 +68,16 @@ public class TestZkUtils {
   @Rule
   public Timeout testTimeOutInMillis = new Timeout(120000);
 
-  @BeforeClass
-  public static void setup() throws InterruptedException {
-    zkServer = new EmbeddedZookeeper();
-    zkServer.setup();
-  }
-
   @Before
   public void testSetup() {
     try {
+      zkServer = new EmbeddedZookeeper();
+      zkServer.setup();
       zkClient = new ZkClient(
           new ZkConnection("127.0.0.1:" + zkServer.getPort(), SESSION_TIMEOUT_MS),
           CONNECTION_TIMEOUT_MS);
     } catch (Exception e) {
+      e.printStackTrace();
       Assert.fail("Client connection setup failed. Aborting tests..");
     }
     try {
@@ -89,25 +87,23 @@ public class TestZkUtils {
     }
 
     zkUtils = getZkUtils();
-
     zkUtils.connect();
   }
 
   @After
   public void testTeardown() {
     if (zkClient != null) {
-      zkUtils.close();
+      try {
+        zkUtils.close();
+      } finally {
+        zkServer.teardown();
+      }
     }
   }
 
   private ZkUtils getZkUtils() {
     return new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS,
                        SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
-  }
-
-  @AfterClass
-  public static void teardown() {
-    zkServer.teardown();
   }
 
   @Test
@@ -133,6 +129,54 @@ public class TestZkUtils {
     Assert.assertEquals(0, processorsIDs.size());
   }
 
+
+  @Test
+  public void testReadAfterWriteTaskLocality() {
+    zkUtils.writeTaskLocality(new TaskName("task-1"), new LocationId("LocationId-1"));
+    zkUtils.writeTaskLocality(new TaskName("task-2"), new LocationId("LocationId-2"));
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(new TaskName("task-1"), new LocationId("LocationId-1"),
+                                                             new TaskName("task-2"), new LocationId("LocationId-2"));
+
+    Assert.assertEquals(taskLocality, zkUtils.readTaskLocality());
+  }
+
+  @Test
+  public void testReadWhenTaskLocalityDoesNotExist() {
+    Map<TaskName, LocationId> taskLocality = zkUtils.readTaskLocality();
+
+    Assert.assertEquals(0, taskLocality.size());
+  }
+
+  @Test
+  public void testWriteTaskLocalityShouldUpdateTheExistingValue() {
+    zkUtils.writeTaskLocality(new TaskName("task-1"), new LocationId("LocationId-1"));
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(new TaskName("task-1"), new LocationId("LocationId-1"));
+    Assert.assertEquals(taskLocality, zkUtils.readTaskLocality());
+
+    zkUtils.writeTaskLocality(new TaskName("task-1"), new LocationId("LocationId-2"));
+
+    taskLocality = ImmutableMap.of(new TaskName("task-1"), new LocationId("LocationId-2"));
+    Assert.assertEquals(taskLocality, zkUtils.readTaskLocality());
+  }
+
+  @Test
+  public void testReadTaskLocalityShouldReturnAllTheExistingLocalityValue() {
+    zkUtils.writeTaskLocality(new TaskName("task-1"), new LocationId("LocationId-1"));
+    zkUtils.writeTaskLocality(new TaskName("task-2"), new LocationId("LocationId-2"));
+    zkUtils.writeTaskLocality(new TaskName("task-3"), new LocationId("LocationId-3"));
+    zkUtils.writeTaskLocality(new TaskName("task-4"), new LocationId("LocationId-4"));
+    zkUtils.writeTaskLocality(new TaskName("task-5"), new LocationId("LocationId-5"));
+
+    Map<TaskName, LocationId> taskLocality = ImmutableMap.of(new TaskName("task-1"), new LocationId("LocationId-1"),
+                                                             new TaskName("task-2"), new LocationId("LocationId-2"),
+                                                             new TaskName("task-3"), new LocationId("LocationId-3"),
+                                                             new TaskName("task-4"), new LocationId("LocationId-4"),
+                                                             new TaskName("task-5"), new LocationId("LocationId-5"));
+
+    Assert.assertEquals(taskLocality, zkUtils.readTaskLocality());
+  }
 
   @Test
   public void testGetAllProcessorNodesShouldReturnEmptyForNonExistingZookeeperNodes() {

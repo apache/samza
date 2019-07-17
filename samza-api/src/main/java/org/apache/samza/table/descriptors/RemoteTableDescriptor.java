@@ -26,6 +26,9 @@ import java.util.Map;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.table.batching.BatchProvider;
+import org.apache.samza.table.remote.TablePart;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
@@ -34,6 +37,7 @@ import org.apache.samza.table.utils.SerdeUtils;
 import org.apache.samza.util.RateLimiter;
 
 import com.google.common.base.Preconditions;
+
 
 /**
  * Table descriptor for remote store backed tables
@@ -71,6 +75,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public static final String ASYNC_CALLBACK_POOL_SIZE = "io.async.callback.pool.size";
   public static final String READ_RETRY_POLICY = "io.read.retry.policy";
   public static final String WRITE_RETRY_POLICY = "io.write.retry.policy";
+  public static final String BATCH_PROVIDER = "io.batch.provider";
 
   // Input support for a specific remote store (required)
   private TableReadFunction<K, V> readFn;
@@ -80,6 +85,14 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
 
   // Rate limiter for client-side throttling; it is set by withRateLimiter()
   private RateLimiter rateLimiter;
+
+  private boolean enableReadRateLimiter = true;
+
+  // Indicate whether write rate limiter is enabled or not
+  private boolean enableWriteRateLimiter = true;
+
+  // Batching support to reduce traffic volume sent to the remote store.
+  private BatchProvider<K, V> batchProvider;
 
   // Rates for constructing the default rate limiter when they are non-zero
   private Map<String, Integer> tagCreditsMap = new HashMap<>();
@@ -125,29 +138,25 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   }
 
   /**
-   * Use specified TableReadFunction with remote table.
-   * @param readFn read function instance
-   * @param retryPolicy retry policy for the read function
+   * Use specified {@link TableRetryPolicy} with the {@link TableReadFunction}.
+   * @param retryPolicy retry policy for the write function
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withReadFunction(TableReadFunction<K, V> readFn, TableRetryPolicy retryPolicy) {
+  public RemoteTableDescriptor<K, V> withReadRetryPolicy(TableRetryPolicy retryPolicy) {
     Preconditions.checkNotNull(readFn, "null read function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
-    this.readFn = readFn;
     this.readRetryPolicy = retryPolicy;
     return this;
   }
 
   /**
-   * Use specified TableWriteFunction with remote table.
-   * @param writeFn write function instance
+   * Use specified {@link TableRetryPolicy} with the {@link TableWriteFunction}.
    * @param retryPolicy retry policy for the write function
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withWriteFunction(TableWriteFunction<K, V> writeFn, TableRetryPolicy retryPolicy) {
+  public RemoteTableDescriptor<K, V> withWriteRetryPolicy(TableRetryPolicy retryPolicy) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
-    this.writeFn = writeFn;
     this.writeRetryPolicy = retryPolicy;
     return this;
   }
@@ -172,6 +181,41 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     this.rateLimiter = rateLimiter;
     this.readCreditFn = readCreditFn;
     this.writeCreditFn = writeCreditFn;
+    return this;
+  }
+
+  /**
+   * Disable both read and write rate limiter. If the read rate limiter is enabled, the user must provide a rate limiter
+   * by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
+   * or {@link #withReadRateLimit(int)}. If the write rate limiter is enabled, the user must provide a rate limiter
+   * by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
+   * or {@link #withWriteRateLimit(int)}. By default, both read and write rate limiters are enabled.
+   *
+   * @return this table descriptor instance.
+   */
+  public RemoteTableDescriptor<K, V> withRateLimiterDisabled() {
+    withReadRateLimiterDisabled();
+    withWriteRateLimiterDisabled();
+    return this;
+  }
+
+  /**
+   * Disable the read rate limiter.
+   *
+   * @return this table descriptor instance.
+   */
+  public RemoteTableDescriptor<K, V> withReadRateLimiterDisabled() {
+    this.enableReadRateLimiter = false;
+    return this;
+  }
+
+  /**
+   * Disable the write rate limiter.
+   *
+   * @return this table descriptor instance.
+   */
+  public RemoteTableDescriptor<K, V> withWriteRateLimiterDisabled() {
+    this.enableWriteRateLimiter = false;
     return this;
   }
 
@@ -219,6 +263,11 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     return this;
   }
 
+  public RemoteTableDescriptor<K, V> withBatchProvider(BatchProvider<K, V> batchProvider) {
+    this.batchProvider = batchProvider;
+    return this;
+  }
+
   @Override
   public String getProviderFactoryClassName() {
     return PROVIDER_FACTORY_CLASS_NAME;
@@ -229,16 +278,11 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
 
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
-    // Serialize and store reader/writer functions
-    addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
-
-    if (writeFn != null) {
-      addTableConfig(WRITE_FN, SerdeUtils.serialize("write function", writeFn), tableConfig);
-    }
-
+    // Handle rate limiter
     if (!tagCreditsMap.isEmpty()) {
       RateLimiter defaultRateLimiter;
       try {
+        @SuppressWarnings("unchecked")
         Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
         Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
         defaultRateLimiter = ctor.newInstance(tagCreditsMap);
@@ -246,29 +290,56 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
         throw new SamzaException("Failed to create default rate limiter", ex);
       }
       addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter), tableConfig);
+      if (defaultRateLimiter instanceof TablePart) {
+        addTablePartConfig(RATE_LIMITER, (TablePart) defaultRateLimiter, jobConfig, tableConfig);
+      }
     } else if (rateLimiter != null) {
       addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter), tableConfig);
+      if (rateLimiter instanceof TablePart) {
+        addTablePartConfig(RATE_LIMITER, (TablePart) rateLimiter, jobConfig, tableConfig);
+      }
     }
 
-    // Serialize the readCredit functions
+    // Handle readCredit functions
     if (readCreditFn != null) {
       addTableConfig(READ_CREDIT_FN, SerdeUtils.serialize("read credit function", readCreditFn), tableConfig);
+      addTablePartConfig(READ_CREDIT_FN, readCreditFn, jobConfig, tableConfig);
     }
-    // Serialize the writeCredit functions
+
+    // Handle writeCredit functions
     if (writeCreditFn != null) {
       addTableConfig(WRITE_CREDIT_FN, SerdeUtils.serialize("write credit function", writeCreditFn), tableConfig);
+      addTablePartConfig(WRITE_CREDIT_FN, writeCreditFn, jobConfig, tableConfig);
     }
 
+    // Handle read retry policy
     if (readRetryPolicy != null) {
       addTableConfig(READ_RETRY_POLICY, SerdeUtils.serialize("read retry policy", readRetryPolicy), tableConfig);
+      addTablePartConfig(READ_RETRY_POLICY, readRetryPolicy, jobConfig, tableConfig);
     }
 
+    // Handle write retry policy
     if (writeRetryPolicy != null) {
       addTableConfig(WRITE_RETRY_POLICY, SerdeUtils.serialize("write retry policy", writeRetryPolicy), tableConfig);
+      addTablePartConfig(WRITE_RETRY_POLICY, writeRetryPolicy, jobConfig, tableConfig);
     }
 
     addTableConfig(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize), tableConfig);
 
+    // Handle table reader function
+    addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
+    addTablePartConfig(READ_FN, readFn, jobConfig, tableConfig);
+
+    // Handle table write function
+    if (writeFn != null) {
+      addTableConfig(WRITE_FN, SerdeUtils.serialize("write function", writeFn), tableConfig);
+      addTablePartConfig(WRITE_FN, writeFn, jobConfig, tableConfig);
+    }
+
+    if (batchProvider != null) {
+      addTableConfig(BATCH_PROVIDER, SerdeUtils.serialize("batch provider", batchProvider), tableConfig);
+      addTablePartConfig(BATCH_PROVIDER, batchProvider, jobConfig, tableConfig);
+    }
     return Collections.unmodifiableMap(tableConfig);
   }
 
@@ -280,5 +351,28 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     // Assume callback executor pool should have no more than 20 threads
     Preconditions.checkArgument(asyncCallbackPoolSize <= 20,
         "too many threads for async callback executor.");
+
+    if (readFn != null && enableReadRateLimiter) {
+      Preconditions.checkArgument(readCreditFn != null || tagCreditsMap.containsKey(RL_READ_TAG),
+          "Read rate limiter is enabled, there is no read rate limiter configured.");
+    }
+
+    if (writeFn != null && enableWriteRateLimiter) {
+      Preconditions.checkArgument(writeCreditFn != null || tagCreditsMap.containsKey(RL_WRITE_TAG),
+          "Write rate limiter is enabled, there is no write rate limiter configured.");
+    }
+  }
+
+  /**
+   * Helper method to add table part config items to table configuration
+   * @param tablePartKey key of the table part
+   * @param tablePart table part
+   * @param jobConfig job configuration
+   * @param tableConfig table configuration
+   */
+  protected void addTablePartConfig(String tablePartKey, TablePart tablePart, Config jobConfig,
+      Map<String, String> tableConfig) {
+    tablePart.toConfig(jobConfig, new MapConfig(tableConfig))
+        .forEach((k, v) -> addTableConfig(String.format("%s.%s", tablePartKey, k), v, tableConfig));
   }
 }

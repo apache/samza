@@ -28,10 +28,11 @@ import java.util.List;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
 import org.apache.commons.io.FileUtils;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.model.Task;
 import org.apache.samza.rest.proxy.job.JobInstance;
-import org.apache.samza.storage.TaskStorageManager;
+import org.apache.samza.storage.StorageManagerUtil;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
@@ -49,7 +50,7 @@ public class LocalStoreMonitor implements Monitor {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalStoreMonitor.class);
 
-  private static final String OFFSET_FILE_NAME = "OFFSET";
+  private static final String OFFSET_FILE_NAME = StorageManagerUtil.OFFSET_FILE_NAME_NEW;
 
   private final JobsClient jobsClient;
 
@@ -99,7 +100,8 @@ public class LocalStoreMonitor implements Monitor {
               LOG.info(String.format("Local store: %s is actively used by the task: %s.", storeName, task.getTaskName()));
             } else {
               LOG.info(String.format("Local store: %s not used by the task: %s.", storeName, task.getTaskName()));
-              markSweepTaskStore(TaskStorageManager.getStorePartitionDir(jobDir, storeName, new TaskName(task.getTaskName())));
+              markSweepTaskStore(StorageManagerUtil.getStorePartitionDir(jobDir, storeName, new TaskName(task.getTaskName()),
+                  TaskMode.Active));
             }
           }
         }

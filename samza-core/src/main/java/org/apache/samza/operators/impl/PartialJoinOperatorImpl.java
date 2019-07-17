@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.PartialJoinFunction;
@@ -68,7 +70,10 @@ class PartialJoinOperatorImpl<K, M, OM, JM> extends OperatorImpl<M, JM> {
   }
 
   @Override
-  public Collection<JM> handleMessage(M message, MessageCollector collector, TaskCoordinator coordinator) {
+  protected CompletionStage<Collection<JM>> handleMessageAsync(M message, MessageCollector collector,
+      TaskCoordinator coordinator) {
+    Collection<JM> output = Collections.emptyList();
+
     try {
       KeyValueStore<K, TimestampedValue<M>> thisState = thisPartialJoinFn.getState();
       KeyValueStore<K, TimestampedValue<OM>> otherState = otherPartialJoinFn.getState();
@@ -80,12 +85,13 @@ class PartialJoinOperatorImpl<K, M, OM, JM> extends OperatorImpl<M, JM> {
       long now = clock.currentTimeMillis();
       if (otherMessage != null && otherMessage.getTimestamp() > now - ttlMs) {
         JM joinResult = thisPartialJoinFn.apply(message, otherMessage.getValue());
-        return Collections.singletonList(joinResult);
+        output = Collections.singletonList(joinResult);
       }
     } catch (Exception e) {
       throw new SamzaException("Error handling message in PartialJoinOperatorImpl " + getOpImplId(), e);
     }
-    return Collections.emptyList();
+
+    return CompletableFuture.completedFuture(output);
   }
 
   @Override

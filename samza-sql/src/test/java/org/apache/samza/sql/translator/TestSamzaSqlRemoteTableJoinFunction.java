@@ -34,8 +34,9 @@ import org.apache.samza.sql.avro.AvroRelSchemaProvider;
 import org.apache.samza.sql.avro.ConfigBasedAvroRelSchemaProviderFactory;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
-import org.apache.samza.sql.testutil.SampleRelTableKeyConverter;
+import org.apache.samza.sql.util.SampleRelTableKeyConverter;
 import org.apache.samza.system.SystemStream;
 import org.junit.Assert;
 import org.junit.Test;
@@ -67,7 +68,8 @@ public class TestSamzaSqlRemoteTableJoinFunction {
     tableRecord.put("id", 1);
     tableRecord.put("name", "name1");
 
-    SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues);
+    SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues,
+        new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlRelMessage tableMsg = relConverter.convertToRelMessage(new KV(tableRecord.get("id"), tableRecord));
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(1);

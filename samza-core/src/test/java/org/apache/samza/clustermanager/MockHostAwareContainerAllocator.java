@@ -22,6 +22,7 @@ import org.apache.samza.config.Config;
 
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -31,7 +32,8 @@ public class MockHostAwareContainerAllocator extends HostAwareContainerAllocator
 
   public MockHostAwareContainerAllocator(ClusterResourceManager manager,
       Config config, SamzaApplicationState state) {
-    super(manager, ALLOCATOR_TIMEOUT_MS, config, state);
+    super(manager, ALLOCATOR_TIMEOUT_MS, config, Optional.empty(), state,
+        MockHostAwareContainerAllocator.class.getClassLoader());
   }
 
   /**
@@ -49,8 +51,8 @@ public class MockHostAwareContainerAllocator extends HostAwareContainerAllocator
   }
 
   @Override
-  public void requestResources(Map<String, String> containerToHostMappings) {
-    super.requestResources(containerToHostMappings);
+  public void requestResources(Map<String, String> processorToHostMapping) {
+    super.requestResources(processorToHostMapping);
   }
 
   public ResourceRequestState getContainerRequestState() throws Exception {

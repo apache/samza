@@ -31,7 +31,7 @@ public class TestContextImpl {
    */
   @Test
   public void testGetApplicationContainerContext() {
-    MockApplicationContainerContext applicationContainerContext = new MockApplicationContainerContext();
+    ApplicationContainerContext applicationContainerContext = mock(ApplicationContainerContext.class);
     Context context = buildWithApplicationContainerContext(applicationContainerContext);
     assertEquals(applicationContainerContext, context.getApplicationContainerContext());
   }
@@ -50,7 +50,7 @@ public class TestContextImpl {
    */
   @Test
   public void testGetApplicationTaskContext() {
-    MockApplicationTaskContext applicationTaskContext = new MockApplicationTaskContext();
+    ApplicationTaskContext applicationTaskContext = mock(ApplicationTaskContext.class);
     Context context = buildWithApplicationTaskContext(applicationTaskContext);
     assertEquals(applicationTaskContext, context.getApplicationTaskContext());
   }
@@ -64,43 +64,44 @@ public class TestContextImpl {
     context.getApplicationTaskContext();
   }
 
+  /**
+   * Given a concrete context, getExternalContext should return it.
+   */
+  @Test
+  public void testGetExternalContext() {
+    ExternalContext externalContext = mock(ExternalContext.class);
+    Context context = buildWithExternalContext(externalContext);
+    assertEquals(externalContext, context.getExternalContext());
+  }
+
+  /**
+   * Given no concrete context, getExternalContext should throw an exception.
+   */
+  @Test(expected = IllegalStateException.class)
+  public void testGetMissingExternalContext() {
+    Context context = buildWithExternalContext(null);
+    context.getExternalContext();
+  }
+
   private static Context buildWithApplicationContainerContext(ApplicationContainerContext applicationContainerContext) {
-    return buildWithApplicationContext(applicationContainerContext, mock(ApplicationTaskContext.class));
+    return buildWithApplicationContext(applicationContainerContext, mock(ApplicationTaskContext.class),
+        mock(ExternalContext.class));
   }
 
   private static Context buildWithApplicationTaskContext(ApplicationTaskContext applicationTaskContext) {
-    return buildWithApplicationContext(mock(ApplicationContainerContext.class), applicationTaskContext);
+    return buildWithApplicationContext(mock(ApplicationContainerContext.class), applicationTaskContext,
+        mock(ExternalContext.class));
+  }
+
+  private static Context buildWithExternalContext(ExternalContext externalContext) {
+    return buildWithApplicationContext(mock(ApplicationContainerContext.class), mock(ApplicationTaskContext.class),
+        externalContext);
   }
 
   private static Context buildWithApplicationContext(ApplicationContainerContext applicationContainerContext,
-      ApplicationTaskContext applicationTaskContext) {
+      ApplicationTaskContext applicationTaskContext, ExternalContext externalContext) {
     return new ContextImpl(mock(JobContext.class), mock(ContainerContext.class), mock(TaskContext.class),
-        Optional.ofNullable(applicationContainerContext), Optional.ofNullable(applicationTaskContext));
-  }
-
-  /**
-   * Simple empty implementation for testing.
-   */
-  private class MockApplicationContainerContext implements ApplicationContainerContext {
-    @Override
-    public void start() {
-    }
-
-    @Override
-    public void stop() {
-    }
-  }
-
-  /**
-   * Simple empty implementation for testing.
-   */
-  private class MockApplicationTaskContext implements ApplicationTaskContext {
-    @Override
-    public void start() {
-    }
-
-    @Override
-    public void stop() {
-    }
+        Optional.ofNullable(applicationContainerContext), Optional.ofNullable(applicationTaskContext),
+        Optional.ofNullable(externalContext));
   }
 }

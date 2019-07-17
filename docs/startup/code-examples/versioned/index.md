@@ -1,6 +1,6 @@
 ---
 layout: page
-title:
+title: Code Examples
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
@@ -19,31 +19,6 @@ title:
    limitations under the License.
 -->
 
+[Samza Code Examples](samza.html)
 
-### Checking out our examples
-
-The [hello-samza](https://github.com/apache/samza-hello-samza) project contains several examples to help you create your Samza applications. To checkout the hello-samza project:
-
-{% highlight bash %}
-> git clone https://git.apache.org/samza-hello-samza.git hello-samza
-{% endhighlight %}
-
-#### High-level API examples
-[The Samza Cookbook](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/cookbook) contains various recipes using the Samza high-level API.
-These include:
-
-- The [Filter example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/FilterExample.java) demonstrates how to perform stateless operations on a stream. 
-
-- The [Join example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/JoinExample.java]) demonstrates how you can join a Kafka stream of page-views with a stream of ad-clicks
-
-- The [Stream-Table Join example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/RemoteTableJoinExample.java) demonstrates how to use the Samza Table API. It joins a Kafka stream with a remote dataset accessed through a REST service.
-
-- The [SessionWindow](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/SessionWindowExample.java) and [TumblingWindow](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/TumblingWindowExample.java) examples illustrate Samza's rich windowing and triggering capabilities.
-
-
-In addition to the cookbook, you can also consult these:
-
-- [Wikipedia Parser](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/wikipedia): An advanced example that builds a streaming pipeline consuming a live-feed of wikipedia edits, parsing each message and generating statistics from them.
-
-
-- [Amazon Kinesis](https://github.com/apache/samza-hello-samza/tree/master/src/main/java/samza/examples/kinesis) and [Azure Eventhubs](https://github.com/apache/samza-hello-samza/tree/latest/src/main/java/samza/examples/azure) examples that cover how to consume input data from the respective systems.
+[Beam Code Examples](beam.html)

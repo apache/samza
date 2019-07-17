@@ -20,29 +20,22 @@
 package org.apache.samza.sql.udfs;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 
 
 /**
- * The base class for the Scalar UDFs. All the scalar UDF classes needs to extend this and implement a method named
- * "execute". The number and type of arguments for the execute method in the UDF class should match the number and type of fields
+ * The base class for the Scalar UDFs. All the scalar UDF classes needs to extend this.
+ * The number and type of arguments for the method annotated with {@link SamzaSqlUdfMethod} in the UDF class should match the number and type of fields
  * used while invoking this UDF in SQL statement.
  * Say for e.g. User creates a UDF class with signature int execute(int var1, String var2). It can be used in a SQL query
  *     select myudf(id, name) from profile
  * In the above query, Profile should contain fields named 'id' of INTEGER/NUMBER type and 'name' of type VARCHAR/CHARACTER
  */
-public interface ScalarUdf<T> {
+public interface ScalarUdf {
   /**
    * Udfs can implement this method to perform any initialization that they may need.
    * @param udfConfig Config specific to the udf.
+   * @param context Samza application and framework context
    */
-  void init(Config udfConfig);
-
-  /**
-   * Actual implementation of the udf function
-   * @param args
-   *   list of all arguments that the udf needs
-   * @return
-   *   Return value from the scalar udf.
-   */
-  T execute(Object... args);
+  void init(Config udfConfig, Context context);
 }

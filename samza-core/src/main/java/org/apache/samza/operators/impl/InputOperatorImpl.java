@@ -18,6 +18,9 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.system.descriptors.InputTransformer;
@@ -47,15 +50,21 @@ public final class InputOperatorImpl extends OperatorImpl<IncomingMessageEnvelop
   }
 
   @Override
-  public Collection<Object> handleMessage(IncomingMessageEnvelope ime, MessageCollector collector, TaskCoordinator coordinator) {
-    Object message;
+  protected CompletionStage<Collection<Object>> handleMessageAsync(IncomingMessageEnvelope message,
+      MessageCollector collector, TaskCoordinator coordinator) {
+    Object result;
     InputTransformer transformer = inputOpSpec.getTransformer();
     if (transformer != null) {
-      message = transformer.apply(ime);
+      result = transformer.apply(message);
     } else {
-      message = this.inputOpSpec.isKeyed() ? KV.of(ime.getKey(), ime.getMessage()) : ime.getMessage();
+      result = this.inputOpSpec.isKeyed() ? KV.of(message.getKey(), message.getMessage()) : message.getMessage();
     }
-    return Collections.singletonList(message);
+
+    Collection<Object> output = Optional.ofNullable(result)
+        .map(Collections::singletonList)
+        .orElse(Collections.emptyList());
+
+    return CompletableFuture.completedFuture(output);
   }
 
   @Override

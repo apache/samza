@@ -19,13 +19,16 @@
 
 package org.apache.samza.config
 
-
 import java.io.File
+import java.util.regex.Pattern
 
-import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
+import org.apache.samza.container.grouper.stream.{GroupByPartitionFactory, HashSystemStreamPartitionMapperFactory}
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory
 import org.apache.samza.util.Logging
+
+import scala.collection.mutable
+
 
 object JobConfig {
   // job config constants
@@ -48,7 +51,6 @@ object JobConfig {
   val JOB_JMX_ENABLED = "job.jmx.enabled"
   val JOB_CONTAINER_COUNT = "job.container.count"
   val JOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size"
-  val JOB_CONTAINER_SINGLE_THREAD_MODE = "job.container.single.thread.mode"
   val JOB_INTERMEDIATE_STREAM_PARTITIONS = "job.intermediate.stream.partitions"
   val JOB_DEBOUNCE_TIME_MS = "job.debounce.time.ms"
   val DEFAULT_DEBOUNCE_TIME_MS = 20000
@@ -77,10 +79,20 @@ object JobConfig {
   val JOB_FAIL_CHECKPOINT_VALIDATION = "job.checkpoint.validation.enabled"
   val MONITOR_PARTITION_CHANGE = "job.coordinator.monitor-partition-change"
   val MONITOR_PARTITION_CHANGE_FREQUENCY_MS = "job.coordinator.monitor-partition-change.frequency.ms"
+
+  val MONITOR_INPUT_REGEX_FREQUENCY_MS = "job.coordinator.monitor-input-regex.frequency.ms"
+  val DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS = 300000
+
+  val REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex"
+  val REGEX_RESOLVED_SYSTEM = "job.config.rewriter.%s.system"
+  val REGEX_INHERITED_CONFIG = "job.config.rewriter.%s.config"
+
+
   val DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS = 300000
   val JOB_SECURITY_MANAGER_FACTORY = "job.security.manager.factory"
 
   val METADATA_STORE_FACTORY = "metadata.store.factory"
+  val STARTPOINT_METADATA_STORE_FACTORY = "startpoint.metadata.store.factory"
   val LOCATION_ID_PROVIDER_FACTORY = "locationid.provider.factory"
 
   // Processor Config Constants
@@ -97,9 +109,14 @@ object JobConfig {
   // Enables diagnostic appender for logging exception events
   val JOB_DIAGNOSTICS_ENABLED = "job.diagnostics.enabled"
 
-  // Specify DiagnosticAppender class
-  val DIAGNOSTICS_APPENDER_CLASS = "job.diagnostics.appender.class"
-  val DEFAULT_DIAGNOSTICS_APPENDER_CLASS = "org.apache.samza.logging.log4j.SimpleDiagnosticsAppender"
+  // Enables standby tasks
+  val STANDBY_TASKS_REPLICATION_FACTOR = "job.standbytasks.replication.factor"
+  val DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 1
+  val SYSTEM_STREAM_PARTITION_MAPPER_FACTORY = "job.system.stream.partition.mapper.factory"
+
+  // Naming format and directory for container.metadata file
+  private val CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata" // Filename: <containerID>.metadata
+  private val CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY = "samza.log.dir"
 
   implicit def Config2Job(config: Config) = new JobConfig(config)
 
@@ -119,6 +136,18 @@ object JobConfig {
     }
     fwkPath
   }
+
+  /** The metadata file is written in a <exec-env-container-id>.metadata file in the log-dir of the container.
+   Here the <exec-env-container-id> refers to the ID assigned by the cluster manager (e.g., YARN) to the container,
+   which uniquely identifies a container's lifecycle.*/
+  def getMetadataFile(execEnvContainerId: Option[String]): Option[File] = {
+    val dir = System.getProperty(JobConfig.CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY)
+    if (dir == null || execEnvContainerId.isEmpty) {
+      None
+    } else {
+      Option.apply(new File(dir, String.format(JobConfig.CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId.get)))
+    }
+  }
 }
 
 class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
@@ -127,7 +156,7 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getCoordinatorSystemName = {
     val system = getCoordinatorSystemNameOrNull
     if (system == null) {
-      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution.")
+      throw new ConfigException("Missing job.coordinator.system configuration. Cannot proceed with job execution." + config)
     }
     system
   }
@@ -158,9 +187,43 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     }
   }
 
+  // StreamRegexMonitor is disabled if the MonitorRegexFRequency is <= 0
+  def getMonitorRegexEnabled = (getMonitorRegexFrequency <= 0)
+
   def getMonitorPartitionChangeFrequency = getInt(
     JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS,
     JobConfig.DEFAULT_MONITOR_PARTITION_CHANGE_FREQUENCY_MS)
+
+  def getMonitorRegexFrequency = getInt(
+    JobConfig.MONITOR_INPUT_REGEX_FREQUENCY_MS,
+    JobConfig.DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS)
+
+  def getMonitorRegexPatternMap(rewritersList : String) : mutable.HashMap[String, Pattern] = {
+    // Compile a map of each input-system to its corresponding input-monitor-regex patterns
+    val inputRegexesToMonitor: mutable.HashMap[String, Pattern] = mutable.HashMap[String, Pattern]()
+    val rewriters: Array[String] = rewritersList.split(",")
+    // iterate over each rewriter and obtain the system and regex for it
+    for (rewriterName <- rewriters) {
+      val rewriterSystem: Option[String] = new JobConfig(config).getRegexResolvedSystem(rewriterName)
+      val rewriterRegex: Option[String] = new JobConfig(config).getRegexResolvedStreams(rewriterName)
+      if (rewriterSystem.isDefined && rewriterRegex.isDefined) {
+        var patternForSystem: Option[Pattern] = inputRegexesToMonitor.get(rewriterSystem.get)
+        patternForSystem =
+          if (patternForSystem == None) Some(Pattern.compile(rewriterRegex.get))
+          else
+            Some(Pattern.compile(String.join("|", patternForSystem.get.pattern(), rewriterRegex.get)))
+        inputRegexesToMonitor.put(rewriterSystem.get, patternForSystem.get)
+      }
+    }
+    inputRegexesToMonitor
+  }
+
+  // regex-related config methods duplicated from KafkaConfig to avoid module dependency
+  def getRegexResolvedStreams(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_STREAMS format rewriterName)
+
+  def getRegexResolvedSystem(rewriterName: String) = getOption(JobConfig.REGEX_RESOLVED_SYSTEM format rewriterName)
+
+  def getRegexResolvedInheritedConfig(rewriterName: String) = config.subset((JobConfig.REGEX_INHERITED_CONFIG format rewriterName) + ".", true)
 
   def getStreamJobFactoryClass = getOption(JobConfig.STREAM_JOB_FACTORY_CLASS)
 
@@ -191,11 +254,6 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     case _ => 0
   }
 
-  def getSingleThreadMode = getOption(JobConfig.JOB_CONTAINER_SINGLE_THREAD_MODE) match {
-    case Some(mode) => mode.toBoolean
-    case _ => false
-  }
-
   def getDebounceTimeMs = getInt(JobConfig.JOB_DEBOUNCE_TIME_MS, JobConfig.DEFAULT_DEBOUNCE_TIME_MS)
 
   def getNonLoggedStorePath = getOption(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR)
@@ -206,11 +264,15 @@ class JobConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
   def getDiagnosticsEnabled = { getBoolean(JobConfig.JOB_DIAGNOSTICS_ENABLED, false) }
 
-  def getDiagnosticsAppenderClass = {
-    getOrDefault(JobConfig.DIAGNOSTICS_APPENDER_CLASS, JobConfig.DEFAULT_DIAGNOSTICS_APPENDER_CLASS)
-  }
-
   def getJMXEnabled = {
     getBoolean(JobConfig.JOB_JMX_ENABLED, true);
   }
+
+  def getSystemStreamPartitionMapperFactoryName: String = {
+    get(JobConfig.SYSTEM_STREAM_PARTITION_MAPPER_FACTORY, classOf[HashSystemStreamPartitionMapperFactory].getName)
+  }
+
+  def getStandbyTasksEnabled = getStandbyTaskReplicationFactor > 1
+
+  def getStandbyTaskReplicationFactor = getInt(JobConfig.STANDBY_TASKS_REPLICATION_FACTOR, JobConfig.DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR)
 }

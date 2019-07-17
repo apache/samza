@@ -19,15 +19,15 @@
 
 package org.apache.samza.coordinator;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.runtime.LocationId;
 import org.apache.samza.system.StreamMetadataCache;
 
 /**
@@ -49,15 +49,11 @@ public class JobModelManagerTestUtil {
     return new JobModelManager(jobModel, server, null);
   }
 
-  public static JobModelManager getJobModelManagerUsingReadModel(Config config, int containerCount, StreamMetadataCache streamMetadataCache,
-    LocalityManager locManager, HttpServer server) {
-    List<String> containerIds = new ArrayList<>();
-    for (int i = 0; i < containerCount; i++) {
-      containerIds.add(String.valueOf(i));
-    }
-    JobModel jobModel = JobModelManager.readJobModel(config, new HashMap<>(), locManager, streamMetadataCache, containerIds);
-    return new JobModelManager(jobModel, server, null);
+  public static JobModelManager getJobModelManagerUsingReadModel(Config config, StreamMetadataCache streamMetadataCache,
+      HttpServer server, LocalityManager localityManager, Map<String, LocationId> processorLocality,
+      ClassLoader classLoader) {
+    JobModel jobModel = JobModelManager.readJobModel(config, new HashMap<>(), streamMetadataCache,
+        new GrouperMetadataImpl(processorLocality, new HashMap<>(), new HashMap<>(), new HashMap<>()), classLoader);
+    return new JobModelManager(new JobModel(jobModel.getConfig(), jobModel.getContainers(), localityManager), server, localityManager);
   }
-
-
 }

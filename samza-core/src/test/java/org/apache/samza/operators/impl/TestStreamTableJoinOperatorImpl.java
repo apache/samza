@@ -18,6 +18,7 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.concurrent.CompletableFuture;
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
@@ -26,7 +27,7 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
@@ -45,6 +46,7 @@ public class TestStreamTableJoinOperatorImpl {
 
     StreamTableJoinOperatorSpec mockJoinOpSpec = mock(StreamTableJoinOperatorSpec.class);
     when(mockJoinOpSpec.getTableId()).thenReturn(tableId);
+    when(mockJoinOpSpec.getArgs()).thenReturn(new Object[0]);
     when(mockJoinOpSpec.getJoinFn()).thenReturn(
         new StreamTableJoinFunction<String, KV<String, String>, KV<String, String>, String>() {
           @Override
@@ -71,9 +73,9 @@ public class TestStreamTableJoinOperatorImpl {
             return record.getKey();
           }
         });
-    ReadableTable table = mock(ReadableTable.class);
-    when(table.get("1")).thenReturn("r1");
-    when(table.get("2")).thenReturn(null);
+    ReadWriteTable table = mock(ReadWriteTable.class);
+    when(table.getAsync("1")).thenReturn(CompletableFuture.completedFuture("r1"));
+    when(table.getAsync("2")).thenReturn(CompletableFuture.completedFuture(null));
     Context context = new MockContext();
     when(context.getTaskContext().getTable(tableId)).thenReturn(table);
 

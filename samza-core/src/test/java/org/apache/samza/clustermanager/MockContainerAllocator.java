@@ -33,7 +33,7 @@ public class MockContainerAllocator extends ContainerAllocator {
   public MockContainerAllocator(ClusterResourceManager manager,
                                 Config config,
                                 SamzaApplicationState state) {
-    super(manager, config, state);
+    super(manager, config, state, MockContainerAllocator.class.getClassLoader());
   }
 
   /**
@@ -51,9 +51,9 @@ public class MockContainerAllocator extends ContainerAllocator {
   }
 
   @Override
-  public void requestResources(Map<String, String> containerToHostMappings) {
-    requestedContainers += containerToHostMappings.size();
-    super.requestResources(containerToHostMappings);
+  public void requestResources(Map<String, String> processorToHostMapping) {
+    requestedContainers += processorToHostMapping.size();
+    super.requestResources(processorToHostMapping);
   }
 
   public ResourceRequestState getContainerRequestState() throws Exception {

@@ -19,45 +19,55 @@
 package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
-
-import java.util.HashSet;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.I0Itec.zkclient.IZkStateListener;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.MetricsConfig;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.container.grouper.task.GrouperMetadata;
+import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.LeaderElectorListener;
+import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.JobModelUtil;
+import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.metrics.ReadableMetricsRegistry;
-import org.apache.samza.runtime.ProcessorIdGenerator;
-import org.apache.samza.storage.ChangelogStreamManager;
+import org.apache.samza.runtime.LocationId;
+import org.apache.samza.runtime.LocationIdProvider;
+import org.apache.samza.runtime.LocationIdProviderFactory;
+import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.MetricsReporterLoader;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.CoordinatorStreamUtil;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
-import org.apache.samza.util.Util;
+import org.apache.samza.zk.ZkUtils.ProcessorNode;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,18 +101,22 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final Config config;
   private final ZkBarrierForVersionUpgrade barrier;
   private final ZkJobCoordinatorMetrics metrics;
-  private final Map<String, MetricsReporter> reporters;
   private final ZkLeaderElector leaderElector;
   private final AtomicBoolean initiatedShutdown = new AtomicBoolean(false);
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
   private final int debounceTimeMs;
   private final Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
+  private final LocationId locationId;
+  private final MetadataStore jobModelMetadataStore;
 
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
-  private boolean hasCreatedStreams = false;
+  private boolean hasLoadedMetadataResources = false;
   private String cachedJobModelVersion = null;
+
+  @VisibleForTesting
+  ZkSessionMetrics zkSessionMetrics;
 
   @VisibleForTesting
   ScheduleAfterDebounceTime debounceTimer;
@@ -110,11 +124,12 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   StreamPartitionCountMonitor streamPartitionCountMonitor = null;
 
-  ZkJobCoordinator(Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils) {
+  ZkJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils, MetadataStore jobModelMetadataStore) {
     this.config = config;
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
+    this.zkSessionMetrics = new ZkSessionMetrics(metricsRegistry);
 
-    this.processorId = createProcessorId(config);
+    this.processorId = processorId;
     this.zkUtils = zkUtils;
     // setup a listener for a session state change
     // we are mostly interested in "session closed" and "new session created" events
@@ -122,7 +137,6 @@ public class ZkJobCoordinator implements JobCoordinator {
     leaderElector = new ZkLeaderElector(processorId, zkUtils);
     leaderElector.setLeaderElectorListener(new LeaderElectorListenerImpl());
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
-    this.reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), processorId);
     debounceTimer = new ScheduleAfterDebounceTime(processorId);
     debounceTimer.setScheduledTaskCallback(throwable -> {
         LOG.error("Received exception in debounce timer! Stopping the job coordinator", throwable);
@@ -131,16 +145,21 @@ public class ZkJobCoordinator implements JobCoordinator {
     this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, new ZkBarrierListenerImpl(), debounceTimer);
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
+    LocationIdProviderFactory locationIdProviderFactory =
+        ReflectionUtil.getObj(getClass().getClassLoader(), new JobConfig(config).getLocationIdProviderFactory(),
+            LocationIdProviderFactory.class);
+    LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
+    this.locationId = locationIdProvider.getLocationId();
+    this.jobModelMetadataStore = jobModelMetadataStore;
   }
 
   @Override
   public void start() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
     zkUtils.validateZkVersion();
-    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder
-        .getJobModelPathPrefix()});
+    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder.getJobModelPathPrefix(), keyBuilder.getTaskLocalityPath()});
 
-    startMetrics();
+    this.jobModelMetadataStore.init();
     systemAdmins.start();
     leaderElector.tryBecomeLeader();
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
@@ -156,7 +175,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
       // Notify the metrics about abandoning the leadership. Moving it up the chain in the shutdown sequence so that
       // in case of unclean shutdown, we get notified about lack of leader and we can set up some alerts around the absence of leader.
-      metrics.isLeader.set(false);
+      metrics.isLeader.set(0);
 
       try {
         // todo: what does it mean for coordinator listener to be null? why not have it part of constructor?
@@ -180,9 +199,6 @@ public class ZkJobCoordinator implements JobCoordinator {
         LOG.debug("Shutting down system admins.");
         systemAdmins.stop();
 
-        LOG.debug("Shutting down metrics.");
-        shutdownMetrics();
-
         if (streamPartitionCountMonitor != null) {
           streamPartitionCountMonitor.stop();
         }
@@ -191,6 +207,7 @@ public class ZkJobCoordinator implements JobCoordinator {
           coordinatorListener.onCoordinatorStop();
         }
 
+        jobModelMetadataStore.close();
         shutdownSuccessful = true;
       } catch (Throwable t) {
         LOG.error("Encountered errors during job coordinator stop.", t);
@@ -202,19 +219,6 @@ public class ZkJobCoordinator implements JobCoordinator {
       }
     } else {
       LOG.info("Job Coordinator shutdown is in progress!");
-    }
-  }
-
-  private void startMetrics() {
-    for (MetricsReporter reporter: reporters.values()) {
-      reporter.register("job-coordinator-" + processorId, (ReadableMetricsRegistry) metrics.getMetricsRegistry());
-      reporter.start();
-    }
-  }
-
-  private void shutdownMetrics() {
-    for (MetricsReporter reporter: reporters.values()) {
-      reporter.stop();
     }
   }
 
@@ -246,7 +250,13 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   void doOnProcessorChange() {
-    List<String> currentProcessorIds = zkUtils.getSortedActiveProcessorsIDs();
+    List<ProcessorNode> processorNodes = zkUtils.getAllProcessorNodes();
+
+    List<String> currentProcessorIds = new ArrayList<>();
+    for (ProcessorNode processorNode : processorNodes) {
+      currentProcessorIds.add(processorNode.getProcessorData().getProcessorId());
+    }
+
     Set<String> uniqueProcessorIds = new HashSet<>(currentProcessorIds);
 
     if (currentProcessorIds.size() != uniqueProcessorIds.size()) {
@@ -256,18 +266,12 @@ public class ZkJobCoordinator implements JobCoordinator {
 
     // Generate the JobModel
     LOG.info("Generating new JobModel with processors: {}.", currentProcessorIds);
-    JobModel jobModel = generateNewJobModel(currentProcessorIds);
+    JobModel jobModel = generateNewJobModel(processorNodes);
 
     // Create checkpoint and changelog streams if they don't exist
-    if (!hasCreatedStreams) {
-      CheckpointManager checkpointManager = new TaskConfigJava(config).getCheckpointManager(metrics.getMetricsRegistry());
-      if (checkpointManager != null) {
-        checkpointManager.createResources();
-      }
-
-      // Pass in null Coordinator consumer and producer because ZK doesn't have coordinator streams.
-      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
-      hasCreatedStreams = true;
+    if (!hasLoadedMetadataResources) {
+      loadMetadataResources(jobModel);
+      hasLoadedMetadataResources = true;
     }
 
     // Assign the next version of JobModel
@@ -276,7 +280,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     LOG.info("pid=" + processorId + "Generated new JobModel with version: " + nextJMVersion + " and processors: " + currentProcessorIds);
 
     // Publish the new job model
-    zkUtils.publishJobModel(nextJMVersion, jobModel);
+    publishJobModelToMetadataStore(jobModel, nextJMVersion);
 
     // Start the barrier for the job model update
     barrier.create(nextJMVersion, currentProcessorIds);
@@ -289,47 +293,97 @@ public class ZkJobCoordinator implements JobCoordinator {
     debounceTimer.scheduleAfterDebounceTime(ON_ZK_CLEANUP, 0, () -> zkUtils.cleanupZK(NUM_VERSIONS_TO_LEAVE));
   }
 
-  private String createProcessorId(Config config) {
-    // TODO: This check to be removed after 0.13+
-    ApplicationConfig appConfig = new ApplicationConfig(config);
-    if (appConfig.getProcessorId() != null) {
-      return appConfig.getProcessorId();
-    } else if (StringUtils.isNotBlank(appConfig.getAppProcessorIdGeneratorClass())) {
-      ProcessorIdGenerator idGenerator =
-          Util.getObj(appConfig.getAppProcessorIdGeneratorClass(), ProcessorIdGenerator.class);
-      return idGenerator.generateProcessorId(config);
-    } else {
-      throw new ConfigException(String
-          .format("Expected either %s or %s to be configured", ApplicationConfig.PROCESSOR_ID,
-              ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS));
+  @VisibleForTesting
+  void publishJobModelToMetadataStore(JobModel jobModel, String nextJMVersion) {
+    JobModelUtil.writeJobModel(jobModel, nextJMVersion, jobModelMetadataStore);
+  }
+
+  @VisibleForTesting
+  JobModel readJobModelFromMetadataStore(String zkJobModelVersion) {
+    return JobModelUtil.readJobModel(zkJobModelVersion, jobModelMetadataStore);
+  }
+
+  /**
+   * Stores the configuration of the job in the coordinator stream.
+   */
+  @VisibleForTesting
+  void loadMetadataResources(JobModel jobModel) {
+    CoordinatorStreamStore coordinatorStreamStore = null;
+    try {
+      // Creates the coordinator stream if it does not exists.
+      coordinatorStreamStore = createCoordinatorStreamStore();
+      coordinatorStreamStore.init();
+
+      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, getClass().getClassLoader());
+      metadataResourceUtil.createResources();
+
+      CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+      NamespaceAwareCoordinatorStreamStore configStore =
+          new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE);
+      for (Map.Entry<String, String> entry : config.entrySet()) {
+        byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
+        configStore.put(entry.getKey(), serializedValue);
+      }
+
+      // fan out the startpoints
+      StartpointManager startpointManager = createStartpointManager(coordinatorStreamStore);
+      startpointManager.start();
+      try {
+        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+      } finally {
+        startpointManager.stop();
+      }
+    } catch (IOException ex) {
+      throw new SamzaException(String.format("IO exception while loading metadata resources."), ex);
+    } finally {
+      if (coordinatorStreamStore != null) {
+        LOG.info("Stopping the coordinator stream metadata store.");
+        coordinatorStreamStore.close();
+      }
     }
+  }
+
+  @VisibleForTesting
+  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel, ClassLoader classLoader) {
+    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), classLoader);
+  }
+
+  /**
+   * Creates a coordinator stream kafka topic.
+   */
+  @VisibleForTesting
+  CoordinatorStreamStore createCoordinatorStreamStore() {
+    SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
+    SystemAdmin coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
+    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin);
+    return new CoordinatorStreamStore(config, metrics.getMetricsRegistry());
   }
 
   /**
    * Generate new JobModel when becoming a leader or the list of processor changed.
    */
-  private JobModel generateNewJobModel(List<String> processors) {
+  @VisibleForTesting
+  JobModel generateNewJobModel(List<ProcessorNode> processorNodes) {
     String zkJobModelVersion = zkUtils.getJobModelVersion();
     // If JobModel exists in zookeeper && cached JobModel version is unequal to JobModel version stored in zookeeper.
     if (zkJobModelVersion != null && !Objects.equals(cachedJobModelVersion, zkJobModelVersion)) {
-      JobModel jobModel = zkUtils.getJobModel(zkJobModelVersion);
+      JobModel jobModel = readJobModelFromMetadataStore(zkJobModelVersion);
       for (ContainerModel containerModel : jobModel.getContainers().values()) {
         containerModel.getTasks().forEach((taskName, taskModel) -> changeLogPartitionMap.put(taskName, taskModel.getChangelogPartition().getPartitionId()));
       }
       cachedJobModelVersion = zkJobModelVersion;
     }
-    /**
-     * Host affinity is not supported in standalone. Hence, LocalityManager(which is responsible for container
-     * to host mapping) is passed in as null when building the jobModel.
-     */
-    JobModel model = JobModelManager.readJobModel(this.config, changeLogPartitionMap, null, streamMetadataCache, processors);
+
+    GrouperMetadata grouperMetadata = getGrouperMetadata(zkJobModelVersion, processorNodes);
+    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, grouperMetadata,
+        getClass().getClassLoader());
     return new JobModel(new MapConfig(), model.getContainers());
   }
 
   @VisibleForTesting
   StreamPartitionCountMonitor getPartitionCountMonitor() {
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    Set<SystemStream> inputStreamsToMonitor = new TaskConfigJava(config).getAllInputStreams();
+    Set<SystemStream> inputStreamsToMonitor = new TaskConfig(config).getAllInputStreams();
 
     return new StreamPartitionCountMonitor(
             inputStreamsToMonitor,
@@ -343,11 +397,49 @@ public class ZkJobCoordinator implements JobCoordinator {
       });
   }
 
+  @VisibleForTesting
+  StartpointManager createStartpointManager(CoordinatorStreamStore metadataStore) {
+    return new StartpointManager(metadataStore);
+  }
+
+  /**
+   * Builds the {@link GrouperMetadataImpl} based upon provided {@param jobModelVersion}
+   * and {@param processorNodes}.
+   * @param jobModelVersion the most recent jobModelVersion available in the zookeeper.
+   * @param processorNodes the list of live processors in the zookeeper.
+   * @return the built grouper metadata.
+   */
+  private GrouperMetadataImpl getGrouperMetadata(String jobModelVersion, List<ProcessorNode> processorNodes) {
+    Map<TaskName, String> taskToProcessorId = new HashMap<>();
+    Map<TaskName, List<SystemStreamPartition>> taskToSSPs = new HashMap<>();
+    if (jobModelVersion != null) {
+      JobModel jobModel = readJobModelFromMetadataStore(jobModelVersion);
+      for (ContainerModel containerModel : jobModel.getContainers().values()) {
+        for (TaskModel taskModel : containerModel.getTasks().values()) {
+          taskToProcessorId.put(taskModel.getTaskName(), containerModel.getId());
+          for (SystemStreamPartition partition : taskModel.getSystemStreamPartitions()) {
+            taskToSSPs.computeIfAbsent(taskModel.getTaskName(), k -> new ArrayList<>());
+            taskToSSPs.get(taskModel.getTaskName()).add(partition);
+          }
+        }
+      }
+    }
+
+    Map<String, LocationId> processorLocality = new HashMap<>();
+    for (ProcessorNode processorNode : processorNodes) {
+      ProcessorData processorData = processorNode.getProcessorData();
+      processorLocality.put(processorData.getProcessorId(), processorData.getLocationId());
+    }
+
+    Map<TaskName, LocationId> taskLocality = zkUtils.readTaskLocality();
+    return new GrouperMetadataImpl(processorLocality, taskLocality, taskToSSPs, taskToProcessorId);
+  }
+
   class LeaderElectorListenerImpl implements LeaderElectorListener {
     @Override
     public void onBecomingLeader() {
       LOG.info("ZkJobCoordinator::onBecomeLeader - I became the leader");
-      metrics.isLeader.set(true);
+      metrics.isLeader.set(1);
       zkUtils.subscribeToProcessorChange(new ProcessorChangeHandler(zkUtils));
       if (!new StorageConfig(config).hasDurableStores()) {
         // 1. Stop if there's a existing StreamPartitionCountMonitor running.
@@ -390,6 +482,11 @@ public class ZkJobCoordinator implements JobCoordinator {
             JobModel jobModel = getJobModel();
             // start the container with the new model
             if (coordinatorListener != null) {
+              for (ContainerModel containerModel : jobModel.getContainers().values()) {
+                for (TaskName taskName : containerModel.getTasks().keySet()) {
+                  zkUtils.writeTaskLocality(taskName, locationId);
+                }
+              }
               coordinatorListener.onNewJobModel(processorId, jobModel);
             }
           });
@@ -456,7 +553,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
           LOG.info("Got a notification for new JobModel version. Path = {} Version = {}", dataPath, data);
 
-          newJobModel = zkUtils.getJobModel(jobModelVersion);
+          newJobModel = readJobModelFromMetadataStore(jobModelVersion);
           LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + newJobModel);
 
           if (!newJobModel.getContainers().containsKey(processorId)) {
@@ -494,6 +591,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       switch (state) {
         case Expired:
           // if the session has expired it means that all the registration's ephemeral nodes are gone.
+          zkSessionMetrics.zkSessionExpirations.inc();
           LOG.warn("Got " + state.toString() + " event for processor=" + processorId + ". Stopping the container and unregister the processor node.");
 
           // increase generation of the ZK session. All the callbacks from the previous generation will be ignored.
@@ -527,6 +625,7 @@ public class ZkJobCoordinator implements JobCoordinator {
           return;
         case Disconnected:
           // if the session has expired it means that all the registration's ephemeral nodes are gone.
+          zkSessionMetrics.zkSessionDisconnects.inc();
           LOG.warn("Got " + state.toString() + " event for processor=" + processorId + ". Scheduling a coordinator stop.");
 
           // If the connection is not restored after debounceTimeMs, the process is considered dead.
@@ -535,10 +634,12 @@ public class ZkJobCoordinator implements JobCoordinator {
         case AuthFailed:
         case NoSyncConnected:
         case Unknown:
+          zkSessionMetrics.zkSessionErrors.inc();
           LOG.warn("Got unexpected failure event " + state.toString() + " for processor=" + processorId + ". Stopping the job coordinator.");
           debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_ERROR, 0, () -> stop());
           return;
         case SyncConnected:
+          zkSessionMetrics.zkSyncConnected.inc();
           LOG.info("Got syncconnected event for processor=" + processorId + ".");
           debounceTimer.cancelAction(ZK_SESSION_ERROR);
           return;
@@ -550,6 +651,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
     @Override
     public void handleNewSession() {
+      zkSessionMetrics.zkNewSessions.inc();
       LOG.info("Got new session created event for processor=" + processorId);
       debounceTimer.cancelAllScheduledActions();
       LOG.info("register zk controller for the new session");
@@ -560,6 +662,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     @Override
     public void handleSessionEstablishmentError(Throwable error) {
       // this means we cannot connect to zookeeper to establish a session
+      zkSessionMetrics.zkSessionErrors.inc();
       LOG.info("handleSessionEstablishmentError received for processor=" + processorId, error);
       debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_ERROR, 0, () -> stop());
     }

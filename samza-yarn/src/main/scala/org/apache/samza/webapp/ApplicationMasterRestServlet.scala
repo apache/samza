@@ -46,9 +46,6 @@ object ApplicationMasterRestServlet {
       metricsRegistry.getGroup(group).asScala.foreach {
         case (name, metric) =>
           metric.visit(new MetricsVisitor() {
-            def listGauge[T](listGauge: ListGauge[T]) =
-              groupMap.put(name, listGauge.getValues)
-
             def counter(counter: Counter) =
               groupMap.put(counter.getName, counter.getCount: lang.Long)
 
@@ -79,7 +76,7 @@ object ApplicationMasterRestServlet {
   def getAmState(jsonMapper: ObjectMapper, samzaAppState: SamzaApplicationState, state: YarnAppState) = {
     val containers = new HashMap[String, util.HashMap[String, Object]]
 
-    state.runningYarnContainers.asScala.foreach {
+    state.runningProcessors.asScala.foreach {
       case (containerId, container) =>
         val yarnContainerId = container.id.toString
         val containerMap = new HashMap[String, Object]

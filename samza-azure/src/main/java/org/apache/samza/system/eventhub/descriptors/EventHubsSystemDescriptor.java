@@ -42,7 +42,7 @@ import org.apache.samza.system.eventhub.producer.EventHubSystemProducer.Partitio
 public class EventHubsSystemDescriptor extends SystemDescriptor<EventHubsSystemDescriptor> {
   private static final String FACTORY_CLASS_NAME = EventHubSystemFactory.class.getName();
 
-  private List<String> streamIds = new ArrayList<>();
+  private final List<String> streamIds = new ArrayList<>();
   private Optional<Integer> fetchRuntimeInfoTimeout = Optional.empty();
   private Optional<Integer> numClientThreads = Optional.empty();
   private Optional<Integer> consumerReceiveQueueSize = Optional.empty();

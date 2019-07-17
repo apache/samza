@@ -29,25 +29,25 @@ public interface SqlFunction {
    * Gets the name of the function.
    * @return name of the function
    */
-  public String getName();
+  String getName();
 
   /**
    * Gets the description of the function.
    * @return description of the function.
    */
-  public String getDescription();
+  String getDescription();
 
   /**
    * Gets the argument types of the function as a List.
    * @return A list containing the type names of the arguments.
    */
-  public List<String> getArgumentTypes();
+  List<String> getArgumentTypes();
 
   /**
    * Gets the return type of the function.
    * @return return type name
    */
-  public String getReturnType();
+  String getReturnType();
 
   /**
    * Don't forget to implement toString()

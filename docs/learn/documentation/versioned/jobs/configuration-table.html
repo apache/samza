@@ -228,6 +228,15 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-coordinator-max-message-bytes">job.coordinator.<br>max.message.bytes</td>
+                    <td class="default">1000012</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this sets the largest record size for the checkpoint
+                        topic.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="job-coordinator-monitor-partition-change">job.coordinator.<br />monitor-partition-change</td>
                     <td class="default">false</td>
                     <td class="description">
@@ -406,14 +415,6 @@
                         container, and the maximum number of containers is the number of task instances (usually the
                         <a href="../container/samza-container.html#tasks-and-partitions">number of input stream partitions</a>).
                         Task instances are evenly distributed across the number of containers that you specify.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="job-container-single-thread-mode">job.container.single.thread.mode</td>
-                    <td class="default">false</td>
-                    <td class="description">
-                        If set to true, samza will fallback to legacy single-threaded event loop. Default is false, which enables the <a href="../container/event-loop.html">multithreading execution</a>.
                     </td>
                 </tr>
 
@@ -1180,6 +1181,13 @@
                     </td>
                 </tr>
 
+                    <td class="property" id="streams-samza-broadcast">streams.<span class="stream">stream-id</span>.<br>samza.broadcast</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If set to <code>true</code>, this stream will be broadcasted to all the tasks.
+                    </td>
+                </tr>
+
                 <tr>
                     <td class="property" id="streams-properties">streams.<span class="stream">stream-id</span>.*</td>
                     <td class="default"></td>
@@ -1539,6 +1547,15 @@
                         If you are using Kafka for checkpoints, this is the segment size to be used for the checkpoint
                         topic's log segments. Keeping this number small is useful because it increases the frequency
                         that Kafka will garbage collect old checkpoints.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="task-checkpoint-max-message-bytes">task.checkpoint.<br>max.message.bytes</td>
+                    <td class="default">1000012</td>
+                    <td class="description">
+                        If you are using Kafka for checkpoints, this sets the largest record size for the checkpoint
+                        topic.
                     </td>
                 </tr>
 

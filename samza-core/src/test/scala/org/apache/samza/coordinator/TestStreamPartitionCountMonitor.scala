@@ -20,7 +20,8 @@
 package org.apache.samza.coordinator
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-import java.util.HashMap
+import java.util.regex.Pattern
+
 import org.apache.samza.Partition
 import org.apache.samza.metrics.{Gauge, MetricsRegistryMap}
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
@@ -34,6 +35,7 @@ import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable.HashMap
 
 
 class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSugar {
@@ -43,6 +45,7 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
     val mockMetadataCache = mock[StreamMetadataCache]
     val inputSystemStream = new SystemStream("test-system", "test-stream")
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
+    val inputRegexMap : java.util.Map[String, Pattern] = HashMap("test-system"-> Pattern.compile(".*")).asJava
 
     val initialPartitionMetadata = new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
       {
@@ -209,6 +212,7 @@ class TestStreamPartitionCountMonitor extends AssertionsForJUnit with MockitoSug
   def testScheduler(): Unit = {
     val mockMetadataCache = new MockStreamMetadataCache
     val inputSystemStream = new SystemStream("test-system", "test-stream")
+    val inputRegexMap : java.util.Map[String, Pattern] = HashMap("test-system"-> Pattern.compile(".*")).asJava
     val inputSystemStreamSet = Set[SystemStream](inputSystemStream)
     val sampleCount = new CountDownLatch(2); // Verify 2 invocations
 

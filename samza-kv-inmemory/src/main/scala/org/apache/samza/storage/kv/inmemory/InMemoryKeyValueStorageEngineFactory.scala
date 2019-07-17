@@ -23,6 +23,7 @@ import java.io.File
 
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.storage.kv.{BaseKeyValueStorageEngineFactory, KeyValueStore, KeyValueStoreMetrics}
 import org.apache.samza.system.SystemStreamPartition
 
@@ -33,7 +34,7 @@ class InMemoryKeyValueStorageEngineFactory[K, V] extends BaseKeyValueStorageEngi
     registry: MetricsRegistry,
     changeLogSystemStreamPartition: SystemStreamPartition,
     jobContext: JobContext,
-    containerContext: ContainerContext): KeyValueStore[Array[Byte], Array[Byte]] = {
+    containerContext: ContainerContext, storeMode: StoreMode): KeyValueStore[Array[Byte], Array[Byte]] = {
     val metrics = new KeyValueStoreMetrics(storeName, registry)
     val inMemoryDb = new InMemoryKeyValueStore (metrics)
     inMemoryDb

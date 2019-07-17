@@ -93,7 +93,7 @@ public class SamzaRestService {
       log.info("Creating new SamzaRestService with config: {}", config);
       MetricsConfig metricsConfig = new MetricsConfig(config);
       Map<String, MetricsReporter> metricsReporters = MetricsReporterLoader.getMetricsReporters(metricsConfig,
-          Util.getLocalHost().getHostName());
+          Util.getLocalHost().getHostName(), SamzaRestService.class.getClassLoader());
       SamzaRestService restService = new SamzaRestService(new Server(config.getPort()), metricsRegistry, metricsReporters,
           new ServletContextHandler(ServletContextHandler.SESSIONS));
 

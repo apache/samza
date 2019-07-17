@@ -21,18 +21,15 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{ApplicationConfig, Config}
+import org.apache.samza.config.{Config, MetricsConfig, SerializerConfig, SystemConfig}
 import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.MetricsConfig.Config2Metrics
-import org.apache.samza.config.SystemConfig.Config2System
 import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config.SerializerConfig.Config2Serializer
-import org.apache.samza.config.TaskConfig.Config2Task
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.serializers.{MetricsSnapshotSerdeV2, SerdeFactory}
 import org.apache.samza.system.SystemFactory
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging {
   def getMetricsReporter(name: String, containerName: String, config: Config): MetricsReporter = {
@@ -45,25 +42,9 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val jobId = config
       .getJobId
 
-    val taskClass = config
-      .getTaskClass
-      .orElse(Option(new ApplicationConfig(config).getAppClass()))
-      .getOrElse(throw new SamzaException("No task or app class defined for config."))
-
-    val version = Option(Class.forName(taskClass).getPackage.getImplementationVersion)
-      .getOrElse({
-        warn("Unable to find implementation version in jar's meta info. Defaulting to 0.0.1.")
-        "0.0.1"
-      })
-
-    val samzaVersion = Option(classOf[MetricsSnapshotReporterFactory].getPackage.getImplementationVersion)
-      .getOrElse({
-        warn("Unable to find implementation samza version in jar's meta info. Defaulting to 0.0.1.")
-        "0.0.1"
-      })
-
-    val metricsSystemStreamName = config
-      .getMetricsSnapshotReporterStream(name)
+    val metricsConfig = new MetricsConfig(config)
+    val metricsSystemStreamName = JavaOptionals.toRichOptional(metricsConfig.getMetricsSnapshotReporterStream(name))
+      .toOption
       .getOrElse(throw new SamzaException("No metrics stream defined in config."))
 
     val systemStream = StreamUtil.getSystemStreamFromNames(metricsSystemStreamName)
@@ -72,8 +53,8 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val systemName = systemStream.getSystem
 
-    val systemFactoryClassName = config
-      .getSystemFactory(systemName)
+    val systemConfig = new SystemConfig(config)
+    val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Trying to fetch system factory for system %s, which isn't defined in config." format systemName))
 
     val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
@@ -87,10 +68,11 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     info("Got producer %s." format producer)
 
     val streamSerdeName = config.getStreamMsgSerde(systemStream)
-    val systemSerdeName = config.getSystemMsgSerde(systemName)
+    val systemSerdeName = JavaOptionals.toRichOptional(systemConfig.getSystemMsgSerde(systemName)).toOption
     val serdeName = streamSerdeName.getOrElse(systemSerdeName.getOrElse(null))
+    val serializerConfig = new SerializerConfig(config)
     val serde = if (serdeName != null) {
-      config.getSerdeClass(serdeName) match {
+      JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption match {
         case Some(serdeClassName) =>
           Util.getObj(serdeClassName, classOf[SerdeFactory[MetricsSnapshot]]).getSerde(serdeName, config)
         case _ => null
@@ -101,13 +83,11 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     info("Got serde %s." format serde)
 
-    val pollingInterval: Int = config
-      .getMetricsSnapshotReporterInterval(name)
-      .getOrElse("60").toInt
+    val pollingInterval: Int = metricsConfig.getMetricsSnapshotReporterInterval(name)
 
     info("Setting polling interval to %d" format pollingInterval)
 
-    val blacklist = config.getMetricsSnapshotReporterBlacklist(name)
+    val blacklist = JavaOptionals.toRichOptional(metricsConfig.getMetricsSnapshotReporterBlacklist(name)).toOption
     info("Setting blacklist to %s" format blacklist)
 
     val reporter = new MetricsSnapshotReporter(
@@ -117,8 +97,8 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       jobName,
       jobId,
       containerName,
-      version,
-      samzaVersion,
+      Util.getTaskClassVersion(config),
+      Util.getSamzaVersion(),
       Util.getLocalHost.getHostName,
       serde, blacklist)
 

@@ -22,15 +22,11 @@ package org.apache.samza.sql.client.interfaces;
 
 import java.io.File;
 import java.util.List;
+import org.apache.samza.sql.schema.SqlSchema;
 
 
 /**
  * Conventions:
- * <p>
- * Implementations shall report UNRECOVERABLE EXCEPTIONS by throwing
- * ExecutionExceptions, though SqlExecutor doesn't enforce this by as we don't believe in
- * Java checked exceptions. Report errors by returning values as indicated by each
- * function and preparing for the subsequent getErrorMsg call.
  * <p>
  * Each execution (both query and non-query shall return an non-negative execution ID(execId).
  * Negative execution IDs are reserved for error handling.
@@ -58,42 +54,53 @@ public interface SqlExecutor {
    * call will be given an ExecutionContext which may differ from this one.
    *
    * @param context The ExecutionContext at the time of the call.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public void start(ExecutionContext context);
+  void start(ExecutionContext context) throws ExecutorException;
 
   /**
    * Indicates no further calls will be made thus it's safe for the executor to clean up.
    *
    * @param context The ExecutionContext at the time of the call.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public void stop(ExecutionContext context);
+  void stop(ExecutionContext context) throws ExecutorException;
+
+  /**
+   *
+   * @return An EnvironmentVariableHandler that handles executor specific environment variables
+   */
+  EnvironmentVariableHandler getEnvironmentVariableHandler();
 
   /**
    * @param context The ExecutionContext at the time of the call.
-   * @return null if an error occurs. Prepare for subsequent getErrorMsg call.
-   * an empty list indicates no tables found.
+   * @return A list of table names. Could be empty.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public List<String> listTables(ExecutionContext context);
+  List<String> listTables(ExecutionContext context) throws ExecutorException;
 
   /**
    * @param context   The ExecutionContext at the time of the call.
    * @param tableName Name of the table to get the schema for.
-   * @return null if an error occurs. Prepare for subsequent getErrorMsg call.
+   * @return Schema of the table.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public SqlSchema getTableSchema(ExecutionContext context, String tableName);
+  SqlSchema getTableSchema(ExecutionContext context, String tableName) throws ExecutorException;
 
   /**
    * @param context   The ExecutionContext at the time of the call.
    * @param statement statement to execute
    * @return The query result.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public QueryResult executeQuery(ExecutionContext context, String statement);
+  QueryResult executeQuery(ExecutionContext context, String statement) throws ExecutorException;
 
 
   /**
    * @return how many rows available for reading.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public int getRowCount();
+  int getRowCount() throws ExecutorException;
 
   /**
    * Row starts at 0. Executor shall keep the data retrieved.
@@ -103,8 +110,9 @@ public interface SqlExecutor {
    * @param startRow Start row index (inclusive)
    * @param endRow   End row index (inclusive)
    * @return A list of row data represented by a String array.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public List<String[]> retrieveQueryResult(ExecutionContext context, int startRow, int endRow);
+  List<String[]> retrieveQueryResult(ExecutionContext context, int startRow, int endRow) throws ExecutorException;
 
 
   /**
@@ -115,8 +123,9 @@ public interface SqlExecutor {
    * @param startRow Start row index (inclusive)
    * @param endRow   End row index (inclusive)
    * @return available data between startRow and endRow (both are inclusive)
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public List<String[]> consumeQueryResult(ExecutionContext context, int startRow, int endRow);
+  List<String[]> consumeQueryResult(ExecutionContext context, int startRow, int endRow) throws ExecutorException;
 
   /**
    * Executes all the NON-QUERY statements in the sqlFile.
@@ -125,22 +134,24 @@ public interface SqlExecutor {
    * @param context The ExecutionContext at the time of the call.
    * @param file    A File object to read statements from.
    * @return Execution result.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public NonQueryResult executeNonQuery(ExecutionContext context, File file);
+  NonQueryResult executeNonQuery(ExecutionContext context, File file) throws ExecutorException;
 
   /**
    * @param context    The ExecutionContext at the time of the call.
    * @param statements A list of non-query sql statements.
    * @return Execution result.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public NonQueryResult executeNonQuery(ExecutionContext context, List<String> statements);
+  NonQueryResult executeNonQuery(ExecutionContext context, List<String> statements) throws ExecutorException;
 
   /**
    * @param context The ExecutionContext at the time of the call.
    * @param exeId   Execution ID.
-   * @return Whether the operation suceeded or not.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public boolean stopExecution(ExecutionContext context, int exeId);
+  void stopExecution(ExecutionContext context, int exeId) throws ExecutorException;
 
 
   /**
@@ -148,24 +159,28 @@ public interface SqlExecutor {
    *
    * @param context The ExecutionContext at the time of the call
    * @param exeId   Execution ID.
-   * @return Whether the operation succeeded or not.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public boolean removeExecution(ExecutionContext context, int exeId);
+  void removeExecution(ExecutionContext context, int exeId) throws ExecutorException;
 
   /**
    * @param execId Execution ID.
    * @return ExecutionStatus.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  public ExecutionStatus queryExecutionStatus(int execId);
-
-  /**
-   * @return The last error message of last function call.
-   */
-  public String getErrorMsg();
+  ExecutionStatus queryExecutionStatus(int execId) throws ExecutorException;
 
   /**
    * @param context The ExecutionContext at the time of the call.
    * @return A list of SqlFunction.
+   * @throws ExecutorException if the Executor encounters an error.
    */
-  List<SqlFunction> listFunctions(ExecutionContext context);
+  List<SqlFunction> listFunctions(ExecutionContext context) throws ExecutorException;
+
+  /**
+   * Gets the version of this executor.
+   * @return A String representing the version of the executor. This function does NOT throw an
+   * ExecutorException as the caller has nothing to do to "recover" if the function fails.
+   */
+  String getVersion();
 }

@@ -27,7 +27,7 @@ This tutorial demonstrates a simple wikipedia application created with the High 
 Check out the hello-samza project:
 
 {% highlight bash %}
-git clone https://git.apache.org/samza-hello-samza.git hello-samza
+git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 cd hello-samza
 git checkout latest
 {% endhighlight %}
@@ -63,7 +63,7 @@ Then, you can continue w/ the following command in hello-samza project:
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-1.0.1-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-1.2.0-SNAPSHOT-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 ### Run a Samza Application
@@ -78,7 +78,7 @@ The app will do all of the following:
 
 1. Consume 3 feeds of real-time edits from Wikipedia
 3. Parse the events to extract information about the size of the edit, who made the change, etc.
-4. Calculate counts, every ten seconds, for all edits that were made during that window 
+4. Calculate counts, every ten seconds, for all edits that were made during that window
 5. Output the counts to the wikipedia-stats topic
 
 For details about how the app works, take a look at the [code walkthrough](hello-samza-high-level-code.html).

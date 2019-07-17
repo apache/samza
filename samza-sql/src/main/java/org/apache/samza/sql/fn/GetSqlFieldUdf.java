@@ -23,7 +23,11 @@ import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang.Validate;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.SamzaSqlRelRecord;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
+import org.apache.samza.sql.udfs.SamzaSqlUdf;
+import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.apache.samza.sql.udfs.ScalarUdf;
 
 
@@ -49,21 +53,21 @@ import org.apache.samza.sql.udfs.ScalarUdf;
  *           - sessionKey (Scalar)
  *
  */
-public class GetSqlFieldUdf implements ScalarUdf<String> {
+@SamzaSqlUdf(name = "GetSqlField", description = "Get an element from complex Sql field as a String.")
+public class GetSqlFieldUdf implements ScalarUdf {
   @Override
-  public void init(Config udfConfig) {
+  public void init(Config udfConfig, Context context) {
   }
 
-  @Override
-  public String execute(Object... args) {
-    Object currentFieldOrValue = args[0];
+  @SamzaSqlUdfMethod(params = {SamzaSqlFieldType.ANY, SamzaSqlFieldType.STRING})
+  public String execute(Object field, String fieldName) {
+    Object currentFieldOrValue = field;
     Validate.isTrue(currentFieldOrValue == null
         || currentFieldOrValue instanceof SamzaSqlRelRecord);
-    if (currentFieldOrValue != null && args.length > 1) {
-      String[] fieldNameChain = ((String) args[1]).split("\\.");
-      for (int i = 0; i < fieldNameChain.length && currentFieldOrValue != null; i++) {
-        currentFieldOrValue = extractField(fieldNameChain[i], currentFieldOrValue);
-      }
+
+    String[] fieldNameChain = fieldName.split("\\.");
+    for (int i = 0; i < fieldNameChain.length && currentFieldOrValue != null; i++) {
+      currentFieldOrValue = extractField(fieldNameChain[i], currentFieldOrValue);
     }
 
     if (currentFieldOrValue != null) {

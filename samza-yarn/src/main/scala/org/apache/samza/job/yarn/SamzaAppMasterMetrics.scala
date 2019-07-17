@@ -20,8 +20,7 @@
 package org.apache.samza.job.yarn
 
 import org.apache.samza.clustermanager.SamzaApplicationState
-import org.apache.samza.config.Config
-import org.apache.samza.config.MetricsConfig.Config2Metrics
+import org.apache.samza.config.{Config, MetricsConfig}
 import org.apache.samza.util.Logging
 import org.apache.samza.util.MetricsReporterLoader
 import org.apache.samza.metrics.ReadableMetricsRegistry
@@ -38,21 +37,23 @@ object SamzaAppMasterMetrics {
  * registry, we might as well use it. This class takes Samza's application
  * master state, and converts it to metrics.
  */
-class SamzaAppMasterMetrics(
-                             val config: Config,
-                             val state: SamzaApplicationState,
-                             val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
+class SamzaAppMasterMetrics(val config: Config,
+  val state: SamzaApplicationState,
+  val registry: ReadableMetricsRegistry,
+  val classLoader: ClassLoader) extends MetricsHelper with Logging {
 
-  val reporters = MetricsReporterLoader.getMetricsReporters(config, SamzaAppMasterMetrics.sourceName).asScala
+  private val metricsConfig = new MetricsConfig(config)
+  val reporters =
+    MetricsReporterLoader.getMetricsReporters(metricsConfig, SamzaAppMasterMetrics.sourceName, classLoader).asScala
   reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
   def start() {
-    val mRunningContainers = newGauge("running-containers", () => state.runningContainers.size)
-    val mNeededContainers = newGauge("needed-containers", () => state.neededContainers.get())
-    val mCompletedContainers = newGauge("completed-containers", () => state.completedContainers.get())
+    val mRunningContainers = newGauge("running-containers", () => state.runningProcessors.size)
+    val mNeededContainers = newGauge("needed-containers", () => state.neededProcessors.get())
+    val mCompletedContainers = newGauge("completed-containers", () => state.completedProcessors.get())
     val mFailedContainers = newGauge("failed-containers", () => state.failedContainers.get())
     val mReleasedContainers = newGauge("released-containers", () => state.releasedContainers.get())
-    val mContainers = newGauge("container-count", () => state.containerCount)
+    val mContainers = newGauge("container-count", () => state.processorCount.get())
     val mJobHealthy = newGauge("job-healthy", () => if (state.jobHealthy.get()) 1 else 0)
 
     reporters.values.foreach(_.start)

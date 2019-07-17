@@ -29,7 +29,7 @@ import static org.junit.Assert.assertTrue;
 public class TestContainerRequestState {
 
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback);
+  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, new SamzaApplicationState(null));
 
   private static final String ANY_HOST = ResourceRequestState.ANY_HOST;
 
@@ -48,9 +48,9 @@ public class TestContainerRequestState {
 
     assertNotNull(state.numPendingRequests() == 1);
 
-    assertNotNull(state.getRequestsToCountMap());
-    assertNotNull(state.getRequestsToCountMap().get("abc"));
-    assertEquals(1, state.getRequestsToCountMap().get("abc").get());
+    assertNotNull(state.getHostRequestCounts());
+    assertNotNull(state.getHostRequestCounts().get("abc"));
+    assertEquals(1, state.getHostRequestCounts().get("abc").get());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(0, state.getResourcesOnAHost("abc").size());
@@ -66,8 +66,8 @@ public class TestContainerRequestState {
 
     assertTrue(state1.numPendingRequests() == 1);
 
-    assertNotNull(state1.getRequestsToCountMap());
-    assertNull(state1.getRequestsToCountMap().get(ANY_HOST));
+    assertNotNull(state1.getHostRequestCounts());
+    assertNull(state1.getHostRequestCounts().get(ANY_HOST));
 
   }
 
@@ -82,7 +82,7 @@ public class TestContainerRequestState {
 
     state.addResource(resource);
 
-    assertNotNull(state.getRequestsToCountMap());
+    assertNotNull(state.getHostRequestCounts());
     assertNotNull(state.getResourcesOnAHost(ANY_HOST));
 
     assertEquals(1, state.getResourcesOnAHost(ANY_HOST).size());
@@ -105,9 +105,9 @@ public class TestContainerRequestState {
 
     assertEquals(1, state1.numPendingRequests());
 
-    assertNotNull(state1.getRequestsToCountMap());
-    assertNotNull(state1.getRequestsToCountMap().get("abc"));
-    assertEquals(1, state1.getRequestsToCountMap().get("abc").get());
+    assertNotNull(state1.getHostRequestCounts());
+    assertNotNull(state1.getHostRequestCounts().get("abc"));
+    assertEquals(1, state1.getHostRequestCounts().get("abc").get());
 
     state1.addResource(resource);
 
@@ -156,7 +156,7 @@ public class TestContainerRequestState {
     state.addResource(container1);
 
     assertEquals(2, state.numPendingRequests());
-    assertEquals(2, state.getRequestsToCountMap().size());
+    assertEquals(2, state.getHostRequestCounts().size());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(1, state.getResourcesOnAHost("abc").size());
@@ -174,8 +174,8 @@ public class TestContainerRequestState {
 
     assertEquals(request1, state.peekPendingRequest());
 
-    assertNotNull(state.getRequestsToCountMap().get("abc"));
-    assertEquals(0, state.getRequestsToCountMap().get("abc").get());
+    assertNotNull(state.getHostRequestCounts().get("abc"));
+    assertEquals(0, state.getHostRequestCounts().get("abc").get());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(0, state.getResourcesOnAHost("abc").size());
@@ -185,12 +185,36 @@ public class TestContainerRequestState {
 
     assertEquals(0, state.numPendingRequests());
 
-    assertNotNull(state.getRequestsToCountMap().get("def"));
-    assertEquals(0, state.getRequestsToCountMap().get("def").get());
+    assertNotNull(state.getHostRequestCounts().get("def"));
+    assertEquals(0, state.getHostRequestCounts().get("def").get());
 
     assertNotNull(state.getResourcesOnAHost(ANY_HOST));
     assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());
 
   }
 
+  @Test
+  public void testReleaseResource() {
+    // Host-affinity is enabled
+    ResourceRequestState state = new ResourceRequestState(true, manager);
+
+    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0");
+    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", "0");
+    state.addResourceRequest(request);
+    state.addResourceRequest(request1);
+
+    SamzaResource container = new SamzaResource(1, 1024, "abc", "id0");
+    SamzaResource container1 = new SamzaResource(1, 1024, ANY_HOST, "id1");
+    state.addResource(container);
+    state.addResource(container1);
+
+    state.releaseResource("id0");
+    assertEquals(0, state.getResourcesOnAHost("abc").size());
+    assertEquals(1, state.getResourcesOnAHost(ANY_HOST).size());
+
+    state.releaseResource("id1");
+    assertEquals(0, state.getResourcesOnAHost("abc").size());
+    assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());
+
+  }
 }

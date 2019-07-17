@@ -19,10 +19,12 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.collect.ImmutableMap;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.LegacyTaskApplication;
@@ -31,48 +33,62 @@ import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.context.ExternalContext;
+import org.apache.samza.coordinator.ClusterMembership;
+import org.apache.samza.coordinator.CoordinationConstants;
+import org.apache.samza.coordinator.CoordinationUtils;
+import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.task.IdentityStreamTask;
+import org.apache.samza.zk.ZkMetadataStore;
+import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Matchers.*;
+import static org.mockito.Mockito.*;
 
 
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({LocalJobPlanner.class, LocalApplicationRunner.class, ZkMetadataStoreFactory.class})
 public class TestLocalApplicationRunner {
 
   private Config config;
   private SamzaApplication mockApp;
   private LocalApplicationRunner runner;
   private LocalJobPlanner localPlanner;
+  private CoordinationUtils coordinationUtils;
+  private ZkMetadataStore metadataStore;
+  private ClusterMembership clusterMembership;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     config = new MapConfig();
     mockApp = mock(StreamApplication.class);
     prepareTest();
   }
 
   @Test
-  public void testRunStreamTask()
-      throws Exception {
+  public void testRunStreamTask() throws Exception {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
-    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    cfgs.put(ApplicationConfig.APP_NAME, "test-app");
+    cfgs.put(ApplicationConfig.APP_ID, "test-appId");
     config = new MapConfig(cfgs);
     mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
     prepareTest();
@@ -90,7 +106,40 @@ public class TestLocalApplicationRunner {
         return null;
       }).when(sp).start();
 
-    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    ExternalContext externalContext = mock(ExternalContext.class);
+    doReturn(sp).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)));
+    doReturn(ApplicationStatus.SuccessfulFinish).when(runner).status();
+
+    runner.run(externalContext);
+
+    assertEquals(ApplicationStatus.SuccessfulFinish, runner.status());
+  }
+
+  @Test
+  public void testRunStreamTaskWithoutExternalContext() throws Exception {
+    final Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    cfgs.put(ApplicationConfig.APP_NAME, "test-app");
+    cfgs.put(ApplicationConfig.APP_ID, "test-appId");
+    config = new MapConfig(cfgs);
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+    prepareTest();
+
+    StreamProcessor sp = mock(StreamProcessor.class);
+
+    ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
+
+    doAnswer(i ->
+      {
+        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+        listener.afterStart();
+        listener.afterStop();
+        return null;
+      }).when(sp).start();
+
+    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.empty()));
     doReturn(ApplicationStatus.SuccessfulFinish).when(runner).status();
 
     runner.run();
@@ -99,8 +148,7 @@ public class TestLocalApplicationRunner {
   }
 
   @Test
-  public void testRunComplete()
-      throws Exception {
+  public void testRunComplete() throws Exception {
     Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     config = new MapConfig(cfgs);
@@ -125,17 +173,18 @@ public class TestLocalApplicationRunner {
         return null;
       }).when(sp).start();
 
-    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    ExternalContext externalContext = mock(ExternalContext.class);
+    doReturn(sp).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)));
 
-    runner.run();
+    runner.run(externalContext);
     runner.waitForFinish();
 
     assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
 
   @Test
-  public void testRunFailure()
-      throws Exception {
+  public void testRunFailure() throws Exception {
     Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.PROCESSOR_ID, "0");
     config = new MapConfig(cfgs);
@@ -157,10 +206,12 @@ public class TestLocalApplicationRunner {
         throw new Exception("test failure");
       }).when(sp).start();
 
-    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), captor.capture());
+    ExternalContext externalContext = mock(ExternalContext.class);
+    doReturn(sp).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)));
 
     try {
-      runner.run();
+      runner.run(externalContext);
       runner.waitForFinish();
     } catch (Throwable th) {
       assertNotNull(th);
@@ -185,11 +236,122 @@ public class TestLocalApplicationRunner {
     assertFalse("Application finished before the timeout.", finished);
   }
 
-  private void prepareTest() {
+  @Test
+  public void testCreateProcessorIdShouldReturnProcessorIdDefinedInConfiguration() {
+    String processorId = "testProcessorId";
+    MapConfig configMap = new MapConfig(ImmutableMap.of(ApplicationConfig.PROCESSOR_ID, processorId));
+    String actualProcessorId =
+        LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap), getClass().getClassLoader());
+    assertEquals(processorId, actualProcessorId);
+  }
+
+  @Test
+  public void testCreateProcessorIdShouldInvokeProcessorIdGeneratorDefinedInConfiguration() {
+    String processorId = "testProcessorId";
+    MapConfig configMap = new MapConfig(ImmutableMap.of(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, MockProcessorIdGenerator.class.getCanonicalName()));
+    String actualProcessorId =
+        LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap), getClass().getClassLoader());
+    assertEquals(processorId, actualProcessorId);
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testCreateProcessorIdShouldThrowExceptionWhenProcessorIdAndGeneratorAreNotDefined() {
+    ApplicationConfig mockConfig = Mockito.mock(ApplicationConfig.class);
+    Mockito.when(mockConfig.getProcessorId()).thenReturn(null);
+    LocalApplicationRunner.createProcessorId(mockConfig, getClass().getClassLoader());
+  }
+
+  private void prepareTest() throws Exception {
+    CoordinationUtils coordinationUtils = mock(CoordinationUtils.class);
+
+    DistributedLock distributedLock = mock(DistributedLock.class);
+    when(distributedLock.lock(anyObject())).thenReturn(true);
+    when(coordinationUtils.getLock(anyString())).thenReturn(distributedLock);
+
+    ZkMetadataStore zkMetadataStore = mock(ZkMetadataStore.class);
+    when(zkMetadataStore.get(any())).thenReturn(null);
+    PowerMockito.whenNew(ZkMetadataStore.class).withAnyArguments().thenReturn(zkMetadataStore);
+
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
-    localPlanner = spy(new LocalJobPlanner(appDesc));
-    runner = spy(new LocalApplicationRunner(appDesc, localPlanner));
+    localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
+    runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
+    doReturn(localPlanner).when(runner).getPlanner(getClass().getClassLoader());
+  }
+
+  /**
+   * For app.mode=BATCH ensure that the run.id generation utils --
+   * DistributedLock, ClusterMembership and MetadataStore are created.
+   * Also ensure that metadataStore.put is invoked (to write the run.id)
+   * @throws Exception
+   */
+  @Test
+  public void testRunIdForBatch() throws Exception {
+    final Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_MODE, "BATCH");
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
+    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    config = new MapConfig(cfgs);
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+
+    prepareTestForRunId();
+    runner.run();
+
+    verify(coordinationUtils, Mockito.times(1)).getLock(CoordinationConstants.RUNID_LOCK_ID);
+    verify(clusterMembership, Mockito.times(1)).getNumberOfProcessors();
+    verify(metadataStore, Mockito.times(1)).put(eq(CoordinationConstants.RUNID_STORE_KEY), any(byte[].class));
+  }
+
+  /**
+   * For app.mode=STREAM ensure that the run.id generation utils --
+   * DistributedLock, ClusterMembership and MetadataStore are NOT created.
+   * Also ensure that metadataStore.put is NOT invoked
+   * @throws Exception
+   */
+  @Test
+  public void testRunIdForStream() throws Exception {
+    final Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_MODE, "STREAM");
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
+    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    config = new MapConfig(cfgs);
+    mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
+
+    prepareTestForRunId();
+
+    runner.run();
+
+
+    verify(coordinationUtils, Mockito.times(0)).getLock(CoordinationConstants.RUNID_LOCK_ID);
+    verify(coordinationUtils, Mockito.times(0)).getClusterMembership();
+    verify(clusterMembership, Mockito.times(0)).getNumberOfProcessors();
+    verify(metadataStore, Mockito.times(0)).put(eq(CoordinationConstants.RUNID_STORE_KEY), any(byte[].class));
+  }
+
+  private void prepareTestForRunId() throws Exception {
+    coordinationUtils = mock(CoordinationUtils.class);
+
+    DistributedLock lock = mock(DistributedLock.class);
+    when(lock.lock(anyObject())).thenReturn(true);
+    when(coordinationUtils.getLock(anyString())).thenReturn(lock);
+
+    clusterMembership = mock(ClusterMembership.class);
+    when(clusterMembership.getNumberOfProcessors()).thenReturn(1);
+    when(coordinationUtils.getClusterMembership()).thenReturn(clusterMembership);
+
+    metadataStore = mock(ZkMetadataStore.class);
+    when(metadataStore.get(any())).thenReturn(null);
+    PowerMockito.whenNew(ZkMetadataStore.class).withAnyArguments().thenReturn(metadataStore);
+
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
+        ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
+    runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
+    localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
+    doReturn(localPlanner).when(runner).getPlanner(getClass().getClassLoader());
+    StreamProcessor sp = mock(StreamProcessor.class);
+    doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), anyObject());
   }
 
 }

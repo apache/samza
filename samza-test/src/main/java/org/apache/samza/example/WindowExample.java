@@ -23,6 +23,7 @@ import java.time.Duration;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
+import org.apache.samza.example.models.PageViewEvent;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.FoldLeftFunction;
@@ -79,15 +80,5 @@ public class WindowExample implements StreamApplication {
                 Triggers.timeSinceLastMessage(Duration.ofMinutes(1)))), "window")
         .map(WindowPane::getMessage)
         .sendTo(outputStream);
-  }
-
-  class PageViewEvent {
-    String key;
-    long timestamp;
-
-    public PageViewEvent(String key, long timestamp) {
-      this.key = key;
-      this.timestamp = timestamp;
-    }
   }
 }

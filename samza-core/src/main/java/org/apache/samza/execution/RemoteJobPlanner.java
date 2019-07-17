@@ -75,7 +75,7 @@ public class RemoteJobPlanner extends JobPlanner {
       // create the StreamManager to create intermediate streams in the plan
       streamManager = buildAndStartStreamManager(jobConfig);
       if (plan.getApplicationConfig().getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun());
+        streamManager.clearStreamsFromPreviousRun(getConfigFromPrevRun(), getClass().getClassLoader());
       }
       streamManager.createStreams(plan.getIntermediateStreams());
     } finally {

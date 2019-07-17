@@ -20,6 +20,7 @@ package org.apache.samza.zk;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
+import java.util.Random;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -37,6 +38,10 @@ import org.junit.Test;
 public class TestZkMetadataStore {
 
   private static final String LOCALHOST = "127.0.0.1";
+
+  private static final Random RANDOM = new Random();
+
+  private static final int VALUE_SIZE_IN_BYTES = 1024  * 1024 * 10; // 10 MB
 
   private static EmbeddedZookeeper zkServer;
 
@@ -57,7 +62,7 @@ public class TestZkMetadataStore {
   public void beforeTest() {
     String testZkConnectionString = String.format("%s:%s", LOCALHOST, zkServer.getPort());
     Config zkConfig = new MapConfig(ImmutableMap.of(ZkConfig.ZK_CONNECT, testZkConnectionString));
-    zkMetadataStore = new ZkMetadataStoreFactory().getMetadataStore(String.format("/%s", RandomStringUtils.randomAlphabetic(5)), zkConfig, new MetricsRegistryMap());
+    zkMetadataStore = new ZkMetadataStoreFactory().getMetadataStore(String.format("%s", RandomStringUtils.randomAlphabetic(5)), zkConfig, new MetricsRegistryMap());
   }
 
   @After
@@ -67,8 +72,8 @@ public class TestZkMetadataStore {
 
   @Test
   public void testReadAfterWrite() throws Exception {
-    byte[] key = "test-key1".getBytes("UTF-8");
-    byte[] value = "test-value1".getBytes("UTF-8");
+    String key = "test-key1";
+    byte[] value = getRandomByteArray(VALUE_SIZE_IN_BYTES);
     Assert.assertNull(zkMetadataStore.get(key));
     zkMetadataStore.put(key, value);
     Assert.assertTrue(Arrays.equals(value, zkMetadataStore.get(key)));
@@ -77,8 +82,8 @@ public class TestZkMetadataStore {
 
   @Test
   public void testReadAfterDelete() throws Exception {
-    byte[] key = "test-key1".getBytes("UTF-8");
-    byte[] value = "test-value1".getBytes("UTF-8");
+    String key = "test-key1";
+    byte[] value = getRandomByteArray(VALUE_SIZE_IN_BYTES);
     Assert.assertNull(zkMetadataStore.get(key));
     zkMetadataStore.put(key, value);
     Assert.assertTrue(Arrays.equals(value, zkMetadataStore.get(key)));
@@ -88,16 +93,16 @@ public class TestZkMetadataStore {
   }
 
   @Test
-  public void testReadOfNonExistentKey() throws Exception {
-    Assert.assertNull(zkMetadataStore.get("randomKey".getBytes("UTF-8")));
+  public void testReadOfNonExistentKey() {
+    Assert.assertNull(zkMetadataStore.get("randomKey"));
     Assert.assertEquals(0, zkMetadataStore.all().size());
   }
 
   @Test
   public void testMultipleUpdatesForSameKey() throws Exception {
-    byte[] key = "test-key1".getBytes("UTF-8");
-    byte[] value = "test-value1".getBytes("UTF-8");
-    byte[] value1 = "test-value2".getBytes("UTF-8");
+    String key = "test-key1";
+    byte[] value = getRandomByteArray(VALUE_SIZE_IN_BYTES);
+    byte[] value1 = getRandomByteArray(VALUE_SIZE_IN_BYTES);
     zkMetadataStore.put(key, value);
     zkMetadataStore.put(key, value1);
     Assert.assertTrue(Arrays.equals(value1, zkMetadataStore.get(key)));
@@ -106,16 +111,22 @@ public class TestZkMetadataStore {
 
   @Test
   public void testAllEntries() throws Exception {
-    byte[] key = "test-key1".getBytes("UTF-8");
-    byte[] key1 = "test-key2".getBytes("UTF-8");
-    byte[] key2 = "test-key3".getBytes("UTF-8");
-    byte[] value = "test-value1".getBytes("UTF-8");
-    byte[] value1 = "test-value2".getBytes("UTF-8");
-    byte[] value2 = "test-value3".getBytes("UTF-8");
+    String key = "test-key1";
+    String key1 = "test-key2";
+    String key2 = "test-key3";
+    byte[] value = getRandomByteArray(VALUE_SIZE_IN_BYTES);
+    byte[] value1 = getRandomByteArray(VALUE_SIZE_IN_BYTES);
+    byte[] value2 = getRandomByteArray(VALUE_SIZE_IN_BYTES);
     zkMetadataStore.put(key, value);
     zkMetadataStore.put(key1, value1);
     zkMetadataStore.put(key2, value2);
-    ImmutableMap<byte[], byte[]> expected = ImmutableMap.of(key, value, key1, value1, key2, value2);
+    ImmutableMap<String, byte[]> expected = ImmutableMap.of(key, value, key1, value1, key2, value2);
     Assert.assertEquals(expected.size(), zkMetadataStore.all().size());
+  }
+
+  private static byte[] getRandomByteArray(int numBytes) {
+    byte[] byteArray = new byte[numBytes];
+    RANDOM.nextBytes(byteArray);
+    return byteArray;
   }
 }

@@ -36,10 +36,13 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
+import org.apache.samza.sql.util.TestMetricsRegistryImpl;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
@@ -91,8 +94,10 @@ public class TestJoinTranslator extends TranslatorTestBase {
 
   private void testTranslateStreamToTableJoin(boolean isRemoteTable) throws IOException, ClassNotFoundException {
     // setup mock values to the constructor of JoinTranslator
+    final String logicalOpId = "sql0_join3";
+    final int queryId = 0;
     LogicalJoin mockJoin = PowerMockito.mock(LogicalJoin.class);
-    TranslatorContext mockContext = mock(TranslatorContext.class);
+    TranslatorContext mockTranslatorContext = mock(TranslatorContext.class);
     RelNode mockLeftInput = PowerMockito.mock(EnumerableTableScan.class);
     RelNode mockRightInput = mock(RelNode.class);
     List<RelNode> inputs = new ArrayList<>();
@@ -148,20 +153,20 @@ public class TestJoinTranslator extends TranslatorTestBase {
     StreamApplicationDescriptorImpl mockAppDesc = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockLeftInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockLeftInputStream = new MessageStreamImpl<>(mockAppDesc, mockLeftInputOp);
-    when(mockContext.getMessageStream(eq(mockLeftInput.getId()))).thenReturn(mockLeftInputStream);
+    when(mockTranslatorContext.getMessageStream(eq(mockLeftInput.getId()))).thenReturn(mockLeftInputStream);
     OperatorSpec<Object, SamzaSqlRelMessage> mockRightInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockRightInputStream = new MessageStreamImpl<>(mockAppDesc, mockRightInputOp);
-    when(mockContext.getMessageStream(eq(mockRightInput.getId()))).thenReturn(mockRightInputStream);
-    when(mockContext.getStreamAppDescriptor()).thenReturn(mockAppDesc);
+    when(mockTranslatorContext.getMessageStream(eq(mockRightInput.getId()))).thenReturn(mockRightInputStream);
+    when(mockTranslatorContext.getStreamAppDescriptor()).thenReturn(mockAppDesc);
 
     InputOperatorSpec mockInputOp = mock(InputOperatorSpec.class);
     OutputStreamImpl mockOutputStream = mock(OutputStreamImpl.class);
     when(mockInputOp.isKeyed()).thenReturn(true);
     when(mockOutputStream.isKeyed()).thenReturn(true);
 
-    doAnswer(this.getRegisterMessageStreamAnswer()).when(mockContext).registerMessageStream(eq(3), any(MessageStream.class));
+    doAnswer(this.getRegisterMessageStreamAnswer()).when(mockTranslatorContext).registerMessageStream(eq(3), any(MessageStream.class));
     RexToJavaCompiler mockCompiler = mock(RexToJavaCompiler.class);
-    when(mockContext.getExpressionCompiler()).thenReturn(mockCompiler);
+    when(mockTranslatorContext.getExpressionCompiler()).thenReturn(mockCompiler);
     Expression mockExpr = mock(Expression.class);
     when(mockCompiler.compile(any(), any())).thenReturn(mockExpr);
 
@@ -176,7 +181,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(mockJoin.getJoinType()).thenReturn(JoinRelType.INNER);
 
     SamzaSqlExecutionContext mockExecutionContext = mock(SamzaSqlExecutionContext.class);
-    when(mockContext.getExecutionContext()).thenReturn(mockExecutionContext);
+    when(mockTranslatorContext.getExecutionContext()).thenReturn(mockExecutionContext);
 
     SamzaSqlApplicationConfig mockAppConfig = mock(SamzaSqlApplicationConfig.class);
     when(mockExecutionContext.getSamzaSqlApplicationConfig()).thenReturn(mockAppConfig);
@@ -194,13 +199,32 @@ public class TestJoinTranslator extends TranslatorTestBase {
     when(ssConfigBySource.get(String.join(".", qualifiedTableName))).thenReturn(mockIOConfig);
     when(mockIOConfig.getTableDescriptor()).thenReturn(Optional.of(mockTableDesc));
 
+    JoinTranslator joinTranslator = new JoinTranslator(logicalOpId, "", queryId);
+
+    // Verify Metrics Works with Join
+    Context mockContext = mock(Context.class);
+    ContainerContext mockContainerContext = mock(ContainerContext.class);
+    TestMetricsRegistryImpl testMetricsRegistryImpl = new TestMetricsRegistryImpl();
+    when(mockContext.getContainerContext()).thenReturn(mockContainerContext);
+    when(mockContainerContext.getContainerMetricsRegistry()).thenReturn(testMetricsRegistryImpl);
+    TranslatorInputMetricsMapFunction inputMetricsMF = joinTranslator.getInputMetricsMF();
+    assertNotNull(inputMetricsMF);
+    inputMetricsMF.init(mockContext);
+    TranslatorOutputMetricsMapFunction outputMetricsMF = joinTranslator.getOutputMetricsMF();
+    assertNotNull(outputMetricsMF);
+    outputMetricsMF.init(mockContext);
+    assertEquals(1, testMetricsRegistryImpl.getCounters().size());
+    assertEquals(2, testMetricsRegistryImpl.getCounters().get(logicalOpId).size());
+    assertEquals(0, testMetricsRegistryImpl.getCounters().get(logicalOpId).get(0).getCount());
+    assertEquals(0, testMetricsRegistryImpl.getCounters().get(logicalOpId).get(1).getCount());
+    assertEquals(1, testMetricsRegistryImpl.getGauges().size());
+
     // Apply translate() method to verify that we are getting the correct map operator constructed
-    JoinTranslator joinTranslator = new JoinTranslator("sql0_join3", "", 0);
-    joinTranslator.translate(mockJoin, mockContext);
+    joinTranslator.translate(mockJoin, mockTranslatorContext);
     // make sure that context has been registered with LogicFilter and output message streams
-    verify(mockContext, times(1)).registerMessageStream(3, this.getRegisteredMessageStream(3));
-    when(mockContext.getRelNode(3)).thenReturn(mockJoin);
-    when(mockContext.getMessageStream(3)).thenReturn(this.getRegisteredMessageStream(3));
+    verify(mockTranslatorContext, times(1)).registerMessageStream(3, this.getRegisteredMessageStream(3));
+    when(mockTranslatorContext.getRelNode(3)).thenReturn(mockJoin);
+    when(mockTranslatorContext.getMessageStream(3)).thenReturn(this.getRegisteredMessageStream(3));
     StreamTableJoinOperatorSpec
         joinSpec = (StreamTableJoinOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(3), "operatorSpec");
     assertNotNull(joinSpec);
@@ -209,6 +233,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     // Verify joinSpec has the corresponding setup
     StreamTableJoinFunction joinFn = joinSpec.getJoinFn();
     assertNotNull(joinFn);
+
     if (isRemoteTable) {
       assertTrue(joinFn instanceof SamzaSqlRemoteTableJoinFunction);
     } else {

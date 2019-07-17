@@ -19,7 +19,9 @@
 package org.apache.samza.execution;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
@@ -28,7 +30,6 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.storage.SideInputsProcessor;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
@@ -73,7 +74,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     Config expectedJobConfig = getExpectedJobConfig(mockConfig, mockJobNode.getInEdges());
     validateJobConfig(expectedJobConfig, jobConfig);
     // additional, check the computed window.ms for join
-    assertEquals("3600000", jobConfig.get(TaskConfig.WINDOW_MS()));
+    assertEquals("3600000", jobConfig.get(TaskConfig.WINDOW_MS));
     Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 5);
     validateStreamConfigures(jobConfig, deserializedSerdes);
     validateJoinStoreConfigures(jobConfig, deserializedSerdes);
@@ -236,6 +237,24 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     assertEquals("rewritten-system", jobConfig.get(streamCfgToOverride));
   }
 
+  @Test(expected = SamzaException.class)
+  public void testJobNameConfigValidation() {
+    ImmutableMap<String, String> userConfigs =
+        ImmutableMap.of("job.name", "samza-job", "job.id", "1", "app.name", "samza-app");
+    ImmutableMap<String, String> generatedConfigs =
+        ImmutableMap.of("job.name", "samza-app", "job.id", "1", "app.name", "samza-app");
+    JobNodeConfigurationGenerator.validateJobConfigs(userConfigs, generatedConfigs);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testJobIdConfigValidation() {
+    ImmutableMap<String, String> userConfigs =
+        ImmutableMap.of("job.id", "1", "app.id", "this-should-take-precedence", "app.name", "samza-app");
+    ImmutableMap<String, String> generatedConfigs =
+        ImmutableMap.of("job.name", "samza-app", "job.id", "this-should-take-precedence", "app.name", "samza-app");
+    JobNodeConfigurationGenerator.validateJobConfigs(userConfigs, generatedConfigs);
+  }
+
   private void validateTableConfigure(JobConfig jobConfig, Map<String, Serde> deserializedSerdes,
       TableDescriptor tableDescriptor) {
     Config tableConfig = jobConfig.subset(String.format("tables.%s.", tableDescriptor.getTableId()));
@@ -256,10 +275,10 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
       }
     }
     if (!inputs.isEmpty()) {
-      configMap.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+      configMap.put(TaskConfig.INPUT_STREAMS, Joiner.on(',').join(inputs));
     }
     if (!broadcasts.isEmpty()) {
-      configMap.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcasts));
+      configMap.put(TaskConfig.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcasts));
     }
     return new MapConfig(configMap);
   }
@@ -270,7 +289,7 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     SerializableSerde<Serde> serializableSerde = new SerializableSerde<>();
     assertEquals(numSerdes, serializers.size());
     return serializers.entrySet().stream().collect(Collectors.toMap(
-        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX(), ""),
+        e -> e.getKey().replace(SerializerConfig.SERIALIZED_INSTANCE_SUFFIX, ""),
         e -> serializableSerde.fromBytes(Base64.getDecoder().decode(e.getValue().getBytes()))
     ));
   }
@@ -279,8 +298,8 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     assertEquals(expectedConfig.get(JobConfig.JOB_NAME()), jobConfig.getName().get());
     assertEquals(expectedConfig.get(JobConfig.JOB_ID()), jobConfig.getJobId());
     assertEquals("testJobGraphJson", jobConfig.get(JobNodeConfigurationGenerator.CONFIG_INTERNAL_EXECUTION_PLAN));
-    assertEquals(expectedConfig.get(TaskConfig.INPUT_STREAMS()), jobConfig.get(TaskConfig.INPUT_STREAMS()));
-    assertEquals(expectedConfig.get(TaskConfigJava.BROADCAST_INPUT_STREAMS), jobConfig.get(TaskConfigJava.BROADCAST_INPUT_STREAMS));
+    assertEquals(expectedConfig.get(TaskConfig.INPUT_STREAMS), jobConfig.get(TaskConfig.INPUT_STREAMS));
+    assertEquals(expectedConfig.get(TaskConfig.BROADCAST_INPUT_STREAMS), jobConfig.get(TaskConfig.BROADCAST_INPUT_STREAMS));
   }
 
   private void validateStreamSerdeConfigure(String streamId, Config config, Map<String, Serde> deserializedSerdes) {
@@ -310,7 +329,6 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     assertEquals("true", intStreamConfig.get("samza.delete.committed.messages"));
     assertEquals(physicalName, intStreamConfig.get("samza.physical.name"));
     assertEquals("true", intStreamConfig.get("samza.intermediate"));
-    assertEquals("oldest", intStreamConfig.get("samza.offset.default"));
   }
 
   private void validateStreamConfigures(Config config, Map<String, Serde> deserializedSerdes) {

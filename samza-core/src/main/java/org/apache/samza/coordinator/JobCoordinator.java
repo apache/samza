@@ -70,6 +70,7 @@ public interface JobCoordinator {
    *
    * @return String representing a unique logical processor ID
    */
+  @Deprecated
   String getProcessorId();
 
   /**

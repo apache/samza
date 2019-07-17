@@ -21,10 +21,8 @@ package org.apache.samza.runtime;
 
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
-import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.util.CommandLine;
-import org.apache.samza.util.Util;
 
 
 /**
@@ -34,7 +32,7 @@ import org.apache.samza.util.Util;
 public class ApplicationRunnerMain {
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
-    public OptionSpec operationOpt =
+    public OptionSpec<String> operationOpt =
         parser().accepts("operation", "The operation to perform; run, status, kill.")
             .withRequiredArg()
             .ofType(String.class)
@@ -42,7 +40,7 @@ public class ApplicationRunnerMain {
             .defaultsTo("run");
 
     public ApplicationRunnerOperation getOperation(OptionSet options) {
-      String rawOp = options.valueOf(operationOpt).toString();
+      String rawOp = options.valueOf(operationOpt);
       return ApplicationRunnerOperation.fromString(rawOp);
     }
   }
@@ -51,24 +49,7 @@ public class ApplicationRunnerMain {
     ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
-    Config config = Util.rewriteConfig(orgConfig);
     ApplicationRunnerOperation op = cmdLine.getOperation(options);
-
-    ApplicationRunner appRunner =
-        ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
-
-    switch (op) {
-      case RUN:
-        appRunner.run();
-        break;
-      case KILL:
-        appRunner.kill();
-        break;
-      case STATUS:
-        System.out.println(appRunner.status());
-        break;
-      default:
-        throw new IllegalArgumentException("Unrecognized operation: " + op);
-    }
+    ApplicationRunnerUtil.invoke(orgConfig, op);
   }
 }

@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -54,9 +55,9 @@ import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
-import org.apache.samza.sql.testutil.JsonUtil;
-import org.apache.samza.sql.testutil.ReflectionUtils;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.sql.util.JsonUtil;
+import org.apache.samza.sql.util.SamzaSqlQueryParser;
+import org.apache.samza.util.ReflectionUtil;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,6 +89,7 @@ public class SamzaSqlApplicationConfig {
 
   public static final String CFG_METADATA_TOPIC_PREFIX = "samza.sql.metadataTopicPrefix";
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
+  public static final String CFG_SQL_PROCESS_SYSTEM_EVENTS = "samza.sql.processSystemEvents";
 
   public static final String SAMZA_SYSTEM_LOG = "log";
 
@@ -106,23 +108,37 @@ public class SamzaSqlApplicationConfig {
 
   private final Map<String, SqlIOConfig> inputSystemStreamConfigBySource;
   private final Map<String, SqlIOConfig> outputSystemStreamConfigsBySource;
-  private final Map<String, SqlIOConfig> systemStreamConfigsBySource;
+
+  // There could only be one output system stream per samza sql statement. The below list datastructure stores the
+  // output system streams in the order of SQL query statements. Please note that there could be duplicate entries
+  // in it during a fan-in scenario (e.g. two sql statements with two different input streams but same output stream).
+  private final List<String> outputSystemStreams;
 
   private final String metadataTopicPrefix;
   private final long windowDurationMs;
+  private final boolean processSystemEvents;
 
-  public SamzaSqlApplicationConfig(Config staticConfig, Set<String> inputSystemStreams,
-      Set<String> outputSystemStreams) {
+  public SamzaSqlApplicationConfig(Config staticConfig, List<String> inputSystemStreams,
+      List<String> outputSystemStreams) {
 
     ioResolver = createIOResolver(staticConfig);
 
-    inputSystemStreamConfigBySource = inputSystemStreams.stream()
-         .collect(Collectors.toMap(Function.identity(), src -> ioResolver.fetchSourceInfo(src)));
+    this.outputSystemStreams = new LinkedList<>(outputSystemStreams);
 
-    outputSystemStreamConfigsBySource = outputSystemStreams.stream()
+    // There could be duplicate streams across different queries. Let's dedupe them.
+    Set<String> inputSystemStreamSet = new HashSet<>(inputSystemStreams);
+    Set<String> outputSystemStreamSet = new HashSet<>(outputSystemStreams);
+
+    // Let's get the output system stream configs before input system stream configs. This is to account for
+    // table descriptor that could be both input and output. Please note that there could be only one
+    // instance of table descriptor and writable table is a readable table but vice versa is not true.
+    outputSystemStreamConfigsBySource = outputSystemStreamSet.stream()
          .collect(Collectors.toMap(Function.identity(), x -> ioResolver.fetchSinkInfo(x)));
 
-    systemStreamConfigsBySource = new HashMap<>(inputSystemStreamConfigBySource);
+    inputSystemStreamConfigBySource = inputSystemStreamSet.stream()
+        .collect(Collectors.toMap(Function.identity(), src -> ioResolver.fetchSourceInfo(src)));
+
+    Map<String, SqlIOConfig> systemStreamConfigsBySource = new HashMap<>(inputSystemStreamConfigBySource);
     systemStreamConfigsBySource.putAll(outputSystemStreamConfigsBySource);
 
     Set<SqlIOConfig> systemStreamConfigs = new HashSet<>(systemStreamConfigsBySource.values());
@@ -140,7 +156,7 @@ public class SamzaSqlApplicationConfig {
                     relSchemaProvidersBySource.get(x.getSource()), c))));
 
     samzaRelTableKeyConvertersBySource = systemStreamConfigs.stream()
-        .filter(config -> config.isRemoteTable())
+        .filter(SqlIOConfig::isRemoteTable)
         .collect(Collectors.toMap(SqlIOConfig::getSource,
             x -> initializePlugin("SamzaRelTableKeyConverter", x.getSamzaRelTableKeyConverterName(),
                 staticConfig, CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN,
@@ -151,14 +167,9 @@ public class SamzaSqlApplicationConfig {
 
     metadataTopicPrefix =
         staticConfig.get(CFG_METADATA_TOPIC_PREFIX, DEFAULT_METADATA_TOPIC_PREFIX);
-    windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
 
-    // remove the SqlIOConfigs of outputs whose system is "log" out of systemStreamConfigsBySource
-    outputSystemStreamConfigsBySource.forEach((k, v) -> {
-        if (k.split("\\.")[0].equals(SamzaSqlApplicationConfig.SAMZA_SYSTEM_LOG)) {
-            systemStreamConfigsBySource.remove(k);
-        }
-    });
+    processSystemEvents = staticConfig.getBoolean(CFG_SQL_PROCESS_SYSTEM_EVENTS, true);
+    windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
   }
 
   public static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
@@ -167,8 +178,7 @@ public class SamzaSqlApplicationConfig {
     Config pluginConfig = staticConfig.subset(pluginDomain);
     String factoryName = pluginConfig.getOrDefault(CFG_FACTORY, "");
     Validate.notEmpty(factoryName, String.format("Factory is not set for %s", plugin));
-    Object factory = ReflectionUtils.createInstance(factoryName);
-    Validate.notNull(factory, String.format("Factory creation failed for %s", plugin));
+    Object factory = ReflectionUtil.getObj(SamzaSqlApplicationConfig.class.getClassLoader(), factoryName, Object.class);
     LOG.info("Instantiating {} using factory {} with props {}", pluginName, factoryName, pluginConfig);
     return factoryInvoker.apply(factory, pluginConfig);
   }
@@ -229,31 +239,35 @@ public class SamzaSqlApplicationConfig {
   }
 
   public static Collection<RelRoot> populateSystemStreamsAndGetRelRoots(List<String> dslStmts, Config config,
-      Set<String> inputSystemStreams, Set<String> outputSystemStreams) {
+      List<String> inputSystemStreams, List<String> outputSystemStreams) {
     // TODO: Get the converter factory based on the file type. Create abstraction around this.
     DslConverterFactory dslConverterFactory = new SamzaSqlDslConverterFactory();
     DslConverter dslConverter = dslConverterFactory.create(config);
 
     Collection<RelRoot> relRoots = dslConverter.convertDsl(String.join("\n", dslStmts));
 
-    // FIXME: the snippet below dose not work when sql is a query
+    // RelRoot does not have sink node for Samza SQL dsl, so we can not traverse the relRoot tree to get
+    // "outputSystemStreams"
+    // FIXME: the snippet below does not work for Samza SQL dsl but is required for other dsls. Future fix could be
+    // for samza sql to build TableModify for sink and stick it to the relRoot, so we could get output stream out of it.
+
     // for (RelRoot relRoot : relRoots) {
     //   SamzaSqlApplicationConfig.populateSystemStreams(relRoot.project(), inputSystemStreams, outputSystemStreams);
     // }
 
-    // RelRoot does not have sink node (aka. log.outputStream) when Sql statement is a query, so we
-    // can not traverse the tree of relRoot to get "outputSystemStreams"
+    // The below code is specific to Samza SQL dsl and should be removed once Samza SQL includes sink as part of
+    // relRoot and the above code in uncommented.
     List<String> sqlStmts = SamzaSqlDslConverter.fetchSqlFromConfig(config);
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = SamzaSqlDslConverter.fetchQueryInfo(sqlStmts);
     inputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-          .collect(Collectors.toSet()));
-    outputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toSet()));
+          .collect(Collectors.toList()));
+    outputSystemStreams.addAll(queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
     return relRoots;
   }
 
-  private static void populateSystemStreams(RelNode relNode, Set<String> inputSystemStreams,
-      Set<String> outputSystemStreams) {
+  private static void populateSystemStreams(RelNode relNode, List<String> inputSystemStreams,
+      List<String> outputSystemStreams) {
     if (relNode instanceof TableModify) {
       outputSystemStreams.add(getSystemStreamName(relNode));
     } else {
@@ -282,16 +296,16 @@ public class SamzaSqlApplicationConfig {
     return udfMetadata;
   }
 
+  public List<String> getOutputSystemStreams() {
+    return outputSystemStreams;
+  }
+
   public Map<String, SqlIOConfig> getInputSystemStreamConfigBySource() {
     return inputSystemStreamConfigBySource;
   }
 
   public Map<String, SqlIOConfig> getOutputSystemStreamConfigsBySource() {
     return outputSystemStreamConfigsBySource;
-  }
-
-  public Map<String, SqlIOConfig> getSystemStreamConfigsBySource() {
-    return systemStreamConfigsBySource;
   }
 
   public Map<String, SamzaRelConverter> getSamzaRelConverters() {
@@ -312,5 +326,9 @@ public class SamzaSqlApplicationConfig {
 
   public long getWindowDurationMs() {
     return windowDurationMs;
+  }
+
+  public boolean isProcessSystemEvents() {
+    return processSystemEvents;
   }
 }

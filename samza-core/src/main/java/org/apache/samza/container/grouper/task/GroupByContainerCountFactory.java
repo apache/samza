@@ -19,6 +19,7 @@
 package org.apache.samza.container.grouper.task;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 
 /**
  * Factory to build the GroupByContainerCount class.
@@ -26,6 +27,6 @@ import org.apache.samza.config.Config;
 public class GroupByContainerCountFactory implements TaskNameGrouperFactory {
   @Override
   public TaskNameGrouper build(Config config) {
-    return new GroupByContainerCount(config);
+    return new GroupByContainerCount(new JobConfig(config).getContainerCount());
   }
 }

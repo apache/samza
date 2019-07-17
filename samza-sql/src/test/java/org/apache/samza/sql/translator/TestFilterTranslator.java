@@ -27,6 +27,7 @@ import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
@@ -37,7 +38,9 @@ import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.RexToJavaCompiler;
 import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
+import org.apache.samza.sql.util.TestMetricsRegistryImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.internal.util.reflection.Whitebox;
@@ -63,12 +66,17 @@ import static org.mockito.Mockito.when;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(LogicalFilter.class)
 public class TestFilterTranslator extends TranslatorTestBase {
+  final private String LOGICAL_OP_ID = "sql0_filter_0";
+
 
   @Test
   public void testTranslate() throws IOException, ClassNotFoundException {
     // setup mock values to the constructor of FilterTranslator
     LogicalFilter mockFilter = PowerMockito.mock(LogicalFilter.class);
-    TranslatorContext mockContext = mock(TranslatorContext.class);
+    Context mockContext = mock(Context.class);
+    ContainerContext mockContainerContext = mock(ContainerContext.class);
+    TranslatorContext mockTranslatorContext = mock(TranslatorContext.class);
+    TestMetricsRegistryImpl metricsRegistry = new TestMetricsRegistryImpl();
     RelNode mockInput = mock(RelNode.class);
     when(mockFilter.getInput()).thenReturn(mockInput);
     when(mockInput.getId()).thenReturn(1);
@@ -76,60 +84,73 @@ public class TestFilterTranslator extends TranslatorTestBase {
     StreamApplicationDescriptorImpl mockGraph = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec<Object, SamzaSqlRelMessage> mockInputOp = mock(OperatorSpec.class);
     MessageStream<SamzaSqlRelMessage> mockStream = new MessageStreamImpl<>(mockGraph, mockInputOp);
-    when(mockContext.getMessageStream(eq(1))).thenReturn(mockStream);
-    doAnswer(this.getRegisterMessageStreamAnswer()).when(mockContext).registerMessageStream(eq(2), any(MessageStream.class));
+    when(mockTranslatorContext.getMessageStream(eq(1))).thenReturn(mockStream);
+    doAnswer(this.getRegisterMessageStreamAnswer()).when(mockTranslatorContext).registerMessageStream(eq(2), any(MessageStream.class));
     RexToJavaCompiler mockCompiler = mock(RexToJavaCompiler.class);
-    when(mockContext.getExpressionCompiler()).thenReturn(mockCompiler);
+    when(mockTranslatorContext.getExpressionCompiler()).thenReturn(mockCompiler);
     Expression mockExpr = mock(Expression.class);
     when(mockCompiler.compile(any(), any())).thenReturn(mockExpr);
+    when(mockContext.getContainerContext()).thenReturn(mockContainerContext);
+    when(mockContainerContext.getContainerMetricsRegistry()).thenReturn(metricsRegistry);
 
     // Apply translate() method to verify that we are getting the correct filter operator constructed
     FilterTranslator filterTranslator = new FilterTranslator(1);
-    filterTranslator.translate(mockFilter, mockContext);
+    filterTranslator.translate(mockFilter, LOGICAL_OP_ID, mockTranslatorContext);
     // make sure that context has been registered with LogicFilter and output message streams
-    verify(mockContext, times(1)).registerRelNode(2, mockFilter);
-    verify(mockContext, times(1)).registerMessageStream(2, this.getRegisteredMessageStream(2));
-    when(mockContext.getRelNode(2)).thenReturn(mockFilter);
-    when(mockContext.getMessageStream(2)).thenReturn(this.getRegisteredMessageStream(2));
+    verify(mockTranslatorContext, times(1)).registerRelNode(2, mockFilter);
+    verify(mockTranslatorContext, times(1)).registerMessageStream(2, this.getRegisteredMessageStream(2));
+    when(mockTranslatorContext.getRelNode(2)).thenReturn(mockFilter);
+    when(mockTranslatorContext.getMessageStream(2)).thenReturn(this.getRegisteredMessageStream(2));
     StreamOperatorSpec filterSpec = (StreamOperatorSpec) Whitebox.getInternalState(this.getRegisteredMessageStream(2), "operatorSpec");
     assertNotNull(filterSpec);
     assertEquals(filterSpec.getOpCode(), OperatorSpec.OpCode.FILTER);
 
     // Verify that the describe() method will establish the context for the filter function
-    Context context = mock(Context.class);
     Map<Integer, TranslatorContext> mockContexts= new HashMap<>();
-    mockContexts.put(1, mockContext);
-    when(context.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContexts));
-    filterSpec.getTransformFn().init(context);
+    mockContexts.put(1, mockTranslatorContext);
+    when(mockContext.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContexts));
+    filterSpec.getTransformFn().init(mockContext);
     FilterFunction filterFn = (FilterFunction) Whitebox.getInternalState(filterSpec, "filterFn");
     assertNotNull(filterFn);
-    assertEquals(mockContext, Whitebox.getInternalState(filterFn, "context"));
+    assertEquals(mockTranslatorContext, Whitebox.getInternalState(filterFn, "translatorContext"));
     assertEquals(mockFilter, Whitebox.getInternalState(filterFn, "filter"));
     assertEquals(mockExpr, Whitebox.getInternalState(filterFn, "expr"));
+    // Verify MetricsRegistry works with Project
+    assertEquals(1, metricsRegistry.getGauges().size());
+    assertTrue(metricsRegistry.getGauges().get(LOGICAL_OP_ID).size() > 0);
+    assertEquals(1, metricsRegistry.getCounters().size());
+    assertEquals(3, metricsRegistry.getCounters().get(LOGICAL_OP_ID).size());
+    assertEquals(0, metricsRegistry.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
+    assertEquals(0, metricsRegistry.getCounters().get(LOGICAL_OP_ID).get(1).getCount());
 
     // Calling filterFn.apply() to verify the filter function is correctly applied to the input message
-    SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>());
+    SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>(),
+        new SamzaSqlRelMsgMetadata("", "", ""));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
     DataContext dataContext = mock(DataContext.class);
-    when(mockContext.getExecutionContext()).thenReturn(executionContext);
-    when(mockContext.getDataContext()).thenReturn(dataContext);
+    when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);
+    when(mockTranslatorContext.getDataContext()).thenReturn(dataContext);
     Object[] result = new Object[1];
 
     doAnswer( invocation -> {
-      Object[] retValue = invocation.getArgumentAt(3, Object[].class);
+      Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = new Boolean(true);
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertTrue(filterFn.apply(mockInputMsg));
 
     doAnswer( invocation -> {
-      Object[] retValue = invocation.getArgumentAt(3, Object[].class);
+      Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = new Boolean(false);
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertFalse(filterFn.apply(mockInputMsg));
+
+    // Verify filterFn.apply() updates the MetricsRegistry metrics
+    assertEquals(2, metricsRegistry.getCounters().get(LOGICAL_OP_ID).get(0).getCount());
+    assertEquals(1, metricsRegistry.getCounters().get(LOGICAL_OP_ID).get(1).getCount());
 
   }
 
