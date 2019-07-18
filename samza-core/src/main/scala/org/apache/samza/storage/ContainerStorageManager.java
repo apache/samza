@@ -203,6 +203,12 @@ public class ContainerStorageManager {
     this.loggedStoreBaseDirectory = loggedStoreBaseDirectory;
     this.nonLoggedStoreBaseDirectory = nonLoggedStoreBaseDirectory;
 
+    if (loggedStoreBaseDirectory != null && loggedStoreBaseDirectory.equals(nonLoggedStoreBaseDirectory)) {
+      LOG.warn("Logged and non-logged store base directory are configured to same path: {}. It is recommended to configure"
+          + "them separately to ensure clean up of non-logged store data doesn't accidentally impact logged store data.",
+          loggedStoreBaseDirectory);
+    }
+
     // set the config
     this.config = config;
 
@@ -955,33 +961,35 @@ public class ContainerStorageManager {
     private void cleanBaseDirsAndReadOffsetFiles() {
       LOG.debug("Cleaning base directories for stores.");
 
-      taskStores.keySet().forEach(storeName -> {
-          File nonLoggedStorePartitionDir =
-              StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
-          LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
+      taskStores.forEach((storeName, storageEngine) -> {
+          if (storageEngine.getStoreProperties().isLoggedStore()) {
+            File nonLoggedStorePartitionDir =
+                StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
+            LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
 
-          if (nonLoggedStorePartitionDir.exists()) {
-            LOG.info("Deleting non logged storage partition directory " + nonLoggedStorePartitionDir.toPath().toString());
-            FileUtil.rm(nonLoggedStorePartitionDir);
-          }
-
-          File loggedStorePartitionDir =
-              StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
-          LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
-
-          // Delete the logged store if it is not valid.
-          if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
-            LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
-            FileUtil.rm(loggedStorePartitionDir);
+            if (nonLoggedStorePartitionDir.exists()) {
+              LOG.info("Deleting non logged storage partition directory " + nonLoggedStorePartitionDir.toPath().toString());
+              FileUtil.rm(nonLoggedStorePartitionDir);
+            }
           } else {
+            File loggedStorePartitionDir =
+                StorageManagerUtil.getStorePartitionDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
+            LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
 
-            SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
-            Map<SystemStreamPartition, String> offset =
-                StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP), false);
-            LOG.info("Read offset {} for the store {} from logged storage partition directory {}", offset, storeName, loggedStorePartitionDir);
+            // Delete the logged store if it is not valid.
+            if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
+              LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
+              FileUtil.rm(loggedStorePartitionDir);
+            } else {
 
-            if (offset.containsKey(changelogSSP)) {
-              fileOffsets.put(changelogSSP, offset.get(changelogSSP));
+              SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
+              Map<SystemStreamPartition, String> offset =
+                  StorageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP), false);
+              LOG.info("Read offset {} for the store {} from logged storage partition directory {}", offset, storeName, loggedStorePartitionDir);
+
+              if (offset.containsKey(changelogSSP)) {
+                fileOffsets.put(changelogSSP, offset.get(changelogSSP));
+              }
             }
           }
         });
