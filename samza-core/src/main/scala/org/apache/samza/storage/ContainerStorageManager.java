@@ -962,7 +962,7 @@ public class ContainerStorageManager {
       LOG.debug("Cleaning base directories for stores.");
 
       taskStores.forEach((storeName, storageEngine) -> {
-          if (storageEngine.getStoreProperties().isLoggedStore()) {
+          if (!storageEngine.getStoreProperties().isLoggedStore()) {
             File nonLoggedStorePartitionDir =
                 StorageManagerUtil.getStorePartitionDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
             LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
