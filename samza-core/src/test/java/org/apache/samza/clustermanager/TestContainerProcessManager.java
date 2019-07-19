@@ -20,7 +20,14 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.collect.ImmutableMap;
+import java.lang.reflect.Field;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -38,13 +45,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -79,6 +83,13 @@ public class TestContainerProcessManager {
     Map<String, String> map = new HashMap<>();
     map.putAll(config);
     map.put("job.host-affinity.enabled", "true");
+    return new MapConfig(map);
+  }
+
+  private Config getConfigWithRetries(int maxRetries) {
+    Map<String, String> map = new HashMap<>();
+    map.putAll(config);
+    map.put(ClusterManagerConfig.CLUSTER_MANAGER_CONTAINER_RETRY_COUNT, String.valueOf(maxRetries));
     return new MapConfig(map);
   }
 
@@ -336,6 +347,145 @@ public class TestContainerProcessManager {
     assertEquals(SamzaApplicationState.SamzaAppStatus.FAILED, state.status);
 
     taskManager.stop();
+  }
+
+  @Test
+  public void testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode() throws Exception {
+    int maxRetries = 3;
+    String processorId = "0";
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(getConfigWithRetries(maxRetries));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+
+    MockContainerAllocator allocator = new MockContainerAllocator(
+        clusterResourceManager,
+        clusterManagerConfig,
+        state);
+
+    ContainerProcessManager cpm =
+        buildContainerProcessManager(new MapConfig(clusterManagerConfig), state, clusterResourceManager, Optional.of(allocator));
+
+    // start triggers a request
+    cpm.start();
+
+    assertFalse(cpm.shouldShutdown());
+    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
+
+    SamzaResource container = new SamzaResource(1, 1024, "host1", "id0");
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 2nd failure exceeding retry window.
+    int longWindow = clusterManagerConfig.getContainerRetryWindowMs() + 10;
+    cpm.processorFailures.put(processorId, new ProcessorFailure(1, Instant.now().minusMillis(longWindow).toEpochMilli()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.tooManyFailedContainers);
+    assertEquals(1, cpm.processorFailures.get(processorId).getCount());
+
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 3rd failure exceeding retry window.
+    cpm.processorFailures.put(processorId, new ProcessorFailure(2, Instant.now().minusMillis(longWindow).toEpochMilli()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.tooManyFailedContainers);
+    assertEquals(1, cpm.processorFailures.get(processorId).getCount());
+
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 4th failure exceeding retry window.
+    cpm.processorFailures.put(processorId, new ProcessorFailure(3, Instant.now().minusMillis(longWindow).toEpochMilli()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.tooManyFailedContainers);
+    assertEquals(1, cpm.processorFailures.get(processorId).getCount());
+
+    cpm.stop();
+  }
+
+  @Test
+  public void testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode() throws Exception {
+    int maxRetries = 3;
+    String processorId = "0";
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(getConfigWithRetries(maxRetries));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+
+    MockContainerAllocator allocator = new MockContainerAllocator(
+        clusterResourceManager,
+        clusterManagerConfig,
+        state);
+
+    ContainerProcessManager cpm =
+        buildContainerProcessManager(new MapConfig(clusterManagerConfig), state, clusterResourceManager, Optional.of(allocator));
+
+    // start triggers a request
+    cpm.start();
+
+    assertFalse(cpm.shouldShutdown());
+    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
+
+    SamzaResource container = new SamzaResource(1, 1024, "host1", "id0");
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 2nd failure not exceeding retry window.
+    cpm.processorFailures.put(processorId, new ProcessorFailure(1, Instant.now().toEpochMilli()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.tooManyFailedContainers);
+    assertEquals(2, cpm.processorFailures.get(processorId).getCount());
+
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 3rd failure not exceeding retry window.
+    cpm.processorFailures.put(processorId, new ProcessorFailure(2, Instant.now().toEpochMilli()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.tooManyFailedContainers);
+    assertEquals(3, cpm.processorFailures.get(processorId).getCount());
+
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 4th failure not exceeding retry window.
+    cpm.processorFailures.put(processorId, new ProcessorFailure(3, Instant.now().toEpochMilli()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(true, cpm.tooManyFailedContainers); // expecting failed container
+    assertEquals(3, cpm.processorFailures.get(processorId).getCount()); // count won't update on failure
+
+    cpm.stop();
   }
 
   @Test
