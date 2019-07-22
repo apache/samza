@@ -156,7 +156,7 @@ public class KinesisSystemConsumer extends BlockingEnvelopeMap implements Checkp
       // streams). So, let's create the default one with the combination of job name, job id and stream name. The table
       // name could be changed by providing a different TableName via KCL specific config.
       String kinesisApplicationName =
-          kConfig.get(JobConfig.JOB_NAME()) + "-" + kConfig.get(JobConfig.JOB_ID()) + "-" + stream;
+          kConfig.get(JobConfig.JOB_NAME) + "-" + kConfig.get(JobConfig.JOB_ID) + "-" + stream;
 
       Worker worker = new Worker.Builder()
           .recordProcessorFactory(createRecordProcessorFactory(stream))

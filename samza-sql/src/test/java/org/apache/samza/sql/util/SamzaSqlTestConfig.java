@@ -79,8 +79,8 @@ public class SamzaSqlTestConfig {
       boolean includeNullForeignKeys, boolean includeNullSimpleRecords, long windowDurationMs) {
     HashMap<String, String> staticConfigs = new HashMap<>();
 
-    staticConfigs.put(JobConfig.JOB_NAME(), "sql-job");
-    staticConfigs.put(JobConfig.PROCESSOR_ID(), "1");
+    staticConfigs.put(JobConfig.JOB_NAME, "sql-job");
+    staticConfigs.put(JobConfig.PROCESSOR_ID, "1");
     staticConfigs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     staticConfigs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 

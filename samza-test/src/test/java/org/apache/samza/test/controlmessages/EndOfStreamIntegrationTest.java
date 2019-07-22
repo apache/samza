@@ -78,8 +78,8 @@ public class EndOfStreamIntegrationTest extends IntegrationTestHarness {
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageviews));
     configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
 
-    configs.put(JobConfig.JOB_NAME(), "test-eos-job");
-    configs.put(JobConfig.PROCESSOR_ID(), "1");
+    configs.put(JobConfig.JOB_NAME, "test-eos-job");
+    configs.put(JobConfig.PROCESSOR_ID, "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 

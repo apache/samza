@@ -61,8 +61,6 @@ import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Option;
-import scala.collection.JavaConverters;
 
 
 /**
@@ -338,9 +336,10 @@ public class ClusterBasedJobCoordinator {
   }
 
   private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins, Set<SystemStream> inputStreamsToMonitor) {
+    JobConfig jobConfig = new JobConfig(config);
 
     // if input regex monitor is not enabled return empty
-    if (new JobConfig(config).getMonitorRegexEnabled()) {
+    if (jobConfig.getMonitorRegexDisabled()) {
       LOG.info("StreamRegexMonitor is disabled.");
       return Optional.empty();
     }
@@ -351,18 +350,16 @@ public class ClusterBasedJobCoordinator {
     }
 
     // First list all rewriters
-    Option<String> rewritersList = new JobConfig(config).getConfigRewriters();
+    Optional<String> rewritersList = jobConfig.getConfigRewriters();
 
     // if no rewriter is defined, there is nothing to monitor
-    if (!rewritersList.isDefined()) {
+    if (!rewritersList.isPresent()) {
       LOG.warn("No config rewriters are defined. No StreamRegexMonitor created.");
       return Optional.empty();
     }
 
     // Compile a map of each input-system to its corresponding input-monitor-regex patterns
-    Map<String, Pattern> inputRegexesToMonitor =
-        JavaConverters.mapAsJavaMapConverter(new JobConfig(config).getMonitorRegexPatternMap(rewritersList.get()))
-            .asJava();
+    Map<String, Pattern> inputRegexesToMonitor = jobConfig.getMonitorRegexPatternMap(rewritersList.get());
 
     // if there are no regexes to monitor
     if (inputRegexesToMonitor.isEmpty()) {
@@ -371,7 +368,7 @@ public class ClusterBasedJobCoordinator {
     }
 
     return Optional.of(new StreamRegexMonitor(inputStreamsToMonitor, inputRegexesToMonitor, streamMetadata, metrics,
-        new JobConfig(config).getMonitorRegexFrequency(), new StreamRegexMonitor.Callback() {
+        jobConfig.getMonitorRegexFrequency(), new StreamRegexMonitor.Callback() {
           @Override
           public void onInputStreamsChanged(Set<SystemStream> initialInputSet, Set<SystemStream> newInputStreams,
               Map<String, Pattern> regexesMonitored) {

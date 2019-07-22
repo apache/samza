@@ -121,8 +121,8 @@ public class SamzaTaskProxy implements TaskProxy {
           ReflectionUtil.getObj(getClass().getClassLoader(), taskResourceConfig.getJobConfigFactory(),
               ConfigFactory.class);
       Config config = configFactory.getConfig(new URI(String.format("file://%s", record.getConfigFilePath())));
-      Map<String, String> configMap = ImmutableMap.of(JobConfig.JOB_ID(), jobInstance.getJobId(),
-                                                      JobConfig.JOB_NAME(), jobInstance.getJobName());
+      Map<String, String> configMap = ImmutableMap.of(JobConfig.JOB_ID, jobInstance.getJobId(),
+                                                      JobConfig.JOB_NAME, jobInstance.getJobName());
       return CoordinatorStreamUtil.buildCoordinatorStreamConfig(new MapConfig(ImmutableList.of(config, configMap)));
     } catch (Exception e) {
       LOG.error(String.format("Failed to get coordinator stream config for job : %s", jobInstance), e);

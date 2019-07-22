@@ -107,17 +107,17 @@ public class TestRunner {
     this.configs = new HashMap<>();
     this.inMemoryScope = RandomStringUtils.random(10, true, true);
     configs.put(ApplicationConfig.APP_NAME, APP_NAME);
-    configs.put(JobConfig.PROCESSOR_ID(), "1");
+    configs.put(JobConfig.PROCESSOR_ID, "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
-    configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY(), InMemoryMetadataStoreFactory.class.getCanonicalName());
+    configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY, InMemoryMetadataStoreFactory.class.getCanonicalName());
     configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
     // Changing the base directory for non-changelog stores used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
-    configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
+    configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR,
         new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-non-logged").getAbsolutePath());
-    configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
+    configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR,
         new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-logged").getAbsolutePath());
-    addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
+    addConfig(JobConfig.JOB_DEFAULT_SYSTEM, JOB_DEFAULT_SYSTEM);
     // Disabling host affinity since it requires reading locality information from a Kafka coordinator stream
     addConfig(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
     addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
@@ -410,10 +410,10 @@ public class TestRunner {
   }
 
   private void deleteStoreDirectories() {
-    Preconditions.checkNotNull(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR()));
-    Preconditions.checkNotNull(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
-    deleteDirectory(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
-    deleteDirectory(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR()));
+    Preconditions.checkNotNull(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR));
+    Preconditions.checkNotNull(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR));
+    deleteDirectory(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR));
+    deleteDirectory(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR));
   }
 
   private void deleteDirectory(String path) {

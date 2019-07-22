@@ -64,9 +64,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   public static String getJobCoordinationZkPath(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     String appId = new ApplicationConfig(config).getGlobalAppId();
-    String jobName = jobConfig.getName().isDefined()
-        ? jobConfig.getName().get()
-        : DEFAULT_JOB_NAME;
+    String jobName = jobConfig.getName().orElse(DEFAULT_JOB_NAME);
     String jobId = jobConfig.getJobId();
 
     return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId, PROTOCOL_VERSION);

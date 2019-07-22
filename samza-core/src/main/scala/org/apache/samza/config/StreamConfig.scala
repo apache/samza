@@ -19,7 +19,6 @@
 
 package org.apache.samza.config
 
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.system.SystemStream
 import org.apache.samza.util.Logging
 
@@ -153,7 +152,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getSystem(streamId: String) = {
     getOption(StreamConfig.SYSTEM_FOR_STREAM_ID format streamId) match {
       case Some(system) => system
-      case _ => config.getDefaultSystem.orNull
+      case _ => new JobConfig(config).getDefaultSystem().orElse(null)
     }
   }
 

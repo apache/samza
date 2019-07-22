@@ -206,7 +206,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
 
     Map<String, String> map = new HashMap<>();
     map.put(kafkaConsumerPropertyPrefix + CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, brokerList());
-    map.put(JobConfig.JOB_NAME(), "test.job");
+    map.put(JobConfig.JOB_NAME, "test.job");
 
     Config config = new MapConfig(map);
     HashMap<String, Object> consumerConfig =

@@ -66,7 +66,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
     props.put("app.runner.class", LocalApplicationRunner.class.getName());
     List<Integer> partitions = IntStream.range(startPartition, endPartition).boxed().collect(Collectors.toList());
     props.put(ApplicationConfig.APP_NAME, "SamzaBench");
-    props.put(JobConfig.PROCESSOR_ID(), "1");
+    props.put(JobConfig.PROCESSOR_ID, "1");
     props.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     props.put(String.format(ConfigBasedSspGrouperFactory.CONFIG_STREAM_PARTITIONS, streamId),
         Joiner.on(",").join(partitions));

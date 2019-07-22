@@ -22,13 +22,14 @@ package org.apache.samza.util
 
 import java.lang.reflect.InvocationTargetException
 
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
 import org.apache.samza.SamzaException
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.Random
+
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.collection.JavaConverters._
 
@@ -157,7 +158,7 @@ object Util extends Logging {
    * @return re-written config
    */
   def rewriteConfig(config: Config): Config = {
-    config.getConfigRewriters match {
+    JavaOptionals.toRichOptional(new JobConfig(config).getConfigRewriters).toOption match {
       case Some(rewriters) => rewriters.split(",").foldLeft(config)(applyRewriter(_, _))
       case _ => config
     }
@@ -170,8 +171,8 @@ object Util extends Logging {
     * @return the rewritten config
     */
   def applyRewriter(config: Config, rewriterName: String): Config = {
-    val rewriterClassName = config
-      .getConfigRewriterClass(rewriterName)
+    val rewriterClassName = JavaOptionals.toRichOptional(new JobConfig(config).getConfigRewriterClass(rewriterName))
+      .toOption
       .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
     val rewriter = ReflectionUtil.getObj(this.getClass.getClassLoader, rewriterClassName, classOf[ConfigRewriter])
     info("Re-writing config with " + rewriter)

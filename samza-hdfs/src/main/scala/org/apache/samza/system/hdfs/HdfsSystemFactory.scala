@@ -25,6 +25,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemFactory
 import org.apache.samza.system.hdfs.HdfsSystemConsumer.HdfsSystemConsumerMetrics
 import org.apache.samza.util.Logging
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 
 class HdfsSystemFactory extends SystemFactory with Logging {
@@ -34,7 +35,8 @@ class HdfsSystemFactory extends SystemFactory with Logging {
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry) = {
     val jobConfig = new JobConfig(config)
-    val jobName = jobConfig.getName.getOrElse(throw new ConfigException("Missing job name."))
+    val jobName = JavaOptionals.toRichOptional(jobConfig.getName).toOption
+      .getOrElse(throw new ConfigException("Missing job name."))
     val jobId = jobConfig.getJobId
 
     val clientId = getClientId("samza-producer", jobName, jobId)

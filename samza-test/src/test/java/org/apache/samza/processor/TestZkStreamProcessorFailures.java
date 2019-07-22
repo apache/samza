@@ -64,7 +64,7 @@ public class TestZkStreamProcessorFailures extends TestZkStreamProcessorBase {
   // throw an exception.
   public void testFailStreamProcessor() {
     final int numBadMessages = 4; // either of these bad messages will cause p1 to throw and exception
-    map.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), "100");
+    map.put(JobConfig.JOB_DEBOUNCE_TIME_MS, "100");
     map.put("processor.id.to.fail", "101");
 
     // set number of events we expect to read by both processes in total:

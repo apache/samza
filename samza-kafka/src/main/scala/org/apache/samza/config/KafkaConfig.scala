@@ -99,7 +99,8 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     * 2. If job.default.system is defined, that value is used.
     * 3. None
     */
-  def getCheckpointSystem = Option(getOrElse(KafkaConfig.CHECKPOINT_SYSTEM, new JobConfig(config).getDefaultSystem.orNull))
+  def getCheckpointSystem = Option(getOrElse(KafkaConfig.CHECKPOINT_SYSTEM,
+    new JobConfig(config).getDefaultSystem().orElse(null)))
 
   /**
     * Gets the replication factor for the checkpoint topic. Uses the following precedence.

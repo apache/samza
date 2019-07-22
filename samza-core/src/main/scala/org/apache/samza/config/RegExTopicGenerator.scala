@@ -22,6 +22,7 @@ package org.apache.samza.config
 import org.apache.samza.SamzaException
 import org.apache.samza.config.JobConfig.REGEX_RESOLVED_STREAMS
 import org.apache.samza.system.SystemStream
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Logging, StreamUtil}
 
 import scala.collection.JavaConverters._
@@ -48,11 +49,9 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
 
   def rewrite(rewriterName: String, config: Config): Config = {
     val jobConfig = new JobConfig(config)
-    val regex = jobConfig
-      .getRegexResolvedStreams(rewriterName)
+    val regex = JavaOptionals.toRichOptional(jobConfig.getRegexResolvedStreams(rewriterName)).toOption
       .getOrElse(throw new SamzaException("No %s defined in config" format REGEX_RESOLVED_STREAMS))
-    val systemName = jobConfig
-      .getRegexResolvedSystem(rewriterName)
+    val systemName = JavaOptionals.toRichOptional(jobConfig.getRegexResolvedSystem(rewriterName)).toOption
       .getOrElse(throw new SamzaException("No system defined for %s." format rewriterName))
     val topics = getTopicsFromSystemAdmin(rewriterName, config)
     val taskConfig = new TaskConfig(config)
@@ -96,8 +95,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
   }
 
   def getTopicsFromSystemAdmin(rewriterName: String, config: Config): Seq[String] = {
-    val systemName = new JobConfig(config)
-      .getRegexResolvedSystem(rewriterName)
+    val systemName = JavaOptionals.toRichOptional(new JobConfig(config).getRegexResolvedSystem(rewriterName)).toOption
       .getOrElse(throw new SamzaException("No system defined in config for rewriter %s." format rewriterName))
 
     var systemStreams = Seq.empty[String]

@@ -70,7 +70,7 @@ class IntermediateStreamManager {
    * Sets partition counts of intermediate streams which have not been assigned partition counts.
    */
   private void setIntermediateStreamPartitions(JobGraph jobGraph) {
-    final String defaultPartitionsConfigProperty = JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS();
+    final String defaultPartitionsConfigProperty = JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS;
     int partitions = config.getInt(defaultPartitionsConfigProperty, StreamEdge.PARTITIONS_UNKNOWN);
     if (partitions == StreamEdge.PARTITIONS_UNKNOWN) {
       // use the following simple algo to figure out the partitions
