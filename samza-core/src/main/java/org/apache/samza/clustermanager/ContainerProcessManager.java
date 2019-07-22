@@ -531,10 +531,14 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   }
 
   @VisibleForTesting
-  boolean getTooManyFailedContainers() { return tooManyFailedContainers; }
+  boolean getTooManyFailedContainers() {
+    return tooManyFailedContainers;
+  }
 
   @VisibleForTesting
-  Map<String, ProcessorFailure> getProcessorFailures() { return processorFailures; }
+  Map<String, ProcessorFailure> getProcessorFailures() {
+    return processorFailures;
+  }
 
   /**
    * Returns an instantiated {@link ResourceManagerFactory} from a {@link ClusterManagerConfig}. The
