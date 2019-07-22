@@ -18,8 +18,8 @@
  */
 package org.apache.samza.metadatastore;
 
-import org.apache.samza.annotation.InterfaceStability;
 import java.util.Map;
+import org.apache.samza.annotation.InterfaceStability;
 
 /**
  * Store abstraction responsible for managing the metadata of a Samza job.
@@ -48,6 +48,17 @@ public interface MetadataStore {
    * @param value the value with which the specified {@code key} is to be associated.
    */
   void put(String key, byte[] value);
+
+  /**
+   * Updates the mapping with the specified map.
+   *
+   * @param entries mapping of key to values to write to the metadata store
+   */
+  default void putAll(Map<String, byte[]> entries) {
+    for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+      put(entry.getKey(), entry.getValue());
+    }
+  }
 
   /**
    * Deletes the mapping for the specified {@code key} from this metadata store (if such mapping exists).
