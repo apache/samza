@@ -19,7 +19,7 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-import org.apache.samza.sql.client.util.CliException;
+import org.apache.samza.sql.client.exceptions.CliException;
 import org.apache.samza.sql.client.util.Pair;
 
 import java.util.*;

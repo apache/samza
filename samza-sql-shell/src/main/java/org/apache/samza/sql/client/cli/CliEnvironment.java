@@ -19,30 +19,34 @@
 
 package org.apache.samza.sql.client.cli;
 
+import java.io.PrintWriter;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.samza.sql.client.exceptions.CommandHandlerException;
+import org.apache.samza.sql.client.interfaces.CommandHandler;
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableHandler;
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableSpecs;
-import org.apache.samza.sql.client.interfaces.ExecutorException;
+import org.apache.samza.sql.client.exceptions.ExecutorException;
 import org.apache.samza.sql.client.interfaces.SqlExecutor;
-import org.apache.samza.sql.client.util.CliException;
+import org.apache.samza.sql.client.exceptions.CliException;
 import org.apache.samza.sql.client.util.CliUtil;
 import org.apache.samza.sql.client.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.PrintWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
  * CliEnvironment handles "environment variables" that configures the shell behavior.
  */
-class CliEnvironment {
+public class CliEnvironment {
   private EnvironmentVariableHandler shellEnvHandler;
   private EnvironmentVariableHandler executorEnvHandler;
   private SqlExecutor executor;
+  private List<CommandHandler> commandHandlers;
   private Map<String, String> delayedExecutorVars;
 
   // shell.executor is special and is specifically handled by CliEnvironment
@@ -51,6 +55,7 @@ class CliEnvironment {
 
   CliEnvironment() {
     shellEnvHandler = new CliShellEnvironmentVariableHandler();
+    commandHandlers = new ArrayList<>();
   }
 
   /** Sets the value of an environment variable.
@@ -61,11 +66,20 @@ class CliEnvironment {
    * -1: invalid name
    * -2: invalid value
    */
-  int setEnvironmentVariable(String name, String value) throws ExecutorException{
+  public int setEnvironmentVariable(String name, String value) throws ExecutorException, CommandHandlerException {
+    name = name.toLowerCase();
     if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
       createShellExecutor(value);
       activeExecutorClassName = value;
       executorEnvHandler = executor.getEnvironmentVariableHandler();
+      return 0;
+    }
+
+    if (name.equals(CliConstants.CONFIG_COMMAND_HANDLER)) {
+      List<String> commandHandlersNames = Arrays.asList(value.split(","));
+      for (String commandHandlerName : commandHandlersNames) {
+        createCommandHandler(commandHandlerName.trim());
+      }
       return 0;
     }
 
@@ -132,7 +146,7 @@ class CliEnvironment {
    * Gives CliEnvironment a chance to apply settings, especially during initialization, things like
    * making default values take effect
    */
-  public void finishInitialization() {
+  public void finishInitialization() throws CliException {
     if(executor == null) {
       try {
         createShellExecutor(CliConstants.DEFAULT_EXECUTOR_CLASS);
@@ -144,7 +158,7 @@ class CliEnvironment {
           }
           delayedExecutorVars = null;
         }
-      } catch (ExecutorException e) {
+      } catch (ExecutorException | CommandHandlerException e) {
         // Convert checked exception ExecutorException to an unchecked exception as
         // we have failed to create even the default executor thus not recoverable
         throw new CliException(e);
@@ -173,11 +187,39 @@ class CliEnvironment {
     return executor;
   }
 
+  public List<CommandHandler> getCommandHandlers() { return commandHandlers; }
+
   private void createShellExecutor(String executorClassName) throws ExecutorException {
     try {
-      Class<?> clazz = Class.forName(executorClassName);
+      executor = (SqlExecutor) createInstance(executorClassName);
+    } catch (ClassCastException e) {
+      String errMsg = String.format("Error trying to cast Object of class %s to SqlExecutor", executorClassName);
+      LOG.error(errMsg);
+      throw new ExecutorException(errMsg, e);
+    } catch (Exception e) {
+      LOG.error(e.getMessage());
+      throw new ExecutorException(e);
+    }
+  }
+
+  private void createCommandHandler(String handlerClassName) throws CommandHandlerException {
+    try {
+    commandHandlers.add((CommandHandler) createInstance(handlerClassName));
+    } catch (ClassCastException e) {
+      String errMsg = String.format("Error trying to cast Object of class %s to CommandHandler", handlerClassName);
+      LOG.error(errMsg);
+      throw new CommandHandlerException(errMsg, e);
+    } catch (Exception e) {
+      LOG.error(e.getMessage());
+      throw new CommandHandlerException(e);
+    }
+  }
+
+  private Object createInstance(String className) throws Exception {
+    try {
+      Class<?> clazz = Class.forName(className);
       Constructor<?> ctor = clazz.getConstructor();
-      executor = (SqlExecutor) ctor.newInstance();
+      return ctor.newInstance();
     } catch (ClassNotFoundException | NoSuchMethodException
             | IllegalAccessException | InstantiationException | InvocationTargetException e) {
       throw new ExecutorException(e);

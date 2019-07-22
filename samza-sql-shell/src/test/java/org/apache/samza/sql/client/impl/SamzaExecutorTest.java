@@ -25,7 +25,7 @@ import java.util.Map;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.client.interfaces.EnvironmentVariableHandler;
 import org.apache.samza.sql.client.interfaces.ExecutionContext;
-import org.apache.samza.sql.client.interfaces.ExecutorException;
+import org.apache.samza.sql.client.exceptions.ExecutorException;
 import org.apache.samza.sql.schema.SqlSchema;
 import org.junit.Assert;
 import org.junit.Ignore;

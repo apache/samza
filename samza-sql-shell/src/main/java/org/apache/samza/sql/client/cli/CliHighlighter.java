@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.client.cli;
 
+import org.apache.samza.sql.client.impl.CliCommandType;
 import org.apache.samza.sql.client.util.CliUtil;
 import org.jline.reader.Highlighter;
 import org.jline.reader.LineReader;
