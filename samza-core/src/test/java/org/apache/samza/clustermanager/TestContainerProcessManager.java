@@ -383,10 +383,10 @@ public class TestContainerProcessManager {
 
     // Mock 2nd failure exceeding retry window.
     int longWindow = clusterManagerConfig.getContainerRetryWindowMs() + 10;
-    cpm.processorFailures.put(processorId, new ProcessorFailure(1, Instant.now().minusMillis(longWindow).toEpochMilli()));
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(1, Instant.now().minusMillis(longWindow).toEpochMilli()));
     cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
-    assertEquals(false, cpm.tooManyFailedContainers);
-    assertEquals(1, cpm.processorFailures.get(processorId).getCount());
+    assertEquals(false, cpm.getTooManyFailedContainers());
+    assertEquals(1, cpm.getProcessorFailures().get(processorId).getCount());
 
     cpm.onResourceAllocated(container);
 
@@ -397,10 +397,10 @@ public class TestContainerProcessManager {
     cpm.onStreamProcessorLaunchSuccess(container);
 
     // Mock 3rd failure exceeding retry window.
-    cpm.processorFailures.put(processorId, new ProcessorFailure(2, Instant.now().minusMillis(longWindow).toEpochMilli()));
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(2, Instant.now().minusMillis(longWindow).toEpochMilli()));
     cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
-    assertEquals(false, cpm.tooManyFailedContainers);
-    assertEquals(1, cpm.processorFailures.get(processorId).getCount());
+    assertEquals(false, cpm.getTooManyFailedContainers());
+    assertEquals(1, cpm.getProcessorFailures().get(processorId).getCount());
 
     cpm.onResourceAllocated(container);
 
@@ -411,10 +411,10 @@ public class TestContainerProcessManager {
     cpm.onStreamProcessorLaunchSuccess(container);
 
     // Mock 4th failure exceeding retry window.
-    cpm.processorFailures.put(processorId, new ProcessorFailure(3, Instant.now().minusMillis(longWindow).toEpochMilli()));
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(3, Instant.now().minusMillis(longWindow).toEpochMilli()));
     cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
-    assertEquals(false, cpm.tooManyFailedContainers);
-    assertEquals(1, cpm.processorFailures.get(processorId).getCount());
+    assertEquals(false, cpm.getTooManyFailedContainers());
+    assertEquals(1, cpm.getProcessorFailures().get(processorId).getCount());
 
     cpm.stop();
   }
@@ -452,10 +452,10 @@ public class TestContainerProcessManager {
     cpm.onStreamProcessorLaunchSuccess(container);
 
     // Mock 2nd failure not exceeding retry window.
-    cpm.processorFailures.put(processorId, new ProcessorFailure(1, Instant.now().toEpochMilli()));
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(1, Instant.now().toEpochMilli()));
     cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
-    assertEquals(false, cpm.tooManyFailedContainers);
-    assertEquals(2, cpm.processorFailures.get(processorId).getCount());
+    assertEquals(false, cpm.getTooManyFailedContainers());
+    assertEquals(2, cpm.getProcessorFailures().get(processorId).getCount());
 
     cpm.onResourceAllocated(container);
 
@@ -466,10 +466,10 @@ public class TestContainerProcessManager {
     cpm.onStreamProcessorLaunchSuccess(container);
 
     // Mock 3rd failure not exceeding retry window.
-    cpm.processorFailures.put(processorId, new ProcessorFailure(2, Instant.now().toEpochMilli()));
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(2, Instant.now().toEpochMilli()));
     cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
-    assertEquals(false, cpm.tooManyFailedContainers);
-    assertEquals(3, cpm.processorFailures.get(processorId).getCount());
+    assertEquals(false, cpm.getTooManyFailedContainers());
+    assertEquals(3, cpm.getProcessorFailures().get(processorId).getCount());
 
     cpm.onResourceAllocated(container);
 
@@ -480,10 +480,10 @@ public class TestContainerProcessManager {
     cpm.onStreamProcessorLaunchSuccess(container);
 
     // Mock 4th failure not exceeding retry window.
-    cpm.processorFailures.put(processorId, new ProcessorFailure(3, Instant.now().toEpochMilli()));
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(3, Instant.now().toEpochMilli()));
     cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
-    assertEquals(true, cpm.tooManyFailedContainers); // expecting failed container
-    assertEquals(3, cpm.processorFailures.get(processorId).getCount()); // count won't update on failure
+    assertEquals(true, cpm.getTooManyFailedContainers()); // expecting failed container
+    assertEquals(3, cpm.getProcessorFailures().get(processorId).getCount()); // count won't update on failure
 
     cpm.stop();
   }

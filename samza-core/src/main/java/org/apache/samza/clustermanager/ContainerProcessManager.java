@@ -106,25 +106,25 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final ClusterResourceManager clusterResourceManager;
 
   /**
+   * If there are too many failed container failures (configured by job.container.retry.count) for a
+   * processor, the job exits.
+   */
+  private volatile boolean tooManyFailedContainers = false;
+
+  /**
    * Exception thrown in callbacks, such as {@code containerAllocator}
    */
   private volatile Throwable exceptionOccurred = null;
-
-  private ContainerProcessManagerMetrics containerProcessManagerMetrics;
-  private JvmMetrics jvmMetrics;
-  private Map<String, MetricsReporter> metricsReporters;
 
   /**
    * A map that keeps track of how many times each processor failed. The key is the processor ID, and the
    * value is the {@link ProcessorFailure} object that has a count of failures.
    */
-  final Map<String, ProcessorFailure> processorFailures = new HashMap<>();
+  private final Map<String, ProcessorFailure> processorFailures = new HashMap<>();
 
-  /**
-   * If there are too many failed container failures (configured by job.container.retry.count) for a
-   * processor, the job exits.
-   */
-  volatile boolean tooManyFailedContainers = false;
+  private ContainerProcessManagerMetrics containerProcessManagerMetrics;
+  private JvmMetrics jvmMetrics;
+  private Map<String, MetricsReporter> metricsReporters;
 
   public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
       ClassLoader classLoader) {
@@ -404,17 +404,15 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
           tooManyFailedContainers = true;
         } else if (retryCount > 0) {
           int currentFailCount;
-          long lastFailureTime;
+          long lastFailureMsDiff;
           if (processorFailures.containsKey(processorId)) {
             ProcessorFailure failure = processorFailures.get(processorId);
             currentFailCount = failure.getCount() + 1;
-            lastFailureTime = failure.getLastFailure();
+            lastFailureMsDiff = Instant.now().toEpochMilli() - failure.getLastFailure();
           } else {
             currentFailCount = 1;
-            lastFailureTime = Instant.now().toEpochMilli();
+            lastFailureMsDiff = 0;
           }
-
-          long lastFailureMsDiff = Instant.now().toEpochMilli() - lastFailureTime;
 
           if (lastFailureMsDiff >= retryWindowMs) {
             log.info("Resetting failure count for Processor ID: {} back to 1, since last failure " +
@@ -531,6 +529,12 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     log.error("Exception occurred in callbacks in the Cluster Resource Manager", e);
     exceptionOccurred = e;
   }
+
+  @VisibleForTesting
+  boolean getTooManyFailedContainers() { return tooManyFailedContainers; }
+
+  @VisibleForTesting
+  Map<String, ProcessorFailure> getProcessorFailures() { return processorFailures; }
 
   /**
    * Returns an instantiated {@link ResourceManagerFactory} from a {@link ClusterManagerConfig}. The
