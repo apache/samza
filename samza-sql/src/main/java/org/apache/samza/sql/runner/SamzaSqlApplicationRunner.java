@@ -65,8 +65,8 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     this(app, false, config);
   }
 
-  public SamzaSqlApplicationRunner(Boolean localRunner, Config config) {
-    this(new SamzaSqlApplication(), localRunner, config);
+  public SamzaSqlApplicationRunner(Boolean isLocalRunner, Config config) {
+    this(new SamzaSqlApplication(), isLocalRunner, config);
   }
 
   private SamzaSqlApplicationRunner(SamzaApplication app, Boolean localRunner, Config config) {

@@ -45,6 +45,7 @@ import org.apache.samza.config.ZkConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -63,6 +64,7 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.Assert;
 import org.junit.Before;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,7 +135,8 @@ public class TestZkStreamProcessorBase extends IntegrationTestHarness {
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
     JobCoordinator jobCoordinator =
         ReflectionUtil.getObj(getClass().getClassLoader(), jobCoordinatorFactoryClassName, JobCoordinatorFactory.class)
-            .getJobCoordinator(pId, config, new MetricsRegistryMap());
+            .getJobCoordinator(pId, config, new MetricsRegistryMap(), Mockito.mock(
+                CoordinatorStreamStore.class));
 
     ProcessorLifecycleListener listener = new ProcessorLifecycleListener() {
       @Override
