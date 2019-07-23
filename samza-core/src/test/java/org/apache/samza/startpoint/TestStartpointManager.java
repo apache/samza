@@ -311,4 +311,79 @@ public class TestStartpointManager {
       Assert.assertTrue(startpointManager.getFanOutForTask(taskName).isEmpty());
     }
   }
+
+  @Test
+  public void testRemoveAllFanOuts() throws IOException {
+    SystemStreamPartition sspBroadcast = new SystemStreamPartition("mockSystem1", "mockStream1", new Partition(2));
+    SystemStreamPartition sspSingle = new SystemStreamPartition("mockSystem2", "mockStream2", new Partition(3));
+
+    TaskName taskWithNonBroadcast = new TaskName("t1");
+
+    List<TaskName> tasks =
+        ImmutableList.of(new TaskName("t0"), taskWithNonBroadcast, new TaskName("t2"), new TaskName("t3"), new TaskName("t4"), new TaskName("t5"));
+
+    Map<TaskName, Set<SystemStreamPartition>> taskToSSPs = tasks.stream()
+        .collect(Collectors
+            .toMap(task -> task, task -> task.equals(taskWithNonBroadcast) ? ImmutableSet.of(sspBroadcast, sspSingle) : ImmutableSet.of(sspBroadcast)));
+
+    StartpointSpecific startpoint42 = new StartpointSpecific("42");
+
+    startpointManager.writeStartpoint(sspBroadcast, startpoint42);
+    startpointManager.writeStartpoint(sspSingle, startpoint42);
+
+    // startpoint42 should remap with key sspBroadcast to all tasks + sspBroadcast
+    Map<TaskName, Map<SystemStreamPartition, Startpoint>> tasksFannedOutTo = startpointManager.fanOut(taskToSSPs);
+    Assert.assertEquals(tasks.size(), tasksFannedOutTo.size());
+    Assert.assertTrue(tasksFannedOutTo.keySet().containsAll(tasks));
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(sspBroadcast).isPresent());
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(sspSingle).isPresent());
+
+    startpointManager.removeAllFanOuts();
+
+    // Write back to ensure removing all fan outs doesn't remove all startpoints
+    startpointManager.writeStartpoint(sspBroadcast, startpoint42);
+    startpointManager.writeStartpoint(sspSingle, startpoint42);
+
+    Assert.assertEquals(0, startpointManager.getFanOutStore().all().size());
+    Assert.assertTrue("Should not be deleted after remove all fan outs", startpointManager.readStartpoint(sspBroadcast).isPresent());
+    Assert.assertTrue("Should not be deleted after remove all fan outs", startpointManager.readStartpoint(sspSingle).isPresent());
+  }
+
+  @Test
+  public void testDeleteAllStartpoints() throws IOException {
+    SystemStreamPartition sspBroadcast = new SystemStreamPartition("mockSystem1", "mockStream1", new Partition(2));
+    SystemStreamPartition sspSingle = new SystemStreamPartition("mockSystem2", "mockStream2", new Partition(3));
+
+    TaskName taskWithNonBroadcast = new TaskName("t1");
+
+    List<TaskName> tasks =
+        ImmutableList.of(new TaskName("t0"), taskWithNonBroadcast, new TaskName("t2"), new TaskName("t3"), new TaskName("t4"), new TaskName("t5"));
+
+    Map<TaskName, Set<SystemStreamPartition>> taskToSSPs = tasks.stream()
+        .collect(Collectors
+            .toMap(task -> task, task -> task.equals(taskWithNonBroadcast) ? ImmutableSet.of(sspBroadcast, sspSingle) : ImmutableSet.of(sspBroadcast)));
+
+    StartpointSpecific startpoint42 = new StartpointSpecific("42");
+
+    startpointManager.writeStartpoint(sspBroadcast, startpoint42);
+    startpointManager.writeStartpoint(sspSingle, startpoint42);
+
+    // startpoint42 should remap with key sspBroadcast to all tasks + sspBroadcast
+    Map<TaskName, Map<SystemStreamPartition, Startpoint>> tasksFannedOutTo = startpointManager.fanOut(taskToSSPs);
+    Assert.assertEquals(tasks.size(), tasksFannedOutTo.size());
+    Assert.assertTrue(tasksFannedOutTo.keySet().containsAll(tasks));
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(sspBroadcast).isPresent());
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(sspSingle).isPresent());
+
+    // Re-populate startpoints after fan out
+    startpointManager.writeStartpoint(sspBroadcast, startpoint42);
+    startpointManager.writeStartpoint(sspSingle, startpoint42);
+    Assert.assertEquals(2, startpointManager.getReadWriteStore().all().size());
+
+    startpointManager.deleteAllStartpoints();
+    Assert.assertEquals(0, startpointManager.getReadWriteStore().all().size());
+
+    // Fan outs should be untouched
+    Assert.assertEquals(tasks.size(), startpointManager.getFanOutStore().all().size());
+  }
 }
