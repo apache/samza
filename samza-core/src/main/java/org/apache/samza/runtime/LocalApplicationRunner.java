@@ -76,7 +76,6 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private static final String METADATA_STORE_FACTORY_CONFIG = "metadata.store.factory";
   public final static String DEFAULT_METADATA_STORE_FACTORY = ZkMetadataStoreFactory.class.getName();
 
-  private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
   private final Set<Pair<StreamProcessor, MetadataStore>> processors = ConcurrentHashMap.newKeySet();
   private final CountDownLatch shutdownLatch = new CountDownLatch(1);
   private final AtomicInteger numProcessorsToStart = new AtomicInteger();
@@ -84,6 +83,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private final boolean isAppModeBatch;
   private final Optional<CoordinationUtils> coordinationUtils;
   private final MetadataStoreFactory metadataStoreFactory;
+  private final SamzaApplication app;
+  private final Config config;
   private Optional<String> runId = Optional.empty();
   private Optional<RunIdGenerator> runIdGenerator = Optional.empty();
 
@@ -107,21 +108,23 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @param metadataStoreFactory the instance of {@link MetadataStoreFactory} to read and write to coordinator stream.
    */
   public LocalApplicationRunner(SamzaApplication app, Config config, MetadataStoreFactory metadataStoreFactory) {
-    this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
     this.isAppModeBatch = new ApplicationConfig(config).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     this.coordinationUtils = getCoordinationUtils(config, getClass().getClassLoader());
     this.metadataStoreFactory = metadataStoreFactory;
+    this.app = app;
+    this.config = config;
   }
 
   /**
    * Constructor only used in unit test to allow injection of {@link LocalJobPlanner}
    */
   @VisibleForTesting
-  LocalApplicationRunner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, Optional<CoordinationUtils> coordinationUtils) {
-    this.appDesc = appDesc;
-    this.isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
+  LocalApplicationRunner(SamzaApplication app, Config config, Optional<CoordinationUtils> coordinationUtils) {
+    this.isAppModeBatch = new ApplicationConfig(config).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     this.coordinationUtils = coordinationUtils;
     this.metadataStoreFactory = new CoordinatorStreamMetadataStoreFactory();
+    this.app = app;
+    this.config = config;
   }
 
   private Optional<CoordinationUtils> getCoordinationUtils(Config config, ClassLoader classLoader) {
@@ -139,6 +142,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
    */
   @VisibleForTesting
   LocalJobPlanner getPlanner(ClassLoader classLoader) {
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
     boolean isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     if (!isAppModeBatch) {
       return new LocalJobPlanner(appDesc, PROCESSOR_ID, classLoader);
@@ -190,8 +194,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
           coordinatorStreamStore.init();
+        ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, jobConfig);
           StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
-              sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig), Optional.ofNullable(externalContext), coordinatorStreamStore);
+              sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig, appDesc), Optional.ofNullable(externalContext), coordinatorStreamStore);
           processors.add(Pair.of(processor, coordinatorStreamStore));
         });
       numProcessorsToStart.set(processors.size());
@@ -203,7 +208,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
       appStatus = ApplicationStatus.unsuccessfulFinish(throwable);
       shutdownLatch.countDown();
       throw new SamzaException(String.format("Failed to start application: %s",
-          new ApplicationConfig(appDesc.getConfig()).getGlobalAppId()), throwable);
+          new ApplicationConfig(config).getGlobalAppId()), throwable);
     }
   }
 
@@ -320,9 +325,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * disparity will be resolved with the next gen metadata store abstraction.
    */
   private MetadataStore getMetadataStoreForRunID() {
-    String metadataStoreFactoryClass = appDesc.getConfig().getOrDefault(METADATA_STORE_FACTORY_CONFIG, DEFAULT_METADATA_STORE_FACTORY);
+    String metadataStoreFactoryClass = config.getOrDefault(METADATA_STORE_FACTORY_CONFIG, DEFAULT_METADATA_STORE_FACTORY);
     MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
-    return metadataStoreFactory.getMetadataStore(RUN_ID_METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
+    return metadataStoreFactory.getMetadataStore(RUN_ID_METADATA_STORE, config, new MetricsRegistryMap());
   }
 
   /**
@@ -332,7 +337,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
     private final StreamProcessor processor;
     private final ProcessorLifecycleListener userDefinedProcessorLifecycleListener;
 
-    LocalStreamProcessorLifecycleListener(StreamProcessor processor, Config jobConfig) {
+    LocalStreamProcessorLifecycleListener(StreamProcessor processor, Config jobConfig, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
       this.userDefinedProcessorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
           .createInstance(new ProcessorContext() { }, jobConfig);
       this.processor = processor;
