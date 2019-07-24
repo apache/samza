@@ -194,7 +194,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
           LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
           MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
           coordinatorStreamStore.init();
-        ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, jobConfig);
+          ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, jobConfig);
           StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
               sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig, appDesc), Optional.ofNullable(externalContext), coordinatorStreamStore);
           processors.add(Pair.of(processor, coordinatorStreamStore));
