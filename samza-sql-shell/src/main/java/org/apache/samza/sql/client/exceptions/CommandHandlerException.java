@@ -17,24 +17,24 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.client.exceptions;
 
 /**
- * An executor shall throw an ExecutorException when it encounters an error.
+ * A CommandHandler throws a CommandHandlerException when it encounters an error.
  */
-public class ExecutorException extends Exception {
-  public ExecutorException() {
+public class CommandHandlerException extends Exception {
+  public CommandHandlerException() {
   }
 
-  public ExecutorException(String message) {
+  public CommandHandlerException(String message) {
     super(message);
   }
 
-  public ExecutorException(String message, Throwable cause) {
+  public CommandHandlerException(String message, Throwable cause) {
     super(message, cause);
   }
 
-  public ExecutorException(Throwable cause) {
+  public CommandHandlerException(Throwable cause) {
     super(cause);
   }
 }

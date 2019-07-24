@@ -23,7 +23,8 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 
-import org.apache.samza.sql.client.interfaces.ExecutorException;
+import org.apache.samza.sql.client.exceptions.CommandHandlerException;
+import org.apache.samza.sql.client.exceptions.ExecutorException;
 import org.apache.samza.sql.client.util.CliUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +72,7 @@ public class Main {
             String key = strs[0].trim().toLowerCase();
             String value = strs[1].trim();
             try {
+              LOG.info("Configuration: setting {} = {}", key, value);
               int result = environment.setEnvironmentVariable(key, value);
               if (result == -1) { // CliEnvironment doesn't recognize the key.
                 LOG.warn("Unknowing shell environment variable: {}", key);
@@ -81,6 +83,9 @@ public class Main {
               messageBuilder.append("Warning: Failed to create executor: ").append(value).append('\n');
               messageBuilder.append("Warning: Using default executor " + CliConstants.DEFAULT_EXECUTOR_CLASS);
               LOG.error("Failed to create user specified executor {}", value, e);
+            } catch (CommandHandlerException e) {
+              messageBuilder.append("Warning: Failed to create CommandHandler: ").append(value).append('\n');
+              LOG.error("Failed to create user specified CommandHandler {}", value, e);
             }
           }
         } catch (IOException e) {
