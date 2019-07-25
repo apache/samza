@@ -56,6 +56,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Default {@link CommandHandler} which handles basic commands of type {@link CliCommandType}
+ */
 public class CliCommandHandler implements CommandHandler {
   private static final Logger LOG = LoggerFactory.getLogger(CliCommandHandler.class);
   private CliShell shell;
@@ -66,7 +69,13 @@ public class CliCommandHandler implements CommandHandler {
   private CliEnvironment env;
   private Map<Integer, String> executions = new TreeMap<>();
 
-
+  /**
+   * sets up the member variables
+   * @param shell: the {@link CliShell} which uses this CommandHandler
+   * @param env: the Shell's {@link CliEnvironment}
+   * @param terminal: the {@link Terminal} to print output and messages
+   * @param exeContext: the {@link ExecutionContext}
+   */
   public void init(CliShell shell, CliEnvironment env, Terminal terminal, ExecutionContext exeContext) {
     this.env = env;
     executor = env.getExecutor();
@@ -76,6 +85,12 @@ public class CliCommandHandler implements CommandHandler {
     this.shell = shell;
   }
 
+  /**
+   * Attempts to parse the given input string line into a {@link CliCommand} of this
+   * handler's {@link org.apache.samza.sql.client.interfaces.CommandType}
+   * @param line: input line string
+   * @return {@link CliCommand} on success, null otherwise
+   */
   public CliCommand parseLine(String line) {
     line = CliUtil.trimCommand(line);
     if (CliUtil.isNullOrEmpty(line))
@@ -97,6 +112,9 @@ public class CliCommandHandler implements CommandHandler {
     return new CliCommand(CliCommandType.INVALID_COMMAND);
   }
 
+  /**
+   * Prints to terminal the help message of the commands this handler handles
+   */
   public void printHelpMessage() {
     AttributedStringBuilder builder = new AttributedStringBuilder();
     builder.append("The following commands are supported by ")
@@ -122,7 +140,12 @@ public class CliCommandHandler implements CommandHandler {
     writer.println(builder.toAnsi());
   }
 
-
+  /**
+   * Handles the given command
+   * @param command: input {@link CliCommand} to handle
+   * @return false if command is to quit, or fatal error happened that Shell should not continue running. True o.w.
+   * @throws CommandHandlerException if unrecoverable error happened while handling the input {@link CliCommand}
+   */
   public boolean handleCommand(CliCommand command) throws CommandHandlerException {
     boolean keepRunning = true;
 

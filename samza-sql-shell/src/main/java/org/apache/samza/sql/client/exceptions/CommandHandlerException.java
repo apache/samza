@@ -23,17 +23,34 @@ package org.apache.samza.sql.client.exceptions;
  * A CommandHandler throws a CommandHandlerException when it encounters an error.
  */
 public class CommandHandlerException extends Exception {
+
+  /**
+   * default constructor
+   */
   public CommandHandlerException() {
   }
 
+  /**
+   * creates instance given error message
+   * @param message: error message
+   */
   public CommandHandlerException(String message) {
     super(message);
   }
 
+  /**
+   * creates instance given error message and {@link Throwable} cause
+   * @param message: error message
+   * @param cause: throwable cause
+   */
   public CommandHandlerException(String message, Throwable cause) {
     super(message, cause);
   }
 
+  /**
+   * creates instance given {@link Throwable} cause
+   * @param cause: throwable case
+   */
   public CommandHandlerException(Throwable cause) {
     super(cause);
   }
