@@ -263,13 +263,13 @@ public class TestStorageConfig {
   }
 
   @Test
-  public void testGetExpectLargeMessages() {
+  public void testGetDisallowLargeMessages() {
     // empty config, return default size
-    assertEquals(StorageConfig.DEFAULT_EXPECT_LARGE_MESSAGES, new StorageConfig(new MapConfig()).getExpectLargeMessages(STORE_NAME0));
+    assertEquals(StorageConfig.DEFAULT_DISALLOW_LARGE_MESSAGES, new StorageConfig(new MapConfig()).getDisallowLargeMessages(STORE_NAME0));
 
     StorageConfig storageConfig = new StorageConfig(
-        new MapConfig(ImmutableMap.of(String.format(StorageConfig.EXPECT_LARGE_MESSAGES, STORE_NAME0), "true")));
-    assertEquals(true, storageConfig.getExpectLargeMessages(STORE_NAME0));
+        new MapConfig(ImmutableMap.of(String.format(StorageConfig.DISALLOW_LARGE_MESSAGES, STORE_NAME0), "true")));
+    assertEquals(true, storageConfig.getDisallowLargeMessages(STORE_NAME0));
   }
 
   @Test

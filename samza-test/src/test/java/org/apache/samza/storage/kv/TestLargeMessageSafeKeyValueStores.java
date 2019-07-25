@@ -149,7 +149,7 @@ public class TestLargeMessageSafeKeyValueStores {
         break;
       }
       //For this case, the value of dropLargeMessage doesn't matter since we are testing the case when
-      // large messages are expected and StorageConfig.EXPECT_LARGE_MESSAGES is true.
+      // large messages are expected and StorageConfig.DISALLOW_LARGE_MESSAGES is true.
       case "serde-then-cache" : {
         KeyValueStore<byte[], byte[]> cachedStore =
             new CachedStore<>(loggedStore, cacheSize, batchSize, cachedStoreMetrics);

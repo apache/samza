@@ -20,21 +20,30 @@ package org.apache.samza.storage.kv;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.samza.SamzaException;
+import org.apache.samza.metrics.MetricsRegistryMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
+/**
+ * This class checks for the size of the message being stored and either throws an exception when a large message is
+ * encountered or ignores the large message and continues processing, depending on how it is configured.
+ */
 public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
 
-  private KeyValueStore<byte[], byte[]> store;
-  private String storeName;
-  private Boolean dropLargeMessage;
-  private int maxMessageSize;
+  private static final Logger LOG = LoggerFactory.getLogger(LargeMessageSafeStore.class);
+  private final KeyValueStore<byte[], byte[]> store;
+  private final String storeName;
+  private final boolean dropLargeMessages;
+  private final int maxMessageSize;
+  private final LargeMessageSafeStoreMetrics largeMessageSafeStoreMetrics;
 
-  public LargeMessageSafeStore(KeyValueStore<byte[], byte[]> store, String storeName, Boolean dropLargeMessage, int maxMessageSize) {
+  public LargeMessageSafeStore(KeyValueStore<byte[], byte[]> store, String storeName, Boolean dropLargeMessages, int maxMessageSize) {
     this.store = store;
     this.storeName = storeName;
-    this.dropLargeMessage = dropLargeMessage;
+    this.dropLargeMessages = dropLargeMessages;
     this.maxMessageSize = maxMessageSize;
+    this.largeMessageSafeStoreMetrics = new LargeMessageSafeStoreMetrics(storeName, new MetricsRegistryMap());
   }
 
   @Override
@@ -42,20 +51,40 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
     return store.get(key);
   }
 
+  /**
+   * This function puts a message in the store after validating its size.
+   * It drops the large message if it has been configured to do so.
+   * Otherwise, it throws an exception stating that a large message was encountered.
+   *
+   * @param key the key with which the specified {@code value} is to be associated.
+   * @param value the value with which the specified {@code key} is to be associated.
+   */
   @Override
   public void put(byte[] key, byte[] value) {
     validateMessageSize(value);
     if (!isLargeMessage(value)) {
       store.put(key, value);
+    } else {
+      LOG.info("Ignoring a large message with size " + value.length + " since it is greater than "
+          + "the maximum allowed value of " + maxMessageSize);
+      largeMessageSafeStoreMetrics.ignoredLargeMessages().inc();
     }
   }
 
+  /**
+   * This function puts messages in the store after validating their size.
+   * It drops any large messages in the entry list if it has been configured to do so.
+   * Otherwise, it throws an exception stating that a large message was encountered,
+   * and does not put any of the messages in the store.
+   *
+   * @param entries the updated mappings to put into this key-value store.
+   */
   @Override
   public void putAll(List<Entry<byte[], byte[]>> entries) {
     entries.forEach(entry -> {
         validateMessageSize(entry.getValue());
       });
-    List<Entry<byte[], byte[]>> largeMessageSafeEntries = removeLargeMessage(entries);
+    List<Entry<byte[], byte[]>> largeMessageSafeEntries = removeLargeMessages(entries);
     store.putAll(largeMessageSafeEntries);
   }
 
@@ -95,8 +124,8 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
   }
 
   private void validateMessageSize(byte[] message) {
-    if (!dropLargeMessage && isLargeMessage(message)) {
-      throw new SamzaException("Logged store message size " + message.length + " for store " + storeName
+    if (!dropLargeMessages && isLargeMessage(message)) {
+      throw new RecordTooLargeException("The message size " + message.length + " for store " + storeName
           + " was larger than the maximum allowed message size " + maxMessageSize + ".");
     }
   }
@@ -105,11 +134,15 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
     return message != null && message.length > maxMessageSize;
   }
 
-  private List<Entry<byte[], byte[]>> removeLargeMessage(List<Entry<byte[], byte[]>> entries) {
+  private List<Entry<byte[], byte[]>> removeLargeMessages(List<Entry<byte[], byte[]>> entries) {
     List<Entry<byte[], byte[]>> largeMessageSafeEntries = new ArrayList<>();
     entries.forEach(entry -> {
         if (!isLargeMessage(entry.getValue())) {
           largeMessageSafeEntries.add(entry);
+        } else {
+          LOG.info("Ignoring a large message with size " + entry.getValue().length + " since it is greater than "
+              + "the maximum allowed value of " + maxMessageSize);
+          largeMessageSafeStoreMetrics.ignoredLargeMessages().inc();
         }
       });
     return largeMessageSafeEntries;
