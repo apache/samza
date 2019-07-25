@@ -39,7 +39,8 @@ public class UdfMetadata {
 
   public UdfMetadata(String name, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments,
       boolean disableArgCheck) {
-    this.name = name;
+    // Udfs are case insensitive
+    this.name = name.toUpperCase();
     this.udfMethod = udfMethod;
     this.udfConfig = udfConfig;
     this.arguments = arguments;
