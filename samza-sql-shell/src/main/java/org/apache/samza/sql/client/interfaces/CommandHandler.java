@@ -26,9 +26,36 @@ import org.apache.samza.sql.client.exceptions.CommandHandlerException;
 import org.jline.terminal.Terminal;
 
 
+/**
+ * Handles commands of certain {@link CommandType}
+ */
 public interface CommandHandler {
+  /**
+   * sets-up the member variables
+   * @param shell: the {@link CliShell} which uses this CommandHandler
+   * @param env: the Shell's {@link CliEnvironment}
+   * @param terminal: the {@link Terminal} to print output and messages
+   * @param exeContext: the {@link ExecutionContext}
+   */
   void init(CliShell shell, CliEnvironment env, Terminal terminal, ExecutionContext exeContext);
+
+  /**
+   * Attempts to parse the given input string line into a {@link CliCommand} of this handler's {@link CommandType}
+   * @param line: input line string
+   * @return {@link CliCommand} on success, null otherwise
+   */
   CliCommand parseLine(String line);
+
+  /**
+   * Handles the given command
+   * @param command: input {@link CliCommand} to handle
+   * @return false if command is to quit, or fatal error happened that Shell should not continue running. True o.w.
+   * @throws CommandHandlerException if unrecoverable error happened
+   */
   boolean handleCommand(CliCommand command) throws CommandHandlerException;
+
+  /**
+   * Prints to terminal the help message of the commands this handler handles
+   */
   void printHelpMessage();
 }
