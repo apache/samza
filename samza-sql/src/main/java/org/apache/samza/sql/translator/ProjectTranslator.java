@@ -19,8 +19,6 @@
 
 package org.apache.samza.sql.translator;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -44,6 +42,7 @@ import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
+import org.apache.samza.sql.util.TranslatorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -113,7 +112,7 @@ class ProjectTranslator {
      */
     @Override
     public SamzaSqlRelMessage apply(SamzaSqlRelMessage message) {
-      Instant arrivalTime = Instant.now();
+      long arrivalTime = System.nanoTime();
       RelDataType type = project.getRowType();
       Object[] output = new Object[type.getFieldCount()];
       expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
@@ -122,22 +121,22 @@ class ProjectTranslator {
       for (int index = 0; index < output.length; index++) {
         names.add(index, project.getNamedProjects().get(index).getValue());
       }
-      updateMetrics(arrivalTime, Instant.now(), message.getSamzaSqlRelMsgMetadata().isNewInputMessage);
+      updateMetrics(arrivalTime, System.nanoTime(), message.getSamzaSqlRelMsgMetadata().isNewInputMessage);
       return new SamzaSqlRelMessage(names, Arrays.asList(output), message.getSamzaSqlRelMsgMetadata());
     }
 
     /**
      * Updates the Diagnostics Metrics (processing time and number of events)
-     * @param arrivalTime input message arrival time (= beging of processing in this operator)
-     * @param outputTime output message output time (=end of processing in this operator)
+     * @param arrivalTime input message arrival nanoTime (= begin of processing in this operator)
+     * @param outputTime output message output nanoTime (=end of processing in this operator)
      * @param isNewInputMessage whether the input Message is from new input message or not
      */
-    private void updateMetrics(Instant arrivalTime, Instant outputTime, boolean isNewInputMessage) {
+    private void updateMetrics(long arrivalTime, long outputTime, boolean isNewInputMessage) {
       if (isNewInputMessage) {
         inputEvents.inc();
       }
       outputEvents.inc();
-      processingTime.update(Duration.between(arrivalTime, outputTime).toMillis());
+      processingTime.update(TranslatorUtils.getMicroDurationFromNanoTimes(arrivalTime, outputTime));
     }
   }
 

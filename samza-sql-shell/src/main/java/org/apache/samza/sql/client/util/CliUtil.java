@@ -44,7 +44,11 @@ public class CliUtil {
     return builder;
   }
 
-  // Trims: leading spaces; trailing spaces and ";"s
+  /**
+   * Trims: leading spaces; trailing spaces and ";"s
+   * @param command: input String to trim
+   * @return trimmed String
+   */
   public static String trimCommand(String command) {
     if (CliUtil.isNullOrEmpty(command))
       return command;
@@ -62,6 +66,11 @@ public class CliUtil {
     return ((st > 0) || (len < command.length())) ? command.substring(st, len) : command;
   }
 
+  /**
+   * Prints to input {@link PrintWriter} the usage string of the input {@link CliCommand}
+   * @param command: command to get its usage string
+   * @param writer: where to print usage
+   */
   public static void printCommandUsage(CliCommand command, PrintWriter writer) {
     writer.println(command.getCommandType().getUsage());
     writer.flush();

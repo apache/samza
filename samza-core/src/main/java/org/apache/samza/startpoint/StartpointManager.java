@@ -211,6 +211,16 @@ public class StartpointManager {
   }
 
   /**
+   * Deletes all {@link Startpoint}s
+   */
+  public void deleteAllStartpoints() {
+    Set<String> readWriteKeys = readWriteStore.all().keySet();
+    for (String key : readWriteKeys) {
+      readWriteStore.delete(key);
+    }
+  }
+
+  /**
    * The Startpoints that are written to with {@link #writeStartpoint(SystemStreamPartition, Startpoint)} and with
    * {@link #writeStartpoint(SystemStreamPartition, TaskName, Startpoint)} are moved from a "read-write" namespace
    * to a "fan out" namespace.
@@ -304,6 +314,16 @@ public class StartpointManager {
     Preconditions.checkNotNull(taskName, "TaskName cannot be null");
 
     fanOutStore.delete(toFanOutStoreKey(taskName));
+  }
+
+  /**
+   * Deletes all fanned out {@link Startpoint}s
+   */
+  public void removeAllFanOuts() {
+    Set<String> fanOutKeys = fanOutStore.all().keySet();
+    for (String key : fanOutKeys) {
+      fanOutStore.delete(key);
+    }
   }
 
   @VisibleForTesting

@@ -59,6 +59,10 @@ public enum CliCommandType implements CommandType {
     this.argsAreOptional = noArgs;
   }
 
+  /**
+   * static API to return all commands in this enumeration
+   * @return list of all commands' names
+   */
   public static List<String> getAllCommands() {
     List<String> cmds = new ArrayList<String>();
     for (CliCommandType t : CliCommandType.values()) {
@@ -68,18 +72,34 @@ public enum CliCommandType implements CommandType {
     return cmds;
   }
 
+  /**
+   * Gets the command name
+   * @return string
+   */
   public String getCommandName() {
     return cmdName;
   }
 
+  /**
+   * gets the command description
+   * @return string
+   */
   public String getDescription() {
     return description;
   }
 
+  /**
+   * gets the command usage
+   * @return string
+   */
   public String getUsage() {
     return usage;
   }
 
+  /**
+   * gets the argsAreOptional flag
+   * @return true if args are optional, false o.w.
+   */
   public boolean argsAreOptional() {
     return argsAreOptional;
   }

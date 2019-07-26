@@ -21,11 +21,13 @@ package org.apache.samza.standalone;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
 
 public class PassthroughJobCoordinatorFactory implements JobCoordinatorFactory {
   @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry,
+      MetadataStore metadataStore) {
     return new PassthroughJobCoordinator(processorId, config, metricsRegistry);
   }
 }

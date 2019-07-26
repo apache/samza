@@ -44,8 +44,10 @@ public class TestSamzaSqlLocalTableJoinFunction {
 
   @Test
   public void testWithInnerJoinWithTableOnRight() {
-    SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues, new SamzaSqlRelMsgMetadata("", "", ""));
-    SamzaSqlRelMessage tableMsg = new SamzaSqlRelMessage(tableFieldNames, tableFieldValues, new SamzaSqlRelMsgMetadata("", "", ""));
+    SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues,
+        new SamzaSqlRelMsgMetadata(0, 0, 0));
+    SamzaSqlRelMessage tableMsg = new SamzaSqlRelMessage(tableFieldNames, tableFieldValues,
+        new SamzaSqlRelMsgMetadata(0, 0, 0));
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
     List<Integer> tableKeyIds = Arrays.asList(0, 1);
@@ -77,8 +79,10 @@ public class TestSamzaSqlLocalTableJoinFunction {
 
   @Test
   public void testWithInnerJoinWithTableOnLeft() {
-    SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues, new SamzaSqlRelMsgMetadata("", "", ""));
-    SamzaSqlRelMessage tableMsg = new SamzaSqlRelMessage(tableFieldNames, tableFieldValues, new SamzaSqlRelMsgMetadata("", "", ""));
+    SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues,
+        new SamzaSqlRelMsgMetadata(0, 0, 0));
+    SamzaSqlRelMessage tableMsg = new SamzaSqlRelMessage(tableFieldNames, tableFieldValues,
+        new SamzaSqlRelMsgMetadata(0, 0, 0));
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(0, 2);
     List<Integer> tableKeyIds = Arrays.asList(0, 2);
@@ -111,7 +115,7 @@ public class TestSamzaSqlLocalTableJoinFunction {
   @Test
   public void testNullRecordWithInnerJoin() {
     SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues,
-        new SamzaSqlRelMsgMetadata("", "", ""));
+        new SamzaSqlRelMsgMetadata(0, 0, 0));
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
     List<Integer> tableKeyIds = Arrays.asList(2, 3);
@@ -135,7 +139,7 @@ public class TestSamzaSqlLocalTableJoinFunction {
   @Test
   public void testNullRecordWithLeftOuterJoin() {
     SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues,
-        new SamzaSqlRelMsgMetadata("", "", ""));
+        new SamzaSqlRelMsgMetadata(0, 0, 0));
     JoinRelType joinRelType = JoinRelType.LEFT;
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
     List<Integer> tableKeyIds = Arrays.asList(2, 3);

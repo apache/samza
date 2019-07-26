@@ -20,7 +20,6 @@
 package org.apache.samza.sql.translator;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.rel.logical.LogicalAggregate;
@@ -81,7 +80,7 @@ class LogicalAggregateTranslator {
                 List<Object> fieldValues = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldValues();
                 fieldNames.add(aggFieldNames.get(0));
                 fieldValues.add(windowPane.getMessage());
-                return new SamzaSqlRelMessage(fieldNames, fieldValues, new SamzaSqlRelMsgMetadata("", "", ""));
+                return new SamzaSqlRelMessage(fieldNames, fieldValues, new SamzaSqlRelMsgMetadata(0, 0,0));
               });
     context.registerMessageStream(aggregate.getId(), outputStream);
     outputStream.map(new TranslatorOutputMetricsMapFunction(logicalOpId));

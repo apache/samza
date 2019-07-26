@@ -17,16 +17,17 @@
  * under the License.
  */
 
-package org.apache.samza.coordinator;
+package org.apache.samza.sql.util;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metrics.MetricsRegistry;
-
-public class AzureJobCoordinatorFactory implements JobCoordinatorFactory {
-  @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry,
-      MetadataStore metadataStore) {
-    return new AzureJobCoordinator(processorId, config, metricsRegistry);
+public class TranslatorUtils {
+  static long MICROS_IN_NANO = 1000;
+  /**
+   * computes duraiton and converts it to micro resolution
+   * @param start start nanoTime
+   * @param end end nanoTime
+   * @return duration in micro resolution
+   */
+  static public long getMicroDurationFromNanoTimes(long start, long end) {
+    return (end - start) / MICROS_IN_NANO;
   }
 }
