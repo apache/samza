@@ -17,16 +17,17 @@
  * under the License.
  */
 
-package org.apache.samza.sql.translator;
+package org.apache.samza.sql.util;
 
-public class TranslatorConstants {
-  public static final String PROCESSING_TIME_NAME = "processingTimeMicros";
-  public static final String TOTAL_LATENCY_NAME = "totalLatencyMicros";
-  public static final String QUERY_LATENCY_NAME = "queryLatencyMicros";
-  public static final String QUEUEING_LATENCY_NAME = "queueingLatencyMicros";
-  public static final String INPUT_EVENTS_NAME = "inputEvents";
-  public static final String FILTERED_EVENTS_NAME = "filteredEvents";
-  public static final String OUTPUT_EVENTS_NAME = "outputEvents";
-  public static final String LOGOPID_TEMPLATE = "sql_%d_%s_%d";
-  public static final String LOGSQLID_TEMPLATE = "sql_%d";
+public class TranslatorUtils {
+  static long MICROS_IN_NANO = 1000;
+  /**
+   * computes duraiton and converts it to micro resolution
+   * @param start start nanoTime
+   * @param end end nanoTime
+   * @return duration in micro resolution
+   */
+  static public long getMicroDurationFromNanoTimes(long start, long end) {
+    return (end - start) / MICROS_IN_NANO;
+  }
 }

@@ -69,7 +69,7 @@ public class TestSamzaSqlRemoteTableJoinFunction {
     tableRecord.put("name", "name1");
 
     SamzaSqlRelMessage streamMsg = new SamzaSqlRelMessage(streamFieldNames, streamFieldValues,
-        new SamzaSqlRelMsgMetadata("", "", ""));
+        new SamzaSqlRelMsgMetadata(0, 0, 0));
     SamzaSqlRelMessage tableMsg = relConverter.convertToRelMessage(new KV(tableRecord.get("id"), tableRecord));
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(1);
