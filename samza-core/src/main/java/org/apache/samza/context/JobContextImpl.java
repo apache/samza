@@ -43,8 +43,8 @@ public class JobContextImpl implements JobContext {
    */
   public static JobContextImpl fromConfigWithDefaults(Config config) {
     JobConfig jobConfig = new JobConfig(config);
-    String jobName =
-        jobConfig.getName().orElseThrow(() -> new IllegalArgumentException("Job name is not defined in configuration"));
+    String jobName = jobConfig.getName()
+        .orElseThrow(() -> new IllegalArgumentException(String.format("Config %s is missing", JobConfig.JOB_NAME)));
     String jobId = jobConfig.getJobId();
     return new JobContextImpl(config, jobName, jobId);
   }
