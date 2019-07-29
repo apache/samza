@@ -51,7 +51,7 @@ public class TestSamzaSqlRelRecordSerde {
   @Test
   public void testWithDifferentFields() {
     SamzaSqlRelRecord record =
-        new SamzaSqlRelMessage(names, values, new SamzaSqlRelMsgMetadata(0,0, 0)).getSamzaSqlRelRecord();
+        new SamzaSqlRelMessage(names, values, new SamzaSqlRelMsgMetadata("", "", "")).getSamzaSqlRelRecord();
     SamzaSqlRelRecordSerde serde =
         (SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
     SamzaSqlRelRecord resultRecord = serde.fromBytes(serde.toBytes(record));

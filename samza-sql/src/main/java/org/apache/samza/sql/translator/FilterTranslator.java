@@ -19,6 +19,9 @@
 
 package org.apache.samza.sql.translator;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import org.apache.calcite.rel.logical.LogicalFilter;
@@ -32,7 +35,6 @@ import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.sql.data.Expression;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
-import org.apache.samza.sql.util.TranslatorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,7 +96,7 @@ class FilterTranslator {
 
     @Override
     public boolean apply(SamzaSqlRelMessage message) {
-      long startProcessing = System.nanoTime();
+      Instant startProcessing = Instant.now();
       Object[] result = new Object[1];
       expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
           message.getSamzaSqlRelRecord().getFieldValues().toArray(), result);
@@ -103,7 +105,7 @@ class FilterTranslator {
         log.debug(
             String.format("return value for input %s is %s",
                 Arrays.asList(message.getSamzaSqlRelRecord().getFieldValues()).toString(), retVal));
-        updateMetrics(startProcessing, retVal, System.nanoTime());
+        updateMetrics(startProcessing, retVal, Instant.now());
         return retVal;
       } else {
         log.error("return value is not boolean");
@@ -113,17 +115,17 @@ class FilterTranslator {
 
     /**
      * Updates the MetricsRegistery of this operator
-     * @param startProcessing = nanoTime when processing of the message started
-     * @param endProcessing = nanoTIme when processing of the message ended
+     * @param startProcessing = begin processing of the message
+     * @param endProcessing = end of processing
      */
-    private void updateMetrics(long startProcessing, boolean isOutput, long endProcessing) {
+    private void updateMetrics(Instant startProcessing, boolean isOutput, Instant endProcessing) {
       inputEvents.inc();
       if (isOutput) {
         outputEvents.inc();
       } else {
         filteredOutEvents.inc();
       }
-      processingTime.update(TranslatorUtils.getMicroDurationFromNanoTimes(startProcessing, endProcessing));
+      processingTime.update(Duration.between(startProcessing, endProcessing).toMillis());
     }
 
   }
