@@ -210,7 +210,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
-   * Requests a resource from the cluster manager with the specified delay
+   * Requests a resource from the cluster manager with a request timestamp of the current time plus the specified delay.
    * @param processorId Samza processor ID that will be run when a resource is allocated for this request
    * @param preferredHost name of the host that you prefer to run the processor on
    * @param delay the {@link Duration} to add to the request timestamp
@@ -231,7 +231,8 @@ public abstract class AbstractContainerAllocator implements Runnable {
   }
 
   /**
-   * Creates a {@link SamzaResourceRequest} to send to the cluster manager with the specified delay
+   * Creates a {@link SamzaResourceRequest} to send to the cluster manager with a request timestamp of the current time
+   * plus the specified delay.
    * @param processorId Samza processor ID that will be run when a resource is allocated for this request
    * @param preferredHost name of the host that you prefer to run the processor on
    * @param delay the {@link Duration} to add to the request timestamp
