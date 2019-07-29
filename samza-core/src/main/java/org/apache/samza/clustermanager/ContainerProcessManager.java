@@ -18,8 +18,12 @@
  */
 package org.apache.samza.clustermanager;
 
-import java.util.Optional;
 import com.google.common.annotations.VisibleForTesting;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
@@ -38,9 +42,6 @@ import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import scala.Option;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -105,10 +106,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final ClusterResourceManager clusterResourceManager;
 
   /**
-   * If there are too many failed container failures (configured by job.container.retry.count) for a
-   * processor, the job exits.
+   * If there are more than job.container.retry.count failures of a container within a job.container.retry.window period,
+   * then the ContainerProcessManager will indicate to the ClusterBasedJobCoordinator that the job should shutdown.
    */
-  private volatile boolean tooManyFailedContainers = false;
+  private volatile boolean jobFailureCriteriaMet = false;
 
   /**
    * Exception thrown in callbacks, such as {@code containerAllocator}
@@ -120,6 +121,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * value is the {@link ProcessorFailure} object that has a count of failures.
    */
   private final Map<String, ProcessorFailure> processorFailures = new HashMap<>();
+
   private ContainerProcessManagerMetrics containerProcessManagerMetrics;
   private JvmMetrics jvmMetrics;
   private Map<String, MetricsReporter> metricsReporters;
@@ -209,13 +211,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   public boolean shouldShutdown() {
     log.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
-      state.completedProcessors.get(), state.processorCount, tooManyFailedContainers ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
+      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
 
     if (exceptionOccurred != null) {
       log.error("Exception in container process manager", exceptionOccurred);
       throw new SamzaException(exceptionOccurred);
     }
-    return tooManyFailedContainers || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
+    return jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
   }
 
   public void start() {
@@ -399,46 +401,46 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
           log.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
               "so shutting down the application master and marking the job as failed.", processorId, containerId);
 
-          tooManyFailedContainers = true;
+          jobFailureCriteriaMet = true;
         } else if (retryCount > 0) {
           int currentFailCount;
-          long lastFailureTime;
+          long lastFailureMsDiff;
           if (processorFailures.containsKey(processorId)) {
             ProcessorFailure failure = processorFailures.get(processorId);
             currentFailCount = failure.getCount() + 1;
-            lastFailureTime = failure.getLastFailure();
+            lastFailureMsDiff = Instant.now().toEpochMilli() - failure.getLastFailure();
           } else {
             currentFailCount = 1;
-            lastFailureTime = 0L;
+            lastFailureMsDiff = 0;
           }
-          if (currentFailCount >= retryCount) {
-            long lastFailureMsDiff = System.currentTimeMillis() - lastFailureTime;
 
-            if (lastFailureMsDiff < retryWindowMs) {
-              log.error("Processor ID: {} (current Container ID: {}) has failed {} times, with last failure {} ms ago. " +
-                  "This is greater than retry count of {} and window of {} ms, " +
-                  "so shutting down the application master and marking the job as failed.",
-                  processorId, containerId, currentFailCount, lastFailureMsDiff, retryCount, retryWindowMs);
+          if (lastFailureMsDiff >= retryWindowMs) {
+            log.info("Resetting failure count for Processor ID: {} back to 1, since last failure " +
+                "(for Container ID: {}) was outside the bounds of the retry window.", processorId, containerId);
 
-              // We have too many failures, and we're within the window
-              // boundary, so reset shut down the app master.
-              tooManyFailedContainers = true;
-              state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-            } else {
-              log.info("Resetting failure count for Processor ID: {} back to 1, since last failure " +
-                  "(for Container ID: {}) was outside the bounds of the retry window.", processorId, containerId);
+            // Reset counter back to 1, since the last failure for this
+            // container happened outside the window boundary.
+            currentFailCount = 1;
+          }
 
-              // Reset counter back to 1, since the last failure for this
-              // container happened outside the window boundary.
-              processorFailures.put(processorId, new ProcessorFailure(1, System.currentTimeMillis()));
-            }
+          // if fail count is (1 initial failure + max retries) then fail job.
+          if (currentFailCount > retryCount) {
+            log.error("Processor ID: {} (current Container ID: {}) has failed {} times, with last failure {} ms ago. " +
+                    "This is greater than retry count of {} and window of {} ms, " +
+                    "so shutting down the application master and marking the job as failed.",
+                processorId, containerId, currentFailCount, lastFailureMsDiff, retryCount, retryWindowMs);
+
+            // We have too many failures, and we're within the window
+            // boundary, so reset shut down the app master.
+            jobFailureCriteriaMet = true;
+            state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
           } else {
             log.info("Current failure count for Processor ID: {} is {}.", processorId, currentFailCount);
-            processorFailures.put(processorId, new ProcessorFailure(currentFailCount, System.currentTimeMillis()));
+            processorFailures.put(processorId, new ProcessorFailure(currentFailCount, Instant.now().toEpochMilli()));
           }
         }
 
-        if (!tooManyFailedContainers) {
+        if (!jobFailureCriteriaMet) {
           handleContainerStop(processorId, resourceStatus.getContainerId(), lastSeenOn, exitStatus);
         }
 
@@ -526,6 +528,16 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   public void onError(Throwable e) {
     log.error("Exception occurred in callbacks in the Cluster Resource Manager", e);
     exceptionOccurred = e;
+  }
+
+  @VisibleForTesting
+  boolean getJobFailureCriteriaMet() {
+    return jobFailureCriteriaMet;
+  }
+
+  @VisibleForTesting
+  Map<String, ProcessorFailure> getProcessorFailures() {
+    return processorFailures;
   }
 
   /**
