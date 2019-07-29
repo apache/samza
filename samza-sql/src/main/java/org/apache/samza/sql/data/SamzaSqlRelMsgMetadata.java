@@ -56,60 +56,60 @@ public class SamzaSqlRelMsgMetadata implements Serializable {
    * TODO: copy eventTime through from source to RelMessage
    */
   @JsonProperty("eventTime")
-  private long eventTime;
+  private String eventTime;
 
   /**
    * the timestamp of when Samza App received the event
    * TODO: set arrivalTime during conversion from IME to SamzaMessage
    */
   @JsonProperty("arrivalTime")
-  private long arrivalTime;
+  private String arrivalTime;
 
   /**
    * the timestamp when SamzaSQL query starts processing the event
    * set by the SamzaSQL Scan operator
    */
   @JsonProperty("scanTime")
-  private long scanTime;
+  private String scanTime;
 
-  public SamzaSqlRelMsgMetadata(@JsonProperty("eventTime") long eventTime, @JsonProperty("arrivalTime") long arrivalTime,
-      @JsonProperty("scanTime") long scanTime) {
+  public SamzaSqlRelMsgMetadata(@JsonProperty("eventTime") String eventTime, @JsonProperty("arrivalTime") String arrivalTime,
+      @JsonProperty("scanTime") String scanTime) {
     this.eventTime = eventTime;
     this.arrivalTime = arrivalTime;
     this.scanTime = scanTime;
   }
 
-  public SamzaSqlRelMsgMetadata(long eventTime, long arrivalTime, long scanTime, boolean isNewInputMessage) {
+  public SamzaSqlRelMsgMetadata(String eventTime, String arrivalTime, String scanTime, boolean isNewInputMessage) {
     this(eventTime, arrivalTime, scanTime);
     this.isNewInputMessage = isNewInputMessage;
   }
 
   @JsonProperty("eventTime")
-  public long getEventTime() { return eventTime;}
+  public String getEventTime() { return eventTime;}
 
-  public void setEventTime(long eventTime) {
+  public void setEventTime(String eventTime) {
     this.eventTime = eventTime;
   }
 
-  public boolean hasEventTime() { return eventTime != 0; }
+  public boolean hasEventTime() { return eventTime != null && !eventTime.isEmpty(); }
 
   @JsonProperty("arrivalTime")
-  public long getarrivalTime() { return arrivalTime;}
+  public String getarrivalTime() { return arrivalTime;}
 
-  public void setArrivalTime(long arrivalTime) {
+  public void setArrivalTime(String arrivalTime) {
     this.arrivalTime = arrivalTime;
   }
 
-  public boolean hasArrivalTime() { return arrivalTime != 0; }
+  public boolean hasArrivalTime() { return arrivalTime != null && !arrivalTime.isEmpty(); }
 
   @JsonProperty("scanTime")
-  public long getscanTime() { return scanTime;}
+  public String getscanTime() { return scanTime;}
 
-  public void setScanTime(long scanTime) {
+  public void setScanTime(String scanTime) {
     this.scanTime = scanTime;
   }
 
-  public boolean hasScanTime() { return scanTime != 0; }
+  public boolean hasScanTime() { return scanTime != null && !scanTime.isEmpty(); }
 
   @JsonIgnore
   public  void setIsSystemMessage(boolean isSystemMessage) {

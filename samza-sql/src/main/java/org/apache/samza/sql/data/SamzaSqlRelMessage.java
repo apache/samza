@@ -130,15 +130,15 @@ public class SamzaSqlRelMessage implements Serializable {
     return key;
   }
 
-  public void setEventTime(long eventTime) {
+  public void setEventTime(String eventTime) {
     this.samzaSqlRelMsgMetadata.setEventTime(eventTime);
   }
 
-  public void setArrivalTime(long arrivalTime) {
+  public void setArrivalTime(String arrivalTime) {
     this.samzaSqlRelMsgMetadata.setArrivalTime(arrivalTime);
   }
 
-  public void setScanTime(long scanTime) {
+  public void setScanTime(String scanTime) {
     this.samzaSqlRelMsgMetadata.setScanTime(scanTime);
   }
 

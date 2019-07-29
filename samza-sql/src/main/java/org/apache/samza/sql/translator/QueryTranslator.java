@@ -20,6 +20,8 @@
 package org.apache.samza.sql.translator;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -61,7 +63,6 @@ import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.apache.samza.sql.util.SamzaSqlQueryParser;
-import org.apache.samza.sql.util.TranslatorUtils;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.system.descriptors.GenericOutputDescriptor;
 import org.apache.samza.table.Table;
@@ -133,14 +134,14 @@ public class QueryTranslator {
 
       queryLatency = new SamzaHistogram(metricsRegistry, queryLogicalId, TranslatorConstants.QUERY_LATENCY_NAME);
       queueingLatency = new SamzaHistogram(metricsRegistry, queryLogicalId, TranslatorConstants.QUEUEING_LATENCY_NAME);
-
+      
       queryOutputEvents = metricsRegistry.newCounter(queryLogicalId, TranslatorConstants.OUTPUT_EVENTS_NAME);
       queryOutputEvents.clear();
     }
 
     @Override
     public KV<Object, Object> apply(SamzaSqlRelMessage message) {
-      long beginProcessing = System.nanoTime();
+      Instant beginProcessing = Instant.now();
       KV<Object, Object> retKV = this.samzaMsgConverter.convertToSamzaMessage(message);
       if (message.getSamzaSqlRelRecord().containsField(SamzaSqlRelMessage.OP_NAME)
           && ((String) message.getSamzaSqlRelRecord().getField(SamzaSqlRelMessage.OP_NAME).get()).equalsIgnoreCase(
@@ -148,36 +149,36 @@ public class QueryTranslator {
         // If it is a delete op. Set the payload to null so that the record gets deleted.
         retKV = new KV<>(retKV.key, null);
       }
-      updateMetrics(beginProcessing, System.nanoTime(), message.getSamzaSqlRelMsgMetadata());
+      updateMetrics(beginProcessing, Instant.now(), message.getSamzaSqlRelMsgMetadata());
       return retKV;
     }
 
     /**
      * Updates the Diagnostics Metrics (processing time and number of events)
-     * @param beginProcessing when (nanoTime) sendOutput Started processing this message
-     * @param endProcessing when (nanoTime) sendOutput finished processing this message
+     * @param beginProcessing when sendOutput Started processing this message
+     * @param endProcessing when sendOutput finished processing this message
      * @param metadata the event's message metadata
      */
-    private void updateMetrics(long beginProcessing, long endProcessing, SamzaSqlRelMsgMetadata metadata) {
+    private void updateMetrics(Instant beginProcessing, Instant endProcessing, SamzaSqlRelMsgMetadata metadata) {
       /* insert (SendToOutputStream) metrics */
-      insertProcessingTime.update(TranslatorUtils.getMicroDurationFromNanoTimes(beginProcessing, endProcessing));
+      insertProcessingTime.update(Duration.between(beginProcessing, endProcessing).toMillis());
       /* query metrics */
-      long outputTime = System.nanoTime();
+      Instant outputTime = Instant.now();
       queryOutputEvents.inc();
       /* TODO: remove scanTime validation once code to assign it is stable */
       Validate.isTrue(metadata.hasScanTime());
-      long scanTime = metadata.getscanTime();
-      queryLatency.update(TranslatorUtils.getMicroDurationFromNanoTimes(scanTime, outputTime));
+      Instant scanTime = Instant.parse(metadata.getscanTime());
+      queryLatency.update(Duration.between(scanTime, outputTime).toMillis());
       /** TODO: change if hasArrivalTime to validation once arrivalTime is assigned,
        and later remove the check once code is stable */
       if (metadata.hasArrivalTime()) {
-        long arrivalTime = metadata.getarrivalTime();
-        queueingLatency.update(TranslatorUtils.getMicroDurationFromNanoTimes(arrivalTime, scanTime));
+        Instant arrivalTime = Instant.parse(metadata.getarrivalTime());
+        queueingLatency.update(Duration.between(arrivalTime, scanTime).toMillis());
       }
       /* since availability of eventTime depends on source, we need the following check */
       if (metadata.hasEventTime()) {
-        long eventTime = metadata.getEventTime();
-        totalLatency.update(TranslatorUtils.getMicroDurationFromNanoTimes(eventTime, outputTime));
+        Instant eventTime = Instant.parse(metadata.getEventTime());
+        totalLatency.update(Duration.between(eventTime, outputTime).toMillis());
       }
     }
   } // OutputMapFunction

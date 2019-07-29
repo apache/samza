@@ -37,10 +37,10 @@ public class IncomingMessageEnvelope {
   private final Object key;
   private final Object message;
   private final int size;
-  // the System's nanoTime when this event occurred, should be set by the event source, 0 means unassigned
+  // the timestamp when this event occured, should be set by the event source, 0 means unassigned
   private long eventTime = 0L;
-  // the System's nanoTime when this event is picked-up by samza, 0 means unassgined
-  private long arrivalTime;
+  // the timestamp when this event is pickedup by samza, 0 means unassgined
+  private long arrivalTime = 0L;
 
   /**
    * Constructs a new IncomingMessageEnvelope from specified components.
@@ -70,7 +70,7 @@ public class IncomingMessageEnvelope {
     this.key = key;
     this.message = message;
     this.size = size;
-    this.arrivalTime = System.nanoTime();
+    this.arrivalTime = Instant.now().toEpochMilli();
   }
 
   /**
