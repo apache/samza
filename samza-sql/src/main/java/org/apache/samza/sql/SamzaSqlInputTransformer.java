@@ -40,7 +40,9 @@ public class SamzaSqlInputTransformer implements InputTransformer {
   public Object apply(IncomingMessageEnvelope ime) {
     Assert.notNull(ime, "ime is null");
     KV<Object, Object> keyAndMessageKV = KV.of(ime.getKey(), ime.getMessage());
-    SamzaSqlRelMsgMetadata metadata = new SamzaSqlRelMsgMetadata(ime.getEventTime(), ime.getArrivalTime(),0L);
+    SamzaSqlRelMsgMetadata metadata = new SamzaSqlRelMsgMetadata(
+        (ime.getEventTime() == 0) ? "" : Instant.ofEpochMilli(ime.getEventTime()).toString(),
+        (ime.getArrivalTime() == 0) ? "" : Instant.ofEpochMilli(ime.getArrivalTime()).toString(), null);
     SamzaSqlInputMessage samzaMsg = SamzaSqlInputMessage.of(keyAndMessageKV, metadata);
     return  samzaMsg;
   }

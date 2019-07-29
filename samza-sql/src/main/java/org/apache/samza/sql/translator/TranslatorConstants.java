@@ -20,10 +20,10 @@
 package org.apache.samza.sql.translator;
 
 public class TranslatorConstants {
-  public static final String PROCESSING_TIME_NAME = "processingTimeMicros";
-  public static final String TOTAL_LATENCY_NAME = "totalLatencyMicros";
-  public static final String QUERY_LATENCY_NAME = "queryLatencyMicros";
-  public static final String QUEUEING_LATENCY_NAME = "queueingLatencyMicros";
+  public static final String PROCESSING_TIME_NAME = "processingTimeMs";
+  public static final String TOTAL_LATENCY_NAME = "totalLatencyMs";
+  public static final String QUERY_LATENCY_NAME = "queryLatencyMs";
+  public static final String QUEUEING_LATENCY_NAME = "queueingLatencyMs";
   public static final String INPUT_EVENTS_NAME = "inputEvents";
   public static final String FILTERED_EVENTS_NAME = "filteredEvents";
   public static final String OUTPUT_EVENTS_NAME = "outputEvents";
