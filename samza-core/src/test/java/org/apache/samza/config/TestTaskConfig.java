@@ -296,12 +296,16 @@ public class TestTaskConfig {
   public void testGetAllInputStreams() {
     Config config = new MapConfig(ImmutableMap.of(
         TaskConfig.INPUT_STREAMS, "kafka.foo, otherKafka.bar",
-        TaskConfig.BROADCAST_INPUT_STREAMS, "kafka.bar#4, otherKafka.foo#5"));
+        TaskConfig.BROADCAST_INPUT_STREAMS, "kafka.bar#4, otherKafka.foo#5",
+        String.format(StorageConfig.FACTORY, "testStore"), "factory",
+        String.format(StorageConfig.SIDE_INPUTS, "testStore"), "kafka.baz, otherKafka.baz"));
     Set<SystemStream> expected = ImmutableSet.of(
         new SystemStream("kafka", "foo"),
         new SystemStream("otherKafka", "bar"),
         new SystemStream("kafka", "bar"),
-        new SystemStream("otherKafka", "foo"));
+        new SystemStream("otherKafka", "foo"),
+        new SystemStream("kafka", "baz"),
+        new SystemStream("otherKafka", "baz"));
     assertEquals(expected, new TaskConfig(config).getAllInputStreams());
 
     Config configOnlyBroadcast = new MapConfig(ImmutableMap.of(
@@ -316,6 +320,15 @@ public class TestTaskConfig {
         new SystemStream("kafka", "foo"),
         new SystemStream("otherKafka", "bar"));
     assertEquals(expectedOnlyInputs, new TaskConfig(configOnlyInputs).getAllInputStreams());
+
+    Config configOnlySideInputs = new MapConfig(ImmutableMap.of(
+        String.format(StorageConfig.FACTORY, "testStore"), "factory",
+        String.format(StorageConfig.SIDE_INPUTS, "testStore"), "kafka.baz, otherKafka.baz"
+    ));
+    Set<SystemStream> expectedOnlySideInputs = ImmutableSet.of(
+        new SystemStream("kafka", "baz"),
+        new SystemStream("otherKafka", "baz"));
+    assertEquals(expectedOnlySideInputs, new TaskConfig(configOnlySideInputs).getAllInputStreams());
 
     assertTrue(new TaskConfig(new MapConfig()).getAllInputStreams().isEmpty());
   }
