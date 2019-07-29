@@ -17,25 +17,41 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.util;
+package org.apache.samza.sql.client.exceptions;
 
 /**
- * The exception used by the shell for unrecoverable errors.
+ * A CommandHandler throws a CommandHandlerException when it encounters an error.
  */
-public class CliException extends RuntimeException {
-  public CliException() {
+public class CommandHandlerException extends Exception {
 
+  /**
+   * default constructor
+   */
+  public CommandHandlerException() {
   }
 
-  public CliException(String message) {
+  /**
+   * creates instance given error message
+   * @param message: error message
+   */
+  public CommandHandlerException(String message) {
     super(message);
   }
 
-  public CliException(String message, Throwable cause) {
+  /**
+   * creates instance given error message and {@link Throwable} cause
+   * @param message: error message
+   * @param cause: throwable cause
+   */
+  public CommandHandlerException(String message, Throwable cause) {
     super(message, cause);
   }
 
-  public CliException(Throwable cause) {
+  /**
+   * creates instance given {@link Throwable} cause
+   * @param cause: throwable case
+   */
+  public CommandHandlerException(Throwable cause) {
     super(cause);
   }
 }

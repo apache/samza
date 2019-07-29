@@ -17,14 +17,24 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.cli;
-
-import org.apache.samza.sql.client.exceptions.ExecutorException;
-import org.apache.samza.sql.client.interfaces.QueryResult;
+package org.apache.samza.sql.client.exceptions;
 
 /**
- * For displaying the streaming result of a SELECT statement.
+ * An executor shall throw an ExecutorException when it encounters an error.
  */
-public interface CliView {
-  public void open(CliShell shell, QueryResult queryResult) throws ExecutorException;
+public class ExecutorException extends Exception {
+  public ExecutorException() {
+  }
+
+  public ExecutorException(String message) {
+    super(message);
+  }
+
+  public ExecutorException(String message, Throwable cause) {
+    super(message, cause);
+  }
+
+  public ExecutorException(Throwable cause) {
+    super(cause);
+  }
 }

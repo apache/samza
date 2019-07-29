@@ -283,7 +283,7 @@ public class TestRunner {
     // Cleaning store directories to ensure current run does not pick up state from previous run
     deleteStoreDirectories();
     Config config = new MapConfig(JobPlanner.generateSingleJobConfig(configs));
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config, new InMemoryMetadataStoreFactory());
     runner.run(externalContext);
     if (!runner.waitForFinish(timeout)) {
       throw new SamzaException("Timed out waiting for application to finish");

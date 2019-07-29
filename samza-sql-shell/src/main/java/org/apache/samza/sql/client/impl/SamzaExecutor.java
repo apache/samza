@@ -31,6 +31,8 @@ import org.apache.samza.config.*;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.serializers.StringSerdeFactory;
+import org.apache.samza.sql.client.exceptions.ExecutorException;
+import org.apache.samza.sql.client.interfaces.ExecutionStatus;
 import org.apache.samza.sql.client.interfaces.*;
 import org.apache.samza.sql.client.util.Pair;
 import org.apache.samza.sql.client.util.RandomAccessQueue;

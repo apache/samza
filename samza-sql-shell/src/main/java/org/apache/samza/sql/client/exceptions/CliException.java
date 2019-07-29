@@ -17,24 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.sql.client.interfaces;
+package org.apache.samza.sql.client.exceptions;
 
 /**
- * An executor shall throw an ExecutorException when it encounters an error.
+ * The exception used by the shell for unrecoverable errors.
  */
-public class ExecutorException extends Exception {
-  public ExecutorException() {
+public class CliException extends RuntimeException {
+  public CliException() {
+
   }
 
-  public ExecutorException(String message) {
+  public CliException(String message) {
     super(message);
   }
 
-  public ExecutorException(String message, Throwable cause) {
+  public CliException(String message, Throwable cause) {
     super(message, cause);
   }
 
-  public ExecutorException(Throwable cause) {
+  public CliException(Throwable cause) {
     super(cause);
   }
 }

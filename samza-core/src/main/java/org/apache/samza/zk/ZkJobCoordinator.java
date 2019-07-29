@@ -19,6 +19,7 @@
 package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -60,11 +61,9 @@ import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
 import org.apache.samza.zk.ZkUtils.ProcessorNode;
@@ -109,6 +108,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final Map<TaskName, Integer> changeLogPartitionMap = new HashMap<>();
   private final LocationId locationId;
   private final MetadataStore jobModelMetadataStore;
+  private final CoordinatorStreamStore coordinatorStreamStore;
 
   private JobCoordinatorListener coordinatorListener = null;
   private JobModel newJobModel;
@@ -124,11 +124,14 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   StreamPartitionCountMonitor streamPartitionCountMonitor = null;
 
-  ZkJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils, MetadataStore jobModelMetadataStore) {
+  ZkJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry, ZkUtils zkUtils, MetadataStore jobModelMetadataStore, MetadataStore coordinatorStreamStore) {
+    // TODO: When we consolidate metadata stores for standalone, this check can be removed. For now, we expect this type.
+    //   Keeping method signature as MetadataStore to avoid public API changes in the future
+    Preconditions.checkArgument(coordinatorStreamStore instanceof CoordinatorStreamStore);
+
     this.config = config;
     this.metrics = new ZkJobCoordinatorMetrics(metricsRegistry);
     this.zkSessionMetrics = new ZkSessionMetrics(metricsRegistry);
-
     this.processorId = processorId;
     this.zkUtils = zkUtils;
     // setup a listener for a session state change
@@ -150,6 +153,7 @@ public class ZkJobCoordinator implements JobCoordinator {
             LocationIdProviderFactory.class);
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
+    this.coordinatorStreamStore = (CoordinatorStreamStore) coordinatorStreamStore;
     this.jobModelMetadataStore = jobModelMetadataStore;
   }
 
@@ -308,55 +312,39 @@ public class ZkJobCoordinator implements JobCoordinator {
    */
   @VisibleForTesting
   void loadMetadataResources(JobModel jobModel) {
-    CoordinatorStreamStore coordinatorStreamStore = null;
     try {
-      // Creates the coordinator stream if it does not exists.
-      coordinatorStreamStore = createCoordinatorStreamStore();
-      coordinatorStreamStore.init();
-
       MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, getClass().getClassLoader());
       metadataResourceUtil.createResources();
 
-      CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
-      NamespaceAwareCoordinatorStreamStore configStore =
-          new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE);
-      for (Map.Entry<String, String> entry : config.entrySet()) {
-        byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
-        configStore.put(entry.getKey(), serializedValue);
-      }
+      if (coordinatorStreamStore != null) {
+        // TODO: SAMZA-2273 - publish configs async
+        CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+        NamespaceAwareCoordinatorStreamStore configStore =
+            new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE);
+        for (Map.Entry<String, String> entry : config.entrySet()) {
+          byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
+          configStore.put(entry.getKey(), serializedValue);
+        }
 
-      // fan out the startpoints
-      StartpointManager startpointManager = createStartpointManager(coordinatorStreamStore);
-      startpointManager.start();
-      try {
-        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
-      } finally {
-        startpointManager.stop();
+        // fan out the startpoints
+        StartpointManager startpointManager = createStartpointManager();
+        startpointManager.start();
+        try {
+          startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+        } finally {
+          startpointManager.stop();
+        }
+      } else {
+        LOG.warn("No metadata store registered to this job coordinator. Config not written to the metadata store and no Startpoints fan out.");
       }
     } catch (IOException ex) {
       throw new SamzaException(String.format("IO exception while loading metadata resources."), ex);
-    } finally {
-      if (coordinatorStreamStore != null) {
-        LOG.info("Stopping the coordinator stream metadata store.");
-        coordinatorStreamStore.close();
-      }
     }
   }
 
   @VisibleForTesting
   MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel, ClassLoader classLoader) {
     return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), classLoader);
-  }
-
-  /**
-   * Creates a coordinator stream kafka topic.
-   */
-  @VisibleForTesting
-  CoordinatorStreamStore createCoordinatorStreamStore() {
-    SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
-    SystemAdmin coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
-    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin);
-    return new CoordinatorStreamStore(config, metrics.getMetricsRegistry());
   }
 
   /**
@@ -398,8 +386,9 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   @VisibleForTesting
-  StartpointManager createStartpointManager(CoordinatorStreamStore metadataStore) {
-    return new StartpointManager(metadataStore);
+  StartpointManager createStartpointManager() {
+    // This method is for easy mocking.
+    return new StartpointManager(coordinatorStreamStore);
   }
 
   /**

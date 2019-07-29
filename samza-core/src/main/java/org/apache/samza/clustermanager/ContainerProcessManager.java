@@ -107,10 +107,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final ClusterResourceManager clusterResourceManager;
 
   /**
-   * If there are too many failed container failures (configured by job.container.retry.count) for a
-   * processor, the job exits.
+   * If there are more than job.container.retry.count failures of a container within a job.container.retry.window period,
+   * then the ContainerProcessManager will indicate to the ClusterBasedJobCoordinator that the job should shutdown.
    */
-  private volatile boolean tooManyFailedContainers = false;
+  private volatile boolean jobFailureCriteriaMet = false;
 
   /**
    * Exception thrown in callbacks, such as {@code containerAllocator}
@@ -122,6 +122,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * value is the {@link ProcessorFailure} object that has a count of failures.
    */
   private final Map<String, ProcessorFailure> processorFailures = new HashMap<>();
+
   private ContainerProcessManagerMetrics containerProcessManagerMetrics;
   private JvmMetrics jvmMetrics;
   private Map<String, MetricsReporter> metricsReporters;
@@ -211,13 +212,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   public boolean shouldShutdown() {
     LOG.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
-      state.completedProcessors.get(), state.processorCount, tooManyFailedContainers ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
+      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
 
     if (exceptionOccurred != null) {
       LOG.error("Exception in container process manager", exceptionOccurred);
       throw new SamzaException(exceptionOccurred);
     }
-    return tooManyFailedContainers || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
+    return jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
   }
 
   public void start() {
@@ -472,6 +473,16 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     exceptionOccurred = e;
   }
 
+  @VisibleForTesting
+  boolean getJobFailureCriteriaMet() {
+    return jobFailureCriteriaMet;
+  }
+
+  @VisibleForTesting
+  Map<String, ProcessorFailure> getProcessorFailures() {
+    return processorFailures;
+  }
+
   /**
    * Called within {@link #onResourceCompleted(SamzaResourceStatus)} for unknown exit statuses. These exit statuses
    * correspond to container completion other than container run-to-completion, abort or preemption, or disk failure
@@ -485,7 +496,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   void onResourceCompletedWithUnknownStatus(SamzaResourceStatus resourceStatus, String containerId, String processorId,
       int exitStatus) {
     LOG.info("Container ID: {} for Processor ID: {} failed with exit code: {}.", containerId, processorId, exitStatus);
-
+    Instant now = Instant.now();
     state.failedContainers.incrementAndGet();
     state.failedContainersStatus.put(containerId, resourceStatus);
     state.jobHealthy.set(false);
@@ -506,58 +517,54 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // 0, the app master will fail on any container failure. If the
     // retry count is set to a number < 0, a container failure will
     // never trigger an app master failure.
-    int maxRetryCount = clusterManagerConfig.getContainerRetryCount();
-    int maxRetryWindowMs = clusterManagerConfig.getContainerRetryWindowMs();
+    int retryCount = clusterManagerConfig.getContainerRetryCount();
+    int retryWindowMs = clusterManagerConfig.getContainerRetryWindowMs();
     int currentFailCount = 0;
 
-    if (maxRetryCount == 0) {
+    if (retryCount == 0) {
       LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
           "so shutting down the application master and marking the job as failed.", processorId, containerId);
 
-      tooManyFailedContainers = true;
-    } else if (maxRetryCount > 0) {
-      Instant lastFailureTime;
+      jobFailureCriteriaMet = true;
+    } else if (retryCount > 0) {
+      long lastFailureMsDiff;
       if (processorFailures.containsKey(processorId)) {
         ProcessorFailure failure = processorFailures.get(processorId);
         currentFailCount = failure.getCount() + 1;
-        lastFailureTime = failure.getLastFailure();
+        lastFailureMsDiff = now.toEpochMilli() - failure.getLastFailure().toEpochMilli();
       } else {
         currentFailCount = 1;
-        lastFailureTime = Instant.now();
+        lastFailureMsDiff = 0;
       }
-      if (currentFailCount > maxRetryCount) {
-        Duration retryDelay = getHostRetryDelay(lastSeenOn, currentFailCount - 1);
-        long currentRetryWindowMs = Instant.now().toEpochMilli() - lastFailureTime.plus(retryDelay).toEpochMilli();
 
-        if (currentRetryWindowMs <= maxRetryWindowMs) {
-          LOG.error("Processor ID: {} (current Container ID: {}) has failed with {} retries, within a window of {} ms " +
-                  "after a retry delay of {} ms. " +
-                  "This is greater than max retry count of {} and max retry window of {} ms, " +
-                  "so shutting down the application master and marking the job as failed.",
-              processorId, containerId, maxRetryCount, currentRetryWindowMs, retryDelay.toMillis(), maxRetryCount, maxRetryWindowMs);
+      if (lastFailureMsDiff >= retryWindowMs) {
+        LOG.info("Resetting failure count for Processor ID: {} back to 1, since last failure " +
+            "(for Container ID: {}) was outside the bounds of the retry window.", processorId, containerId);
 
-          // We have too many failures, and we're within the window
-          // boundary, so reset shut down the app master.
-          tooManyFailedContainers = true;
-          state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-        } else {
-          LOG.info("Resetting failure count for Processor ID: {} back to 1, since last failure " +
-              "(for Container ID: {}) was outside the bounds of the retry window.", processorId, containerId);
+        // Reset counter back to 1, since the last failure for this
+        // container happened outside the window boundary.
+        currentFailCount = 1;
+      }
 
-          // Reset counter back to 1, since the last failure for this
-          // container happened outside the window boundary.
-          processorFailures.put(processorId, new ProcessorFailure(1, Instant.now()));
-        }
+      // if fail count is (1 initial failure + max retries) then fail job.
+      if (currentFailCount > retryCount) {
+        LOG.error("Processor ID: {} (current Container ID: {}) has failed {} times, with last failure {} ms ago. " +
+                "This is greater than retry count of {} and window of {} ms, " +
+                "so shutting down the application master and marking the job as failed.",
+            processorId, containerId, currentFailCount, lastFailureMsDiff, retryCount, retryWindowMs);
+
+        // We have too many failures, and we're within the window
+        // boundary, so reset shut down the app master.
+        jobFailureCriteriaMet = true;
+        state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
       } else {
         LOG.info("Current failure count for Processor ID: {} is {}.", processorId, currentFailCount);
-        processorFailures.put(processorId, new ProcessorFailure(currentFailCount, Instant.now()));
+        processorFailures.put(processorId, new ProcessorFailure(currentFailCount, now));
       }
     }
 
-    if (!tooManyFailedContainers) {
+    if (!jobFailureCriteriaMet) {
       Duration retryDelay = getHostRetryDelay(lastSeenOn, currentFailCount);
-      LOG.info("Retrying request for preferred host: {} for Processor ID: {} (current Container ID: {}) with a delay of {} ms.",
-          lastSeenOn, processorId, resourceStatus.getContainerId(), retryDelay.toMillis());
       handleContainerStop(processorId, resourceStatus.getContainerId(), lastSeenOn, exitStatus, retryDelay);
     }
   }

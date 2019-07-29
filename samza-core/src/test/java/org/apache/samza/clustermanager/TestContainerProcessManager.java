@@ -22,6 +22,7 @@ package org.apache.samza.clustermanager;
 import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -91,6 +92,13 @@ public class TestContainerProcessManager {
     Map<String, String> map = new HashMap<>();
     map.putAll(config);
     map.put("job.host-affinity.enabled", "true");
+    return new MapConfig(map);
+  }
+
+  private Config getConfigWithRetries(int maxRetries) {
+    Map<String, String> map = new HashMap<>();
+    map.putAll(config);
+    map.put(ClusterManagerConfig.CLUSTER_MANAGER_CONTAINER_RETRY_COUNT, String.valueOf(maxRetries));
     return new MapConfig(map);
   }
 
@@ -337,7 +345,7 @@ public class TestContainerProcessManager {
 
     // The above failure should trigger a job shutdown because our retry count is set to 1
     verify(cpm, times(2)).onResourceCompletedWithUnknownStatus(eq(samzaResourceStatus), eq(container.getContainerId()), eq("0"), eq(1));
-    verify(cpm, times(2)).getHostRetryDelay(eq(ResourceRequestState.ANY_HOST), eq(1)); // fail count still should be one because job exceeded retries
+    verify(cpm, times(1)).getHostRetryDelay(eq(ResourceRequestState.ANY_HOST), eq(1)); // fail count still should be one because job exceeded retries
     verify(cpm, never()).getHostRetryDelay(anyString(), eq(2));
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
     assertEquals(2, clusterResourceManager.resourceRequests.size());
@@ -347,6 +355,149 @@ public class TestContainerProcessManager {
     assertEquals(SamzaApplicationState.SamzaAppStatus.FAILED, state.status);
 
     verify(cpm, never()).getHostRetryDelay(anyString(), eq(0)); // fail count parameters will never be called with value 0
+    cpm.stop();
+  }
+
+  /**
+   * Test scenario where a container fails multiple times but failures are more than retryWindow apart.
+   * @throws Exception
+   */
+  @Test
+  public void testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode() throws Exception {
+    int maxRetries = 3;
+    String processorId = "0";
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(getConfigWithRetries(maxRetries));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+
+    MockContainerAllocator allocator = new MockContainerAllocator(
+        clusterResourceManager,
+        clusterManagerConfig,
+        state);
+
+    ContainerProcessManager cpm =
+        buildContainerProcessManager(new MapConfig(clusterManagerConfig), state, clusterResourceManager, Optional.of(allocator));
+
+    // start triggers a request
+    cpm.start();
+
+    assertFalse(cpm.shouldShutdown());
+    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
+
+    SamzaResource container = new SamzaResource(1, 1024, "host1", "id0");
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 2nd failure exceeding retry window.
+    int longWindow = clusterManagerConfig.getContainerRetryWindowMs() + 10;
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(1, Instant.now().minusMillis(longWindow)));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.getJobFailureCriteriaMet());
+    assertEquals(1, cpm.getProcessorFailures().get(processorId).getCount());
+
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 3rd failure exceeding retry window.
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(2, Instant.now().minusMillis(longWindow)));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.getJobFailureCriteriaMet());
+    assertEquals(1, cpm.getProcessorFailures().get(processorId).getCount());
+
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 4th failure exceeding retry window.
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(3, Instant.now().minusMillis(longWindow)));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.getJobFailureCriteriaMet());
+    assertEquals(1, cpm.getProcessorFailures().get(processorId).getCount());
+
+    cpm.stop();
+  }
+
+  @Test
+  public void testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode() throws Exception {
+    int maxRetries = 3;
+    String processorId = "0";
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(getConfigWithRetries(maxRetries));
+    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
+    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+
+    MockContainerAllocator allocator = new MockContainerAllocator(
+        clusterResourceManager,
+        clusterManagerConfig,
+        state);
+
+    ContainerProcessManager cpm =
+        buildContainerProcessManager(new MapConfig(clusterManagerConfig), state, clusterResourceManager, Optional.of(allocator));
+
+    // start triggers a request
+    cpm.start();
+
+    assertFalse(cpm.shouldShutdown());
+    assertEquals(1, allocator.getContainerRequestState().numPendingRequests());
+
+    SamzaResource container = new SamzaResource(1, 1024, "host1", "id0");
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 2nd failure not exceeding retry window.
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(1, Instant.now()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.getJobFailureCriteriaMet());
+    assertEquals(2, cpm.getProcessorFailures().get(processorId).getCount());
+
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 3rd failure not exceeding retry window.
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(2, Instant.now()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(false, cpm.getJobFailureCriteriaMet());
+    assertEquals(3, cpm.getProcessorFailures().get(processorId).getCount());
+
+    cpm.onResourceAllocated(container);
+
+    // Allow container to run and update state
+    if (!allocator.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    cpm.onStreamProcessorLaunchSuccess(container);
+
+    // Mock 4th failure not exceeding retry window.
+    cpm.getProcessorFailures().put(processorId, new ProcessorFailure(3, Instant.now()));
+    cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
+    assertEquals(true, cpm.getJobFailureCriteriaMet()); // expecting failed container
+    assertEquals(3, cpm.getProcessorFailures().get(processorId).getCount()); // count won't update on failure
+
     cpm.stop();
   }
 
@@ -682,7 +833,7 @@ public class TestContainerProcessManager {
     String preferredHost = "preferred.host";
 
     // ensure default value before running rest of the test
-    Duration maxDuration = Duration.ofMinutes(2);
+    Duration maxDuration = Duration.ofMinutes(2).plus(Duration.ofSeconds(1));
     assertEquals(maxDuration, Duration.ofMillis(clusterManagerConfig.getContainerRetryMaxDelayMs()));
 
     assertEquals(Duration.ZERO, cpm.getHostRetryDelay(preferredHost, 0));
