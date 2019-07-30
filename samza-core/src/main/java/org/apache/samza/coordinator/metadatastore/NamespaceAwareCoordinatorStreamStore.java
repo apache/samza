@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore.CoordinatorMessageKey;
 import org.apache.samza.metadatastore.MetadataStore;
 
@@ -61,6 +62,14 @@ public class NamespaceAwareCoordinatorStreamStore implements MetadataStore {
   public void put(String key, byte[] value) {
     String coordinatorMessageKeyAsJson = getCoordinatorMessageKey(key);
     metadataStore.put(coordinatorMessageKeyAsJson, value);
+  }
+
+  @Override
+  public void putAll(Map<String, byte[]> entries) {
+    Map<String, byte[]> mapWithCoordinatorMessageKeys =
+        entries.entrySet().stream()
+            .collect(Collectors.toMap(e -> getCoordinatorMessageKey(e.getKey()), e -> e.getValue()));
+    metadataStore.putAll(mapWithCoordinatorMessageKeys);
   }
 
   @Override
