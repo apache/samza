@@ -48,11 +48,15 @@ public class ResourceRequestState {
    * Maintain a map of hostname to a list of resources allocated on this host
    */
   private final Map<String, List<SamzaResource>> allocatedResources = new HashMap<>();
+
   /**
    * Represents the queue of resource requests made by the {@link ContainerProcessManager}
    */
   private final PriorityQueue<SamzaResourceRequest> requestsQueue = new PriorityQueue<>();
 
+  /**
+   * Represents the queue of delayed resource requests made by the {@link ContainerProcessManager}
+   */
   private final DelayedRequestQueue delayedRequestsQueue = new DelayedRequestQueue();
 
   /**
@@ -61,6 +65,7 @@ public class ResourceRequestState {
    * This map is not updated when host-affinity is not enabled
    */
   private final Map<String, AtomicInteger> hostRequestCounts = new HashMap<>();
+
   /**
    * Indicates whether host-affinity is enabled or not
    */
@@ -198,15 +203,14 @@ public class ResourceRequestState {
   }
 
   /**
-   * Sends the {@link SamzaResourceRequest}s in the delayed requests queue if they are ready to be sent (i.e. request
-   * timestamp has expired)
+   * Sends the {@link SamzaResourceRequest}s in the delayed requests queue that have expired.
    * @return number of delayed requests sent.
    */
   public int sendExpiredDelayedResourceRequests() {
     synchronized (lock) {
-      Instant now = Instant.now();
       int numMoved = 0;
-      while (!delayedRequestsQueue.isEmpty() && !delayedRequestsQueue.peek().getRequestTimestamp().isAfter(now)) {
+      Instant now = Instant.now();
+      while (!delayedRequestsQueue.isEmpty() && delayedRequestsQueue.peek().getRequestTimestamp().isBefore(now)) {
         sendResourceRequest(delayedRequestsQueue.poll());
         numMoved++;
       }
@@ -441,8 +445,14 @@ public class ResourceRequestState {
   }
 
   // Package private, used only in tests.
+  @VisibleForTesting
   Map<String, AtomicInteger> getHostRequestCounts() {
     return Collections.unmodifiableMap(hostRequestCounts);
+  }
+
+  @VisibleForTesting
+  DelayedRequestQueue getDelayedRequestsQueue() {
+    return delayedRequestsQueue;
   }
 
   static class DelayedRequestQueue extends PriorityQueue<SamzaResourceRequest> {

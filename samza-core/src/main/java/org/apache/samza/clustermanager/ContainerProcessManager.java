@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
@@ -176,15 +175,15 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   }
 
   @VisibleForTesting
-  ContainerProcessManager(Config config,
+  ContainerProcessManager(ClusterManagerConfig clusterManagerConfig,
       SamzaApplicationState state,
       MetricsRegistryMap registry,
       ClusterResourceManager resourceManager,
       Optional<AbstractContainerAllocator> allocator,
       ClassLoader classLoader) {
     this.state = state;
-    this.clusterManagerConfig = new ClusterManagerConfig(config);
-    this.jobConfig = new JobConfig(config);
+    this.clusterManagerConfig = clusterManagerConfig;
+    this.jobConfig = new JobConfig(clusterManagerConfig);
 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
@@ -193,7 +192,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.diagnosticsManager = Option.empty();
     this.containerAllocator = allocator.orElseGet(
         () -> buildContainerAllocator(this.hostAffinityEnabled, this.clusterResourceManager, this.clusterManagerConfig,
-            config, this.standbyContainerManager, state, classLoader));
+            clusterManagerConfig, this.standbyContainerManager, state, classLoader));
 
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     LOG.info("Finished container process manager initialization");
@@ -519,7 +518,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // never trigger an app master failure.
     int retryCount = clusterManagerConfig.getContainerRetryCount();
     int retryWindowMs = clusterManagerConfig.getContainerRetryWindowMs();
-    int currentFailCount = 0;
+    int currentFailCount;
 
     if (retryCount == 0) {
       LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
@@ -527,17 +526,27 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
       jobFailureCriteriaMet = true;
     } else if (retryCount > 0) {
-      long lastFailureMsDiff;
+      long durationSinceLastRetryMs;
       if (processorFailures.containsKey(processorId)) {
         ProcessorFailure failure = processorFailures.get(processorId);
         currentFailCount = failure.getCount() + 1;
-        lastFailureMsDiff = now.toEpochMilli() - failure.getLastFailure().toEpochMilli();
+        Duration lastRetryDelay =
+            processorFailures.containsKey(processorId)
+                ? processorFailures.get(processorId).getLastRetryDelay()
+                : Duration.ZERO;
+        Instant retryAttemptedAt = failure.getLastFailure().plus(lastRetryDelay);
+        durationSinceLastRetryMs = now.toEpochMilli() - retryAttemptedAt.toEpochMilli();
+        if (durationSinceLastRetryMs < 0) {
+          // This should never happen without changes to the system clock or time travel. Log a warning just in case.
+          LOG.warn("Last failure at: {} with a retry attempted at: {} which is supposed to be before current time of: {}",
+              failure.getLastFailure(), retryAttemptedAt, now);
+        }
       } else {
         currentFailCount = 1;
-        lastFailureMsDiff = 0;
+        durationSinceLastRetryMs = 0;
       }
 
-      if (lastFailureMsDiff >= retryWindowMs) {
+      if (durationSinceLastRetryMs >= retryWindowMs) {
         LOG.info("Resetting failure count for Processor ID: {} back to 1, since last failure " +
             "(for Container ID: {}) was outside the bounds of the retry window.", processorId, containerId);
 
@@ -551,7 +560,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         LOG.error("Processor ID: {} (current Container ID: {}) has failed {} times, with last failure {} ms ago. " +
                 "This is greater than retry count of {} and window of {} ms, " +
                 "so shutting down the application master and marking the job as failed.",
-            processorId, containerId, currentFailCount, lastFailureMsDiff, retryCount, retryWindowMs);
+            processorId, containerId, currentFailCount, durationSinceLastRetryMs, retryCount, retryWindowMs);
 
         // We have too many failures, and we're within the window
         // boundary, so reset shut down the app master.
@@ -559,43 +568,26 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
       } else {
         LOG.info("Current failure count for Processor ID: {} is {}.", processorId, currentFailCount);
-        processorFailures.put(processorId, new ProcessorFailure(currentFailCount, now));
+        Duration retryDelay = Duration.ZERO;
+        if (!ResourceRequestState.ANY_HOST.equals(lastSeenOn) && currentFailCount == retryCount) {
+          // Add the preferred host last retry delay on the last retry
+          retryDelay = Duration.ofMillis(clusterManagerConfig.getContainerPreferredHostLastRetryDelayMs());
+        }
+        processorFailures.put(processorId, new ProcessorFailure(currentFailCount, now, retryDelay));
       }
     }
 
     if (!jobFailureCriteriaMet) {
-      Duration retryDelay = getHostRetryDelay(lastSeenOn, currentFailCount);
+      Duration retryDelay =
+          processorFailures.containsKey(processorId)
+              ? processorFailures.get(processorId).getLastRetryDelay()
+              : Duration.ZERO;
+      if (!retryDelay.isZero()) {
+        LOG.info("Adding a delay of: {} seconds on the last container retry request for preferred host: {}",
+            retryDelay.getSeconds(), lastSeenOn);
+      }
       handleContainerStop(processorId, resourceStatus.getContainerId(), lastSeenOn, exitStatus, retryDelay);
     }
-  }
-
-  /**
-   * Calculates the container request retry delay based on the host name.
-   * @param host host name
-   * @param failCount current number of times the container on the host failed
-   * @return the duration of the exponential backoff delay calculated from the failCount. The max delay is obtained from
-   *   {@link ClusterManagerConfig#getContainerRetryMaxDelayMs()}. If the host name is equal to
-   *   {@link ResourceRequestState#ANY_HOST}, then always return {@link Duration#ZERO}.
-   */
-  @VisibleForTesting
-  Duration getHostRetryDelay(String host, int failCount) {
-    // TODO: Use a util to calculate the exponential back-off like org.apache.commons.math3.distribution.ExponentialDistribution
-    //   Currently org.apache.commons.math3 is not a provided dependency.
-
-    // Only add a retry delay when host is a preferred host or if the request failed more than once.
-    if (failCount < 2 || StringUtils.isBlank(host) || host.equals(ResourceRequestState.ANY_HOST)) {
-      return Duration.ZERO;
-    }
-
-    long retryDelayMs = 0;
-    long delayMultiplier = Duration.ofSeconds(5).toMillis();
-
-    // add delay only after the first failure
-    if (failCount > 1) {
-      retryDelayMs = delayMultiplier * Math.round(Math.pow(2, failCount - 2));
-    }
-    retryDelayMs = Math.min(retryDelayMs, clusterManagerConfig.getContainerRetryMaxDelayMs());
-    return Duration.ofMillis(retryDelayMs);
   }
 
   /**

@@ -90,9 +90,15 @@ public class ClusterManagerConfig extends MapConfig {
   public static final String CLUSTER_MANAGER_CONTAINER_RETRY_COUNT = "cluster-manager.container.retry.count";
   public static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
 
-  public static final String CLUSTER_MANAGER_CONTAINER_RETRY_MAX_DELAY_MS = "cluster-manager.container.host-affinity-retry.max.delay.ms";
-  private static final long CLUSTER_MANAGER_CONTAINER_RETRY_DELAY_CLOCK_SKEW_DELTA = Duration.ofSeconds(1).toMillis();
-  private static final long DEFAULT_CONTAINER_RETRY_MAX_DELAY_MS = Duration.ofSeconds(120).toMillis() + CLUSTER_MANAGER_CONTAINER_RETRY_DELAY_CLOCK_SKEW_DELTA;
+  /**
+   * Maximum delay in milliseconds for the last container retry
+   */
+  public static final String CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS =
+      "cluster-manager.container.preferred-host.last.retry.delay.ms";
+  private static final long CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_RETRY_DELAY_CLOCK_SKEW_DELTA =
+      Duration.ofSeconds(1).toMillis();
+  private static final long DEFAULT_CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS =
+      Duration.ofMinutes(6).toMillis() + CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_RETRY_DELAY_CLOCK_SKEW_DELTA;
 
   /**
    * The cluster managed job coordinator sleeps for a configurable time before checking again for termination.
@@ -186,11 +192,11 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
-  public long getContainerRetryMaxDelayMs() {
-    if (containsKey(CLUSTER_MANAGER_CONTAINER_RETRY_MAX_DELAY_MS)) {
-      return getLong(CLUSTER_MANAGER_CONTAINER_RETRY_MAX_DELAY_MS) + CLUSTER_MANAGER_CONTAINER_RETRY_DELAY_CLOCK_SKEW_DELTA;
+  public long getContainerPreferredHostLastRetryDelayMs() {
+    if (containsKey(CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS)) {
+      return getLong(CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS) + CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_RETRY_DELAY_CLOCK_SKEW_DELTA;
     } else {
-      return DEFAULT_CONTAINER_RETRY_MAX_DELAY_MS;
+      return DEFAULT_CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS;
     }
   }
 

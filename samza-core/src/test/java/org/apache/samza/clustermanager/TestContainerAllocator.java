@@ -19,6 +19,9 @@
 
 package org.apache.samza.clustermanager;
 
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.JobModelManager;
@@ -29,10 +32,6 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.lang.reflect.Field;
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -157,15 +156,16 @@ public class TestContainerAllocator {
 
     assertNotNull(requestState);
 
-    assertEquals(requestState.numPendingRequests(), 4);
+    assertEquals(4, requestState.numPendingRequests());
+    assertEquals(0, requestState.numDelayedRequests());
 
     // If host-affinty is not enabled, it doesn't update the requestMap
     assertNotNull(requestState.getHostRequestCounts());
-    assertEquals(requestState.getHostRequestCounts().keySet().size(), 0);
+    assertEquals(0, requestState.getHostRequestCounts().keySet().size());
 
     assertNotNull(state);
-    assertEquals(state.anyHostRequests.get(), 4);
-    assertEquals(state.preferredHostRequests.get(), 0);
+    assertEquals(4, state.anyHostRequests.get());
+    assertEquals(0, state.preferredHostRequests.get());
   }
 
   /**
@@ -184,11 +184,12 @@ public class TestContainerAllocator {
 
     assertNotNull(requestState);
 
-    assertTrue(requestState.numPendingRequests() == 4);
+    assertEquals(4, requestState.numPendingRequests());
+    assertEquals(0, requestState.numDelayedRequests());
 
     // If host-affinty is not enabled, it doesn't update the requestMap
     assertNotNull(requestState.getHostRequestCounts());
-    assertTrue(requestState.getHostRequestCounts().keySet().size() == 0);
+    assertEquals(0, requestState.getHostRequestCounts().keySet().size());
   }
 
   /**
@@ -213,6 +214,7 @@ public class TestContainerAllocator {
 
         // Test that state is cleaned up
         assertEquals(0, requestState.numPendingRequests());
+        assertEquals(0, requestState.numDelayedRequests());
         assertEquals(0, requestState.getHostRequestCounts().size());
         assertNull(requestState.getResourcesOnAHost("abc"));
         assertNull(requestState.getResourcesOnAHost("def"));

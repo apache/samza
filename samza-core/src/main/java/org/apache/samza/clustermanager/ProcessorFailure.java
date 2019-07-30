@@ -19,6 +19,7 @@
 
 package org.apache.samza.clustermanager;
 
+import java.time.Duration;
 import java.time.Instant;
 
 
@@ -36,9 +37,15 @@ class ProcessorFailure {
    */
   private final Instant lastFailure;
 
-  public ProcessorFailure(int count, Instant lastFailure) {
+  /**
+   * The delay added to the retry attempt of the last failure
+   */
+  private final Duration lastRetryDelay;
+
+  public ProcessorFailure(int count, Instant lastFailure, Duration lastRetryDelay) {
     this.count = count;
     this.lastFailure = lastFailure;
+    this.lastRetryDelay = lastRetryDelay;
   }
 
   public int getCount() {
@@ -47,5 +54,9 @@ class ProcessorFailure {
 
   public Instant getLastFailure() {
     return lastFailure;
+  }
+
+  public Duration getLastRetryDelay() {
+    return lastRetryDelay;
   }
 }
