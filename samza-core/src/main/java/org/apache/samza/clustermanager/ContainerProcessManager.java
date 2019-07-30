@@ -224,12 +224,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     LOG.info("Starting the container process manager");
 
     int containerRetryCount = clusterManagerConfig.getContainerRetryCount();
-    if (containerRetryCount < ClusterManagerConfig.DEFAULT_CONTAINER_RETRY_COUNT) {
-      LOG.warn("{} configured to: {} that is less than the default of: {} may cause premature failure of this job",
-          ClusterManagerConfig.CLUSTER_MANAGER_CONTAINER_RETRY_COUNT, containerRetryCount,
-          ClusterManagerConfig.DEFAULT_CONTAINER_RETRY_COUNT);
-    }
-
     if (containerRetryCount > -1) {
       LOG.info("Max retries on restarting failed containers: {}", containerRetryCount);
     } else {
