@@ -180,7 +180,7 @@ public class TestLargeMessageSafeKeyValueStores {
   }
 
   @Test
-  public void testLargeMessagePutFailureForLoggedStoreWithWrappedStore() {
+  public void testLargeMessagePut() {
     String key = "test";
     String largeMessage = StringUtils.repeat("a", maxMessageSize + 1);
 
@@ -198,7 +198,7 @@ public class TestLargeMessageSafeKeyValueStores {
   }
 
   @Test
-  public void testLargeMessagePutAllFailureForLoggedStoreWithWrappedStore() {
+  public void testLargeMessagePutAll() {
     String key = "test";
     String largeMessage = StringUtils.repeat("a", maxMessageSize + 1);
     List<Entry<String, String>> entries = new ArrayList<>();
@@ -218,7 +218,7 @@ public class TestLargeMessageSafeKeyValueStores {
   }
 
   @Test
-  public void testSmallMessagePutSuccessForLoggedStoreWithWrappedStore() {
+  public void testSmallMessagePut() {
     String key = "test";
     String smallMessage = StringUtils.repeat("a", maxMessageSize - 1);
 
@@ -227,7 +227,7 @@ public class TestLargeMessageSafeKeyValueStores {
   }
 
   @Test
-  public void testSmallMessagePutAllSuccessForLoggedStoreWithWrappedStore() {
+  public void testSmallMessagePutAll() {
     String key = "test";
     String smallMessage = StringUtils.repeat("a", maxMessageSize - 1);
 

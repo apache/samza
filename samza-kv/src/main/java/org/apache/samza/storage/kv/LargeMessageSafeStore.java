@@ -38,7 +38,7 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
   private final int maxMessageSize;
   private final LargeMessageSafeStoreMetrics largeMessageSafeStoreMetrics;
 
-  public LargeMessageSafeStore(KeyValueStore<byte[], byte[]> store, String storeName, Boolean dropLargeMessages, int maxMessageSize) {
+  public LargeMessageSafeStore(KeyValueStore<byte[], byte[]> store, String storeName, boolean dropLargeMessages, int maxMessageSize) {
     this.store = store;
     this.storeName = storeName;
     this.dropLargeMessages = dropLargeMessages;

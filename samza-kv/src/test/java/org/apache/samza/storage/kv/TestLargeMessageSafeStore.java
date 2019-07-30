@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.LongSerde;
 import org.apache.samza.serializers.Serde;
@@ -53,20 +52,25 @@ public class TestLargeMessageSafeStore {
   }
 
   @Test
+  public void testSmallMessagePut() {
+    LargeMessageSafeStore largeMessageSafeKeyValueStore = new LargeMessageSafeStore(store, storeName, false, maxMessageSize);
+
+    byte[] key = new byte[16];
+    byte[] smallMessage = new byte[32];
+    largeMessageSafeKeyValueStore.put(key, smallMessage);
+    Mockito.verify(store).put(Matchers.eq(key), Matchers.eq(smallMessage));
+  }
+
+  @Test
   public void testLargeMessagePutWithDropLargeMessageDisabled() {
     LargeMessageSafeStore largeMessageSafeKeyValueStore = new LargeMessageSafeStore(store, storeName, false, maxMessageSize);
 
-    byte[] key1 = new byte[16];
-    byte[] smallMessage = new byte[32];
-    largeMessageSafeKeyValueStore.put(key1, smallMessage);
-    Mockito.verify(store).put(Matchers.eq(key1), Matchers.eq(smallMessage));
-
-    byte[] key2 = new byte[16];
+    byte[] key = new byte[16];
     byte[] largeMessage = new byte[maxMessageSize + 1];
     try {
-      largeMessageSafeKeyValueStore.put(key2, largeMessage);
+      largeMessageSafeKeyValueStore.put(key, largeMessage);
       Assert.fail("The test case should have failed due to a large message being passed to the changelog, but it didn't.");
-    } catch (SamzaException e) {
+    } catch (RecordTooLargeException e) {
       Mockito.verifyZeroInteractions(store);
     }
   }
@@ -97,7 +101,7 @@ public class TestLargeMessageSafeStore {
     try {
       largeMessageSafeKeyValueStore.putAll(entries);
       Assert.fail("The test case should have failed due to a large message being passed to the changelog, but it didn't.");
-    } catch (SamzaException e) {
+    } catch (RecordTooLargeException e) {
       Mockito.verifyZeroInteractions(store);
     }
   }
@@ -141,18 +145,29 @@ public class TestLargeMessageSafeStore {
 
     try {
       largeMessageSafeKeyValueStore.putAll(entries);
-    } catch (SamzaException e) {
+    } catch (RecordTooLargeException e) {
       Mockito.verifyZeroInteractions(store);
     }
   }
 
   @Test
-  public void testPutSuccessWithDropLargeMessageEnabled() {
+  public void testSmallMessagePutSuccessWithDropLargeMessageEnabled() {
     LargeMessageSafeStore largeMessageSafeKeyValueStore = new LargeMessageSafeStore(store, storeName, true, maxMessageSize);
-    byte[] key1 = new byte[16];
+    byte[] key = new byte[16];
+    byte[] smallMessage = new byte[32];
+
+    largeMessageSafeKeyValueStore.put(key, smallMessage);
+
+    Mockito.verify(store).put(Matchers.eq(key), Matchers.eq(smallMessage));
+  }
+
+  @Test
+  public void testLargeMessagePutSuccessWithDropLargeMessageEnabled() {
+    LargeMessageSafeStore largeMessageSafeKeyValueStore = new LargeMessageSafeStore(store, storeName, true, maxMessageSize);
+    byte[] key = new byte[16];
     byte[] largeMessage = new byte[maxMessageSize + 1];
 
-    largeMessageSafeKeyValueStore.put(key1, largeMessage);
+    largeMessageSafeKeyValueStore.put(key, largeMessage);
 
     Mockito.verifyZeroInteractions(store);
   }

@@ -21,8 +21,8 @@ package org.apache.samza.storage.kv
 import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap}
 
 class LargeMessageSafeStoreMetrics(
-  val storeName: String = "unknown",
-  val registry: MetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+  val storeName: String,
+  val registry: MetricsRegistry) extends MetricsHelper {
 
   val ignoredLargeMessages = newCounter("ignored-large-messages")
 

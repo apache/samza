@@ -149,10 +149,11 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
 
     }
     else {
-      var toBeSerializedStore = maybeLoggedStore
-      if (dropLargeMessage) {
+      val toBeSerializedStore = if (dropLargeMessage) {
         // wrap with large message checking
-        toBeSerializedStore = new LargeMessageSafeStore(maybeLoggedStore, storeName, dropLargeMessage, maxMessageSize)
+        new LargeMessageSafeStore(maybeLoggedStore, storeName, dropLargeMessage, maxMessageSize)
+      } else {
+        maybeLoggedStore
       }
       // wrap with serialization
       val serializedMetrics = new SerializedKeyValueStoreMetrics(storeName, registry)
