@@ -50,7 +50,7 @@ public interface MetadataStore {
   void put(String key, byte[] value);
 
   /**
-   * Updates the mapping with the specified map.
+   * Updates the mapping with the specified map. This is not guaranteed to be atomic.
    *
    * @param entries mapping of key to values to write to the metadata store
    */
