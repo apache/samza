@@ -579,6 +579,7 @@ object SamzaContainer extends Logging {
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, taskConfig),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
+          inputStreamMetadata = inputStreamMetadata,
           timerExecutor = timerExecutor,
           jobContext = jobContext,
           containerContext = containerContext,
