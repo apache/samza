@@ -53,12 +53,15 @@ import org.apache.calcite.tools.Planner;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.interfaces.SamzaSqlDriver;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * Utility class that is used to parse the Samza sql query to figure out the sources, sink etc..
  */
 public class SamzaSqlQueryParser {
+  private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlQueryParser.class);
 
   private SamzaSqlQueryParser() {
   }
@@ -94,13 +97,6 @@ public class SamzaSqlQueryParser {
   }
 
   public static QueryInfo parseQuery(String sql) {
-
-    Pattern insertIntoSqlPattern = Pattern.compile("insert into (.*) (select .* from (.*))", Pattern.CASE_INSENSITIVE);
-    Matcher m = insertIntoSqlPattern.matcher(sql);
-    if (!m.matches()) {
-      throw new SamzaException("Invalid query format");
-    }
-
     Planner planner = createPlanner();
     SqlNode sqlNode;
     try {
@@ -117,13 +113,20 @@ public class SamzaSqlQueryParser {
       sink = sqlInsert.getTargetTable().toString();
       if (sqlInsert.getSource() instanceof SqlSelect) {
         SqlSelect sqlSelect = (SqlSelect) sqlInsert.getSource();
-        selectQuery = m.group(2);
+        selectQuery = sqlSelect.toString();
+        LOG.info("Parsed select query {} from sql {}", selectQuery, sql);
         sources = getSourcesFromSelectQuery(sqlSelect);
       } else {
-        throw new SamzaException("Sql query is not of the expected format");
+        String msg = String.format("Sql query is not of the expected format. Select node expected, found %s",
+            sqlInsert.getSource().getClass().toString());
+        LOG.error(msg);
+        throw new SamzaException(msg);
       }
     } else {
-      throw new SamzaException("Sql query is not of the expected format");
+      String msg = String.format("Sql query is not of the expected format. Insert node expected, found %s",
+          sqlNode.getClass().toString());
+      LOG.error(msg);
+      throw new SamzaException(msg);
     }
 
     return new QueryInfo(selectQuery, sources, sink, sql);
