@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.config._
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.Config
 import org.apache.samza.container.grouper.stream.SSPGrouperProxy
 import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
@@ -47,6 +46,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Logging, ReflectionUtil, Util}
 
 import scala.collection.JavaConverters
@@ -171,7 +171,7 @@ object JobModelManager extends Logging {
     val containerToLocationId: util.Map[String, LocationId] = new util.HashMap[String, LocationId]()
     val existingContainerLocality = localityManager.readContainerLocality()
 
-    for (containerId <- 0 to config.getContainerCount) {
+    for (containerId <- 0 to new JobConfig(config).getContainerCount) {
       val localityMapping = existingContainerLocality.get(containerId.toString)
       // To handle the case when the container count is increased between two different runs of a samza-yarn job,
       // set the locality of newly added containers to any_host.
@@ -271,9 +271,10 @@ object JobModelManager extends Logging {
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
 
     def invokeRegexTopicRewriter(config: Config): Config = {
-      config.getConfigRewriters match {
+      val jobConfig = new JobConfig(config)
+      JavaOptionals.toRichOptional(jobConfig.getConfigRewriters).toOption match {
         case Some(rewriters) => rewriters.split(",").
-          filter(rewriterName => config.getConfigRewriterClass(rewriterName)
+          filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
             .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
             .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
           foldLeft(config)(Util.applyRewriter(_, _))
@@ -309,10 +310,11 @@ object JobModelManager extends Logging {
   private def getMatchedInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache,
     classLoader: ClassLoader): Set[SystemStreamPartition] = {
     val allSystemStreamPartitions = getInputStreamPartitions(config, streamMetadataCache)
-    config.getSSPMatcherClass match {
+    val jobConfig = new JobConfig(config)
+    JavaOptionals.toRichOptional(jobConfig.getSSPMatcherClass).toOption match {
       case Some(sspMatcherClassName) =>
-        val jfr = config.getSSPMatcherConfigJobFactoryRegex.r
-        config.getStreamJobFactoryClass match {
+        val jfr = jobConfig.getSSPMatcherConfigJobFactoryRegex.r
+        JavaOptionals.toRichOptional(jobConfig.getStreamJobFactoryClass).toOption match {
           case Some(jfr(_*)) =>
             info("before match: allSystemStreamPartitions.size = %s" format allSystemStreamPartitions.size)
             val sspMatcher =
@@ -334,7 +336,7 @@ object JobModelManager extends Logging {
     * @return the instantiated {@see SystemStreamPartitionGrouper}.
     */
   private def getSystemStreamPartitionGrouper(config: Config, classLoader: ClassLoader) = {
-    val factoryString = config.getSystemStreamPartitionGrouperFactory
+    val factoryString = new JobConfig(config).getSystemStreamPartitionGrouperFactory
     val factory = ReflectionUtil.getObj(classLoader, factoryString, classOf[SystemStreamPartitionGrouperFactory])
     factory.getSystemStreamPartitionGrouper(config)
   }

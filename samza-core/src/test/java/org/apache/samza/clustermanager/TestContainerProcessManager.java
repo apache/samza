@@ -800,7 +800,7 @@ public class TestContainerProcessManager {
     assertFalse(taskManager.shouldShutdown());
     taskManager.onResourceAllocated(container2);
 
-    configVals.put(JobConfig.SAMZA_FWK_PATH(), "/export/content/whatever");
+    configVals.put(JobConfig.SAMZA_FWK_PATH, "/export/content/whatever");
     Config config1 = new MapConfig(configVals);
 
     ContainerProcessManager taskManager1 =

@@ -141,7 +141,7 @@ public class StorageConfig extends MapConfig {
    * @return the name of the system to use by default for all changelogs, if defined.
    */
   public Optional<String> getChangelogSystem() {
-    return Optional.ofNullable(get(CHANGELOG_SYSTEM, get(JobConfig.JOB_DEFAULT_SYSTEM())));
+    return Optional.ofNullable(get(CHANGELOG_SYSTEM, get(JobConfig.JOB_DEFAULT_SYSTEM)));
   }
 
   /**

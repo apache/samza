@@ -57,7 +57,7 @@ public class TestZkStreamProcessorSession extends TestZkStreamProcessorBase {
 
     // set shorter session expiration for the test
     map.put(ZkConfig.ZK_SESSION_TIMEOUT_MS, "500");
-    map.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), "3000");
+    map.put(JobConfig.JOB_DEBOUNCE_TIME_MS, "3000");
 
     // create a latch of the size equals to the number of messages
     int totalEventsToGenerate = 3 * messageCount;

@@ -22,16 +22,17 @@ package org.apache.samza.checkpoint.file
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
+
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.checkpoint.CheckpointManager
 import org.apache.samza.checkpoint.CheckpointManagerFactory
-import org.apache.samza.config.{Config, FileSystemCheckpointManagerConfig}
-import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config.{Config, FileSystemCheckpointManagerConfig, JobConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
+
 import scala.io.Source
 
 class FileSystemCheckpointManager(
@@ -75,8 +76,8 @@ class FileSystemCheckpointManager(
 
 class FileSystemCheckpointManagerFactory extends CheckpointManagerFactory {
   def getCheckpointManager(config: Config, registry: MetricsRegistry) = {
-    val name = config
-      .getName
+    val jobConfig = new JobConfig(config)
+    val name = JavaOptionals.toRichOptional(jobConfig.getName).toOption
       .getOrElse(throw new SamzaException("Missing job name in configs"))
     val fileSystemCheckpointManagerConfig = new FileSystemCheckpointManagerConfig(config)
     val root = JavaOptionals.toRichOptional(fileSystemCheckpointManagerConfig.getFileSystemCheckpointRoot).toOption

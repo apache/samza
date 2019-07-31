@@ -110,7 +110,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
     // validate that conversion is using changeLog metadata
     map = new HashMap<>();
-    map.put(JobConfig.JOB_DEFAULT_SYSTEM(), SYSTEM);
+    map.put(JobConfig.JOB_DEFAULT_SYSTEM, SYSTEM);
 
     map.put(String.format("stores.%s.changelog", "fakeStore"), topicName);
     int changeLogReplicationFactor = 3;
@@ -211,7 +211,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
     final int REP_FACTOR = 2;
 
     Map<String, String> map = new HashMap<>();
-    map.put(JobConfig.JOB_DEFAULT_SYSTEM(), SYSTEM);
+    map.put(JobConfig.JOB_DEFAULT_SYSTEM, SYSTEM);
     map.put(String.format("stores.%s.changelog", "fakeStore"), topic);
     map.put(String.format("stores.%s.changelog.replication.factor", "fakeStore"), String.valueOf(REP_FACTOR));
     map.put(String.format("stores.%s.changelog.kafka.segment.bytes", "fakeStore"), "139");

@@ -22,11 +22,11 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.ApplicationConstants
 import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.samza.SamzaException
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.{Config, JobConfig, ShellCommandConfig, YarnConfig}
 import org.apache.samza.job.ApplicationStatus.{SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.{ApplicationStatus, StreamJob}
 import org.apache.samza.serializers.model.SamzaObjectMapper
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{CoordinatorStreamUtil, Util}
 import org.slf4j.LoggerFactory
 
@@ -43,6 +43,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
   def submit: YarnJob = {
     try {
       val cmdExec = buildAmCmd()
+      val jobConfig = new JobConfig(config)
 
       appId = client.submitApplication(
         config,
@@ -67,7 +68,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
           }
           envMapWithJavaHome
         }),
-        Some("%s_%s" format(config.getName.get, config.getJobId))
+        Some("%s_%s" format(jobConfig.getName.get, jobConfig.getJobId))
       )
     } catch {
       case e: Throwable =>
@@ -175,9 +176,10 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
        appId
       case None =>
         // Get by name
-        config.getName match {
+        val jobConfig = new JobConfig(config)
+        JavaOptionals.toRichOptional(jobConfig.getName).toOption match {
           case Some(jobName) =>
-            val applicationName = "%s_%s" format(jobName, config.getJobId)
+            val applicationName = "%s_%s" format(jobName, jobConfig.getJobId)
             logger.info("Fetching status from YARN for application name %s" format applicationName)
             val applicationIds = client.getActiveApplicationIds(applicationName)
 

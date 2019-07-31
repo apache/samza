@@ -33,7 +33,7 @@ import java.util.Set;
 public class SingleContainerGrouperFactory implements TaskNameGrouperFactory {
   @Override
   public TaskNameGrouper build(Config config) {
-    return new SingleContainerGrouper(config.get(JobConfig.PROCESSOR_ID()));
+    return new SingleContainerGrouper(config.get(JobConfig.PROCESSOR_ID));
   }
 }
 

@@ -20,7 +20,6 @@ package org.apache.samza.context;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import scala.Option;
 
 
 public class JobContextImpl implements JobContext {
@@ -44,12 +43,10 @@ public class JobContextImpl implements JobContext {
    */
   public static JobContextImpl fromConfigWithDefaults(Config config) {
     JobConfig jobConfig = new JobConfig(config);
-    Option<String> jobName = jobConfig.getName();
-    if (jobName.isEmpty()) {
-      throw new IllegalArgumentException("Job name is not defined in configuration");
-    }
+    String jobName = jobConfig.getName()
+        .orElseThrow(() -> new IllegalArgumentException(String.format("Config %s is missing", JobConfig.JOB_NAME)));
     String jobId = jobConfig.getJobId();
-    return new JobContextImpl(config, jobName.get(), jobId);
+    return new JobContextImpl(config, jobName, jobId);
   }
 
   @Override

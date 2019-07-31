@@ -316,8 +316,8 @@ public class SamzaExecutor implements SqlExecutor {
   Map<String, String> fetchSamzaSqlConfig(int execId) {
     HashMap<String, String> staticConfigs = new HashMap<>();
 
-    staticConfigs.put(JobConfig.JOB_NAME(), "sql-job-" + execId);
-    staticConfigs.put(JobConfig.PROCESSOR_ID(), String.valueOf(execId));
+    staticConfigs.put(JobConfig.JOB_NAME, "sql-job-" + execId);
+    staticConfigs.put(JobConfig.PROCESSOR_ID, String.valueOf(execId));
     staticConfigs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     staticConfigs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 

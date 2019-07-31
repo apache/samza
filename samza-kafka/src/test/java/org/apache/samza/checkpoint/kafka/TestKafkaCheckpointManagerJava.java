@@ -103,7 +103,7 @@ public class TestKafkaCheckpointManagerJava {
     KafkaStreamSpec checkpointSpec = new KafkaStreamSpec(CHECKPOINT_TOPIC, CHECKPOINT_TOPIC,
         CHECKPOINT_SYSTEM, 1);
     Config mockConfig = mock(Config.class);
-    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY())).thenReturn(GROUPER_FACTORY_CLASS);
+    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY)).thenReturn(GROUPER_FACTORY_CLASS);
 
     // mock out a consumer that returns a single checkpoint IME
     SystemStreamPartition ssp = new SystemStreamPartition("system-1", "input-topic", new Partition(0));
@@ -129,7 +129,7 @@ public class TestKafkaCheckpointManagerJava {
     KafkaStreamSpec checkpointSpec = new KafkaStreamSpec(CHECKPOINT_TOPIC, CHECKPOINT_TOPIC,
         CHECKPOINT_SYSTEM, 1);
     Config mockConfig = mock(Config.class);
-    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY())).thenReturn(GROUPER_FACTORY_CLASS);
+    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY)).thenReturn(GROUPER_FACTORY_CLASS);
 
     // mock out a consumer that returns a single checkpoint IME
     SystemStreamPartition ssp = new SystemStreamPartition("system-1", "input-topic", new Partition(0));
@@ -156,7 +156,7 @@ public class TestKafkaCheckpointManagerJava {
     KafkaStreamSpec checkpointSpec = new KafkaStreamSpec(CHECKPOINT_TOPIC, CHECKPOINT_TOPIC,
         CHECKPOINT_SYSTEM, 1);
     Config mockConfig = mock(Config.class);
-    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY())).thenReturn(GROUPER_FACTORY_CLASS);
+    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY)).thenReturn(GROUPER_FACTORY_CLASS);
 
     // mock out a consumer that returns a single checkpoint IME
     SystemStreamPartition ssp = new SystemStreamPartition("system-1", "input-topic", new Partition(0));
@@ -187,7 +187,7 @@ public class TestKafkaCheckpointManagerJava {
     KafkaStreamSpec checkpointSpec = new KafkaStreamSpec(CHECKPOINT_TOPIC, CHECKPOINT_TOPIC,
         CHECKPOINT_SYSTEM, 1);
     Config mockConfig = mock(Config.class);
-    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY())).thenReturn(GROUPER_FACTORY_CLASS);
+    when(mockConfig.get(JobConfig.SSP_GROUPER_FACTORY)).thenReturn(GROUPER_FACTORY_CLASS);
 
     SystemStreamPartition ssp = new SystemStreamPartition("system-1", "input-topic", new Partition(0));
 

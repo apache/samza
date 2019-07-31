@@ -370,8 +370,8 @@ public class TestLocalApplicationRunner {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_MODE, "BATCH");
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
-    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    cfgs.put(JobConfig.JOB_NAME, "test-task-job");
+    cfgs.put(JobConfig.JOB_ID, "jobId");
     config = new MapConfig(cfgs);
     mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
 
@@ -394,8 +394,8 @@ public class TestLocalApplicationRunner {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_MODE, "STREAM");
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
-    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    cfgs.put(JobConfig.JOB_NAME, "test-task-job");
+    cfgs.put(JobConfig.JOB_ID, "jobId");
     config = new MapConfig(cfgs);
     mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
 

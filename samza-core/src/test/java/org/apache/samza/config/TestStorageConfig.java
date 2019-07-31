@@ -159,13 +159,13 @@ public class TestStorageConfig {
 
     // job.changelog.system takes precedence over job.default.system
     StorageConfig storageConfig = new StorageConfig(new MapConfig(
-        ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "changelog-system", JobConfig.JOB_DEFAULT_SYSTEM(),
+        ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "changelog-system", JobConfig.JOB_DEFAULT_SYSTEM,
             "should-not-be-used")));
     assertEquals(Optional.of("changelog-system"), storageConfig.getChangelogSystem());
 
     // fall back to job.default.system if job.changelog.system is not specified
     storageConfig =
-        new StorageConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM(), "default-system")));
+        new StorageConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "default-system")));
     assertEquals(Optional.of("default-system"), storageConfig.getChangelogSystem());
   }
 

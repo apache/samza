@@ -41,7 +41,7 @@ import scala.collection.JavaConversions._
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
-    val containerCount = JobConfig.Config2Job(config).getContainerCount
+    val containerCount = new JobConfig(config).getContainerCount
 
     if (containerCount > 1) {
       throw new SamzaException("Container count larger than 1 is not supported for ProcessJobFactory")

@@ -70,7 +70,7 @@ public class LocalStoreMonitorConfig extends MapConfig {
    * @return the location of the job's local directory.
    */
   public String getLocalStoreBaseDir() {
-    return get(JobConfig.JOB_LOGGED_STORE_BASE_DIR(), get(CONFIG_LOCAL_STORE_DIR));
+    return get(JobConfig.JOB_LOGGED_STORE_BASE_DIR, get(CONFIG_LOCAL_STORE_DIR));
   }
 
   /**

@@ -22,7 +22,6 @@ package org.apache.samza.job
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -164,7 +163,8 @@ class JobRunner(config: Config) extends Logging {
   }
 
   private def getJobFactory: StreamJobFactory = {
-    val jobFactoryClass = config.getStreamJobFactoryClass match {
+    val jobConfig = new JobConfig(config)
+    val jobFactoryClass = JavaOptionals.toRichOptional(jobConfig.getStreamJobFactoryClass).toOption match {
       case Some(factoryClass) => factoryClass
       case _ => throw new SamzaException("no job factory class defined")
     }

@@ -43,7 +43,7 @@ public class SamzaSqlIntegrationTestHarness extends IntegrationTestHarness {
         CoordinatorStreamUtil.getCoordinatorStreamName(SamzaSqlTestConfig.SQL_JOB, SamzaSqlTestConfig.SQL_JOB_PROCESSOR_ID),
         new Partition(0)), new ArrayList<>());
     HashMap<String, String> mapConfig = new HashMap<>();
-    mapConfig.put(JobConfig.JOB_COORDINATOR_SYSTEM(), MOCK_METADATA_SYSTEM);
+    mapConfig.put(JobConfig.JOB_COORDINATOR_SYSTEM, MOCK_METADATA_SYSTEM);
     mapConfig.put(String.format(SystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_METADATA_SYSTEM), MockSystemFactory.class.getName());
     mapConfig.putAll(config);
 

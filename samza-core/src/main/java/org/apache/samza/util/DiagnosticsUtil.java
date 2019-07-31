@@ -59,9 +59,9 @@ public class DiagnosticsUtil {
   public static void writeMetadataFile(String jobName, String jobId, String containerId,
       Optional<String> execEnvContainerId, Config config) {
 
-    Option<File> metadataFile = JobConfig.getMetadataFile(Option.apply(execEnvContainerId.orElse(null)));
+    Optional<File> metadataFile = JobConfig.getMetadataFile(execEnvContainerId.orElse(null));
 
-    if (metadataFile.isDefined()) {
+    if (metadataFile.isPresent()) {
       MetricsHeader metricsHeader =
           new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""),
               LocalContainerRunner.class.getName(), Util.getTaskClassVersion(config), Util.getSamzaVersion(),

@@ -52,7 +52,7 @@ public class SchedulingTest extends StreamApplicationIntegrationTestHarness {
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
     configs.put("job.systemstreampartition.grouper.factory", "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory");
     configs.put("task.name.grouper.factory", "org.apache.samza.container.grouper.task.SingleContainerGrouperFactory");
-    configs.put(JobConfig.PROCESSOR_ID(), "0");
+    configs.put(JobConfig.PROCESSOR_ID, "0");
 
     runApplication(new TestSchedulingApp(), "SchedulingTest", configs);
   }

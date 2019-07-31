@@ -123,9 +123,9 @@ public class TestOperatorImplGraph {
     String intermediateSystem = "intermediate-system";
 
     HashMap<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "jobName");
-    configs.put(JobConfig.JOB_ID(), "jobId");
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), intermediateSystem);
+    configs.put(JobConfig.JOB_NAME, "jobName");
+    configs.put(JobConfig.JOB_ID, "jobId");
+    configs.put(JobConfig.JOB_DEFAULT_SYSTEM, intermediateSystem);
     StreamTestUtils.addStreamConfigs(configs, inputStreamId, inputSystem, inputPhysicalName);
     StreamTestUtils.addStreamConfigs(configs, outputStreamId, outputSystem, outputPhysicalName);
     Config config = new MapConfig(configs);
@@ -175,9 +175,9 @@ public class TestOperatorImplGraph {
     String intermediateSystem = "intermediate-system";
 
     HashMap<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "jobName");
-    configs.put(JobConfig.JOB_ID(), "jobId");
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), intermediateSystem);
+    configs.put(JobConfig.JOB_NAME, "jobName");
+    configs.put(JobConfig.JOB_ID, "jobId");
+    configs.put(JobConfig.JOB_DEFAULT_SYSTEM, intermediateSystem);
     StreamTestUtils.addStreamConfigs(configs, inputStreamId, inputSystem, inputPhysicalName);
     StreamTestUtils.addStreamConfigs(configs, outputStreamId, outputSystem, outputPhysicalName);
     Config config = new MapConfig(configs);
@@ -230,8 +230,8 @@ public class TestOperatorImplGraph {
     String inputSystem = "input-system";
     String inputPhysicalName = "input-stream";
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "test-job");
-    configMap.put(JobConfig.JOB_ID(), "1");
+    configMap.put(JobConfig.JOB_NAME, "test-job");
+    configMap.put(JobConfig.JOB_ID, "1");
     StreamTestUtils.addStreamConfigs(configMap, inputStreamId, inputSystem, inputPhysicalName);
     Config config = new MapConfig(configMap);
     when(this.context.getJobContext().getConfig()).thenReturn(config);
@@ -296,8 +296,8 @@ public class TestOperatorImplGraph {
     String inputPhysicalName1 = "input-stream1";
     String inputPhysicalName2 = "input-stream2";
     HashMap<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "jobName");
-    configs.put(JobConfig.JOB_ID(), "jobId");
+    configs.put(JobConfig.JOB_NAME, "jobName");
+    configs.put(JobConfig.JOB_ID, "jobId");
     StreamTestUtils.addStreamConfigs(configs, inputStreamId1, inputSystem, inputPhysicalName1);
     StreamTestUtils.addStreamConfigs(configs, inputStreamId2, inputSystem, inputPhysicalName2);
     Config config = new MapConfig(configs);
@@ -417,8 +417,8 @@ public class TestOperatorImplGraph {
     String streamId1 = "test-stream-1";
 
     HashMap<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "test-app");
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), "test-system");
+    configs.put(JobConfig.JOB_NAME, "test-app");
+    configs.put(JobConfig.JOB_DEFAULT_SYSTEM, "test-system");
     StreamTestUtils.addStreamConfigs(configs, streamId0, system, streamId0);
     StreamTestUtils.addStreamConfigs(configs, streamId1, system, streamId1);
     Config config = new MapConfig(configs);
@@ -464,8 +464,8 @@ public class TestOperatorImplGraph {
     String intSystem = "test-system";
 
     HashMap<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "test-app");
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), intSystem);
+    configs.put(JobConfig.JOB_NAME, "test-app");
+    configs.put(JobConfig.JOB_DEFAULT_SYSTEM, intSystem);
     StreamTestUtils.addStreamConfigs(configs, inputStreamId1, inputSystem, inputStreamId1);
     StreamTestUtils.addStreamConfigs(configs, inputStreamId2, inputSystem, inputStreamId2);
     StreamTestUtils.addStreamConfigs(configs, inputStreamId3, inputSystem, inputStreamId3);
@@ -582,8 +582,8 @@ public class TestOperatorImplGraph {
 
   private Config getConfig() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "test-job");
-    configMap.put(JobConfig.JOB_ID(), "1");
+    configMap.put(JobConfig.JOB_NAME, "test-job");
+    configMap.put(JobConfig.JOB_ID, "1");
     return new MapConfig(configMap);
   }
 

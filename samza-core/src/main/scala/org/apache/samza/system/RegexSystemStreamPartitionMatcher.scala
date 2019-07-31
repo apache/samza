@@ -21,14 +21,14 @@ package org.apache.samza.system
 
 import java.util
 
-import org.apache.samza.config.Config
-import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.config.{Config, JobConfig}
+
 import scala.collection.JavaConverters._
 
 
 class RegexSystemStreamPartitionMatcher extends SystemStreamPartitionMatcher {
   override def filter(systemStreamPartitions: util.Set[SystemStreamPartition], config: Config): util.Set[SystemStreamPartition] = {
-    val sspRegex = config.getSSPMatcherConfigRegex
+    val sspRegex = new JobConfig(config).getSSPMatcherConfigRegex
     val sspSetScala = systemStreamPartitions.asScala
     sspSetScala.filter(s => s.partition.getPartitionId.toString.matches(sspRegex)).asJava
   }

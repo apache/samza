@@ -31,7 +31,6 @@ import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorServic
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
@@ -78,8 +77,8 @@ object SamzaContainer extends Logging {
   /**
     * If a base-directory was NOT explicitly provided in config, a default base directory is returned.
     */
-  def getNonLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
-    config.getNonLoggedStorePath match {
+  def getNonLoggedStorageBaseDir(jobConfig: JobConfig, defaultStoreBaseDir: File) = {
+    JavaOptionals.toRichOptional(jobConfig.getNonLoggedStorePath).toOption match {
       case Some(nonLoggedStorePath) =>
         new File(nonLoggedStorePath)
       case None =>
@@ -91,8 +90,8 @@ object SamzaContainer extends Logging {
     * If a base-directory was NOT explicitly provided in config or via an environment variable
     * (see ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR), then a default base directory is returned.
     */
-  def getLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
-    val defaultLoggedStorageBaseDir = config.getLoggedStorePath match {
+  def getLoggedStorageBaseDir(jobConfig: JobConfig, defaultStoreBaseDir: File) = {
+    val defaultLoggedStorageBaseDir = JavaOptionals.toRichOptional(jobConfig.getLoggedStorePath).toOption match {
       case Some(durableStorePath) =>
         new File(durableStorePath)
       case None =>
@@ -100,16 +99,17 @@ object SamzaContainer extends Logging {
     }
 
     var loggedStorageBaseDir:File = null
-    if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
+    if (System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
       val jobNameAndId = (
-        config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
-        config.getJobId
+        JavaOptionals.toRichOptional(jobConfig.getName).toOption
+          .getOrElse(throw new ConfigException("Missing required config: job.name")),
+        jobConfig.getJobId
       )
 
       loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
         + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
     } else {
-      if (config.getLoggedStorePath.isEmpty) {
+      if (!jobConfig.getLoggedStorePath.isPresent) {
         warn("No override was provided for logged store base directory. This disables local state re-use on " +
           "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
           "variable in all machines running the Samza container or configure job.logged.store.base.dir for your application")
@@ -135,11 +135,10 @@ object SamzaContainer extends Logging {
     startpointManager: StartpointManager = null,
     diagnosticsManager: Option[DiagnosticsManager] = Option.empty) = {
     val config = jobContext.getConfig
+    val jobConfig = new JobConfig(config)
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
-    val jobName = config.getName.get
-    val jobId = config.getJobId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
@@ -414,7 +413,7 @@ object SamzaContainer extends Logging {
 
     info("Got metrics reporters: %s" format reporters.keys)
 
-    val securityManager = config.getSecurityManagerFactory match {
+    val securityManager = JavaOptionals.toRichOptional(jobConfig.getSecurityManagerFactory).toOption match {
       case Some(securityManagerFactoryClassName) =>
         ReflectionUtil.getObj(classLoader, securityManagerFactoryClassName, classOf[SecurityManagerFactory])
           .getSecurityManager(config)
@@ -466,7 +465,7 @@ object SamzaContainer extends Logging {
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
 
-    val threadPoolSize = config.getThreadPoolSize
+    val threadPoolSize = jobConfig.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
 
     val taskThreadPool = if (threadPoolSize > 0) {
@@ -503,10 +502,10 @@ object SamzaContainer extends Logging {
     val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
     info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
 
-    val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
+    val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
 
-    val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
+    val loggedStorageBaseDir = getLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
     val containerStorageManager = new ContainerStorageManager(containerModel,
@@ -705,6 +704,7 @@ class SamzaContainer(
   containerStorageManager: ContainerStorageManager,
   diagnosticsManager: Option[DiagnosticsManager] = Option.empty) extends Runnable with Logging {
 
+  private val jobConfig = new JobConfig(config)
   private val taskConfig = new TaskConfig(config)
   val shutdownMs: Long = taskConfig.getShutdownMs
   var shutdownHookThread: Thread = null
@@ -734,7 +734,7 @@ class SamzaContainer(
 
       val startTime = System.nanoTime()
       status = SamzaContainerStatus.STARTING
-      if (config.getJMXEnabled) {
+      if (jobConfig.getJMXEnabled) {
         jmxServer = new JmxServer()
       }
       applicationContainerContextOption.foreach(_.start)

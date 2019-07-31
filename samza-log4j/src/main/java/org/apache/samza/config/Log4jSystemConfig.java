@@ -62,11 +62,11 @@ public class Log4jSystemConfig extends SystemConfig {
   }
 
   public String getJobName() {
-    return get(JobConfig.JOB_NAME(), null);
+    return get(JobConfig.JOB_NAME, null);
   }
 
   public String getJobId() {
-    return get(JobConfig.JOB_ID(), null);
+    return get(JobConfig.JOB_ID, null);
   }
 
   /**

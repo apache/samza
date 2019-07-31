@@ -23,6 +23,7 @@ package org.apache.samza.config;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -33,7 +34,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.execution.JobPlanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Option;
 
 
 /**
@@ -159,11 +159,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
 
   public static Pair<String, String> getJobNameAndId(Config config) {
     JobConfig jobConfig = new JobConfig(JobPlanner.generateSingleJobConfig(config));
-    Option jobNameOption = jobConfig.getName();
-    if (jobNameOption.isEmpty()) {
-      throw new ConfigException("Missing job name");
-    }
-    String jobName = (String) jobNameOption.get();
+    String jobName = jobConfig.getName().orElseThrow(() -> new ConfigException("Missing job name"));
     return new ImmutablePair<>(jobName, jobConfig.getJobId());
   }
 
