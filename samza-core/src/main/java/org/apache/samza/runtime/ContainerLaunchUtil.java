@@ -27,6 +27,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
@@ -61,10 +62,17 @@ public class ContainerLaunchUtil {
   private static volatile Throwable containerRunnerException = null;
 
   /**
-   * This method launches a Samza container in a managed cluster, e.g. Yarn.
-   *
-   * NOTE: this util method is also invoked by Beam SamzaRunner.
+   * This method launches a Samza container in a managed cluster and is invoked by BeamContainerRunner.
    * Any change here needs to take Beam into account.
+   */
+  public static void run(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,  String containerId, JobModel jobModel) {
+    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID()));
+    JobConfig jobConfig = new JobConfig(jobModel.getConfig());
+    ContainerLaunchUtil.run(appDesc, jobConfig.getName().get(), jobConfig.getJobId(), containerId, execEnvContainerId, jobModel);
+  }
+
+  /**
+   * This method launches a Samza container in a managed cluster, e.g. Yarn.
    */
   public static void run(
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
