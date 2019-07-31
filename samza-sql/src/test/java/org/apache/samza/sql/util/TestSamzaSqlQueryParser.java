@@ -21,9 +21,9 @@ package org.apache.samza.sql.util;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.util.SamzaSqlQueryParser.QueryInfo;
+import org.junit.Assert;
 import org.junit.Test;
 
-import junit.framework.Assert;
 
 public class TestSamzaSqlQueryParser {
 
@@ -33,6 +33,52 @@ public class TestSamzaSqlQueryParser {
     Assert.assertEquals("log.foo", queryInfo.getSink());
     Assert.assertEquals(1, queryInfo.getSources().size());
     Assert.assertEquals("tracking.bar", queryInfo.getSources().get(0));
+  }
+
+  @Test
+  public void testParseGroupyByQuery() {
+    QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery("insert into log.foo select b.pageKey, count(*) from tracking.bar as b group by b.pageKey");
+    Assert.assertEquals("log.foo", queryInfo.getSink());
+    Assert.assertEquals(1, queryInfo.getSources().size());
+    Assert.assertEquals("tracking.bar", queryInfo.getSources().get(0));
+  }
+
+  @Test
+  public void testParseUnNestSubQuery() {
+    QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery("insert into log.foo SELECT * FROM unnest(SELECT int_array_field1 FROM tracking.bar) ");
+    Assert.assertEquals("log.foo", queryInfo.getSink());
+    Assert.assertEquals(1, queryInfo.getSources().size());
+    Assert.assertEquals("tracking.bar", queryInfo.getSources().get(0));
+  }
+
+  @Test
+  public void testParseJoinSubQuery() {
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic"
+            + " select p.name as profileName, pv.pageKey"
+            + " from (SELECT * FROM testavro.PAGEVIEW pv1 where pv1.field1='foo') as pv"
+            + " join testavro.PROFILE.`$table` as p"
+            + " on p.id = pv.profileId";
+    QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery(sql);
+    Assert.assertEquals("testavro.enrichedPageViewTopic", queryInfo.getSink());
+    Assert.assertEquals(2, queryInfo.getSources().size());
+    Assert.assertEquals("testavro.PAGEVIEW", queryInfo.getSources().get(0));
+    Assert.assertEquals("testavro.PROFILE.$table", queryInfo.getSources().get(1));
+  }
+
+  @Test
+  public void testParseJoinUnNestQuery() {
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic"
+            + " select p.name as profileName, pv.pageKey"
+            + " from unnest(SELECT int_array_field1 FROM testavro.PAGEVIEW) as pv"
+            + " join testavro.PROFILE.`$table` as p"
+            + " on p.id = pv.profileId";
+    QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery(sql);
+    Assert.assertEquals("testavro.enrichedPageViewTopic", queryInfo.getSink());
+    Assert.assertEquals(2, queryInfo.getSources().size());
+    Assert.assertEquals("testavro.PAGEVIEW", queryInfo.getSources().get(0));
+    Assert.assertEquals("testavro.PROFILE.$table", queryInfo.getSources().get(1));
   }
 
   @Test
