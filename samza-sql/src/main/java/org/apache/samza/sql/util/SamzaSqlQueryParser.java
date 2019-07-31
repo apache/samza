@@ -117,10 +117,16 @@ public class SamzaSqlQueryParser {
         LOG.info("Parsed select query {} from sql {}", selectQuery, sql);
         sources = getSourcesFromSelectQuery(sqlSelect);
       } else {
-        throw new SamzaException("Sql query is not of the expected format");
+        String msg = String.format("Sql query is not of the expected format. Select node expected, found %s",
+            sqlInsert.getSource().getClass().toString());
+        LOG.error(msg);
+        throw new SamzaException(msg);
       }
     } else {
-      throw new SamzaException("Sql query is not of the expected format");
+      String msg = String.format("Sql query is not of the expected format. Insert node expected, found %s",
+          sqlNode.getClass().toString());
+      LOG.error(msg);
+      throw new SamzaException(msg);
     }
 
     return new QueryInfo(selectQuery, sources, sink, sql);
