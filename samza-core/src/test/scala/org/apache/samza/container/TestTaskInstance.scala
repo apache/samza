@@ -271,6 +271,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       .thenReturn(Collections.singletonMap(new Partition(0), sspMetadata))
 
     val ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0))
+    val inputStreamMetadata = collection.Map(ssp.getSystemStream -> systemStreamMetadata)
 
     val taskInstance = new TaskInstance(this.task,
       this.taskModel,
@@ -284,6 +285,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       systemStreamPartitions = Set(ssp),
       exceptionHandler = this.taskInstanceExceptionHandler,
       streamMetadataCache = cacheMock,
+      inputStreamMetadata = Map.empty ++ inputStreamMetadata,
       jobContext = this.jobContext,
       containerContext = this.containerContext,
       applicationContainerContextOption = Some(this.applicationContainerContext),

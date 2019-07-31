@@ -22,8 +22,6 @@ package org.apache.samza.container
 
 import java.util.{Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
-
-import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.config.Config
@@ -31,7 +29,6 @@ import org.apache.samza.config.StreamConfig.Config2Stream
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
-import org.apache.samza.startpoint.Startpoint
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
@@ -57,6 +54,7 @@ class TaskInstance(
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
   jobModel: JobModel = null,
   streamMetadataCache: StreamMetadataCache = null,
+  inputStreamMetadata: Map[SystemStream, SystemStreamMetadata] = Map(),
   timerExecutor : ScheduledExecutorService = null,
   jobContext: JobContext,
   containerContext: ContainerContext,
@@ -326,22 +324,22 @@ class TaskInstance(
     * Check each partition assigned to the task is caught to the last offset
     */
   def initCaughtUpMapping() {
-    if (taskContext.getStreamMetadataCache != null) {
+    if (inputStreamMetadata != null && inputStreamMetadata.nonEmpty) {
       systemStreamPartitions.foreach(ssp => {
-        val partitionMetadata = taskContext
-          .getStreamMetadataCache
-          .getSystemStreamMetadata(ssp.getSystemStream, false)
-          .getSystemStreamPartitionMetadata.get(ssp.getPartition)
+        if (inputStreamMetadata.contains(ssp.getSystemStream)) {
+          val partitionMetadata = inputStreamMetadata(ssp.getSystemStream)
+            .getSystemStreamPartitionMetadata.get(ssp.getPartition)
 
-        val upcomingOffset = partitionMetadata.getUpcomingOffset
-        val startingOffset = offsetManager.getStartingOffset(taskName, ssp)
-          .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format ssp))
+          val upcomingOffset = partitionMetadata.getUpcomingOffset
+          val startingOffset = offsetManager.getStartingOffset(taskName, ssp)
+            .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format ssp))
 
-        // Mark ssp to be caught up if the starting offset is already the
-        // upcoming offset, meaning the task has consumed all the messages
-        // in this partition before and waiting for the future incoming messages.
-        if(Objects.equals(upcomingOffset, startingOffset)) {
-          ssp2CaughtupMapping(ssp) = true
+          // Mark ssp to be caught up if the starting offset is already the
+          // upcoming offset, meaning the task has consumed all the messages
+          // in this partition before and waiting for the future incoming messages.
+          if(Objects.equals(upcomingOffset, startingOffset)) {
+            ssp2CaughtupMapping(ssp) = true
+          }
         }
       })
     }

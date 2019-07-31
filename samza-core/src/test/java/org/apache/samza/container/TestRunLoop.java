@@ -108,6 +108,7 @@ public class TestRunLoop {
         null,
         null,
         null,
+        null,
         mock(JobContext.class),
         mock(ContainerContext.class),
         Option.apply(null),
