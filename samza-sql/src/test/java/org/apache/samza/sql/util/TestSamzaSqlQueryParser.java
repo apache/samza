@@ -31,7 +31,6 @@ public class TestSamzaSqlQueryParser {
   public void testParseQuery() {
     QueryInfo queryInfo = SamzaSqlQueryParser.parseQuery("insert into log.foo select * from tracking.bar");
     Assert.assertEquals("log.foo", queryInfo.getSink());
-    Assert.assertEquals(queryInfo.getSelectQuery(), "select * from tracking.bar", queryInfo.getSelectQuery());
     Assert.assertEquals(1, queryInfo.getSources().size());
     Assert.assertEquals("tracking.bar", queryInfo.getSources().get(0));
   }
