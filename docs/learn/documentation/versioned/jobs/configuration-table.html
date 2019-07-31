@@ -1706,6 +1706,49 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="stores-changelog-max-message-size-bytes">stores.<span class="store">store-name</span>.changelog.max.message.size.bytes</td>
+                    <td class="default">1048576</td>
+                    <td class="description">
+                        This property sets the maximum size of the messages allowed in the changelog.
+                        The default value is 1 MB.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-disallow-large-messages">stores.<span class="store">store-name</span>.disallow.large.messages</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This property, when turned on, tells the system to expect large messages to be put in the stores
+                        and disallows them. It looks out for any large messages greater than
+                        <a href="#stores-changelog-max-message-size-bytes" class="property">stores.*.changelog.max.message.size.bytes</a>
+                        and throws a SamzaException when it finds one, stating that the record is too large.
+                        In the case of using CachedStore, it will serialize the message first, validate
+                        its size and then cache it if the size is under the permissible limit.
+                        Note that if enabled retroactively, this may cause a performance regression due to the pre-caching serialization.
+                        When this property is turned on, the <a href="#stores-drop-large-messages" class="property">stores.*.drop.large.messages</a>
+                        configuration is ignored. The default value for this config is false. When this property is not set,
+                        <a href="#stores-drop-large-messages" class="property">stores.*.drop.large.messages</a>
+                        determines the large message handling behavior.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-drop-large-messages">stores.<span class="store">store-name</span>.drop.large.messages</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This property, when turned on, causes messages larger than
+                        <a href="#stores-changelog-max-message-size-bytes" class="property">stores.*.changelog.max.message.size.bytes</a>
+                        to be dropped from the underlying store and changelog. No exception is thrown when a large message is encountered.
+                        For the case when storing messages in the cache is enabled along with this config being
+                        turned on (look at the <a href="#stores-rocksdb-object-cache-size" class="property">stores.*.object.cache.size</a>
+                        config), the large message is stored in the cache but is not written to the
+                        changelog and underlying store, resulting in an inconsistent state temporarily.
+                        When this property is turned off, large messages will be sent to the changelog topic as is,
+                        and may cause the container to fail during commit.
+                    </td>
+                </tr>
+
+                <tr>
                     <th colspan="3" class="section" id="keyvalue-rocksdb">
                         Using RocksDB for key-value storage<br>
                         <span class="subtitle">

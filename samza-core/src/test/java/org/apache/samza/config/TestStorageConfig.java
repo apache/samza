@@ -251,4 +251,34 @@ public class TestStorageConfig {
             String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "system0.changelog-stream")));
     assertTrue(storageConfig.hasDurableStores());
   }
+
+  @Test
+  public void testGetChangelogMaxMsgSizeBytes() {
+    // empty config, return default size
+    assertEquals(StorageConfig.DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES, new StorageConfig(new MapConfig()).getChangelogMaxMsgSizeBytes(STORE_NAME0));
+
+    StorageConfig storageConfig = new StorageConfig(
+        new MapConfig(ImmutableMap.of(String.format(StorageConfig.CHANGELOG_MAX_MSG_SIZE_BYTES, STORE_NAME0), "10")));
+    assertEquals(10, storageConfig.getChangelogMaxMsgSizeBytes(STORE_NAME0));
+  }
+
+  @Test
+  public void testGetDisallowLargeMessages() {
+    // empty config, return default size
+    assertEquals(StorageConfig.DEFAULT_DISALLOW_LARGE_MESSAGES, new StorageConfig(new MapConfig()).getDisallowLargeMessages(STORE_NAME0));
+
+    StorageConfig storageConfig = new StorageConfig(
+        new MapConfig(ImmutableMap.of(String.format(StorageConfig.DISALLOW_LARGE_MESSAGES, STORE_NAME0), "true")));
+    assertEquals(true, storageConfig.getDisallowLargeMessages(STORE_NAME0));
+  }
+
+  @Test
+  public void testGetDropLargeMessages() {
+    // empty config, return default size
+    assertEquals(StorageConfig.DEFAULT_DROP_LARGE_MESSAGES, new StorageConfig(new MapConfig()).getDropLargeMessages(STORE_NAME0));
+
+    StorageConfig storageConfig = new StorageConfig(
+        new MapConfig(ImmutableMap.of(String.format(StorageConfig.DROP_LARGE_MESSAGES, STORE_NAME0), "true")));
+    assertEquals(true, storageConfig.getDropLargeMessages(STORE_NAME0));
+  }
 }
