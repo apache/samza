@@ -62,7 +62,12 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
   @Override
   public void lookupOperatorOverloads(SqlIdentifier opName, SqlFunctionCategory category, SqlSyntax syntax,
       List<SqlOperator> operatorList) {
-    operatorTable.lookupOperatorOverloads(opName, category, syntax, operatorList);
+    SqlIdentifier upperCaseOpName = opName;
+    // Only udfs are case insensitive
+    if (category != null && category.equals(SqlFunctionCategory.USER_DEFINED_FUNCTION)) {
+      upperCaseOpName = new SqlIdentifier(opName.names.get(0).toUpperCase(), opName.getComponentParserPosition(0));
+    }
+    operatorTable.lookupOperatorOverloads(upperCaseOpName, category, syntax, operatorList);
   }
 
   @Override
