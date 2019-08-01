@@ -90,17 +90,22 @@ public class ChangelogStreamManager {
    */
   public void writePartitionMapping(Map<TaskName, Integer> changelogEntries) {
     LOG.debug("Updating changelog information with: ");
+    HashMap<String, byte[]> changelogEntriesToStore = new HashMap<>();
     for (Map.Entry<TaskName, Integer> entry : changelogEntries.entrySet()) {
       Preconditions.checkNotNull(entry.getKey());
       String taskName = entry.getKey().getTaskName();
       if (entry.getValue() != null) {
         String changeLogPartitionId = String.valueOf(entry.getValue());
         LOG.debug("TaskName: {} to Partition: {}", taskName, entry.getValue());
-        metadataStore.put(taskName, valueSerde.toBytes(changeLogPartitionId));
+        changelogEntriesToStore.put(taskName, valueSerde.toBytes(changeLogPartitionId));
       } else {
         LOG.debug("Deleting the TaskName: {}", taskName);
         metadataStore.delete(taskName);
       }
+    }
+    if (!changelogEntries.isEmpty()) {
+      LOG.info("Storing {} changelog partition assignments", changelogEntries.size());
+      metadataStore.putAll(changelogEntriesToStore);
     }
   }
 

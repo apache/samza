@@ -19,6 +19,12 @@
 package org.apache.samza.container.grouper.task;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
@@ -30,10 +36,6 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Used to persist and read the task-to-partition assignment information
@@ -69,25 +71,40 @@ public class TaskPartitionAssignmentManager {
    * Stores the task to partition assignments to the metadata store.
    * @param partition the system stream partition.
    * @param taskNames the task names to which the partition is assigned to.
+   * @deprecated in favor of {@link #writeTaskPartitionAssignments(Map)}
    */
+  @Deprecated
   public void writeTaskPartitionAssignment(SystemStreamPartition partition, List<String> taskNames) {
-    // For broadcast streams, a input system stream partition will be mapped to more than one tasks in a
-    // SamzaContainer. Rather than storing taskName to list of SystemStreamPartitions in metadata store, here
-    // systemStreamPartition to list of taskNames is stored. This was done due to 1 MB limit on value size in kafka.
-    String serializedSSPAsJson = serializeSSPToJson(partition);
-    if (taskNames == null || taskNames.isEmpty()) {
-      LOG.info("Deleting the key: {} from the metadata store.", partition);
-      metadataStore.delete(serializedSSPAsJson);
-    } else {
-      try {
-        String taskNamesAsString = taskNamesMapper.writeValueAsString(taskNames);
-        byte[] taskNamesAsBytes = valueSerde.toBytes(taskNamesAsString);
-        LOG.info("Storing the partition: {} and taskNames: {} into the metadata store.", serializedSSPAsJson, taskNames);
-        metadataStore.put(serializedSSPAsJson, taskNamesAsBytes);
-      } catch (Exception e) {
-        throw new SamzaException("Exception occurred when writing task to partition assignment.", e);
+    writeTaskPartitionAssignments(ImmutableMap.of(partition, taskNames));
+  }
+
+  /**
+   * Stores the task names to {@link SystemStreamPartition} assignments to the metadata store.
+   * @param sspToTaskNameMapping the mapped assignments to write to the metadata store. If the task name list is empty,
+   *                             then the entry is deleted from the metadata store.
+   */
+  public void writeTaskPartitionAssignments(Map<SystemStreamPartition, List<String>> sspToTaskNameMapping) {
+    HashMap<String, byte[]> tasksMapping = new HashMap<>();
+    for (SystemStreamPartition ssp: sspToTaskNameMapping.keySet()) {
+      // For broadcast streams, a input system stream partition will be mapped to more than one tasks in a
+      // SamzaContainer. Rather than storing taskName to list of SystemStreamPartitions in metadata store, here
+      // systemStreamPartition to list of taskNames is stored. This was done due to 1 MB limit on value size in kafka.
+      List<String> taskNames = sspToTaskNameMapping.get(ssp);
+      String serializedSSPAsJson = serializeSSPToJson(ssp);
+      if (CollectionUtils.isEmpty(taskNames)) {
+        LOG.info("Deleting the task assignment for partition: {} from the metadata store.", ssp);
+        metadataStore.delete(serializedSSPAsJson);
+      } else {
+        try {
+          String taskNamesAsString = taskNamesMapper.writeValueAsString(taskNames);
+          LOG.info("Assigning the partition: {} with taskNames: {} in the metadata store.", serializedSSPAsJson, taskNamesAsString);
+          tasksMapping.put(serializedSSPAsJson, valueSerde.toBytes(taskNamesAsString));
+        } catch (IOException e) {
+          throw new SamzaException("Exception occurred when writing task to partition assignment.", e);
+        }
       }
     }
+    metadataStore.putAll(tasksMapping);
   }
 
   /**

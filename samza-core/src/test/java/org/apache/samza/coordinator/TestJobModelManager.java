@@ -21,10 +21,13 @@ package org.apache.samza.coordinator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
-import java.util.*;
-
 import com.google.common.collect.ImmutableSet;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -52,12 +55,6 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.argThat;
-import static org.mockito.Mockito.*;
-
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mockito;
@@ -65,6 +62,13 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import scala.collection.JavaConversions;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.argThat;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link JobModelManager}
@@ -270,7 +274,7 @@ public class TestJobModelManager {
 
     when(mockJobModel.getContainers()).thenReturn(containerMapping);
     when(mockGrouperMetadata.getPreviousTaskToProcessorAssignment()).thenReturn(new HashMap<>());
-    Mockito.doNothing().when(mockTaskAssignmentManager).writeTaskContainerMapping(Mockito.any(), Mockito.any(), Mockito.any());
+    Mockito.doNothing().when(mockTaskAssignmentManager).writeTaskContainerAssignments(Mockito.any());
 
     JobModelManager.updateTaskAssignments(mockJobModel, mockTaskAssignmentManager, mockTaskPartitionAssignmentManager, mockGrouperMetadata);
 
@@ -289,18 +293,24 @@ public class TestJobModelManager {
     // Verifications
     Mockito.verify(mockJobModel, atLeast(1)).getContainers();
     Mockito.verify(mockTaskAssignmentManager).deleteTaskContainerMappings(Mockito.any());
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-1", "test-container-id", TaskMode.Active);
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-2", "test-container-id", TaskMode.Active);
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-3", "test-container-id", TaskMode.Active);
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-4", "test-container-id", TaskMode.Active);
+    ImmutableMap<String, ContainerModel> expectedTaskToContainerModelMapping =
+        ImmutableMap.of(
+            "task-1", containerModel,
+            "task-2", containerModel,
+            "task-3", containerModel,
+            "task-4", containerModel);
+    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerAssignments(expectedTaskToContainerModelMapping);
 
     // Verify that the old, stale partition mappings had been purged in the coordinator stream.
     Mockito.verify(mockTaskPartitionAssignmentManager).delete(systemStreamPartitions);
 
     // Verify that the new task to partition assignment is stored in the coordinator stream.
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignment(testSystemStreamPartition1, ImmutableList.of("task-1"));
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignment(testSystemStreamPartition2, ImmutableList.of("task-2"));
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignment(testSystemStreamPartition3, ImmutableList.of("task-3"));
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignment(testSystemStreamPartition4, ImmutableList.of("task-4"));
+    ImmutableMap<SystemStreamPartition, List<String>> expectedPartitionToTasksMapping =
+        ImmutableMap.of(
+            testSystemStreamPartition1, ImmutableList.of("task-1"),
+            testSystemStreamPartition2, ImmutableList.of("task-2"),
+            testSystemStreamPartition3, ImmutableList.of("task-3"),
+            testSystemStreamPartition4, ImmutableList.of("task-4"));
+    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignments(expectedPartitionToTasksMapping);
   }
 }
