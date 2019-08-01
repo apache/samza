@@ -195,8 +195,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
           MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
           coordinatorStreamStore.init();
           ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, jobConfig);
-          StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
-              sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig, appDesc), Optional.ofNullable(externalContext), coordinatorStreamStore);
+          StreamProcessor processor = createStreamProcessor(appDesc,
+              sp -> new LocalStreamProcessorLifecycleListener(sp, appDesc), Optional.ofNullable(externalContext), coordinatorStreamStore);
           processors.add(Pair.of(processor, coordinatorStreamStore));
         });
       numProcessorsToStart.set(processors.size());
@@ -273,16 +273,16 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   @VisibleForTesting
-  StreamProcessor createStreamProcessor(Config config, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
+  StreamProcessor createStreamProcessor(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
       StreamProcessor.StreamProcessorLifecycleListenerFactory listenerFactory,
       Optional<ExternalContext> externalContextOptional, MetadataStore coordinatorStreamStore) {
     TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
     Map<String, MetricsReporter> reporters = new HashMap<>();
-    String processorId = createProcessorId(new ApplicationConfig(config), getClass().getClassLoader());
+    String processorId = createProcessorId(new ApplicationConfig(appDesc.getConfig()), getClass().getClassLoader());
     appDesc.getMetricsReporterFactories().forEach((name, factory) ->
-        reporters.put(name, factory.getMetricsReporter(name, processorId, config)));
+        reporters.put(name, factory.getMetricsReporter(name, processorId, appDesc.getConfig())));
 
-    StreamProcessor streamProcessor = new StreamProcessor(processorId, config, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
+    StreamProcessor streamProcessor = new StreamProcessor(processorId, appDesc.getConfig(), reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
           appDesc.getApplicationTaskContextFactory(), externalContextOptional, listenerFactory, null, coordinatorStreamStore);
 
     return streamProcessor;
@@ -337,9 +337,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
     private final StreamProcessor processor;
     private final ProcessorLifecycleListener userDefinedProcessorLifecycleListener;
 
-    LocalStreamProcessorLifecycleListener(StreamProcessor processor, Config jobConfig, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
+    LocalStreamProcessorLifecycleListener(StreamProcessor processor, ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {
       this.userDefinedProcessorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
-          .createInstance(new ProcessorContext() { }, jobConfig);
+          .createInstance(new ProcessorContext() { }, appDesc.getConfig());
       this.processor = processor;
     }
 
