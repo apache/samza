@@ -524,10 +524,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       if (processorFailures.containsKey(processorId)) {
         ProcessorFailure failure = processorFailures.get(processorId);
         currentFailCount = failure.getCount() + 1;
-        Duration lastRetryDelay =
-            processorFailures.containsKey(processorId)
-                ? processorFailures.get(processorId).getLastRetryDelay()
-                : Duration.ZERO;
+        Duration lastRetryDelay = getRetryDelay(processorId);
         Instant retryAttemptedAt = failure.getLastFailure().plus(lastRetryDelay);
         durationSinceLastRetryMs = now.toEpochMilli() - retryAttemptedAt.toEpochMilli();
         if (durationSinceLastRetryMs < 0) {
@@ -572,16 +569,19 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
 
     if (!jobFailureCriteriaMet) {
-      Duration retryDelay =
-          processorFailures.containsKey(processorId)
-              ? processorFailures.get(processorId).getLastRetryDelay()
-              : Duration.ZERO;
+      Duration retryDelay = getRetryDelay(processorId);
       if (!retryDelay.isZero()) {
         LOG.info("Adding a delay of: {} seconds on the last container retry request for preferred host: {}",
             retryDelay.getSeconds(), lastSeenOn);
       }
       handleContainerStop(processorId, resourceStatus.getContainerId(), lastSeenOn, exitStatus, retryDelay);
     }
+  }
+
+  private Duration getRetryDelay(String processorId) {
+    return processorFailures.containsKey(processorId)
+        ? processorFailures.get(processorId).getLastRetryDelay()
+        : Duration.ZERO;
   }
 
   /**
