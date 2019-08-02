@@ -114,7 +114,7 @@ public abstract class AbstractContainerAllocator implements Runnable {
         assignResourceRequests();
 
         // Move delayed requests that are ready to the active request queue
-        resourceRequestState.sendExpiredDelayedResourceRequests();
+        resourceRequestState.sendPendingDelayedResourceRequests();
 
         // Release extra resources and update the entire system's state
         resourceRequestState.releaseExtraResources();

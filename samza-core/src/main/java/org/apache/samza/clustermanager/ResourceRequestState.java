@@ -56,6 +56,9 @@ public class ResourceRequestState {
 
   /**
    * Represents the queue of delayed resource requests made by the {@link ContainerProcessManager}
+   * The difference between requestsQueue and delayedRequestsQueue is that, any request present the requestsQueue has
+   * been sent out to the cluster resource manager, while requests in the delayedRequestsQueue will be sent to the
+   * cluster resource manager only when their delay reaches 0.
    */
   private final DelayedRequestQueue delayedRequestsQueue = new DelayedRequestQueue();
 
@@ -206,7 +209,7 @@ public class ResourceRequestState {
    * Sends the {@link SamzaResourceRequest}s in the delayed requests queue that have expired.
    * @return number of delayed requests sent.
    */
-  public int sendExpiredDelayedResourceRequests() {
+  public int sendPendingDelayedResourceRequests() {
     synchronized (lock) {
       int numMoved = 0;
       Instant now = Instant.now();
@@ -226,7 +229,7 @@ public class ResourceRequestState {
   public int releaseExtraResources() {
     synchronized (lock) {
       int numReleasedResources = 0;
-      if (requestsQueue.isEmpty() && delayedRequestsQueue.isEmpty()) {
+      if (requestsQueue.isEmpty()) {
         log.debug("Resource Requests Queue is empty.");
         if (hostAffinityEnabled) {
           List<String> allocatedHosts = getAllocatedHosts();
