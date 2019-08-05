@@ -53,6 +53,8 @@ public class TestDiagnosticsManager {
   private String samzaVersion = "1.3.0";
   private String hostname = "sample host name";
   private int containerMb = 1024;
+  private int containerThreadPoolSize = 2;
+  private long maxHeapSize = 900;
   private int numStoresWithChangelog = 2;
   private int containerNumCores = 2;
   private Map<String, ContainerModel> containerModels = TestDiagnosticsStreamMessage.getSampleContainerModels();
@@ -73,7 +75,7 @@ public class TestDiagnosticsManager {
           });
 
     this.diagnosticsManager =
-        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numStoresWithChangelog,
+        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numStoresWithChangelog, maxHeapSize, containerThreadPoolSize,
             "0", executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticsSystemStream,
             mockSystemProducer, Duration.ofSeconds(1), mockExecutorService);
 
@@ -202,6 +204,8 @@ public class TestDiagnosticsManager {
         DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
 
     Assert.assertEquals(containerMb, diagnosticsStreamMessage.getContainerMb().intValue());
+    Assert.assertEquals(maxHeapSize, diagnosticsStreamMessage.getMaxHeapSize().longValue());
+    Assert.assertEquals(containerThreadPoolSize, diagnosticsStreamMessage.getContainerThreadPoolSize().intValue());
     Assert.assertEquals(exceptionEventList, diagnosticsStreamMessage.getExceptionEvents());
     Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(), Arrays.asList(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 101)));
     Assert.assertEquals(containerModels, diagnosticsStreamMessage.getContainerModels());

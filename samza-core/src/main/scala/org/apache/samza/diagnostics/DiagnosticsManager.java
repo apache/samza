@@ -68,6 +68,8 @@ public class DiagnosticsManager {
   private final Integer containerMemoryMb;
   private final Integer containerNumCores;
   private final Integer numStoresWithChangelog;
+  private final long maxHeapSizeBytes;
+  private final Integer containerThreadPoolSize;
   private final Map<String, ContainerModel> containerModels;
   private boolean jobParamsEmitted = false;
 
@@ -80,20 +82,20 @@ public class DiagnosticsManager {
   private final SystemStream diagnosticSystemStream;
 
   public DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels,
-      Integer containerMemoryMb, Integer containerNumCores, Integer numStoresWithChangelog, String containerId,
-      String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
+      Integer containerMemoryMb, Integer containerNumCores, Integer numStoresWithChangelog, Long maxHeapSizeBytes, Integer containerThreadPoolSize,
+      String containerId, String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
       SystemStream diagnosticSystemStream, SystemProducer systemProducer, Duration terminationDuration) {
 
-    this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numStoresWithChangelog, containerId,
-        executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticSystemStream, systemProducer,
+    this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numStoresWithChangelog, maxHeapSizeBytes, containerThreadPoolSize,
+        containerId, executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticSystemStream, systemProducer,
         terminationDuration, Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()));
   }
 
   @VisibleForTesting
   DiagnosticsManager(String jobName, String jobId, Map<String, ContainerModel> containerModels,
-      int containerMemoryMb, int containerNumCores, int numStoresWithChangelog, String containerId,
-      String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
+      int containerMemoryMb, int containerNumCores, int numStoresWithChangelog, Long maxHeapSizeBytes, Integer containerThreadPoolSize,
+      String containerId, String executionEnvContainerId, String taskClassVersion, String samzaVersion, String hostname,
       SystemStream diagnosticSystemStream, SystemProducer systemProducer, Duration terminationDuration,
       ScheduledExecutorService executorService) {
     this.jobName = jobName;
@@ -102,6 +104,8 @@ public class DiagnosticsManager {
     this.containerMemoryMb = containerMemoryMb;
     this.containerNumCores = containerNumCores;
     this.numStoresWithChangelog = numStoresWithChangelog;
+    this.maxHeapSizeBytes = maxHeapSizeBytes;
+    this.containerThreadPoolSize = containerThreadPoolSize;
     this.containerId = containerId;
     this.executionEnvContainerId = executionEnvContainerId;
     this.taskClassVersion = taskClassVersion;
@@ -185,6 +189,8 @@ public class DiagnosticsManager {
           diagnosticsStreamMessage.addContainerNumCores(containerNumCores);
           diagnosticsStreamMessage.addNumStoresWithChangelog(numStoresWithChangelog);
           diagnosticsStreamMessage.addContainerModels(containerModels);
+          diagnosticsStreamMessage.addMaxHeapSize(maxHeapSizeBytes);
+          diagnosticsStreamMessage.addContainerThreadPoolSize(containerThreadPoolSize);
         }
 
         // Add stop event list to the message
