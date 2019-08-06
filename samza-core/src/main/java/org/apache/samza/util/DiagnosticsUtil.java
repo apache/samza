@@ -94,15 +94,16 @@ public class DiagnosticsUtil {
   public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName,
       String jobId, JobModel jobModel, String containerId, Optional<String> execEnvContainerId, Config config) {
 
+    JobConfig jobConfig = new JobConfig(config);
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
 
-    if (new JobConfig(config).getDiagnosticsEnabled()) {
+    if (jobConfig.getDiagnosticsEnabled()) {
 
       ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
       int containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
       int containerNumCores = clusterManagerConfig.getNumCores();
       long maxHeapSizeBytes = Runtime.getRuntime().maxMemory();
-      int containerThreadPoolSize = new JobConfig(config).getThreadPoolSize();
+      int containerThreadPoolSize = jobConfig.getThreadPoolSize();
 
       // Diagnostic stream, producer, and reporter related parameters
       String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS;

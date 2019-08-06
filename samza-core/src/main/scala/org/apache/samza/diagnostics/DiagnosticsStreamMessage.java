@@ -203,12 +203,12 @@ public class DiagnosticsStreamMessage {
         CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME);
   }
 
-  public Integer getContainerThreadPoolSize() {
-    return (Integer) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_THREAD_POOL_SIZE_METRIC_NAME);
-  }
-
   public Long getMaxHeapSize() {
     return (Long) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MAX_CONFIGURED_HEAP_METRIC_NAME);
+  }
+
+  public Integer getContainerThreadPoolSize() {
+    return (Integer) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_THREAD_POOL_SIZE_METRIC_NAME);
   }
 
   public Map<String, ContainerModel> getContainerModels() {
