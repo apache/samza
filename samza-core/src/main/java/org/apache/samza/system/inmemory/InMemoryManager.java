@@ -19,6 +19,7 @@
 
 package org.apache.samza.system.inmemory;
 
+import com.google.common.base.Preconditions;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -86,6 +87,8 @@ class InMemoryManager {
    * @param envelope incoming message envelope
    */
   void put(SystemStreamPartition ssp, IncomingMessageEnvelope envelope) {
+    Preconditions.checkNotNull(envelope);
+    Preconditions.checkNotNull(envelope.getOffset());
     List<IncomingMessageEnvelope> messages = bufferedMessages.get(ssp);
     String offset = String.valueOf(messages.size());
     if (!envelope.getOffset().equals(offset)) {
