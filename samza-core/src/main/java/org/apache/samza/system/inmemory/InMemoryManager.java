@@ -88,7 +88,7 @@ class InMemoryManager {
   void put(SystemStreamPartition ssp, IncomingMessageEnvelope envelope) {
     List<IncomingMessageEnvelope> messages = bufferedMessages.get(ssp);
     String offset = String.valueOf(messages.size());
-    if (envelope.getOffset().equals(offset)) {
+    if (!envelope.getOffset().equals(offset)) {
       throw new SamzaException(
           String.format("Offset mismatch for ssp %s, expected %s found %s, please set the correct offset", ssp, offset, envelope.getOffset()));
     }
