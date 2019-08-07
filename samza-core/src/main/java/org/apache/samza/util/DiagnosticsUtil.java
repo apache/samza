@@ -94,13 +94,16 @@ public class DiagnosticsUtil {
   public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName,
       String jobId, JobModel jobModel, String containerId, Optional<String> execEnvContainerId, Config config) {
 
+    JobConfig jobConfig = new JobConfig(config);
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
 
-    if (new JobConfig(config).getDiagnosticsEnabled()) {
+    if (jobConfig.getDiagnosticsEnabled()) {
 
       ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
       int containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
       int containerNumCores = clusterManagerConfig.getNumCores();
+      long maxHeapSizeBytes = Runtime.getRuntime().maxMemory();
+      int containerThreadPoolSize = jobConfig.getThreadPoolSize();
 
       // Diagnostic stream, producer, and reporter related parameters
       String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS;
@@ -129,7 +132,7 @@ public class DiagnosticsUtil {
           systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
       DiagnosticsManager diagnosticsManager =
           new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
-              new StorageConfig(config).getNumStoresWithChangelog(), containerId, execEnvContainerId.orElse(""),
+              new StorageConfig(config).getNumStoresWithChangelog(), maxHeapSizeBytes, containerThreadPoolSize, containerId, execEnvContainerId.orElse(""),
               taskClassVersion, samzaVersion, hostName, diagnosticsSystemStream, systemProducer,
               Duration.ofMillis(new TaskConfig(config).getShutdownMs()));
 
