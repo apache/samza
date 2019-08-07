@@ -44,6 +44,7 @@ import org.apache.samza.coordinator.DistributedLock;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.task.IdentityStreamTask;
 import org.apache.samza.zk.ZkMetadataStore;
@@ -60,6 +61,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
@@ -206,6 +208,43 @@ public class TestLocalApplicationRunner {
 
     verify(coordinatorStreamStore).init();
     verify(coordinatorStreamStore, never()).close();
+
+    assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
+  }
+
+  @Test
+  public void testRunCompleteWithouCoordinatorStreamStore() throws Exception {
+    Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    config = new MapConfig(cfgs);
+    ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
+    mockApp = (StreamApplication) appDesc -> {
+      appDesc.withProcessorLifecycleListenerFactory(mockFactory);
+    };
+    prepareTest();
+
+    // return the jobConfigs from the planner
+    doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
+
+    StreamProcessor sp = mock(StreamProcessor.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
+
+    doAnswer(i ->
+      {
+        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+        listener.afterStart();
+        listener.afterStop();
+        return null;
+      }).when(sp).start();
+
+    ExternalContext externalContext = mock(ExternalContext.class);
+    doReturn(sp).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), eq(null));
+    doReturn(null).when(runner).createCoordinatorStreamStore(any(Config.class));
+
+    runner.run(externalContext);
+    runner.waitForFinish();
 
     assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
@@ -437,4 +476,24 @@ public class TestLocalApplicationRunner {
     doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
   }
 
+  @Test
+  public void testGetMetadataStoreFactoryWithoutJobCoordinatorSystem() {
+    MetadataStoreFactory metadataStoreFactory =
+        LocalApplicationRunner.getMetadataStoreFactory(new JobConfig(new MapConfig()));
+    assertNull(metadataStoreFactory);
+  }
+
+  @Test
+  public void testGetMetadataStoreFactoryWithJobCoordinatorSystem() {
+    MetadataStoreFactory metadataStoreFactory =
+        LocalApplicationRunner.getMetadataStoreFactory(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_COORDINATOR_SYSTEM, "test-system"))));
+    assertNotNull(metadataStoreFactory);
+  }
+
+  @Test
+  public void testGetMetadataStoreFactoryWithDefaultSystem() {
+    MetadataStoreFactory metadataStoreFactory =
+        LocalApplicationRunner.getMetadataStoreFactory(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "test-system"))));
+    assertNotNull(metadataStoreFactory);
+  }
 }
