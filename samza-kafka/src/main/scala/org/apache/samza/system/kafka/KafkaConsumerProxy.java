@@ -397,7 +397,9 @@ public class KafkaConsumerProxy<K, V> {
         // These are required by the KafkaConsumer to get the metrics
         HashMap<String, String> tags = new HashMap<>();
         tags.put("client-id", clientId);
-        tags.put("topic", tp.topic());
+        // kafka replaces '.' with underscore '_' in many/all of their metrics tags for topic names.
+        // see https://github.com/apache/kafka/commit/5d81639907869ce7355c40d2bac176a655e52074#diff-b45245913eaae46aa847d2615d62cde0R1331
+        tags.put("topic", tp.topic().replace('.', '_'));
         tags.put("partition", Integer.toString(tp.partition()));
 
         perPartitionMetrics.put(ssp, new MetricName("records-lag", "consumer-fetch-manager-metrics", "", tags));
