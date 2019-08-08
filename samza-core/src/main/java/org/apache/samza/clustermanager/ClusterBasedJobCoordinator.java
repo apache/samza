@@ -234,7 +234,7 @@ public class ClusterBasedJobCoordinator {
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil =
-          new MetadataResourceUtil(jobModel, this.metrics, getClass().getClassLoader());
+          new MetadataResourceUtil(jobModel, this.metrics, getClass().getClassLoader(), config);
       metadataResourceUtil.createResources();
 
       // fan out the startpoints

@@ -86,7 +86,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     try {
       jobModel = getJobModel();
       // TODO metrics registry has been null here for a while; is it safe?
-      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, getClass().getClassLoader());
+      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, getClass().getClassLoader(), config);
       metadataResourceUtil.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
