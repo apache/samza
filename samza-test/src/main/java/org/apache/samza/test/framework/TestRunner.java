@@ -339,10 +339,10 @@ public class TestRunner {
         SystemStreamPartition ssp = entry.getKey();
         output.computeIfAbsent(ssp, k -> new LinkedList<IncomingMessageEnvelope>());
         List<IncomingMessageEnvelope> currentBuffer = entry.getValue();
-        Integer totalMessagesToFetch = Integer.valueOf(metadata.get(outputDescriptor.getStreamId())
+        int totalMessagesToFetch = Integer.valueOf(metadata.get(outputDescriptor.getStreamId())
             .getSystemStreamPartitionMetadata()
             .get(ssp.getPartition())
-            .getNewestOffset());
+            .getUpcomingOffset());
         if (output.get(ssp).size() + currentBuffer.size() == totalMessagesToFetch) {
           didNotReachEndOfStream.remove(entry.getKey());
           ssps.remove(entry.getKey());

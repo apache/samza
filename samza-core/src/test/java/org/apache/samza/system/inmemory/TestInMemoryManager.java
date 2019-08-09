@@ -74,17 +74,12 @@ public class TestInMemoryManager {
     // empty stream
     SystemStreamPartition ssp0 = new SystemStreamPartition(SYSTEM, STREAM0, new Partition(0));
     assertEquals(ImmutableMap.of(ssp0, ImmutableList.of()),
-        this.inMemoryManager.poll(Collections.singletonMap(ssp0, null)));
+        this.inMemoryManager.poll(Collections.singletonMap(ssp0, "0")));
 
     // add a message in
     this.inMemoryManager.put(ssp0, "key00", "message00");
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> polledMessages =
-        this.inMemoryManager.poll(Collections.singletonMap(ssp0, null));
-    assertEquals(1, polledMessages.get(ssp0).size());
-    assertIncomingMessageEnvelope("key00", "message00", "0", ssp0, polledMessages.get(ssp0).get(0));
-
-    // query with a non-null offset
-    polledMessages = this.inMemoryManager.poll(Collections.singletonMap(ssp0, "0"));
+        this.inMemoryManager.poll(Collections.singletonMap(ssp0, "0"));
     assertEquals(1, polledMessages.get(ssp0).size());
     assertIncomingMessageEnvelope("key00", "message00", "0", ssp0, polledMessages.get(ssp0).get(0));
 

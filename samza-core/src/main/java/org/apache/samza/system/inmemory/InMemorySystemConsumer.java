@@ -77,8 +77,19 @@ public class InMemorySystemConsumer implements SystemConsumer {
    */
   @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
-    LOG.info("Registering ssp {} with starting offset {}", systemStreamPartition, offset);
-    sspToOffset.put(systemStreamPartition, offset);
+    String offsetToRegister;
+    if (offset == null) {
+      LOG.info("Registering ssp {} with starting offset null, overriding to 0", systemStreamPartition);
+      offsetToRegister = "0";
+    } else {
+      LOG.info("Registering ssp {} with starting offset {}", systemStreamPartition, offset);
+      offsetToRegister = offset;
+    }
+    /*
+     * A null offset is the same as the beginning of the stream. Can't use null directly since ConcurrentHashMap doesn't
+     * allow it.
+     */
+    sspToOffset.put(systemStreamPartition, (offset == null) ? "0" : offsetToRegister);
   }
 
   /**

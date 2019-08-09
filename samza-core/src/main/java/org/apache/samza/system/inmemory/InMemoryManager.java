@@ -192,7 +192,7 @@ class InMemoryManager {
   }
 
   private List<IncomingMessageEnvelope> poll(SystemStreamPartition ssp, String offset) {
-    int startingOffset = (offset == null) ? 0 : Integer.parseInt(offset);
+    int startingOffset = Integer.parseInt(offset);
     List<IncomingMessageEnvelope> messageEnvelopesForSSP = bufferedMessages.getOrDefault(ssp, new LinkedList<>());
 
     if (startingOffset >= messageEnvelopesForSSP.size()) {
