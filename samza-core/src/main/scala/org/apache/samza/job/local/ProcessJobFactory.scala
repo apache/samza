@@ -70,7 +70,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader)
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader, config)
     metadataResourceUtil.createResources()
 
     // fan out the startpoints

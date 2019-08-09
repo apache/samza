@@ -21,6 +21,7 @@ package org.apache.samza.coordinator;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -33,22 +34,18 @@ import org.apache.samza.storage.ChangelogStreamManager;
 // TODO: Replace with a metadata admin interface when the {@link MetadataStore} is fully augmented to handle all metadata sources.
 public class MetadataResourceUtil {
   private final CheckpointManager checkpointManager;
+  private final Config config;
   private final JobModel jobModel; // TODO: Should be loaded by metadata store in the future
 
   /**
    * @param jobModel the loaded {@link JobModel}
    * @param metricsRegistry the registry for reporting metrics.
    */
-  public MetadataResourceUtil(JobModel jobModel, MetricsRegistry metricsRegistry, ClassLoader classLoader) {
+  public MetadataResourceUtil(JobModel jobModel, MetricsRegistry metricsRegistry, ClassLoader classLoader, Config config) {
+    this.config = config;
     this.jobModel = jobModel;
-    TaskConfig taskConfig = new TaskConfig(jobModel.getConfig());
+    TaskConfig taskConfig = new TaskConfig(config);
     this.checkpointManager = taskConfig.getCheckpointManager(metricsRegistry, classLoader).orElse(null);
-  }
-
-  @VisibleForTesting
-  MetadataResourceUtil(CheckpointManager checkpointManager, JobModel jobModel) {
-    this.jobModel = jobModel;
-    this.checkpointManager = checkpointManager;
   }
 
   /**
@@ -62,7 +59,13 @@ public class MetadataResourceUtil {
     createChangelogStreams();
   }
 
+  @VisibleForTesting
   void createChangelogStreams() {
-    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig(), jobModel.maxChangeLogStreamPartitions);
+    ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
+  }
+
+  @VisibleForTesting
+  CheckpointManager getCheckpointManager() {
+    return checkpointManager;
   }
 }
