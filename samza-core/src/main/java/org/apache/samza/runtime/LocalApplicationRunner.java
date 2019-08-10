@@ -57,10 +57,15 @@ import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.processor.StreamProcessor;
+import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.Util;
+import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,7 +101,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @param config configuration for the application
    */
   public LocalApplicationRunner(SamzaApplication app, Config config) {
-    this(app, config, getMetadataStoreFactory(new JobConfig(config)));
+    this(app, config, getDefaultCoordinatorStreamStoreFactory(new JobConfig(config)));
   }
 
   /**
@@ -121,15 +126,22 @@ public class LocalApplicationRunner implements ApplicationRunner {
     this.appDesc = appDesc;
     this.isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
     this.coordinationUtils = coordinationUtils;
-    this.metadataStoreFactory = Optional.ofNullable(getMetadataStoreFactory(new JobConfig(appDesc.getConfig())));
+    this.metadataStoreFactory = Optional.ofNullable(getDefaultCoordinatorStreamStoreFactory(new JobConfig(appDesc.getConfig())));
   }
 
-  static MetadataStoreFactory getMetadataStoreFactory(JobConfig jobConfig) {
-    if (jobConfig.getCoordinatorSystemNameOrNull() != null) {
+  static MetadataStoreFactory getDefaultCoordinatorStreamStoreFactory(JobConfig jobConfig) {
+    String coordinatorSystemName = jobConfig.getCoordinatorSystemNameOrNull();
+    JobCoordinatorConfig jobCoordinatorConfig = new JobCoordinatorConfig(jobConfig);
+    String jobCoordinatorFactoryClassName = jobCoordinatorConfig.getJobCoordinatorFactoryClassName();
+
+    // TODO: Remove restriction to only ZkJobCoordinator after next phase of metadata store abstraction.
+    if (StringUtils.isNotBlank(coordinatorSystemName) && ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
       return new CoordinatorStreamMetadataStoreFactory();
     }
-    LOG.warn("{} or {} not configured. No coordinator stream metadata store will be created.",
-        JobConfig.JOB_COORDINATOR_SYSTEM, JobConfig.JOB_DEFAULT_SYSTEM);
+
+    LOG.warn("{} or {} not configured, or {} is not {}. No default coordinator stream metadata store will be created.",
+        JobConfig.JOB_COORDINATOR_SYSTEM, JobConfig.JOB_DEFAULT_SYSTEM,
+        JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, ZkJobCoordinatorFactory.class.getName());
     return null;
   }
 
@@ -272,13 +284,47 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   @VisibleForTesting
-  MetadataStore createCoordinatorStreamStore(Config jobConfig) {
+  MetadataStore createCoordinatorStreamStore(Config config) {
     if (metadataStoreFactory.isPresent()) {
-      MetadataStore coordinatorStreamStore =
-          metadataStoreFactory.get().getMetadataStore("NoOp", jobConfig, new MetricsRegistryMap());
-      return coordinatorStreamStore;
+      // TODO: Add missing metadata store abstraction for creating the underlying store to address SAMZA-2182
+      if (metadataStoreFactory.get() instanceof CoordinatorStreamMetadataStoreFactory) {
+        if (createUnderlyingCoordinatorStream(config)) {
+          MetadataStore coordinatorStreamStore =
+              metadataStoreFactory.get().getMetadataStore("NoOp", config, new MetricsRegistryMap());
+          LOG.info("Created coordinator stream store of type: {}", coordinatorStreamStore.getClass().getSimpleName());
+          return coordinatorStreamStore;
+        }
+      } else {
+        MetadataStore otherMetadataStore =
+            metadataStoreFactory.get().getMetadataStore("NoOp", config, new MetricsRegistryMap());
+        LOG.info("Created alternative coordinator stream store of type: {}", otherMetadataStore.getClass().getSimpleName());
+        return otherMetadataStore;
+      }
     }
+
+    LOG.warn("No coordinator stream store created.");
     return null;
+  }
+
+  @VisibleForTesting
+  boolean createUnderlyingCoordinatorStream(Config config) {
+    // TODO: This work around method is necessary due to SAMZA-2182 - Metadata store: disconnect between creation and usage of the underlying storage
+    //  and will be addressed in the next phase of metadata store abstraction
+    if (new JobConfig(config).getCoordinatorSystemNameOrNull() == null) {
+      LOG.warn("{} or {} not configured. Coordinator stream not created.",
+          JobConfig.JOB_COORDINATOR_SYSTEM, JobConfig.JOB_DEFAULT_SYSTEM);
+      return false;
+    }
+    SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
+    SystemAdmins systemAdmins = new SystemAdmins(config);
+    systemAdmins.start();
+    try {
+      SystemAdmin coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
+      CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin);
+    } finally {
+      systemAdmins.stop();
+    }
+    return true;
   }
 
   @VisibleForTesting
