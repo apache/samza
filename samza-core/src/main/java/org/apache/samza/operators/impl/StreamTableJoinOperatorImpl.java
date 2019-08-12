@@ -74,9 +74,7 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
   }
 
   private Collection<JM> getJoinOutput(K key, Object value, M message) {
-    R record = Optional.ofNullable(value)
-        .map(val -> (R) KV.of(key, val))
-        .orElse(null);
+    R record = value == null ? null : (R) KV.of(key, value);
 
     JM output = joinOpSpec.getJoinFn().apply(message, record);
 
