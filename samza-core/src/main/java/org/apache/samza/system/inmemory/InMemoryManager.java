@@ -179,9 +179,10 @@ class InMemoryManager {
             .entrySet()
             .stream()
             .collect(Collectors.toMap(entry -> entry.getKey().getPartition(), entry -> {
-                String oldestOffset = "0";
-                String newestOffset = String.valueOf(entry.getValue().size());
-                String upcomingOffset = String.valueOf(entry.getValue().size() + 1);
+                List<IncomingMessageEnvelope> messages = entry.getValue();
+                String oldestOffset = messages.isEmpty() ? null : "0";
+                String newestOffset = messages.isEmpty() ? null : String.valueOf(messages.size() - 1);
+                String upcomingOffset = String.valueOf(messages.size());
 
                 return new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset);
 
