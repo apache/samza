@@ -18,14 +18,14 @@
  */
 package org.apache.samza.clustermanager;
 
+import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Field;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import com.google.common.collect.ImmutableMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
@@ -249,10 +249,22 @@ public class TestHostAwareContainerAllocator {
     assertEquals(1, requestsMap.get(ResourceRequestState.ANY_HOST).get());
   }
 
+  @Test
+  public void testDelayedRequestedContainers() {
+    containerAllocator.requestResource("0", "abc");
+    containerAllocator.requestResourceWithDelay("0", "efg", Duration.ofHours(2));
+    containerAllocator.requestResourceWithDelay("0", "hij", Duration.ofHours(3));
+    containerAllocator.requestResourceWithDelay("0", "klm", Duration.ofHours(4));
+
+    assertNotNull(clusterResourceManager.resourceRequests);
+    assertEquals(clusterResourceManager.resourceRequests.size(), 1);
+    assertEquals(requestState.numPendingRequests(), 1);
+    assertEquals(requestState.numDelayedRequests(), 3);
+  }
+
   /**
    * Handles expired requests correctly and assigns ANY_HOST
    */
-
   @Test
   public void testExpiredRequestAreAssignedToAnyHost() throws Exception {
     final SamzaResource resource0 = new SamzaResource(1, 1000, "xyz", "id1");

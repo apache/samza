@@ -19,11 +19,15 @@
 
 package org.apache.samza.clustermanager;
 
+import java.time.Duration;
+import java.time.Instant;
+
+
 /**
  * A ProcessorFailure instance encapsulates information related to a Samza processor failure.
  * It keeps track of the time of the last failure, the number of failures.
  */
-public class ProcessorFailure {
+class ProcessorFailure {
   /**
    * Number of times a processor has failed
    */
@@ -31,18 +35,28 @@ public class ProcessorFailure {
   /**
    * Latest failure time of the processor
    */
-  private final Long lastFailure;
+  private final Instant lastFailure;
 
-  public ProcessorFailure(int count, Long lastFailure) {
+  /**
+   * The delay added to the retry attempt of the last failure
+   */
+  private final Duration lastRetryDelay;
+
+  public ProcessorFailure(int count, Instant lastFailure, Duration lastRetryDelay) {
     this.count = count;
     this.lastFailure = lastFailure;
+    this.lastRetryDelay = lastRetryDelay;
   }
 
   public int getCount() {
     return count;
   }
 
-  public Long getLastFailure() {
+  public Instant getLastFailure() {
     return lastFailure;
+  }
+
+  public Duration getLastRetryDelay() {
+    return lastRetryDelay;
   }
 }

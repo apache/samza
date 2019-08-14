@@ -18,9 +18,9 @@
  */
 package org.apache.samza.clustermanager;
 
-
-import java.util.Optional;
+import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,11 +69,13 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    */
   @Override
   public void assignResourceRequests()  {
-    while (hasPendingRequest()) {
-      SamzaResourceRequest request = peekPendingRequest();
+    for (Optional<SamzaResourceRequest> requestOptional = peekReadyPendingRequest();
+        requestOptional.isPresent();
+        requestOptional = peekReadyPendingRequest()) {
+      SamzaResourceRequest request = requestOptional.get();
       String processorId = request.getProcessorId();
       String preferredHost = request.getPreferredHost();
-      long requestCreationTime = request.getRequestTimestampMs();
+      Instant requestCreationTime = request.getRequestTimestamp();
       log.info("Handling assignment request for Processor ID: {} on preferred host: {}.", processorId, preferredHost);
 
       if (hasAllocatedResource(preferredHost)) {
@@ -144,11 +146,11 @@ public class HostAwareContainerAllocator extends AbstractContainerAllocator {
    * @return true if request has expired
    */
   private boolean isRequestExpired(SamzaResourceRequest request) {
-    long currTime = System.currentTimeMillis();
-    boolean requestExpired =  currTime - request.getRequestTimestampMs() > requestTimeout;
+    long currTime = Instant.now().toEpochMilli();
+    boolean requestExpired =  currTime - request.getRequestTimestamp().toEpochMilli() > requestTimeout;
     if (requestExpired) {
       log.info("Request for Processor ID: {} on host: {} with creation time: {} has expired at current time: {} after timeout: {} ms.",
-          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestampMs(), currTime, requestTimeout);
+          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestamp(), currTime, requestTimeout);
     }
     return requestExpired;
   }
