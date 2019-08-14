@@ -356,10 +356,12 @@ public class ZkJobCoordinator implements JobCoordinator {
     // If JobModel exists in zookeeper && cached JobModel version is unequal to JobModel version stored in zookeeper.
     if (zkJobModelVersion != null && !Objects.equals(cachedJobModelVersion, zkJobModelVersion)) {
       JobModel jobModel = readJobModelFromMetadataStore(zkJobModelVersion);
-      for (ContainerModel containerModel : jobModel.getContainers().values()) {
-        containerModel.getTasks().forEach((taskName, taskModel) -> changeLogPartitionMap.put(taskName, taskModel.getChangelogPartition().getPartitionId()));
+      if (jobModel != null) {
+        for (ContainerModel containerModel : jobModel.getContainers().values()) {
+          containerModel.getTasks().forEach((taskName, taskModel) -> changeLogPartitionMap.put(taskName, taskModel.getChangelogPartition().getPartitionId()));
+        }
+        cachedJobModelVersion = zkJobModelVersion;
       }
-      cachedJobModelVersion = zkJobModelVersion;
     }
 
     GrouperMetadata grouperMetadata = getGrouperMetadata(zkJobModelVersion, processorNodes);
@@ -403,12 +405,14 @@ public class ZkJobCoordinator implements JobCoordinator {
     Map<TaskName, List<SystemStreamPartition>> taskToSSPs = new HashMap<>();
     if (jobModelVersion != null) {
       JobModel jobModel = readJobModelFromMetadataStore(jobModelVersion);
-      for (ContainerModel containerModel : jobModel.getContainers().values()) {
-        for (TaskModel taskModel : containerModel.getTasks().values()) {
-          taskToProcessorId.put(taskModel.getTaskName(), containerModel.getId());
-          for (SystemStreamPartition partition : taskModel.getSystemStreamPartitions()) {
-            taskToSSPs.computeIfAbsent(taskModel.getTaskName(), k -> new ArrayList<>());
-            taskToSSPs.get(taskModel.getTaskName()).add(partition);
+      if (jobModel != null) {
+        for (ContainerModel containerModel : jobModel.getContainers().values()) {
+          for (TaskModel taskModel : containerModel.getTasks().values()) {
+            taskToProcessorId.put(taskModel.getTaskName(), containerModel.getId());
+            for (SystemStreamPartition partition : taskModel.getSystemStreamPartitions()) {
+              taskToSSPs.computeIfAbsent(taskModel.getTaskName(), k -> new ArrayList<>());
+              taskToSSPs.get(taskModel.getTaskName()).add(partition);
+            }
           }
         }
       }
@@ -545,7 +549,7 @@ public class ZkJobCoordinator implements JobCoordinator {
           newJobModel = readJobModelFromMetadataStore(jobModelVersion);
           LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + newJobModel);
 
-          if (!newJobModel.getContainers().containsKey(processorId)) {
+          if (newJobModel != null && !newJobModel.getContainers().containsKey(processorId)) {
             LOG.info("New JobModel does not contain pid={}. Stopping this processor. New JobModel: {}",
                 processorId, newJobModel);
             stop();

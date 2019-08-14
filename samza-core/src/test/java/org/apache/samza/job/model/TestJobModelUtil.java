@@ -20,16 +20,22 @@ package org.apache.samza.job.model;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
 public class TestJobModelUtil {
 
@@ -78,5 +84,18 @@ public class TestJobModelUtil {
 
     assertEquals(ssps3.size(), JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task3).size());
     assertTrue(JobModelUtil.getTaskToSystemStreamPartitions(jobModel).get(task3).containsAll(ssps3));
+  }
+
+  @Test
+  public void testReadJobModelReturnResultFromMetadataStore() throws IOException {
+    MetadataStore mockMetadataStore = Mockito.mock(MetadataStore.class);
+    JobModel testModel = new JobModel(new MapConfig(), new HashMap<>());
+    byte[] testValue = SamzaObjectMapper.getObjectMapper().writeValueAsBytes(testModel);
+
+    Mockito.when(mockMetadataStore.get("jobModelGeneration/jobModels/1")).thenReturn(null);
+    Mockito.when(mockMetadataStore.get("jobModelGeneration/jobModels/2")).thenReturn(testValue);
+
+    assertNull(JobModelUtil.readJobModel("1", mockMetadataStore));
+    assertEquals(testModel, JobModelUtil.readJobModel("2", mockMetadataStore));
   }
 }

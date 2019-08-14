@@ -93,7 +93,11 @@ public class JobModelUtil {
   public static JobModel readJobModel(String jobModelVersion, MetadataStore metadataStore) {
     try {
       byte[] jobModelAsBytes = metadataStore.get(getJobModelKey(jobModelVersion));
-      return MAPPER.readValue(new String(jobModelAsBytes, UTF_8), JobModel.class);
+      if (jobModelAsBytes != null) {
+        return MAPPER.readValue(new String(jobModelAsBytes, UTF_8), JobModel.class);
+      } else {
+        return null;
+      }
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception occurred when reading JobModel version: %s from metadata store.", jobModelVersion), e);
     }

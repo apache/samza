@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.CRC32;
+import org.I0Itec.zkclient.exception.ZkNoNodeException;
 import org.I0Itec.zkclient.serialize.BytesPushThroughSerializer;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.samza.config.Config;
@@ -82,7 +83,7 @@ public class ZkMetadataStore implements MetadataStore {
     byte[] aggregatedZNodeValues = new byte[0];
     for (int segmentIndex = 0;; ++segmentIndex) {
       String zkPath = getZkPath(key, segmentIndex);
-      byte[] zNodeValue = zkClient.readData(zkPath, true);
+      byte[] zNodeValue = readFromZk(zkPath);
       if (zNodeValue == null) {
         break;
       }
@@ -101,6 +102,25 @@ public class ZkMetadataStore implements MetadataStore {
       return value;
     }
     return null;
+  }
+
+  private byte[] readFromZk(String zkPath) {
+    long retryTimeOutMs = zkConfig.getZkSessionTimeoutMs();
+    long startTimeMs = System.currentTimeMillis();
+    while (true) {
+      try {
+        byte[] value = zkClient.readData(zkPath);
+        LOG.info("Read for zkPath: {} returned: {}.", zkPath, value);
+        return value;
+      } catch (ZkNoNodeException e) {
+        long currentTimeMs = System.currentTimeMillis();
+        if ((currentTimeMs - startTimeMs) < retryTimeOutMs) {
+          LOG.info("Retrying read from zkpath: {} again.", zkPath);
+        } else {
+          return null;
+        }
+      }
+    }
   }
 
   /**
