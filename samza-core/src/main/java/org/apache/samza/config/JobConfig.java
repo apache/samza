@@ -128,6 +128,9 @@ public class JobConfig extends MapConfig {
   public static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
   public static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
 
+  // enables application master isolation
+  public static final String SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED = "samza.application.master.isolation.enabled";
+
   public JobConfig(Config config) {
     super(config);
   }
@@ -312,6 +315,10 @@ public class JobConfig extends MapConfig {
 
   public boolean getStandbyTasksEnabled() {
     return getStandbyTaskReplicationFactor() > 1;
+  }
+
+  public boolean getApplicationMasterIsolationEnabled() {
+    return getBoolean(SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, false);
   }
 
   /**

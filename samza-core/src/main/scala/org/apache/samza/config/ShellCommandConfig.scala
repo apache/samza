@@ -50,6 +50,17 @@ object ShellCommandConfig {
     */
   val ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID"
 
+  /**
+   * Set to "true" if application master isolation is enabled. Otherwise, will be considered false.
+   */
+  val ENV_APPLICATION_MASTER_ISOLATION_ENABLED = "APPLICATION_MASTER_ISOLATION_ENABLED"
+
+  /**
+   * Can be set to a directory which is different from the base lib directory which contains some additional
+   * application-specific resources.
+   */
+  val ENV_APPLICATION_LIB_DIR = "APPLICATION_LIB_DIR"
+
   /*
    * The base directory for storing logged data stores used in Samza. This has to be set on all machine running Samza
    * containers. For example, when using YARN, it has to be set in all NMs and passed to the containers.

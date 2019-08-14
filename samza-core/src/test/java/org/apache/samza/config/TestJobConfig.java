@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
@@ -545,6 +546,17 @@ public class TestJobConfig {
 
     jobConfig = new JobConfig(new MapConfig());
     assertEquals(JobConfig.DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR, jobConfig.getStandbyTaskReplicationFactor());
+  }
+
+  @Test
+  public void testGetApplicationMasterIsolationEnabled() {
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, "true"));
+    assertTrue(new JobConfig(config).getApplicationMasterIsolationEnabled());
+
+    config = new MapConfig(ImmutableMap.of(JobConfig.SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, "false"));
+    assertFalse(new JobConfig(config).getApplicationMasterIsolationEnabled());
+
+    assertFalse(new JobConfig(new MapConfig()).getApplicationMasterIsolationEnabled());
   }
 
   @Test
