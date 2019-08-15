@@ -59,6 +59,7 @@ public final class KV<K, V> {
       return false;
     }
     KV<?, ?> otherKv = (KV<?, ?>) other;
+    // deepEquals is used here for arrays. This impl comes from Beam.
     return Objects.deepEquals(this.key, otherKv.key)
         && Objects.deepEquals(this.value, otherKv.value);
   }
