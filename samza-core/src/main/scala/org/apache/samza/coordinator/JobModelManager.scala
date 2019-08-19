@@ -171,7 +171,7 @@ object JobModelManager extends Logging {
     val containerToLocationId: util.Map[String, LocationId] = new util.HashMap[String, LocationId]()
     val existingContainerLocality = localityManager.readContainerLocality()
 
-    for (containerId <- 0 to new JobConfig(config).getContainerCount) {
+    for (containerId <- 0 until new JobConfig(config).getContainerCount) {
       val localityMapping = existingContainerLocality.get(containerId.toString)
       // To handle the case when the container count is increased between two different runs of a samza-yarn job,
       // set the locality of newly added containers to any_host.
