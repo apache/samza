@@ -41,7 +41,6 @@ import org.apache.samza.sql.util.SampleRelConverterFactory;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -49,21 +48,14 @@ import org.slf4j.LoggerFactory;
 
 
 public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
-
   private static final Logger LOG = LoggerFactory.getLogger(TestSamzaSqlEndToEnd.class);
-  private final Map<String, String> configs = new HashMap<>();
-
-  @Before
-  public void setUp() {
-    this.configs.clear();
-  }
 
   @Test
   public void testEndToEnd() {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
@@ -82,7 +74,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String avroSamzaToRelMsgConverterDomain =
         String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, "avro");
     staticConfigs.put(avroSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
@@ -104,7 +96,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String avroSamzaToRelMsgConverterDomain =
         String.format(SamzaSqlApplicationConfig.CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, "avro");
     staticConfigs.put(avroSamzaToRelMsgConverterDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
@@ -128,7 +120,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs =
-        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, false, true);
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(Collections.emptyMap(), numMessages, false, true);
     String sql = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
@@ -153,7 +145,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql = "Insert into testavro2.SIMPLE1 select * from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
@@ -171,7 +163,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndMultiSqlStmts() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
     String sql2 = "Insert into testavro.SIMPLE3 select * from testavro.SIMPLE2";
     List<String> sqlStmts = Arrays.asList(sql1, sql2);
@@ -191,7 +183,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndMultiSqlStmtsWithSameSystemStreamAsInputAndOutput() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.SIMPLE1 select * from testavro.SIMPLE2";
     String sql2 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1, sql2);
@@ -212,7 +204,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndFanIn() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE2";
     String sql2 = "Insert into testavro.simpleOutputTopic select * from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1, sql2);
@@ -232,7 +224,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndFanOut() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.SIMPLE2 select * from testavro.SIMPLE1";
     String sql2 = "Insert into testavro.SIMPLE3 select * from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1, sql2);
@@ -253,7 +245,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic(id, long_value) "
         + " select id, TIMESTAMPDIFF(HOUR, CURRENT_TIMESTAMP(), LOCALTIMESTAMP()) + MONTH(CURRENT_DATE()) as long_value from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1);
@@ -273,7 +265,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic"
         + " select * from testavro.COMPLEX1 where bool_value IS TRUE";
     List<String> sqlStmts = Arrays.asList(sql1);
@@ -290,7 +282,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic"
         + " select * from testavro.COMPLEX1 where id >= 0 and bool_value IS TRUE";
     List<String> sqlStmts = Arrays.asList(sql1);
@@ -307,7 +299,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     // BUG Compound boolean checks dont work in calcite, So workaround by casting it to String
     String sql1 = "Insert into testavro.outputTopic"
         + " select * from testavro.COMPLEX1 where id >= 0 and CAST(bool_value AS VARCHAR) =  'TRUE'";
@@ -325,7 +317,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic(id, long_value) "
         + " select id, NOT(id = 5) as bool_value, CASE WHEN id IN (5, 6, 7) THEN CAST('foo' AS VARCHAR) WHEN id < 5 THEN CAST('bars' AS VARCHAR) ELSE NULL END as string_value from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql1);
@@ -345,7 +337,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic(id, long_value) "
         + " select id, name as string_value from testavro.SIMPLE1 where name like 'Name%'";
     List<String> sqlStmts = Arrays.asList(sql1);
@@ -364,7 +356,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndFlatten() throws Exception {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
     LOG.info(" Class Path : " + RelOptUtil.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
     String sql1 =
@@ -390,7 +382,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndComplexRecord() {
     int numMessages = 10;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
     String sql1 =
         "Insert into testavro.outputTopic"
@@ -410,7 +402,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndNestedRecord() {
     int numMessages = 10;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
     String sql1 =
         "Insert into testavro.outputTopic"
@@ -429,7 +421,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndFlattenWithUdf() throws Exception {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 =
         "Insert into testavro.outputTopic(id) select Flatten(MyTestArray(id)) as id from testavro.SIMPLE1";
     List<String> sqlStmts = Collections.singletonList(sql1);
@@ -450,7 +442,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndSubQuery() throws Exception {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 =
         "Insert into testavro.outputTopic(id) select Flatten(a) as id from (select MyTestArray(id) a from testavro.SIMPLE1)";
     List<String> sqlStmts = Collections.singletonList(sql1);
@@ -471,7 +463,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testUdfUnTypedArgumentToTypedUdf() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic(id, long_value) "
         + "select id, MyTest(MyTestObj(id)) as long_value from testavro.SIMPLE1";
     List<String> sqlStmts = Collections.singletonList(sql1);
@@ -491,7 +483,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndUdf() throws Exception {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic(id, long_value) "
         + "select id, MYTest(id) as long_value from testavro.SIMPLE1";
     List<String> sqlStmts = Collections.singletonList(sql1);
@@ -515,7 +507,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndUdfWithDisabledArgCheck() throws Exception {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.PROFILE1(id, address) "
         + "select id, BuildOutputRecord('key', GetNestedField(address, 'zip')) as address from testavro.PROFILE";
     List<String> sqlStmts = Collections.singletonList(sql1);
@@ -535,7 +527,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testEndToEndUdfPolymorphism() throws Exception {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic(id, long_value) "
         + "select MyTestPoly(id) as long_value, MyTestPoly(name) as id from testavro.SIMPLE1";
     List<String> sqlStmts = Collections.singletonList(sql1);
@@ -559,7 +551,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   public void testRegexMatchUdfInWhereClause() throws Exception {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 =
         "Insert into testavro.outputTopic(id) "
             + "select id "
@@ -579,8 +571,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    staticConfigs.putAll(configs);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
@@ -608,8 +599,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    staticConfigs.putAll(configs);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
@@ -637,8 +627,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    staticConfigs.putAll(configs);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
@@ -666,8 +655,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    staticConfigs.putAll(configs);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
@@ -700,8 +688,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
-    staticConfigs.putAll(configs);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
@@ -734,7 +721,8 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, true);
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(Collections.emptyMap(), numMessages, true);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
@@ -763,7 +751,8 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, true);
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(Collections.emptyMap(), numMessages, true);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
@@ -792,7 +781,8 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, true);
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(Collections.emptyMap(), numMessages, true);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, p.name as companyName, p.name as profileName,"
@@ -822,7 +812,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, c.name as companyName, p.name as profileName,"
@@ -852,7 +842,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, c.name as companyName, p.name as profileName,"
@@ -882,7 +872,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages);
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, c.name as companyName, p.name as profileName,"
@@ -917,8 +907,8 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs =
-        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, numMessages, false, false, windowDurationMs);
-    staticConfigs.putAll(configs);
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(Collections.emptyMap(), numMessages, false, false,
+            windowDurationMs);
     String sql =
         "Insert into testavro.pageViewCountTopic"
             + " select 'SampleJob' as jobName, pv.pageKey, count(*) as `count`"

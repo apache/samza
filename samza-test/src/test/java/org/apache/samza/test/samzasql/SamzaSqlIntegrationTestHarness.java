@@ -46,7 +46,7 @@ public class SamzaSqlIntegrationTestHarness extends InMemoryIntegrationTestHarne
     mapConfig.put(JobConfig.JOB_COORDINATOR_SYSTEM, MOCK_METADATA_SYSTEM);
     mapConfig.put(String.format(SystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_METADATA_SYSTEM), MockSystemFactory.class.getName());
 
-    // add some serde configs for the in-memory system
+    // configs for using in-memory system as the default system
     mapConfig.putAll(baseInMemorySystemConfigs());
     mapConfig.putAll(config);
 
