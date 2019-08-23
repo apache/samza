@@ -67,7 +67,7 @@ public class DiagnosticsManager {
   // Job-related params
   private final int containerMemoryMb;
   private final int containerNumCores;
-  private final int numStoresWithChangelog;
+  private final int numPersistentStores;
   private final long maxHeapSizeBytes;
   private final int containerThreadPoolSize;
   private final Map<String, ContainerModel> containerModels;
@@ -86,7 +86,7 @@ public class DiagnosticsManager {
       Map<String, ContainerModel> containerModels,
       int containerMemoryMb,
       int containerNumCores,
-      int numStoresWithChangelog,
+      int numPersistentStores,
       long maxHeapSizeBytes,
       int containerThreadPoolSize,
       String containerId,
@@ -98,7 +98,7 @@ public class DiagnosticsManager {
       SystemProducer systemProducer,
       Duration terminationDuration) {
 
-    this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numStoresWithChangelog, maxHeapSizeBytes, containerThreadPoolSize,
+    this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numPersistentStores, maxHeapSizeBytes, containerThreadPoolSize,
         containerId, executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticSystemStream, systemProducer,
         terminationDuration, Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()));
@@ -110,7 +110,7 @@ public class DiagnosticsManager {
       Map<String, ContainerModel> containerModels,
       int containerMemoryMb,
       int containerNumCores,
-      int numStoresWithChangelog,
+      int numPersistentStores,
       long maxHeapSizeBytes,
       int containerThreadPoolSize,
       String containerId,
@@ -127,7 +127,7 @@ public class DiagnosticsManager {
     this.containerModels = containerModels;
     this.containerMemoryMb = containerMemoryMb;
     this.containerNumCores = containerNumCores;
-    this.numStoresWithChangelog = numStoresWithChangelog;
+    this.numPersistentStores = numPersistentStores;
     this.maxHeapSizeBytes = maxHeapSizeBytes;
     this.containerThreadPoolSize = containerThreadPoolSize;
     this.containerId = containerId;
@@ -211,7 +211,7 @@ public class DiagnosticsManager {
         if (!jobParamsEmitted) {
           diagnosticsStreamMessage.addContainerMb(containerMemoryMb);
           diagnosticsStreamMessage.addContainerNumCores(containerNumCores);
-          diagnosticsStreamMessage.addNumStoresWithChangelog(numStoresWithChangelog);
+          diagnosticsStreamMessage.addNumPersistentStores(numPersistentStores);
           diagnosticsStreamMessage.addContainerModels(containerModels);
           diagnosticsStreamMessage.addMaxHeapSize(maxHeapSizeBytes);
           diagnosticsStreamMessage.addContainerThreadPoolSize(containerThreadPoolSize);

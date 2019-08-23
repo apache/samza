@@ -63,6 +63,7 @@ public class StorageConfig extends MapConfig {
   static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s.side.inputs.processor.factory";
   static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
       STORE_PREFIX + "%s.side.inputs.processor.serialized.instance";
+  static final String PERSISTENT_STORE_FACTORY = "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory";
 
   public StorageConfig(Config config) {
     super(config);
@@ -225,10 +226,13 @@ public class StorageConfig extends MapConfig {
   }
 
   /**
-   * Helper method to get the number of stores configured with a changelog.
+   * Helper method to get the number of persistent stores.
    */
-  public int getNumStoresWithChangelog() {
-    Config subConfig = subset(STORE_PREFIX, true);
-    return new Long(subConfig.keySet().stream().filter(key -> key.endsWith(CHANGELOG_SUFFIX)).count()).intValue();
+  public int getNumPersistentStores() {
+    return (int) getStoreNames().stream()
+        .map(storeName -> getStorageFactoryClassName(storeName))
+        .filter(factoryName -> factoryName.isPresent())
+        .filter(factoryName -> factoryName.get().equals(PERSISTENT_STORE_FACTORY))
+        .count();
   }
 }
