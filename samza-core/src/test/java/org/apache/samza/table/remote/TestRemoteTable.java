@@ -88,7 +88,9 @@ public class TestRemoteTable {
         readRateLimiter, writeRateLimiter, rateLimitingExecutor,
         readPolicy, writePolicy, retryExecutor, null, null, cbExecutor);
     table.init(getMockContext());
-    verify(readFn, times(1)).init(any(), any());
+    if (readFn != null) {
+      verify(readFn, times(1)).init(any(), any());
+    }
     if (writeFn != null) {
       verify(writeFn, times(1)).init(any(), any());
     }
@@ -120,6 +122,17 @@ public class TestRemoteTable {
     RemoteTable<String, String> table = getTable(tableId, readFn, null, retry);
     Assert.assertEquals("bar", sync ? table.get("foo") : table.getAsync("foo").join());
     verify(table.readRateLimiter, times(error && retry ? 2 : 1)).throttle(anyString());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testFailOnNullReadFnAndWriteFn() {
+    getTable("id", null, null, false);
+  }
+
+  @Test
+  public void testSucceedValidationOnNullReadFn() {
+    RemoteTable<String, String> table = getTable("tableId", null, mock(TableWriteFunction.class), false);
+    Assert.assertNotNull(table);
   }
 
   @Test

@@ -100,6 +100,37 @@ public class TestRemoteTableDescriptor {
   }
 
   @Test
+  public void testValidateOnlyReadOrWriteFn() {
+    // Only read defined
+    String tableId = "1";
+    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
+        .withReadFunction(createMockTableReadFunction())
+        .withReadRateLimiterDisabled();
+    Map<String, String> tableConfig = desc.toConfig(new MapConfig());
+    Assert.assertNotNull(tableConfig);
+
+    // Only write defined
+    String tableId2 = "2";
+    RemoteTableDescriptor desc2 = new RemoteTableDescriptor(tableId2)
+        .withWriteFunction(createMockTableWriteFunction())
+        .withWriteRateLimiterDisabled();
+    tableConfig = desc2.toConfig(new MapConfig());
+    Assert.assertNotNull(tableConfig);
+
+    // Neither read or write defined (Failure case)
+    String tableId3 = "3";
+    RemoteTableDescriptor desc3 = new RemoteTableDescriptor(tableId3);
+    try {
+      desc3.toConfig(new MapConfig());
+      Assert.fail("Should not allow neither readFn or writeFn defined");
+    } catch (Exception e) {
+      Assert.assertTrue(e instanceof IllegalArgumentException);
+      Assert.assertTrue(e.getMessage().contains("Must have one of TableReadFunction or TableWriteFunction"));
+    }
+  }
+
+
+  @Test
   public void testSerializeSimple() {
     doTestSerialize(null, null, null);
   }
@@ -135,7 +166,7 @@ public class TestRemoteTableDescriptor {
     assertEquals(null, RemoteTableDescriptor.WRITE_FN, tableId, tableConfig);
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testSerializeNullReadFunction() {
     RemoteTableDescriptor desc = new RemoteTableDescriptor("1");
     Map<String, String> tableConfig = desc.toConfig(new MapConfig());
