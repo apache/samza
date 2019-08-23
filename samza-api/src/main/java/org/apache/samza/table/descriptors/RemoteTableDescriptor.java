@@ -328,8 +328,10 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     addTableConfig(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize), tableConfig);
 
     // Handle table reader function
-    addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
-    addTablePartConfig(READ_FN, readFn, jobConfig, tableConfig);
+    if (readFn != null) {
+      addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
+      addTablePartConfig(READ_FN, readFn, jobConfig, tableConfig);
+    }
 
     // Handle table write function
     if (writeFn != null) {
@@ -346,6 +348,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
 
   @Override
   protected void validate() {
+    Preconditions.checkArgument(writeFn != null || readFn != null,
+        "Must have one of TableReadFunction or TableWriteFunction");
     Preconditions.checkArgument(rateLimiter == null || tagCreditsMap.isEmpty(),
         "Only one of rateLimiter instance or read/write limits can be specified");
     // Assume callback executor pool should have no more than 20 threads

@@ -176,8 +176,8 @@ public class TestAsyncRemoteTable {
     verify(writeFn, times(1)).flush();
   }
 
-  @Test(expected = NullPointerException.class)
-  public void testFailOnNullReadFn() {
+  @Test(expected = IllegalArgumentException.class)
+  public void testFailOnNullReadFnAndWriteFn() {
     new AsyncRemoteTable(null, null);
   }
 
