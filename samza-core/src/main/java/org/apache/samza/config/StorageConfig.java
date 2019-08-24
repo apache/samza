@@ -63,7 +63,8 @@ public class StorageConfig extends MapConfig {
   static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s.side.inputs.processor.factory";
   static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
       STORE_PREFIX + "%s.side.inputs.processor.serialized.instance";
-  static final String PERSISTENT_STORE_FACTORY = "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory";
+  static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
+      "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
 
   public StorageConfig(Config config) {
     super(config);
@@ -232,7 +233,7 @@ public class StorageConfig extends MapConfig {
     return (int) getStoreNames().stream()
         .map(storeName -> getStorageFactoryClassName(storeName))
         .filter(factoryName -> factoryName.isPresent())
-        .filter(factoryName -> factoryName.get().equals(PERSISTENT_STORE_FACTORY))
+        .filter(factoryName -> !factoryName.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY))
         .count();
   }
 }
