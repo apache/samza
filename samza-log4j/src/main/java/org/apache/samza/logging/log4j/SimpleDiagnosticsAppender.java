@@ -23,8 +23,6 @@ import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.spi.LoggingEvent;
 import org.apache.samza.diagnostics.DiagnosticsExceptionEvent;
 import org.apache.samza.diagnostics.DiagnosticsManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -35,7 +33,6 @@ import org.slf4j.LoggerFactory;
  * stream of diagnostics-related events.
  */
 public class SimpleDiagnosticsAppender extends AppenderSkeleton {
-  private static final Logger LOG = LoggerFactory.getLogger(SimpleDiagnosticsAppender.class);
 
   // simple object to synchronize root logger attachment
   private static final Object SYNCHRONIZATION_OBJECT = new Object();
@@ -57,7 +54,7 @@ public class SimpleDiagnosticsAppender extends AppenderSkeleton {
   private void attachAppenderToRootLogger() {
     // ensure appender is attached only once per JVM (regardless of #containers)
     if (org.apache.log4j.Logger.getRootLogger().getAppender(SimpleDiagnosticsAppender.class.getName()) == null) {
-      LOG.info("Attaching diagnostics appender to root logger");
+      System.out.println("Attaching diagnostics appender to root logger");
       org.apache.log4j.Logger.getRootLogger().addAppender(this);
     }
   }
@@ -73,13 +70,10 @@ public class SimpleDiagnosticsAppender extends AppenderSkeleton {
                 loggingEvent.getProperties());
 
         diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent);
-        LOG.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
-      } else {
-        LOG.debug("Received non-exception event with message " + loggingEvent.getMessage());
       }
     } catch (Exception e) {
       // blanket catch of all exceptions so as to not impact any job
-      LOG.error("Exception in logging event parsing", e);
+      System.err.println("Exception in logging event parsing " + e);
     }
   }
 
