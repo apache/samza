@@ -55,7 +55,7 @@ public class DiagnosticsStreamMessage {
   private static final String STOP_EVENT_LIST_METRIC_NAME = "stopEvents";
   private static final String CONTAINER_MB_METRIC_NAME = "containerMemoryMb";
   private static final String CONTAINER_NUM_CORES_METRIC_NAME = "containerNumCores";
-  private static final String CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME = "numStoresWithChangelog";
+  private static final String CONTAINER_NUM_PERSISTENT_STORES_METRIC_NAME = "numPersistentStores";
   private static final String CONTAINER_MAX_CONFIGURED_HEAP_METRIC_NAME = "maxHeap";
   private static final String CONTAINER_THREAD_POOL_SIZE_METRIC_NAME = "containerThreadPoolSize";
   private static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
@@ -92,11 +92,11 @@ public class DiagnosticsStreamMessage {
 
   /**
    * Add the num stores with changelog parameter to the message.
-   * @param numStoresWithChangelog the parameter value.
+   * @param numPersistentStores the parameter value.
    */
-  public void addNumStoresWithChangelog(Integer numStoresWithChangelog) {
-    addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME,
-        numStoresWithChangelog);
+  public void addNumPersistentStores(Integer numPersistentStores) {
+    addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_PERSISTENT_STORES_METRIC_NAME,
+        numPersistentStores);
   }
 
   /**
@@ -198,9 +198,9 @@ public class DiagnosticsStreamMessage {
     return (Integer) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_NUM_CORES_METRIC_NAME);
   }
 
-  public Integer getNumStoresWithChangelog() {
+  public Integer getNumPersistentStores() {
     return (Integer) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER,
-        CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME);
+        CONTAINER_NUM_PERSISTENT_STORES_METRIC_NAME);
   }
 
   public Long getMaxHeapSize() {
@@ -234,7 +234,8 @@ public class DiagnosticsStreamMessage {
 
       diagnosticsStreamMessage.addContainerNumCores((Integer) diagnosticsManagerGroupMap.get(CONTAINER_NUM_CORES_METRIC_NAME));
       diagnosticsStreamMessage.addContainerMb((Integer) diagnosticsManagerGroupMap.get(CONTAINER_MB_METRIC_NAME));
-      diagnosticsStreamMessage.addNumStoresWithChangelog((Integer) diagnosticsManagerGroupMap.get(CONTAINER_NUM_STORES_WITH_CHANGELOG_METRIC_NAME));
+      diagnosticsStreamMessage.addNumPersistentStores((Integer) diagnosticsManagerGroupMap.get(
+          CONTAINER_NUM_PERSISTENT_STORES_METRIC_NAME));
       diagnosticsStreamMessage.addContainerModels(deserializeContainerModelMap((String) diagnosticsManagerGroupMap.get(CONTAINER_MODELS_METRIC_NAME)));
       diagnosticsStreamMessage.addMaxHeapSize((Long) diagnosticsManagerGroupMap.get(CONTAINER_MAX_CONFIGURED_HEAP_METRIC_NAME));
       diagnosticsStreamMessage.addContainerThreadPoolSize((Integer) diagnosticsManagerGroupMap.get(CONTAINER_THREAD_POOL_SIZE_METRIC_NAME));
