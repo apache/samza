@@ -28,8 +28,6 @@ import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.apache.samza.diagnostics.DiagnosticsExceptionEvent;
 import org.apache.samza.diagnostics.DiagnosticsManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Provides an in-memory appender that parses LogEvents to filter events relevant to diagnostics.
@@ -39,7 +37,6 @@ import org.slf4j.LoggerFactory;
  * stream of diagnostics-related events.
  */
 public class SimpleDiagnosticsAppender extends AbstractAppender {
-  private static final Logger LOG = LoggerFactory.getLogger(SimpleDiagnosticsAppender.class);
 
   // simple object to synchronize root logger attachment
   private static final Object SYNCHRONIZATION_OBJECT = new Object();
@@ -62,7 +59,7 @@ public class SimpleDiagnosticsAppender extends AbstractAppender {
 
     // ensure appender is attached only once per JVM (regardless of #containers)
     if (config.getRootLogger().getAppenders().get(SimpleDiagnosticsAppender.class.getName()) == null) {
-      LOG.info("Attaching diagnostics appender to root logger");
+      System.out.println("Attaching diagnostics appender to root logger");
       appender.start();
       config.addAppender(appender);
       for (final LoggerConfig loggerConfig : config.getLoggers().values()) {
@@ -81,13 +78,10 @@ public class SimpleDiagnosticsAppender extends AbstractAppender {
                 logEvent.getContextData().toMap());
 
         diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent);
-        LOG.debug("Received DiagnosticsExceptionEvent " + diagnosticsExceptionEvent);
-      } else {
-        LOG.debug("Received non-exception event with message " + logEvent.getMessage());
       }
     } catch (Exception e) {
       // blanket catch of all exceptions so as to not impact any job
-      LOG.error("Exception in logevent parsing", e);
+      System.err.println("Exception in logevent parsing " + e);
     }
   }
 }
