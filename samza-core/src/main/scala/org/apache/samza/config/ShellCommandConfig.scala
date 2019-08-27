@@ -73,7 +73,19 @@ object ShellCommandConfig {
 class ShellCommandConfig(config: Config) extends ScalaMapConfig(config) {
   def getCommand = getOption(ShellCommandConfig.COMMAND_SHELL_EXECUTE).getOrElse("bin/run-container.sh")
 
-  def getTaskOpts = getOption(ShellCommandConfig.TASK_JVM_OPTS)
+  def getTaskOpts = {
+    var jvmOpts = getOption(ShellCommandConfig.TASK_JVM_OPTS)
+    val clusterManagerConfig = new ClusterManagerConfig(config)
+
+    if (clusterManagerConfig.getMaxHeapSizeMb.isPresent) {
+      if (jvmOpts.isDefined)
+        jvmOpts.get.replaceAll("-Xmx\\S+", clusterManagerConfig.getMaxHeapSizeMb.get().toString + "m")
+      else
+        jvmOpts = Some("-Xmx" + clusterManagerConfig.getMaxHeapSizeMb.get().toString + "m")
+    }
+
+    jvmOpts
+  }
 
   def getJavaHome = getOption(ShellCommandConfig.TASK_JAVA_HOME)
 }

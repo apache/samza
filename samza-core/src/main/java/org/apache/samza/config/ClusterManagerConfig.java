@@ -21,6 +21,7 @@
 package org.apache.samza.config;
 
 import java.time.Duration;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,6 +76,7 @@ public class ClusterManagerConfig extends MapConfig {
   public static final String CONTAINER_MAX_MEMORY_MB = "yarn.container.memory.mb";
   public static final String CLUSTER_MANAGER_MEMORY_MB = "cluster-manager.container.memory.mb";
   private static final int DEFAULT_CONTAINER_MEM = 1024;
+  public static final String CLUSTER_MANAGER_MAX_HEAP_MB = "cluster-manager.container.maxheap.mb";
 
   /**
    * Determines how frequently a container is allowed to fail before we give up and fail the job
@@ -156,6 +158,14 @@ public class ClusterManagerConfig extends MapConfig {
       return getInt(CONTAINER_MAX_MEMORY_MB);
     } else {
       return DEFAULT_CONTAINER_MEM;
+    }
+  }
+
+  public Optional<Integer> getMaxHeapSizeMb() {
+    if (containsKey(CLUSTER_MANAGER_MAX_HEAP_MB)) {
+      return Optional.of(getInt(CLUSTER_MANAGER_MAX_HEAP_MB));
+    } else {
+      return Optional.empty();
     }
   }
 
