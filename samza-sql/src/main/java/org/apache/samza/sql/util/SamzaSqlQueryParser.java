@@ -53,6 +53,8 @@ import org.apache.calcite.tools.Planner;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.interfaces.SamzaSqlDriver;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
+import org.apache.samza.sql.planner.QueryPlanner;
+import org.apache.samza.sql.planner.SamzaSqlValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,7 +104,9 @@ public class SamzaSqlQueryParser {
     try {
       sqlNode = planner.parse(sql);
     } catch (SqlParseException e) {
-      throw new SamzaException(e);
+      String errorMsg = SamzaSqlValidator.formatErrorString(sql, e);
+      LOG.error(errorMsg, e);
+      throw new SamzaException(errorMsg, e);
     }
 
     String sink;

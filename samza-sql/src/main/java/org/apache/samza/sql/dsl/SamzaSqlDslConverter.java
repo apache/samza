@@ -31,6 +31,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.planner.QueryPlanner;
+import org.apache.samza.sql.planner.SamzaSqlValidator;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.apache.samza.sql.util.SqlFileParser;
@@ -52,25 +53,31 @@ public class SamzaSqlDslConverter implements DslConverter {
   public Collection<RelRoot> convertDsl(String dsl) {
     // TODO: Introduce an API to parse a dsl string and return one or more sql statements
     List<String> sqlStmts = fetchSqlFromConfig(config);
-    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
-    SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(config,
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-            .collect(Collectors.toList()),
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
-
-    QueryPlanner planner =
-        new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
-            sqlConfig.getUdfMetadata());
-
+    QueryPlanner planner = getQueryPlanner(getSqlConfig(sqlStmts, config));
     List<RelRoot> relRoots = new LinkedList<>();
     for (String sql: sqlStmts) {
       // we always pass only select query to the planner for samza sql. The reason is that samza sql supports
       // schema evolution where source and destination could up to an extent have independent schema evolution while
       // calcite expects strict comformance of the destination schema with that of the fields in the select query.
       SamzaSqlQueryParser.QueryInfo qinfo = SamzaSqlQueryParser.parseQuery(sql);
-      relRoots.add(planner.plan(qinfo.getSelectQuery()));
+      RelRoot relRoot = planner.plan(qinfo.getSelectQuery());
+      relRoots.add(relRoot);
     }
     return relRoots;
+  }
+
+  public static SamzaSqlApplicationConfig getSqlConfig(List<String> sqlStmts, Config config) {
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    return new SamzaSqlApplicationConfig(config,
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink)
+            .collect(Collectors.toList()));
+  }
+
+  public static QueryPlanner getQueryPlanner(SamzaSqlApplicationConfig sqlConfig) {
+    return new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
+        sqlConfig.getUdfMetadata());
   }
 
   public static List<SamzaSqlQueryParser.QueryInfo> fetchQueryInfo(List<String> sqlStmts) {
