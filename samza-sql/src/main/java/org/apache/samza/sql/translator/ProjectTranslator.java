@@ -19,8 +19,6 @@
 
 package org.apache.samza.sql.translator;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -113,7 +111,7 @@ class ProjectTranslator {
      */
     @Override
     public SamzaSqlRelMessage apply(SamzaSqlRelMessage message) {
-      Instant arrivalTime = Instant.now();
+      long arrivalTime = System.nanoTime();
       RelDataType type = project.getRowType();
       Object[] output = new Object[type.getFieldCount()];
       expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
@@ -122,7 +120,7 @@ class ProjectTranslator {
       for (int index = 0; index < output.length; index++) {
         names.add(index, project.getNamedProjects().get(index).getValue());
       }
-      updateMetrics(arrivalTime, Instant.now(), message.getSamzaSqlRelMsgMetadata().isNewInputMessage);
+      updateMetrics(arrivalTime, System.nanoTime(), message.getSamzaSqlRelMsgMetadata().isNewInputMessage);
       return new SamzaSqlRelMessage(names, Arrays.asList(output), message.getSamzaSqlRelMsgMetadata());
     }
 
@@ -132,12 +130,12 @@ class ProjectTranslator {
      * @param outputTime output message output time (=end of processing in this operator)
      * @param isNewInputMessage whether the input Message is from new input message or not
      */
-    private void updateMetrics(Instant arrivalTime, Instant outputTime, boolean isNewInputMessage) {
+    private void updateMetrics(long arrivalTime, long outputTime, boolean isNewInputMessage) {
       if (isNewInputMessage) {
         inputEvents.inc();
       }
       outputEvents.inc();
-      processingTime.update(Duration.between(arrivalTime, outputTime).toMillis());
+      processingTime.update(outputTime - arrivalTime);
     }
   }
 
@@ -149,15 +147,15 @@ class ProjectTranslator {
         List<SamzaSqlRelMessage> outMessages = new ArrayList<>();
         SamzaSqlRelMsgMetadata messageMetadata = message.getSamzaSqlRelMsgMetadata();
         SamzaSqlRelMsgMetadata newMetadata =
-            new SamzaSqlRelMsgMetadata(messageMetadata.getEventTime(), messageMetadata.getarrivalTime(),
-                messageMetadata.getscanTime(), true);
+            new SamzaSqlRelMsgMetadata(messageMetadata.getEventTime(), messageMetadata.getArrivalTime(),
+                messageMetadata.getScanTimeNanos(), messageMetadata.getScanTimeMillis());
         for (Object fieldValue : (List) field) {
           List<Object> newValues = new ArrayList<>(message.getSamzaSqlRelRecord().getFieldValues());
           newValues.set(flattenIndex, Collections.singletonList(fieldValue));
           outMessages.add(
               new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues, newMetadata));
-          newMetadata = new SamzaSqlRelMsgMetadata(newMetadata.getEventTime(), newMetadata.getarrivalTime(),
-              newMetadata.getscanTime(), false);
+          newMetadata = new SamzaSqlRelMsgMetadata(newMetadata.getEventTime(), newMetadata.getArrivalTime(),
+              newMetadata.getScanTimeNanos(), newMetadata.getScanTimeMillis());
         }
         return outMessages;
       } else {

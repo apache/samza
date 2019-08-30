@@ -19,8 +19,6 @@
 
 package org.apache.samza.sql.translator;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.rel.core.TableScan;
@@ -39,6 +37,7 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.SamzaSqlInputMessage;
 import org.apache.samza.sql.SamzaSqlInputTransformer;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
@@ -128,25 +127,26 @@ class ScanTranslator {
 
     @Override
     public SamzaSqlRelMessage apply(SamzaSqlInputMessage samzaSqlInputMessage) {
-      Instant startProcessing = Instant.now();
+      long startProcessingMs = System.currentTimeMillis();
+      long startProcessingNs = System.nanoTime();
       /* SAMZA-2089/LISAMZA-10654: the SamzaRelConverter.convertToRelMessage currently does not initialize
        *                           the samzaSqlRelMessage.samzaSqlRelMsgMetadata, this needs to be fixed */
       SamzaSqlRelMessage retMsg = this.msgConverter.convertToRelMessage(samzaSqlInputMessage.getKeyAndMessageKV());
       retMsg.setEventTime(samzaSqlInputMessage.getMetadata().getEventTime());
-      retMsg.setArrivalTime(samzaSqlInputMessage.getMetadata().getarrivalTime());
-      retMsg.setScanTime(startProcessing.toString());
-      updateMetrics(startProcessing, Instant.now());
+      retMsg.setArrivalTime(samzaSqlInputMessage.getMetadata().getArrivalTime());
+      retMsg.setScanTime(startProcessingNs, startProcessingMs);
+      updateMetrics(startProcessingNs, System.nanoTime());
       return retMsg;
     }
 
     /**
      * Updates the MetricsRegistery of this operator
-     * @param startProcessing = begin processing of the message
+     * @param startProcessingNs = begin processing of the message
      * @param endProcessing = end of processing
      */
-    private void updateMetrics(Instant startProcessing, Instant endProcessing) {
+    private void updateMetrics(long startProcessingNs, long endProcessing) {
       queryInputEvents.inc();
-      processingTime.update(Duration.between(startProcessing, endProcessing).toMillis());
+      processingTime.update(endProcessing - startProcessingNs);
     }
   } // ScanMapFunction
 

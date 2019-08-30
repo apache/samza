@@ -20,7 +20,6 @@ package org.apache.samza.sql.translator;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +27,7 @@ import org.apache.calcite.DataContext;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.calcite.util.Pair;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.context.ContainerContext;
@@ -39,8 +35,6 @@ import org.apache.samza.context.Context;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.MessageStreamImpl;
 import org.apache.samza.operators.functions.MapFunction;
-import org.apache.samza.operators.functions.ScheduledFunction;
-import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.sql.data.Expression;
@@ -52,7 +46,6 @@ import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.apache.samza.sql.util.TestMetricsRegistryImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.internal.matchers.Any;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -143,7 +136,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
 
     // Calling mapFn.apply() to verify the filter function is correctly applied to the input message
     SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>(),
-        new SamzaSqlRelMsgMetadata("", "", ""));
+        new SamzaSqlRelMsgMetadata(0L, 0L));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
     DataContext dataContext = mock(DataContext.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);

@@ -96,7 +96,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     }
 
     return new SamzaSqlRelMessage(samzaMessage.getKey(), payloadFieldNames, payloadFieldValues,
-        new SamzaSqlRelMsgMetadata("", "", ""));
+        new SamzaSqlRelMsgMetadata(0L, 0L));
   }
 
   /**
@@ -107,8 +107,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     List<String> payloadFieldNames = new ArrayList<>();
     List<Object> payloadFieldValues = new ArrayList<>();
     fetchFieldNamesAndValuesFromIndexedRecord(record, payloadFieldNames, payloadFieldValues, schema);
-    return new SamzaSqlRelMessage(key, payloadFieldNames, payloadFieldValues,
-        new SamzaSqlRelMsgMetadata("", "", ""));
+    return new SamzaSqlRelMessage(key, payloadFieldNames, payloadFieldValues, new SamzaSqlRelMsgMetadata(0L, 0L));
   }
 
   public static void fetchFieldNamesAndValuesFromIndexedRecord(IndexedRecord record, List<String> fieldNames,
