@@ -233,7 +233,7 @@ public class SamzaSqlValidator {
 
         // Error spanning across multiple lines is not supported yet.
         if (lineLen > 0) {
-          throw new SamzaException("lineLen formatting validation error cannot span across multiple lines.");
+          throw new SamzaException("lineLen formatting validation error: error cannot span across multiple lines.");
         }
 
         int lineIdx = 0;
