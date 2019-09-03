@@ -91,6 +91,12 @@ public class ClusterManagerConfig extends MapConfig {
   public static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
 
   /**
+   * Maximum number of times Samza tries to restart a failed container
+   */
+  public static final String CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES = "cluster-manager.container.fail.job.after.retries";
+  public static final boolean DEFAULT_CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES = true;
+
+  /**
    * Maximum delay in milliseconds for the last container retry
    */
   public static final String CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS =
@@ -190,6 +196,11 @@ public class ClusterManagerConfig extends MapConfig {
     } else {
       return DEFAULT_CONTAINER_RETRY_COUNT;
     }
+  }
+
+  public boolean getContainerFailJobAfterRetries() {
+    return getBoolean(CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES,
+        DEFAULT_CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES);
   }
 
   public long getContainerPreferredHostLastRetryDelayMs() {
