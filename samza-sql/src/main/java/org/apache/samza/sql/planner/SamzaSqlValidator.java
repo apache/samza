@@ -107,6 +107,7 @@ public class SamzaSqlValidator {
 
     // There could be default values for the output schema and hence fields in project schema could be a subset of
     // fields in output schema.
+    // TODO: Validate that all non-default values in output schema are set in the projected fields.
     for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
       RelDataType outputFieldType = outputRecordMap.get(entry.getKey());
       if (outputFieldType == null) {
@@ -183,7 +184,8 @@ public class SamzaSqlValidator {
    *             + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1"
    *
    * This function takes in the above multi-line sql query and the below sample exception as input:
-   * "org.apache.calcite.runtime.CalciteContextException: From line 1, column 8 to line 1, column 26: Column 'non_existing_name' not found in any table"
+   * "org.apache.calcite.runtime.CalciteContextException: From line 1, column 8 to line 1, column 26: Column
+   * 'non_existing_name' not found in any table"
    *
    * And returns the following string:
    * 2019-08-30 09:05:08 ERROR QueryPlanner:174 - Failed with exception for the following sql statement:
@@ -191,7 +193,7 @@ public class SamzaSqlValidator {
    * Sql syntax error:
    *
    * SELECT `non_existing_name`, `name` AS `string_value`
-   *        ^^^^^^^^^^^^^^^^^^^
+   * -------^^^^^^^^^^^^^^^^^^^--------------------------
    * FROM `testavro`.`level1`.`level2`.`SIMPLE1` AS `s`
    * WHERE `s`.`id` = 1
    *
@@ -225,23 +227,26 @@ public class SamzaSqlValidator {
         int colLen = endColIdx - startColIdx + 1;
 
         // Error spanning across multiple lines is not supported yet.
-        if (lineLen == 0) {
-          int lineIdx = 0;
-          for (String line : queryLines) {
-            result.append(line)
+        if (lineLen > 0) {
+          throw new SamzaException("lineLen formatting validation error cannot span across multiple lines.");
+        }
+
+        int lineIdx = 0;
+        for (String line : queryLines) {
+          result.append(line)
+              .append("\n");
+          if (lineIdx == startLineIdx) {
+            String lineStr = getStringWithRepeatedChars('-', line.length() - 1);
+            String pointerStr = getStringWithRepeatedChars('^', colLen);
+            String errorMarkerStr =
+                new StringBuilder(lineStr).replace(startColIdx, endColIdx, pointerStr).toString();
+            result.append(errorMarkerStr)
                 .append("\n");
-            if (lineIdx == startLineIdx) {
-              String lineStr = getStringWithRepeatedChars('-', line.length());
-              String pointerStr = getStringWithRepeatedChars('^', colLen);
-              String errorMarkerStr =
-                  new StringBuilder(lineStr).replace(startColIdx, endColIdx, pointerStr).toString();
-              result.append(errorMarkerStr)
-                  .append("\n");
-            }
-            lineIdx++;
           }
+          lineIdx++;
         }
       }
+
       String[] errorMsgParts = e.getMessage().split("Exception:");
       result.append("\n")
           .append(errorMsgParts[errorMsgParts.length - 1].trim());
@@ -250,7 +255,8 @@ public class SamzaSqlValidator {
     } catch (Exception ex) {
       // Ignore any formatting errors.
       LOG.error("Formatting error (Not the actual error. Look for the logs for actual error)", ex);
-      return String.format("Failed with exception for the following sql statement:\n\"%s\"", query);
+      return String.format("Failed with formatting exception (not the actual error) for the following sql"
+              + " statement:\n\"%s\"\n\n%s", query, e.getMessage());
     }
   }
 

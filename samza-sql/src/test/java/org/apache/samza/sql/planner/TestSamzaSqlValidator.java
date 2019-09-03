@@ -30,6 +30,8 @@ import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
 
@@ -37,6 +39,7 @@ import static org.apache.samza.sql.dsl.SamzaSqlDslConverter.*;
 public class TestSamzaSqlValidator {
 
   private final Map<String, String> configs = new HashMap<>();
+  private static final Logger LOG = LoggerFactory.getLogger(TestSamzaSqlValidator.class);
 
   @Before
   public void setUp() {
@@ -55,8 +58,20 @@ public class TestSamzaSqlValidator {
     new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
   }
 
+  @Test (expected = SamzaSqlValidatorException.class)
+  public void testNonExistingOutputField() throws SamzaSqlValidatorException {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic(id) select id, name as strings_value"
+            + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
   @Test(expected = SamzaException.class)
-  public void testValidationFailureWithNonExistingField() throws SamzaSqlValidatorException {
+  public void testNonExistingSelectField() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
         "Insert into testavro.outputTopic(id) select non_existing_field, name as string_value"
@@ -68,7 +83,7 @@ public class TestSamzaSqlValidator {
   }
 
   @Test (expected = SamzaException.class)
-  public void testValidationFailureNonExistingUdf() throws SamzaSqlValidatorException {
+  public void testNonExistingUdf() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
         "Insert into testavro.outputTopic(id) select NonExistingUdf(name) as string_value"
@@ -80,7 +95,7 @@ public class TestSamzaSqlValidator {
   }
 
   @Test (expected = SamzaSqlValidatorException.class)
-  public void testOutputValidationFailure() throws SamzaSqlValidatorException {
+  public void testSelectAndOutputValidationFailure() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
         "Insert into testavro.outputTopic(id) select name as long_value"
@@ -118,5 +133,33 @@ public class TestSamzaSqlValidator {
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
     new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
+  @Test
+  public void testFormatErrorString() {
+    String sql =
+        "select 'SampleJob' as jobName, pv.pageKey, count(*) as `count`\n"
+            + "from testavro.PAGEVIEW as pv\n"
+            + "where pv.pageKey = 'job' or pv.pageKey = 'inbox'\n"
+            + "group bys (pv.pageKey)";
+    String errorStr =
+        "org.apache.calcite.tools.ValidationException: org.apache.calcite.runtime.CalciteContextException: "
+            + "From line 3, column 7 to line 3, column 16: Column 'pv.pageKey' not found in any table";
+    String formattedErrStr = SamzaSqlValidator.formatErrorString(sql, new Exception(errorStr));
+    LOG.info(formattedErrStr);
+  }
+
+  @Test
+  public void testExceptionInFormatErrorString() {
+    String sql =
+        "select 'SampleJob' as jobName, pv.pageKey, count(*) as `count`\n"
+            + "from testavro.PAGEVIEW as pv\n"
+            + "where pv.pageKey = 'job' or pv.pageKey = 'inbox'\n"
+            + "group bys (pv.pageKey)";
+    String errorStr =
+        "org.apache.calcite.tools.ValidationException: org.apache.calcite.runtime.CalciteContextException: "
+            + "From line 3, column 7 to line 3, column 16: Column 'pv.pageKey' not found in any table";
+    String formattedErrStr = SamzaSqlValidator.formatErrorString(sql, new Exception(errorStr));
+    LOG.info(formattedErrStr);
   }
 }

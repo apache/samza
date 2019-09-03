@@ -85,7 +85,7 @@ public class QueryPlanner {
     this.udfMetadata = udfMetadata;
   }
 
-  public static RelDataType getSourceRelSchema(RelSchemaProvider relSchemaProvider,
+  static RelDataType getSourceRelSchema(RelSchemaProvider relSchemaProvider,
       RelSchemaConverter relSchemaConverter) {
     // If the source part is the last one, then fetch the schema corresponding to the stream and register.
     SqlSchema sqlSchema = relSchemaProvider.getSqlSchema();
