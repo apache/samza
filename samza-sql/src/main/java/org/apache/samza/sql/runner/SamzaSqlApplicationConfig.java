@@ -308,6 +308,10 @@ public class SamzaSqlApplicationConfig {
     return outputSystemStreamConfigsBySource;
   }
 
+  public SqlIOConfig getOutputSqlIOConfig(String source) {
+    return outputSystemStreamConfigsBySource.get(source);
+  }
+
   public Map<String, SamzaRelConverter> getSamzaRelConverters() {
     return samzaRelConvertersBySource;
   }

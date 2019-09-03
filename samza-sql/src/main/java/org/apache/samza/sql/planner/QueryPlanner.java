@@ -36,9 +36,6 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
-import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -46,9 +43,7 @@ import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
-import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -87,49 +82,38 @@ public class QueryPlanner {
     this.udfMetadata = udfMetadata;
   }
 
+  private void registerSourceSchemas(SchemaPlus rootSchema) {
+    RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
+
+    for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
+      SchemaPlus previousLevelSchema = rootSchema;
+      List<String> sourceParts = ssc.getSourceParts();
+      RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSource());
+
+      for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
+        String sourcePart = sourceParts.get(sourcePartIndex);
+        if (sourcePartIndex < sourceParts.size() - 1) {
+          SchemaPlus sourcePartSchema = previousLevelSchema.getSubSchema(sourcePart);
+          if (sourcePartSchema == null) {
+            sourcePartSchema = previousLevelSchema.add(sourcePart, new AbstractSchema());
+          }
+          previousLevelSchema = sourcePartSchema;
+        } else {
+          // If the source part is the last one, then fetch the schema corresponding to the stream and register.
+          RelDataType relationalSchema = getSourceRelSchema(relSchemaProvider, relSchemaConverter);
+          previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
+          break;
+        }
+      }
+    }
+  }
+
   public RelRoot plan(String query) {
     try {
       Connection connection = DriverManager.getConnection("jdbc:calcite:");
       CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
-
-      for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
-        SchemaPlus previousLevelSchema = rootSchema;
-        List<String> sourceParts = ssc.getSourceParts();
-        RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSource());
-
-        for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
-          String sourcePart = sourceParts.get(sourcePartIndex);
-          if (sourcePartIndex < sourceParts.size() - 1) {
-            SchemaPlus sourcePartSchema = previousLevelSchema.getSubSchema(sourcePart);
-            if (sourcePartSchema == null) {
-              sourcePartSchema = previousLevelSchema.add(sourcePart, new AbstractSchema());
-            }
-            previousLevelSchema = sourcePartSchema;
-          } else {
-            // If the source part is the last one, then fetch the schema corresponding to the stream and register.
-            SqlSchema sqlSchema = relSchemaProvider.getSqlSchema();
-
-            List<String> fieldNames = new ArrayList<>();
-            List<SqlFieldSchema> fieldTypes = new ArrayList<>();
-            if (!sqlSchema.containsField(SamzaSqlRelMessage.KEY_NAME)) {
-              fieldNames.add(SamzaSqlRelMessage.KEY_NAME);
-              fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY));
-            }
-
-            fieldNames.addAll(
-                sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldName).collect(Collectors.toList()));
-            fieldTypes.addAll(
-                sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldSchema).collect(Collectors.toList()));
-
-            SqlSchema newSchema = new SqlSchema(fieldNames, fieldTypes);
-            RelDataType relationalSchema = relSchemaConverter.convertToRelSchema(newSchema);
-            previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
-            break;
-          }
-        }
-      }
+      registerSourceSchemas(rootSchema);
 
       List<SamzaSqlScalarFunctionImpl> samzaSqlFunctions = udfMetadata.stream()
           .map(x -> new SamzaSqlScalarFunctionImpl(x))
@@ -162,12 +146,34 @@ public class QueryPlanner {
       LOG.info("query plan:\n" + RelOptUtil.toString(relRoot.rel));
       return relRoot;
     } catch (Exception e) {
-      LOG.error("Query planner failed with exception.", e);
-      throw new SamzaException(e);
+      String errorMsg = SamzaSqlValidator.formatErrorString(query, e);
+      LOG.error(errorMsg, e);
+      throw new SamzaException(errorMsg, e);
     }
   }
 
-  private Table createTableFromRelSchema(RelDataType relationalSchema) {
+  public static RelDataType getSourceRelSchema(RelSchemaProvider relSchemaProvider,
+      RelSchemaConverter relSchemaConverter) {
+    // If the source part is the last one, then fetch the schema corresponding to the stream and register.
+    SqlSchema sqlSchema = relSchemaProvider.getSqlSchema();
+
+    List<String> fieldNames = new ArrayList<>();
+    List<SqlFieldSchema> fieldTypes = new ArrayList<>();
+    if (!sqlSchema.containsField(SamzaSqlRelMessage.KEY_NAME)) {
+      fieldNames.add(SamzaSqlRelMessage.KEY_NAME);
+      fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY));
+    }
+
+    fieldNames.addAll(
+        sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldName).collect(Collectors.toList()));
+    fieldTypes.addAll(
+        sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldSchema).collect(Collectors.toList()));
+
+    SqlSchema newSchema = new SqlSchema(fieldNames, fieldTypes);
+    return relSchemaConverter.convertToRelSchema(newSchema);
+  }
+
+  private static Table createTableFromRelSchema(RelDataType relationalSchema) {
     return new AbstractTable() {
       public RelDataType getRowType(RelDataTypeFactory typeFactory) {
         return relationalSchema;
