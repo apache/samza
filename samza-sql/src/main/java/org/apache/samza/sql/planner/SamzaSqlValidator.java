@@ -90,9 +90,9 @@ public class SamzaSqlValidator {
     validateOutput(relRoot, sqlConfig.getRelSchemaProviders().get(qinfo.getSink()));
 
     // TODO:
-    //  1. Validate Udf arguments.
-    //  2. Validate operators. These are the operators that are supported by Calcite but not by Samza Sql.
-    //     Eg: LogicalAggregate is not supported by Samza Sql.
+    //  1. SAMZA-2314: Validate Udf arguments.
+    //  2. SAMZA-2315: Validate operators. These are the operators that are supported by Calcite but not by Samza Sql.
+    //     Eg: LogicalAggregate with sum function is not supported by Samza Sql.
   }
 
   protected void validateOutput(RelRoot relRoot, RelSchemaProvider relSchemaProvider) throws SamzaSqlValidatorException {
@@ -112,7 +112,7 @@ public class SamzaSqlValidator {
 
     // There could be default values for the output schema and hence fields in project schema could be a subset of
     // fields in output schema.
-    // TODO: Validate that all non-default value fields in output schema are set in the projected fields.
+    // TODO: SAMZA-2316: Validate that all non-default value fields in output schema are set in the projected fields.
     for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
       RelDataType outputFieldType = outputRecordMap.get(entry.getKey());
       if (outputFieldType == null) {

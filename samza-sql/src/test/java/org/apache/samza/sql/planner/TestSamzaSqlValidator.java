@@ -22,12 +22,16 @@ package org.apache.samza.sql.planner;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
+import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -76,10 +80,22 @@ public class TestSamzaSqlValidator {
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
         "Insert into testavro.outputTopic(id) select non_existing_field, name as string_value"
             + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
-    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+    SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+  }
 
-    List<String> sqlStmts = fetchSqlFromConfig(config);
-    new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  @Test(expected = SamzaSqlValidatorException.class)
+  public void testCalciteErrorString() throws SamzaSqlValidatorException {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic(id) select non_existing_field, name as string_value"
+            + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
+
+    try {
+      SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+    } catch (SamzaException e) {
+      Assert.assertTrue(e.getMessage().contains("line 1, column 8 to line 1, column 27: Column 'non_existing_field' not found"));
+      throw new SamzaSqlValidatorException("Calcite planning for sql failed.", e);
+    }
   }
 
   @Test (expected = SamzaException.class)

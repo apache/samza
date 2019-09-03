@@ -82,7 +82,7 @@ public class QueryPlanner {
     this.udfMetadata = udfMetadata;
   }
 
-  private void fetchSourceSchema(SchemaPlus rootSchema) {
+  private void registerSourceSchemas(SchemaPlus rootSchema) {
     RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
 
     for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
@@ -113,7 +113,7 @@ public class QueryPlanner {
       Connection connection = DriverManager.getConnection("jdbc:calcite:");
       CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      fetchSourceSchema(rootSchema);
+      registerSourceSchemas(rootSchema);
 
       List<SamzaSqlScalarFunctionImpl> samzaSqlFunctions = udfMetadata.stream()
           .map(x -> new SamzaSqlScalarFunctionImpl(x))
