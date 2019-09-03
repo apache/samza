@@ -112,7 +112,7 @@ public class SamzaSqlValidator {
 
     // There could be default values for the output schema and hence fields in project schema could be a subset of
     // fields in output schema.
-    // TODO: Validate that all non-default values in output schema are set in the projected fields.
+    // TODO: Validate that all non-default value fields in output schema are set in the projected fields.
     for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
       RelDataType outputFieldType = outputRecordMap.get(entry.getKey());
       if (outputFieldType == null) {
