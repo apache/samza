@@ -31,7 +31,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.planner.QueryPlanner;
-import org.apache.samza.sql.planner.SamzaSqlValidator;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.apache.samza.sql.util.SqlFileParser;
@@ -66,6 +65,12 @@ public class SamzaSqlDslConverter implements DslConverter {
     return relRoots;
   }
 
+  /**
+   * Get {@link SamzaSqlApplicationConfig} given sql statements and samza config.
+   * @param sqlStmts List of sql statements
+   * @param config Samza config
+   * @return {@link SamzaSqlApplicationConfig}
+   */
   public static SamzaSqlApplicationConfig getSqlConfig(List<String> sqlStmts, Config config) {
     List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
     return new SamzaSqlApplicationConfig(config,
@@ -75,15 +80,30 @@ public class SamzaSqlDslConverter implements DslConverter {
             .collect(Collectors.toList()));
   }
 
+  /**
+   * Get {@link QueryPlanner} given {@link SamzaSqlApplicationConfig}
+   * @param sqlConfig {@link SamzaSqlApplicationConfig}
+   * @return {@link QueryPlanner}
+   */
   public static QueryPlanner getQueryPlanner(SamzaSqlApplicationConfig sqlConfig) {
     return new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
         sqlConfig.getUdfMetadata());
   }
 
+  /**
+   * Get list of {@link org.apache.samza.sql.util.SamzaSqlQueryParser.QueryInfo} given list of sql statements.
+   * @param sqlStmts list of sql statements
+   * @return list of {@link org.apache.samza.sql.util.SamzaSqlQueryParser.QueryInfo}
+   */
   public static List<SamzaSqlQueryParser.QueryInfo> fetchQueryInfo(List<String> sqlStmts) {
     return sqlStmts.stream().map(SamzaSqlQueryParser::parseQuery).collect(Collectors.toList());
   }
 
+  /**
+   * Get list of sql statements based on the property set in the config.
+   * @param config config
+   * @return list of Sql statements
+   */
   public static List<String> fetchSqlFromConfig(Map<String, String> config) {
     List<String> sql;
     if (config.containsKey(SamzaSqlApplicationConfig.CFG_SQL_STMT) &&

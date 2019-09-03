@@ -58,6 +58,11 @@ public class SamzaSqlValidator {
     this.config = config;
   }
 
+  /**
+   * Validate a list of sql statements
+   * @param sqlStmts list of sql statements
+   * @throws SamzaSqlValidatorException
+   */
   public void validate(List<String> sqlStmts) throws SamzaSqlValidatorException {
     SamzaSqlApplicationConfig sqlConfig = SamzaSqlDslConverter.getSqlConfig(sqlStmts, config);
     QueryPlanner planner = SamzaSqlDslConverter.getQueryPlanner(sqlConfig);
