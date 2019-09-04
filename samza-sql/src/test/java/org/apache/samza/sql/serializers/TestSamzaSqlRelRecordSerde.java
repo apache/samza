@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.serializers;
 
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -51,7 +50,7 @@ public class TestSamzaSqlRelRecordSerde {
   @Test
   public void testWithDifferentFields() {
     SamzaSqlRelRecord record =
-        new SamzaSqlRelMessage(names, values, new SamzaSqlRelMsgMetadata("", "", "")).getSamzaSqlRelRecord();
+        new SamzaSqlRelMessage(names, values, new SamzaSqlRelMsgMetadata(0L, 0L)).getSamzaSqlRelRecord();
     SamzaSqlRelRecordSerde serde =
         (SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
     SamzaSqlRelRecord resultRecord = serde.fromBytes(serde.toBytes(record));

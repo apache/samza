@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql;
 
-import java.time.Instant;
 import net.jodah.failsafe.internal.util.Assert;
 import org.apache.samza.operators.KV;
 import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
@@ -40,9 +39,7 @@ public class SamzaSqlInputTransformer implements InputTransformer {
   public Object apply(IncomingMessageEnvelope ime) {
     Assert.notNull(ime, "ime is null");
     KV<Object, Object> keyAndMessageKV = KV.of(ime.getKey(), ime.getMessage());
-    SamzaSqlRelMsgMetadata metadata = new SamzaSqlRelMsgMetadata(
-        (ime.getEventTime() == 0) ? "" : Instant.ofEpochMilli(ime.getEventTime()).toString(),
-        (ime.getArrivalTime() == 0) ? "" : Instant.ofEpochMilli(ime.getArrivalTime()).toString(), null);
+    SamzaSqlRelMsgMetadata metadata = new SamzaSqlRelMsgMetadata(ime.getEventTime(), ime.getArrivalTime());
     SamzaSqlInputMessage samzaMsg = SamzaSqlInputMessage.of(keyAndMessageKV, metadata);
     return  samzaMsg;
   }
