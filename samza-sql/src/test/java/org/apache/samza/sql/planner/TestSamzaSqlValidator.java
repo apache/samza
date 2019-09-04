@@ -22,14 +22,11 @@ package org.apache.samza.sql.planner;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
-import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.junit.Assert;
 import org.junit.Before;
@@ -149,6 +146,27 @@ public class TestSamzaSqlValidator {
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
     new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
+  @Test
+  public void testNonDefaultOutputField() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
+    // id is non-default field.
+    String sql = "Insert into testavro.outputTopic "
+        + " select NOT(id = 5) as bool_value, CASE WHEN id IN (5, 6, 7) THEN CAST('foo' AS VARCHAR) WHEN id < 5 THEN CAST('bars' AS VARCHAR) ELSE NULL END as string_value from testavro.SIMPLE1";
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+
+    try {
+      new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+    } catch (SamzaSqlValidatorException e) {
+      Assert.assertTrue(e.getMessage().contains("Field \'id\' in output schema does not match"));
+      return;
+    }
+
+    Assert.assertTrue("Validation test has failed.", false);
   }
 
   @Test

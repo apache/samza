@@ -161,7 +161,7 @@ public class QueryPlanner {
     List<SqlFieldSchema> fieldTypes = new ArrayList<>();
     if (!sqlSchema.containsField(SamzaSqlRelMessage.KEY_NAME)) {
       fieldNames.add(SamzaSqlRelMessage.KEY_NAME);
-      fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY));
+      fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY, false));
     }
 
     fieldNames.addAll(

@@ -110,13 +110,31 @@ public class SamzaSqlValidator {
     Map<String, RelDataType> projectRecordMap = projectRecord.getFieldList().stream().collect(
         Collectors.toMap(RelDataTypeField::getName, RelDataTypeField::getType));
 
-    // There could be default values for the output schema and hence fields in project schema could be a subset of
-    // fields in output schema.
-    // TODO: SAMZA-2316: Validate that all non-default value fields in output schema are set in the projected fields.
+    // Ensure that all non-default value fields in output schema are set in the projected fields and are of the
+    // same type.
+    for (Map.Entry<String, RelDataType> entry : outputRecordMap.entrySet()) {
+      RelDataType projectFieldType = projectRecordMap.get(entry.getKey());
+      if (projectFieldType == null) {
+        if (entry.getKey().equals(SamzaSqlRelMessage.KEY_NAME) || entry.getValue().isNullable()) {
+          continue;
+        }
+        String errMsg = String.format("Field '%s' in output schema does not match any projected fields.",
+            entry.getKey());
+        LOG.error(errMsg);
+        throw new SamzaSqlValidatorException(errMsg);
+      } else if (!compareFieldTypes(entry.getValue(), projectFieldType)) {
+        String errMsg = String.format("Field '%s' with type '%s' in output schema does not match the field type '%s' in"
+            + " projected fields.", entry.getKey(), entry.getValue(), projectFieldType);
+        LOG.error(errMsg);
+        throw new SamzaSqlValidatorException(errMsg);
+      }
+    }
+
+    // Ensure that all projected fields exist in the output schema and are of the same type.
     for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
       RelDataType outputFieldType = outputRecordMap.get(entry.getKey());
       if (outputFieldType == null) {
-        if (entry.getKey().equals(SamzaSqlRelMessage.OP_NAME)) {
+        if (entry.getKey().equals(SamzaSqlRelMessage.OP_NAME) || entry.getKey().equals(SamzaSqlRelMessage.KEY_NAME)) {
           continue;
         }
         String errMsg = String.format("Field '%s' in select query does not match any field in output schema.",

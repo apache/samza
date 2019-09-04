@@ -23,7 +23,6 @@ import java.util.List;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
-import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.schema.SqlFieldSchema;
@@ -60,7 +59,9 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
 
     SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
-      SqlFieldSchema fieldSchema = convertField(field.schema());
+      // Consider any field with default value as nullable. Is it the right assumption ?
+      boolean isNullable = field.defaultValue() != null;
+      SqlFieldSchema fieldSchema = convertField(field.schema(), isNullable);
       schemaBuilder.addField(field.name(), fieldSchema);
     }
 
@@ -68,36 +69,40 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
   }
 
   private SqlFieldSchema convertField(Schema fieldSchema) {
+    return convertField(fieldSchema, false);
+  }
+
+  private SqlFieldSchema convertField(Schema fieldSchema, boolean isNullable) {
     switch (fieldSchema.getType()) {
       case ARRAY:
         SqlFieldSchema elementSchema = convertField(fieldSchema.getElementType());
-        return SqlFieldSchema.createArraySchema(elementSchema);
+        return SqlFieldSchema.createArraySchema(elementSchema, isNullable);
       case BOOLEAN:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN, isNullable);
       case DOUBLE:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.DOUBLE);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.DOUBLE, isNullable);
       case FLOAT:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.FLOAT);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.FLOAT, isNullable);
       case ENUM:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING, isNullable);
       case UNION:
-        return getSqlTypeFromUnionTypes(fieldSchema.getTypes());
+        return getSqlTypeFromUnionTypes(fieldSchema.getTypes(), isNullable);
       case FIXED:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BYTES);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BYTES, isNullable);
       case STRING:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING, isNullable);
       case BYTES:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BYTES);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BYTES, isNullable);
       case INT:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT32);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT32, isNullable);
       case LONG:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT64);
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT64, isNullable);
       case RECORD:
         SqlSchema rowSchema = convertSchema(fieldSchema.getFields());
-        return SqlFieldSchema.createRowFieldSchema(rowSchema);
+        return SqlFieldSchema.createRowFieldSchema(rowSchema, isNullable);
       case MAP:
-        SqlFieldSchema valueType = convertField(fieldSchema.getValueType());
-        return SqlFieldSchema.createMapSchema(valueType);
+        SqlFieldSchema valueType = convertField(fieldSchema.getValueType(), isNullable);
+        return SqlFieldSchema.createMapSchema(valueType, isNullable);
       default:
         String msg = String.format("Field Type %s is not supported", fieldSchema.getType());
         LOG.error(msg);
@@ -105,17 +110,17 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     }
   }
 
-  private SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types) {
+  private SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types, boolean isNullable) {
     // Typically a nullable field's schema is configured as an union of Null and a Type.
     // This is to check whether the Union is a Nullable field
     if (types.size() == 2) {
       if (types.get(0).getType() == Schema.Type.NULL) {
-        return convertField(types.get(1));
+        return convertField(types.get(1), true);
       } else if ((types.get(1).getType() == Schema.Type.NULL)) {
-        return convertField(types.get(0));
+        return convertField(types.get(0), true);
       }
     }
 
-    return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY);
+    return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY, isNullable);
   }
 }

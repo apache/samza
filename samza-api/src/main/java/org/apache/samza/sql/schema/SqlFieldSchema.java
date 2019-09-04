@@ -28,40 +28,44 @@ public class SqlFieldSchema {
   private SqlFieldSchema elementType;
   private SqlFieldSchema valueType;
   private SqlSchema rowSchema;
+  private boolean isNullable;
 
-  private SqlFieldSchema(SamzaSqlFieldType fieldType, SqlFieldSchema elementType, SqlFieldSchema valueType, SqlSchema rowSchema) {
+  private SqlFieldSchema(SamzaSqlFieldType fieldType, SqlFieldSchema elementType, SqlFieldSchema valueType,
+      SqlSchema rowSchema, boolean isNullable) {
     this.fieldType = fieldType;
     this.elementType = elementType;
     this.valueType = valueType;
     this.rowSchema = rowSchema;
+    this.isNullable = isNullable;
   }
 
   /**
-   * Create a primitive fi
+   * Create a primitive field schema.
    * @param typeName
    * @return
    */
-  public static SqlFieldSchema createPrimitiveSchema(SamzaSqlFieldType typeName) {
-    return new SqlFieldSchema(typeName, null, null, null);
+  public static SqlFieldSchema createPrimitiveSchema(SamzaSqlFieldType typeName, boolean isNullable) {
+    return new SqlFieldSchema(typeName, null, null, null, isNullable);
   }
 
-  public static SqlFieldSchema createArraySchema(SqlFieldSchema elementType) {
-    return new SqlFieldSchema(SamzaSqlFieldType.ARRAY, elementType, null, null);
+  public static SqlFieldSchema createArraySchema(SqlFieldSchema elementType, boolean isNullable) {
+    return new SqlFieldSchema(SamzaSqlFieldType.ARRAY, elementType, null, null, isNullable);
   }
 
-  public static SqlFieldSchema createMapSchema(SqlFieldSchema valueType) {
-    return new SqlFieldSchema(SamzaSqlFieldType.MAP, null, valueType, null);
+  public static SqlFieldSchema createMapSchema(SqlFieldSchema valueType, boolean isNullable) {
+    return new SqlFieldSchema(SamzaSqlFieldType.MAP, null, valueType, null, isNullable);
   }
 
-  public static SqlFieldSchema createRowFieldSchema(SqlSchema rowSchema) {
-    return new SqlFieldSchema(SamzaSqlFieldType.ROW, null, null, rowSchema);
+  public static SqlFieldSchema createRowFieldSchema(SqlSchema rowSchema, boolean isNullable) {
+    return new SqlFieldSchema(SamzaSqlFieldType.ROW, null, null, rowSchema, isNullable);
   }
 
   /**
    * @return whether the field is a primitive field type or not.
    */
   public boolean isPrimitiveField() {
-    return fieldType != SamzaSqlFieldType.ARRAY && fieldType != SamzaSqlFieldType.MAP && fieldType != SamzaSqlFieldType.ROW;
+    return fieldType != SamzaSqlFieldType.ARRAY && fieldType != SamzaSqlFieldType.MAP &&
+        fieldType != SamzaSqlFieldType.ROW;
   }
 
   /**
@@ -93,5 +97,11 @@ public class SqlFieldSchema {
     return rowSchema;
   }
 
+  /**
+   * Get if the field type is nullable.
+   */
+  public boolean isNullable() {
+    return isNullable;
+  }
 
 }
