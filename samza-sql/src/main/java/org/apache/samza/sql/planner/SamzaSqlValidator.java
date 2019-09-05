@@ -33,7 +33,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
@@ -102,8 +101,8 @@ public class SamzaSqlValidator {
     RelRecordType outputRecord = (RelRecordType) QueryPlanner.getSourceRelSchema(relSchemaProvider,
         new RelSchemaConverter());
     // Get Samza Sql schema along with Calcite schema. The reason is that the Calcite schema does not have a way
-    // to represent fields with default values while Samza Sql schema can represent default value fields. This is
-    // the only reason that we use SqlSchema in validating output.
+    // to represent optional fields while Samza Sql schema can represent optional fields. This is the only reason that
+    // we use SqlSchema in validating output.
     SqlSchema outputSqlSchema = QueryPlanner.getSourceSqlSchema(relSchemaProvider);
 
     LogicalProject project = (LogicalProject) relRoot.rel;
@@ -122,14 +121,16 @@ public class SamzaSqlValidator {
     Map<String, RelDataType> projectRecordMap = projectRecord.getFieldList().stream().collect(
         Collectors.toMap(RelDataTypeField::getName, RelDataTypeField::getType));
 
-    // Ensure that all non-default value fields in output schema are set in the projected fields and are of the
+    // Ensure that all non-optional fields in output schema are set in the sql query and are of the
     // same type.
     for (Map.Entry<String, RelDataType> entry : outputRecordMap.entrySet()) {
       RelDataType projectFieldType = projectRecordMap.get(entry.getKey());
       SqlFieldSchema outputSqlFieldSchema = outputFieldSchemaMap.get(entry.getKey());
 
       if (projectFieldType == null) {
-        if (entry.getKey().equals(SamzaSqlRelMessage.KEY_NAME) || outputSqlFieldSchema.hasDefaultValue()) {
+        // If an output schema field is not found in the sql query, ignore it if the field is optional.
+        // Otherwise, throw an error.
+        if (outputSqlFieldSchema.isOptional()) {
           continue;
         }
         String errMsg = String.format("Field '%s' in output schema does not match any projected fields.",
@@ -144,13 +145,15 @@ public class SamzaSqlValidator {
       }
     }
 
-    // Ensure that all projected fields exist in the output schema and are of the same type.
+    // Ensure that all fields from sql statement exist in the output schema and are of the same type.
     for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
       RelDataType outputFieldType = outputRecordMap.get(entry.getKey());
       SqlFieldSchema outputSqlFieldSchema = outputFieldSchemaMap.get(entry.getKey());
 
       if (outputFieldType == null) {
-        if (entry.getKey().equals(SamzaSqlRelMessage.OP_NAME) || entry.getKey().equals(SamzaSqlRelMessage.KEY_NAME)) {
+        // If a field in sql query is not found in the output schema, ignore if it is a Samza Sql special op.
+        // Otherwise, throw an error.
+        if (entry.getKey().equals(SamzaSqlRelMessage.OP_NAME)) {
           continue;
         }
         String errMsg = String.format("Field '%s' in select query does not match any field in output schema.",

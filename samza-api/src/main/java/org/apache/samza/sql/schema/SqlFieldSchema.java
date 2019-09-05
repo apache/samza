@@ -28,17 +28,24 @@ public class SqlFieldSchema {
   private final SqlFieldSchema elementType;
   private final SqlFieldSchema valueType;
   private final SqlSchema rowSchema;
+  // A field is considered nullable when the field could have a null value. Please note that nullable field
+  // needs to be explicitly set while writing and is expected to be set while reading. A non-nullable field
+  // cannot have a null value.
   private final Boolean isNullable;
-  private final Boolean hasDefaultValue;
+  // A field is considered optional when the field has a default value. Such a field need not be set while writing
+  // but is expected to be set while reading.
+  // Please note that nullable field is also optional field if a default value is set but the value for
+  // nullable non-optional field need to be explicitly set.
+  private final Boolean isOptional;
 
   private SqlFieldSchema(SamzaSqlFieldType fieldType, SqlFieldSchema elementType, SqlFieldSchema valueType,
-      SqlSchema rowSchema, boolean isNullable, boolean hasDefaultValue) {
+      SqlSchema rowSchema, boolean isNullable, boolean isOptional) {
     this.fieldType = fieldType;
     this.elementType = elementType;
     this.valueType = valueType;
     this.rowSchema = rowSchema;
     this.isNullable = isNullable;
-    this.hasDefaultValue = hasDefaultValue;
+    this.isOptional = isOptional;
   }
 
   /**
@@ -47,21 +54,21 @@ public class SqlFieldSchema {
    * @return
    */
   public static SqlFieldSchema createPrimitiveSchema(SamzaSqlFieldType typeName, boolean isNullable,
-      boolean hasDefaultValue) {
-    return new SqlFieldSchema(typeName, null, null, null, isNullable, hasDefaultValue);
+      boolean isOptional) {
+    return new SqlFieldSchema(typeName, null, null, null, isNullable, isOptional);
   }
 
   public static SqlFieldSchema createArraySchema(SqlFieldSchema elementType, boolean isNullable,
-      boolean hasDefaultValue) {
-    return new SqlFieldSchema(SamzaSqlFieldType.ARRAY, elementType, null, null, isNullable, hasDefaultValue);
+      boolean isOptional) {
+    return new SqlFieldSchema(SamzaSqlFieldType.ARRAY, elementType, null, null, isNullable, isOptional);
   }
 
-  public static SqlFieldSchema createMapSchema(SqlFieldSchema valueType, boolean isNullable, boolean hasDefaultValue) {
-    return new SqlFieldSchema(SamzaSqlFieldType.MAP, null, valueType, null, isNullable, hasDefaultValue);
+  public static SqlFieldSchema createMapSchema(SqlFieldSchema valueType, boolean isNullable, boolean isOptional) {
+    return new SqlFieldSchema(SamzaSqlFieldType.MAP, null, valueType, null, isNullable, isOptional);
   }
 
-  public static SqlFieldSchema createRowFieldSchema(SqlSchema rowSchema, boolean isNullable, boolean hasDefaultValue) {
-    return new SqlFieldSchema(SamzaSqlFieldType.ROW, null, null, rowSchema, isNullable, hasDefaultValue);
+  public static SqlFieldSchema createRowFieldSchema(SqlSchema rowSchema, boolean isNullable, boolean isOptional) {
+    return new SqlFieldSchema(SamzaSqlFieldType.ROW, null, null, rowSchema, isNullable, isOptional);
   }
 
   /**
@@ -109,9 +116,9 @@ public class SqlFieldSchema {
   }
 
   /**
-   * Get if the field has default value.
+   * Get if the field type is optional.
    */
-  public boolean hasDefaultValue() {
-    return hasDefaultValue;
+  public boolean isOptional() {
+    return isOptional;
   }
 }

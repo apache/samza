@@ -159,7 +159,8 @@ public class QueryPlanner {
     List<SqlFieldSchema> fieldTypes = new ArrayList<>();
     if (!sqlSchema.containsField(SamzaSqlRelMessage.KEY_NAME)) {
       fieldNames.add(SamzaSqlRelMessage.KEY_NAME);
-      fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY, false, false));
+      // Key is a nullable and optional field. It is defaulted to null in SamzaSqlRelMessage.
+      fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY, true, true));
     }
 
     fieldNames.addAll(
