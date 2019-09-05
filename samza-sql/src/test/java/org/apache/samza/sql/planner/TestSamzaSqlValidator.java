@@ -51,7 +51,7 @@ public class TestSamzaSqlValidator {
   public void testBasicValidation() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic(id) select id, name as string_value"
+        "Insert into testavro.outputTopic select id, true as bool_value, name as string_value"
             + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
 
@@ -149,6 +149,25 @@ public class TestSamzaSqlValidator {
   }
 
   @Test
+  public void testNonDefaultButNullableField() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+    // bool_value is missing
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic(id) select Flatten(a) as id from (select MyTestArray(id) a from testavro.SIMPLE1)");
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    try {
+      new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+    } catch (SamzaSqlValidatorException e) {
+      Assert.assertTrue(e.getMessage().contains("Field 'bool_value' in output schema does not match any projected fields."));
+      return;
+    }
+
+    Assert.fail("Validation test has failed.");
+  }
+
+  @Test
   public void testNonDefaultOutputField() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
     // id is non-default field.
@@ -162,11 +181,11 @@ public class TestSamzaSqlValidator {
     try {
       new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
     } catch (SamzaSqlValidatorException e) {
-      Assert.assertTrue(e.getMessage().contains("Field \'id\' in output schema does not match"));
+      Assert.assertTrue(e.getMessage().contains("Field 'id' in output schema does not match"));
       return;
     }
 
-    Assert.assertTrue("Validation test has failed.", false);
+    Assert.fail("Validation test has failed.");
   }
 
   @Test

@@ -33,6 +33,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
@@ -40,6 +41,8 @@ import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
+import org.apache.samza.sql.schema.SqlFieldSchema;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,15 +101,24 @@ public class SamzaSqlValidator {
   protected void validateOutput(RelRoot relRoot, RelSchemaProvider relSchemaProvider) throws SamzaSqlValidatorException {
     RelRecordType outputRecord = (RelRecordType) QueryPlanner.getSourceRelSchema(relSchemaProvider,
         new RelSchemaConverter());
+    // Get Samza Sql schema along with Calcite schema. The reason is that the Calcite schema does not have a way
+    // to represent fields with default values while Samza Sql schema can represent default value fields. This is
+    // the only reason that we use SqlSchema in validating output.
+    SqlSchema outputSqlSchema = QueryPlanner.getSourceSqlSchema(relSchemaProvider);
+
     LogicalProject project = (LogicalProject) relRoot.rel;
     RelRecordType projetRecord = (RelRecordType) project.getRowType();
-    validateOutputRecords(outputRecord, projetRecord);
+
+    validateOutputRecords(outputRecord, outputSqlSchema, projetRecord);
   }
 
-  protected void validateOutputRecords(RelRecordType outputRecord, RelRecordType projectRecord)
+  protected void validateOutputRecords(RelRecordType outputRecord, SqlSchema outputSqlSchema,
+      RelRecordType projectRecord)
       throws SamzaSqlValidatorException {
     Map<String, RelDataType> outputRecordMap = outputRecord.getFieldList().stream().collect(
         Collectors.toMap(RelDataTypeField::getName, RelDataTypeField::getType));
+    Map<String, SqlFieldSchema> outputFieldSchemaMap = outputSqlSchema.getFields().stream().collect(
+        Collectors.toMap(SqlSchema.SqlField::getFieldName, SqlSchema.SqlField::getFieldSchema));
     Map<String, RelDataType> projectRecordMap = projectRecord.getFieldList().stream().collect(
         Collectors.toMap(RelDataTypeField::getName, RelDataTypeField::getType));
 
@@ -114,15 +126,17 @@ public class SamzaSqlValidator {
     // same type.
     for (Map.Entry<String, RelDataType> entry : outputRecordMap.entrySet()) {
       RelDataType projectFieldType = projectRecordMap.get(entry.getKey());
+      SqlFieldSchema outputSqlFieldSchema = outputFieldSchemaMap.get(entry.getKey());
+
       if (projectFieldType == null) {
-        if (entry.getKey().equals(SamzaSqlRelMessage.KEY_NAME) || entry.getValue().isNullable()) {
+        if (entry.getKey().equals(SamzaSqlRelMessage.KEY_NAME) || outputSqlFieldSchema.hasDefaultValue()) {
           continue;
         }
         String errMsg = String.format("Field '%s' in output schema does not match any projected fields.",
             entry.getKey());
         LOG.error(errMsg);
         throw new SamzaSqlValidatorException(errMsg);
-      } else if (!compareFieldTypes(entry.getValue(), projectFieldType)) {
+      } else if (!compareFieldTypes(entry.getValue(), outputSqlFieldSchema, projectFieldType)) {
         String errMsg = String.format("Field '%s' with type '%s' in output schema does not match the field type '%s' in"
             + " projected fields.", entry.getKey(), entry.getValue(), projectFieldType);
         LOG.error(errMsg);
@@ -133,6 +147,8 @@ public class SamzaSqlValidator {
     // Ensure that all projected fields exist in the output schema and are of the same type.
     for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
       RelDataType outputFieldType = outputRecordMap.get(entry.getKey());
+      SqlFieldSchema outputSqlFieldSchema = outputFieldSchemaMap.get(entry.getKey());
+
       if (outputFieldType == null) {
         if (entry.getKey().equals(SamzaSqlRelMessage.OP_NAME) || entry.getKey().equals(SamzaSqlRelMessage.KEY_NAME)) {
           continue;
@@ -141,7 +157,7 @@ public class SamzaSqlValidator {
             entry.getKey());
         LOG.error(errMsg);
         throw new SamzaSqlValidatorException(errMsg);
-      } else if (!compareFieldTypes(outputFieldType, entry.getValue())) {
+      } else if (!compareFieldTypes(outputFieldType, outputSqlFieldSchema, entry.getValue())) {
         String errMsg = String.format("Field '%s' with type '%s' in select query does not match the field type '%s' in"
             + " output schema.", entry.getKey(), entry.getValue(), outputFieldType);
         LOG.error(errMsg);
@@ -150,7 +166,8 @@ public class SamzaSqlValidator {
     }
   }
 
-  protected boolean compareFieldTypes(RelDataType outputFieldType, RelDataType selectQueryFieldType) {
+  protected boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
+      RelDataType selectQueryFieldType) {
     RelDataType projectFieldType;
 
     // JavaTypes are relevant for Udf argument and return types
@@ -186,7 +203,8 @@ public class SamzaSqlValidator {
         return projectSqlType == SqlTypeName.FLOAT;
       case ROW:
         try {
-          validateOutputRecords((RelRecordType) outputFieldType, (RelRecordType) projectFieldType);
+          validateOutputRecords((RelRecordType) outputFieldType, sqlFieldSchema.getRowSchema(),
+              (RelRecordType) projectFieldType);
         } catch (SamzaSqlValidatorException e) {
           LOG.error("A field in select query does not match with the output schema.", e);
           return false;

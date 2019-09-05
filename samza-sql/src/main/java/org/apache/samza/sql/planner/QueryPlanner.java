@@ -152,16 +152,14 @@ public class QueryPlanner {
     }
   }
 
-  public static RelDataType getSourceRelSchema(RelSchemaProvider relSchemaProvider,
-      RelSchemaConverter relSchemaConverter) {
-    // If the source part is the last one, then fetch the schema corresponding to the stream and register.
+  public static SqlSchema getSourceSqlSchema(RelSchemaProvider relSchemaProvider) {
     SqlSchema sqlSchema = relSchemaProvider.getSqlSchema();
 
     List<String> fieldNames = new ArrayList<>();
     List<SqlFieldSchema> fieldTypes = new ArrayList<>();
     if (!sqlSchema.containsField(SamzaSqlRelMessage.KEY_NAME)) {
       fieldNames.add(SamzaSqlRelMessage.KEY_NAME);
-      fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY, false));
+      fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY, false, false));
     }
 
     fieldNames.addAll(
@@ -169,8 +167,13 @@ public class QueryPlanner {
     fieldTypes.addAll(
         sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldSchema).collect(Collectors.toList()));
 
-    SqlSchema newSchema = new SqlSchema(fieldNames, fieldTypes);
-    return relSchemaConverter.convertToRelSchema(newSchema);
+    return new SqlSchema(fieldNames, fieldTypes);
+  }
+
+  public static RelDataType getSourceRelSchema(RelSchemaProvider relSchemaProvider,
+      RelSchemaConverter relSchemaConverter) {
+    // If the source part is the last one, then fetch the schema corresponding to the stream and register.
+    return relSchemaConverter.convertToRelSchema(getSourceSqlSchema(relSchemaProvider));
   }
 
   private static Table createTableFromRelSchema(RelDataType relationalSchema) {

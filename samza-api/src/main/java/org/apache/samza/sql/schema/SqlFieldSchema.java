@@ -24,19 +24,21 @@ package org.apache.samza.sql.schema;
  */
 public class SqlFieldSchema {
 
-  private SamzaSqlFieldType fieldType;
-  private SqlFieldSchema elementType;
-  private SqlFieldSchema valueType;
-  private SqlSchema rowSchema;
-  private boolean isNullable;
+  private final SamzaSqlFieldType fieldType;
+  private final SqlFieldSchema elementType;
+  private final SqlFieldSchema valueType;
+  private final SqlSchema rowSchema;
+  private final Boolean isNullable;
+  private final Boolean hasDefaultValue;
 
   private SqlFieldSchema(SamzaSqlFieldType fieldType, SqlFieldSchema elementType, SqlFieldSchema valueType,
-      SqlSchema rowSchema, boolean isNullable) {
+      SqlSchema rowSchema, boolean isNullable, boolean hasDefaultValue) {
     this.fieldType = fieldType;
     this.elementType = elementType;
     this.valueType = valueType;
     this.rowSchema = rowSchema;
     this.isNullable = isNullable;
+    this.hasDefaultValue = hasDefaultValue;
   }
 
   /**
@@ -44,20 +46,22 @@ public class SqlFieldSchema {
    * @param typeName
    * @return
    */
-  public static SqlFieldSchema createPrimitiveSchema(SamzaSqlFieldType typeName, boolean isNullable) {
-    return new SqlFieldSchema(typeName, null, null, null, isNullable);
+  public static SqlFieldSchema createPrimitiveSchema(SamzaSqlFieldType typeName, boolean isNullable,
+      boolean hasDefaultValue) {
+    return new SqlFieldSchema(typeName, null, null, null, isNullable, hasDefaultValue);
   }
 
-  public static SqlFieldSchema createArraySchema(SqlFieldSchema elementType, boolean isNullable) {
-    return new SqlFieldSchema(SamzaSqlFieldType.ARRAY, elementType, null, null, isNullable);
+  public static SqlFieldSchema createArraySchema(SqlFieldSchema elementType, boolean isNullable,
+      boolean hasDefaultValue) {
+    return new SqlFieldSchema(SamzaSqlFieldType.ARRAY, elementType, null, null, isNullable, hasDefaultValue);
   }
 
-  public static SqlFieldSchema createMapSchema(SqlFieldSchema valueType, boolean isNullable) {
-    return new SqlFieldSchema(SamzaSqlFieldType.MAP, null, valueType, null, isNullable);
+  public static SqlFieldSchema createMapSchema(SqlFieldSchema valueType, boolean isNullable, boolean hasDefaultValue) {
+    return new SqlFieldSchema(SamzaSqlFieldType.MAP, null, valueType, null, isNullable, hasDefaultValue);
   }
 
-  public static SqlFieldSchema createRowFieldSchema(SqlSchema rowSchema, boolean isNullable) {
-    return new SqlFieldSchema(SamzaSqlFieldType.ROW, null, null, rowSchema, isNullable);
+  public static SqlFieldSchema createRowFieldSchema(SqlSchema rowSchema, boolean isNullable, boolean hasDefaultValue) {
+    return new SqlFieldSchema(SamzaSqlFieldType.ROW, null, null, rowSchema, isNullable, hasDefaultValue);
   }
 
   /**
@@ -104,4 +108,10 @@ public class SqlFieldSchema {
     return isNullable;
   }
 
+  /**
+   * Get if the field has default value.
+   */
+  public boolean hasDefaultValue() {
+    return hasDefaultValue;
+  }
 }
