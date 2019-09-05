@@ -71,11 +71,10 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
   }
 
   private RelDataType getRelDataType(SqlFieldSchema fieldSchema) {
-    boolean isNullable = fieldSchema.hasDefaultValue();
     switch (fieldSchema.getFieldType()) {
       case ARRAY:
         RelDataType elementType = getRelDataType(fieldSchema.getElementSchema());
-        return new ArraySqlType(elementType, fieldSchema.isNullable() || fieldSchema.hasDefaultValue());
+        return new ArraySqlType(elementType, fieldSchema.isNullable());
       case BOOLEAN:
         return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), fieldSchema.isNullable());
       case DOUBLE:
