@@ -115,9 +115,9 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     // This is to check whether the Union is a Nullable field
     if (types.size() == 2) {
       if (types.get(0).getType() == Schema.Type.NULL) {
-        return convertField(types.get(1), true, false);
+        return convertField(types.get(1), true, hasDefaultValue);
       } else if ((types.get(1).getType() == Schema.Type.NULL)) {
-        return convertField(types.get(0), true, false);
+        return convertField(types.get(0), true, hasDefaultValue);
       }
     }
 
