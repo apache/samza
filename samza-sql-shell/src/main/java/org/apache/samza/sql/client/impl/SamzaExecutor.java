@@ -293,9 +293,9 @@ public class SamzaExecutor implements SqlExecutor {
      */
     List<SqlFunction> udfs = new ArrayList<>();
     udfs.add(new SamzaSqlUdfDisplayInfo("RegexMatch", "Matches the string to the regex",
-            Arrays.asList(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING),
-                SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING)),
-        SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN)));
+            Arrays.asList(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING, false, false),
+                SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING, false, false)),
+        SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN, false, false)));
 
     return udfs;
   }

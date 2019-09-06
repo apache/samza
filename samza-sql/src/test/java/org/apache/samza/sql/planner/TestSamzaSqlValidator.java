@@ -22,14 +22,11 @@ package org.apache.samza.sql.planner;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
-import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.junit.Assert;
 import org.junit.Before;
@@ -54,7 +51,7 @@ public class TestSamzaSqlValidator {
   public void testBasicValidation() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic(id) select id, name as string_value"
+        "Insert into testavro.outputTopic select id, true as bool_value, name as string_value"
             + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
 
@@ -149,6 +146,46 @@ public class TestSamzaSqlValidator {
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
     new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
+  @Test
+  public void testNonDefaultButNullableField() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+    // bool_value is missing
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic(id) select Flatten(a) as id from (select MyTestArray(id) a from testavro.SIMPLE1)");
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    try {
+      new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+    } catch (SamzaSqlValidatorException e) {
+      Assert.assertTrue(e.getMessage().contains("Field 'bool_value' in output schema does not match any projected fields."));
+      return;
+    }
+
+    Assert.fail("Validation test has failed.");
+  }
+
+  @Test
+  public void testNonDefaultOutputField() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
+    // id is non-default field.
+    String sql = "Insert into testavro.outputTopic "
+        + " select NOT(id = 5) as bool_value, CASE WHEN id IN (5, 6, 7) THEN CAST('foo' AS VARCHAR) WHEN id < 5 THEN CAST('bars' AS VARCHAR) ELSE NULL END as string_value from testavro.SIMPLE1";
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+
+    try {
+      new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+    } catch (SamzaSqlValidatorException e) {
+      Assert.assertTrue(e.getMessage().contains("Field 'id' in output schema does not match"));
+      return;
+    }
+
+    Assert.fail("Validation test has failed.");
   }
 
   @Test
