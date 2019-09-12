@@ -419,7 +419,7 @@ public class TestRunner {
   private void deleteDirectory(String path) {
     File dir = new File(path);
     LOG.info("Deleting the directory " + path);
-    FileUtil.rm(dir);
+    new FileUtil().rm(dir);
     if (dir.exists()) {
       LOG.warn("Could not delete the directory " + path);
     }

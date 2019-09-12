@@ -89,15 +89,17 @@ class TaskStorageManager(
         val newestOffset = if (sspMetadata == null) null else sspMetadata.getNewestOffset
         debug("Got offset %s for store %s" format(newestOffset, storeName))
 
+        val storageManagerUtil = new StorageManagerUtil()
         if (newestOffset != null) {
           debug("Storing offset for store in OFFSET file ")
 
           // TaskStorageManagers are only spun-up for active tasks
-          StorageManagerUtil.writeOffsetFile(loggedStoreBaseDir, storeName, taskName, TaskMode.Active, Map(ssp -> newestOffset).asJava, false)
+          val currentStoreDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active)
+          storageManagerUtil.writeOffsetFile(currentStoreDir, Map(ssp -> newestOffset).asJava, false)
           debug("Successfully stored offset %s for store %s in OFFSET file " format(newestOffset, storeName))
         } else {
           //if newestOffset is null, then it means the store is (or has become) empty. No need to persist the offset file
-          StorageManagerUtil.deleteOffsetFile(loggedStoreBaseDir, storeName, taskName);
+          storageManagerUtil.deleteOffsetFile(loggedStoreBaseDir, storeName, taskName);
           debug("Not storing OFFSET file for taskName %s. Store %s backed by changelog topic: %s, partition: %s is empty. " format (taskName, storeName, systemStream.getStream, partition.getPartitionId))
         }
       } catch {
