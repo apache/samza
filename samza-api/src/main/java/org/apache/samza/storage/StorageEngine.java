@@ -19,11 +19,10 @@
 
 package org.apache.samza.storage;
 
-import java.util.Iterator;
 
 import java.nio.file.Path;
 import java.util.Optional;
-import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.ChangelogSSPIterator;
 
 /**
  * A storage engine for managing state maintained by a stream processor.
@@ -46,7 +45,7 @@ public interface StorageEngine {
    *          An iterator of envelopes that the storage engine can read from to
    *          restore its state on startup.
    */
-  void restore(Iterator<IncomingMessageEnvelope> envelopes);
+  void restore(ChangelogSSPIterator envelopes);
 
   /**
    * Flush any cached messages
