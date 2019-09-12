@@ -22,6 +22,8 @@ package org.apache.samza.runtime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
@@ -30,6 +32,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.LocalityManager;
@@ -51,6 +54,7 @@ import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ScalaJavaUtil;
+import org.apache.samza.util.ThreadUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -132,6 +136,10 @@ public class ContainerLaunchUtil {
 
       container.setContainerListener(
           new SamzaContainerListener() {
+            private Thread shutdownHookThread = null;
+            private CountDownLatch shutdownLatch = new CountDownLatch(1);
+            private TaskConfig taskConfig = new TaskConfig(config);
+
             @Override
             public void beforeStart() {
               log.info("Before starting the container.");
@@ -142,12 +150,15 @@ public class ContainerLaunchUtil {
             public void afterStart() {
               log.info("Container Started");
               listener.afterStart();
+              addShutdownHook();
             }
 
             @Override
             public void afterStop() {
               log.info("Container Stopped");
               listener.afterStop();
+              removeShutdownHook();
+              shutdownLatch.countDown();
             }
 
             @Override
@@ -155,6 +166,41 @@ public class ContainerLaunchUtil {
               log.info("Container Failed");
               containerRunnerException = t;
               listener.afterFailure(t);
+              removeShutdownHook();
+              shutdownLatch.countDown();
+            }
+
+            private void removeShutdownHook() {
+              try {
+                if (shutdownHookThread != null) {
+                  log.info("Removing Samza container shutdown hook");
+                  Runtime.getRuntime().removeShutdownHook(shutdownHookThread);
+                }
+              } catch (IllegalStateException e) {
+                // Thrown when then JVM is already shutting down, so safe to ignore.
+              }
+            }
+
+            private void addShutdownHook() {
+              shutdownHookThread = new Thread("Samza Container Shutdown Hook Thread") {
+                @Override
+                public void run() {
+                  log.info("Shutting down, will wait upto {}", taskConfig.getShutdownMs());
+                  try {
+                    boolean hasShutdown = shutdownLatch.await(taskConfig.getShutdownMs(), TimeUnit.MILLISECONDS);
+                    if (hasShutdown) {
+                      log.info("Shutdown complete");
+                    } else {
+                      log.error("Did not shut down within {} ms, exiting.", taskConfig.getShutdownMs());
+                      ThreadUtil.logThreadDump("Thread dump from Samza Container Shutdown Hook.");
+                    }
+                  } catch (InterruptedException e) {
+                    e.printStackTrace();
+                  }
+                }
+              };
+              log.info("Adding Samza container shutdown hook");
+              Runtime.getRuntime().addShutdownHook(shutdownHookThread);
             }
           });
 

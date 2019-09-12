@@ -753,7 +753,6 @@ class SamzaContainer(
       startConsumers
       startSecurityManger
 
-      addShutdownHook
       info("Entering run loop.")
       status = SamzaContainerStatus.STARTED
       if (containerListener != null) {
@@ -777,7 +776,6 @@ class SamzaContainer(
 
     try {
       info("Shutting down SamzaContainer.")
-      removeShutdownHook
       if (jmxServer != null) {
         jmxServer.stop
       }
