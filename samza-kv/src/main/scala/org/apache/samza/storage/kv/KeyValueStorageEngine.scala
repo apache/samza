@@ -20,10 +20,13 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import java.nio.file.Path
+import java.util.Optional
 
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StorageEngine, StoreProperties}
-import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.TimerUtil
 
 import scala.collection.JavaConverters._
@@ -39,6 +42,8 @@ class KeyValueStorageEngine[K, V](
   storeProperties: StoreProperties,
   wrapperStore: KeyValueStore[K, V],
   rawStore: KeyValueStore[Array[Byte], Array[Byte]],
+  changelogSSP: SystemStreamPartition,
+  changelogCollector: MessageCollector,
   metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
   batchSize: Int = 500,
   val clock: () => Long = { System.nanoTime }) extends StorageEngine with KeyValueStore[K, V] with TimerUtil with Logging {
@@ -124,14 +129,9 @@ class KeyValueStorageEngine[K, V](
       }
 
       if (valBytes != null) {
-        metrics.restoredBytes.inc(valBytes.length)
         metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + valBytes.length)
       }
-
-      metrics.restoredBytes.inc(keyBytes.length)
       metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + keyBytes.length)
-
-      metrics.restoredMessages.inc()
       metrics.restoredMessagesGauge.set(metrics.restoredMessagesGauge.getValue + 1)
       count += 1
 
@@ -152,6 +152,14 @@ class KeyValueStorageEngine[K, V](
       trace("Flushing.")
       metrics.flushes.inc
       wrapperStore.flush()
+    }
+  }
+
+  def checkpoint(id: String): Optional[Path] = {
+    updateTimer(metrics.checkpointNs) {
+      trace("Checkpointing.")
+      metrics.checkpoints.inc
+      wrapperStore.checkpoint(id)
     }
   }
 

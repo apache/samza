@@ -21,7 +21,9 @@ package org.apache.samza.storage.kv.inmemory
 import com.google.common.primitives.UnsignedBytes
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.kv._
+import java.nio.file.Path
 import java.util
+import java.util.Optional
 
 /**
  * In memory implementation of a key value store.
@@ -123,5 +125,10 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
 
       override def close() { }
     }
+  }
+
+  override def checkpoint(id: String): Optional[Path] = {
+    // No checkpoint being persisted. State restores from Changelog.
+    Optional.empty()
   }
 }

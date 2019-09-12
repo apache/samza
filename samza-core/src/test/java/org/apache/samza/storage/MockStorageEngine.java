@@ -20,11 +20,13 @@
 package org.apache.samza.storage;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 
 import java.util.List;
+import java.util.Optional;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -58,6 +60,11 @@ public class MockStorageEngine implements StorageEngine {
 
   @Override
   public void flush() {
+  }
+
+  @Override
+  public Optional<Path> checkpoint(String id) {
+    return Optional.empty();
   }
 
   @Override
