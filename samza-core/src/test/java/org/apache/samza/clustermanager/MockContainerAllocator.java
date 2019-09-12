@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.util.Optional;
 import org.apache.samza.config.Config;
 
 import java.lang.reflect.Field;
@@ -26,14 +27,14 @@ import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class MockContainerAllocator extends ContainerAllocator {
+public class MockContainerAllocator extends AbstractContainerAllocator {
   public int requestedContainers = 0;
   private Semaphore semaphore = new Semaphore(0);
 
   public MockContainerAllocator(ClusterResourceManager manager,
                                 Config config,
                                 SamzaApplicationState state) {
-    super(manager, config, state, MockContainerAllocator.class.getClassLoader());
+    super(manager, config, state, MockContainerAllocator.class.getClassLoader(), false, Optional.empty());
   }
 
   /**

@@ -22,6 +22,7 @@ package org.apache.samza.clustermanager;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.JobModelManager;
@@ -47,15 +48,16 @@ public class TestContainerAllocator {
   private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
   private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, state);
 
-  private ContainerAllocator containerAllocator;
+  private AbstractContainerAllocator containerAllocator;
   private MockContainerRequestState requestState;
   private Thread allocatorThread;
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new ContainerAllocator(manager, config, state, getClass().getClassLoader());
+    containerAllocator = new AbstractContainerAllocator(manager, config, state, getClass().getClassLoader(), false, Optional
+        .empty());
     requestState = new MockContainerRequestState(manager, false);
-    Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("resourceRequestState");
+    Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
     requestStateField.set(containerAllocator, requestState);
     allocatorThread = new Thread(containerAllocator);

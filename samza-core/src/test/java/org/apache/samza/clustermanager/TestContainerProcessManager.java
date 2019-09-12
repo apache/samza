@@ -71,7 +71,7 @@ public class TestContainerProcessManager {
       put("cluster-manager.container.retry.count", "1");
       put("cluster-manager.container.retry.window.ms", "1999999999");
       put("cluster-manager.allocator.sleep.ms", "1");
-      put("cluster-manager.container.request.timeout.ms", "2");
+      put("cluster-manager.container.request.timeout.ms", "5000");
       put("cluster-manager.container.memory.mb", "512");
       put("yarn.package.path", "/foo");
       put("task.inputs", "test-system.test-stream");
@@ -147,7 +147,7 @@ public class TestContainerProcessManager {
 
     AbstractContainerAllocator allocator =
         (AbstractContainerAllocator) getPrivateFieldFromCpm("containerAllocator", cpm).get(cpm);
-    assertEquals(ContainerAllocator.class, allocator.getClass());
+    assertEquals(AbstractContainerAllocator.class, allocator.getClass());
     // Asserts that samza exposed container configs is honored by allocator thread
     assertEquals(500, allocator.containerMemoryMb);
     assertEquals(5, allocator.containerNumCpuCores);
@@ -171,7 +171,7 @@ public class TestContainerProcessManager {
 
     allocator =
         (AbstractContainerAllocator) getPrivateFieldFromCpm("containerAllocator", cpm).get(cpm);
-    assertEquals(HostAwareContainerAllocator.class, allocator.getClass());
+    assertEquals(AbstractContainerAllocator.class, allocator.getClass());
     // Asserts that samza exposed container configs is honored by allocator thread
     assertEquals(500, allocator.containerMemoryMb);
     assertEquals(5, allocator.containerNumCpuCores);
@@ -630,6 +630,7 @@ public class TestContainerProcessManager {
     config.putAll(getConfigWithHostAffinity());
     config.put("job.container.count", "2");
     config.put("cluster-manager.container.retry.count", "2");
+    config.put("cluster-manager.container.request.timeout.ms", "10000");
     Config cfg = new MapConfig(config);
     // 1. Request two containers on hosts - host1 and host2
     SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host1",
@@ -761,9 +762,7 @@ public class TestContainerProcessManager {
   @Test
   public void testNewContainerRequestedOnFailureWithKnownCode() throws Exception {
     Config conf = getConfig();
-
-    Map<String, String> config = new HashMap<>();
-    config.putAll(getConfig());
+    Map<String, String> config = new HashMap<>(getConfig());
     SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);

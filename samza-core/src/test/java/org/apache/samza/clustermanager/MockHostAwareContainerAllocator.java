@@ -26,14 +26,13 @@ import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class MockHostAwareContainerAllocator extends HostAwareContainerAllocator {
-  private static final int ALLOCATOR_TIMEOUT_MS = 10000;
+public class MockHostAwareContainerAllocator extends AbstractContainerAllocator {
   private Semaphore semaphore = new Semaphore(0);
 
   public MockHostAwareContainerAllocator(ClusterResourceManager manager,
       Config config, SamzaApplicationState state) {
-    super(manager, ALLOCATOR_TIMEOUT_MS, config, Optional.empty(), state,
-        MockHostAwareContainerAllocator.class.getClassLoader());
+    super(manager, config, state,
+        MockHostAwareContainerAllocator.class.getClassLoader(), true, Optional.empty());
   }
 
   /**

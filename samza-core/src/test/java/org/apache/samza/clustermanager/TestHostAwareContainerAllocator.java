@@ -68,7 +68,7 @@ public class TestHostAwareContainerAllocator {
         new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class)));
   }
 
-  private HostAwareContainerAllocator containerAllocator;
+  private AbstractContainerAllocator containerAllocator;
   private final int timeoutMillis = 1000;
   private MockContainerRequestState requestState;
   private Thread allocatorThread;
@@ -76,10 +76,10 @@ public class TestHostAwareContainerAllocator {
   @Before
   public void setup() throws Exception {
     containerAllocator =
-        new HostAwareContainerAllocator(clusterResourceManager, timeoutMillis, config, Optional.empty(), state,
-            getClass().getClassLoader());
+        new AbstractContainerAllocator(clusterResourceManager, config, state,
+            getClass().getClassLoader(), true, Optional.empty());
     requestState = new MockContainerRequestState(clusterResourceManager, true);
-    Field requestStateField = containerAllocator.getClass().getSuperclass().getDeclaredField("resourceRequestState");
+    Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
     requestStateField.set(containerAllocator, requestState);
     allocatorThread = new Thread(containerAllocator);

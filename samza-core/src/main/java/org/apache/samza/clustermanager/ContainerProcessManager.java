@@ -60,7 +60,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *      - Identifying the cause of container failure and re-requesting containers from the cluster manager by adding request to the
  *        internal requestQueue in {@link ResourceRequestState}
  *  - The allocator thread that assigns the allocated containers to pending requests
- *    (See {@link org.apache.samza.clustermanager.ContainerAllocator} or {@link org.apache.samza.clustermanager.HostAwareContainerAllocator})
+ *    (See {@link org.apache.samza.clustermanager.AbstractContainerAllocator} or {@link org.apache.samza.clustermanager.AbstractContainerAllocator})
  *
  */
 public class ContainerProcessManager implements ClusterResourceManager.Callback   {
@@ -167,9 +167,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       this.standbyContainerManager = Optional.empty();
     }
 
-    this.containerAllocator =
-        buildContainerAllocator(this.hostAffinityEnabled, this.clusterResourceManager, this.clusterManagerConfig,
-            config, this.standbyContainerManager, state, classLoader);
+    this.containerAllocator = new AbstractContainerAllocator(this.clusterResourceManager, config, state, classLoader, hostAffinityEnabled, this.standbyContainerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     LOG.info("Finished container process manager initialization.");
   }
@@ -191,22 +189,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.standbyContainerManager = Optional.empty();
     this.diagnosticsManager = Option.empty();
     this.containerAllocator = allocator.orElseGet(
-        () -> buildContainerAllocator(this.hostAffinityEnabled, this.clusterResourceManager, this.clusterManagerConfig,
-            clusterManagerConfig, this.standbyContainerManager, state, classLoader));
-
+        () -> new AbstractContainerAllocator(this.clusterResourceManager, clusterManagerConfig, state, classLoader,
+            hostAffinityEnabled, this.standbyContainerManager));
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     LOG.info("Finished container process manager initialization");
-  }
-
-  private static AbstractContainerAllocator buildContainerAllocator(boolean hostAffinityEnabled,
-      ClusterResourceManager clusterResourceManager, ClusterManagerConfig clusterManagerConfig, Config config,
-      Optional<StandbyContainerManager> standbyContainerManager, SamzaApplicationState state, ClassLoader classLoader) {
-    if (hostAffinityEnabled) {
-      return new HostAwareContainerAllocator(clusterResourceManager, clusterManagerConfig.getContainerRequestTimeout(),
-          config, standbyContainerManager, state, classLoader);
-    } else {
-      return new ContainerAllocator(clusterResourceManager, config, state, classLoader);
-    }
   }
 
   public boolean shouldShutdown() {
