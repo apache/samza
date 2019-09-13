@@ -173,8 +173,8 @@ public class ContainerLaunchUtil {
             private void removeShutdownHook() {
               try {
                 if (shutdownHookThread != null) {
-                  log.info("Removing Samza container shutdown hook");
                   Runtime.getRuntime().removeShutdownHook(shutdownHookThread);
+                  log.info("Removed Samza container shutdown hook");
                 }
               } catch (IllegalStateException e) {
                 // Thrown when then JVM is already shutting down, so safe to ignore.
@@ -185,13 +185,15 @@ public class ContainerLaunchUtil {
               shutdownHookThread = new Thread("Samza Container Shutdown Hook Thread") {
                 @Override
                 public void run() {
-                  log.info("Shutting down, will wait upto {}", taskConfig.getShutdownMs());
+                  long shutdownMs = taskConfig.getShutdownMs();
+                  log.info("Attempting to shutdown container from inside shutdownHook, will wait upto {} ms.", shutdownMs);
                   try {
-                    boolean hasShutdown = shutdownLatch.await(taskConfig.getShutdownMs(), TimeUnit.MILLISECONDS);
+                    container.shutdown();
+                    boolean hasShutdown = shutdownLatch.await(shutdownMs, TimeUnit.MILLISECONDS);
                     if (hasShutdown) {
                       log.info("Shutdown complete");
                     } else {
-                      log.error("Did not shut down within {} ms, exiting.", taskConfig.getShutdownMs());
+                      log.error("Did not shut down within {} ms, exiting.", shutdownMs);
                       ThreadUtil.logThreadDump("Thread dump from Samza Container Shutdown Hook.");
                     }
                   } catch (InterruptedException e) {
