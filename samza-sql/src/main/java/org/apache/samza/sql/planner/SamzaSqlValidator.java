@@ -80,20 +80,18 @@ public class SamzaSqlValidator {
       try {
         relRoot = planner.plan(qinfo.getSelectQuery());
       } catch (SamzaException e) {
-        throw new SamzaSqlValidatorException("Calcite planning for sql failed.", e);
+        throw new SamzaSqlValidatorException(e);
       }
 
       // Now that we have logical plan, validate different aspects.
-      validate(relRoot, qinfo, sqlConfig);
+      validate(relRoot, qinfo.getSink(), sqlConfig);
     }
   }
 
-  private void validate(RelRoot relRoot, SamzaSqlQueryParser.QueryInfo qinfo, SamzaSqlApplicationConfig sqlConfig)
+  protected void validate(RelRoot relRoot, String sink, SamzaSqlApplicationConfig sqlConfig)
       throws SamzaSqlValidatorException {
-    if (!skipOutputValidation(relRoot, qinfo, sqlConfig)) {
-      // Validate select fields (including Udf return types) with output schema
-      validateOutput(relRoot, sqlConfig.getRelSchemaProviders().get(qinfo.getSink()));
-    }
+    // Validate select fields (including Udf return types) with output schema
+    validateOutput(relRoot, sqlConfig.getRelSchemaProviders().get(sink));
 
     // TODO:
     //  1. SAMZA-2314: Validate Udf arguments.
@@ -101,7 +99,7 @@ public class SamzaSqlValidator {
     //     Eg: LogicalAggregate with sum function is not supported by Samza Sql.
   }
 
-  private void validateOutput(RelRoot relRoot, RelSchemaProvider outputRelSchemaProvider)
+  protected void validateOutput(RelRoot relRoot, RelSchemaProvider outputRelSchemaProvider)
       throws SamzaSqlValidatorException {
     LogicalProject project = (LogicalProject) relRoot.rel;
     RelRecordType projetRecord = (RelRecordType) project.getRowType();
@@ -116,11 +114,9 @@ public class SamzaSqlValidator {
     LOG.info("Samza Sql Validation finished successfully.");
   }
 
-  protected boolean skipOutputValidation(RelRoot relRoot, SamzaSqlQueryParser.QueryInfo qinfo,
-      SamzaSqlApplicationConfig sqlConfig) {
-    return false;
-  }
-
+  // TODO: Remove this API. This API is introduced to take care of cases where RelSchemaProviders have a complex
+  // mechanism to determine if a given output field is optional. Once the RelSchemaProviders are fixed to properly
+  // mark the fields as optional, we can remove this API.
   protected boolean isOptional(RelSchemaProvider outputRelSchemaProvider, String outputFieldName,
       RelRecordType projectRecord) {
     return false;

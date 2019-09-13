@@ -84,6 +84,18 @@ public class TestSamzaSqlValidator {
   }
 
   @Test (expected = SamzaSqlValidatorException.class)
+  public void testFieldEndingInZeroValidation() throws SamzaSqlValidatorException {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic select id, true as bool_value, false as non_existing_name0"
+            + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
+  @Test (expected = SamzaSqlValidatorException.class)
   public void testNonExistingOutputField() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,

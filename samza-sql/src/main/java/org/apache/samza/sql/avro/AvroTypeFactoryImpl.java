@@ -31,6 +31,7 @@ import org.apache.samza.sql.schema.SqlSchemaBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 /**
  * Factory that creates {@link SqlSchema} from the Avro Schema. This is used by the
  * {@link AvroRelConverter} to convert Avro schema to Samza Sql schema.
@@ -44,37 +45,35 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
   }
 
   public SqlSchema createType(Schema schema) {
+    validateTopLevelAvroType(schema);
+    return convertSchema(schema.getFields());
+  }
+
+  protected void validateTopLevelAvroType(Schema schema) {
     Schema.Type type = schema.getType();
     if (type != Schema.Type.RECORD) {
       String msg =
-          String.format("System supports only RECORD as top level avro type, But the Schema's type is %s", type);
+          String.format("Samza Sql supports only RECORD as top level avro type, But the Schema's type is %s", type);
       LOG.error(msg);
       throw new SamzaException(msg);
     }
-
-    return convertSchema(schema.getFields(), true);
   }
 
-  protected boolean isOptional(Schema.Field field, boolean isTopLevel) {
-    return field.defaultValue() != null;
-  }
-
-  private SqlSchema convertSchema(List<Schema.Field> fields, boolean isTopLevel) {
-
+  protected SqlSchema convertSchema(List<Schema.Field> fields) {
     SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
-      SqlFieldSchema fieldSchema = convertField(field.schema(), false, isOptional(field, isTopLevel));
+      SqlFieldSchema fieldSchema = convertField(field.schema(), false, field.defaultValue() != null);
       schemaBuilder.addField(field.name(), fieldSchema);
     }
 
     return schemaBuilder.build();
   }
 
-  private SqlFieldSchema convertField(Schema fieldSchema) {
+  protected SqlFieldSchema convertField(Schema fieldSchema) {
     return convertField(fieldSchema, false, false);
   }
 
-  private SqlFieldSchema convertField(Schema fieldSchema, boolean isNullable, boolean isOptional) {
+  protected SqlFieldSchema convertField(Schema fieldSchema, boolean isNullable, boolean isOptional) {
     switch (fieldSchema.getType()) {
       case ARRAY:
         SqlFieldSchema elementSchema = convertField(fieldSchema.getElementType());
@@ -101,7 +100,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       case LONG:
         return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT64, isNullable, isOptional);
       case RECORD:
-        SqlSchema rowSchema = convertSchema(fieldSchema.getFields(), false);
+        SqlSchema rowSchema = convertSchema(fieldSchema.getFields());
         return SqlFieldSchema.createRowFieldSchema(rowSchema, isNullable, isOptional);
       case MAP:
         // Can the value type be nullable and have default values ? Guess not!
