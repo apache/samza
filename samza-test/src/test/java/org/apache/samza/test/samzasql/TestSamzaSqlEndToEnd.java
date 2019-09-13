@@ -762,7 +762,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
   @Test
   public void testEndToEndStreamTableInnerJoinWithUdf() throws Exception {
-    int numMessages = 10;
+    int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
