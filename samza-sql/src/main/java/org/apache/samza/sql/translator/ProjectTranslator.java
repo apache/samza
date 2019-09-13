@@ -114,8 +114,14 @@ class ProjectTranslator {
       long arrivalTime = System.nanoTime();
       RelDataType type = project.getRowType();
       Object[] output = new Object[type.getFieldCount()];
-      expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
-          message.getSamzaSqlRelRecord().getFieldValues().toArray(), output);
+      try {
+        expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
+            message.getSamzaSqlRelRecord().getFieldValues().toArray(), output);
+      } catch (Exception e) {
+        String errMsg = String.format("Handling the following rel message ran into an error. %s", message);
+        LOG.error(errMsg, e);
+        throw new SamzaException(errMsg, e);
+      }
       List<String> names = new ArrayList<>();
       for (int index = 0; index < output.length; index++) {
         names.add(index, project.getNamedProjects().get(index).getValue());

@@ -762,13 +762,13 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
   @Test
   public void testEndToEndStreamTableInnerJoinWithUdf() throws Exception {
-    int numMessages = 20;
+    int numMessages = 10;
 
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql =
         "Insert into testavro.enrichedPageViewTopic "
-            + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+            + "select MyTest(pv.pageKey) as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
             + "       p.name as profileName, p.address as profileAddress "
             + "from testavro.PROFILE.`$table` as p "
             + "join testavro.PAGEVIEW as pv "

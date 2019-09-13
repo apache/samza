@@ -52,15 +52,18 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       throw new SamzaException(msg);
     }
 
-    return convertSchema(schema.getFields());
+    return convertSchema(schema.getFields(), true);
   }
 
-  private SqlSchema convertSchema(List<Schema.Field> fields) {
+  protected boolean isOptional(Schema.Field field, boolean isTopLevel) {
+    return field.defaultValue() != null;
+  }
+
+  private SqlSchema convertSchema(List<Schema.Field> fields, boolean isTopLevel) {
 
     SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
-      boolean isOptional = (field.defaultValue() != null);
-      SqlFieldSchema fieldSchema = convertField(field.schema(), false, isOptional);
+      SqlFieldSchema fieldSchema = convertField(field.schema(), false, isOptional(field, isTopLevel));
       schemaBuilder.addField(field.name(), fieldSchema);
     }
 
@@ -98,7 +101,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       case LONG:
         return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT64, isNullable, isOptional);
       case RECORD:
-        SqlSchema rowSchema = convertSchema(fieldSchema.getFields());
+        SqlSchema rowSchema = convertSchema(fieldSchema.getFields(), false);
         return SqlFieldSchema.createRowFieldSchema(rowSchema, isNullable, isOptional);
       case MAP:
         // Can the value type be nullable and have default values ? Guess not!

@@ -59,6 +59,30 @@ public class TestSamzaSqlValidator {
     new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
   }
 
+  @Test
+  public void testRepeatedTwiceFieldsValidation() throws SamzaSqlValidatorException {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic select id, true as bool_value, false as bool_value"
+            + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
+  @Test (expected = SamzaSqlValidatorException.class)
+  public void testRepeatedThriceFieldsValidation() throws SamzaSqlValidatorException {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic select id, true as bool_value, false as bool_value, true as bool_value"
+            + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
   @Test (expected = SamzaSqlValidatorException.class)
   public void testNonExistingOutputField() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
@@ -160,7 +184,7 @@ public class TestSamzaSqlValidator {
     try {
       new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
     } catch (SamzaSqlValidatorException e) {
-      Assert.assertTrue(e.getMessage().contains("Field 'bool_value' in output schema does not match any projected fields."));
+      Assert.assertTrue(e.getMessage().contains("Non-optional field 'bool_value' in output schema is missing"));
       return;
     }
 
@@ -181,7 +205,7 @@ public class TestSamzaSqlValidator {
     try {
       new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
     } catch (SamzaSqlValidatorException e) {
-      Assert.assertTrue(e.getMessage().contains("Field 'id' in output schema does not match"));
+      Assert.assertTrue(e.getMessage().contains("Non-optional field 'id' in output schema is missing"));
       return;
     }
 
