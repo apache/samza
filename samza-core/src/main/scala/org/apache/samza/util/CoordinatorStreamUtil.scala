@@ -131,8 +131,8 @@ object CoordinatorStreamUtil extends Logging {
       } else {
         val valueSerde: CoordinatorStreamValueSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE)
         val valueAsString: String = valueSerde.fromBytes(valueAsBytes)
-        if (StringUtils.isBlank(valueAsString)) {
-          warn("Value for key: %s in config is empty or null. Ignoring it." format key)
+        if (valueAsString == null) {
+          warn("Value for key: %s in config is decoded to be null. Ignoring it." format key)
         } else {
           configMap.put(key, valueAsString)
         }
