@@ -55,6 +55,8 @@ class TestCoordinatorStreamUtil {
         valueSerde.toBytes(nonBlankVal))
       put(CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE, keyForEmptyVal),
         valueSerde.toBytes(emptyVal))
+      put(CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE, keyForNullVal),
+        valueSerde.toBytes(nullVal))
     }
 
     val coordinatorStreamStore = Mockito.mock(classOf[CoordinatorStreamStore])
