@@ -24,8 +24,9 @@ import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -141,7 +142,7 @@ public class TestStreamApplication implements StreamApplication {
     }
 
     static TestKafkaEvent fromString(String message) {
-      String[] messageComponents = message.split("|");
+      String[] messageComponents = StringUtils.split(message, "|");
       return new TestKafkaEvent(messageComponents[0], messageComponents[1]);
     }
   }

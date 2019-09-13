@@ -46,14 +46,16 @@ public class TestTaskApplication implements TaskApplication {
   private final String outputTopic;
   private final CountDownLatch shutdownLatch;
   private final CountDownLatch processedMessageLatch;
+  private final TaskApplicationCallback processCallback;
 
   public TestTaskApplication(String systemName, String inputTopic, String outputTopic,
-      CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch) {
+      CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch, TaskApplicationCallback processCallback) {
     this.systemName = systemName;
     this.inputTopic = inputTopic;
     this.outputTopic = outputTopic;
     this.processedMessageLatch = processedMessageLatch;
     this.shutdownLatch = shutdownLatch;
+    this.processCallback = processCallback;
   }
 
   private class TestTaskImpl implements AsyncStreamTask, ClosableTask {
@@ -62,7 +64,10 @@ public class TestTaskApplication implements TaskApplication {
     public void processAsync(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator, TaskCallback callback) {
       processedMessageLatch.countDown();
       // Implementation does not invokes callback.complete to block the RunLoop.process() after it exhausts the
-      // `task.max.concurrency` defined per task.
+      // `task.max.concurrency` defined per task. Call callback.complete() in the processCallback if needed.
+      if (processCallback != null) {
+        processCallback.onMessage(envelope, callback);
+      }
     }
 
     @Override
@@ -80,5 +85,9 @@ public class TestTaskApplication implements TaskApplication {
     appDescriptor.withInputStream(inputDescriptor)
                  .withOutputStream(outputDescriptor)
                  .withTaskFactory((AsyncStreamTaskFactory) () -> new TestTaskImpl());
+  }
+
+  public interface TaskApplicationCallback {
+    void onMessage(IncomingMessageEnvelope m, TaskCallback callback);
   }
 }
