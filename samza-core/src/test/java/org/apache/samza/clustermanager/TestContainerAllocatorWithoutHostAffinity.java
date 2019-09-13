@@ -39,7 +39,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-public class TestContainerAllocator {
+public class TestContainerAllocatorWithoutHostAffinity {
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
   private final Config config = getConfig();
   private final JobModelManager jobModelManager = JobModelManagerTestUtil.getJobModelManager(config, 1,

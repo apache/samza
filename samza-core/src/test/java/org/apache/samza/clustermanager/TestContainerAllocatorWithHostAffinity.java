@@ -47,7 +47,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class TestHostAwareContainerAllocator {
+public class TestContainerAllocatorWithHostAffinity {
 
   private final Config config = getConfig();
   private final JobModelManager jobModelManager = initializeJobModelManager(config, 1);

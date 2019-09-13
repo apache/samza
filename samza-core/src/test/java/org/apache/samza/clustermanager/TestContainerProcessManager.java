@@ -188,7 +188,7 @@ public class TestContainerProcessManager {
     ContainerProcessManager cpm =
         buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.empty());
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         conf,
         state);
@@ -249,7 +249,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         conf,
         state);
@@ -293,7 +293,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         conf,
         state);
@@ -386,7 +386,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         clusterManagerConfig,
         state);
@@ -466,7 +466,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         clusterManagerConfig,
         state);
@@ -568,7 +568,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         conf,
         state);
@@ -606,7 +606,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         new MapConfig(config),
         state);
@@ -638,7 +638,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
 
-    MockHostAwareContainerAllocator allocator = new MockHostAwareContainerAllocator(
+    MockContainerAllocatorWithHostAffinity allocator = new MockContainerAllocatorWithHostAffinity(
         clusterResourceManager,
         cfg,
         state);
@@ -699,7 +699,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(new MapConfig(conf)));
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         conf,
         state);
@@ -768,7 +768,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(new MapConfig(config)));
 
-    MockContainerAllocator allocator = new MockContainerAllocator(
+    MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
         conf,
         state);
