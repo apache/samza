@@ -62,7 +62,8 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
   protected SqlSchema convertSchema(List<Schema.Field> fields) {
     SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
-      SqlFieldSchema fieldSchema = convertField(field.schema(), false, field.defaultValue() != null);
+      boolean isOptional = (field.defaultValue() != null);
+      SqlFieldSchema fieldSchema = convertField(field.schema(), false, isOptional);
       schemaBuilder.addField(field.name(), fieldSchema);
     }
 

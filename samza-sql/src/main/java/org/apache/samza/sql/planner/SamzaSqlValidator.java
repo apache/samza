@@ -116,13 +116,13 @@ public class SamzaSqlValidator {
 
   // TODO: Remove this API. This API is introduced to take care of cases where RelSchemaProviders have a complex
   // mechanism to determine if a given output field is optional. Once the RelSchemaProviders are fixed to properly
-  // mark the fields as optional, we can remove this API.
+  // mark the fields as optional, this API will be removed.
   protected boolean isOptional(RelSchemaProvider outputRelSchemaProvider, String outputFieldName,
       RelRecordType projectRecord) {
     return false;
   }
 
-  private void validateOutputRecords(RelRecordType outputRecord, SqlSchema outputSqlSchema,
+  protected void validateOutputRecords(RelRecordType outputRecord, SqlSchema outputSqlSchema,
       RelRecordType projectRecord, RelSchemaProvider outputRelSchemaProvider)
       throws SamzaSqlValidatorException {
     Map<String, RelDataType> outputRecordMap = outputRecord.getFieldList().stream().collect(
@@ -144,6 +144,9 @@ public class SamzaSqlValidator {
         // Take the following example: SELECT id as str, secondaryId as str, tertiaryId as str FROM store.myTable
         //   Calcite renames the projected fieldNames in select query as str, str0, str1 respectively.
         // Samza Sql allows a field name to be specified up to 2 times. Do the validation accordingly.
+
+        // This type of pattern is typically followed when users want to just modify one field in the input table while
+        // keeping rest of the fields the same. Eg: SELECT myUdf(id) as id, * from store.myTable
         if (projectedFieldName.endsWith("0")) {
           projectedFieldName = StringUtils.chop(projectedFieldName);
           outputFieldType = outputRecordMap.get(projectedFieldName);
@@ -198,7 +201,7 @@ public class SamzaSqlValidator {
     }
   }
 
-  private boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
+  protected boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
       RelDataType selectQueryFieldType, RelSchemaProvider outputRelSchemaProvider) {
     RelDataType projectFieldType;
 
@@ -279,10 +282,7 @@ public class SamzaSqlValidator {
     Matcher matcher = pattern.matcher(e.getMessage());
     String[] queryLines = query.split("\\n");
     StringBuilder result = new StringBuilder();
-    int startColIdx;
-    int endColIdx;
-    int startLineIdx;
-    int endLineIdx;
+    int startColIdx, endColIdx, startLineIdx, endLineIdx;
 
     try {
       if (matcher.find()) {
