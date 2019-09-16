@@ -121,6 +121,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   private static final int NUM_KAFKA_EVENTS = 300;
   private static final int ZK_CONNECTION_TIMEOUT_MS = 5000;
   private static final int ZK_SESSION_TIMEOUT_MS = 10000;
+  private static final int ZK_TEST_PARTITION_COUNT = 5;
   private static final String TEST_SYSTEM = "TestSystemName";
   private static final String TEST_SSP_GROUPER_FACTORY = "org.apache.samza.container.grouper.stream.GroupByPartitionFactory";
   private static final String TEST_TASK_GROUPER_FACTORY = "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory";
@@ -188,11 +189,11 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     ImmutableMap<String, Integer> topicToPartitionCount = ImmutableMap.<String, Integer>builder()
         .put(inputSinglePartitionKafkaTopic, 1)
         .put(outputSinglePartitionKafkaTopic, 1)
-        .put(inputKafkaTopic1, 5)
-        .put(inputKafkaTopic2, 5)
-        .put(inputKafkaTopic3, 5)
-        .put(inputKafkaTopic4, 5)
-        .put(outputKafkaTopic, 5)
+        .put(inputKafkaTopic1, ZK_TEST_PARTITION_COUNT)
+        .put(inputKafkaTopic2, ZK_TEST_PARTITION_COUNT)
+        .put(inputKafkaTopic3, ZK_TEST_PARTITION_COUNT)
+        .put(inputKafkaTopic4, ZK_TEST_PARTITION_COUNT)
+        .put(outputKafkaTopic, ZK_TEST_PARTITION_COUNT)
         .build();
 
     List<NewTopic> newTopics =
@@ -1321,16 +1322,16 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     startpointManager.start();
 
     StartpointSpecific startpointSpecific = new StartpointSpecific(String.valueOf(sentEvents1.get(100).offset()));
-    writeStartpoints(startpointManager, inputKafkaTopic1, 5, startpointSpecific);
+    writeStartpoints(startpointManager, inputKafkaTopic1, ZK_TEST_PARTITION_COUNT, startpointSpecific);
 
     StartpointTimestamp startpointTimestamp = new StartpointTimestamp(sentEvents2.get(150).timestamp());
-    writeStartpoints(startpointManager, inputKafkaTopic2, 5, startpointTimestamp);
+    writeStartpoints(startpointManager, inputKafkaTopic2, ZK_TEST_PARTITION_COUNT, startpointTimestamp);
 
     StartpointOldest startpointOldest = new StartpointOldest();
-    writeStartpoints(startpointManager, inputKafkaTopic3, 5, startpointOldest);
+    writeStartpoints(startpointManager, inputKafkaTopic3, ZK_TEST_PARTITION_COUNT, startpointOldest);
 
     StartpointUpcoming startpointUpcoming = new StartpointUpcoming();
-    writeStartpoints(startpointManager, inputKafkaTopic4, 5, startpointUpcoming);
+    writeStartpoints(startpointManager, inputKafkaTopic4, ZK_TEST_PARTITION_COUNT, startpointUpcoming);
 
     startpointManager.stop();
     coordinatorStreamStore.close();
@@ -1361,8 +1362,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     // Create StreamApplication from configuration.
     CountDownLatch processedMessagesLatchStartpointSpecific = new CountDownLatch(100); // Just fetch a few messages
     CountDownLatch processedMessagesLatchStartpointTimestamp = new CountDownLatch(100); // Just fetch a few messages
-    CountDownLatch processedMessagesLatchStartpointOldest = new CountDownLatch(NUM_KAFKA_EVENTS); // Just fetch a few messages
-    CountDownLatch processedMessagesLatchStartpointUpcoming = new CountDownLatch(5); // Just fetch a few messages
+    CountDownLatch processedMessagesLatchStartpointOldest = new CountDownLatch(NUM_KAFKA_EVENTS); // Fetch all since consuming from oldest
+    CountDownLatch processedMessagesLatchStartpointUpcoming = new CountDownLatch(5); // Expecting none, so just attempt a small number of fetches.
 
     CountDownLatch shutdownLatchStartpointSpecific = new CountDownLatch(1);
     CountDownLatch shutdownLatchStartpointTimestamp = new CountDownLatch(1);
