@@ -79,6 +79,8 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
         return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), fieldSchema.isNullable());
       case DOUBLE:
         return createTypeWithNullability(createSqlType(SqlTypeName.DOUBLE), fieldSchema.isNullable());
+      case REAL:
+        return createTypeWithNullability(createSqlType(SqlTypeName.REAL), fieldSchema.isNullable());
       case FLOAT:
         return createTypeWithNullability(createSqlType(SqlTypeName.FLOAT), fieldSchema.isNullable());
       case STRING:

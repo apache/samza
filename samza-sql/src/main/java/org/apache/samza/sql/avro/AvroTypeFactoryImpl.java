@@ -81,7 +81,8 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       case DOUBLE:
         return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.DOUBLE, isNullable, isOptional);
       case FLOAT:
-        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.FLOAT, isNullable, isOptional);
+        // Avro FLOAT is 4 bytes which maps to Sql REAL. Sql FLOAT is 8-bytes
+        return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.REAL, isNullable, isOptional);
       case ENUM:
         return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING, isNullable, isOptional);
       case UNION:

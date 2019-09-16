@@ -28,8 +28,9 @@ public enum SamzaSqlFieldType {
   INT32, // four-byte signed integer.
   INT64, // eight-byte signed integer.
   DECIMAL, // Decimal integer
-  FLOAT,
-  DOUBLE,
+  REAL, // 4 bytes
+  FLOAT, // 8 bytes
+  DOUBLE, // 8 bytes
   STRING, // String.
   DATETIME, // Date and time.
   BOOLEAN, // Boolean.

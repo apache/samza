@@ -325,6 +325,8 @@ public class TestAvroSystemFactory implements SystemFactory {
       record.put("id", index);
       record.put("string_value", "Name" + index);
       record.put("bytes_value", ByteBuffer.wrap(("sample bytes").getBytes()));
+      record.put("float_value", index + 0.123456f);
+      record.put("double_value", index + 0.0123456789);
       MyFixed myFixedVar = new MyFixed();
       myFixedVar.bytes(DEFAULT_TRACKING_ID_BYTES);
       record.put("fixed_value", myFixedVar);
