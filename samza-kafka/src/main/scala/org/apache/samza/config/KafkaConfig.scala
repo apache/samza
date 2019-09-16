@@ -243,17 +243,21 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   /**
     * Gets the replication factor for the changelog topics. Uses the following precedence.
     *
-    * 1. If stores.myStore.changelog.replication.factor is configured, that value is used.
-    * 2. If systems.changelog-system.default.stream.replication.factor is configured, that value is used.
-    * 3. 2
-    *
-    * Note that the changelog-system has a similar precedence. See [[StorageConfig]]
+    * 1. If the changelog system (specified using job.changelog.system or job.default.system is provided), the RF for that system is used.
+    * 2. If neither of these are provided, the RF specified using stores.<store-name>.changelog.replication.factor is used.
+    * 3. If this is not provided, the RF specified using stores.default.changelog.replication.factor is used.
+    * 4. If this is not provided, the RF is chosen as 2.
     */
-  def getChangelogStreamReplicationFactor(name: String) = getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name).getOrElse(getDefaultChangelogStreamReplicationFactor)
-
-  def getDefaultChangelogStreamReplicationFactor() = {
+  def getChangelogStreamReplicationFactor(name: String) = {
     val changelogSystem = new StorageConfig(config).getChangelogSystem.orElse(null)
-    getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse(getSystemDefaultReplicationFactor(changelogSystem, "2"))
+    val systemDefaultReplicationFactor = getSystemDefaultReplicationFactor(changelogSystem, null)
+
+    if (systemDefaultReplicationFactor == null) {
+      getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name).getOrElse(
+        getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse("2"))
+    } else {
+      systemDefaultReplicationFactor
+    }
   }
 
   /**
