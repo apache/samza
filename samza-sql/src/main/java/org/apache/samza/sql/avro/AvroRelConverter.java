@@ -270,9 +270,6 @@ public class AvroRelConverter implements SamzaRelConverter {
         return new ByteString(fixed.bytes());
       case BYTES:
         return new ByteString(((ByteBuffer) avroObj).array());
-      case FLOAT:
-        // Convert Float to Double similar to how JavaTypeFactoryImpl represents Float type
-        return Double.parseDouble(Float.toString((Float) avroObj));
 
       default:
         return avroObj;
@@ -296,8 +293,6 @@ public class AvroRelConverter implements SamzaRelConverter {
         return relObj instanceof ByteString;
       case BYTES:
         return relObj instanceof ByteString;
-      case FLOAT:
-        return relObj instanceof Float || relObj instanceof Double;
       default:
         return true;
     }
@@ -319,8 +314,6 @@ public class AvroRelConverter implements SamzaRelConverter {
         return avroObj instanceof GenericData.Fixed;
       case BYTES:
         return avroObj instanceof ByteBuffer;
-      case FLOAT:
-        return avroObj instanceof Float;
       default:
         return true;
     }
