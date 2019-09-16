@@ -328,51 +328,6 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndWithFloatToStringConversion() throws Exception {
-    int numMessages = 20;
-
-    TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
-    String sql1 = "Insert into testavro.outputTopic"
-        + " select 'urn:li:member:' || cast(cast(float_value as int) as varchar) as string_value, id, float_value, "
-        + " double_value, true as bool_value from testavro.COMPLEX1";
-    List<String> sqlStmts = Arrays.asList(sql1);
-    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-
-    Config config = new MapConfig(staticConfigs);
-    new SamzaSqlValidator(config).validate(sqlStmts);
-
-    runApplication(config);
-
-    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
-        .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("string_value").toString().split(":")[3]))
-        .sorted()
-        .collect(Collectors.toList());
-    Assert.assertEquals(numMessages, outMessages.size());
-    Assert.assertEquals(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()), outMessages);
-  }
-
-  @Test
-  public void testEndToEndUdfWithDoubleValueArg() throws Exception {
-    int numMessages = 20;
-
-    TestAvroSystemFactory.messages.clear();
-    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
-    String sql1 = "Insert into testavro.outputTopic"
-        + " select MyFloatConvert(double_value) as id, true as bool_value from testavro.COMPLEX1 where bool_value IS TRUE";
-    List<String> sqlStmts = Arrays.asList(sql1);
-    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-
-    Config config = new MapConfig(staticConfigs);
-    new SamzaSqlValidator(config).validate(sqlStmts);
-
-    runApplication(config);
-
-    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
-    Assert.assertEquals(numMessages / 2, outMessages.size());
-  }
-
-  @Test
   public void testEndToEndCompoundBooleanCheck() throws SamzaSqlValidatorException {
 
     int numMessages = 20;
@@ -515,6 +470,31 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
     Assert.assertEquals(numMessages, outMessages.size());
+  }
+
+  @Test
+  public void testEndToEndWithFloatToStringConversion() throws Exception {
+    int numMessages = 20;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+    String sql1 = "Insert into testavro.outputTopic"
+        + " select 'urn:li:member:' || cast(cast(float_value as int) as varchar) as string_value, id, float_value, "
+        + " double_value, true as bool_value from testavro.COMPLEX1";
+    List<String> sqlStmts = Arrays.asList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
+
+    List<Integer> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> Integer.valueOf(((GenericRecord) x.getMessage()).get("string_value").toString().split(":")[3]))
+        .sorted()
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages, outMessages.size());
+    Assert.assertEquals(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()), outMessages);
   }
 
   @Ignore
