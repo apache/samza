@@ -61,24 +61,24 @@ public class TestStorageConfig {
 
     // store has empty string for changelog stream
     StorageConfig storageConfig = new StorageConfig(
-        new MapConfig(ImmutableMap.of(String.format(CHANGELOG_STREAM, STORE_NAME0), "")));
+        new MapConfig(ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "")));
     assertEquals(Optional.empty(), storageConfig.getChangelogStream(STORE_NAME0));
 
     // store has full changelog system-stream defined
     storageConfig = new StorageConfig(new MapConfig(
-        ImmutableMap.of(String.format(CHANGELOG_STREAM, STORE_NAME0),
+        ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0),
             "changelog-system.changelog-stream0")));
     assertEquals(Optional.of("changelog-system.changelog-stream0"), storageConfig.getChangelogStream(STORE_NAME0));
 
     // store has changelog stream defined, but system comes from job.changelog.system
     storageConfig = new StorageConfig(new MapConfig(
-        ImmutableMap.of(String.format(CHANGELOG_STREAM, STORE_NAME0), "changelog-stream0",
+        ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "changelog-stream0",
             StorageConfig.CHANGELOG_SYSTEM, "changelog-system")));
     assertEquals(Optional.of("changelog-system.changelog-stream0"), storageConfig.getChangelogStream(STORE_NAME0));
 
     // batch mode: create unique stream name
     storageConfig = new StorageConfig(new MapConfig(
-        ImmutableMap.of(String.format(CHANGELOG_STREAM, STORE_NAME0),
+        ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0),
             "changelog-system.changelog-stream0", ApplicationConfig.APP_MODE,
             ApplicationConfig.ApplicationMode.BATCH.name().toLowerCase(), ApplicationConfig.APP_RUN_ID, "run-id")));
     assertEquals(Optional.of("changelog-system.changelog-stream0-run-id"),
@@ -88,7 +88,7 @@ public class TestStorageConfig {
   @Test(expected = SamzaException.class)
   public void testGetChangelogStreamMissingSystem() {
     StorageConfig storageConfig = new StorageConfig(new MapConfig(
-        ImmutableMap.of(String.format(CHANGELOG_STREAM, STORE_NAME0), "changelog-stream0")));
+        ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "changelog-stream0")));
     storageConfig.getChangelogStream(STORE_NAME0);
   }
 
