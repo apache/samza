@@ -262,8 +262,8 @@ public class TestLocalTableEndToEnd extends IntegrationTestHarness {
     Map<String, String> configs = new HashMap<>();
     configs.put("systems.test.samza.factory", ArraySystemFactory.class.getName());
 
-    configs.put(JobConfig.JOB_NAME(), "test-table-job");
-    configs.put(JobConfig.PROCESSOR_ID(), "1");
+    configs.put(JobConfig.JOB_NAME, "test-table-job");
+    configs.put(JobConfig.PROCESSOR_ID, "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 

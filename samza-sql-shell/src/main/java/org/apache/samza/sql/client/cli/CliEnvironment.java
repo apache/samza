@@ -63,6 +63,7 @@ public class CliEnvironment {
    * @param value Value of the environment variable
    * @return 0 : succeed
    * @throws ExecutorException When user sets an executor but not being able to create
+   * @throws CommandHandlerException When user sets a CommandHandler but was not created successfully
    * -1: invalid name
    * -2: invalid value
    */
@@ -183,10 +184,18 @@ public class CliEnvironment {
     }
   }
 
+  /**
+   * retrieves the {@link SqlExecutor} setup in this environment
+   * @return {@link SqlExecutor}
+   */
   public SqlExecutor getExecutor() {
     return executor;
   }
 
+  /**
+   * retrieves the list of {@link CommandHandler}s setup in this environment
+   * @return List of {@link CommandHandler}
+   */
   public List<CommandHandler> getCommandHandlers() { return commandHandlers; }
 
   private void createShellExecutor(String executorClassName) throws ExecutorException {

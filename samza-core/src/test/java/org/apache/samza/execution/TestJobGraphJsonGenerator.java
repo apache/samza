@@ -101,8 +101,8 @@ public class TestJobGraphJsonGenerator {
     table2Descriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor("table2", defaultSerde);
 
     Map<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "jobName");
-    configs.put(JobConfig.JOB_ID(), "jobId");
+    configs.put(JobConfig.JOB_NAME, "jobName");
+    configs.put(JobConfig.JOB_ID, "jobId");
     mockConfig = spy(new MapConfig(configs));
 
     mockJobNode = mock(JobNode.class);
@@ -148,8 +148,8 @@ public class TestJobGraphJsonGenerator {
      */
 
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "test-app");
-    configMap.put(JobConfig.JOB_DEFAULT_SYSTEM(), "test-system");
+    configMap.put(JobConfig.JOB_NAME, "test-app");
+    configMap.put(JobConfig.JOB_DEFAULT_SYSTEM, "test-system");
     StreamTestUtils.addStreamConfigs(configMap, "input1", "system1", "input1");
     StreamTestUtils.addStreamConfigs(configMap, "input2", "system2", "input2");
     StreamTestUtils.addStreamConfigs(configMap, "input3", "system2", "input3");
@@ -230,8 +230,8 @@ public class TestJobGraphJsonGenerator {
   @Test
   public void testRepartitionedWindowStreamApplication() throws Exception {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "test-app");
-    configMap.put(JobConfig.JOB_DEFAULT_SYSTEM(), "test-system");
+    configMap.put(JobConfig.JOB_NAME, "test-app");
+    configMap.put(JobConfig.JOB_DEFAULT_SYSTEM, "test-system");
     StreamTestUtils.addStreamConfigs(configMap, "PageView", "hdfs", "hdfs:/user/dummy/PageViewEvent");
     StreamTestUtils.addStreamConfigs(configMap, "PageViewCount", "kafka", "PageViewCount");
     Config config = new MapConfig(configMap);

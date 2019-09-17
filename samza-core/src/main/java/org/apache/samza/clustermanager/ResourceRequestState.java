@@ -18,17 +18,19 @@
  */
 package org.apache.samza.clustermanager;
 
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.google.common.annotations.VisibleForTesting;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@link ResourceRequestState} maintains the state variables for all the resource requests and the allocated resources returned
@@ -46,16 +48,27 @@ public class ResourceRequestState {
    * Maintain a map of hostname to a list of resources allocated on this host
    */
   private final Map<String, List<SamzaResource>> allocatedResources = new HashMap<>();
+
   /**
    * Represents the queue of resource requests made by the {@link ContainerProcessManager}
    */
-  private final PriorityQueue<SamzaResourceRequest> requestsQueue = new PriorityQueue<SamzaResourceRequest>();
+  private final PriorityQueue<SamzaResourceRequest> requestsQueue = new PriorityQueue<>();
+
+  /**
+   * Represents the queue of delayed resource requests made by the {@link ContainerProcessManager}
+   * The difference between requestsQueue and delayedRequestsQueue is that, any request present the requestsQueue has
+   * been sent out to the cluster resource manager, while requests in the delayedRequestsQueue will be sent to the
+   * cluster resource manager only when their delay reaches 0.
+   */
+  private final DelayedRequestQueue delayedRequestsQueue = new DelayedRequestQueue();
+
   /**
    * Maintain a map of hostname to the number of requests made for resources on this host
    * This state variable is used to look-up whether an allocated resource on a host was ever requested in the past.
    * This map is not updated when host-affinity is not enabled
    */
   private final Map<String, AtomicInteger> hostRequestCounts = new HashMap<>();
+
   /**
    * Indicates whether host-affinity is enabled or not
    */
@@ -71,34 +84,20 @@ public class ResourceRequestState {
   }
 
   /**
-   * Enqueues a {@link SamzaResourceRequest} to be sent to a {@link ClusterResourceManager}.
+   * Sends a {@link SamzaResourceRequest} to the {@link ClusterResourceManager} and queues the {@link SamzaResourceRequest}
+   * to be matched with the {@link SamzaResource} when it is provisioned.
    *
-   * @param request {@link SamzaResourceRequest} to be queued
+   * @param request {@link SamzaResourceRequest} to be sent and queued.
    */
   public void addResourceRequest(SamzaResourceRequest request) {
     synchronized (lock) {
-      requestsQueue.add(request);
-      String preferredHost = request.getPreferredHost();
-
-      // if host affinity is enabled, update state.
-      if (hostAffinityEnabled) {
-        //increment # of requests on the host.
-        if (hostRequestCounts.containsKey(preferredHost)) {
-          hostRequestCounts.get(preferredHost).incrementAndGet();
-        } else {
-          hostRequestCounts.put(preferredHost, new AtomicInteger(1));
-        }
-        /**
-         * The following is important to correlate allocated resource data with the requestsQueue made before. If
-         * the preferredHost is requested for the first time, the state should reflect that the allocatedResources
-         * list is empty and NOT null.
-         */
-
-        if (!allocatedResources.containsKey(preferredHost)) {
-          allocatedResources.put(preferredHost, new ArrayList<>());
-        }
+      if (request.getRequestTimestamp().isAfter(Instant.now())) {
+        delayedRequestsQueue.add(request);
+        return;
       }
-      manager.requestResources(request);
+
+      // Send request immediately if the request timestamp is not in the future.
+      sendResourceRequest(request);
     }
   }
 
@@ -110,6 +109,7 @@ public class ResourceRequestState {
   public void cancelResourceRequest(SamzaResourceRequest request) {
     log.info("Canceling resource request for Processor ID: {} on host: {}", request.getProcessorId(), request.getPreferredHost());
     synchronized (lock) {
+      delayedRequestsQueue.remove(request);
       requestsQueue.remove(request);
       if (hostAffinityEnabled) {
         // assignedHost may not always be the preferred host.
@@ -206,6 +206,22 @@ public class ResourceRequestState {
   }
 
   /**
+   * Sends the {@link SamzaResourceRequest}s in the delayed requests queue that have expired.
+   * @return number of delayed requests sent.
+   */
+  public int sendPendingDelayedResourceRequests() {
+    synchronized (lock) {
+      int numMoved = 0;
+      Instant now = Instant.now();
+      while (!delayedRequestsQueue.isEmpty() && delayedRequestsQueue.peek().getRequestTimestamp().isBefore(now)) {
+        sendResourceRequest(delayedRequestsQueue.poll());
+        numMoved++;
+      }
+      return numMoved;
+    }
+  }
+
+  /**
    * If requestQueue is empty, all extra resources in the buffer should be released and update the entire system's state
    * Needs to be synchronized because it is modifying shared state buffers
    * @return the number of resources released.
@@ -275,6 +291,36 @@ public class ResourceRequestState {
     }
   }
 
+  /**
+   * Sends the request to the {@link ClusterResourceManager} while queuing the request to be matched with the returned
+   * {@link SamzaResource}. Caller must call this in a synchronized block.
+   * @param request to be sent.
+   */
+  @VisibleForTesting
+  void sendResourceRequest(SamzaResourceRequest request) {
+    requestsQueue.add(request);
+    String preferredHost = request.getPreferredHost();
+
+    // if host affinity is enabled, update state.
+    if (hostAffinityEnabled) {
+      //increment # of requests on the host.
+      if (hostRequestCounts.containsKey(preferredHost)) {
+        hostRequestCounts.get(preferredHost).incrementAndGet();
+      } else {
+        hostRequestCounts.put(preferredHost, new AtomicInteger(1));
+      }
+      /**
+       * The following is important to correlate allocated resource data with the requestsQueue made before. If
+       * the preferredHost is requested for the first time, the state should reflect that the allocatedResources
+       * list is empty and NOT null.
+       */
+
+      if (!allocatedResources.containsKey(preferredHost)) {
+        allocatedResources.put(preferredHost, new ArrayList<>());
+      }
+    }
+    manager.requestResources(request);
+  }
 
   /**
    * Releases all allocated resources for the specified host.
@@ -359,7 +405,7 @@ public class ResourceRequestState {
    */
   public SamzaResourceRequest peekPendingRequest() {
     synchronized (lock) {
-      return this.requestsQueue.peek();
+      return requestsQueue.peek();
     }
   }
 
@@ -369,10 +415,19 @@ public class ResourceRequestState {
    */
   public int numPendingRequests() {
     synchronized (lock) {
-      return this.requestsQueue.size();
+      return requestsQueue.size();
     }
   }
 
+  /**
+   * Returns the number of delayed SamzaResource requests in the queue.
+   * @return the number of delayed requests
+   */
+  public int numDelayedRequests() {
+    synchronized (lock) {
+      return delayedRequestsQueue.size();
+    }
+  }
 
   /**
    * Returns the list of resources allocated on a given host. If no resources were ever allocated on
@@ -393,7 +448,19 @@ public class ResourceRequestState {
   }
 
   // Package private, used only in tests.
+  @VisibleForTesting
   Map<String, AtomicInteger> getHostRequestCounts() {
     return Collections.unmodifiableMap(hostRequestCounts);
+  }
+
+  @VisibleForTesting
+  DelayedRequestQueue getDelayedRequestsQueue() {
+    return delayedRequestsQueue;
+  }
+
+  static class DelayedRequestQueue extends PriorityQueue<SamzaResourceRequest> {
+    DelayedRequestQueue() {
+      super(Comparator.comparingLong(request -> request.getRequestTimestamp().toEpochMilli()));
+    }
   }
 }

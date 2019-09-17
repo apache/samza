@@ -74,6 +74,7 @@ abstract class AbstractKafkaServerTestHarness extends AbstractZookeeperTestHarne
   def overridingProps: Properties = {
     val props = new Properties
     props.setProperty(KafkaConfig.NumPartitionsProp, 1.toString)
+    props.setProperty(KafkaConfig.DeleteTopicEnableProp, "true")
     props
   }
 

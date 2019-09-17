@@ -21,7 +21,6 @@ package org.apache.samza.checkpoint.kafka
 
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointManager, CheckpointManagerFactory}
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.{StreamSpec, SystemFactory}
@@ -32,8 +31,10 @@ import org.apache.samza.util.{KafkaUtil, Logging, Util, _}
 class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Logging {
 
   def getCheckpointManager(config: Config, registry: MetricsRegistry): CheckpointManager = {
-    val jobName = config.getName.getOrElse(throw new SamzaException("Missing job name in configs"))
-    val jobId = config.getJobId
+    val jobConfig = new JobConfig(config)
+    val jobName = JavaOptionals.toRichOptional(jobConfig.getName).toOption
+      .getOrElse(throw new SamzaException("Missing job name in configs"))
+    val jobId = jobConfig.getJobId
 
     val kafkaConfig = new KafkaConfig(config)
     val checkpointSystemName = kafkaConfig.getCheckpointSystem.getOrElse(
@@ -52,7 +53,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
         .copyWithReplicationFactor(kafkaConfig.getCheckpointReplicationFactor.get.toInt)
         .copyWithProperties(kafkaConfig.getCheckpointTopicProperties)
 
-    new KafkaCheckpointManager(checkpointSpec, checkpointSystemFactory, config.failOnCheckpointValidation, config,
+    new KafkaCheckpointManager(checkpointSpec, checkpointSystemFactory, jobConfig.failOnCheckpointValidation, config,
       new NoOpMetricsRegistry)
   }
 }

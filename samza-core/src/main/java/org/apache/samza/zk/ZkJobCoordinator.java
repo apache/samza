@@ -313,7 +313,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   void loadMetadataResources(JobModel jobModel) {
     try {
-      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, getClass().getClassLoader());
+      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, getClass().getClassLoader(), config);
       metadataResourceUtil.createResources();
 
       if (coordinatorStreamStore != null) {
@@ -343,8 +343,8 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   @VisibleForTesting
-  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel, ClassLoader classLoader) {
-    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), classLoader);
+  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel, ClassLoader classLoader, Config config) {
+    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), classLoader, config);
   }
 
   /**

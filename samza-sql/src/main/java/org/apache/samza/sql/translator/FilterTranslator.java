@@ -19,9 +19,6 @@
 
 package org.apache.samza.sql.translator;
 
-import com.google.common.annotations.VisibleForTesting;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import org.apache.calcite.rel.logical.LogicalFilter;
@@ -96,7 +93,7 @@ class FilterTranslator {
 
     @Override
     public boolean apply(SamzaSqlRelMessage message) {
-      Instant startProcessing = Instant.now();
+      long startProcessing = System.nanoTime();
       Object[] result = new Object[1];
       expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
           message.getSamzaSqlRelRecord().getFieldValues().toArray(), result);
@@ -105,7 +102,7 @@ class FilterTranslator {
         log.debug(
             String.format("return value for input %s is %s",
                 Arrays.asList(message.getSamzaSqlRelRecord().getFieldValues()).toString(), retVal));
-        updateMetrics(startProcessing, retVal, Instant.now());
+        updateMetrics(startProcessing, retVal, System.nanoTime());
         return retVal;
       } else {
         log.error("return value is not boolean");
@@ -118,14 +115,14 @@ class FilterTranslator {
      * @param startProcessing = begin processing of the message
      * @param endProcessing = end of processing
      */
-    private void updateMetrics(Instant startProcessing, boolean isOutput, Instant endProcessing) {
+    private void updateMetrics(long startProcessing, boolean isOutput, long endProcessing) {
       inputEvents.inc();
       if (isOutput) {
         outputEvents.inc();
       } else {
         filteredOutEvents.inc();
       }
-      processingTime.update(Duration.between(startProcessing, endProcessing).toMillis());
+      processingTime.update(endProcessing - startProcessing);
     }
 
   }

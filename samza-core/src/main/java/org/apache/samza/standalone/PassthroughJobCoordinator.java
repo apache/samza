@@ -86,7 +86,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     try {
       jobModel = getJobModel();
       // TODO metrics registry has been null here for a while; is it safe?
-      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, getClass().getClassLoader());
+      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, getClass().getClassLoader(), config);
       metadataResourceUtil.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
@@ -125,7 +125,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
     systemAdmins.start();
     try {
-      String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
+      String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID));
       GrouperMetadata grouperMetadata = new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
       return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata,
           getClass().getClassLoader());

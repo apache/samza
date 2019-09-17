@@ -20,7 +20,6 @@
 package org.apache.samza.sql.data;
 
 import java.io.Serializable;
-import java.time.Instant;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 
@@ -56,60 +55,82 @@ public class SamzaSqlRelMsgMetadata implements Serializable {
    * TODO: copy eventTime through from source to RelMessage
    */
   @JsonProperty("eventTime")
-  private String eventTime;
+  private long eventTime = 0L;
 
   /**
    * the timestamp of when Samza App received the event
    * TODO: set arrivalTime during conversion from IME to SamzaMessage
    */
   @JsonProperty("arrivalTime")
-  private String arrivalTime;
+  private long arrivalTime = 0L;
 
   /**
-   * the timestamp when SamzaSQL query starts processing the event
-   * set by the SamzaSQL Scan operator
+   * the System.nanoTime when SamzaSQL query starts processing the event
+   * set by the SamzaSQL Scan operator, used by QueryTranslator to calculate
+   * the Query Latency
+   *
+   * Note: using JsonPeoperty("scanTim") for backward compatibility
    */
   @JsonProperty("scanTime")
-  private String scanTime;
+  private long scanTimeNanos = 0L;
 
-  public SamzaSqlRelMsgMetadata(@JsonProperty("eventTime") String eventTime, @JsonProperty("arrivalTime") String arrivalTime,
-      @JsonProperty("scanTime") String scanTime) {
+  /**
+   * the tiemstamp when SamzSQL wuery starts processing the event
+   * set by the SamzaSQL Scan oeprator, used by QueryTranslator to calculate
+   * the Queuing Latency
+   */
+  @JsonProperty("scanTimeMillis")
+  private long scanTimeMillis = 0L;
+
+  public SamzaSqlRelMsgMetadata(@JsonProperty("eventTime") long eventTime, @JsonProperty("arrivalTime") long arrivalTime,
+      @JsonProperty("scanTime") long scanTimeNanos, @JsonProperty("scanTimeMillis") long scanTimeMillis) {
     this.eventTime = eventTime;
     this.arrivalTime = arrivalTime;
-    this.scanTime = scanTime;
+    this.scanTimeNanos = scanTimeNanos;
+    this.scanTimeMillis = scanTimeMillis;
   }
 
-  public SamzaSqlRelMsgMetadata(String eventTime, String arrivalTime, String scanTime, boolean isNewInputMessage) {
-    this(eventTime, arrivalTime, scanTime);
+  public SamzaSqlRelMsgMetadata(long eventTime, long arrivalTime, long scanTimeNanos, long scanTimeMillis,
+      boolean isNewInputMessage) {
+    this(eventTime, arrivalTime, scanTimeNanos, scanTimeMillis);
     this.isNewInputMessage = isNewInputMessage;
   }
 
-  @JsonProperty("eventTime")
-  public String getEventTime() { return eventTime;}
+  public SamzaSqlRelMsgMetadata(long eventTime, long arrivalTime) {
+    this(eventTime, arrivalTime, 0L, 0L);
+  }
 
-  public void setEventTime(String eventTime) {
+
+      @JsonProperty("eventTime")
+  public long getEventTime() { return eventTime;}
+
+  public void setEventTime(long eventTime) {
     this.eventTime = eventTime;
   }
 
-  public boolean hasEventTime() { return eventTime != null && !eventTime.isEmpty(); }
+  public boolean hasEventTime() { return eventTime != 0L; }
 
   @JsonProperty("arrivalTime")
-  public String getarrivalTime() { return arrivalTime;}
+  public long getArrivalTime() { return arrivalTime;}
 
-  public void setArrivalTime(String arrivalTime) {
+  public void setArrivalTime(long arrivalTime) {
     this.arrivalTime = arrivalTime;
   }
 
-  public boolean hasArrivalTime() { return arrivalTime != null && !arrivalTime.isEmpty(); }
+  public boolean hasArrivalTime() { return arrivalTime != 0L; }
 
   @JsonProperty("scanTime")
-  public String getscanTime() { return scanTime;}
+  public long getScanTimeNanos() { return scanTimeNanos;}
 
-  public void setScanTime(String scanTime) {
-    this.scanTime = scanTime;
+  @JsonProperty("scanTimeMillis")
+  public long getScanTimeMillis() { return scanTimeMillis;}
+
+  public void setScanTime(long scanTimeNano, long scanTimeMillis) {
+    this.scanTimeNanos = scanTimeNano;
+    this.scanTimeMillis = scanTimeMillis;
   }
 
-  public boolean hasScanTime() { return scanTime != null && !scanTime.isEmpty(); }
+  public boolean hasScanTime() { return scanTimeNanos != 0L; }
 
   @JsonIgnore
   public  void setIsSystemMessage(boolean isSystemMessage) {
@@ -123,7 +144,7 @@ public class SamzaSqlRelMsgMetadata implements Serializable {
 
   @Override
   public String toString() {
-    return "[Metadata:{" + eventTime + " " + arrivalTime + " " + scanTime + "}]";
+    return "[Metadata:{" + eventTime + " " + arrivalTime + " " + scanTimeNanos + " " + scanTimeMillis + "}]";
   }
 
 }

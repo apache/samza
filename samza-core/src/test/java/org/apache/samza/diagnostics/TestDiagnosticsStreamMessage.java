@@ -54,7 +54,7 @@ public class TestDiagnosticsStreamMessage {
 
     diagnosticsStreamMessage.addContainerMb(1024);
     diagnosticsStreamMessage.addContainerNumCores(2);
-    diagnosticsStreamMessage.addNumStoresWithChangelog(3);
+    diagnosticsStreamMessage.addNumPersistentStores(3);
 
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
     return diagnosticsStreamMessage;
@@ -106,7 +106,7 @@ public class TestDiagnosticsStreamMessage {
 
     Assert.assertEquals(1024, (int) diagnosticsStreamMessage.getContainerMb());
     Assert.assertEquals(2, (int) diagnosticsStreamMessage.getContainerNumCores());
-    Assert.assertEquals(3, (int) diagnosticsStreamMessage.getNumStoresWithChangelog());
+    Assert.assertEquals(3, (int) diagnosticsStreamMessage.getNumPersistentStores());
     Assert.assertEquals(exceptionEventList, diagnosticsStreamMessage.getExceptionEvents());
     Assert.assertEquals(getSampleContainerModels(), diagnosticsStreamMessage.getContainerModels());
     Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(), getProcessorStopEventList());
@@ -135,7 +135,7 @@ public class TestDiagnosticsStreamMessage {
     Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
     Assert.assertTrue(metricsMap.get("org.apache.samza.container.SamzaContainerMetrics").containsKey("exceptions"));
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerModels"));
-    Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("numStoresWithChangelog"));
+    Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("numPersistentStores"));
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerNumCores"));
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerMemoryMb"));
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("stopEvents"));

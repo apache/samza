@@ -27,6 +27,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
@@ -34,7 +35,6 @@ import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
-import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
@@ -61,10 +61,17 @@ public class ContainerLaunchUtil {
   private static volatile Throwable containerRunnerException = null;
 
   /**
-   * This method launches a Samza container in a managed cluster, e.g. Yarn.
-   *
-   * NOTE: this util method is also invoked by Beam SamzaRunner.
+   * This method launches a Samza container in a managed cluster and is invoked by BeamContainerRunner.
    * Any change here needs to take Beam into account.
+   */
+  public static void run(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,  String containerId, JobModel jobModel) {
+    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID()));
+    JobConfig jobConfig = new JobConfig(jobModel.getConfig());
+    ContainerLaunchUtil.run(appDesc, jobConfig.getName().get(), jobConfig.getJobId(), containerId, execEnvContainerId, jobModel);
+  }
+
+  /**
+   * This method launches a Samza container in a managed cluster, e.g. Yarn.
    */
   public static void run(
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
@@ -119,36 +126,11 @@ public class ContainerLaunchUtil {
           startpointManager,
           diagnosticsManager);
 
-      ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
+      ProcessorLifecycleListener processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
           .createInstance(new ProcessorContext() { }, config);
-
-      container.setContainerListener(
-          new SamzaContainerListener() {
-            @Override
-            public void beforeStart() {
-              log.info("Before starting the container.");
-              listener.beforeStart();
-            }
-
-            @Override
-            public void afterStart() {
-              log.info("Container Started");
-              listener.afterStart();
-            }
-
-            @Override
-            public void afterStop() {
-              log.info("Container Stopped");
-              listener.afterStop();
-            }
-
-            @Override
-            public void afterFailure(Throwable t) {
-              log.info("Container Failed");
-              containerRunnerException = t;
-              listener.afterFailure(t);
-            }
-          });
+      ClusterBasedProcessorLifecycleListener
+          listener = new ClusterBasedProcessorLifecycleListener(config, processorLifecycleListener, container::shutdown);
+      container.setContainerListener(listener);
 
       ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container);
       if (heartbeatMonitor != null) {
@@ -160,6 +142,7 @@ public class ContainerLaunchUtil {
         heartbeatMonitor.stop();
       }
 
+      containerRunnerException = listener.getContainerException();
       if (containerRunnerException != null) {
         log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
         System.exit(1);

@@ -31,18 +31,19 @@ import org.apache.samza.storage.{StorageEngine, StorageEngineFactory, StorePrope
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{HighResolutionClock, ScalaJavaUtil}
+import org.apache.samza.util.{HighResolutionClock, Logging}
 
 /**
- * A key value storage engine factory implementation
- *
- * This trait encapsulates all the steps needed to create a key value storage engine. It is meant to be extended
- * by the specific key value store factory implementations which will in turn override the getKVStore method.
- */
+  * A key value storage engine factory implementation
+  *
+  * This trait encapsulates all the steps needed to create a key value storage engine. It is meant to be extended
+  * by the specific key value store factory implementations which will in turn override the getKVStore method.
+  */
 trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] {
 
   private val INMEMORY_KV_STORAGE_ENGINE_FACTORY =
     "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory"
+
   /**
    * Return a KeyValueStore instance for the given store name,
    * which will be used as the underlying raw store
@@ -88,6 +89,10 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     var storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder()
     val accessLog = storageConfig.getAccessLogEnabled(storeName)
 
+    var maxMessageSize = storageConfig.getChangelogMaxMsgSizeBytes(storeName)
+    val disallowLargeMessages = storageConfig.getDisallowLargeMessages(storeName)
+    val dropLargeMessage = storageConfig.getDropLargeMessages(storeName)
+
     if (storeFactory.isEmpty) {
       throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!")
     }
@@ -123,22 +128,47 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       new LoggedStore(rawStore, changeLogSystemStreamPartition, collector, loggedStoreMetrics)
     }
 
-    // wrap with serialization
-    val serializedMetrics = new SerializedKeyValueStoreMetrics(storeName, registry)
-    val serialized = new SerializedKeyValueStore[K, V](maybeLoggedStore, keySerde, msgSerde, serializedMetrics)
+    var toBeAccessLoggedStore: KeyValueStore[K, V] = null
 
-    // maybe wrap with caching
-    val maybeCachedStore = if (enableCache) {
-      val cachedStoreMetrics = new CachedStoreMetrics(storeName, registry)
-      new CachedStore(serialized, cacheSize, batchSize, cachedStoreMetrics)
-    } else {
-      serialized
+    // If large messages are disallowed in config, then this creates a LargeMessageSafeKeyValueStore that throws a
+    // RecordTooLargeException when a large message is encountered.
+    if (disallowLargeMessages) {
+      // maybe wrap with caching
+      val maybeCachedStore = if (enableCache) {
+        createCachedStore(storeName, registry, maybeLoggedStore, cacheSize, batchSize)
+      } else {
+        maybeLoggedStore
+      }
+
+      // wrap with large message checking
+      val largeMessageSafeKeyValueStore = new LargeMessageSafeStore(maybeCachedStore, storeName, false, maxMessageSize)
+      // wrap with serialization
+      val serializedMetrics = new SerializedKeyValueStoreMetrics(storeName, registry)
+      toBeAccessLoggedStore = new SerializedKeyValueStore[K, V](largeMessageSafeKeyValueStore, keySerde, msgSerde, serializedMetrics)
+
+    }
+    else {
+      val toBeSerializedStore = if (dropLargeMessage) {
+        // wrap with large message checking
+        new LargeMessageSafeStore(maybeLoggedStore, storeName, dropLargeMessage, maxMessageSize)
+      } else {
+        maybeLoggedStore
+      }
+      // wrap with serialization
+      val serializedMetrics = new SerializedKeyValueStoreMetrics(storeName, registry)
+      val serializedStore = new SerializedKeyValueStore[K, V](toBeSerializedStore, keySerde, msgSerde, serializedMetrics)
+      // maybe wrap with caching
+      toBeAccessLoggedStore = if (enableCache) {
+        createCachedStore(storeName, registry, serializedStore, cacheSize, batchSize)
+      } else {
+        serializedStore
+      }
     }
 
     val maybeAccessLoggedStore = if (accessLog) {
-      new AccessLoggedStore(maybeCachedStore, collector, changeLogSystemStreamPartition, storageConfig, storeName, keySerde)
+      new AccessLoggedStore(toBeAccessLoggedStore, collector, changeLogSystemStreamPartition, storageConfig, storeName, keySerde)
     } else {
-      maybeCachedStore
+      toBeAccessLoggedStore
     }
 
     // wrap with null value checking
@@ -162,4 +192,10 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
       keyValueStorageEngineMetrics, batchSize, () => clock.nanoTime())
   }
 
+  def createCachedStore[K, V](storeName: String, registry: MetricsRegistry,
+    underlyingStore: KeyValueStore[K, V], cacheSize: Int, batchSize: Int): KeyValueStore[K, V] = {
+    // wrap with caching
+    val cachedStoreMetrics = new CachedStoreMetrics(storeName, registry)
+    new CachedStore(underlyingStore, cacheSize, batchSize, cachedStoreMetrics)
+  }
 }

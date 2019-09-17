@@ -18,6 +18,10 @@
  */
 package org.apache.samza.operators;
 
+import com.google.common.base.MoreObjects;
+import java.util.Arrays;
+import java.util.Objects;
+
 
 /**
  * A key and value pair.
@@ -44,5 +48,32 @@ public final class KV<K, V> {
 
   public V getValue() {
     return value;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof KV)) {
+      return false;
+    }
+    KV<?, ?> otherKv = (KV<?, ?>) other;
+    // deepEquals is used here for arrays. This impl comes from Beam.
+    return Objects.deepEquals(this.key, otherKv.key)
+        && Objects.deepEquals(this.value, otherKv.value);
+  }
+
+  @Override
+  public int hashCode() {
+    return Arrays.deepHashCode(new Object[] {key, value});
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .addValue(key)
+        .addValue(value)
+        .toString();
   }
 }

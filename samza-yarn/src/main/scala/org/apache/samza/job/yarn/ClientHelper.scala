@@ -362,9 +362,8 @@ class ClientHelper(conf: Configuration) extends Logging {
   }
 
   private[yarn] def validateJobConfig(config: Config) = {
-    import org.apache.samza.config.JobConfig.Config2Job
-
-    if (config.getSecurityManagerFactory.isEmpty) {
+    val jobConfig = new JobConfig(config)
+    if (!jobConfig.getSecurityManagerFactory.isPresent) {
       throw new SamzaException(s"Job config ${JobConfig.JOB_SECURITY_MANAGER_FACTORY} not found. This config must be set for a secure cluster")
     }
   }

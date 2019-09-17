@@ -22,15 +22,38 @@ package org.apache.samza.sql.client.interfaces;
 import java.util.ArrayList;
 import java.util.List;
 
+
+/**
+ * defines the enumeration of Commands of a certain type
+ */
 public interface CommandType {
 
+  /**
+   * @return list of names of all commands in this enumeration
+   */
   static List<String> getAllCommands() { return new ArrayList<>(); }
 
+  /**
+   * returns the name of the command
+   * @return String
+   */
   String getCommandName();
 
+  /**
+   * returns the description of the command
+   * @return String
+   */
   String getDescription();
 
+  /**
+   * returns the description of the command
+   * @return String
+   */
   String getUsage();
 
+  /**
+   * returns the flag which specifies if the arguments of this command are optional or not
+   * @return true if arguments of this command are optional
+   */
   boolean argsAreOptional();
 }

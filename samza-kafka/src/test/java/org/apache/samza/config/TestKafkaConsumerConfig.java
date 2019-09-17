@@ -46,7 +46,7 @@ public class TestKafkaConsumerConfig {
     props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG,
         "100"); // should NOT be ignored
 
-    props.put(JobConfig.JOB_NAME(), JOB_NAME);
+    props.put(JobConfig.JOB_NAME, JOB_NAME);
 
     // if KAFKA_CONSUMER_PROPERTY_PREFIX is set, then PRODUCER should be ignored
     props.put(KAFKA_PRODUCER_PROPERTY_PREFIX + "bootstrap.servers", "ignroeThis:9092");
@@ -95,7 +95,7 @@ public class TestKafkaConsumerConfig {
         kafkaConsumerConfig.get(ConsumerConfig.CLIENT_ID_CONFIG));
 
     // with non-default job id
-    props.put(JobConfig.JOB_ID(), JOB_ID);
+    props.put(JobConfig.JOB_ID, JOB_ID);
     config = new MapConfig(props);
     Assert.assertEquals(CLIENT_ID_PREFIX.replace("-", "_") + "-jobName-jobId",
         kafkaConsumerConfig.createClientId(CLIENT_ID_PREFIX, config));
@@ -116,7 +116,7 @@ public class TestKafkaConsumerConfig {
     props.put(KAFKA_CONSUMER_PROPERTY_PREFIX + ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         TestKafkaConsumerConfig.class.getName());
 
-    props.put(JobConfig.JOB_NAME(), "jobName");
+    props.put(JobConfig.JOB_NAME, "jobName");
 
     Config config = new MapConfig(props);
     String clientId = KafkaConsumerConfig.createClientId(CLIENT_ID_PREFIX, config);
@@ -136,8 +136,8 @@ public class TestKafkaConsumerConfig {
   public void testGetConsumerClientId() {
     Map<String, String> map = new HashMap<>();
 
-    map.put(JobConfig.JOB_NAME(), "jobName");
-    map.put(JobConfig.JOB_ID(), "jobId");
+    map.put(JobConfig.JOB_NAME, "jobName");
+    map.put(JobConfig.JOB_ID, "jobId");
 
     String result = KafkaConsumerConfig.createClientId("consumer", new MapConfig(map));
     Assert.assertEquals("consumer-jobName-jobId", result);
@@ -148,11 +148,11 @@ public class TestKafkaConsumerConfig {
     result = KafkaConsumerConfig.createClientId("super-duper-consumer", new MapConfig(map));
     Assert.assertEquals("super_duper_consumer-jobName-jobId", result);
 
-    map.put(JobConfig.JOB_NAME(), " very important!job");
+    map.put(JobConfig.JOB_NAME, " very important!job");
     result = KafkaConsumerConfig.createClientId("consumer", new MapConfig(map));
     Assert.assertEquals("consumer-_very_important_job-jobId", result);
 
-    map.put(JobConfig.JOB_ID(), "number-#3");
+    map.put(JobConfig.JOB_ID, "number-#3");
     result = KafkaConsumerConfig.createClientId("consumer", new MapConfig(map));
     Assert.assertEquals("consumer-_very_important_job-number__3", result);
   }
@@ -170,7 +170,7 @@ public class TestKafkaConsumerConfig {
   public void testResetValues() {
     Map<String, String> props = new HashMap<>();
     props.put(KAFKA_PRODUCER_PROPERTY_PREFIX + ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "locahost:9092");
-    props.put(JobConfig.JOB_NAME(), JOB_NAME);
+    props.put(JobConfig.JOB_NAME, JOB_NAME);
 
 
     // largest -> latest

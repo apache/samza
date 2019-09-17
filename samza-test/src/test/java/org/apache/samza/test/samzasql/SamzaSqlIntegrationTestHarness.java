@@ -29,11 +29,11 @@ import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
 import org.apache.samza.system.MockSystemFactory;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.test.harness.IntegrationTestHarness;
+import org.apache.samza.test.harness.InMemoryIntegrationTestHarness;
 import org.apache.samza.util.CoordinatorStreamUtil;
 
 
-public class SamzaSqlIntegrationTestHarness extends IntegrationTestHarness {
+public class SamzaSqlIntegrationTestHarness extends InMemoryIntegrationTestHarness {
 
   public static final String MOCK_METADATA_SYSTEM = "mockmetadatasystem";
 
@@ -43,8 +43,11 @@ public class SamzaSqlIntegrationTestHarness extends IntegrationTestHarness {
         CoordinatorStreamUtil.getCoordinatorStreamName(SamzaSqlTestConfig.SQL_JOB, SamzaSqlTestConfig.SQL_JOB_PROCESSOR_ID),
         new Partition(0)), new ArrayList<>());
     HashMap<String, String> mapConfig = new HashMap<>();
-    mapConfig.put(JobConfig.JOB_COORDINATOR_SYSTEM(), MOCK_METADATA_SYSTEM);
+    mapConfig.put(JobConfig.JOB_COORDINATOR_SYSTEM, MOCK_METADATA_SYSTEM);
     mapConfig.put(String.format(SystemConfig.SYSTEM_FACTORY_FORMAT, MOCK_METADATA_SYSTEM), MockSystemFactory.class.getName());
+
+    // configs for using in-memory system as the default system
+    mapConfig.putAll(baseInMemorySystemConfigs());
     mapConfig.putAll(config);
 
     SamzaSqlApplicationRunner runner = new SamzaSqlApplicationRunner(true, new MapConfig(mapConfig));

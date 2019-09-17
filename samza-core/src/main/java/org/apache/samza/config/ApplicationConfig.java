@@ -66,11 +66,11 @@ public class ApplicationConfig extends MapConfig {
   }
 
   public String getAppName() {
-    return get(APP_NAME, get(JobConfig.JOB_NAME()));
+    return get(APP_NAME, get(JobConfig.JOB_NAME));
   }
 
   public String getAppId() {
-    return get(APP_ID, get(JobConfig.JOB_ID(), "1"));
+    return get(APP_ID, get(JobConfig.JOB_ID, "1"));
   }
 
   public String getAppClass() {

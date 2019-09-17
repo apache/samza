@@ -155,7 +155,7 @@ public class TestStreamApplication implements StreamApplication {
       CountDownLatch kafkaEventsConsumedLatch,
       Config config) {
     String appName = new ApplicationConfig(config).getGlobalAppId();
-    String processorName = config.get(JobConfig.PROCESSOR_ID());
+    String processorName = config.get(JobConfig.PROCESSOR_ID);
     registerLatches(processedMessageLatch, kafkaEventsConsumedLatch, callback, appName, processorName);
 
     StreamApplication app = new TestStreamApplication(systemName, inputTopics, outputTopic, appName, processorName);

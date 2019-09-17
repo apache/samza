@@ -37,6 +37,7 @@ import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.fn.BuildOutputRecordUdf;
 import org.apache.samza.sql.fn.FlattenUdf;
+import org.apache.samza.sql.fn.GetNestedFieldUdf;
 import org.apache.samza.sql.fn.RegexMatchUdf;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
@@ -81,8 +82,9 @@ public class SamzaSqlTestConfig {
       boolean includeNullForeignKeys, boolean includeNullSimpleRecords, long windowDurationMs) {
     HashMap<String, String> staticConfigs = new HashMap<>();
 
-    staticConfigs.put(JobConfig.JOB_NAME(), SQL_JOB);
-    staticConfigs.put(JobConfig.PROCESSOR_ID(), SQL_JOB_PROCESSOR_ID);
+    staticConfigs.put(JobConfig.JOB_NAME, SQL_JOB);
+    staticConfigs.put(JobConfig.PROCESSOR_ID, SQL_JOB_PROCESSOR_ID);
+
     staticConfigs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     staticConfigs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 
@@ -99,7 +101,7 @@ public class SamzaSqlTestConfig {
     staticConfigs.put(configUdfResolverDomain + ConfigBasedUdfResolver.CFG_UDF_CLASSES, Joiner.on(",")
         .join(MyTestUdf.class.getName(), RegexMatchUdf.class.getName(), FlattenUdf.class.getName(),
             MyTestArrayUdf.class.getName(), BuildOutputRecordUdf.class.getName(), MyTestPolyUdf.class.getName(),
-            MyTestObjUdf.class.getName()));
+            MyTestObjUdf.class.getName(), GetNestedFieldUdf.class.getName()));
 
     String avroSystemConfigPrefix =
         String.format(ConfigBasedIOResolverFactory.CFG_FMT_SAMZA_PREFIX, SAMZA_SYSTEM_TEST_AVRO);
@@ -186,6 +188,9 @@ public class SamzaSqlTestConfig {
 
     staticConfigs.put(configAvroRelSchemaProviderDomain + String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA,
         "testavro", "PROFILE"), Profile.SCHEMA$.toString());
+
+    staticConfigs.put(configAvroRelSchemaProviderDomain + String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA,
+        "testavro", "PROFILE1"), Profile.SCHEMA$.toString());
 
     staticConfigs.put(configAvroRelSchemaProviderDomain + String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA,
         "testavro", "PAGEVIEW"), PageView.SCHEMA$.toString());

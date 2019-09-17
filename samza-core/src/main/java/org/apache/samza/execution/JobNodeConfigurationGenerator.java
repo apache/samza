@@ -84,10 +84,10 @@ import org.slf4j.LoggerFactory;
   }
 
   static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
-    String userConfiguredJobId = originalConfig.get(JobConfig.JOB_ID());
-    String userConfiguredJobName = originalConfig.get(JobConfig.JOB_NAME());
-    String generatedJobId = generatedConfig.get(JobConfig.JOB_ID());
-    String generatedJobName = generatedConfig.get(JobConfig.JOB_NAME());
+    String userConfiguredJobId = originalConfig.get(JobConfig.JOB_ID);
+    String userConfiguredJobName = originalConfig.get(JobConfig.JOB_NAME);
+    String generatedJobId = generatedConfig.get(JobConfig.JOB_ID);
+    String generatedJobName = generatedConfig.get(JobConfig.JOB_NAME);
 
     if (generatedJobName != null && userConfiguredJobName != null && !StringUtils.equals(generatedJobName,
         userConfiguredJobName)) {
@@ -111,8 +111,8 @@ import org.slf4j.LoggerFactory;
 
     Map<String, String> generatedConfig = new HashMap<>();
     // set up job name and job ID
-    generatedConfig.put(JobConfig.JOB_NAME(), jobNode.getJobName());
-    generatedConfig.put(JobConfig.JOB_ID(), jobNode.getJobId());
+    generatedConfig.put(JobConfig.JOB_NAME, jobNode.getJobName());
+    generatedConfig.put(JobConfig.JOB_ID, jobNode.getJobId());
 
     Map<String, StreamEdge> inEdges = jobNode.getInEdges();
     Map<String, StreamEdge> outEdges = jobNode.getOutEdges();

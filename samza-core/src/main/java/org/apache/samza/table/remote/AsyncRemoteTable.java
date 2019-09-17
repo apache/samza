@@ -42,13 +42,15 @@ public class AsyncRemoteTable<K, V> implements AsyncReadWriteTable<K, V> {
   private final TableWriteFunction<K, V> writeFn;
 
   public AsyncRemoteTable(TableReadFunction<K, V> readFn, TableWriteFunction<K, V> writeFn) {
-    Preconditions.checkNotNull(readFn, "null readFn");
+    Preconditions.checkArgument(writeFn != null || readFn != null,
+        "Must have one of TableReadFunction or TableWriteFunction");
     this.readFn = readFn;
     this.writeFn = writeFn;
   }
 
   @Override
   public CompletableFuture<V> getAsync(K key, Object ... args) {
+    Preconditions.checkNotNull(readFn, "null readFn");
     return args.length > 0
         ? readFn.getAsync(key, args)
         : readFn.getAsync(key);
@@ -56,6 +58,7 @@ public class AsyncRemoteTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   @Override
   public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
+    Preconditions.checkNotNull(readFn, "null readFn");
     return args.length > 0
         ? readFn.getAllAsync(keys, args)
         : readFn.getAllAsync(keys);
@@ -63,6 +66,7 @@ public class AsyncRemoteTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   @Override
   public <T> CompletableFuture<T> readAsync(int opId, Object... args) {
+    Preconditions.checkNotNull(readFn, "null readFn");
     return readFn.readAsync(opId, args);
   }
 
@@ -119,7 +123,9 @@ public class AsyncRemoteTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   @Override
   public void close() {
-    readFn.close();
+    if (readFn != null) {
+      readFn.close();
+    }
     if (writeFn != null) {
       writeFn.close();
     }

@@ -52,31 +52,58 @@ public class SamzaSqlDslConverter implements DslConverter {
   public Collection<RelRoot> convertDsl(String dsl) {
     // TODO: Introduce an API to parse a dsl string and return one or more sql statements
     List<String> sqlStmts = fetchSqlFromConfig(config);
-    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
-    SamzaSqlApplicationConfig sqlConfig = new SamzaSqlApplicationConfig(config,
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
-            .collect(Collectors.toList()),
-        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
-
-    QueryPlanner planner =
-        new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
-            sqlConfig.getUdfMetadata());
-
+    QueryPlanner planner = getQueryPlanner(getSqlConfig(sqlStmts, config));
     List<RelRoot> relRoots = new LinkedList<>();
     for (String sql: sqlStmts) {
       // we always pass only select query to the planner for samza sql. The reason is that samza sql supports
       // schema evolution where source and destination could up to an extent have independent schema evolution while
       // calcite expects strict comformance of the destination schema with that of the fields in the select query.
       SamzaSqlQueryParser.QueryInfo qinfo = SamzaSqlQueryParser.parseQuery(sql);
-      relRoots.add(planner.plan(qinfo.getSelectQuery()));
+      RelRoot relRoot = planner.plan(qinfo.getSelectQuery());
+      relRoots.add(relRoot);
     }
     return relRoots;
   }
 
+  /**
+   * Get {@link SamzaSqlApplicationConfig} given sql statements and samza config.
+   * @param sqlStmts List of sql statements
+   * @param config Samza config
+   * @return {@link SamzaSqlApplicationConfig}
+   */
+  public static SamzaSqlApplicationConfig getSqlConfig(List<String> sqlStmts, Config config) {
+    List<SamzaSqlQueryParser.QueryInfo> queryInfo = fetchQueryInfo(sqlStmts);
+    return new SamzaSqlApplicationConfig(config,
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSources).flatMap(Collection::stream)
+            .collect(Collectors.toList()),
+        queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink)
+            .collect(Collectors.toList()));
+  }
+
+  /**
+   * Get {@link QueryPlanner} given {@link SamzaSqlApplicationConfig}
+   * @param sqlConfig {@link SamzaSqlApplicationConfig}
+   * @return {@link QueryPlanner}
+   */
+  public static QueryPlanner getQueryPlanner(SamzaSqlApplicationConfig sqlConfig) {
+    return new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
+        sqlConfig.getUdfMetadata());
+  }
+
+  /**
+   * Get list of {@link org.apache.samza.sql.util.SamzaSqlQueryParser.QueryInfo} given list of sql statements.
+   * @param sqlStmts list of sql statements
+   * @return list of {@link org.apache.samza.sql.util.SamzaSqlQueryParser.QueryInfo}
+   */
   public static List<SamzaSqlQueryParser.QueryInfo> fetchQueryInfo(List<String> sqlStmts) {
     return sqlStmts.stream().map(SamzaSqlQueryParser::parseQuery).collect(Collectors.toList());
   }
 
+  /**
+   * Get list of sql statements based on the property set in the config.
+   * @param config config
+   * @return list of Sql statements
+   */
   public static List<String> fetchSqlFromConfig(Map<String, String> config) {
     List<String> sql;
     if (config.containsKey(SamzaSqlApplicationConfig.CFG_SQL_STMT) &&

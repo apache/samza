@@ -151,7 +151,7 @@ public abstract class JobPlanner {
     appDesc.getOutputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
     appDesc.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
     appDesc.getDefaultSystemDescriptor().ifPresent(dsd ->
-        systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
+        systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM, dsd.getSystemName()));
     return systemStreamConfigs;
   }
 
@@ -166,28 +166,28 @@ public abstract class JobPlanner {
   public static MapConfig generateSingleJobConfig(Map<String, String> userConfigs) {
     Map<String, String> generatedConfig = new HashMap<>(userConfigs);
 
-    if (!userConfigs.containsKey(JobConfig.JOB_NAME()) && !userConfigs.containsKey(ApplicationConfig.APP_NAME)) {
+    if (!userConfigs.containsKey(JobConfig.JOB_NAME) && !userConfigs.containsKey(ApplicationConfig.APP_NAME)) {
       throw new SamzaException("Samza app name should not be null, Please set either app.name (preferred) or job.name (deprecated) in configs");
     }
 
-    if (userConfigs.containsKey(JobConfig.JOB_ID())) {
-      LOG.warn("{} is a deprecated configuration, use app.id instead.", JobConfig.JOB_ID());
+    if (userConfigs.containsKey(JobConfig.JOB_ID)) {
+      LOG.warn("{} is a deprecated configuration, use app.id instead.", JobConfig.JOB_ID);
     }
 
-    if (userConfigs.containsKey(JobConfig.JOB_NAME())) {
-      LOG.warn("{} is a deprecated configuration, use use app.name instead.", JobConfig.JOB_NAME());
+    if (userConfigs.containsKey(JobConfig.JOB_NAME)) {
+      LOG.warn("{} is a deprecated configuration, use use app.name instead.", JobConfig.JOB_NAME);
     }
 
     if (userConfigs.containsKey(ApplicationConfig.APP_NAME)) {
       String appName =  userConfigs.get(ApplicationConfig.APP_NAME);
       LOG.info("app.name is defined, generating job.name equal to app.name value: {}", appName);
-      generatedConfig.put(JobConfig.JOB_NAME(), appName);
+      generatedConfig.put(JobConfig.JOB_NAME, appName);
     }
 
     if (userConfigs.containsKey(ApplicationConfig.APP_ID)) {
       String appId =  userConfigs.get(ApplicationConfig.APP_ID);
       LOG.info("app.id is defined, generating job.id equal to app.name value: {}", appId);
-      generatedConfig.put(JobConfig.JOB_ID(), appId);
+      generatedConfig.put(JobConfig.JOB_ID, appId);
     }
 
     return new MapConfig(generatedConfig);

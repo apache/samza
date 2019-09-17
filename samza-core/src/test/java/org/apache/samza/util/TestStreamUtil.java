@@ -86,7 +86,7 @@ public class TestStreamUtil {
   public void testGetStreamWithSystemAtDefaultScopeInConfig() {
     Config config = addConfigs(buildStreamConfig(STREAM_ID,
         StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME),
-        JobConfig.JOB_DEFAULT_SYSTEM(), TEST_DEFAULT_SYSTEM);
+        JobConfig.JOB_DEFAULT_SYSTEM, TEST_DEFAULT_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
 
@@ -99,7 +99,7 @@ public class TestStreamUtil {
     Config config = addConfigs(buildStreamConfig(STREAM_ID,
         StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
         StreamConfig.SYSTEM(), TEST_SYSTEM),
-        JobConfig.JOB_DEFAULT_SYSTEM(), TEST_DEFAULT_SYSTEM);
+        JobConfig.JOB_DEFAULT_SYSTEM, TEST_DEFAULT_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
 

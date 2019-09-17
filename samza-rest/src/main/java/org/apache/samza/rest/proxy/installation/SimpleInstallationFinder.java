@@ -100,10 +100,10 @@ public class SimpleInstallationFinder implements InstallationFinder {
           String configFilePath = configFile.getCanonicalPath();
           Config config = jobConfigFactory.getConfig(new URI("file://" + configFilePath));
 
-          if (config.containsKey(JobConfig.JOB_NAME()) && config.containsKey(JobConfig.STREAM_JOB_FACTORY_CLASS())) {
+          if (config.containsKey(JobConfig.JOB_NAME) && config.containsKey(JobConfig.STREAM_JOB_FACTORY_CLASS)) {
 
-            String jobName = config.get(JobConfig.JOB_NAME());
-            String jobId = config.get(JobConfig.JOB_ID(), "1");
+            String jobName = config.get(JobConfig.JOB_NAME);
+            String jobId = config.get(JobConfig.JOB_ID, "1");
             JobInstance jobInstance = new JobInstance(jobName, jobId);
 
             if (jobs.containsKey(jobInstance)) {

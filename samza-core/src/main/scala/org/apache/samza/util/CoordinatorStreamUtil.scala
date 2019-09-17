@@ -25,7 +25,6 @@ import java.util
 
 import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde
@@ -42,14 +41,15 @@ object CoordinatorStreamUtil extends Logging {
     * only the job name, job id, and system config for the coordinator stream.
     */
   def buildCoordinatorStreamConfig(config: Config) = {
-    val (jobName, jobId) = getJobNameAndId(config)
+    val jobConfig = new JobConfig(config)
+    val (jobName, jobId) = getJobNameAndId(jobConfig)
     // Build a map with just the system config and job.name/job.id. This is what's required to start the JobCoordinator.
-    val map = config.subset(SystemConfig.SYSTEM_ID_PREFIX format config.getCoordinatorSystemName, false).asScala ++
+    val map = config.subset(SystemConfig.SYSTEM_ID_PREFIX format jobConfig.getCoordinatorSystemName, false).asScala ++
       Map[String, String](
         JobConfig.JOB_NAME -> jobName,
         JobConfig.JOB_ID -> jobId,
-        JobConfig.JOB_COORDINATOR_SYSTEM -> config.getCoordinatorSystemName,
-        JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(config.getMonitorPartitionChangeFrequency))
+        JobConfig.JOB_COORDINATOR_SYSTEM -> jobConfig.getCoordinatorSystemName,
+        JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(jobConfig.getMonitorPartitionChangeFrequency))
     new MapConfig(map.asJava)
   }
 
@@ -75,8 +75,9 @@ object CoordinatorStreamUtil extends Logging {
     * @return
     */
   def getCoordinatorSystemStream(config: Config) = {
-    val systemName = config.getCoordinatorSystemName
-    val (jobName, jobId) = getJobNameAndId(config)
+    val jobConfig = new JobConfig(config)
+    val systemName = jobConfig.getCoordinatorSystemName
+    val (jobName, jobId) = getJobNameAndId(jobConfig)
     val streamName = getCoordinatorStreamName(jobName, jobId)
     new SystemStream(systemName, streamName)
   }
@@ -87,7 +88,7 @@ object CoordinatorStreamUtil extends Logging {
     * @return
     */
   def getCoordinatorSystemFactory(config: Config) = {
-    val systemName = config.getCoordinatorSystemName
+    val systemName = new JobConfig(config).getCoordinatorSystemName
     val systemConfig = new SystemConfig(config)
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
@@ -109,9 +110,10 @@ object CoordinatorStreamUtil extends Logging {
     *
     * @return A tuple of (jobName, jobId)
     */
-  private def getJobNameAndId(config: Config) = {
-    (config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
-      config.getJobId)
+  private def getJobNameAndId(jobConfig: JobConfig) = {
+    (JavaOptionals.toRichOptional(jobConfig.getName).toOption
+      .getOrElse(throw new ConfigException("Missing required config: job.name")),
+      jobConfig.getJobId)
   }
 
   /**
@@ -129,8 +131,8 @@ object CoordinatorStreamUtil extends Logging {
       } else {
         val valueSerde: CoordinatorStreamValueSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE)
         val valueAsString: String = valueSerde.fromBytes(valueAsBytes)
-        if (StringUtils.isBlank(valueAsString)) {
-          warn("Value for key: %s in config is empty or null. Ignoring it." format key)
+        if (valueAsString == null) {
+          warn("Value for key: %s in config is decoded to be null. Ignoring it." format key)
         } else {
           configMap.put(key, valueAsString)
         }

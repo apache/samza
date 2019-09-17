@@ -51,9 +51,8 @@ public class ContainerAllocator extends AbstractContainerAllocator {
    * */
   @Override
   public void assignResourceRequests() {
-    while (hasPendingRequest() && hasAllocatedResource(ResourceRequestState.ANY_HOST)) {
-      SamzaResourceRequest request = peekPendingRequest();
-      runStreamProcessor(request, ResourceRequestState.ANY_HOST);
+    while (hasReadyPendingRequest() && hasAllocatedResource(ResourceRequestState.ANY_HOST)) {
+      peekReadyPendingRequest().ifPresent(request -> runStreamProcessor(request, ResourceRequestState.ANY_HOST));
     }
   }
 

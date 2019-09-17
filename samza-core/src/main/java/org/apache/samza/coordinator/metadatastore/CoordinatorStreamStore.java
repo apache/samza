@@ -23,11 +23,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.util.Collections;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -38,16 +38,16 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.SystemStreamPartitionIterator;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
-import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.SystemStreamPartitionIterator;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -126,6 +126,19 @@ public class CoordinatorStreamStore implements MetadataStore {
 
   @Override
   public void put(String namespacedKey, byte[] value) {
+    putWithoutFlush(namespacedKey, value);
+    flush();
+  }
+
+  @Override
+  public void putAll(Map<String, byte[]> entries) {
+    for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+      putWithoutFlush(entry.getKey(), entry.getValue());
+    }
+    flush();
+  }
+
+  private void putWithoutFlush(String namespacedKey, byte[] value) {
     // 1. Store the namespace and key into correct fields of the CoordinatorStreamKey and convert the key to bytes.
     CoordinatorMessageKey coordinatorMessageKey = deserializeCoordinatorMessageKeyFromJson(namespacedKey);
     CoordinatorStreamKeySerde keySerde = new CoordinatorStreamKeySerde(coordinatorMessageKey.getNamespace());
@@ -134,7 +147,6 @@ public class CoordinatorStreamStore implements MetadataStore {
     // 2. Set the key, message in correct fields of {@link OutgoingMessageEnvelope} and publish it to the coordinator stream.
     OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(coordinatorSystemStream, 0, keyBytes, value);
     systemProducer.send(SOURCE, envelope);
-    flush();
   }
 
   @Override

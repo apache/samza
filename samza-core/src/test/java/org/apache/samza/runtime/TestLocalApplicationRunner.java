@@ -35,16 +35,25 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.coordinator.ClusterMembership;
 import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.CoordinationUtils;
 import org.apache.samza.coordinator.DistributedLock;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.execution.LocalJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.metadatastore.InMemoryMetadataStore;
+import org.apache.samza.metadatastore.InMemoryMetadataStoreFactory;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.processor.StreamProcessor;
+import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.task.IdentityStreamTask;
 import org.apache.samza.zk.ZkMetadataStore;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
@@ -60,6 +69,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
@@ -206,6 +216,43 @@ public class TestLocalApplicationRunner {
 
     verify(coordinatorStreamStore).init();
     verify(coordinatorStreamStore, never()).close();
+
+    assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
+  }
+
+  @Test
+  public void testRunCompleteWithouCoordinatorStreamStore() throws Exception {
+    Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    config = new MapConfig(cfgs);
+    ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
+    mockApp = (StreamApplication) appDesc -> {
+      appDesc.withProcessorLifecycleListenerFactory(mockFactory);
+    };
+    prepareTest();
+
+    // return the jobConfigs from the planner
+    doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
+
+    StreamProcessor sp = mock(StreamProcessor.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
+
+    doAnswer(i ->
+      {
+        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+        listener.afterStart();
+        listener.afterStop();
+        return null;
+      }).when(sp).start();
+
+    ExternalContext externalContext = mock(ExternalContext.class);
+    doReturn(sp).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), eq(null));
+    doReturn(null).when(runner).createCoordinatorStreamStore(any(Config.class));
+
+    runner.run(externalContext);
+    runner.waitForFinish();
 
     assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
@@ -370,8 +417,8 @@ public class TestLocalApplicationRunner {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_MODE, "BATCH");
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
-    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    cfgs.put(JobConfig.JOB_NAME, "test-task-job");
+    cfgs.put(JobConfig.JOB_ID, "jobId");
     config = new MapConfig(cfgs);
     mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
 
@@ -394,8 +441,8 @@ public class TestLocalApplicationRunner {
     final Map<String, String> cfgs = new HashMap<>();
     cfgs.put(ApplicationConfig.APP_MODE, "STREAM");
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(JobConfig.JOB_NAME(), "test-task-job");
-    cfgs.put(JobConfig.JOB_ID(), "jobId");
+    cfgs.put(JobConfig.JOB_NAME, "test-task-job");
+    cfgs.put(JobConfig.JOB_ID, "jobId");
     config = new MapConfig(cfgs);
     mockApp = new LegacyTaskApplication(IdentityStreamTask.class.getName());
 
@@ -437,4 +484,94 @@ public class TestLocalApplicationRunner {
     doReturn(coordinatorStreamStore).when(runner).createCoordinatorStreamStore(any(Config.class));
   }
 
+  /**
+   * Default metadata store factory should be null if no job coordinator system defined and the default
+   * ZkJobCoordinator is used.
+   */
+  @Test
+  public void testGetCoordinatorStreamStoreFactoryWithoutJobCoordinatorSystem() {
+    MetadataStoreFactory metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig()));
+    assertNull(metadataStoreFactory);
+  }
+
+  /**
+   * Default metadata store factory should not be null if job coordinator system defined and the default
+   * ZkJobCoordinator is used.
+   */
+  @Test
+  public void testGetCoordinatorStreamStoreFactoryWithJobCoordinatorSystem() {
+    MetadataStoreFactory metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_COORDINATOR_SYSTEM, "test-system"))));
+    assertNotNull(metadataStoreFactory);
+  }
+
+  /**
+   * Default metadata store factory should not be null if default system defined and the default
+   * ZkJobCoordinator is used.
+   */
+  @Test
+  public void testGetCoordinatorStreamStoreFactoryWithDefaultSystem() {
+    MetadataStoreFactory metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "test-system"))));
+    assertNotNull(metadataStoreFactory);
+  }
+
+  /**
+   * Default metadata store factory be null if job coordinator system or default system defined and a non ZkJobCoordinator
+   * job coordinator is used.
+   */
+  @Test
+  public void testGetCoordinatorStreamStoreFactoryWithNonZkJobCoordinator() {
+    MapConfig mapConfig = new MapConfig(
+        ImmutableMap.of(
+            JobConfig.JOB_DEFAULT_SYSTEM, "test-system",
+            JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName()));
+    MetadataStoreFactory metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(mapConfig));
+    assertNull(metadataStoreFactory);
+  }
+
+  /**
+   * Underlying coordinator stream should be created if using CoordinatorStreamMetadataStoreFactory
+   * @throws Exception
+   */
+  @Test
+  public void testCreateCoordinatorStreamWithCoordinatorFactory() throws Exception {
+    CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
+    CoordinatorStreamMetadataStoreFactory coordinatorStreamMetadataStoreFactory = mock(CoordinatorStreamMetadataStoreFactory.class);
+    doReturn(coordinatorStreamStore).when(coordinatorStreamMetadataStoreFactory).getMetadataStore(anyString(), any(Config.class), any(
+        MetricsRegistry.class));
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    PowerMockito.whenNew(SystemAdmins.class).withAnyArguments().thenReturn(systemAdmins);
+    LocalApplicationRunner localApplicationRunner =
+        spy(new LocalApplicationRunner(mockApp, config, coordinatorStreamMetadataStoreFactory));
+
+    // create store only if successful in creating the underlying coordinator stream
+    doReturn(true).when(localApplicationRunner).createUnderlyingCoordinatorStream(eq(config));
+    assertEquals(coordinatorStreamStore, localApplicationRunner.createCoordinatorStreamStore(config));
+    verify(localApplicationRunner).createUnderlyingCoordinatorStream(eq(config));
+
+    // do not create store if creating the underlying coordinator stream fails
+    doReturn(false).when(localApplicationRunner).createUnderlyingCoordinatorStream(eq(config));
+    assertNull(localApplicationRunner.createCoordinatorStreamStore(config));
+  }
+
+  /**
+   * Underlying coordinator stream should not be created if not using CoordinatorStreamMetadataStoreFactory
+   * @throws Exception
+   */
+  @Test
+  public void testCreateCoordinatorStreamWithoutCoordinatorFactory() throws Exception {
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    PowerMockito.whenNew(SystemAdmins.class).withAnyArguments().thenReturn(systemAdmins);
+    LocalApplicationRunner localApplicationRunner =
+        spy(new LocalApplicationRunner(mockApp, config, new InMemoryMetadataStoreFactory()));
+    doReturn(false).when(localApplicationRunner).createUnderlyingCoordinatorStream(eq(config));
+    MetadataStore coordinatorStreamStore = localApplicationRunner.createCoordinatorStreamStore(config);
+    assertTrue(coordinatorStreamStore instanceof InMemoryMetadataStore);
+
+    // creating underlying coordinator stream should not be called for other coordinator stream metadata store types.
+    verify(localApplicationRunner, never()).createUnderlyingCoordinatorStream(eq(config));
+  }
 }

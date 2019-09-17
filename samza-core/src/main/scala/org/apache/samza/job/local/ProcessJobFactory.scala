@@ -41,7 +41,7 @@ import scala.collection.JavaConversions._
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
   def getJob(config: Config): StreamJob = {
-    val containerCount = JobConfig.Config2Job(config).getContainerCount
+    val containerCount = new JobConfig(config).getContainerCount
 
     if (containerCount > 1) {
       throw new SamzaException("Container count larger than 1 is not supported for ProcessJobFactory")
@@ -70,7 +70,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader)
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader, config)
     metadataResourceUtil.createResources()
 
     // fan out the startpoints

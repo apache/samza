@@ -46,6 +46,12 @@ public class StorageConfig extends MapConfig {
   public static final String CHANGELOG_STREAM = STORE_PREFIX + "%s" + CHANGELOG_SUFFIX;
   public static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
   public static final String CHANGELOG_REPLICATION_FACTOR = STORE_PREFIX + "%s.changelog.replication.factor";
+  public static final String CHANGELOG_MAX_MSG_SIZE_BYTES = STORE_PREFIX + "%s.changelog.max.message.size.bytes";
+  public static final int DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES = 1048576;
+  public static final String DISALLOW_LARGE_MESSAGES = STORE_PREFIX + "%s.disallow.large.messages";
+  public static final boolean DEFAULT_DISALLOW_LARGE_MESSAGES = false;
+  public static final String DROP_LARGE_MESSAGES = STORE_PREFIX + "%s.drop.large.messages";
+  public static final boolean DEFAULT_DROP_LARGE_MESSAGES = false;
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -57,6 +63,8 @@ public class StorageConfig extends MapConfig {
   static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s.side.inputs.processor.factory";
   static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
       STORE_PREFIX + "%s.side.inputs.processor.serialized.instance";
+  static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
+      "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
 
   public StorageConfig(Config config) {
     super(config);
@@ -141,7 +149,7 @@ public class StorageConfig extends MapConfig {
    * @return the name of the system to use by default for all changelogs, if defined.
    */
   public Optional<String> getChangelogSystem() {
-    return Optional.ofNullable(get(CHANGELOG_SYSTEM, get(JobConfig.JOB_DEFAULT_SYSTEM())));
+    return Optional.ofNullable(get(CHANGELOG_SYSTEM, get(JobConfig.JOB_DEFAULT_SYSTEM)));
   }
 
   /**
@@ -187,6 +195,18 @@ public class StorageConfig extends MapConfig {
     return getLong(String.format(CHANGELOG_DELETE_RETENTION_MS, storeName), DEFAULT_CHANGELOG_DELETE_RETENTION_MS);
   }
 
+  public int getChangelogMaxMsgSizeBytes(String storeName) {
+    return getInt(String.format(CHANGELOG_MAX_MSG_SIZE_BYTES, storeName), DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES);
+  }
+
+  public boolean getDisallowLargeMessages(String storeName) {
+    return getBoolean(String.format(DISALLOW_LARGE_MESSAGES, storeName), DEFAULT_DISALLOW_LARGE_MESSAGES);
+  }
+
+  public boolean getDropLargeMessages(String storeName) {
+    return getBoolean(String.format(DROP_LARGE_MESSAGES, storeName), DEFAULT_DROP_LARGE_MESSAGES);
+  }
+
   /**
    * Helper method to check if a system has a changelog attached to it.
    */
@@ -207,10 +227,13 @@ public class StorageConfig extends MapConfig {
   }
 
   /**
-   * Helper method to get the number of stores configured with a changelog.
+   * Helper method to get the number of persistent stores.
    */
-  public int getNumStoresWithChangelog() {
-    Config subConfig = subset(STORE_PREFIX, true);
-    return new Long(subConfig.keySet().stream().filter(key -> key.endsWith(CHANGELOG_SUFFIX)).count()).intValue();
+  public int getNumPersistentStores() {
+    return (int) getStoreNames().stream()
+        .map(storeName -> getStorageFactoryClassName(storeName))
+        .filter(factoryName -> factoryName.isPresent())
+        .filter(factoryName -> !factoryName.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY))
+        .count();
   }
 }
