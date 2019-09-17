@@ -548,9 +548,9 @@ public class KafkaSystemAdmin implements SystemAdmin {
       kafkaSpec = KafkaStreamSpec.fromSpec(spec);
 
       // we check if there is a system-level rf config specified, else we use KafkaConfig.topic-default-rf
-      int replicationFactorFromSystemConfig = Integer.valueOf(new SystemConfig(config).
-          getDefaultStreamProperties(spec.getSystemName()).getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR(),
-          KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
+      int replicationFactorFromSystemConfig = Integer.valueOf(
+          new KafkaConfig(config).getSystemDefaultReplicationFactor(spec.getSystemName(),
+              KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
 
       LOG.info("Using replication-factor: {} for StreamSpec: {}", replicationFactorFromSystemConfig, spec);
 

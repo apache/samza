@@ -119,7 +119,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     Option(replicationFactor)
   }
 
-  private def getSystemDefaultReplicationFactor(systemName: String, defaultValue: String) = {
+  def getSystemDefaultReplicationFactor(systemName: String, defaultValue: String) = {
     val defaultReplicationFactor = new SystemConfig(config).getDefaultStreamProperties(systemName).getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR, defaultValue)
     defaultReplicationFactor
   }
