@@ -707,7 +707,6 @@ class SamzaContainer(
   private val jobConfig = new JobConfig(config)
   private val taskConfig = new TaskConfig(config)
   val shutdownMs: Long = taskConfig.getShutdownMs
-  var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
@@ -753,7 +752,6 @@ class SamzaContainer(
       startConsumers
       startSecurityManger
 
-      addShutdownHook
       info("Entering run loop.")
       status = SamzaContainerStatus.STARTED
       if (containerListener != null) {
@@ -777,7 +775,6 @@ class SamzaContainer(
 
     try {
       info("Shutting down SamzaContainer.")
-      removeShutdownHook
       if (jmxServer != null) {
         jmxServer.stop
       }
@@ -973,41 +970,6 @@ class SamzaContainer(
       info("Starting security manager.")
 
       securityManager.start
-    }
-  }
-
-  def addShutdownHook {
-    val runLoopThread = Thread.currentThread()
-    shutdownHookThread = new Thread("Samza Container Shutdown Hook Thread") {
-      override def run() = {
-        info("Shutting down, will wait up to %s ms." format shutdownMs)
-        shutdownRunLoop()  //TODO: Pull out shutdown hook to LocalContainerRunner or SP
-        try {
-          runLoopThread.join(shutdownMs)
-        } catch {
-          case e: Throwable => // Ignore to avoid deadlock with uncaughtExceptionHandler. See SAMZA-1220
-            error("Did not shut down within %s ms, exiting." format shutdownMs, e)
-        }
-        if (!runLoopThread.isAlive) {
-          info("Shutdown complete")
-        } else {
-          error("Did not shut down within %s ms, exiting." format shutdownMs)
-          ThreadUtil.logThreadDump("Thread dump from Samza Container Shutdown Hook.")
-        }
-      }
-    }
-    Runtime.getRuntime().addShutdownHook(shutdownHookThread)
-  }
-
-  def removeShutdownHook = {
-    try {
-      if (shutdownHookThread != null) {
-        Runtime.getRuntime.removeShutdownHook(shutdownHookThread)
-      }
-    } catch {
-      case e: IllegalStateException => {
-        // Thrown when then JVM is already shutting down, so safe to ignore.
-      }
     }
   }
 

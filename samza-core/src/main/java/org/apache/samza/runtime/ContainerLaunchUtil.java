@@ -35,7 +35,6 @@ import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
-import org.apache.samza.container.SamzaContainerListener;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
@@ -127,36 +126,11 @@ public class ContainerLaunchUtil {
           startpointManager,
           diagnosticsManager);
 
-      ProcessorLifecycleListener listener = appDesc.getProcessorLifecycleListenerFactory()
+      ProcessorLifecycleListener processorLifecycleListener = appDesc.getProcessorLifecycleListenerFactory()
           .createInstance(new ProcessorContext() { }, config);
-
-      container.setContainerListener(
-          new SamzaContainerListener() {
-            @Override
-            public void beforeStart() {
-              log.info("Before starting the container.");
-              listener.beforeStart();
-            }
-
-            @Override
-            public void afterStart() {
-              log.info("Container Started");
-              listener.afterStart();
-            }
-
-            @Override
-            public void afterStop() {
-              log.info("Container Stopped");
-              listener.afterStop();
-            }
-
-            @Override
-            public void afterFailure(Throwable t) {
-              log.info("Container Failed");
-              containerRunnerException = t;
-              listener.afterFailure(t);
-            }
-          });
+      ClusterBasedProcessorLifecycleListener
+          listener = new ClusterBasedProcessorLifecycleListener(config, processorLifecycleListener, container::shutdown);
+      container.setContainerListener(listener);
 
       ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container);
       if (heartbeatMonitor != null) {
@@ -168,6 +142,7 @@ public class ContainerLaunchUtil {
         heartbeatMonitor.stop();
       }
 
+      containerRunnerException = listener.getContainerException();
       if (containerRunnerException != null) {
         log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
         System.exit(1);
