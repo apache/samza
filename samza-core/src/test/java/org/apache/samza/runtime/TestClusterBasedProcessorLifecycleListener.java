@@ -73,8 +73,8 @@ public class TestClusterBasedProcessorLifecycleListener {
   public void testProcessorLifecycleListenerIsCalledOnContainerError() {
     SamzaException e = new SamzaException("Should call afterFailure");
     doAnswer(invocation -> {
-      throw e;
-    }).when(mockRunLoop).run();
+        throw e;
+      }).when(mockRunLoop).run();
 
     container.run();
 
