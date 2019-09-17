@@ -30,7 +30,6 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
-import org.apache.samza.system.SystemStream
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Logging, StreamUtil}
 
@@ -262,14 +261,14 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     if(!changelogRF.isDefined) {
       val changelogSystemStream = new StorageConfig(config).getChangelogStream(storeName)
       if (!changelogSystemStream.isPresent) {
-        throw new SamzaException("Changelog system not defined for store "+storeName)
+        throw new SamzaException("Cannot deduce replication factor. Changelog system-stream not defined for store " + storeName)
       }
 
       val changelogSystem = StreamUtil.getSystemStreamFromNames(changelogSystemStream.get()).getSystem
-      changelogRF = Option.apply(getSystemDefaultReplicationFactor(changelogSystem, "2"))
+      changelogRF = Option.apply(getSystemDefaultReplicationFactor(changelogSystem, null))
     }
 
-    changelogRF.get
+    changelogRF.getOrElse(KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR)
   }
 
 
@@ -285,7 +284,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getChangelogStreamMaxMessageByte(name: String) = getOption(KafkaConfig.CHANGELOG_MAX_MESSAGE_BYTES format name) match {
     case Some(maxMessageBytes) => maxMessageBytes
     case _ =>
-      val changelogSystem = StreamUtil.getSystemStreamFromNames(new StorageConfig(config).getChangelogStream(name).get()).getSystem
+      val changelogSystem = StreamUtil.getSystemStreamFromNames(new StorageConfig(config).getChangelogStream(name).orElse(null)).getSystem
       val systemMaxMessageBytes = new SystemConfig(config).getDefaultStreamProperties(changelogSystem).getOrDefault(KafkaConfig.MAX_MESSAGE_BYTES, KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES)
       systemMaxMessageBytes
   }

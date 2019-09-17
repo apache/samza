@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.samza.SamzaException;
-import org.apache.samza.util.StreamUtil;
 import org.junit.Test;
 
 import static org.apache.samza.config.StorageConfig.*;
@@ -155,7 +154,7 @@ public class TestStorageConfig {
   }
 
   @Test
-  public void testGetChangelogSystem() {
+  public void getChangelogStream() {
     // empty config, so no system
     assertEquals(Optional.empty(), new StorageConfig(new MapConfig()).getChangelogStream(STORE_NAME0));
 
@@ -168,13 +167,13 @@ public class TestStorageConfig {
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "changelog-system", JobConfig.JOB_DEFAULT_SYSTEM,
             "should-not-be-used", String.format(CHANGELOG_STREAM, STORE_NAME0), "streamName")));
-    assertEquals("changelog-system", StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(STORE_NAME0).get()).getSystem());
+    assertEquals("changelog-system.streamName", storageConfig.getChangelogStream(STORE_NAME0).get());
 
     // job.changelog.system takes precedence over job.default.system when changelog is specified as {systemName}.{streamName}
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "changelog-system", JobConfig.JOB_DEFAULT_SYSTEM,
             "should-not-be-used", String.format(CHANGELOG_STREAM, STORE_NAME0), "changelog-system.streamName")));
-    assertEquals("changelog-system", StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(STORE_NAME0).get()).getSystem());
+    assertEquals("changelog-system.streamName", storageConfig.getChangelogStream(STORE_NAME0).get());
 
     // systemName specified using stores.{storeName}.changelog = {systemName}.{streamName} should take precedence even
     // when job.changelog.system and job.default.system are specified
@@ -182,12 +181,12 @@ public class TestStorageConfig {
         ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "default-changelog-system",
             JobConfig.JOB_DEFAULT_SYSTEM, "default-system",
             String.format(CHANGELOG_STREAM, STORE_NAME0), "nondefault-changelog-system.streamName")));
-    assertEquals("nondefault-changelog-system", StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(STORE_NAME0).get()).getSystem());
+    assertEquals("nondefault-changelog-system.streamName", storageConfig.getChangelogStream(STORE_NAME0).get());
 
     // fall back to job.default.system if job.changelog.system is not specified
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "default-system", String.format(CHANGELOG_STREAM, STORE_NAME0), "streamName")));
-    assertEquals("default-system", StreamUtil.getSystemStreamFromNames(storageConfig.getChangelogStream(STORE_NAME0).get()).getSystem());
+    assertEquals("default-system.streamName", storageConfig.getChangelogStream(STORE_NAME0).get());
   }
 
   @Test

@@ -551,14 +551,9 @@ public class KafkaSystemAdmin implements SystemAdmin {
       int replicationFactorFromSystemConfig = Integer.valueOf(
           new KafkaConfig(config).getSystemDefaultReplicationFactor(spec.getSystemName(),
               KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
-
       LOG.info("Using replication-factor: {} for StreamSpec: {}", replicationFactorFromSystemConfig, spec);
-
-      return new KafkaStreamSpec( kafkaSpec.getId(),
-          kafkaSpec.getPhysicalName(),
-          kafkaSpec.getSystemName(),
-          kafkaSpec.getPartitionCount(),
-          replicationFactorFromSystemConfig,kafkaSpec.getProperties());
+      return new KafkaStreamSpec(kafkaSpec.getId(), kafkaSpec.getPhysicalName(), kafkaSpec.getSystemName(),
+          kafkaSpec.getPartitionCount(), replicationFactorFromSystemConfig, kafkaSpec.getProperties());
     }
     return kafkaSpec;
   }
