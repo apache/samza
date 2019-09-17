@@ -220,7 +220,6 @@ class TestKafkaConfig {
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("3", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
     assertEquals("2", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
-    assertEquals("2", kafkaConfig.getDefaultChangelogStreamReplicationFactor)
   }
 
   @Test
@@ -235,7 +234,6 @@ class TestKafkaConfig {
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("4", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
     assertEquals("5", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
-    assertEquals("5", kafkaConfig.getDefaultChangelogStreamReplicationFactor)
   }
 
   @Test
@@ -248,7 +246,6 @@ class TestKafkaConfig {
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("4", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
     assertEquals("8", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
-    assertEquals("8", kafkaConfig.getDefaultChangelogStreamReplicationFactor)
   }
 
   @Test

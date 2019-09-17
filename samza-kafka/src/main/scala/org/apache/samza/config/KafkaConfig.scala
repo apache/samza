@@ -30,6 +30,7 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.samza.SamzaException
 import org.apache.samza.config.ApplicationConfig.ApplicationMode
+import org.apache.samza.system.SystemStream
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Logging, StreamUtil}
 
@@ -243,22 +244,34 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   /**
     * Gets the replication factor for the changelog topics. Uses the following precedence.
     *
-    * 1. If the changelog system (specified using job.changelog.system or job.default.system is provided), the RF for that system is used.
-    * 2. If neither of these are provided, the RF specified using stores.<store-name>.changelog.replication.factor is used.
-    * 3. If this is not provided, the RF specified using stores.default.changelog.replication.factor is used.
-    * 4. If this is not provided, the RF is chosen as 2.
+    * 1. If stores.{storeName}.changelog.replication.factor is configured, that value is used.
+    * 2. If it is not configured, the value configured for stores.default.changelog.replication.factor is used.
+    * 3. If it is not configured, the RF value configured for the store's changelog's system, configured using
+    * stores.{storeName}.changelog={systemName}.{streamName}, is used.
+    * 4. If it is not configured, the value for the RF of job.changelog.system is used.
+    * 5. If it is not configured, the value for the RF of job.default.system is used.
+    * 6. If it is not configured, the RF is chosen as 2.
     */
-  def getChangelogStreamReplicationFactor(name: String) = {
-    val changelogSystem = new StorageConfig(config).getChangelogSystem.orElse(null)
-    val systemDefaultReplicationFactor = getSystemDefaultReplicationFactor(changelogSystem, null)
+  def getChangelogStreamReplicationFactor(storeName: String) = {
+    var changelogRF = getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format storeName)
 
-    if (systemDefaultReplicationFactor == null) {
-      getOption(KafkaConfig.CHANGELOG_STREAM_REPLICATION_FACTOR format name).getOrElse(
-        getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR).getOrElse("2"))
-    } else {
-      systemDefaultReplicationFactor
+    if(!changelogRF.isDefined) {
+      changelogRF = getOption(KafkaConfig.DEFAULT_CHANGELOG_STREAM_REPLICATION_FACTOR)
     }
+
+    if(!changelogRF.isDefined) {
+      val changelogSystemStream = new StorageConfig(config).getChangelogStream(storeName)
+      if (!changelogSystemStream.isPresent) {
+        throw new SamzaException("Changelog system not defined for store "+storeName)
+      }
+
+      val changelogSystem = StreamUtil.getSystemStreamFromNames(changelogSystemStream.get()).getSystem
+      changelogRF = Option.apply(getSystemDefaultReplicationFactor(changelogSystem, "2"))
+    }
+
+    changelogRF.get
   }
+
 
   /**
     * Gets the max message bytes for the changelog topics. Uses the following precedence.
@@ -272,7 +285,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getChangelogStreamMaxMessageByte(name: String) = getOption(KafkaConfig.CHANGELOG_MAX_MESSAGE_BYTES format name) match {
     case Some(maxMessageBytes) => maxMessageBytes
     case _ =>
-      val changelogSystem = new StorageConfig(config).getChangelogSystem.orElse(null)
+      val changelogSystem = StreamUtil.getSystemStreamFromNames(new StorageConfig(config).getChangelogStream(name).get()).getSystem
       val systemMaxMessageBytes = new SystemConfig(config).getDefaultStreamProperties(changelogSystem).getOrDefault(KafkaConfig.MAX_MESSAGE_BYTES, KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES)
       systemMaxMessageBytes
   }
