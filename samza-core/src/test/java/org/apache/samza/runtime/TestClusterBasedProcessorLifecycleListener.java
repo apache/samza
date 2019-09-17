@@ -23,10 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.container.RunLoop;
-import org.apache.samza.container.SamzaContainer;
-import org.apache.samza.processor.StreamProcessorTestUtils;
-import org.apache.samza.task.StreamTask;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -35,64 +31,59 @@ import static org.mockito.Mockito.*;
 
 
 public class TestClusterBasedProcessorLifecycleListener {
-
-  private SamzaContainer container;
-  private RunLoop mockRunLoop;
   private ClusterBasedProcessorLifecycleListener clusterBasedProcessorLifecycleListener;
   private ProcessorLifecycleListener processorLifecycleListener;
-  private Runnable mockOnSignal;
+  private Runnable mockShutdownHookCallback;
 
   @Before
   public void setup() {
-    mockRunLoop = mock(RunLoop.class);
-    mockOnSignal = mock(Runnable.class);
-    container = StreamProcessorTestUtils.getDummyContainer(mockRunLoop, Mockito.mock(StreamTask.class));
+    mockShutdownHookCallback = mock(Runnable.class);
     processorLifecycleListener = mock(ProcessorLifecycleListener.class);
     clusterBasedProcessorLifecycleListener =
         spy(new ClusterBasedProcessorLifecycleListener(new MapConfig(ImmutableMap.of(TaskConfig.TASK_SHUTDOWN_MS, "1")),
-            processorLifecycleListener, mockOnSignal));
-    container.setContainerListener(clusterBasedProcessorLifecycleListener);
-    doNothing().when(clusterBasedProcessorLifecycleListener).addJVMShutdownHook();
-    doNothing().when(clusterBasedProcessorLifecycleListener).removeJVMShutdownHook();
+            processorLifecycleListener, mockShutdownHookCallback));
+    doNothing().when(clusterBasedProcessorLifecycleListener).addJVMShutdownHook(any(Thread.class));
+    doNothing().when(clusterBasedProcessorLifecycleListener).removeJVMShutdownHook(any(Thread.class));
   }
 
   @Test
-  public void testProcessorLifecycleListenerIsCalledOnContainerShutdown() {
-    container.run();
-    container.shutdown();
+  public void testLifecycleListenerBeforeStart() {
+    clusterBasedProcessorLifecycleListener.beforeStart();
 
-    Mockito.verify(clusterBasedProcessorLifecycleListener, Mockito.times(1)).addJVMShutdownHook();
-    Mockito.verify(clusterBasedProcessorLifecycleListener, Mockito.times(1)).removeJVMShutdownHook();
-    Mockito.verify(processorLifecycleListener, Mockito.times(1)).beforeStart();
-    Mockito.verify(processorLifecycleListener, Mockito.times(1)).afterStart();
-    Mockito.verify(processorLifecycleListener, Mockito.times(1)).afterStop();
-    Mockito.verify(processorLifecycleListener, Mockito.times(0)).afterFailure(any(Throwable.class));
+    Mockito.verify(clusterBasedProcessorLifecycleListener).addJVMShutdownHook(any(Thread.class));
+    Mockito.verify(processorLifecycleListener).beforeStart();
   }
 
   @Test
-  public void testProcessorLifecycleListenerIsCalledOnContainerError() {
+  public void testLifecycleListenerAfterStart() {
+    clusterBasedProcessorLifecycleListener.afterStart();
+    Mockito.verify(processorLifecycleListener).afterStart();
+  }
+
+  @Test
+  public void testLifecycleListenerAfterStop() {
+    clusterBasedProcessorLifecycleListener.afterStop();
+    Mockito.verify(processorLifecycleListener).afterStop();
+    Mockito.verify(clusterBasedProcessorLifecycleListener).removeJVMShutdownHook(any(Thread.class));
+  }
+
+  @Test
+  public void testLifecycleListenerAfterFailure() {
     SamzaException e = new SamzaException("Should call afterFailure");
-    doAnswer(invocation -> {
-        throw e;
-      }).when(mockRunLoop).run();
-
-    container.run();
-
-    Mockito.verify(clusterBasedProcessorLifecycleListener, Mockito.times(1)).addJVMShutdownHook();
-    Mockito.verify(clusterBasedProcessorLifecycleListener, Mockito.times(1)).removeJVMShutdownHook();
-    Mockito.verify(processorLifecycleListener, Mockito.times(1)).beforeStart();
-    Mockito.verify(processorLifecycleListener, Mockito.times(1)).afterStart();
-    Mockito.verify(processorLifecycleListener, Mockito.times(0)).afterStop();
-    Mockito.verify(processorLifecycleListener, Mockito.times(1)).afterFailure(e);
+    clusterBasedProcessorLifecycleListener.afterFailure(e);
+    Mockito.verify(processorLifecycleListener).afterFailure(e);
+    Mockito.verify(clusterBasedProcessorLifecycleListener).removeJVMShutdownHook(any(Thread.class));
   }
 
   @Test
-  public void testShutdownHookInvokesOnSignalCallback() {
-    doNothing().when(mockOnSignal).run();
-    container.run();
+  public void testShutdownHookInvokesShutdownHookCallback() {
+    doNothing().when(mockShutdownHookCallback).run();
 
-    // Simulating signal handler invocation by JVM
+    // setup shutdown hook
+    clusterBasedProcessorLifecycleListener.beforeStart();
+
+    // Simulating shutdown hook invocation by JVM
     clusterBasedProcessorLifecycleListener.getShutdownHookThread().run();
-    Mockito.verify(mockOnSignal, Mockito.times(1)).run();
+    Mockito.verify(mockShutdownHookCallback).run();
   }
 }

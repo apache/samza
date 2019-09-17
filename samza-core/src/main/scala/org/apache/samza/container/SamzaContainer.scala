@@ -707,7 +707,6 @@ class SamzaContainer(
   private val jobConfig = new JobConfig(config)
   private val taskConfig = new TaskConfig(config)
   val shutdownMs: Long = taskConfig.getShutdownMs
-  var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED

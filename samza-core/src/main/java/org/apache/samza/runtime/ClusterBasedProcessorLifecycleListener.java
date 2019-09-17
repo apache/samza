@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 
 public class ClusterBasedProcessorLifecycleListener implements SamzaContainerListener {
   private static final Logger log = LoggerFactory.getLogger(ClusterBasedProcessorLifecycleListener.class);
-  private final Runnable onSignal;
+  private final Runnable shutdownHookCallback;
   private Thread shutdownHookThread = null;
   private CountDownLatch shutdownLatch = new CountDownLatch(1);
   private TaskConfig taskConfig;
@@ -40,10 +40,10 @@ public class ClusterBasedProcessorLifecycleListener implements SamzaContainerLis
   private volatile Throwable containerException = null;
 
   ClusterBasedProcessorLifecycleListener(Config config, ProcessorLifecycleListener processorLifecycleListener,
-      Runnable onSignal) {
+      Runnable shutdownHookCallback) {
     this.taskConfig = new TaskConfig(config);
     this.processorLifecycleListener = processorLifecycleListener;
-    this.onSignal = onSignal;
+    this.shutdownHookCallback = shutdownHookCallback;
   }
 
   @Override
@@ -81,13 +81,7 @@ public class ClusterBasedProcessorLifecycleListener implements SamzaContainerLis
   }
 
   private void removeShutdownHook() {
-    try {
-      if (shutdownHookThread != null) {
-        removeJVMShutdownHook();
-      }
-    } catch (IllegalStateException e) {
-      // Thrown when then JVM is already shutting down, so safe to ignore.
-    }
+    removeJVMShutdownHook(shutdownHookThread);
   }
 
   private void addShutdownHook() {
@@ -97,7 +91,7 @@ public class ClusterBasedProcessorLifecycleListener implements SamzaContainerLis
         long shutdownMs = taskConfig.getShutdownMs();
         log.info("Attempting to shutdown container from inside shutdownHook, will wait up to {} ms.", shutdownMs);
         try {
-          onSignal.run();
+          shutdownHookCallback.run();
           boolean hasShutdown = shutdownLatch.await(shutdownMs, TimeUnit.MILLISECONDS);
           if (hasShutdown) {
             log.info("Shutdown complete");
@@ -111,7 +105,7 @@ public class ClusterBasedProcessorLifecycleListener implements SamzaContainerLis
         }
       }
     };
-    addJVMShutdownHook();
+    addJVMShutdownHook(shutdownHookThread);
   }
 
   @VisibleForTesting
@@ -120,14 +114,22 @@ public class ClusterBasedProcessorLifecycleListener implements SamzaContainerLis
   }
 
   @VisibleForTesting
-  void addJVMShutdownHook() {
-    Runtime.getRuntime().addShutdownHook(shutdownHookThread);
-    log.info("Added Samza container shutdown hook");
+  void addJVMShutdownHook(Thread shutdownHookThread) {
+    if (shutdownHookThread != null) {
+      Runtime.getRuntime().addShutdownHook(shutdownHookThread);
+      log.info("Added Samza container shutdown hook");
+    }
   }
 
   @VisibleForTesting
-  void removeJVMShutdownHook() {
-    Runtime.getRuntime().removeShutdownHook(shutdownHookThread);
-    log.info("Removed Samza container shutdown hook");
+  void removeJVMShutdownHook(Thread shutdownHookThread) {
+    try {
+      if (shutdownHookThread != null) {
+        Runtime.getRuntime().removeShutdownHook(shutdownHookThread);
+        log.info("Removed Samza container shutdown hook");
+      }
+    } catch (IllegalStateException e) {
+      // Thrown when then JVM is already shutting down, so safe to ignore.
+    }
   }
 }
