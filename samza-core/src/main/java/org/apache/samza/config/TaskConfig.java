@@ -106,6 +106,11 @@ public class TaskConfig extends MapConfig {
   private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
 
+  public static final String TRANSACTIONAL_STATE_ENABLED = "samza.transactional.state.enabled";
+  private static final boolean DEFAULT_TRANSACTIONAL_STATE_ENABLED = false;
+  public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = "samza.transactional.state.retain.existing.state";
+  private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
+
   public TaskConfig(Config config) {
     super(config);
   }
@@ -295,5 +300,13 @@ public class TaskConfig extends MapConfig {
           DEFAULT_TASK_SHUTDOWN_MS));
       return DEFAULT_TASK_SHUTDOWN_MS;
     }
+  }
+
+  public boolean getTransactionalStateEnabled() {
+    return getBoolean(TRANSACTIONAL_STATE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_ENABLED);
+  }
+
+  public boolean getTransactionalStateRetainExistingState() {
+    return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
   }
 }
