@@ -80,7 +80,8 @@ object RocksDbKeyValueStore extends Logging {
         "rocksdb.cur-size-active-mem-table", // approximate active memtable size in bytes
         "rocksdb.cur-size-all-mem-tables", // approximate active and unflushed memtable size in bytes
         "rocksdb.size-all-mem-tables", // approximate active, unflushed and pinned memtable size in bytes
-        "rocksdb.estimate-num-keys" // approximate number keys in the active and unflushed memtable and storage
+        "rocksdb.estimate-num-keys", // approximate number keys in the active and unflushed memtable and storage
+        "rocksdb.total-sst-files-size" // size of all sst files on disk
       )
 
       val configuredMetrics = storeConfig
