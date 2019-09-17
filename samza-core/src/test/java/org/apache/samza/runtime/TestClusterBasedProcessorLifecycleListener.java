@@ -79,11 +79,14 @@ public class TestClusterBasedProcessorLifecycleListener {
   public void testShutdownHookInvokesShutdownHookCallback() {
     doNothing().when(mockShutdownHookCallback).run();
 
-    // setup shutdown hook
+    // call beforeStart to setup shutdownHook
     clusterBasedProcessorLifecycleListener.beforeStart();
 
     // Simulating shutdown hook invocation by JVM
     clusterBasedProcessorLifecycleListener.getShutdownHookThread().run();
+
+    // call afterStop to countdown shutdownLatch
+    clusterBasedProcessorLifecycleListener.afterStop();
     Mockito.verify(mockShutdownHookCallback).run();
   }
 }
