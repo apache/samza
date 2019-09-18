@@ -50,7 +50,19 @@ class TaskRestoreManagerFactory {
       Clock clock) {
 
     if (new TaskConfig(config).getTransactionalStateEnabled()) {
-      throw new UnsupportedOperationException();
+      // Create checkpoint-snapshot based state restoration which is transactional.
+      return new TransactionalStateTaskRestoreManager(
+          taskModel,
+          taskStores,
+          changelogSystemStreams,
+          systemAdmins,
+          storeConsumers,
+          sspMetadataCache,
+          loggedStoreBaseDirectory,
+          nonLoggedStoreBaseDirectory,
+          config,
+          clock
+      );
     } else {
       // Create legacy offset-file based state restoration which is NOT transactional.
       return new NonTransactionalStateTaskRestoreManager(

@@ -106,9 +106,9 @@ public class TaskConfig extends MapConfig {
   private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
 
-  public static final String TRANSACTIONAL_STATE_ENABLED = "samza.transactional.state.enabled";
+  public static final String TRANSACTIONAL_STATE_ENABLED = "task.transactional.state.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_ENABLED = false;
-  public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = "samza.transactional.state.retain.existing.state";
+  public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = "task.transactional.state.retain.existing.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
 
   public TaskConfig(Config config) {

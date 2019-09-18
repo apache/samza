@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.integration
 
+import org.apache.samza.config.TaskConfig
 import org.apache.samza.context.Context
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.system.IncomingMessageEnvelope
@@ -57,6 +58,7 @@ class TestShutdownStatefulTask extends StreamTaskTestUtil {
     "job.name" -> "state-stateful-world",
     "task.class" -> "org.apache.samza.test.integration.ShutdownStateStoreTask",
     "task.commit.ms" -> "-1",
+    TaskConfig.TRANSACTIONAL_STATE_ENABLED -> "false",
     "stores.loggedstore.factory" -> "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory",
     "stores.loggedstore.key.serde" -> "string",
     "stores.loggedstore.msg.serde" -> "string",

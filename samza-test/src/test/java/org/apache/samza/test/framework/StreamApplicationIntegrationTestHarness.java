@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -37,6 +38,8 @@ import org.apache.samza.execution.TestStreamManager;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.test.harness.IntegrationTestHarness;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.kafka.clients.consumer.ConsumerConfig.*;
 import static org.apache.kafka.clients.producer.ProducerConfig.*;
@@ -92,6 +95,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.*;
  * }}</pre>
  */
 public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarness {
+  private static final Logger LOG = LoggerFactory.getLogger(StreamApplicationIntegrationTestHarness.class);
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
   private static final int DEFAULT_REPLICATION_FACTOR = 1;
   private int numEmptyPolls = 3;
@@ -101,8 +105,8 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
    * @param topicName the name of the topic
    * @param numPartitions the number of partitions in the topic
    */
-  public void createTopic(String topicName, int numPartitions) {
-    createTopic(topicName, numPartitions, DEFAULT_REPLICATION_FACTOR);
+  public boolean createTopic(String topicName, int numPartitions) {
+    return createTopic(topicName, numPartitions, DEFAULT_REPLICATION_FACTOR);
   }
 
   /**
@@ -115,6 +119,7 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
   public void produceMessage(String topicName, int partitionId, String key, String val) {
     producer.send(new ProducerRecord<>(topicName, partitionId, key, val));
     producer.flush();
+    LOG.info("Sent key: {} val: {} to topic: {} on partition: {}", key, val, topicName, partitionId);
   }
 
   @Override
@@ -141,10 +146,13 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
 
     while (emptyPollCount < numEmptyPolls && recordList.size() < threshold) {
       ConsumerRecords<String, String> records = consumer.poll(POLL_TIMEOUT_MS);
+      LOG.info("Read {} messages from topics: {}", records.count(), StringUtils.join(topics, ","));
       if (!records.isEmpty()) {
         Iterator<ConsumerRecord<String, String>> iterator = records.iterator();
         while (iterator.hasNext() && recordList.size() < threshold) {
           ConsumerRecord record = iterator.next();
+          LOG.info("Read key: {} val: {} from topic: {} on partition: {}",
+              record.key(), record.value(), record.topic(), record.partition());
           recordList.add(record);
           emptyPollCount = 0;
         }

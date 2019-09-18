@@ -38,7 +38,6 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class TestStorageRecovery {
-
   public Config config = null;
   String path = "/tmp/testing";
   private static final String SYSTEM_STREAM_NAME = "changelog";
