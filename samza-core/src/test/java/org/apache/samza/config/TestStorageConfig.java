@@ -55,6 +55,9 @@ public class TestStorageConfig {
 
   @Test
   public void testGetChangelogStream() {
+    // empty config, so no changelog stream
+    assertEquals(Optional.empty(), new StorageConfig(new MapConfig()).getChangelogStream(STORE_NAME0));
+
     // store has empty string for changelog stream
     StorageConfig storageConfig = new StorageConfig(
         new MapConfig(ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "")));
