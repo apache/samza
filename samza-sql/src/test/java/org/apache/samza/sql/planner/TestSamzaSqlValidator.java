@@ -59,24 +59,27 @@ public class TestSamzaSqlValidator {
     new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
   }
 
+  // Samza Sql allows users to replace a field in the input stream. For eg: To always set bool_value to false
+  // while keeping the values of other fields the same, it could be written the below way.
+  // SELECT false AS bool_value, c.* FROM testavro.COMPLEX1 AS c
   @Test
   public void testRepeatedTwiceFieldsValidation() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic select id, true as bool_value, false as bool_value"
-            + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
+        "Insert into testavro.outputTopic select false as bool_value, c.* from testavro.COMPLEX1 as c");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
     new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
   }
 
+  // Samza Sql allows a field to be replaced only once and validation will fail if the field is replaced more than
+  // once. We disallow it to keep things simple.
   @Test (expected = SamzaSqlValidatorException.class)
   public void testRepeatedThriceFieldsValidation() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic select id, true as bool_value, false as bool_value, true as bool_value"
-            + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
+        "Insert into testavro.outputTopic select id, bool_value, true as bool_value, c.* from testavro.COMPLEX1 as c");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
@@ -84,11 +87,23 @@ public class TestSamzaSqlValidator {
   }
 
   @Test (expected = SamzaSqlValidatorException.class)
-  public void testFieldEndingInZeroValidation() throws SamzaSqlValidatorException {
+  public void testIllegitFieldEndingInZeroValidation() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
         "Insert into testavro.outputTopic select id, true as bool_value, false as non_existing_name0"
             + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+    new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
+  @Test
+  public void testLegitFieldEndingInZeroValidation() throws SamzaSqlValidatorException {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic"
+            + " select id, bool_value, float_value0 from testavro.COMPLEX1");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
@@ -105,15 +120,6 @@ public class TestSamzaSqlValidator {
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
     new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
-  }
-
-  @Test(expected = SamzaException.class)
-  public void testNonExistingSelectField() throws SamzaSqlValidatorException {
-    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
-    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic(id) select non_existing_field, name as string_value"
-            + " from testavro.level1.level2.SIMPLE1 as s where s.id = 1");
-    SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
   }
 
   @Test(expected = SamzaSqlValidatorException.class)

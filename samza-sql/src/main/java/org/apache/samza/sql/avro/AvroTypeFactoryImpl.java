@@ -49,7 +49,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     return convertSchema(schema.getFields());
   }
 
-  protected void validateTopLevelAvroType(Schema schema) {
+  public static void validateTopLevelAvroType(Schema schema) {
     Schema.Type type = schema.getType();
     if (type != Schema.Type.RECORD) {
       String msg =
@@ -59,7 +59,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     }
   }
 
-  protected SqlSchema convertSchema(List<Schema.Field> fields) {
+  public static SqlSchema convertSchema(List<Schema.Field> fields) {
     SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
       boolean isOptional = (field.defaultValue() != null);
@@ -70,14 +70,10 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     return schemaBuilder.build();
   }
 
-  protected SqlFieldSchema convertField(Schema fieldSchema) {
-    return convertField(fieldSchema, false, false);
-  }
-
-  protected SqlFieldSchema convertField(Schema fieldSchema, boolean isNullable, boolean isOptional) {
+  public static SqlFieldSchema convertField(Schema fieldSchema, boolean isNullable, boolean isOptional) {
     switch (fieldSchema.getType()) {
       case ARRAY:
-        SqlFieldSchema elementSchema = convertField(fieldSchema.getElementType());
+        SqlFieldSchema elementSchema = convertField(fieldSchema.getElementType(), false, false);
         return SqlFieldSchema.createArraySchema(elementSchema, isNullable, isOptional);
       case BOOLEAN:
         return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN, isNullable, isOptional);
@@ -114,7 +110,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     }
   }
 
-  private SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types, boolean isNullable, boolean isOptional) {
+  private static SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types, boolean isNullable, boolean isOptional) {
     // Typically a nullable field's schema is configured as an union of Null and a Type.
     // This is to check whether the Union is a Nullable field
     if (types.size() == 2) {

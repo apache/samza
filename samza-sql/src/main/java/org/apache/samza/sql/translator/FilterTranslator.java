@@ -112,7 +112,7 @@ class FilterTranslator {
         updateMetrics(startProcessing, retVal, System.nanoTime());
         return retVal;
       } else {
-        LOG.error("return value is not boolean for rel message: %s", message);
+        LOG.error("return value is not boolean for rel message: {}", message);
         return false;
       }
     }
