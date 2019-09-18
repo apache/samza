@@ -284,7 +284,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   def getChangelogStreamMaxMessageByte(name: String) = getOption(KafkaConfig.CHANGELOG_MAX_MESSAGE_BYTES format name) match {
     case Some(maxMessageBytes) => maxMessageBytes
     case _ =>
-      val changelogSystem = StreamUtil.getSystemStreamFromNames(new StorageConfig(config).getChangelogStream(name).orElseThrow(() => new SamzaException("System-stream not defined for store:"+name))).getSystem
+      val changelogSystem = StreamUtil.getSystemStreamFromNames(JavaOptionals.toRichOptional(new StorageConfig(config).getChangelogStream(name)).toOption.getOrElse(throw new SamzaException("System-stream not defined for store:"+name))).getSystem
       val systemMaxMessageBytes = new SystemConfig(config).getDefaultStreamProperties(changelogSystem).getOrDefault(KafkaConfig.MAX_MESSAGE_BYTES, KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES)
       systemMaxMessageBytes
   }
