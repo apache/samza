@@ -37,6 +37,8 @@ import org.apache.samza.util.Util;
 public class SystemConfig extends MapConfig {
   private static final String SYSTEMS_PREFIX = "systems.";
   public static final String SYSTEM_ID_PREFIX = SYSTEMS_PREFIX + "%s.";
+  public static final String LI_SYSTEM_ID_PREFIX = SYSTEMS_PREFIX + "li.";
+
 
   private static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
   public static final String SYSTEM_FACTORY_FORMAT = SYSTEMS_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;

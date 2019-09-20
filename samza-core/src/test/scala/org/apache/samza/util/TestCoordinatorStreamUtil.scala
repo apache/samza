@@ -27,6 +27,7 @@ import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemStream}
 import org.junit.{Assert, Test}
 import org.mockito.Matchers.any
 import org.mockito.Mockito
+import org.apache.samza.config.MapConfig
 
 class TestCoordinatorStreamUtil {
 
@@ -38,6 +39,23 @@ class TestCoordinatorStreamUtil {
     CoordinatorStreamUtil.createCoordinatorStream(systemStream, systemAdmin)
     Mockito.verify(systemStream).getStream
     Mockito.verify(systemAdmin).createStream(any(classOf[StreamSpec]))
+  }
+
+  @Test
+  def testBuildCoordinatorStreamConfig: Unit = {
+    val addConfig = new util.HashMap[String, String]
+    addConfig.put("job.name", "test-job-name")
+    addConfig.put("job.id", "i001")
+    addConfig.put("job.coordinator.system", "samzatest")
+    addConfig.put("systems.samzatest.test","test")
+    addConfig.put("test.only","nothing")
+    val config = new MapConfig(addConfig)
+
+    var configMap = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
+
+
+    Assert.assertEquals(configMap.get("systems.samzatest.test"), "test")
+    Assert.assertEquals(configMap.get("test.only"), null)
   }
 
   @Test
