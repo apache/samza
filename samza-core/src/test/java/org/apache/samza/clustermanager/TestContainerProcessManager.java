@@ -557,7 +557,11 @@ public class TestContainerProcessManager {
     cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
     assertEquals(failAfterRetries, cpm.getJobFailureCriteriaMet()); // expecting failed container
     assertEquals(3, cpm.getProcessorFailures().get(processorId).getCount()); // count won't update on failure
-    assertTrue(cpm.shouldShutdown());
+    if (failAfterRetries) {
+      assertTrue(cpm.shouldShutdown());
+    } else {
+      assertFalse(cpm.shouldShutdown());
+    }
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
     assertEquals(0, allocator.getContainerRequestState().numDelayedRequests());
 

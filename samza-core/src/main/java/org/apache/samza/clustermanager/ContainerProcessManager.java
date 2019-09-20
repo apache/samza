@@ -345,11 +345,15 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       case SamzaResourceStatus.SUCCESS:
         LOG.info("Container ID: {} for Processor ID: {} completed successfully.", containerId, processorId);
 
+        state.completedProcessors.incrementAndGet();
+
         state.finishedProcessors.incrementAndGet();
         processorFailures.remove(processorId);
 
-        incrementCompletedProcessorsAndUpdateState(state);
-
+        if (state.completedProcessors.get() == state.processorCount.get()) {
+          LOG.info("Setting job status to SUCCEEDED since all containers have been marked as completed.");
+          state.status = SamzaApplicationState.SamzaAppStatus.SUCCEEDED;
+        }
         break;
 
       case SamzaResourceStatus.DISK_FAIL:
@@ -512,18 +516,14 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     boolean retryContainerRequest = true;
 
     if (retryCount == 0) {
-      LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
-          "so shutting down the application master and marking the job as failed.", processorId, containerId);
-
       // Failure criteria met only if failed containers can fail the job.
-      jobFailureCriteriaMet = clusterManagerConfig.getContainerFailJobAfterRetries();
+      jobFailureCriteriaMet = clusterManagerConfig.shouldFailJobAfterContainerRetries();
       if (jobFailureCriteriaMet) {
         LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
             "so shutting down the application master and marking the job as failed.", processorId, containerId);
       } else {
         LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
-            "marking the container as completed and will not retry request.", processorId, containerId);
-        incrementCompletedProcessorsAndUpdateState(state);
+            "but the job will continue to run with the failed container.", processorId, containerId);
       }
       retryContainerRequest = false;
     } else if (retryCount > 0) {
@@ -562,14 +562,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         // We have too many failures, and we're within the window
         // boundary, so reset shut down the app master.
         retryContainerRequest = false;
-        if (clusterManagerConfig.getContainerFailJobAfterRetries()) {
+        if (clusterManagerConfig.shouldFailJobAfterContainerRetries()) {
           jobFailureCriteriaMet = true;
           LOG.error("Shutting down the application master and marking the job as failed after max retry attempts.");
           state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
         } else {
-          LOG.warn("Processor ID: {} with Container ID: {} marked as completed after failing all retries. Job will continue to run without this container.",
+          LOG.warn("Processor ID: {} with Container ID: {} failed after all retry attempts. Job will continue to run without this container.",
               processorId, containerId);
-          incrementCompletedProcessorsAndUpdateState(state);
         }
       } else {
         LOG.info("Current failure count for Processor ID: {} is {}.", processorId, currentFailCount);
@@ -642,13 +641,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     } else {
       // If StandbyTasks are not enabled, we simply make a request for the preferredHost
       containerAllocator.requestResourceWithDelay(processorId, preferredHost, preferredHostRetryDelay);
-    }
-  }
-
-  static private void incrementCompletedProcessorsAndUpdateState(SamzaApplicationState state) {
-    if (state.completedProcessors.incrementAndGet() == state.processorCount.get()) {
-      LOG.info("Setting job status to SUCCEEDED since all containers have been marked as completed.");
-      state.status = SamzaApplicationState.SamzaAppStatus.SUCCEEDED;
     }
   }
 }
