@@ -320,6 +320,31 @@ public class TestTransactionalStateTaskStorageManager {
     assertEquals(mockPath, checkpointPaths.apply("loggedPersistentStore"));
   }
 
+  @Test(expected = IllegalStateException.class)
+  public void testCheckpointFailsIfErrorCreatingCheckpoint() {
+    ContainerStorageManager csm = mock(ContainerStorageManager.class);
+
+    StorageEngine mockLPStore = mock(StorageEngine.class);
+    StoreProperties lpStoreProps = mock(StoreProperties.class);
+    when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
+    when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(lpStoreProps.isLoggedStore()).thenReturn(true);
+    when(mockLPStore.checkpoint(anyString())).thenThrow(new IllegalStateException());
+    java.util.Map<String, StorageEngine> taskStores =
+        ImmutableMap.of("loggedPersistentStore", mockLPStore);
+    when(csm.getAllStores(any())).thenReturn(taskStores);
+
+    TransactionalStateTaskStorageManager tsm = spy(buildTSM(csm, mock(Partition.class)));
+
+    Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
+        ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
+
+    // invoke checkpoint
+    tsm.checkpoint(offsets);
+    verify(tsm, never()).writeChangelogOffsetFiles(any(), any(), any());
+    fail("Should have thrown an exception if error creating store checkpoint");
+  }
+
   @Test(expected = SamzaException.class)
   public void testCheckpointFailsIfErrorWritingOffsetFiles() {
     ContainerStorageManager csm = mock(ContainerStorageManager.class);
@@ -345,7 +370,7 @@ public class TestTransactionalStateTaskStorageManager {
     // invoke checkpoint
     tsm.checkpoint(offsets);
 
-    fail("Should have thrown an exception if error writing offset file");
+    fail("Should have thrown an exception if error writing offset file.");
   }
 
   @Test
