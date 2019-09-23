@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.processor;
 
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
@@ -46,10 +47,32 @@ public class TestTaskApplication implements TaskApplication {
   private final String outputTopic;
   private final CountDownLatch shutdownLatch;
   private final CountDownLatch processedMessageLatch;
-  private final TaskApplicationCallback processCallback;
+  private final Optional<TaskApplicationCallback> processCallback;
 
+  /**
+   * A test TaskApplication to use in test harnesses.
+   * @param systemName test input/output system
+   * @param inputTopic topic to consume
+   * @param outputTopic topic to output
+   * @param processedMessageLatch latch that counts down per message processed
+   * @param shutdownLatch latch that counts down once during shutdown
+   */
   public TestTaskApplication(String systemName, String inputTopic, String outputTopic,
-      CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch, TaskApplicationCallback processCallback) {
+      CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch) {
+    this(systemName, inputTopic, outputTopic, processedMessageLatch, shutdownLatch, Optional.empty());
+  }
+
+  /**
+   * A test TaskApplication to use in test harnesses.
+   * @param systemName test input/output system
+   * @param inputTopic topic to consume
+   * @param outputTopic topic to output
+   * @param processedMessageLatch latch that counts down per message processed
+   * @param shutdownLatch latch that counts down once during shutdown
+   * @param processCallback optional callback called per message processed.
+   */
+  public TestTaskApplication(String systemName, String inputTopic, String outputTopic,
+      CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch, Optional<TaskApplicationCallback> processCallback) {
     this.systemName = systemName;
     this.inputTopic = inputTopic;
     this.outputTopic = outputTopic;
@@ -65,9 +88,7 @@ public class TestTaskApplication implements TaskApplication {
       processedMessageLatch.countDown();
       // Implementation does not invokes callback.complete to block the RunLoop.process() after it exhausts the
       // `task.max.concurrency` defined per task. Call callback.complete() in the processCallback if needed.
-      if (processCallback != null) {
-        processCallback.onMessage(envelope, callback);
-      }
+      processCallback.ifPresent(pcb -> pcb.onMessage(envelope, callback));
     }
 
     @Override
