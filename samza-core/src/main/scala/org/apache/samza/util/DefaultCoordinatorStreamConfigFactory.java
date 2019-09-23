@@ -27,7 +27,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SystemConfig;
 
 
-public class DefaultCoordinatorStream implements CoordinatorStreamConfigFactory {
+public class DefaultCoordinatorStreamConfigFactory implements CoordinatorStreamConfigFactory {
   @Override
   public Config buildCoordinatorStreamConfig(Config config) {
     JobConfig jobConfig = new JobConfig(config);

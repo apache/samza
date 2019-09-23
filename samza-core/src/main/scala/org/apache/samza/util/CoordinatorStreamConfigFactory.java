@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 
 
 /**
- * A CoordinatorStreamConfigFactory receives the job's config and choose specific configs that are needed to
+ * A CoordinatorStreamConfigFactory receives the job's config and create specific configs that are needed to
  * create coordinator streams.
  */
 public interface CoordinatorStreamConfigFactory {
@@ -31,7 +31,7 @@ public interface CoordinatorStreamConfigFactory {
   /**
    * Returns a Config what is needed to create coordinator streams.
    *
-   * @param config knonw configs for job
+   * @param config known configs for job
    * @return basic configs needed to create coordinator streams
    */
   Config buildCoordinatorStreamConfig(Config config);
