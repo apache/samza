@@ -50,9 +50,7 @@ class TestCoordinatorStreamUtil {
     addConfig.put("systems.samzatest.test","test")
     addConfig.put("test.only","nothing")
     val config = new MapConfig(addConfig)
-
-    var configMap = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
-
+    val configMap = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
 
     Assert.assertEquals(configMap.get("systems.samzatest.test"), "test")
     Assert.assertEquals(configMap.get("test.only"), null)

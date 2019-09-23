@@ -27,22 +27,22 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SystemConfig;
 
 
-public class DefaultCoordinatorStream implements CoordinatorStreamUtilFactory {
+public class DefaultCoordinatorStream implements CoordinatorStreamConfigFactory {
   @Override
   public Config buildCoordinatorStreamConfig(Config config) {
-    Config jobConfig = new JobConfig(config);
-    String jobName = ((JobConfig) jobConfig).getName().toString();
-    String jobId = ((JobConfig) jobConfig).getJobId();
+    JobConfig jobConfig = new JobConfig(config);
+    String jobName = jobConfig.getName().toString();
+    String jobId = jobConfig.getJobId();
 
     // Build a map with just the system config and job.name/job.id. This is what's required to start the JobCoordinator.
-    Map<String, String> map = config.subset(String.format(SystemConfig.SYSTEM_ID_PREFIX, ((JobConfig) jobConfig).getCoordinatorSystemName()), false);
+    Map<String, String> map = config.subset(String.format(SystemConfig.SYSTEM_ID_PREFIX, jobConfig.getCoordinatorSystemName()), false);
     Map<String, String> addConfig = new HashMap<>();
     addConfig.put(JobConfig.JOB_NAME, jobName);
-    addConfig.put(((JobConfig) jobConfig).JOB_ID, jobId);
-    addConfig.put(JobConfig.JOB_COORDINATOR_SYSTEM, ((JobConfig) jobConfig).getCoordinatorSystemName());
-    addConfig.put(((JobConfig) jobConfig).MONITOR_PARTITION_CHANGE_FREQUENCY_MS, String.valueOf(((JobConfig) jobConfig).getMonitorPartitionChangeFrequency()));
+    addConfig.put(jobConfig.JOB_ID, jobId);
+    addConfig.put(JobConfig.JOB_COORDINATOR_SYSTEM, jobConfig.getCoordinatorSystemName());
+    addConfig.put(jobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS, String.valueOf(jobConfig.getMonitorPartitionChangeFrequency()));
 
     addConfig.putAll(map);
-    return  new MapConfig(addConfig);
+    return new MapConfig(addConfig);
   }
 }

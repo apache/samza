@@ -22,6 +22,17 @@ package org.apache.samza.util;
 import org.apache.samza.config.Config;
 
 
-public interface CoordinatorStreamUtilFactory {
+/**
+ * A CoordinatorStreamConfigFactory receives the job's config and choose specific configs that are needed to
+ * create coordinator streams.
+ */
+public interface CoordinatorStreamConfigFactory {
+
+  /**
+   * Returns a Config what is needed to create coordinator streams.
+   *
+   * @param config knonw configs for job
+   * @return basic configs needed to create coordinator streams
+   */
   Config buildCoordinatorStreamConfig(Config config);
 }
