@@ -199,16 +199,29 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   /**
-    * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
-    * interacts with the stream, as opposed to a property of the stream itself.
-    *
-    * Note, because the translation is not perfect between SystemStream and streamId,
-    * this method is not identical to getProperty(streamId, property)
-    *
-    * @param systemStream the SystemStream for which the property value will be retrieved.
-    * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
-    */
-  protected def getSamzaProperty(systemStream: SystemStream, property: String): String = {
+   * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
+   * interacts with the stream, as opposed to a property of the stream itself.
+   *
+   * First, tries to map the systemStream to a streamId. This will only find a streamId if the stream is a physical name
+   * (explicitly mapped physical name or a stream id without a physical name mapping). That means this will not map a
+   * stream id to itself if there is a mapping from the stream id to a physical stream name. This also requires that the
+   * stream id is mapped to a system in the config.
+   * If a stream id is found:
+   * 1) Look for "streams.{streamId}.{property}" for the stream id.
+   * 2) Otherwise, look for "systems.{systemName}.streams.{streamName}.{property}" in which the systemName is the system
+   * mapped to the stream id and the streamName is the physical stream name for the stream id.
+   * 3) Otherwise, look for "systems.{systemName}.default.stream.{property}" in which the systemName is the system
+   * mapped to the stream id.
+   * If a stream id was not found or no property could be found using the above keys:
+   * 1) Look for "systems.{systemName}.streams.{streamName}.{property}" in which the systemName is the system in the
+   * input systemStream and the streamName is the stream from the input systemStream.
+   * 2) Otherwise, look for "systems.{systemName}.default.stream.{property}" in which the systemName is the system
+   * in the input systemStream.
+   *
+   * @param systemStream the SystemStream for which the property value will be retrieved.
+   * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
+   */
+  private def getSamzaProperty(systemStream: SystemStream, property: String): String = {
     if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
       throw new IllegalArgumentException(
         "Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
@@ -223,18 +236,14 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   /**
-    * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
-    * interacts with the stream, as opposed to a property of the stream itself.
-    *
-    * Note, because the translation is not perfect between SystemStream and streamId,
-    * this method is not identical to getProperty(streamId, property)
-    *
-    * @param systemStream the SystemStream for which the property value will be retrieved.
-    * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
-    * @param defaultValue the default value to use if the property value is not found
-    *
-    */
-  protected def getSamzaProperty(systemStream: SystemStream, property: String, defaultValue: String): String = {
+   * Gets a Samza property, with a default value used if no property value is found.
+   * See getSamzaProperty(SystemStream, String).
+   *
+   * @param systemStream the SystemStream for which the property value will be retrieved.
+   * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
+   * @param defaultValue the default value to use if the property value is not found
+   */
+  private def getSamzaProperty(systemStream: SystemStream, property: String, defaultValue: String): String = {
     val streamVal = getSamzaProperty(systemStream, property)
 
     if (streamVal != null) {
@@ -245,13 +254,13 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   /**
-    * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
-    * interacts with the stream, as opposed to a property of the stream itself.
-    *
-    * Note, because the translation is not perfect between SystemStream and streamId,
-    * this method is not identical to getProperty(streamId, property)
-    */
-  protected def containsSamzaProperty(systemStream: SystemStream, property: String): Boolean = {
+   * Determines if a Samza property is specified.
+   * See getSamzaProperty(SystemStream, String).
+   *
+   * @param systemStream the SystemStream for the property value to check
+   * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
+   */
+  private def containsSamzaProperty(systemStream: SystemStream, property: String): Boolean = {
     if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
       throw new IllegalArgumentException(
         "Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
@@ -261,13 +270,16 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
 
 
   /**
-    * Gets the stream properties from the legacy config style:
-    * systems.{system}.streams.{streams}.*
-    *
-    * @param systemName the system name under which the properties are configured
-    * @param streamName the stream name
-    * @return           the map of properties for the stream
-    */
+   * Finds the properties from the legacy config style (config key includes system).
+   * This will return a Config with the properties that match the following formats (if a property is specified through
+   * multiple formats, priority is top to bottom):
+   * 1) "systems.{systemName}.streams.{streamName}.{property}"
+   * 2) "systems.{systemName}.default.stream.{property}"
+   *
+   * @param systemName the system name under which the properties are configured
+   * @param streamName the stream name
+   * @return           the map of properties for the stream
+   */
   private def getSystemStreamProperties(systemName: String, streamName: String) = {
     if (systemName == null) {
       Map()
@@ -279,16 +291,18 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   /**
-    * Gets the properties for the specified streamId from the config.
-    * It first applies any legacy configs from this config location:
-    * systems.{system}.streams.{stream}.*
-    *
-    * It then overrides them with properties of the new config format:
-    * streams.{streamId}.*
-    *
-    * @param streamId the identifier for the stream in the config.
-    * @return         the merged map of config properties from both the legacy and new config styles
-    */
+   * Gets all of the properties for the specified streamId (includes current and legacy config styles).
+   * This will return a Config with the properties that match the following formats (if a property is specified through
+   * multiple formats, priority is top to bottom):
+   * 1) "streams.{streamId}.{property}"
+   * 2) "systems.{systemName}.streams.{streamName}.{property}" where systemName is the system mapped to the streamId in
+   * the config and streamName is the physical stream name mapped to the stream id
+   * 3) "systems.{systemName}.default.stream.{property}" where systemName is the system mapped to the streamId in the
+   * config
+   *
+   * @param streamId the identifier for the stream in the config.
+   * @return         the merged map of config properties from both the legacy and new config styles
+   */
   private def getAllStreamProperties(streamId: String) = {
     val allProperties = subset(StreamConfig.STREAM_ID_PREFIX format streamId)
     val inheritedLegacyProperties: java.util.Map[String, String] =
@@ -300,7 +314,18 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     getStreamIds().filter(streamId => system.equals(getSystem(streamId)))
   }
 
-  def systemStreamToStreamId(systemStream: SystemStream): String = {
+  /**
+   * Finds the stream id which corresponds to the systemStream.
+   * This finds the stream id that is mapped to the system in systemStream through the config and that has a physical
+   * name (the physical name might be the stream id itself if there is no explicit mapping) that matches the stream in
+   * systemStream.
+   * Note: If the stream in the systemStream is a stream id which is mapped to a physical stream, then that stream won't
+   * be returned as a stream id here, since the stream in systemStream doesn't match the physical stream name.
+   *
+   * @param systemStream system stream to map to stream id
+   * @return             stream id corresponding to the system stream
+   */
+  private def systemStreamToStreamId(systemStream: SystemStream): String = {
     val streamIds = getStreamIdsForSystem(systemStream.getSystem)
       .filter(streamId => systemStream.getStream().equals(getPhysicalName(streamId)))
     if (streamIds.size > 1) {
