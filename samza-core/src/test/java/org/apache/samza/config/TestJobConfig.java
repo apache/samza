@@ -576,4 +576,13 @@ public class TestJobConfig {
 
     assertEquals(Optional.empty(), JobConfig.getMetadataFile(null));
   }
+
+  @Test
+  public void testGetCoordinatorStreamFactory() {
+    JobConfig jobConfig = new JobConfig(new MapConfig(ImmutableMap.of("test", "")));
+    assertEquals(jobConfig.getCoordinatorStreamFactory(), JobConfig.DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY);
+
+    jobConfig = new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.COORDINATOR_STREAM_FACTORY, "specific_coordinator_stream")));
+    assertEquals(jobConfig.getCoordinatorStreamFactory(), "specific_coordinator_stream");
+  }
 }

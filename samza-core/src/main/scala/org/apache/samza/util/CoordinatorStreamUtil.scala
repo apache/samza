@@ -38,7 +38,8 @@ object CoordinatorStreamUtil extends Logging {
     * only the job name, job id, and system config for the coordinator stream.
     */
   def buildCoordinatorStreamConfig(config: Config) = {
-    val buildConfigFactory = JobConfig.getCoordinatorStreamFactory(config);
+    val jobConfig = new JobConfig(config)
+    val buildConfigFactory = jobConfig.getCoordinatorStreamFactory();
     val coordinatorSystemConfig = Class.forName(buildConfigFactory).newInstance().asInstanceOf[CoordinatorStreamConfigFactory].buildCoordinatorStreamConfig(config)
 
     new MapConfig(coordinatorSystemConfig);

@@ -22,8 +22,8 @@ package org.apache.samza.util;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.junit.Test;
@@ -46,12 +46,17 @@ public class TestDefaultCoordinatorStreamConfigFactory {
 
     Config config = factory.buildCoordinatorStreamConfig(new MapConfig(mapConfig));
 
-    assertEquals(config.get("systems.testSamza.test"), "test");
-    assertEquals(config.get(JobConfig.JOB_NAME), "testName");
-    assertNull(config.get("test.only"));
+    Map<String, String> expectedMap = new HashMap<>();
+    expectedMap.put("job.name", "testName");
+    expectedMap.put("job.id", "testId");
+    expectedMap.put("systems.testSamza.test", "test");
+    expectedMap.put(JobConfig.JOB_COORDINATOR_SYSTEM, "testSamza");
+    expectedMap.put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS, "300000");
+
+    assertEquals(config, new MapConfig(expectedMap));
   }
 
-  @Test(expected = NoSuchElementException.class)
+  @Test(expected = ConfigException.class)
   public void testBuildCoordinatorStreamConfigWithoutJobName() {
     Map<String, String> mapConfig = new HashMap<>();
     mapConfig.put("job.id", "testId");
