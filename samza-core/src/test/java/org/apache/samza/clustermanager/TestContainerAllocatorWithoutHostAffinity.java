@@ -21,6 +21,7 @@ package org.apache.samza.clustermanager;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.config.Config;
@@ -33,12 +34,21 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.runners.MockitoJUnitRunner;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.*;
+import static org.mockito.Mockito.*;
 
+
+@RunWith(MockitoJUnitRunner.class)
 public class TestContainerAllocatorWithoutHostAffinity {
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
   private final Config config = getConfig();
@@ -51,6 +61,9 @@ public class TestContainerAllocatorWithoutHostAffinity {
   private AbstractContainerAllocator containerAllocator;
   private MockContainerRequestState requestState;
   private Thread allocatorThread;
+
+  private Thread spyThread;
+  private AbstractContainerAllocator spyAllocator;
 
   @Before
   public void setup() throws Exception {
@@ -66,7 +79,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
   @After
   public void teardown() throws Exception {
     jobModelManager.stop();
-    containerAllocator.stop();
+    validateMockitoUsage();
   }
 
   private static Config getConfig() {
@@ -100,7 +113,6 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
     containerAllocator.addResource(new SamzaResource(1, 1000, "abc", "id1"));
     containerAllocator.addResource(new SamzaResource(1, 1000, "xyz", "id1"));
-
 
     assertNull(requestState.getResourcesOnAHost("abc"));
     assertNotNull(requestState.getResourcesOnAHost(ResourceRequestState.ANY_HOST));
@@ -235,4 +247,49 @@ public class TestContainerAllocatorWithoutHostAffinity {
     listener.verify();
   }
 
+
+  /**
+   * Test the complete flow from container request creation to allocation when host affinity is disabled
+   */
+  @Test
+  public void testRequestAllocationWithRunStreamProcessor() throws Exception {
+    Map<String, String> containersToHostMapping = new HashMap<String, String>() {
+      {
+        put("0", "prev_host");
+        put("1", "prev_host");
+        put("2", "prev_host");
+        put("3", "prev_host");
+      }
+    };
+
+    ClusterResourceManager.Callback mockCPM = mock(ClusterResourceManager.Callback.class);
+    spyAllocator = Mockito.spy(
+        new AbstractContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state,
+            getClass().getClassLoader(), false, Optional.empty()));
+    // Mock the callback from ClusterManager to add resources to the allocator
+    doAnswer((InvocationOnMock invocation) -> {
+        SamzaResource resource = (SamzaResource) invocation.getArgumentAt(0, List.class).get(0);
+        spyAllocator.addResource(resource);
+        return null;
+      }).when(mockCPM).onResourcesAvailable(anyList());
+    // Request Resources
+    spyAllocator.requestResources(containersToHostMapping);
+    spyThread = new Thread(spyAllocator, "Container Allocator Thread");
+    // Start the container allocator thread periodic assignment
+    spyThread.start();
+    Thread.sleep(1000);
+    // Verify that all the request that were created were "ANY_HOST" requests
+    ArgumentCaptor<SamzaResourceRequest> resourceRequestCaptor = ArgumentCaptor.forClass(SamzaResourceRequest.class);
+    verify(spyAllocator, times(4)).runStreamProcessor(resourceRequestCaptor.capture(), anyString());
+    resourceRequestCaptor.getAllValues()
+        .forEach(resourceRequest -> assertEquals(resourceRequest.getPreferredHost(), ResourceRequestState.ANY_HOST));
+    assertTrue(state.anyHostRequests.get() == containersToHostMapping.size());
+    // Expiry currently is only handled for host affinity enabled cases
+    verify(spyAllocator, never()).handleExpiredRequestWithHostAffinityEnabled(anyString(), anyString(),
+        any(SamzaResourceRequest.class));
+    // Only updated when host affinity is enabled
+    assertTrue(state.matchedResourceRequests.get() == 0);
+    assertTrue(state.preferredHostRequests.get() == 0);
+    spyAllocator.stop();
+  }
 }
