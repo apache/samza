@@ -177,10 +177,9 @@ public class AbstractContainerAllocator implements Runnable {
    * During the run() method, the thread sleeps for allocatorSleepIntervalMs ms. It then invokes assignResourceRequests,
    * and tries to allocate any unsatisfied request that is still in the request queue {@link ResourceRequestState})
    * with allocated resources.
+   *
    * When host-affinity is disabled, all allocated resources are buffered by the key "ANY_HOST".
    * When host-affinity is disabled, all allocated resources are buffered by the hostName as key
-   *
-   *
    *
    * If the requested host is not available, the thread checks to see if the request has expired. If it has expired
    * then two cases are handled separately
