@@ -115,6 +115,8 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
             int numTasks = jobModel.getContainers().values().stream()
                 .mapToInt(cm -> cm.getTasks().size())
                 .sum();
+            Preconditions.checkArgument(e.getValue() >= numTasks,
+                    String.format("rate limit count (%d) must be greater than number of tasks (%d)", e.getValue(), numTasks));
             int effectiveRate = e.getValue() / numTasks;
             TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
             LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %d", taskName, tag,
