@@ -31,7 +31,7 @@ public class DefaultCoordinatorStreamConfigFactory implements CoordinatorStreamC
   @Override
   public Config buildCoordinatorStreamConfig(Config config) {
     JobConfig jobConfig = new JobConfig(config);
-    String jobName = jobConfig.getName().toString();
+    String jobName = jobConfig.getName().get();
     String jobId = jobConfig.getJobId();
 
     // Build a map with just the system config and job.name/job.id. This is what's required to start the JobCoordinator.

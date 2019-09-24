@@ -1,5 +1,4 @@
 /*
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -34,18 +33,15 @@ import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import scala.collection.JavaConverters._
 
 object CoordinatorStreamUtil extends Logging {
-  val COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory"
-  val DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory"
-
   /**
     * Given a job's full config object, build a subset config which includes
     * only the job name, job id, and system config for the coordinator stream.
     */
   def buildCoordinatorStreamConfig(config: Config) = {
-    val buildConfigFactory = config.get(COORDINATOR_STREAM_FACTORY, DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY)
+    val buildConfigFactory = JobConfig.getCoordinatorStreamFactory(config);
     val coordinatorSystemConfig = Class.forName(buildConfigFactory).newInstance().asInstanceOf[CoordinatorStreamConfigFactory].buildCoordinatorStreamConfig(config)
 
-    new MapConfig((coordinatorSystemConfig));
+    new MapConfig(coordinatorSystemConfig);
 
   }
 

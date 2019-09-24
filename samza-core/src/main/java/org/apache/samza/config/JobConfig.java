@@ -125,6 +125,9 @@ public class JobConfig extends MapConfig {
   public static final String CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata"; // Filename: <containerID>.metadata
   public static final String CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY = "samza.log.dir";
 
+  private static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
+  private static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
+
   public JobConfig(Config config) {
     super(config);
   }
@@ -341,4 +344,13 @@ public class JobConfig extends MapConfig {
           new File(dir, String.format(CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId)));
     }
   }
+
+  /**
+   * Get coordinatorStreamFactory according to the configs
+   * @return the name of coordinatorStreamFactory
+   */
+  public static String getCoordinatorStreamFactory(Config config) {
+    return config.get(COORDINATOR_STREAM_FACTORY, DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY);
+  }
+
 }
