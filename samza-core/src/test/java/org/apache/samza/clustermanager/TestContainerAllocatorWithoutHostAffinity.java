@@ -247,7 +247,6 @@ public class TestContainerAllocatorWithoutHostAffinity {
     listener.verify();
   }
 
-
   /**
    * Test the complete flow from container request creation to allocation when host affinity is disabled
    */

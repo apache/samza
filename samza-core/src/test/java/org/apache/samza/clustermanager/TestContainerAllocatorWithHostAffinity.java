@@ -498,7 +498,6 @@ public class TestContainerAllocatorWithHostAffinity {
     containerAllocator.stop();
   }
 
-
   //@Test
   public void testExpiryWithNonResponsiveClusterManager() throws Exception {
 
