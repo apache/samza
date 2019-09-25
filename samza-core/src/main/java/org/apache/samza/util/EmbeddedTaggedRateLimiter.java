@@ -115,12 +115,15 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
             int numTasks = jobModel.getContainers().values().stream()
                 .mapToInt(cm -> cm.getTasks().size())
                 .sum();
-            Preconditions.checkArgument(e.getValue() >= numTasks,
-                    String.format("rate limit count (%d) must be greater than number of tasks (%d)", e.getValue(), numTasks));
-            int effectiveRate = e.getValue() / numTasks;
+            double effectiveRate = (double) e.getValue() / numTasks;
             TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
-            LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %d", taskName, tag,
+            LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %f", taskName, tag,
                 effectiveRate));
+            if (effectiveRate < 1.0) {
+                LOGGER.warn(String.format("Effective limit rate (%f) is very low. "
+                        + "Total rate limit is %d while number of tasks is %d. Consider increasing the rate limit.",
+                        effectiveRate, e.getValue(), numTasks));
+            }
             return new ImmutablePair<>(tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
           })
         .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue))
