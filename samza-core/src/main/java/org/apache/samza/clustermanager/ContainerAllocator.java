@@ -221,7 +221,10 @@ public class ContainerAllocator implements Runnable {
           updateExpiryMetrics(request);
           if (hostAffinityEnabled) {
             handleExpiredRequestWithHostAffinityEnabled(processorId, preferredHost, request);
+          } else {
+            handleExpiredRequestWithHostAffinityDisabled(processorId, request);
           }
+
         } else {
           LOG.info("Request for Processor ID: {} on preferred host {} has not expired yet."
                   + "Request creation time: {}. Current Time: {}. Request timeout: {} ms", processorId, preferredHost,
@@ -253,6 +256,18 @@ public class ContainerAllocator implements Runnable {
       resourceRequestState.cancelResourceRequest(request);
       requestResource(processorId, ResourceRequestState.ANY_HOST);
     }
+  }
+
+  /**
+   * Handles an expired resource request when {@code hostAffinityEnabled} is false, in this case since there are no
+   * ANY_HOST available in the request queue we cancel existing request & reissue a new one
+   */
+  @VisibleForTesting
+  void handleExpiredRequestWithHostAffinityDisabled(String processorId, SamzaResourceRequest request) {
+    LOG.info("Request for Processor ID: {} on ANY_HOST has expired. Requesting additional resources on ANY_HOST.",
+        processorId);
+    resourceRequestState.cancelResourceRequest(request);
+    requestResource(processorId, ResourceRequestState.ANY_HOST);
   }
 
   /**
