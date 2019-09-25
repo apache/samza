@@ -120,8 +120,8 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
             LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %f", taskName, tag,
                 effectiveRate));
             if (effectiveRate < 1.0) {
-                LOGGER.warn(String.format("Effective limit rate (%f) is very low. "
-                        + "Total rate limit is %d while number of tasks is %d. Consider increasing the rate limit.",
+              LOGGER.warn(String.format("Effective limit rate (%f) is very low. "
+                              + "Total rate limit is %d while number of tasks is %d. Consider increasing the rate limit.",
                         effectiveRate, e.getValue(), numTasks));
             }
             return new ImmutablePair<>(tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
