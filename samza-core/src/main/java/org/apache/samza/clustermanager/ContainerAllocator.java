@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * {@link AbstractContainerAllocator} makes requests for physical resources to the resource manager and also runs
+ * {@link ContainerAllocator} makes requests for physical resources to the resource manager and also runs
  * a processor on an allocated physical resource.
  *
  * <ul>
@@ -69,9 +69,9 @@ import org.slf4j.LoggerFactory;
  *
  * This class is not thread-safe. This class is used in the refactored code path as called by run-jc.sh
  */
-public class AbstractContainerAllocator implements Runnable {
+public class ContainerAllocator implements Runnable {
 
-  private static final Logger LOG = LoggerFactory.getLogger(AbstractContainerAllocator.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ContainerAllocator.class);
 
   /* State that controls the lifecycle of the allocator thread */
   private volatile boolean isRunning = true;
@@ -122,7 +122,7 @@ public class AbstractContainerAllocator implements Runnable {
 
   private final Optional<StandbyContainerManager> standbyContainerManager;
 
-  public AbstractContainerAllocator(ClusterResourceManager clusterResourceManager,
+  public ContainerAllocator(ClusterResourceManager clusterResourceManager,
       Config config,
       SamzaApplicationState state,
       ClassLoader pluginClassLoader,

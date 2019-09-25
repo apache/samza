@@ -58,16 +58,16 @@ public class TestContainerAllocatorWithoutHostAffinity {
   private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
   private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, state);
 
-  private AbstractContainerAllocator containerAllocator;
+  private ContainerAllocator containerAllocator;
   private MockContainerRequestState requestState;
   private Thread allocatorThread;
 
   private Thread spyThread;
-  private AbstractContainerAllocator spyAllocator;
+  private ContainerAllocator spyAllocator;
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new AbstractContainerAllocator(manager, config, state, getClass().getClassLoader(), false, Optional
+    containerAllocator = new ContainerAllocator(manager, config, state, getClass().getClassLoader(), false, Optional
         .empty());
     requestState = new MockContainerRequestState(manager, false);
     Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
@@ -263,7 +263,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
     ClusterResourceManager.Callback mockCPM = mock(ClusterResourceManager.Callback.class);
     spyAllocator = Mockito.spy(
-        new AbstractContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state,
+        new ContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state,
             getClass().getClassLoader(), false, Optional.empty()));
     // Mock the callback from ClusterManager to add resources to the allocator
     doAnswer((InvocationOnMock invocation) -> {
