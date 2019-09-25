@@ -225,7 +225,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * it is invalid to call {@link RemoteTableDescriptor#withRateLimiter(RateLimiter,
    * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
    * and vice versa.
-   * @param creditsPerSec rate limit for read operations; must be positive
+   * Note that this is the total credit of rate limit for the entire job, each task will get a per task
+   * credit of creditsPerSec/tasksCount. Hence creditsPerSec should be greater than total number of tasks.
+   * @param creditsPerSec rate limit for read operations; must be positive and greater than total number tasks
    * @return this table descriptor instance
    */
   public RemoteTableDescriptor<K, V> withReadRateLimit(int creditsPerSec) {
@@ -239,7 +241,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * it is invalid to call {@link RemoteTableDescriptor#withRateLimiter(RateLimiter,
    * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
    * and vice versa.
-   * @param creditsPerSec rate limit for write operations; must be positive
+   * Note that this is the total credit of rate limit for the entire job, each task will get a per task
+   * credit of creditsPerSec/tasksCount. Hence creditsPerSec should be greater than total number of tasks.
+   * @param creditsPerSec rate limit for write operations; must be positive and greater than total number tasks
    * @return this table descriptor instance
    */
   public RemoteTableDescriptor<K, V> withWriteRateLimit(int creditsPerSec) {
