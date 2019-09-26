@@ -81,7 +81,7 @@ public class Log4jSystemConfig extends SystemConfig {
   }
 
   public String getStreamSerdeName(String systemName, String streamName) {
-    StreamConfig streamConfig =  new StreamConfig(this);
+    StreamConfig1 streamConfig =  new StreamConfig1(this);
     scala.Option<String> option = streamConfig.getStreamMsgSerde(new SystemStream(systemName, streamName));
     return option.isEmpty() ? null : option.get();
   }

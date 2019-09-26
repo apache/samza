@@ -22,7 +22,7 @@ package org.apache.samza.metrics.reporter
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{Config, JobConfig, MetricsConfig, SerializerConfig, SystemConfig}
-import org.apache.samza.config.StreamConfig.Config2Stream
+import org.apache.samza.config.StreamConfig1.Config2Stream
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap

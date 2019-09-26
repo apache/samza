@@ -57,8 +57,8 @@ public class StorageManagerUtil {
   /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
    *
-   * Note: The method doesn't respect {@link org.apache.samza.config.StreamConfig#CONSUMER_OFFSET_DEFAULT()} and
-   * {@link org.apache.samza.config.StreamConfig#CONSUMER_RESET_OFFSET()} configurations. It will use the locally
+   * Note: The method doesn't respect {@link org.apache.samza.config.StreamConfig1#CONSUMER_OFFSET_DEFAULT()} and
+   * {@link org.apache.samza.config.StreamConfig1#CONSUMER_RESET_OFFSET()} configurations. It will use the locally
    * checkpointed offset if it is valid, or fall back to oldest offset of the stream.
    *
    * @param ssp system stream partition for which starting offset is requested

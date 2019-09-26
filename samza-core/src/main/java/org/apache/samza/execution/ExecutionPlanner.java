@@ -44,7 +44,7 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.StreamConfig1;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
@@ -68,12 +68,12 @@ public class ExecutionPlanner {
 
   private final Config config;
   private final StreamManager streamManager;
-  private final StreamConfig streamConfig;
+  private final StreamConfig1 streamConfig;
 
   public ExecutionPlanner(Config config, StreamManager streamManager) {
     this.config = config;
     this.streamManager = streamManager;
-    this.streamConfig = new StreamConfig(config);
+    this.streamConfig = new StreamConfig1(config);
   }
 
   public ExecutionPlan plan(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc) {

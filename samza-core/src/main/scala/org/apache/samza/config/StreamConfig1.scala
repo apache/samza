@@ -24,7 +24,7 @@ import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
 
-object StreamConfig {
+object StreamConfig1 {
   // Samza configs for streams
   val SAMZA_PROPERTY = "samza."
   val SYSTEM =                  SAMZA_PROPERTY + "system"
@@ -55,7 +55,7 @@ object StreamConfig {
   val BOOTSTRAP_FOR_STREAM_ID = STREAM_ID_PREFIX + BOOTSTRAP
   val BROADCAST_FOR_STREAM_ID = STREAM_ID_PREFIX + BROADCAST
 
-  implicit def Config2Stream(config: Config) = new StreamConfig(config)
+  implicit def Config2Stream(config: Config) = new StreamConfig1(config)
 }
 
 /**
@@ -75,13 +75,13 @@ object StreamConfig {
  * - samza property: property which is Samza-specific, which will have "samza." as a prefix (e.g. "samza.key.serde");
  *   this is in contrast to stream-specific properties which are related to specific stream technologies
  */
-class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
-  def getStreamMsgSerde(systemStream: SystemStream) = nonEmptyOption(getSamzaProperty(systemStream, StreamConfig.MSG_SERDE))
+class StreamConfig1(config: Config) extends ScalaMapConfig(config) with Logging {
+  def getStreamMsgSerde(systemStream: SystemStream) = nonEmptyOption(getSamzaProperty(systemStream, StreamConfig1.MSG_SERDE))
 
-  def getStreamKeySerde(systemStream: SystemStream) = nonEmptyOption(getSamzaProperty(systemStream, StreamConfig.KEY_SERDE))
+  def getStreamKeySerde(systemStream: SystemStream) = nonEmptyOption(getSamzaProperty(systemStream, StreamConfig1.KEY_SERDE))
 
   def getResetOffset(systemStream: SystemStream) =
-    Option(getSamzaProperty(systemStream, StreamConfig.CONSUMER_RESET_OFFSET)) match {
+    Option(getSamzaProperty(systemStream, StreamConfig1.CONSUMER_RESET_OFFSET)) match {
       case Some("true") => true
       case Some("false") => false
       case Some(resetOffset) =>
@@ -92,22 +92,22 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     }
 
   def isResetOffsetConfigured(systemStream: SystemStream) =
-    containsSamzaProperty(systemStream, StreamConfig.CONSUMER_RESET_OFFSET)
+    containsSamzaProperty(systemStream, StreamConfig1.CONSUMER_RESET_OFFSET)
 
   def getDefaultStreamOffset(systemStream: SystemStream) =
-    Option(getSamzaProperty(systemStream, StreamConfig.CONSUMER_OFFSET_DEFAULT))
+    Option(getSamzaProperty(systemStream, StreamConfig1.CONSUMER_OFFSET_DEFAULT))
 
   def isDefaultStreamOffsetConfigured(systemStream: SystemStream) =
-    containsSamzaProperty(systemStream, StreamConfig.CONSUMER_OFFSET_DEFAULT)
+    containsSamzaProperty(systemStream, StreamConfig1.CONSUMER_OFFSET_DEFAULT)
 
   def getBootstrapEnabled(systemStream: SystemStream) =
-    java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig.BOOTSTRAP))
+    java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig1.BOOTSTRAP))
 
   def getBroadcastEnabled(systemStream: SystemStream) =
-    java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig.BROADCAST))
+    java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, StreamConfig1.BROADCAST))
 
   def getPriority(systemStream: SystemStream) =
-    java.lang.Integer.parseInt(getSamzaProperty(systemStream, StreamConfig.PRIORITY, "-1"))
+    java.lang.Integer.parseInt(getSamzaProperty(systemStream, StreamConfig1.PRIORITY, "-1"))
 
   /**
    * Returns a list of all SystemStreams that have a serde defined from the config file.
@@ -117,16 +117,16 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     val legacySystemStreams = subConf
       .asScala
       .keys
-      .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
+      .filter(k => k.endsWith(StreamConfig1.MSG_SERDE) || k.endsWith(StreamConfig1.KEY_SERDE))
       .map(k => {
         val streamName = k.substring(0, k.length - 16 /* .samza.XXX.serde length */ )
         new SystemStream(systemName, streamName)
       }).toSet
 
-    val systemStreams = subset(StreamConfig.STREAMS_PREFIX)
+    val systemStreams = subset(StreamConfig1.STREAMS_PREFIX)
       .asScala
       .keys
-      .filter(k => k.endsWith(StreamConfig.MSG_SERDE) || k.endsWith(StreamConfig.KEY_SERDE))
+      .filter(k => k.endsWith(StreamConfig1.MSG_SERDE) || k.endsWith(StreamConfig1.KEY_SERDE))
       .map(k => k.substring(0, k.length - 16 /* .samza.XXX.serde length */ ))
       .filter(streamId => systemName.equals(getSystem(streamId)))
       .map(streamId => streamIdToSystemStream(streamId)).toSet
@@ -150,7 +150,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    */
   def getStreamProperties(streamId: String) = {
     val allProperties = getAllStreamProperties(streamId)
-    val samzaProperties = allProperties.subset(StreamConfig.SAMZA_PROPERTY, false)
+    val samzaProperties = allProperties.subset(StreamConfig1.SAMZA_PROPERTY, false)
     val filteredStreamProperties: java.util.Map[String, String] =
       allProperties.asScala.filterKeys(k => !samzaProperties.containsKey(k)).asJava
     new MapConfig(filteredStreamProperties)
@@ -168,7 +168,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * @return         the system name associated with the stream.
     */
   def getSystem(streamId: String) = {
-    getOption(StreamConfig.SYSTEM_FOR_STREAM_ID format streamId) match {
+    getOption(StreamConfig1.SYSTEM_FOR_STREAM_ID format streamId) match {
       case Some(system) => system
       case _ => new JobConfig(config).getDefaultSystem().orElse(null)
     }
@@ -182,7 +182,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     */
   def getPhysicalName(streamId: String) = {
     // use streamId as the default physical name
-    get(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID format streamId, streamId)
+    get(StreamConfig1.PHYSICAL_NAME_FOR_STREAM_ID format streamId, streamId)
   }
 
   /**
@@ -191,7 +191,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * @return          true if the stream is intermediate
    */
   def getIsIntermediateStream(streamId: String) = {
-    getBoolean(StreamConfig.IS_INTERMEDIATE_FOR_STREAM_ID format streamId, false)
+    getBoolean(StreamConfig1.IS_INTERMEDIATE_FOR_STREAM_ID format streamId, false)
   }
 
   /**
@@ -200,11 +200,11 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     * @return          true if the committed messages of the stream can be deleted
     */
   def getDeleteCommittedMessages(streamId: String) = {
-    getBoolean(StreamConfig.DELETE_COMMITTED_MESSAGES_FOR_STREAM_ID format streamId, false)
+    getBoolean(StreamConfig1.DELETE_COMMITTED_MESSAGES_FOR_STREAM_ID format streamId, false)
   }
 
   def getIsBounded(streamId: String) = {
-    getBoolean(StreamConfig.IS_BOUNDED_FOR_STREAM_ID format streamId, false)
+    getBoolean(StreamConfig1.IS_BOUNDED_FOR_STREAM_ID format streamId, false)
   }
 
   /**
@@ -213,7 +213,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    */
   def getStreamIds(): Iterable[String] = {
     // StreamIds are not allowed to have '.' so the first index of '.' marks the end of the streamId.
-    subset(StreamConfig.STREAMS_PREFIX).asScala.keys.map(key => key.substring(0, key.indexOf(".")))
+    subset(StreamConfig1.STREAMS_PREFIX).asScala.keys.map(key => key.substring(0, key.indexOf(".")))
   }
 
   /**
@@ -242,7 +242,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    *                 argument should have the value "samza.prop.key"
    */
   private def getSamzaProperty(systemStream: SystemStream, property: String): String = {
-    if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
+    if (!property.startsWith(StreamConfig1.SAMZA_PROPERTY)) {
       throw new IllegalArgumentException(
         "Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
     }
@@ -285,7 +285,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    *                 argument should have the value "samza.prop.key"
    */
   private def containsSamzaProperty(systemStream: SystemStream, property: String): Boolean = {
-    if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
+    if (!property.startsWith(StreamConfig1.SAMZA_PROPERTY)) {
       throw new IllegalArgumentException(
         "Attempt to fetch a non samza property for SystemStream %s named %s" format(systemStream, property))
     }
@@ -310,7 +310,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
     }
     val systemConfig = new SystemConfig(config)
     val defaults = systemConfig.getDefaultStreamProperties(systemName)
-    val explicitConfigs = config.subset(StreamConfig.STREAM_PREFIX format(systemName, streamName), true)
+    val explicitConfigs = config.subset(StreamConfig1.STREAM_PREFIX format(systemName, streamName), true)
     new MapConfig(defaults, explicitConfigs)
   }
 
@@ -328,7 +328,7 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * @return         the merged map of config properties from both the legacy and new config styles
    */
   private def getAllStreamProperties(streamId: String) = {
-    val allProperties = subset(StreamConfig.STREAM_ID_PREFIX format streamId)
+    val allProperties = subset(StreamConfig1.STREAM_ID_PREFIX format streamId)
     val inheritedLegacyProperties: java.util.Map[String, String] =
       getSystemStreamProperties(getSystem(streamId), getPhysicalName(streamId))
     new MapConfig(java.util.Arrays.asList(inheritedLegacyProperties, allProperties))

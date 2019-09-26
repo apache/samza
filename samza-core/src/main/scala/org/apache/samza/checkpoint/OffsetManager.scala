@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
-import org.apache.samza.config.StreamConfig.Config2Stream
+import org.apache.samza.config.StreamConfig1.Config2Stream
 import org.apache.samza.config.{Config, SystemConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.startpoint.{Startpoint, StartpointManager}

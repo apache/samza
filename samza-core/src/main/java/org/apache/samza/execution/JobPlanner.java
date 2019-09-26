@@ -35,7 +35,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.StreamConfig1;
 import org.apache.samza.config.TaskConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,7 +126,7 @@ public abstract class JobPlanner {
       generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
     }
 
-    StreamConfig streamConfig = new StreamConfig(userConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(userConfig);
     Set<String> inputStreamIds = new HashSet<>(appDesc.getInputStreamIds());
     inputStreamIds.removeAll(appDesc.getOutputStreamIds()); // exclude intermediate streams
     ApplicationConfig.ApplicationMode mode =

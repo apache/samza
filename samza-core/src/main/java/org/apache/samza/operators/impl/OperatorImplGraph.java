@@ -22,7 +22,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.StreamConfig1;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.job.model.JobModel;
@@ -99,7 +99,7 @@ public class OperatorImplGraph {
    */
   public OperatorImplGraph(OperatorSpecGraph specGraph, Context context, Clock clock) {
     this.clock = clock;
-    StreamConfig streamConfig = new StreamConfig(context.getJobContext().getConfig());
+    StreamConfig1 streamConfig = new StreamConfig1(context.getJobContext().getConfig());
     this.internalTaskContext = new InternalTaskContext(context);
     Map<SystemStream, Integer> producerTaskCounts =
         hasIntermediateStreams(specGraph)
@@ -215,7 +215,7 @@ public class OperatorImplGraph {
    */
   OperatorImpl createOperatorImpl(OperatorSpec prevOperatorSpec, OperatorSpec operatorSpec, Context context) {
     Config config = context.getJobContext().getConfig();
-    StreamConfig streamConfig = new StreamConfig(config);
+    StreamConfig1 streamConfig = new StreamConfig1(config);
     if (operatorSpec instanceof InputOperatorSpec) {
       return new InputOperatorImpl((InputOperatorSpec) operatorSpec);
     } else if (operatorSpec instanceof StreamOperatorSpec) {
@@ -380,7 +380,7 @@ public class OperatorImplGraph {
    * @return mapping from output streams to input streams
    */
   static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(
-      OperatorSpecGraph specGraph, StreamConfig streamConfig) {
+    OperatorSpecGraph specGraph, StreamConfig1 streamConfig) {
     Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
     specGraph.getInputOperators().entrySet().stream()
         .forEach(entry -> {
@@ -391,7 +391,7 @@ public class OperatorImplGraph {
   }
 
   private static void computeOutputToInput(SystemStream input, OperatorSpec opSpec,
-      Multimap<SystemStream, SystemStream> outputToInputStreams, StreamConfig streamConfig) {
+                                           Multimap<SystemStream, SystemStream> outputToInputStreams, StreamConfig1 streamConfig) {
     if (opSpec instanceof PartitionByOperatorSpec) {
       PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
       SystemStream systemStream = streamConfig.streamIdToSystemStream(spec.getOutputStream().getStreamId());

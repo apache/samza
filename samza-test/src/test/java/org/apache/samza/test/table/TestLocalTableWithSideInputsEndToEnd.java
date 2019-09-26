@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.StreamConfig1;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.operators.KV;
 import org.apache.samza.table.descriptors.TableDescriptor;
@@ -82,9 +82,9 @@ public class TestLocalTableWithSideInputsEndToEnd extends IntegrationTestHarness
   private void runTest(String systemName, StreamApplication app, List<PageView> pageViews,
       List<Profile> profiles) {
     Map<String, String> configs = new HashMap<>();
-    configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM), systemName);
-    configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), PROFILE_STREAM), systemName);
-    configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), ENRICHED_PAGEVIEW_STREAM), systemName);
+    configs.put(String.format(StreamConfig1.SYSTEM_FOR_STREAM_ID(), PAGEVIEW_STREAM), systemName);
+    configs.put(String.format(StreamConfig1.SYSTEM_FOR_STREAM_ID(), PROFILE_STREAM), systemName);
+    configs.put(String.format(StreamConfig1.SYSTEM_FOR_STREAM_ID(), ENRICHED_PAGEVIEW_STREAM), systemName);
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor(systemName);
 

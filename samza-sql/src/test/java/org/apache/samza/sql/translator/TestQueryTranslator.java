@@ -29,7 +29,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.StreamConfig1;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.OperatorSpecGraph;
@@ -83,7 +83,7 @@ public class TestQueryTranslator {
     translator.translate(queryInfo.get(0), appDesc, 0);
     OperatorSpecGraph specGraph = appDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String inputSystem = streamConfig.getSystem(inputStreamId);
     String inputPhysicalName = streamConfig.getPhysicalName(inputStreamId);
@@ -122,7 +122,7 @@ public class TestQueryTranslator {
     translator.translate(queryInfo.get(1), appDesc, 1);
     OperatorSpecGraph specGraph = appDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String inputStreamId1 = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String inputSystem1 = streamConfig.getSystem(inputStreamId1);
     String inputPhysicalName1 = streamConfig.getPhysicalName(inputStreamId1);
@@ -167,7 +167,7 @@ public class TestQueryTranslator {
     translator.translate(queryInfo.get(1), appDesc, 1);
     OperatorSpecGraph specGraph = appDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String inputSystem = streamConfig.getSystem(inputStreamId);
     String inputPhysicalName = streamConfig.getPhysicalName(inputStreamId);
@@ -211,7 +211,7 @@ public class TestQueryTranslator {
     translator.translate(queryInfo.get(1), appDesc, 1);
     OperatorSpecGraph specGraph = appDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String inputStreamId1 = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String inputSystem1 = streamConfig.getSystem(inputStreamId1);
     String inputPhysicalName1 = streamConfig.getPhysicalName(inputStreamId1);
@@ -259,7 +259,7 @@ public class TestQueryTranslator {
     translator.translate(queryInfo.get(0), streamAppDesc, 0);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String inputSystem = streamConfig.getSystem(inputStreamId);
     String inputPhysicalName = streamConfig.getPhysicalName(inputStreamId);
@@ -296,7 +296,7 @@ public class TestQueryTranslator {
     translator.translate(queryInfo.get(0), streamAppDesc, 0);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String inputStreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String inputSystem = streamConfig.getSystem(inputStreamId);
     String inputPhysicalName = streamConfig.getPhysicalName(inputStreamId);
@@ -631,7 +631,7 @@ public class TestQueryTranslator {
     translator.translate(queryInfo.get(0), streamAppDesc, 0);
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String input1System = streamConfig.getSystem(input1StreamId);
     String input1PhysicalName = streamConfig.getPhysicalName(input1StreamId);
@@ -699,7 +699,7 @@ public class TestQueryTranslator {
 
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String input1System = streamConfig.getSystem(input1StreamId);
     String input1PhysicalName = streamConfig.getPhysicalName(input1StreamId);
@@ -766,7 +766,7 @@ public class TestQueryTranslator {
 
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
 
-    StreamConfig streamConfig = new StreamConfig(samzaConfig);
+    StreamConfig1 streamConfig = new StreamConfig1(samzaConfig);
     String input1StreamId = specGraph.getInputOperators().keySet().stream().findFirst().get();
     String input1System = streamConfig.getSystem(input1StreamId);
     String input1PhysicalName = streamConfig.getPhysicalName(input1StreamId);

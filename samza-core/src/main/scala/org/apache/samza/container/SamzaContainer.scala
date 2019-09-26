@@ -31,7 +31,7 @@ import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorServic
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
-import org.apache.samza.config.StreamConfig.Config2Stream
+import org.apache.samza.config.StreamConfig1.Config2Stream
 import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}

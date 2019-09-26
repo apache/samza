@@ -34,7 +34,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.StreamConfig1;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -109,7 +109,7 @@ public abstract class AsyncSystemProducer implements SystemProducer {
    * @param metricsRegistry the registry
    */
   public AsyncSystemProducer(String systemName, Config config, MetricsRegistry metricsRegistry) {
-    StreamConfig sconfig = new StreamConfig(config);
+    StreamConfig1 sconfig = new StreamConfig1(config);
     streamIds = config.getList(String.format(CONFIG_STREAM_LIST, systemName));
     physicalToStreamIds =
         streamIds.stream().collect(Collectors.toMap(sconfig::getPhysicalName, Function.identity()));

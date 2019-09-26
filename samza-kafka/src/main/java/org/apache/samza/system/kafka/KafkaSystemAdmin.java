@@ -57,7 +57,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.StreamConfig1;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.startpoint.Startpoint;
 import org.apache.samza.startpoint.StartpointOldest;
@@ -687,7 +687,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     ApplicationConfig appConfig = new ApplicationConfig(config);
 
     if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-      StreamConfig streamConfig = new StreamConfig(config);
+      StreamConfig1 streamConfig = new StreamConfig1(config);
       intermedidateStreamProperties = JavaConverters.asJavaCollectionConverter(streamConfig.getStreamIds())
           .asJavaCollection()
           .stream()

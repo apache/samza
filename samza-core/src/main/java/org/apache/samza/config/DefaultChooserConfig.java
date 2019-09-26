@@ -33,12 +33,12 @@ public class DefaultChooserConfig extends MapConfig {
   private static final String BATCH_SIZE = "task.consumer.batch.size";
 
   private final TaskConfig taskConfig;
-  private final StreamConfig streamConfig;
+  private final StreamConfig1 streamConfig;
 
   public DefaultChooserConfig(Config config) {
     super(config);
     taskConfig = new TaskConfig(config);
-    streamConfig = new StreamConfig(config);
+    streamConfig = new StreamConfig1(config);
   }
 
   /**

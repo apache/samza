@@ -40,7 +40,7 @@ import org.apache.samza.config.InMemorySystemConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.StreamConfig1;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.context.ExternalContext;
@@ -431,9 +431,9 @@ public class TestRunner {
    * over {@link org.apache.samza.application.descriptors.ApplicationDescriptor} generated configs
    */
   private void addSerdeConfigs(StreamDescriptor descriptor) {
-    String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), descriptor.getStreamId());
-    String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
-    String msgSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+    String streamIdPrefix = String.format(StreamConfig1.STREAM_ID_PREFIX(), descriptor.getStreamId());
+    String keySerdeConfigKey = streamIdPrefix + StreamConfig1.KEY_SERDE();
+    String msgSerdeConfigKey = streamIdPrefix + StreamConfig1.MSG_SERDE();
     this.configs.put(keySerdeConfigKey, null);
     this.configs.put(msgSerdeConfigKey, null);
   }

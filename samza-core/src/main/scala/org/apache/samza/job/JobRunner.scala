@@ -124,7 +124,7 @@ class JobRunner(config: Config) extends Logging {
       val diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(diagnosticsSystemStreamName)
       val diagnosticsSysAdmin = systemAdmins.getSystemAdmin(diagnosticsSystemStream.getSystem)
       val diagnosticsStreamSpec = new StreamSpec(DIAGNOSTICS_STREAM_ID, diagnosticsSystemStream.getStream,
-        diagnosticsSystemStream.getSystem, new StreamConfig(config).getStreamProperties(DIAGNOSTICS_STREAM_ID))
+        diagnosticsSystemStream.getSystem, new StreamConfig1(config).getStreamProperties(DIAGNOSTICS_STREAM_ID))
 
       info("Creating diagnostics stream %s" format diagnosticsSystemStream.getStream)
       diagnosticsSysAdmin.start()

@@ -162,8 +162,8 @@ public class TaskSideInputStorageManager {
   /**
    * Gets the starting offset for the given side input {@link SystemStreamPartition}.
    *
-   * Note: The method doesn't respect {@link org.apache.samza.config.StreamConfig#CONSUMER_OFFSET_DEFAULT()} and
-   * {@link org.apache.samza.config.StreamConfig#CONSUMER_RESET_OFFSET()} configurations. It will use the local offset
+   * Note: The method doesn't respect {@link org.apache.samza.config.StreamConfig1#CONSUMER_OFFSET_DEFAULT()} and
+   * {@link org.apache.samza.config.StreamConfig1#CONSUMER_RESET_OFFSET()} configurations. It will use the local offset
    * file if it is valid, else it will fall back to oldest offset in the stream.
    *
    * @param ssp side input system stream partition to get the starting offset for
