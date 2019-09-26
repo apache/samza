@@ -147,8 +147,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
     coordinatorStreamProperties = getCoordinatorStreamProperties(kafkaConfig);
 
-    Map<String, String> storeToChangelog =
-        JavaConverters.mapAsJavaMapConverter(kafkaConfig.getKafkaChangelogEnabledStores()).asJava();
+    Map<String, String> storeToChangelog = kafkaConfig.getKafkaChangelogEnabledStores();
     // Construct the meta information for each topic, if the replication factor is not defined,
     // we use 2 (DEFAULT_REPL_FACTOR) as the number of replicas for the change log stream.
     changelogTopicMetaInformation = new HashMap<>();
@@ -691,8 +690,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
     if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
       StreamConfigJava streamConfig = new StreamConfigJava(config);
-      intermedidateStreamProperties = JavaConverters.asJavaCollectionConverter(streamConfig.getStreamIds())
-          .asJavaCollection()
+      intermedidateStreamProperties = streamConfig.getStreamIds()
           .stream()
           .filter(streamConfig::getIsIntermediateStream)
           .collect(Collectors.toMap(Function.identity(), streamId -> {

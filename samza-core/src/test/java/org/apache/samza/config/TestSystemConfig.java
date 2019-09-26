@@ -130,7 +130,7 @@ public class TestSystemConfig {
         new MapConfig(ImmutableMap.of(system1ConfigKey, system1ConfigValue, system2ConfigKey, system2ConfigValue));
     SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(expected, systemConfig.getDefaultStreamProperties(MOCK_SYSTEM_NAME1));
-    assertEquals(new MapConfig, systemConfig.getDefaultStreamProperties(MOCK_SYSTEM_NAME2));
+    assertEquals(new MapConfig(), systemConfig.getDefaultStreamProperties(MOCK_SYSTEM_NAME2));
   }
 
   @Test

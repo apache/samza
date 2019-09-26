@@ -105,7 +105,7 @@ public class TestAsyncFlatMap extends IntegrationTestHarness {
   }
 
   private List<PageView> runTest(List<PageView> pageViews, Map<String, String> configs) {
-    configs.put(String.format(StreamConfigJava.SYSTEM_FOR_STREAM_ID(), PAGE_VIEW_STREAM), TEST_SYSTEM);
+    configs.put(String.format(StreamConfigJava.SYSTEM_FOR_STREAM_ID, PAGE_VIEW_STREAM), TEST_SYSTEM);
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor(TEST_SYSTEM);
     InMemoryInputDescriptor<PageView> pageViewStreamDesc = isd
