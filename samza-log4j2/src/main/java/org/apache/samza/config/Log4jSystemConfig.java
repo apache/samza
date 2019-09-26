@@ -21,6 +21,8 @@ package org.apache.samza.config;
 
 import org.apache.samza.system.SystemStream;
 
+import java.util.Optional;
+
 
 /**
  * This class contains the methods for getting properties that are needed by the
@@ -81,8 +83,8 @@ public class Log4jSystemConfig extends SystemConfig {
   }
 
   public String getStreamSerdeName(String systemName, String streamName) {
-    StreamConfig1 streamConfig =  new StreamConfig1(this);
-    scala.Option<String> option = streamConfig.getStreamMsgSerde(new SystemStream(systemName, streamName));
-    return option.isEmpty() ? null : option.get();
+    StreamConfigJava streamConfig =  new StreamConfigJava(this);
+    Optional<String> option = streamConfig.getStreamMsgSerde(new SystemStream(systemName, streamName));
+    return option.isPresent() ? option.get() : null;
   }
 }

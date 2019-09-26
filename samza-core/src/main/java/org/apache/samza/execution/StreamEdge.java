@@ -19,18 +19,18 @@
 
 package org.apache.samza.execution;
 
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StreamConfigJava;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.StreamUtil;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig1;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.StreamUtil;
 
 
 /**
@@ -56,7 +56,7 @@ public class StreamEdge {
     this.isIntermediate = isIntermediate;
     // broadcast can be configured either by an operator or via the configs
     this.isBroadcast =
-          isBroadcast || new StreamConfig1(config).getBroadcastEnabled(streamSpec.toSystemStream());
+          isBroadcast || new StreamConfigJava(config).getBroadcastEnabled(streamSpec.toSystemStream());
     this.config = config;
     if (isBroadcast && isIntermediate) {
       partitions = 1;
@@ -122,21 +122,21 @@ public class StreamEdge {
     Map<String, String> streamConfig = new HashMap<>();
     StreamSpec spec = getStreamSpec();
     String streamId = spec.getId();
-    streamConfig.put(String.format(StreamConfig1.SYSTEM_FOR_STREAM_ID(), streamId), spec.getSystemName());
-    streamConfig.put(String.format(StreamConfig1.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), spec.getPhysicalName());
+    streamConfig.put(String.format(StreamConfigJava.SYSTEM_FOR_STREAM_ID(), streamId), spec.getSystemName());
+    streamConfig.put(String.format(StreamConfigJava.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), spec.getPhysicalName());
     if (isIntermediate()) {
-      streamConfig.put(String.format(StreamConfig1.IS_INTERMEDIATE_FOR_STREAM_ID(), streamId), "true");
-      streamConfig.put(String.format(StreamConfig1.DELETE_COMMITTED_MESSAGES_FOR_STREAM_ID(), streamId), "true");
+      streamConfig.put(String.format(StreamConfigJava.IS_INTERMEDIATE_FOR_STREAM_ID(), streamId), "true");
+      streamConfig.put(String.format(StreamConfigJava.DELETE_COMMITTED_MESSAGES_FOR_STREAM_ID(), streamId), "true");
 
       // Setting offset.default to oldest only if the job is running in batch mode
       if (ApplicationConfig.ApplicationMode.BATCH.equals(new ApplicationConfig(config).getAppMode())) {
-        streamConfig.put(String.format(StreamConfig1.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
+        streamConfig.put(String.format(StreamConfigJava.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
       }
 
-      streamConfig.put(String.format(StreamConfig1.PRIORITY_FOR_STREAM_ID(), streamId), String.valueOf(Integer.MAX_VALUE));
+      streamConfig.put(String.format(StreamConfigJava.PRIORITY_FOR_STREAM_ID(), streamId), String.valueOf(Integer.MAX_VALUE));
     }
     spec.getConfig().forEach((property, value) -> {
-        streamConfig.put(String.format(StreamConfig1.STREAM_ID_PREFIX(), streamId) + property, value);
+        streamConfig.put(String.format(StreamConfigJava.STREAM_ID_PREFIX(), streamId) + property, value);
       });
 
     return new MapConfig(streamConfig);

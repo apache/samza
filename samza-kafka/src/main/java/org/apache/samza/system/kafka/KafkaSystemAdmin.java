@@ -23,18 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -57,7 +45,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig1;
+import org.apache.samza.config.StreamConfigJava;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.startpoint.Startpoint;
 import org.apache.samza.startpoint.StartpointOldest;
@@ -83,6 +71,19 @@ import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 public class KafkaSystemAdmin implements SystemAdmin {
@@ -140,7 +141,9 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("New admin client with props:" + props);
     adminClient = AdminClient.create(props);
 
-    KafkaConfig kafkaConfig = new KafkaConfig(config);
+    StreamConfigJava streamConfig = new StreamConfigJava(config);
+
+    KafkaConfig kafkaConfig = new KafkaConfig(streamConfig);
     coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
     coordinatorStreamProperties = getCoordinatorStreamProperties(kafkaConfig);
 
@@ -687,7 +690,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     ApplicationConfig appConfig = new ApplicationConfig(config);
 
     if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-      StreamConfig1 streamConfig = new StreamConfig1(config);
+      StreamConfigJava streamConfig = new StreamConfigJava(config);
       intermedidateStreamProperties = JavaConverters.asJavaCollectionConverter(streamConfig.getStreamIds())
           .asJavaCollection()
           .stream()

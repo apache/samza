@@ -196,7 +196,8 @@ object SamzaContainer extends Logging {
 
     info("Got system names: %s" format systemNames)
 
-    val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ config.getSerdeStreams(_))
+    val streamConfig = new StreamConfigJava(config)
+    val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ streamConfig.getSerdeStreams(_).asScala)
 
     info("Got serde streams: %s" format serdeStreams)
 
@@ -327,11 +328,11 @@ object SamzaContainer extends Logging {
 
     debug("Got system message serdes: %s" format systemMessageSerdes)
 
-    val systemStreamKeySerdes = buildSystemStreamSerdeMap(systemStream => config.getStreamKeySerde(systemStream))
+    val systemStreamKeySerdes = buildSystemStreamSerdeMap(systemStream => streamConfig.getStreamKeySerde(systemStream))
 
     debug("Got system stream key serdes: %s" format systemStreamKeySerdes)
 
-    val systemStreamMessageSerdes = buildSystemStreamSerdeMap(systemStream => config.getStreamMsgSerde(systemStream))
+    val systemStreamMessageSerdes = buildSystemStreamSerdeMap(systemStream => streamConfig.getStreamMsgSerde(systemStream))
 
     debug("Got system stream message serdes: %s" format systemStreamMessageSerdes)
 
@@ -360,9 +361,9 @@ object SamzaContainer extends Logging {
       SystemClock.instance,
       getChangelogSSPsForContainer(containerModel, changeLogSystemStreams).asJava)
 
-    val intermediateStreams = config
+    val intermediateStreams = streamConfig
       .getStreamIds
-      .filter(config.getIsIntermediateStream(_))
+      .filter(streamConfig.getIsIntermediateStream(_))
       .toList
 
     info("Got intermediate streams: %s" format intermediateStreams)

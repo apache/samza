@@ -26,6 +26,7 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.junit.Test;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -129,7 +130,7 @@ public class TestSystemConfig {
         new MapConfig(ImmutableMap.of(system1ConfigKey, system1ConfigValue, system2ConfigKey, system2ConfigValue));
     SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(expected, systemConfig.getDefaultStreamProperties(MOCK_SYSTEM_NAME1));
-    assertEquals(new MapConfig(), systemConfig.getDefaultStreamProperties(MOCK_SYSTEM_NAME2));
+    assertEquals(new MapConfig, systemConfig.getDefaultStreamProperties(MOCK_SYSTEM_NAME2));
   }
 
   @Test
@@ -157,13 +158,13 @@ public class TestSystemConfig {
 
     // value specified explicitly
     Config config =
-        new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + StreamConfig1.KEY_SERDE(), system1KeySerde));
+        new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + StreamConfigJava.KEY_SERDE, system1KeySerde));
     SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, try fall back config key
     config = new MapConfig(
-        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig1.KEY_SERDE(),
+        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfigJava.KEY_SERDE,
             system1KeySerde));
     systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
@@ -171,15 +172,15 @@ public class TestSystemConfig {
     // default stream property is empty string, try fall back config key
     config = new MapConfig(ImmutableMap.of(
         // default stream property is empty
-        defaultStreamPrefixSystem1 + StreamConfig1.KEY_SERDE(), "",
+        defaultStreamPrefixSystem1 + StreamConfigJava.KEY_SERDE, "",
         // fall back entry
-        String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig1.KEY_SERDE(), system1KeySerde));
+        String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfigJava.KEY_SERDE, system1KeySerde));
     systemConfig = new SystemConfig(config);
     assertEquals(system1KeySerde, systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, fall back is also empty
     config = new MapConfig(
-        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig1.KEY_SERDE(),
+        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfigJava.KEY_SERDE,
             ""));
     systemConfig = new SystemConfig(config);
     assertFalse(systemConfig.getSystemKeySerde(MOCK_SYSTEM_NAME1).isPresent());
@@ -197,13 +198,13 @@ public class TestSystemConfig {
 
     // value specified explicitly
     Config config =
-        new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + StreamConfig1.MSG_SERDE(), system1MsgSerde));
+        new MapConfig(ImmutableMap.of(defaultStreamPrefixSystem1 + StreamConfigJava.MSG_SERDE, system1MsgSerde));
     SystemConfig systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, try fall back config msg
     config = new MapConfig(
-        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig1.MSG_SERDE(),
+        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfigJava.MSG_SERDE,
             system1MsgSerde));
     systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
@@ -211,15 +212,15 @@ public class TestSystemConfig {
     // default stream property is empty string, try fall back config msg
     config = new MapConfig(ImmutableMap.of(
         // default stream property is empty
-        defaultStreamPrefixSystem1 + StreamConfig1.MSG_SERDE(), "",
+        defaultStreamPrefixSystem1 + StreamConfigJava.MSG_SERDE, "",
         // fall back entry
-        String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig1.MSG_SERDE(), system1MsgSerde));
+        String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfigJava.MSG_SERDE, system1MsgSerde));
     systemConfig = new SystemConfig(config);
     assertEquals(system1MsgSerde, systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).get());
 
     // default stream property is unspecified, fall back is also empty
     config = new MapConfig(
-        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfig1.MSG_SERDE(),
+        ImmutableMap.of(String.format(SystemConfig.SYSTEM_ID_PREFIX, MOCK_SYSTEM_NAME1) + StreamConfigJava.MSG_SERDE,
             ""));
     systemConfig = new SystemConfig(config);
     assertFalse(systemConfig.getSystemMsgSerde(MOCK_SYSTEM_NAME1).isPresent());

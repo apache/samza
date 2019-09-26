@@ -22,7 +22,7 @@ package org.apache.samza.execution;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig1;
+import org.apache.samza.config.StreamConfigJava;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
 
@@ -67,7 +67,7 @@ public class TestStreamEdge {
     StreamSpec spec = new StreamSpec("stream-1", "physical-stream-1", "system-1", Collections.singletonMap("property1", "haha"));
     StreamEdge edge = new StreamEdge(spec, false, false, new MapConfig());
     Config config = edge.generateConfig();
-    StreamConfig1 streamConfig = new StreamConfig1(config);
+    StreamConfigJava streamConfig = new StreamConfigJava(config);
     assertEquals(streamConfig.getSystem(spec.getId()), "system-1");
     assertEquals(streamConfig.getPhysicalName(spec.getId()), "physical-stream-1");
     assertEquals(streamConfig.getIsIntermediateStream(spec.getId()), false);
@@ -77,12 +77,12 @@ public class TestStreamEdge {
     spec = new StreamSpec("stream-1", "physical-stream-1", "system-1", Collections.singletonMap("property1", "haha"));
     edge = new StreamEdge(spec, false, false, new MapConfig());
     config = edge.generateConfig();
-    streamConfig = new StreamConfig1(config);
+    streamConfig = new StreamConfigJava(config);
 
     // intermediate stream
     edge = new StreamEdge(spec, true, false, new MapConfig());
     config = edge.generateConfig();
-    streamConfig = new StreamConfig1(config);
+    streamConfig = new StreamConfigJava(config);
     assertEquals(streamConfig.getIsIntermediateStream(spec.getId()), true);
     assertEquals(streamConfig.getPriority(spec.toSystemStream()), Integer.MAX_VALUE);
   }

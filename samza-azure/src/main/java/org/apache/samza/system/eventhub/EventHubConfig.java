@@ -24,7 +24,7 @@ import com.microsoft.azure.eventhubs.PartitionReceiver;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig1;
+import org.apache.samza.config.StreamConfigJava;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,10 +106,10 @@ public class EventHubConfig extends MapConfig {
     super(config);
 
     // Build reverse index for streamName -> streamId
-    StreamConfig1 streamConfig = new StreamConfig1(config);
+    StreamConfigJava streamConfig = new StreamConfigJava(config);
 
     LOG.info("Building mappings from physicalName to streamId");
-    JavaConversions.asJavaCollection(streamConfig.getStreamIds())
+    streamConfig.getStreamIds()
         .forEach((streamId) -> {
             String physicalName = streamConfig.getPhysicalName(streamId);
             LOG.info("Obtained physicalName: {} for streamId: {} ", physicalName, streamId);

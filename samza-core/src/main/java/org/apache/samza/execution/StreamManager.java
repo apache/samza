@@ -110,10 +110,10 @@ public class StreamManager {
       ApplicationConfig appConfig = new ApplicationConfig(prevConfig);
       LOGGER.info("run.id from previous run is {}", appConfig.getRunId());
 
-      StreamConfig1 streamConfig = new StreamConfig1(prevConfig);
+      StreamConfigJava streamConfig = new StreamConfigJava(prevConfig);
 
       //Find all intermediate streams and clean up
-      Set<StreamSpec> intStreams = JavaConversions.asJavaCollection(streamConfig.getStreamIds()).stream()
+      Set<StreamSpec> intStreams = streamConfig.getStreamIds().stream()
           .filter(streamConfig::getIsIntermediateStream)
           .map(id -> new StreamSpec(id, streamConfig.getPhysicalName(id), streamConfig.getSystem(id)))
           .collect(Collectors.toSet());

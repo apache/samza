@@ -18,14 +18,16 @@
  */
 package org.apache.samza.util;
 
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.StreamConfigJava;
+import org.apache.samza.config.StreamConfigJava;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemStream;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.StreamConfig1;
-import org.apache.samza.system.StreamSpec;
-import org.apache.samza.system.SystemStream;
 
 public class StreamUtil {
   /**
@@ -43,7 +45,7 @@ public class StreamUtil {
           String.format("Invalid stream %s. Expected to be of the format streamId or systemName.streamName", stream));
     }
     if (parts.length == 1) {
-      return new StreamConfig1(config).streamIdToSystemStream(stream);
+      return new StreamConfigJava(config).streamIdToSystemStream(stream);
     } else {
       return new SystemStream(parts[0], parts[1]);
     }
@@ -78,11 +80,11 @@ public class StreamUtil {
     return systemStream.getSystem() + "." + systemStream.getStream();
   }
 
-  public static Set<StreamSpec> getStreamSpecs(Set<String> streamIds, StreamConfig1 streamConfig) {
+  public static Set<StreamSpec> getStreamSpecs(Set<String> streamIds, StreamConfigJava streamConfig) {
     return streamIds.stream().map(streamId -> getStreamSpec(streamId, streamConfig)).collect(Collectors.toSet());
   }
 
-  public static StreamSpec getStreamSpec(String streamId, StreamConfig1 streamConfig) {
+  public static StreamSpec getStreamSpec(String streamId, StreamConfigJava streamConfig) {
     String physicalName = streamConfig.getPhysicalName(streamId);
     String system = streamConfig.getSystem(streamId);
     Map<String, String> streamProperties = streamConfig.getStreamProperties(streamId);

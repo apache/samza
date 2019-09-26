@@ -99,9 +99,10 @@ class TaskInstance(
 
   private val config: Config = jobContext.getConfig
 
-  val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
+  val streamConfig: StreamConfigJava = new StreamConfigJava(config)
+  val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
 
-  val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).map(config.getPhysicalName).toSet
+  val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
 
   def registerOffsets {
     debug("Registering offsets for taskName: %s" format taskName)

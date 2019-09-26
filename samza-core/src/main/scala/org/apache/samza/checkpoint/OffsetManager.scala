@@ -80,16 +80,16 @@ object OffsetManager extends Logging {
     offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) = {
     debug("Building offset manager for %s." format systemStreamMetadata)
 
+    val streamConfig = new StreamConfigJava(config)
+
     val offsetSettings = systemStreamMetadata
       .map {
         case (systemStream, systemStreamMetadata) =>
           // Get default offset.
-          val streamDefaultOffset = config.getDefaultStreamOffset(systemStream)
-          val systemDefaultOffset = new SystemConfig(config).getSystemOffsetDefault(systemStream.getSystem)
-          val defaultOffsetType = if (streamDefaultOffset.isDefined) {
-            OffsetType.valueOf(streamDefaultOffset.get.toUpperCase)
-          } else if (systemDefaultOffset != null) {
-            OffsetType.valueOf(systemDefaultOffset.toUpperCase)
+          val streamDefaultOffset = streamConfig.getDefaultStreamOffset(systemStream)
+          val systemDefaultOffset = new SystemConfig(streamConfig).getSystemOffsetDefault(systemStream.getSystem)
+          val defaultOffsetType = if (streamDefaultOffset != null) {
+            OffsetType.valueOf(streamDefaultOffset.toUpperCase)
           } else {
             info("No default offset for %s defined. Using upcoming." format systemStream)
             OffsetType.UPCOMING
