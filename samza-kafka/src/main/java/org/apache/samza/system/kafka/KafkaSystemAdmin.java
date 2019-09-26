@@ -45,7 +45,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfigJava;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.startpoint.Startpoint;
 import org.apache.samza.startpoint.StartpointOldest;
@@ -66,7 +66,6 @@ import org.slf4j.LoggerFactory;
 import scala.Function0;
 import scala.Function1;
 import scala.Function2;
-import scala.collection.JavaConverters;
 import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
@@ -141,7 +140,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("New admin client with props:" + props);
     adminClient = AdminClient.create(props);
 
-    StreamConfigJava streamConfig = new StreamConfigJava(config);
+    StreamConfig streamConfig = new StreamConfig(config);
 
     KafkaConfig kafkaConfig = new KafkaConfig(streamConfig);
     coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
@@ -689,7 +688,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
     ApplicationConfig appConfig = new ApplicationConfig(config);
 
     if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
-      StreamConfigJava streamConfig = new StreamConfigJava(config);
+      StreamConfig streamConfig = new StreamConfig(config);
       intermedidateStreamProperties = streamConfig.getStreamIds()
           .stream()
           .filter(streamConfig::getIsIntermediateStream)

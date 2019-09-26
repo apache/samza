@@ -109,7 +109,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   def getIntermediateStreamProperties(config: Config): Map[String, Properties] = {
     val appConfig = new ApplicationConfig(config)
     if (appConfig.getAppMode == ApplicationMode.BATCH) {
-      val streamConfig = new StreamConfigJava(config)
+      val streamConfig = new StreamConfig(config)
       streamConfig.getStreamIds().asScala.filter(streamConfig.getIsIntermediateStream(_)).map(streamId => {
         // only the override here
         val properties = new Properties()

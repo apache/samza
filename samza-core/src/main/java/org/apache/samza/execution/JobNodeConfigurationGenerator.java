@@ -39,7 +39,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.config.StreamConfigJava;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
@@ -251,7 +251,7 @@ import org.slf4j.LoggerFactory;
                 .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
                 .forEach(systemStream -> {
                     inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
-                    generatedConfig.put(String.format(StreamConfigJava.STREAM_PREFIX + StreamConfigJava.BOOTSTRAP,
+                    generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX + StreamConfig.BOOTSTRAP,
                         systemStream.getSystem(), systemStream.getStream()), "true");
                   });
           }
@@ -314,14 +314,14 @@ import org.slf4j.LoggerFactory;
 
     // set key and msg serdes for streams to the serde names generated above
     streamKeySerdes.forEach((streamId, serde) -> {
-        String streamIdPrefix = String.format(StreamConfigJava.STREAM_ID_PREFIX, streamId);
-        String keySerdeConfigKey = streamIdPrefix + StreamConfigJava.KEY_SERDE;
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
+        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE;
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     streamMsgSerdes.forEach((streamId, serde) -> {
-        String streamIdPrefix = String.format(StreamConfigJava.STREAM_ID_PREFIX, streamId);
-        String valueSerdeConfigKey = streamIdPrefix + StreamConfigJava.MSG_SERDE;
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
+        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE;
         configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
       });
 

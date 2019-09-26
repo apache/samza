@@ -36,7 +36,7 @@ import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfigJava;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.NoOpSerde;
@@ -105,7 +105,7 @@ public class TestAsyncFlatMap extends IntegrationTestHarness {
   }
 
   private List<PageView> runTest(List<PageView> pageViews, Map<String, String> configs) {
-    configs.put(String.format(StreamConfigJava.SYSTEM_FOR_STREAM_ID, PAGE_VIEW_STREAM), TEST_SYSTEM);
+    configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID, PAGE_VIEW_STREAM), TEST_SYSTEM);
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor(TEST_SYSTEM);
     InMemoryInputDescriptor<PageView> pageViewStreamDesc = isd

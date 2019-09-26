@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class StreamConfigJava extends MapConfig {
+public class StreamConfig extends MapConfig {
   public static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
 
@@ -93,7 +93,7 @@ public class StreamConfigJava extends MapConfig {
     }
   }
 
-  public StreamConfigJava(Config config) {
+  public StreamConfig(Config config) {
     super(config);
   }
 

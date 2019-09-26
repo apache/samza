@@ -21,8 +21,8 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, JobConfig, MetricsConfig, SerializerConfig, StreamConfigJava, SystemConfig}
-import org.apache.samza.config.StreamConfigJava
+import org.apache.samza.config.{Config, JobConfig, MetricsConfig, SerializerConfig, StreamConfig, SystemConfig}
+import StreamConfig
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -63,7 +63,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val producer = systemFactory.getProducer(systemName, config, registry)
 
     info("Got producer %s." format producer)
-    val streamConfig = new StreamConfigJava(config)
+    val streamConfig = new StreamConfig(config)
 
     val streamSerdeName = streamConfig.getStreamMsgSerde(systemStream)
     val systemSerdeName = systemConfig.getSystemMsgSerde(systemName)

@@ -83,7 +83,7 @@ public class Log4jSystemConfig extends SystemConfig {
   }
 
   public String getStreamSerdeName(String systemName, String streamName) {
-    StreamConfigJava streamConfig =  new StreamConfigJava(this);
+    StreamConfig streamConfig =  new StreamConfig(this);
     Optional<String> option = streamConfig.getStreamMsgSerde(new SystemStream(systemName, streamName));
     return option.isPresent() ? option.get() : null;
   }

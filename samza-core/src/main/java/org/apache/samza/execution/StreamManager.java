@@ -109,7 +109,7 @@ public class StreamManager {
       ApplicationConfig appConfig = new ApplicationConfig(prevConfig);
       LOGGER.info("run.id from previous run is {}", appConfig.getRunId());
 
-      StreamConfigJava streamConfig = new StreamConfigJava(prevConfig);
+      StreamConfig streamConfig = new StreamConfig(prevConfig);
 
       //Find all intermediate streams and clean up
       Set<StreamSpec> intStreams = streamConfig.getStreamIds().stream()

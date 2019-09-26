@@ -32,8 +32,7 @@ import java.util.stream.Collectors
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
-import org.apache.samza.config.StreamConfigJava
-import org.apache.samza.config._
+import org.apache.samza.config.{StreamConfig, _}
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
@@ -197,7 +196,7 @@ object SamzaContainer extends Logging {
 
     info("Got system names: %s" format systemNames)
 
-    val streamConfig = new StreamConfigJava(config)
+    val streamConfig = new StreamConfig(config)
     val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ streamConfig.getSerdeStreams(_).asScala)
 
     info("Got serde streams: %s" format serdeStreams)

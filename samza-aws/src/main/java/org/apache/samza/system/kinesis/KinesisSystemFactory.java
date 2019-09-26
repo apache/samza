@@ -22,7 +22,7 @@ package org.apache.samza.system.kinesis;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.StreamConfigJava;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -76,7 +76,7 @@ public class KinesisSystemFactory implements SystemFactory {
     // Kinesis streams cannot be configured as bootstrap streams
     KinesisConfig kConfig = new KinesisConfig(config);
     kConfig.getKinesisStreams(system).forEach(stream -> {
-        StreamConfigJava streamConfig = new StreamConfigJava(kConfig);
+        StreamConfig streamConfig = new StreamConfig(kConfig);
         SystemStream ss = new SystemStream(system, stream);
         if (streamConfig.getBootstrapEnabled(ss)) {
           throw new ConfigException("Kinesis streams cannot be configured as bootstrap streams.");

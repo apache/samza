@@ -26,7 +26,7 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfigJava;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
@@ -504,7 +504,7 @@ public class TestOperatorImplGraph {
       }, config);
 
     Multimap<SystemStream, SystemStream> outputToInput =
-        OperatorImplGraph.getIntermediateToInputStreamsMap(graphSpec.getOperatorSpecGraph(), new StreamConfigJava(config));
+        OperatorImplGraph.getIntermediateToInputStreamsMap(graphSpec.getOperatorSpecGraph(), new StreamConfig(config));
     Collection<SystemStream> inputs = outputToInput.get(new SystemStream(intSystem, intStreamId2));
     assertEquals(inputs.size(), 2);
     assertTrue(inputs.contains(new SystemStream(inputSystem, inputStreamId1)));
