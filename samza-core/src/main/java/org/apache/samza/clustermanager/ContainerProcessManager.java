@@ -513,12 +513,19 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     int retryCount = clusterManagerConfig.getContainerRetryCount();
     int retryWindowMs = clusterManagerConfig.getContainerRetryWindowMs();
     int currentFailCount;
+    boolean retryContainerRequest = true;
 
     if (retryCount == 0) {
-      LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
-          "so shutting down the application master and marking the job as failed.", processorId, containerId);
-
-      jobFailureCriteriaMet = true;
+      // Failure criteria met only if failed containers can fail the job.
+      jobFailureCriteriaMet = clusterManagerConfig.shouldFailJobAfterContainerRetries();
+      if (jobFailureCriteriaMet) {
+        LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
+            "so shutting down the application master and marking the job as failed.", processorId, containerId);
+      } else {
+        LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
+            "but the job will continue to run with the failed container.", processorId, containerId);
+      }
+      retryContainerRequest = false;
     } else if (retryCount > 0) {
       long durationSinceLastRetryMs;
       if (processorFailures.containsKey(processorId)) {
@@ -549,14 +556,20 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       // if fail count is (1 initial failure + max retries) then fail job.
       if (currentFailCount > retryCount) {
         LOG.error("Processor ID: {} (current Container ID: {}) has failed {} times, with last failure {} ms ago. " +
-                "This is greater than retry count of {} and window of {} ms, " +
-                "so shutting down the application master and marking the job as failed.",
+                "This is greater than retry count of {} and window of {} ms, ",
             processorId, containerId, currentFailCount, durationSinceLastRetryMs, retryCount, retryWindowMs);
 
         // We have too many failures, and we're within the window
         // boundary, so reset shut down the app master.
-        jobFailureCriteriaMet = true;
-        state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+        retryContainerRequest = false;
+        if (clusterManagerConfig.shouldFailJobAfterContainerRetries()) {
+          jobFailureCriteriaMet = true;
+          LOG.error("Shutting down the application master and marking the job as failed after max retry attempts.");
+          state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+        } else {
+          LOG.warn("Processor ID: {} with Container ID: {} failed after all retry attempts. Job will continue to run without this container.",
+              processorId, containerId);
+        }
       } else {
         LOG.info("Current failure count for Processor ID: {} is {}.", processorId, currentFailCount);
         Duration retryDelay = Duration.ZERO;
@@ -565,10 +578,11 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
           retryDelay = Duration.ofMillis(clusterManagerConfig.getContainerPreferredHostLastRetryDelayMs());
         }
         processorFailures.put(processorId, new ProcessorFailure(currentFailCount, now, retryDelay));
+        retryContainerRequest = true;
       }
     }
 
-    if (!jobFailureCriteriaMet) {
+    if (retryContainerRequest) {
       Duration retryDelay = getRetryDelay(processorId);
       if (!retryDelay.isZero()) {
         LOG.info("Adding a delay of: {} seconds on the last container retry request for preferred host: {}",

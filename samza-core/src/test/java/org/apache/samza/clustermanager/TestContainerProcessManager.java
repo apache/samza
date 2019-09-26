@@ -89,14 +89,15 @@ public class TestContainerProcessManager {
   }
 
   private Config getConfigWithHostAffinity() {
-    return getConfigWithHostAffinityAndRetries(true, 1);
+    return getConfigWithHostAffinityAndRetries(true, 1, true);
   }
 
-  private Config getConfigWithHostAffinityAndRetries(boolean withHostAffinity, int maxRetries) {
+  private Config getConfigWithHostAffinityAndRetries(boolean withHostAffinity, int maxRetries, boolean failAfterRetries) {
     Map<String, String> map = new HashMap<>();
     map.putAll(config);
     map.put("job.host-affinity.enabled", String.valueOf(withHostAffinity));
     map.put(ClusterManagerConfig.CLUSTER_MANAGER_CONTAINER_RETRY_COUNT, String.valueOf(maxRetries));
+    map.put(ClusterManagerConfig.CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES, String.valueOf(failAfterRetries));
     return new MapConfig(map);
   }
 
@@ -366,7 +367,8 @@ public class TestContainerProcessManager {
    */
   @Test
   public void testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCodeWithNoHostAffinity() throws Exception {
-    testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode(false);
+    testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode(false, true);
+    testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode(false, false);
   }
 
   /**
@@ -375,13 +377,14 @@ public class TestContainerProcessManager {
    */
   @Test
   public void testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCodeWithHostAffinity() throws Exception {
-    testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode(true);
+    testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode(true, true);
+    testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode(true, false);
   }
 
-  private void testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode(boolean withHostAffinity) throws Exception {
+  private void testContainerRequestedRetriesExceedingWindowOnFailureWithUnknownCode(boolean withHostAffinity, boolean failAfterRetries) throws Exception {
     int maxRetries = 3;
     String processorId = "0";
-    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(getConfigWithHostAffinityAndRetries(withHostAffinity, maxRetries));
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(getConfigWithHostAffinityAndRetries(withHostAffinity, maxRetries, failAfterRetries));
     SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
@@ -450,18 +453,20 @@ public class TestContainerProcessManager {
 
   @Test
   public void testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCodeWithNoHostAffinity() throws Exception {
-    testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode(false);
+    testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode(false, true);
+    testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode(false, false);
   }
 
   @Test
   public void testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCodeWithHostAffinity() throws Exception {
-    testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode(true);
+    testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode(true, true);
+    testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode(true, false);
   }
 
-  private void testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode(boolean withHostAffinity) throws Exception {
+  private void testContainerRequestedRetriesNotExceedingWindowOnFailureWithUnknownCode(boolean withHostAffinity, boolean failAfterRetries) throws Exception {
     int maxRetries = 3;
     String processorId = "0";
-    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(getConfigWithHostAffinityAndRetries(withHostAffinity, maxRetries));
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(getConfigWithHostAffinityAndRetries(withHostAffinity, maxRetries, failAfterRetries));
     SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
@@ -550,9 +555,13 @@ public class TestContainerProcessManager {
     // Mock 4th failure not exceeding retry window.
     cpm.getProcessorFailures().put(processorId, new ProcessorFailure(3, Instant.now(), Duration.ZERO));
     cpm.onResourceCompleted(new SamzaResourceStatus(container.getContainerId(), "diagnostics", 1));
-    assertEquals(true, cpm.getJobFailureCriteriaMet()); // expecting failed container
+    assertEquals(failAfterRetries, cpm.getJobFailureCriteriaMet()); // expecting failed container
     assertEquals(3, cpm.getProcessorFailures().get(processorId).getCount()); // count won't update on failure
-    assertTrue(cpm.shouldShutdown());
+    if (failAfterRetries) {
+      assertTrue(cpm.shouldShutdown());
+    } else {
+      assertFalse(cpm.shouldShutdown());
+    }
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
     assertEquals(0, allocator.getContainerRequestState().numDelayedRequests());
 
