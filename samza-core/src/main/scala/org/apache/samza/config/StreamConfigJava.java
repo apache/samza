@@ -67,7 +67,23 @@ public class StreamConfigJava extends MapConfig {
   public static final String BOOTSTRAP_FOR_STREAM_ID = STREAM_ID_PREFIX + BOOTSTRAP;
   public static final String BROADCAST_FOR_STREAM_ID = STREAM_ID_PREFIX + BROADCAST;
 
-  //implicit def Config2Stream(config: Config) = new StreamConfig(config)
+  /**
+   * Helper for accessing configs related to stream properties.
+   *
+   * For most configs, this currently supports two different formats for specifying stream properties:
+   * 1) "streams.{streamId}.{property}" (recommended to use this format)
+   * 2) "systems.{systemName}.streams.{streamName}.{property}" (legacy)
+   * Note that some config lookups are only supported through the "streams.{streamId}.{property}". See the specific
+   * accessor method to determine which formats are supported.
+   *
+   * Summary of terms:
+   * - streamId: logical identifier used for a stream; configs are specified using this streamId
+   * - physical stream: concrete name for a stream (if the physical stream is not explicitly configured, then the streamId
+   *   is used as the physical stream
+   * - streamName: within the javadoc for this class, streamName is the same as physical stream
+   * - samza property: property which is Samza-specific, which will have "samza." as a prefix (e.g. "samza.key.serde");
+   *   this is in contrast to stream-specific properties which are related to specific stream technologies
+   */
 
   private Optional<String> nonEmptyOption(String value) {
     if (value == null || value.isEmpty()) {
@@ -83,12 +99,15 @@ public class StreamConfigJava extends MapConfig {
 
 
   /**
-   * Gets the stream properties from the legacy config style:
-   * systems.{system}.streams.{streams}.*
+   * Finds the properties from the legacy config style (config key includes system).
+   * This will return a Config with the properties that match the following formats (if a property is specified through
+   * multiple formats, priority is top to bottom):
+   * 1) "systems.{systemName}.streams.{streamName}.{property}"
+   * 2) "systems.{systemName}.default.stream.{property}"
    *
    * @param systemName the system name under which the properties are configured
    * @param streamName the stream name
-   * @return the map of properties for the stream
+   * @return           the map of properties for the stream
    */
   private Map<String, String> getSystemStreamProperties(String systemName, String streamName) {
     if (systemName == null) {
@@ -102,15 +121,17 @@ public class StreamConfigJava extends MapConfig {
 
 
   /**
-   * Gets the properties for the specified streamId from the config.
-   * It first applies any legacy configs from this config location:
-   * systems.{system}.streams.{stream}.*
-   * <p>
-   * It then overrides them with properties of the new config format:
-   * streams.{streamId}.*
+   * Gets all of the properties for the specified streamId (includes current and legacy config styles).
+   * This will return a Config with the properties that match the following formats (if a property is specified through
+   * multiple formats, priority is top to bottom):
+   * 1) "streams.{streamId}.{property}"
+   * 2) "systems.{systemName}.streams.{streamName}.{property}" where systemName is the system mapped to the streamId in
+   * the config and streamName is the physical stream name mapped to the stream id
+   * 3) "systems.{systemName}.default.stream.{property}" where systemName is the system mapped to the streamId in the
+   * config
    *
    * @param streamId the identifier for the stream in the config.
-   * @return the merged map of config properties from both the legacy and new config styles
+   * @return         the merged map of config properties from both the legacy and new config styles
    */
   private MapConfig getAllStreamProperties(String streamId) {
     Config allProperties = subset(String.format(STREAM_ID_PREFIX, streamId));
@@ -133,6 +154,17 @@ public class StreamConfigJava extends MapConfig {
     return getStreamIds().stream().filter(streamId -> system.equals(getSystem(streamId))).collect(Collectors.toList());
   }
 
+  /**
+   * Finds the stream id which corresponds to the systemStream.
+   * This finds the stream id that is mapped to the system in systemStream through the config and that has a physical
+   * name (the physical name might be the stream id itself if there is no explicit mapping) that matches the stream in
+   * systemStream.
+   * Note: If the stream in the systemStream is a stream id which is mapped to a physical stream, then that stream won't
+   * be returned as a stream id here, since the stream in systemStream doesn't match the physical stream name.
+   *
+   * @param systemStream system stream to map to stream id
+   * @return             stream id corresponding to the system stream
+   */
   public String systemStreamToStreamId(SystemStream systemStream) {
     List<String> streamIds = getStreamIdsForSystem(systemStream.getSystem()).stream()
       .filter(streamId -> systemStream.getStream().equals(getPhysicalName(streamId))).collect(Collectors.toList());
@@ -146,12 +178,27 @@ public class StreamConfigJava extends MapConfig {
   /**
    * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
    * interacts with the stream, as opposed to a property of the stream itself.
-   * <p>
-   * Note, because the translation is not perfect between SystemStream and streamId,
-   * this method is not identical to getProperty(streamId, property)
+   *
+   * First, tries to map the systemStream to a streamId. This will only find a streamId if the stream is a physical name
+   * (explicitly mapped physical name or a stream id without a physical name mapping). That means this will not map a
+   * stream id to itself if there is a mapping from the stream id to a physical stream name. This also requires that the
+   * stream id is mapped to a system in the config.
+   * If a stream id is found:
+   * 1) Look for "streams.{streamId}.{property}" for the stream id.
+   * 2) Otherwise, look for "systems.{systemName}.streams.{streamName}.{property}" in which the systemName is the system
+   * mapped to the stream id and the streamName is the physical stream name for the stream id.
+   * 3) Otherwise, look for "systems.{systemName}.default.stream.{property}" in which the systemName is the system
+   * mapped to the stream id.
+   * If a stream id was not found or no property could be found using the above keys:
+   * 1) Look for "systems.{systemName}.streams.{streamName}.{property}" in which the systemName is the system in the
+   * input systemStream and the streamName is the stream from the input systemStream.
+   * 2) Otherwise, look for "systems.{systemName}.default.stream.{property}" in which the systemName is the system
+   * in the input systemStream.
    *
    * @param systemStream the SystemStream for which the property value will be retrieved.
-   * @param property     the samza property name excluding the leading delimiter. e.g. "samza.x.y"
+   * @param property the samza property key (including the "samza." prefix); for example, for both
+   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
+   *                 argument should have the value "samza.prop.key"
    */
   protected String getSamzaProperty(SystemStream systemStream, String property) {
     if (!property.startsWith(SAMZA_PROPERTY)) {
@@ -212,14 +259,13 @@ public class StreamConfigJava extends MapConfig {
 
 
   /**
-   * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
-   * interacts with the stream, as opposed to a property of the stream itself.
-   * <p>
-   * Note, because the translation is not perfect between SystemStream and streamId,
-   * this method is not identical to getProperty(streamId, property)
+   * Gets a Samza property, with a default value used if no property value is found.
+   * See getSamzaProperty(SystemStream, String).
    *
    * @param systemStream the SystemStream for which the property value will be retrieved.
-   * @param property     the samza property name excluding the leading delimiter. e.g. "samza.x.y"
+   * @param property the samza property key (including the "samza." prefix); for example, for both
+   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
+   *                 argument should have the value "samza.prop.key"
    * @param defaultValue the default value to use if the property value is not found
    */
   protected String getSamzaProperty(SystemStream systemStream, String property, String defaultValue) {
@@ -229,11 +275,13 @@ public class StreamConfigJava extends MapConfig {
   }
 
   /**
-   * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
-   * interacts with the stream, as opposed to a property of the stream itself.
-   * <p>
-   * Note, because the translation is not perfect between SystemStream and streamId,
-   * this method is not identical to getProperty(streamId, property)
+   * Determines if a Samza property is specified.
+   * See getSamzaProperty(SystemStream, String).
+   *
+   * @param systemStream the SystemStream for the property value to check
+   * @param property the samza property key (including the "samza." prefix); for example, for both
+   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
+   *                 argument should have the value "samza.prop.key"
    */
   protected boolean containsSamzaProperty(SystemStream systemStream, String property) {
     if (!property.startsWith(SAMZA_PROPERTY)) {
@@ -298,18 +346,18 @@ public class StreamConfigJava extends MapConfig {
     return Sets.union(legacySystemStreams, systemStreams).immutableCopy();
   }
 
-  /**
-   * Gets the properties for the specified streamId from the config.
-   * It first applies any legacy configs from this config location:
-   * systems.{system}.streams.{stream}.*
-   * <p>
-   * It then overrides them with properties of the new config format:
-   * streams.{streamId}.*
-   * <p>
-   * Only returns properties of the stream itself, not any of the samza properties for the stream.
+ /* Gets the properties for the streamId which are not Samza properties (i.e. do not have a "samza." prefix). This
+   * includes current and legacy config styles.
+   * This will return a Config with the properties that match the following formats (if a property is specified through
+   * multiple formats, priority is top to bottom):
+   * 1) "streams.{streamId}.{property}"
+   * 2) "systems.{systemName}.streams.{streamName}.{property}" where systemName is the system mapped to the streamId in
+   * the config and streamName is the physical stream name mapped to the stream id
+   * 3) "systems.{systemName}.default.stream.{property}" where systemName is the system mapped to the streamId in the
+   * config
    *
    * @param streamId the identifier for the stream in the config.
-   * @return the merged map of config properties from both the legacy and new config styles
+   * @return         the merged map of config properties from both the legacy and new config styles
    */
   public Config getStreamProperties(String streamId) {
     MapConfig allProperties = getAllStreamProperties(streamId);
