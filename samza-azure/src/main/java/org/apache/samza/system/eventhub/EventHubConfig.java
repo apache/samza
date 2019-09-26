@@ -28,7 +28,6 @@ import org.apache.samza.config.StreamConfigJava;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConversions;
 
 import java.time.Duration;
 import java.util.HashMap;

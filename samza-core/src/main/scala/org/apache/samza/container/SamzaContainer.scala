@@ -25,13 +25,14 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.Base64
+import java.util.{Base64, Optional}
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
+import java.util.stream.Collectors
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
-import org.apache.samza.config.StreamConfig1.Config2Stream
+import org.apache.samza.config.StreamConfigJava
 import org.apache.samza.config._
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
@@ -303,9 +304,9 @@ object SamzaContainer extends Logging {
      * A Helper function to build a Map[SystemStream, Serde] for streams defined in the config.
      * This is useful to build both key and message serde maps.
      */
-    val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Option[String]) => {
+    val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Optional[String]) => {
       (serdeStreams ++ inputSystemStreamPartitions)
-        .filter(systemStream => getSerdeName(systemStream).isDefined)
+        .filter(systemStream => getSerdeName(systemStream).isPresent)
         .flatMap(systemStream => {
           val serdeName = getSerdeName(systemStream).get
           val serde = serdes.getOrElse(serdeName,
@@ -362,15 +363,16 @@ object SamzaContainer extends Logging {
       getChangelogSSPsForContainer(containerModel, changeLogSystemStreams).asJava)
 
     val intermediateStreams = streamConfig
-      .getStreamIds
-      .filter(streamConfig.getIsIntermediateStream(_))
+      .getStreamIds()
+      .asScala
+      .filter((streamId:String) => streamConfig.getIsIntermediateStream(streamId))
       .toList
 
     info("Got intermediate streams: %s" format intermediateStreams)
 
     val controlMessageKeySerdes = intermediateStreams
       .flatMap(streamId => {
-        val systemStream = config.streamIdToSystemStream(streamId)
+        val systemStream = streamConfig.streamIdToSystemStream(streamId)
         systemStreamKeySerdes.get(systemStream)
                 .orElse(systemKeySerdes.get(systemStream.getSystem))
                 .map(serde => (systemStream, new StringSerde("UTF-8")))
@@ -378,7 +380,7 @@ object SamzaContainer extends Logging {
 
     val intermediateStreamMessageSerdes = intermediateStreams
       .flatMap(streamId => {
-        val systemStream = config.streamIdToSystemStream(streamId)
+        val systemStream = streamConfig.streamIdToSystemStream(streamId)
         systemStreamMessageSerdes.get(systemStream)
                 .orElse(systemMessageSerdes.get(systemStream.getSystem))
                 .map(serde => (systemStream, new IntermediateMessageSerde(serde)))

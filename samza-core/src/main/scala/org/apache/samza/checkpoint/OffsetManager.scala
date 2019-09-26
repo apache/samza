@@ -25,8 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
-import org.apache.samza.config.StreamConfig1.Config2Stream
-import org.apache.samza.config.{Config, SystemConfig}
+import org.apache.samza.config.{Config, StreamConfigJava, SystemConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.startpoint.{Startpoint, StartpointManager}
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
@@ -88,8 +87,10 @@ object OffsetManager extends Logging {
           // Get default offset.
           val streamDefaultOffset = streamConfig.getDefaultStreamOffset(systemStream)
           val systemDefaultOffset = new SystemConfig(streamConfig).getSystemOffsetDefault(systemStream.getSystem)
-          val defaultOffsetType = if (streamDefaultOffset != null) {
-            OffsetType.valueOf(streamDefaultOffset.toUpperCase)
+          val defaultOffsetType = if (streamDefaultOffset.isPresent) {
+            OffsetType.valueOf(streamDefaultOffset.get.toUpperCase)
+          } else if (systemDefaultOffset != null) {
+            OffsetType.valueOf(systemDefaultOffset.toUpperCase)
           } else {
             info("No default offset for %s defined. Using upcoming." format systemStream)
             OffsetType.UPCOMING
@@ -97,7 +98,7 @@ object OffsetManager extends Logging {
           debug("Using default offset %s for %s." format (defaultOffsetType, systemStream))
 
           // Get reset offset.
-          val resetOffset = config.getResetOffset(systemStream)
+          val resetOffset = streamConfig.getResetOffset(systemStream)
           debug("Using reset offset %s for %s." format (resetOffset, systemStream))
 
           // Build OffsetSetting so we can create a map for OffsetManager.

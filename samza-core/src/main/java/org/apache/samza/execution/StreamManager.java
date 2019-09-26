@@ -40,7 +40,6 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.util.StreamUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConversions;
 
 
 public class StreamManager {

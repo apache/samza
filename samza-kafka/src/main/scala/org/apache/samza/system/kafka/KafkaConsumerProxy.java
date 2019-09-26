@@ -99,6 +99,8 @@ public class KafkaConsumerProxy<K, V> {
   /**
    * Add new partition to the list of polled partitions.
    * Bust only be called before {@link KafkaConsumerProxy#start} is called..
+   * @param ssp - SystemStreamPartition to add
+   * @param nextOffset - add partition with this starting offset
    */
   public void addTopicPartition(SystemStreamPartition ssp, long nextOffset) {
     LOG.info(String.format("Adding new topicPartition %s with offset %s to queue for consumer %s", ssp, nextOffset,
@@ -339,6 +341,8 @@ public class KafkaConsumerProxy<K, V> {
 
   /**
    * Protected to help extensions of this class build {@link IncomingMessageEnvelope}s.
+   * @param r consumer record to size
+   * @return the size of the serialized record
    */
   protected int getRecordSize(ConsumerRecord<K, V> r) {
     int keySize = (r.key() == null) ? 0 : r.serializedKeySize();

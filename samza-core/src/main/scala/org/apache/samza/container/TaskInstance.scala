@@ -22,10 +22,10 @@ package org.apache.samza.container
 
 import java.util.{Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
+
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
-import org.apache.samza.config.Config
-import org.apache.samza.config.StreamConfig1.Config2Stream
+import org.apache.samza.config.{Config, StreamConfigJava}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}

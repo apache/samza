@@ -18,14 +18,14 @@
  */
 package org.apache.samza.config;
 
-import java.util.Collections;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import org.apache.samza.system.SystemStream;
 import org.junit.Test;
-import scala.Option;
-import scala.collection.JavaConverters;
+
+import java.util.Collections;
+import java.util.Optional;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -48,11 +48,11 @@ public class TestStreamConfig {
   public void testGetStreamMsgSerde() {
     String value = "my.msg.serde";
     doTestSamzaProperty(StreamConfigJava.MSG_SERDE, value,
-        (config, systemStream) -> assertEquals(Option.apply(value), config.getStreamMsgSerde(systemStream)));
+        (config, systemStream) -> assertEquals(Optional.of(value), config.getStreamMsgSerde(systemStream)));
     doTestSamzaProperty(StreamConfigJava.MSG_SERDE, "",
-        (config, systemStream) -> assertEquals(Option.empty(), config.getStreamMsgSerde(systemStream)));
+        (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamMsgSerde(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfigJava.MSG_SERDE,
-        (config, systemStream) -> assertEquals(Option.empty(), config.getStreamMsgSerde(systemStream)));
+        (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamMsgSerde(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfigJava::getStreamMsgSerde);
   }
 
@@ -60,11 +60,11 @@ public class TestStreamConfig {
   public void testGetStreamKeySerde() {
     String value = "my.key.serde";
     doTestSamzaProperty(StreamConfigJava.KEY_SERDE, value,
-        (config, systemStream) -> assertEquals(Option.apply(value), config.getStreamKeySerde(systemStream)));
+        (config, systemStream) -> assertEquals(Optional.of(value), config.getStreamKeySerde(systemStream)));
     doTestSamzaProperty(StreamConfigJava.KEY_SERDE, "",
-        (config, systemStream) -> assertEquals(Option.empty(), config.getStreamKeySerde(systemStream)));
+        (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamKeySerde(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfigJava.KEY_SERDE,
-        (config, systemStream) -> assertEquals(Option.empty(), config.getStreamKeySerde(systemStream)));
+        (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamKeySerde(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfigJava::getStreamKeySerde);
   }
 
@@ -100,11 +100,11 @@ public class TestStreamConfig {
   public void testGetDefaultStreamOffset() {
     String value = "my_offset_default";
     doTestSamzaProperty(StreamConfigJava.CONSUMER_OFFSET_DEFAULT, value,
-        (config, systemStream) -> assertEquals(Option.apply(value), config.getDefaultStreamOffset(systemStream)));
+        (config, systemStream) -> assertEquals(Optional.of(value), config.getDefaultStreamOffset(systemStream)));
     doTestSamzaProperty(StreamConfigJava.CONSUMER_OFFSET_DEFAULT, "",
-        (config, systemStream) -> assertEquals(Option.apply(""), config.getDefaultStreamOffset(systemStream)));
+        (config, systemStream) -> assertEquals(Optional.of(""), config.getDefaultStreamOffset(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfigJava.CONSUMER_OFFSET_DEFAULT,
-        (config, systemStream) -> assertEquals(Option.empty(),
+        (config, systemStream) -> assertEquals(Optional.empty(),
             new StreamConfigJava(config).getDefaultStreamOffset(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfigJava::getDefaultStreamOffset);
   }
@@ -181,7 +181,7 @@ public class TestStreamConfig {
     // not key/msg serde property for "systems.<system>.streams."
     streamConfig = new StreamConfigJava(new MapConfig(ImmutableMap.of(
         String.format(StreamConfigJava.STREAM_PREFIX, SYSTEM, STREAM_ID) + SAMZA_IGNORED_PROPERTY, UNUSED_VALUE)));
-    assertEquals(Collections.emptySet(),streamConfig.getSerdeStreams(SYSTEM));
+    assertEquals(Collections.emptySet(), streamConfig.getSerdeStreams(SYSTEM));
 
     // not matching system for "systems.<system>.streams."
     streamConfig = new StreamConfigJava(new MapConfig(ImmutableMap.of(
@@ -193,7 +193,7 @@ public class TestStreamConfig {
     streamConfig = new StreamConfigJava(new MapConfig(ImmutableMap.of(
         String.format(StreamConfigJava.STREAM_ID_PREFIX, STREAM_ID) + StreamConfigJava.KEY_SERDE, UNUSED_VALUE,
         String.format(StreamConfigJava.SYSTEM_FOR_STREAM_ID, STREAM_ID), "otherSystem")));
-    assertEquals(Collections.emptySet(),streamConfig.getSerdeStreams(SYSTEM));
+    assertEquals(Collections.emptySet(), streamConfig.getSerdeStreams(SYSTEM));
 
     String serdeValue = "my.serde.class";
 

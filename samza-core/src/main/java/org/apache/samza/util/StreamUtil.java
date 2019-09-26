@@ -21,7 +21,6 @@ package org.apache.samza.util;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfigJava;
-import org.apache.samza.config.StreamConfigJava;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
 

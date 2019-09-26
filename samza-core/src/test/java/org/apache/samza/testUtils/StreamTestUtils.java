@@ -19,7 +19,7 @@
 package org.apache.samza.testUtils;
 
 import java.util.Map;
-import org.apache.samza.config.StreamConfig1$;
+import org.apache.samza.config.StreamConfigJava;
 
 public class StreamTestUtils {
 
@@ -33,7 +33,7 @@ public class StreamTestUtils {
    */
   public static void addStreamConfigs(Map<String, String> configs,
       String streamId, String systemName, String physicalName) {
-    configs.put(String.format(StreamConfig1$.MODULE$.SYSTEM_FOR_STREAM_ID(), streamId), systemName);
-    configs.put(String.format(StreamConfig1$.MODULE$.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), physicalName);
+    configs.put(String.format(StreamConfigJava.SYSTEM_FOR_STREAM_ID, streamId), systemName);
+    configs.put(String.format(StreamConfigJava.PHYSICAL_NAME_FOR_STREAM_ID, streamId), physicalName);
   }
 }
