@@ -58,6 +58,23 @@ object StreamConfig {
   implicit def Config2Stream(config: Config) = new StreamConfig(config)
 }
 
+/**
+ * Helper for accessing configs related to stream properties.
+ *
+ * For most configs, this currently supports two different formats for specifying stream properties:
+ * 1) "streams.{streamId}.{property}" (recommended to use this format)
+ * 2) "systems.{systemName}.streams.{streamName}.{property}" (legacy)
+ * Note that some config lookups are only supported through the "streams.{streamId}.{property}". See the specific
+ * accessor method to determine which formats are supported.
+ *
+ * Summary of terms:
+ * - streamId: logical identifier used for a stream; configs are specified using this streamId
+ * - physical stream: concrete name for a stream (if the physical stream is not explicitly configured, then the streamId
+ *   is used as the physical stream
+ * - streamName: within the javadoc for this class, streamName is the same as physical stream
+ * - samza property: property which is Samza-specific, which will have "samza." as a prefix (e.g. "samza.key.serde");
+ *   this is in contrast to stream-specific properties which are related to specific stream technologies
+ */
 class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   def getStreamMsgSerde(systemStream: SystemStream) = nonEmptyOption(getSamzaProperty(systemStream, StreamConfig.MSG_SERDE))
 
@@ -118,18 +135,19 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
   }
 
   /**
-    * Gets the properties for the specified streamId from the config.
-    * It first applies any legacy configs from this config location:
-    * systems.{system}.streams.{stream}.*
-    *
-    * It then overrides them with properties of the new config format:
-    * streams.{streamId}.*
-    *
-    * Only returns properties of the stream itself, not any of the samza properties for the stream.
-    *
-    * @param streamId the identifier for the stream in the config.
-    * @return         the merged map of config properties from both the legacy and new config styles
-    */
+   * Gets the properties for the streamId which are not Samza properties (i.e. do not have a "samza." prefix). This
+   * includes current and legacy config styles.
+   * This will return a Config with the properties that match the following formats (if a property is specified through
+   * multiple formats, priority is top to bottom):
+   * 1) "streams.{streamId}.{property}"
+   * 2) "systems.{systemName}.streams.{streamName}.{property}" where systemName is the system mapped to the streamId in
+   * the config and streamName is the physical stream name mapped to the stream id
+   * 3) "systems.{systemName}.default.stream.{property}" where systemName is the system mapped to the streamId in the
+   * config
+   *
+   * @param streamId the identifier for the stream in the config.
+   * @return         the merged map of config properties from both the legacy and new config styles
+   */
   def getStreamProperties(streamId: String) = {
     val allProperties = getAllStreamProperties(streamId)
     val samzaProperties = allProperties.subset(StreamConfig.SAMZA_PROPERTY, false)
@@ -219,7 +237,9 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * in the input systemStream.
    *
    * @param systemStream the SystemStream for which the property value will be retrieved.
-   * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
+   * @param property the samza property key (including the "samza." prefix); for example, for both
+   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
+   *                 argument should have the value "samza.prop.key"
    */
   private def getSamzaProperty(systemStream: SystemStream, property: String): String = {
     if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
@@ -240,7 +260,9 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * See getSamzaProperty(SystemStream, String).
    *
    * @param systemStream the SystemStream for which the property value will be retrieved.
-   * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
+   * @param property the samza property key (including the "samza." prefix); for example, for both
+   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
+   *                 argument should have the value "samza.prop.key"
    * @param defaultValue the default value to use if the property value is not found
    */
   private def getSamzaProperty(systemStream: SystemStream, property: String, defaultValue: String): String = {
@@ -258,7 +280,9 @@ class StreamConfig(config: Config) extends ScalaMapConfig(config) with Logging {
    * See getSamzaProperty(SystemStream, String).
    *
    * @param systemStream the SystemStream for the property value to check
-   * @param property the samza property name excluding the leading delimiter. e.g. "samza.x.y"
+   * @param property the samza property key (including the "samza." prefix); for example, for both
+   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
+   *                 argument should have the value "samza.prop.key"
    */
   private def containsSamzaProperty(systemStream: SystemStream, property: String): Boolean = {
     if (!property.startsWith(StreamConfig.SAMZA_PROPERTY)) {
