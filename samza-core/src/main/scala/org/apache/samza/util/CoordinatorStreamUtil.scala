@@ -1,5 +1,4 @@
 /*
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,7 +22,6 @@ package org.apache.samza.util
 
 import java.util
 
-import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
@@ -33,7 +31,6 @@ import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemFactory, SystemSt
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.collection.JavaConverters._
-import scala.collection.immutable.Map
 
 object CoordinatorStreamUtil extends Logging {
   /**
@@ -42,15 +39,11 @@ object CoordinatorStreamUtil extends Logging {
     */
   def buildCoordinatorStreamConfig(config: Config) = {
     val jobConfig = new JobConfig(config)
-    val (jobName, jobId) = getJobNameAndId(jobConfig)
-    // Build a map with just the system config and job.name/job.id. This is what's required to start the JobCoordinator.
-    val map = config.subset(SystemConfig.SYSTEM_ID_PREFIX format jobConfig.getCoordinatorSystemName, false).asScala ++
-      Map[String, String](
-        JobConfig.JOB_NAME -> jobName,
-        JobConfig.JOB_ID -> jobId,
-        JobConfig.JOB_COORDINATOR_SYSTEM -> jobConfig.getCoordinatorSystemName,
-        JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS -> String.valueOf(jobConfig.getMonitorPartitionChangeFrequency))
-    new MapConfig(map.asJava)
+    val buildConfigFactory = jobConfig.getCoordinatorStreamFactory();
+    val coordinatorSystemConfig = Class.forName(buildConfigFactory).newInstance().asInstanceOf[CoordinatorStreamConfigFactory].buildCoordinatorStreamConfig(config)
+
+    new MapConfig(coordinatorSystemConfig);
+
   }
 
   /**
