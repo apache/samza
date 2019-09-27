@@ -20,6 +20,8 @@ package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +29,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import org.apache.samza.SamzaException;
+import org.apache.samza.classloader.IsolatingClassLoaderFactory;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -406,10 +409,72 @@ public class ClusterBasedJobCoordinator {
   }
 
   /**
-   * The entry point for the {@link ClusterBasedJobCoordinator}
-   * @param args args
+   * The entry point for the {@link ClusterBasedJobCoordinator}.
    */
   public static void main(String[] args) {
+    boolean isolationEnabled =
+        Boolean.parseBoolean(System.getenv(ShellCommandConfig.ENV_APPLICATION_MASTER_ISOLATION_ENABLED()));
+    if (!isolationEnabled) {
+      // no isolation enabled, so can just execute runClusterBasedJobCoordinator directly
+      runClusterBasedJobCoordinator(args);
+    } else {
+      runWithIsolatedClassLoader(args);
+    }
+  }
+
+  /**
+   * Execute the coordinator using a separate isolated classloader.
+   */
+  private static void runWithIsolatedClassLoader(String[] args) {
+    ClassLoader isolatedClassLoader = new IsolatingClassLoaderFactory().buildClassLoader();
+
+    // need to use the isolated classloader to load ClusterBasedJobCoordinator and then run using that new class
+    Class<?> isolatedClusterBasedJobCoordinatorClass;
+    try {
+      isolatedClusterBasedJobCoordinatorClass =
+          isolatedClassLoader.loadClass(ClusterBasedJobCoordinator.class.getName());
+    } catch (ClassNotFoundException e) {
+      throw new SamzaException(
+          "Isolation was enabled, but unable to find ClusterBasedJobCoordinator in isolated classloader", e);
+    }
+
+    // save the current context classloader so it can be reset after finishing the call to runClusterBasedJobCoordinator
+    ClassLoader previousContextClassLoader = Thread.currentThread().getContextClassLoader();
+    // this is needed because certain libraries use the context classloader
+    Thread.currentThread().setContextClassLoader(isolatedClassLoader);
+
+    try {
+      executeRunClusterBasedJobCoordinatorForClass(isolatedClusterBasedJobCoordinatorClass, args);
+    } finally {
+      // reset the context class loader
+      Thread.currentThread().setContextClassLoader(previousContextClassLoader);
+    }
+  }
+
+  private static void executeRunClusterBasedJobCoordinatorForClass(Class<?> isolatedClusterBasedJobCoordinatorClass,
+      String[] args) {
+    Method runClusterBasedJobCoordinatorMethod;
+    try {
+      runClusterBasedJobCoordinatorMethod =
+          isolatedClusterBasedJobCoordinatorClass.getDeclaredMethod("runClusterBasedJobCoordinator", String[].class);
+    } catch (NoSuchMethodException e) {
+      throw new SamzaException("Isolation was enabled, but unable to find runClusterBasedJobCoordinator method", e);
+    }
+    runClusterBasedJobCoordinatorMethod.setAccessible(true);
+
+    try {
+      // wrapping args in object array so that args is passed as a single argument to the method
+      runClusterBasedJobCoordinatorMethod.invoke(null, new Object[]{args});
+    } catch (IllegalAccessException | InvocationTargetException e) {
+      throw new SamzaException("Exception while executing runClusterBasedJobCoordinator method", e);
+    }
+  }
+
+  /**
+   * This is the actual execution for the {@link ClusterBasedJobCoordinator}. This is separated out from
+   * {@link #main(String[])} so that it can be executed directly or from a separate classloader.
+   */
+  private static void runClusterBasedJobCoordinator(String[] args) {
     Config coordinatorSystemConfig;
     final String coordinatorSystemEnv = System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG());
     try {

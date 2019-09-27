@@ -1,0 +1,4 @@
+org.apache.samza.JavaClass
+org.apache.samza.JavaClass$InnerJavaClass
+org.apache.samza.ScalaClass$
+org.apache.samza.ScalaClass$$anon$1
