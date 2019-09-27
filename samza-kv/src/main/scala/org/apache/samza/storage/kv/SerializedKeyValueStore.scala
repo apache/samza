@@ -59,23 +59,23 @@ class SerializedKeyValueStore[K, V](
     val valBytes = toBytesOrNull(value, msgSerde)
     store.put(keyBytes, valBytes)
     metrics.puts.inc
-    metrics.maxRecordSizeBytes.set(Math.max(metrics.maxRecordSizeBytes.getValue, valBytes.length))
+    while({val max = metrics.maxRecordSizeBytes.getValue; !metrics.maxRecordSizeBytes.compareAndSet(max, Math.max(max, valBytes.length))}){}
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
     val list = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](entries.size())
     val iter = entries.iterator
-    var maxRecordSizeBytes = 0
+    var newMaxRecordSizeBytes = 0
     while (iter.hasNext) {
       val curr = iter.next
       val keyBytes = toBytesOrNull(curr.getKey, keySerde)
       val valBytes = toBytesOrNull(curr.getValue, msgSerde)
-      maxRecordSizeBytes = Math.max(maxRecordSizeBytes, valBytes.length)
+      newMaxRecordSizeBytes = Math.max(newMaxRecordSizeBytes, valBytes.length)
       list.add(new Entry(keyBytes, valBytes))
     }
     store.putAll(list)
     metrics.puts.inc(list.size)
-    metrics.maxRecordSizeBytes.set(Math.max(metrics.maxRecordSizeBytes.getValue, maxRecordSizeBytes))
+    while({val max = metrics.maxRecordSizeBytes.getValue; !metrics.maxRecordSizeBytes.compareAndSet(max, Math.max(max, newMaxRecordSizeBytes))}){}
   }
 
   def delete(key: K) {
