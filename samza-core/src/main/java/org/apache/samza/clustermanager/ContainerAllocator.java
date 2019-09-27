@@ -18,7 +18,6 @@
  */
 package org.apache.samza.clustermanager;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -115,13 +114,13 @@ public class ContainerAllocator implements Runnable {
    */
   private final int requestExpiryTimeout;
 
-  private final Optional<StandbyContainerManager> standbyContainerManager;
+  private final ContainerManager containerManager;
 
   public ContainerAllocator(ClusterResourceManager clusterResourceManager,
       Config config,
       SamzaApplicationState state,
       boolean hostAffinityEnabled,
-      Optional<StandbyContainerManager> standbyContainerManager) {
+      ContainerManager containerManager) {
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
     this.clusterResourceManager = clusterResourceManager;
     this.allocatorSleepIntervalMs = clusterManagerConfig.getAllocatorSleepTime();
@@ -132,7 +131,7 @@ public class ContainerAllocator implements Runnable {
     this.state = state;
     this.config = config;
     this.hostAffinityEnabled = hostAffinityEnabled;
-    this.standbyContainerManager = standbyContainerManager;
+    this.containerManager = containerManager;
     this.requestExpiryTimeout = clusterManagerConfig.getContainerRequestTimeout();
   }
 
@@ -204,12 +203,7 @@ public class ContainerAllocator implements Runnable {
           state.matchedResourceRequests.incrementAndGet();
         }
 
-        // If hot-standby is enabled, check standby constraints are met before launching a processor
-        if (this.standbyContainerManager.isPresent()) {
-          checkStandByContrainsAndRunStreamProcessor(request, preferredHost);
-        } else {
-          runStreamProcessor(request, preferredHost);
-        }
+        containerManager.handleContainerStart(request, preferredHost, peekAllocatedResource(preferredHost), resourceRequestState, this);
 
       } else {
 
@@ -220,7 +214,7 @@ public class ContainerAllocator implements Runnable {
         if (expired) {
           updateExpiryMetrics(request);
           if (hostAffinityEnabled) {
-            handleExpiredRequestWithHostAffinityEnabled(processorId, preferredHost, request);
+            containerManager.handleContainerRequestExpiredWhenHostAffinityEnabled(processorId, preferredHost, request, this, resourceRequestState);
           }
         } else {
           LOG.info("Request for Processor ID: {} on preferred host {} has not expired yet."
@@ -229,29 +223,6 @@ public class ContainerAllocator implements Runnable {
           break;
         }
       }
-    }
-  }
-
-  /**
-   * Handles an expired resource request when {@code hostAffinityEnabled} is true, in this case since the
-   * preferred host, we try to see if a surplus ANY_HOST is available in the request queue.
-   */
-  @VisibleForTesting
-  void handleExpiredRequestWithHostAffinityEnabled(String processorId, String preferredHost,
-      SamzaResourceRequest request) {
-    boolean resourceAvailableOnAnyHost = hasAllocatedResource(ResourceRequestState.ANY_HOST);
-    if (standbyContainerManager.isPresent()) {
-      standbyContainerManager.get()
-          .handleExpiredResourceRequest(processorId, request,
-              Optional.ofNullable(peekAllocatedResource(ResourceRequestState.ANY_HOST)), this, resourceRequestState);
-    } else if (resourceAvailableOnAnyHost) {
-      LOG.info("Request for Processor ID: {} on host: {} has expired. Running on ANY_HOST", processorId, preferredHost);
-      runStreamProcessor(request, ResourceRequestState.ANY_HOST);
-    } else {
-      LOG.info("Request for Processor ID: {} on host: {} has expired. Requesting additional resources on ANY_HOST.",
-          processorId, preferredHost);
-      resourceRequestState.cancelResourceRequest(request);
-      requestResource(processorId, ResourceRequestState.ANY_HOST);
     }
   }
 
@@ -287,16 +258,6 @@ public class ContainerAllocator implements Runnable {
     state.pendingProcessors.put(processorId, resource);
 
     clusterResourceManager.launchStreamProcessor(resource, builder);
-  }
-
-  /**
-   * If {@code StandbyContainerManager} is present check standBy constraints are met before attempting to launch
-   * @param request outstanding request which has an allocated resource
-   * @param preferredHost to run the request
-   */
-  private void checkStandByContrainsAndRunStreamProcessor(SamzaResourceRequest request, String preferredHost) {
-    standbyContainerManager.get().checkStandbyConstraintsAndRunStreamProcessor(request, preferredHost,
-        peekAllocatedResource(preferredHost), this, resourceRequestState);
   }
 
   /**
