@@ -45,15 +45,15 @@ import org.slf4j.LoggerFactory;
  *    in the coordinator stream
  *  </li>
  *  <li>
- *    This thread periodically periodically matches outstanding resource requests with allocated resources.
+ *    This thread periodically matches outstanding resource requests with allocated resources.
  *    Its period is controlled using the {@code allocatorSleepIntervalMs} parameter
  *  </li>
  *  <li>
- *    In case of host-affinity is enabled, the resource-request's preferredHost param is set to the host the processor
+ *    When host-affinity is enabled, the resource-request's preferredHost param is set to the host the processor
  *    was last seen on
  *  </li>
  *  <li>
- *    In case of host-affinity us disabled, the resource-request's preferredHost param is set to {@link ResourceRequestState#ANY_HOST}
+ *    When host-affinity is disabled, the resource-request's preferredHost param is set to {@link ResourceRequestState#ANY_HOST}
  *  </li>
  *  <li>
  *    When host-affinity is enabled and a preferred resource has not been obtained after {@code requestExpiryTimeout}
@@ -179,7 +179,7 @@ public class AbstractContainerAllocator implements Runnable {
    * with allocated resources.
    *
    * When host-affinity is disabled, all allocated resources are buffered by the key "ANY_HOST".
-   * When host-affinity is disabled, all allocated resources are buffered by the hostName as key
+   * When host-affinity is enabled, all allocated resources are buffered by the hostName as key
    *
    * If the requested host is not available, the thread checks to see if the request has expired. If it has expired
    * then two cases are handled separately
