@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -166,20 +165,11 @@ public class StartpointTestHarness extends IntegrationTestHarness {
   }
 
   @Test
-  public void testStartpoints() throws InterruptedException {
-    TreeMap<Integer, RecordMetadata> sentEvents1 =
+  public void testStartpointSpecific() throws InterruptedException {
+    Map<Integer, RecordMetadata> sentEvents1 =
         publishKafkaEventsWithDelayPerEvent(inputKafkaTopic1, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0], Duration.ofMillis(2));
-    TreeMap<Integer, RecordMetadata> sentEvents2 =
-        publishKafkaEventsWithDelayPerEvent(inputKafkaTopic2, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[1], Duration.ofMillis(2));
-    TreeMap<Integer, RecordMetadata> sentEvents3 =
-        publishKafkaEventsWithDelayPerEvent(inputKafkaTopic3, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[2], Duration.ofMillis(2));
-    TreeMap<Integer, RecordMetadata> sentEvents4 =
-        publishKafkaEventsWithDelayPerEvent(inputKafkaTopic4, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[3], Duration.ofMillis(2));
 
     ConcurrentHashMap<String, IncomingMessageEnvelope> recvEventsInputStartpointSpecific = new ConcurrentHashMap<>();
-    ConcurrentHashMap<String, IncomingMessageEnvelope> recvEventsInputStartpointTimestamp = new ConcurrentHashMap<>();
-    ConcurrentHashMap<String, IncomingMessageEnvelope> recvEventsInputStartpointOldest = new ConcurrentHashMap<>();
-    ConcurrentHashMap<String, IncomingMessageEnvelope> recvEventsInputStartpointUpcoming = new ConcurrentHashMap<>();
 
     CoordinatorStreamStore coordinatorStreamStore = createCoordinatorStreamStore(applicationConfig1);
     coordinatorStreamStore.init();
@@ -189,32 +179,16 @@ public class StartpointTestHarness extends IntegrationTestHarness {
     StartpointSpecific startpointSpecific = new StartpointSpecific(String.valueOf(sentEvents1.get(100).offset()));
     writeStartpoints(startpointManager, inputKafkaTopic1, ZK_TEST_PARTITION_COUNT, startpointSpecific);
 
-    StartpointTimestamp startpointTimestamp = new StartpointTimestamp(sentEvents2.get(150).timestamp());
-    writeStartpoints(startpointManager, inputKafkaTopic2, ZK_TEST_PARTITION_COUNT, startpointTimestamp);
-
-    StartpointOldest startpointOldest = new StartpointOldest();
-    writeStartpoints(startpointManager, inputKafkaTopic3, ZK_TEST_PARTITION_COUNT, startpointOldest);
-
-    StartpointUpcoming startpointUpcoming = new StartpointUpcoming();
-    writeStartpoints(startpointManager, inputKafkaTopic4, ZK_TEST_PARTITION_COUNT, startpointUpcoming);
-
     startpointManager.stop();
     coordinatorStreamStore.close();
 
     TestTaskApplication.TaskApplicationCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
       try {
         String streamName = ime.getSystemStreamPartition().getStream();
-        TestKafkaEvent testKafkaEvent =
-            TestKafkaEvent.fromString((String) ime.getMessage());
+        TestKafkaEvent testKafkaEvent = TestKafkaEvent.fromString((String) ime.getMessage());
         String eventIndex = testKafkaEvent.getEventData();
         if (inputKafkaTopic1.equals(streamName)) {
           recvEventsInputStartpointSpecific.put(eventIndex, ime);
-        } else if (inputKafkaTopic2.equals(streamName)) {
-          recvEventsInputStartpointTimestamp.put(eventIndex, ime);
-        } else if (inputKafkaTopic3.equals(streamName)) {
-          recvEventsInputStartpointOldest.put(eventIndex, ime);
-        } else if (inputKafkaTopic4.equals(streamName)) {
-          recvEventsInputStartpointUpcoming.put(eventIndex, ime);
         } else {
           throw new RuntimeException("Unexpected input stream: " + streamName);
         }
@@ -224,33 +198,15 @@ public class StartpointTestHarness extends IntegrationTestHarness {
       }
     };
 
-    // Create StreamApplication from configuration.
     CountDownLatch processedMessagesLatchStartpointSpecific = new CountDownLatch(100); // Just fetch a few messages
-    CountDownLatch processedMessagesLatchStartpointTimestamp = new CountDownLatch(100); // Just fetch a few messages
-    CountDownLatch processedMessagesLatchStartpointOldest = new CountDownLatch(NUM_KAFKA_EVENTS); // Fetch all since consuming from oldest
-    CountDownLatch processedMessagesLatchStartpointUpcoming = new CountDownLatch(5); // Expecting none, so just attempt a small number of fetches.
-
     CountDownLatch shutdownLatchStartpointSpecific = new CountDownLatch(1);
-    CountDownLatch shutdownLatchStartpointTimestamp = new CountDownLatch(1);
-    CountDownLatch shutdownLatchStartpointOldest = new CountDownLatch(1);
-    CountDownLatch shutdownLatchStartpointUpcoming = new CountDownLatch(1);
 
     TestTaskApplication testTaskApplicationStartpointSpecific =
-        new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic1, outputKafkaTopic, processedMessagesLatchStartpointSpecific,
-            shutdownLatchStartpointSpecific, Optional.of(processedCallback));
-    TestTaskApplication testTaskApplicationStartpointTimestamp =
-        new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic2, outputKafkaTopic, processedMessagesLatchStartpointTimestamp,
-            shutdownLatchStartpointTimestamp, Optional.of(processedCallback));
-    TestTaskApplication testTaskApplicationStartpointOldest =
-        new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic3, outputKafkaTopic, processedMessagesLatchStartpointOldest,
-            shutdownLatchStartpointOldest, Optional.of(processedCallback));
-    TestTaskApplication testTaskApplicationStartpointUpcoming =
-        new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic4, outputKafkaTopic, processedMessagesLatchStartpointUpcoming,
-            shutdownLatchStartpointUpcoming, Optional.of(processedCallback));
+        new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic1, outputKafkaTopic,
+            processedMessagesLatchStartpointSpecific, shutdownLatchStartpointSpecific, Optional.of(processedCallback));
 
-    // Startpoint specific
-    ApplicationRunner
-        appRunner = ApplicationRunners.getApplicationRunner(testTaskApplicationStartpointSpecific, applicationConfig1);
+    ApplicationRunner appRunner =
+        ApplicationRunners.getApplicationRunner(testTaskApplicationStartpointSpecific, applicationConfig1);
     executeRun(appRunner, applicationConfig1);
 
     assertTrue(processedMessagesLatchStartpointSpecific.await(1, TimeUnit.MINUTES));
@@ -263,13 +219,56 @@ public class StartpointTestHarness extends IntegrationTestHarness {
     Integer startpointSpecificOffset = Integer.valueOf(startpointSpecific.getSpecificOffset());
     for (IncomingMessageEnvelope ime : recvEventsInputStartpointSpecific.values()) {
       Integer eventOffset = Integer.valueOf(ime.getOffset());
-      String assertMsg = String.format("Expecting message offset: %d >= Startpoint specific offset: %d",
-          eventOffset, startpointSpecificOffset);
+      String assertMsg = String.format("Expecting message offset: %d >= Startpoint specific offset: %d", eventOffset,
+          startpointSpecificOffset);
       assertTrue(assertMsg, eventOffset >= startpointSpecificOffset);
     }
+  }
 
-    // Startpoint timestamp
-    appRunner = ApplicationRunners.getApplicationRunner(testTaskApplicationStartpointTimestamp, applicationConfig2);
+  @Test
+  public void testStartpointTimestamp() throws InterruptedException {
+    Map<Integer, RecordMetadata> sentEvents2 =
+        publishKafkaEventsWithDelayPerEvent(inputKafkaTopic2, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[1], Duration.ofMillis(2));
+
+    ConcurrentHashMap<String, IncomingMessageEnvelope> recvEventsInputStartpointTimestamp = new ConcurrentHashMap<>();
+
+    CoordinatorStreamStore coordinatorStreamStore = createCoordinatorStreamStore(applicationConfig1);
+    coordinatorStreamStore.init();
+    StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
+    startpointManager.start();
+
+    StartpointTimestamp startpointTimestamp = new StartpointTimestamp(sentEvents2.get(150).timestamp());
+    writeStartpoints(startpointManager, inputKafkaTopic2, ZK_TEST_PARTITION_COUNT, startpointTimestamp);
+
+    startpointManager.stop();
+    coordinatorStreamStore.close();
+
+    TestTaskApplication.TaskApplicationCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
+      try {
+        String streamName = ime.getSystemStreamPartition().getStream();
+        TestKafkaEvent testKafkaEvent =
+            TestKafkaEvent.fromString((String) ime.getMessage());
+        String eventIndex = testKafkaEvent.getEventData();
+        if (inputKafkaTopic2.equals(streamName)) {
+          recvEventsInputStartpointTimestamp.put(eventIndex, ime);
+        } else {
+          throw new RuntimeException("Unexpected input stream: " + streamName);
+        }
+        callback.complete();
+      } catch (Exception ex) {
+        callback.failure(ex);
+      }
+    };
+
+    CountDownLatch processedMessagesLatchStartpointTimestamp = new CountDownLatch(100); // Just fetch a few messages
+    CountDownLatch shutdownLatchStartpointTimestamp = new CountDownLatch(1);
+
+    TestTaskApplication testTaskApplicationStartpointTimestamp =
+        new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic2, outputKafkaTopic, processedMessagesLatchStartpointTimestamp,
+            shutdownLatchStartpointTimestamp, Optional.of(processedCallback));
+
+    ApplicationRunner appRunner =
+        ApplicationRunners.getApplicationRunner(testTaskApplicationStartpointTimestamp, applicationConfig2);
 
     executeRun(appRunner, applicationConfig2);
     assertTrue(processedMessagesLatchStartpointTimestamp.await(1, TimeUnit.MINUTES));
@@ -286,9 +285,51 @@ public class StartpointTestHarness extends IntegrationTestHarness {
           ime.getEventTime(), startpointTimestamp.getTimestampOffset());
       assertTrue(assertMsg, ime.getEventTime() >= startpointTimestamp.getTimestampOffset());
     }
+  }
 
-    // Startpoint oldest
-    appRunner = ApplicationRunners.getApplicationRunner(testTaskApplicationStartpointOldest, applicationConfig3);
+  @Test
+  public void testStartpointOldest() throws InterruptedException {
+    publishKafkaEventsWithDelayPerEvent(inputKafkaTopic3, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[2], Duration.ofMillis(2));
+
+    ConcurrentHashMap<String, IncomingMessageEnvelope> recvEventsInputStartpointOldest = new ConcurrentHashMap<>();
+
+    CoordinatorStreamStore coordinatorStreamStore = createCoordinatorStreamStore(applicationConfig1);
+    coordinatorStreamStore.init();
+    StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
+    startpointManager.start();
+
+    StartpointOldest startpointOldest = new StartpointOldest();
+    writeStartpoints(startpointManager, inputKafkaTopic3, ZK_TEST_PARTITION_COUNT, startpointOldest);
+
+    startpointManager.stop();
+    coordinatorStreamStore.close();
+
+    TestTaskApplication.TaskApplicationCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
+      try {
+        String streamName = ime.getSystemStreamPartition().getStream();
+        TestKafkaEvent testKafkaEvent =
+            TestKafkaEvent.fromString((String) ime.getMessage());
+        String eventIndex = testKafkaEvent.getEventData();
+        if (inputKafkaTopic3.equals(streamName)) {
+          recvEventsInputStartpointOldest.put(eventIndex, ime);
+        } else {
+          throw new RuntimeException("Unexpected input stream: " + streamName);
+        }
+        callback.complete();
+      } catch (Exception ex) {
+        callback.failure(ex);
+      }
+    };
+
+    CountDownLatch processedMessagesLatchStartpointOldest = new CountDownLatch(NUM_KAFKA_EVENTS); // Fetch all since consuming from oldest
+    CountDownLatch shutdownLatchStartpointOldest = new CountDownLatch(1);
+
+    TestTaskApplication testTaskApplicationStartpointOldest =
+        new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic3, outputKafkaTopic, processedMessagesLatchStartpointOldest,
+            shutdownLatchStartpointOldest, Optional.of(processedCallback));
+
+    ApplicationRunner appRunner =
+        ApplicationRunners.getApplicationRunner(testTaskApplicationStartpointOldest, applicationConfig3);
     executeRun(appRunner, applicationConfig3);
 
     assertTrue(processedMessagesLatchStartpointOldest.await(1, TimeUnit.MINUTES));
@@ -299,9 +340,53 @@ public class StartpointTestHarness extends IntegrationTestHarness {
     assertTrue(shutdownLatchStartpointOldest.await(1, TimeUnit.MINUTES));
 
     assertEquals("Expecting to have processed all the events", NUM_KAFKA_EVENTS, recvEventsInputStartpointOldest.size());
+  }
+
+  @Test
+  public void testStartpointUpcoming() throws InterruptedException {
+    publishKafkaEventsWithDelayPerEvent(inputKafkaTopic4, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[3], Duration.ofMillis(2));
+
+    ConcurrentHashMap<String, IncomingMessageEnvelope> recvEventsInputStartpointUpcoming = new ConcurrentHashMap<>();
+
+    CoordinatorStreamStore coordinatorStreamStore = createCoordinatorStreamStore(applicationConfig1);
+    coordinatorStreamStore.init();
+    StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
+    startpointManager.start();
+
+    StartpointUpcoming startpointUpcoming = new StartpointUpcoming();
+    writeStartpoints(startpointManager, inputKafkaTopic4, ZK_TEST_PARTITION_COUNT, startpointUpcoming);
+
+    startpointManager.stop();
+    coordinatorStreamStore.close();
+
+    TestTaskApplication.TaskApplicationCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
+      try {
+        String streamName = ime.getSystemStreamPartition().getStream();
+        TestKafkaEvent testKafkaEvent =
+            TestKafkaEvent.fromString((String) ime.getMessage());
+        String eventIndex = testKafkaEvent.getEventData();
+        if (inputKafkaTopic4.equals(streamName)) {
+          recvEventsInputStartpointUpcoming.put(eventIndex, ime);
+        } else {
+          throw new RuntimeException("Unexpected input stream: " + streamName);
+        }
+        callback.complete();
+      } catch (Exception ex) {
+        callback.failure(ex);
+      }
+    };
+
+
+    CountDownLatch processedMessagesLatchStartpointUpcoming = new CountDownLatch(5); // Expecting none, so just attempt a small number of fetches.
+    CountDownLatch shutdownLatchStartpointUpcoming = new CountDownLatch(1);
+
+    TestTaskApplication testTaskApplicationStartpointUpcoming =
+        new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic4, outputKafkaTopic, processedMessagesLatchStartpointUpcoming,
+            shutdownLatchStartpointUpcoming, Optional.of(processedCallback));
 
     // Startpoint upcoming
-    appRunner = ApplicationRunners.getApplicationRunner(testTaskApplicationStartpointUpcoming, applicationConfig4);
+    ApplicationRunner appRunner =
+        ApplicationRunners.getApplicationRunner(testTaskApplicationStartpointUpcoming, applicationConfig4);
     executeRun(appRunner, applicationConfig4);
 
     assertFalse("Expecting to timeout and not process any old messages.", processedMessagesLatchStartpointUpcoming.await(15, TimeUnit.SECONDS));
@@ -314,8 +399,8 @@ public class StartpointTestHarness extends IntegrationTestHarness {
   }
 
   // Sends each event synchronously and returns map of event index to event metadata of the sent record/event. Adds the specified delay between sends.
-  private TreeMap<Integer, RecordMetadata> publishKafkaEventsWithDelayPerEvent(String topic, int startIndex, int endIndex, String streamProcessorId, Duration delay) {
-    TreeMap<Integer, RecordMetadata> eventsMetadata = new TreeMap<>();
+  private Map<Integer, RecordMetadata> publishKafkaEventsWithDelayPerEvent(String topic, int startIndex, int endIndex, String streamProcessorId, Duration delay) {
+    HashMap<Integer, RecordMetadata> eventsMetadata = new HashMap<>();
     for (int eventIndex = startIndex; eventIndex < endIndex; eventIndex++) {
       try {
         LOGGER.info("Publish kafka event with index : {} for stream processor: {}.", eventIndex, streamProcessorId);
