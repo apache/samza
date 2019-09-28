@@ -52,7 +52,8 @@ public class StreamConfig extends MapConfig {
   public static final String IS_BOUNDED = SAMZA_PROPERTY + "bounded";
   public static final String BROADCAST = SAMZA_PROPERTY + "broadcast";
 
-  // We don't want any external dependencies on these patterns while both exist. Use getProperty to ensure proper values.
+  // We don't want any external dependencies on these patterns while both exist.
+  // Use the corresponding get*() method to ensure proper values.
   private static final String STREAMS_PREFIX = "streams.";
 
   public static final String STREAM_PREFIX = "systems.%s.streams.%s.";
@@ -165,7 +166,7 @@ public class StreamConfig extends MapConfig {
    * @param systemStream system stream to map to stream id
    * @return             stream id corresponding to the system stream
    */
-  public String systemStreamToStreamId(SystemStream systemStream) {
+  private String systemStreamToStreamId(SystemStream systemStream) {
     List<String> streamIds = getStreamIdsForSystem(systemStream.getSystem()).stream()
       .filter(streamId -> systemStream.getStream().equals(getPhysicalName(streamId))).collect(Collectors.toList());
     if (streamIds.size() > 1) {
@@ -173,41 +174,6 @@ public class StreamConfig extends MapConfig {
     }
 
     return streamIds.isEmpty() ? null : streamIds.get(0);
-  }
-
-  /**
-   * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
-   * interacts with the stream, as opposed to a property of the stream itself.
-   *
-   * First, tries to map the systemStream to a streamId. This will only find a streamId if the stream is a physical name
-   * (explicitly mapped physical name or a stream id without a physical name mapping). That means this will not map a
-   * stream id to itself if there is a mapping from the stream id to a physical stream name. This also requires that the
-   * stream id is mapped to a system in the config.
-   * If a stream id is found:
-   * 1) Look for "streams.{streamId}.{property}" for the stream id.
-   * 2) Otherwise, look for "systems.{systemName}.streams.{streamName}.{property}" in which the systemName is the system
-   * mapped to the stream id and the streamName is the physical stream name for the stream id.
-   * 3) Otherwise, look for "systems.{systemName}.default.stream.{property}" in which the systemName is the system
-   * mapped to the stream id.
-   * If a stream id was not found or no property could be found using the above keys:
-   * 1) Look for "systems.{systemName}.streams.{streamName}.{property}" in which the systemName is the system in the
-   * input systemStream and the streamName is the stream from the input systemStream.
-   * 2) Otherwise, look for "systems.{systemName}.default.stream.{property}" in which the systemName is the system
-   * in the input systemStream.
-   *
-   * @param systemStream the SystemStream for which the property value will be retrieved.
-   * @param property the samza property key (including the "samza." prefix); for example, for both
-   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
-   *                 argument should have the value "samza.prop.key"
-   */
-  protected String getSamzaProperty(SystemStream systemStream, String property) {
-    if (!property.startsWith(SAMZA_PROPERTY)) {
-      throw new IllegalArgumentException(
-        String.format("Attempt to fetch a non samza property for SystemStream %s named %s", systemStream, property));
-    }
-
-    String streamVal = getAllStreamProperties(systemStreamToStreamId(systemStream)).get(property);
-    return (streamVal != null) ? streamVal : getSystemStreamProperties(systemStream.getSystem(), systemStream.getStream()).get(property);
   }
 
   /**
@@ -219,11 +185,11 @@ public class StreamConfig extends MapConfig {
    * job.default.system
    *
    * @param streamId the identifier for the stream in the config.
-   * @return the system name associated with the stream.
+   * @return the system name associated with the stream or null.
    */
   public String getSystem(String streamId) {
-    return getOrDefault(String.format(SYSTEM_FOR_STREAM_ID, streamId),
-      new JobConfig(this).getDefaultSystem().orElse(null));
+    String system = get(String.format(SYSTEM_FOR_STREAM_ID, streamId));
+    return (system != null) ? system : new JobConfig(this).getDefaultSystem().orElse(null);
   }
 
   /**
@@ -255,23 +221,6 @@ public class StreamConfig extends MapConfig {
       resetOffset = "false";
     }
     return Boolean.valueOf(resetOffset);
-  }
-
-
-  /**
-   * Gets a Samza property, with a default value used if no property value is found.
-   * See getSamzaProperty(SystemStream, String).
-   *
-   * @param systemStream the SystemStream for which the property value will be retrieved.
-   * @param property the samza property key (including the "samza." prefix); for example, for both
-   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
-   *                 argument should have the value "samza.prop.key"
-   * @param defaultValue the default value to use if the property value is not found
-   */
-  protected String getSamzaProperty(SystemStream systemStream, String property, String defaultValue) {
-    String streamVal = getSamzaProperty(systemStream, property);
-
-    return streamVal != null ? streamVal : defaultValue;
   }
 
   /**
@@ -308,7 +257,7 @@ public class StreamConfig extends MapConfig {
   }
 
   public boolean getBroadcastEnabled(SystemStream systemStream) {
-    return java.lang.Boolean.parseBoolean(getSamzaProperty(systemStream, BROADCAST));
+    return Boolean.parseBoolean(getSamzaProperty(systemStream, BROADCAST));
   }
 
   public int getPriority(SystemStream systemStream) {
@@ -367,7 +316,6 @@ public class StreamConfig extends MapConfig {
     return new MapConfig(filteredStreamProperties);
   }
 
-
   /**
    * Gets the boolean flag of whether the specified streamId is an intermediate stream
    *
@@ -390,5 +338,58 @@ public class StreamConfig extends MapConfig {
 
   public boolean getIsBounded(String streamId) {
     return getBoolean(String.format(IS_BOUNDED_FOR_STREAM_ID, streamId), false);
+  }
+
+  /**
+   * Gets the specified Samza property for a SystemStream. A Samza property is a property that controls how Samza
+   * interacts with the stream, as opposed to a property of the stream itself.
+   *
+   * First, tries to map the systemStream to a streamId. This will only find a streamId if the stream is a physical name
+   * (explicitly mapped physical name or a stream id without a physical name mapping). That means this will not map a
+   * stream id to itself if there is a mapping from the stream id to a physical stream name. This also requires that the
+   * stream id is mapped to a system in the config.
+   * If a stream id is found:
+   * 1) Look for "streams.{streamId}.{property}" for the stream id.
+   * 2) Otherwise, look for "systems.{systemName}.streams.{streamName}.{property}" in which the systemName is the system
+   * mapped to the stream id and the streamName is the physical stream name for the stream id.
+   * 3) Otherwise, look for "systems.{systemName}.default.stream.{property}" in which the systemName is the system
+   * mapped to the stream id.
+   * If a stream id was not found or no property could be found using the above keys:
+   * 1) Look for "systems.{systemName}.streams.{streamName}.{property}" in which the systemName is the system in the
+   * input systemStream and the streamName is the stream from the input systemStream.
+   * 2) Otherwise, look for "systems.{systemName}.default.stream.{property}" in which the systemName is the system
+   * in the input systemStream.
+   * 3) or null
+   *
+   * @param systemStream the SystemStream for which the property value will be retrieved.
+   * @param property the samza property key (including the "samza." prefix); for example, for both
+   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
+   *                 argument should have the value "samza.prop.key"
+   * @return the property value
+   */
+  private String getSamzaProperty(SystemStream systemStream, String property) {
+    if (!property.startsWith(SAMZA_PROPERTY)) {
+      throw new IllegalArgumentException(
+        String.format("Attempt to fetch a non samza property for SystemStream %s named %s", systemStream, property));
+    }
+
+    String streamVal = getAllStreamProperties(systemStreamToStreamId(systemStream)).get(property);
+    return (streamVal != null) ? streamVal : getSystemStreamProperties(systemStream.getSystem(), systemStream.getStream()).get(property);
+  }
+
+  /**
+   * Gets a Samza property, with a default value used if no property value is found.
+   * See getSamzaProperty(SystemStream, String).
+   *
+   * @param systemStream the SystemStream for which the property value will be retrieved.
+   * @param property the samza property key (including the "samza." prefix); for example, for both
+   *                 "streams.streamId.samza.prop.key" and "systems.system.streams.streamName.samza.prop.key", this
+   *                 argument should have the value "samza.prop.key"
+   * @param defaultValue the default value to use if the property value is not found
+   */
+  private String getSamzaProperty(SystemStream systemStream, String property, String defaultValue) {
+    String streamVal = getSamzaProperty(systemStream, property);
+
+    return streamVal != null ? streamVal : defaultValue;
   }
 }

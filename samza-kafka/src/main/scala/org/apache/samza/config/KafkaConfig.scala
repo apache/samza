@@ -290,7 +290,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   }
 
   // The method returns a map of storenames to changelog topic names, which are configured to use kafka as the changelog stream
-  def getKafkaChangelogEnabledStores() = {
+  def getKafkaChangelogEnabledStores(): util.HashMap[String, String] = {
     val changelogConfigs = config.regexSubset(KafkaConfig.CHANGELOG_STREAM_NAMES_REGEX).asScala
     //var storeToChangelog = Map[String, String]()
     var storeToChangelog :util.HashMap[String, String] = new util.HashMap();

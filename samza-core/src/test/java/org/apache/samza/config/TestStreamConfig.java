@@ -20,6 +20,7 @@ package org.apache.samza.config;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.apache.samza.system.SystemStream;
 import org.junit.Test;
@@ -474,13 +475,11 @@ public class TestStreamConfig {
 
     StreamConfig streamConfig = new StreamConfig(new MapConfig(ImmutableMap.of(
         String.format(StreamConfig.STREAM_ID_PREFIX, STREAM_ID) + ".property", "value")));
-    assertEquals(ImmutableList.of(STREAM_ID),
-        ImmutableList.copyOf(streamConfig.getStreamIds()));
+    assertEquals(ImmutableSet.of(STREAM_ID), ImmutableSet.copyOf(streamConfig.getStreamIds()));
 
     streamConfig = new StreamConfig(new MapConfig(ImmutableMap.of(
         String.format(StreamConfig.STREAM_ID_PREFIX, STREAM_ID) + ".property.subProperty", "value")));
-    assertEquals(ImmutableList.of(STREAM_ID),
-        ImmutableList.copyOf(streamConfig.getStreamIds()));
+    assertEquals(ImmutableSet.of(STREAM_ID), ImmutableSet.copyOf(streamConfig.getStreamIds()));
 
     streamConfig = new StreamConfig(new MapConfig(ImmutableMap.of(
         String.format(StreamConfig.STREAM_ID_PREFIX, STREAM_ID) + ".property0", "value",
@@ -488,8 +487,7 @@ public class TestStreamConfig {
         String.format(StreamConfig.STREAM_ID_PREFIX, STREAM_ID) + ".property.subProperty0", "value",
         String.format(StreamConfig.STREAM_ID_PREFIX, STREAM_ID) + ".property.subProperty1", "value",
         String.format(StreamConfig.STREAM_ID_PREFIX, OTHER_STREAM_ID) + ".property", "value")));
-    assertEquals(ImmutableList.of(STREAM_ID, OTHER_STREAM_ID),
-        ImmutableList.copyOf(streamConfig.getStreamIds()));
+    assertEquals(ImmutableSet.of(STREAM_ID, OTHER_STREAM_ID), ImmutableSet.copyOf(streamConfig.getStreamIds()));
   }
 
   private static void doTestSamzaProperty(String propertyName, String propertyValue, SamzaPropertyAssertion assertion) {

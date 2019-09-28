@@ -86,7 +86,7 @@ object OffsetManager extends Logging {
         case (systemStream, systemStreamMetadata) =>
           // Get default offset.
           val streamDefaultOffset = streamConfig.getDefaultStreamOffset(systemStream)
-          val systemDefaultOffset = new SystemConfig(streamConfig).getSystemOffsetDefault(systemStream.getSystem)
+          val systemDefaultOffset = new SystemConfig(config).getSystemOffsetDefault(systemStream.getSystem)
           val defaultOffsetType = if (streamDefaultOffset.isPresent) {
             OffsetType.valueOf(streamDefaultOffset.get.toUpperCase)
           } else if (systemDefaultOffset != null) {

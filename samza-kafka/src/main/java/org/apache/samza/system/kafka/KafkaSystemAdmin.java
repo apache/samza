@@ -142,7 +142,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
     StreamConfig streamConfig = new StreamConfig(config);
 
-    KafkaConfig kafkaConfig = new KafkaConfig(streamConfig);
+    KafkaConfig kafkaConfig = new KafkaConfig(config);
     coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
     coordinatorStreamProperties = getCoordinatorStreamProperties(kafkaConfig);
 
