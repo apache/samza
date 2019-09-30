@@ -40,7 +40,7 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig$;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
@@ -640,7 +640,7 @@ public class TestExecutionPlanner {
   @Test
   public void testBroadcastConfig() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(String.format(StreamConfig$.MODULE$.BROADCAST_FOR_STREAM_ID(), "input1"), "true");
+    map.put(String.format(StreamConfig.BROADCAST_FOR_STREAM_ID, "input1"), "true");
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);

@@ -28,7 +28,6 @@ import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.eventhub.producer.EventHubSystemProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConversions;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -109,7 +108,7 @@ public class EventHubConfig extends MapConfig {
     StreamConfig streamConfig = new StreamConfig(config);
 
     LOG.info("Building mappings from physicalName to streamId");
-    JavaConversions.asJavaCollection(streamConfig.getStreamIds())
+    streamConfig.getStreamIds()
         .forEach((streamId) -> {
             String physicalName = streamConfig.getPhysicalName(streamId);
             LOG.info("Obtained physicalName: {} for streamId: {} ", physicalName, streamId);

@@ -431,9 +431,9 @@ public class TestRunner {
    * over {@link org.apache.samza.application.descriptors.ApplicationDescriptor} generated configs
    */
   private void addSerdeConfigs(StreamDescriptor descriptor) {
-    String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), descriptor.getStreamId());
-    String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
-    String msgSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+    String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, descriptor.getStreamId());
+    String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE;
+    String msgSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE;
     this.configs.put(keySerdeConfigKey, null);
     this.configs.put(msgSerdeConfigKey, null);
   }
