@@ -83,9 +83,7 @@ public class TestContainerAllocatorWithHostAffinity {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator =
-        new AbstractContainerAllocator(clusterResourceManager, config, state,
-            getClass().getClassLoader(), true, Optional.empty());
+    containerAllocator = new AbstractContainerAllocator(clusterResourceManager, config, state, true, Optional.empty());
     requestState = new MockContainerRequestState(clusterResourceManager, true);
     Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);

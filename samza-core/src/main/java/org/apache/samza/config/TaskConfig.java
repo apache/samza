@@ -198,10 +198,10 @@ public class TaskConfig extends MapConfig {
    * @param metricsRegistry Registry of metrics to use. Can be null if not using metrics.
    * @return CheckpointManager object if checkpoint manager factory is configured, otherwise empty.
    */
-  public Optional<CheckpointManager> getCheckpointManager(MetricsRegistry metricsRegistry, ClassLoader classLoader) {
+  public Optional<CheckpointManager> getCheckpointManager(MetricsRegistry metricsRegistry) {
     return Optional.ofNullable(get(CHECKPOINT_MANAGER_FACTORY))
         .filter(StringUtils::isNotBlank)
-        .map(checkpointManagerFactoryName -> ReflectionUtil.getObj(classLoader, checkpointManagerFactoryName,
+        .map(checkpointManagerFactoryName -> ReflectionUtil.getObj(checkpointManagerFactoryName,
             CheckpointManagerFactory.class).getCheckpointManager(this, metricsRegistry));
   }
 

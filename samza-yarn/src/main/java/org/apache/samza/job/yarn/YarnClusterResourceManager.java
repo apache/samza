@@ -161,7 +161,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     );
 
     MetricsRegistryMap registry = new MetricsRegistryMap();
-    metrics = new SamzaAppMasterMetrics(config, samzaAppState, registry, getClass().getClassLoader());
+    metrics = new SamzaAppMasterMetrics(config, samzaAppState, registry);
 
     // parse configs from the Yarn environment
     String containerIdStr = System.getenv(ApplicationConstants.Environment.CONTAINER_ID.toString());

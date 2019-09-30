@@ -367,8 +367,7 @@ public class TestLocalApplicationRunner {
   public void testCreateProcessorIdShouldReturnProcessorIdDefinedInConfiguration() {
     String processorId = "testProcessorId";
     MapConfig configMap = new MapConfig(ImmutableMap.of(ApplicationConfig.PROCESSOR_ID, processorId));
-    String actualProcessorId =
-        LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap), getClass().getClassLoader());
+    String actualProcessorId = LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap));
     assertEquals(processorId, actualProcessorId);
   }
 
@@ -376,8 +375,7 @@ public class TestLocalApplicationRunner {
   public void testCreateProcessorIdShouldInvokeProcessorIdGeneratorDefinedInConfiguration() {
     String processorId = "testProcessorId";
     MapConfig configMap = new MapConfig(ImmutableMap.of(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, MockProcessorIdGenerator.class.getCanonicalName()));
-    String actualProcessorId =
-        LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap), getClass().getClassLoader());
+    String actualProcessorId = LocalApplicationRunner.createProcessorId(new ApplicationConfig(configMap));
     assertEquals(processorId, actualProcessorId);
   }
 
@@ -385,7 +383,7 @@ public class TestLocalApplicationRunner {
   public void testCreateProcessorIdShouldThrowExceptionWhenProcessorIdAndGeneratorAreNotDefined() {
     ApplicationConfig mockConfig = Mockito.mock(ApplicationConfig.class);
     Mockito.when(mockConfig.getProcessorId()).thenReturn(null);
-    LocalApplicationRunner.createProcessorId(mockConfig, getClass().getClassLoader());
+    LocalApplicationRunner.createProcessorId(mockConfig);
   }
 
   private void prepareTest() throws Exception {
@@ -403,7 +401,7 @@ public class TestLocalApplicationRunner {
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
     runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
-    doReturn(localPlanner).when(runner).getPlanner(getClass().getClassLoader());
+    doReturn(localPlanner).when(runner).getPlanner();
   }
 
   /**
@@ -476,7 +474,7 @@ public class TestLocalApplicationRunner {
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
     runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
-    doReturn(localPlanner).when(runner).getPlanner(getClass().getClassLoader());
+    doReturn(localPlanner).when(runner).getPlanner();
     StreamProcessor sp = mock(StreamProcessor.class);
     CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
     doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(), anyObject(), anyObject(), any(

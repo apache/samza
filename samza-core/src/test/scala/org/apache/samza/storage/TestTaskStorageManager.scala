@@ -905,8 +905,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       TaskStorageManagerBuilder.defaultStoreBaseDir,
       1,
       null,
-      new SystemClock,
-      getClass.getClassLoader)
+      new SystemClock)
     this
   }
 

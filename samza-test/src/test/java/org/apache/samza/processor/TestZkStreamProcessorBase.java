@@ -133,10 +133,8 @@ public class TestZkStreamProcessorBase extends IntegrationTestHarness {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
     Config config = new MapConfig(map);
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
-    JobCoordinator jobCoordinator =
-        ReflectionUtil.getObj(getClass().getClassLoader(), jobCoordinatorFactoryClassName, JobCoordinatorFactory.class)
-            .getJobCoordinator(pId, config, new MetricsRegistryMap(), Mockito.mock(
-                CoordinatorStreamStore.class));
+    JobCoordinator jobCoordinator = ReflectionUtil.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class)
+        .getJobCoordinator(pId, config, new MetricsRegistryMap(), Mockito.mock(CoordinatorStreamStore.class));
 
     ProcessorLifecycleListener listener = new ProcessorLifecycleListener() {
       @Override

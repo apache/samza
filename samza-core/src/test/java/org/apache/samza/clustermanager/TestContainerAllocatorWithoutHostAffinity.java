@@ -67,8 +67,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new AbstractContainerAllocator(manager, config, state, getClass().getClassLoader(), false, Optional
-        .empty());
+    containerAllocator = new AbstractContainerAllocator(manager, config, state, false, Optional.empty());
     requestState = new MockContainerRequestState(manager, false);
     Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);

@@ -300,7 +300,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     JobConfig jobConfig = new JobConfig(config);
     String factoryString = jobConfig.getSystemStreamPartitionGrouperFactory();
     SystemStreamPartitionGrouper grouper =
-        ReflectionUtil.getObj(getClass().getClassLoader(), factoryString, SystemStreamPartitionGrouperFactory.class)
+        ReflectionUtil.getObj(factoryString, SystemStreamPartitionGrouperFactory.class)
             .getSystemStreamPartitionGrouper(jobConfig);
     return grouper;
   }
@@ -367,8 +367,7 @@ public class AzureJobCoordinator implements JobCoordinator {
     // Generate the new JobModel
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
     JobModel newJobModel =
-        JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata,
-            getClass().getClassLoader());
+        JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
     // Publish the new job model
