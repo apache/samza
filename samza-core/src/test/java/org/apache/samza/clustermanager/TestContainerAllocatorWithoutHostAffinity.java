@@ -262,8 +262,8 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
     ClusterResourceManager.Callback mockCPM = mock(ClusterResourceManager.Callback.class);
     spyAllocator = Mockito.spy(
-        new AbstractContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state,
-            getClass().getClassLoader(), false, Optional.empty()));
+        new AbstractContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state, false,
+            Optional.empty()));
     // Mock the callback from ClusterManager to add resources to the allocator
     doAnswer((InvocationOnMock invocation) -> {
         SamzaResource resource = (SamzaResource) invocation.getArgumentAt(0, List.class).get(0);
