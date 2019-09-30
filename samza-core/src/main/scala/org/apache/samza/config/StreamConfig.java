@@ -68,7 +68,8 @@ public class StreamConfig extends MapConfig {
   public static final String BOOTSTRAP_FOR_STREAM_ID = STREAM_ID_PREFIX + BOOTSTRAP;
   public static final String BROADCAST_FOR_STREAM_ID = STREAM_ID_PREFIX + BROADCAST;
 
-  /**
+  /*
+   * Implementation notes:
    * Helper for accessing configs related to stream properties.
    *
    * For most configs, this currently supports two different formats for specifying stream properties:
