@@ -74,8 +74,8 @@ public class TestContainerAllocatorWithHostAffinity {
         new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class)));
   }
 
-  private AbstractContainerAllocator containerAllocator;
-  private AbstractContainerAllocator spyAllocator;
+  private ContainerAllocator containerAllocator;
+  private ContainerAllocator spyAllocator;
   private final int timeoutMillis = 1000;
   private MockContainerRequestState requestState;
   private Thread allocatorThread;
@@ -84,7 +84,7 @@ public class TestContainerAllocatorWithHostAffinity {
   @Before
   public void setup() throws Exception {
     containerAllocator =
-        new AbstractContainerAllocator(clusterResourceManager, config, state,
+        new ContainerAllocator(clusterResourceManager, config, state,
             getClass().getClassLoader(), true, Optional.empty());
     requestState = new MockContainerRequestState(clusterResourceManager, true);
     Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
@@ -369,7 +369,7 @@ public class TestContainerAllocatorWithHostAffinity {
       }).when(mockCPM).onResourcesAvailable(anyList());
 
     spyAllocator = Mockito.spy(
-        new AbstractContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state,
+        new ContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state,
             getClass().getClassLoader(), true, Optional.empty()));
 
     // Request Resources
@@ -408,7 +408,7 @@ public class TestContainerAllocatorWithHostAffinity {
   public void testExpiredRequestAllocationOnAnyHost() throws Exception {
     MockClusterResourceManager spyManager = spy(new MockClusterResourceManager(callback, state));
     spyAllocator = Mockito.spy(
-        new AbstractContainerAllocator(spyManager, config, state,
+        new ContainerAllocator(spyManager, config, state,
             getClass().getClassLoader(), true, Optional.empty()));
 
     // Request Preferred Resources
@@ -451,7 +451,7 @@ public class TestContainerAllocatorWithHostAffinity {
   public void testExpiredRequestAllocationOnSurplusAnyHostWithRunStreamProcessor() throws Exception {
     // Add Extra Resources
     spyAllocator = Mockito.spy(
-        new AbstractContainerAllocator(new MockClusterResourceManager(callback, state), config, state,
+        new ContainerAllocator(new MockClusterResourceManager(callback, state), config, state,
             getClass().getClassLoader(), true, Optional.empty()));
 
     spyAllocator.addResource(new SamzaResource(1, 1000, "xyz", "id1"));
