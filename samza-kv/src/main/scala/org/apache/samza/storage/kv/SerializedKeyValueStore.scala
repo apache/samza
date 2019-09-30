@@ -58,8 +58,7 @@ class SerializedKeyValueStore[K, V](
     val keyBytes = toBytesOrNull(key, keySerde)
     val valBytes = toBytesOrNull(value, msgSerde)
     store.put(keyBytes, valBytes)
-    metrics.puts.inc
-    while({val max = metrics.maxRecordSizeBytes.getValue; !metrics.maxRecordSizeBytes.compareAndSet(max, Math.max(max, valBytes.length))}){}
+    updatePutMetrics(1, valBytes.length)
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
@@ -74,8 +73,7 @@ class SerializedKeyValueStore[K, V](
       list.add(new Entry(keyBytes, valBytes))
     }
     store.putAll(list)
-    metrics.puts.inc(list.size)
-    while({val max = metrics.maxRecordSizeBytes.getValue; !metrics.maxRecordSizeBytes.compareAndSet(max, Math.max(max, newMaxRecordSizeBytes))}){}
+    updatePutMetrics(list.size(), newMaxRecordSizeBytes)
   }
 
   def delete(key: K) {
@@ -151,6 +149,14 @@ class SerializedKeyValueStore[K, V](
       bytes.add(toBytesOrNull(keysIterator.next, keySerde))
     }
     bytes
+  }
+
+  private def updatePutMetrics(batchSize: Long, newMaxRecordSizeBytes: Long) = {
+    metrics.puts.inc(batchSize)
+    var max = metrics.maxRecordSizeBytes.getValue
+    while (newMaxRecordSizeBytes > max && !metrics.maxRecordSizeBytes.compareAndSet(max, newMaxRecordSizeBytes)) {
+      max = metrics.maxRecordSizeBytes.getValue
+    }
   }
 
   override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
