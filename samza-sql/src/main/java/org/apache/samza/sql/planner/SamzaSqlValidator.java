@@ -102,15 +102,17 @@ public class SamzaSqlValidator {
   protected void validateOutput(RelRoot relRoot, RelSchemaProvider outputRelSchemaProvider)
       throws SamzaSqlValidatorException {
     LogicalProject project = (LogicalProject) relRoot.rel;
+
     RelRecordType projetRecord = (RelRecordType) project.getRowType();
     RelRecordType outputRecord = (RelRecordType) QueryPlanner.getSourceRelSchema(outputRelSchemaProvider,
         new RelSchemaConverter());
+
     // Get Samza Sql schema along with Calcite schema. The reason is that the Calcite schema does not have a way
-    // to represent optional fields while Samza Sql schema can represent optional fields. This is the only reason that
+    // to represent optional fields while Samza Sql schema can represent optional fields. This is the reason that
     // we use SqlSchema in validating output.
     SqlSchema outputSqlSchema = QueryPlanner.getSourceSqlSchema(outputRelSchemaProvider);
 
-    validateOutputRecords(outputRecord, outputSqlSchema, projetRecord, outputRelSchemaProvider);
+    validateOutputRecords(outputSqlSchema, outputRecord, projetRecord, outputRelSchemaProvider);
     LOG.info("Samza Sql Validation finished successfully.");
   }
 
@@ -122,7 +124,7 @@ public class SamzaSqlValidator {
     return false;
   }
 
-  protected void validateOutputRecords(RelRecordType outputRecord, SqlSchema outputSqlSchema,
+  protected void validateOutputRecords(SqlSchema outputSqlSchema, RelRecordType outputRecord,
       RelRecordType projectRecord, RelSchemaProvider outputRelSchemaProvider)
       throws SamzaSqlValidatorException {
     Map<String, RelDataType> outputRecordMap = outputRecord.getFieldList().stream().collect(
@@ -238,7 +240,7 @@ public class SamzaSqlValidator {
         return projectSqlType == SqlTypeName.FLOAT;
       case ROW:
         try {
-          validateOutputRecords((RelRecordType) outputFieldType, sqlFieldSchema.getRowSchema(),
+          validateOutputRecords(sqlFieldSchema.getRowSchema(), (RelRecordType) outputFieldType,
               (RelRecordType) projectFieldType, outputRelSchemaProvider);
         } catch (SamzaSqlValidatorException e) {
           LOG.error("A field in select query does not match with the output schema.", e);
