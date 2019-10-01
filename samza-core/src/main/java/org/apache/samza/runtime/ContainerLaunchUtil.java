@@ -121,7 +121,6 @@ public class ContainerLaunchUtil {
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
           Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
           Option.apply(externalContextOptional.orElse(null)),
-          ContainerLaunchUtil.class.getClassLoader(),
           localityManager,
           startpointManager,
           diagnosticsManager);

@@ -300,8 +300,7 @@ public class StreamAppender extends AppenderSkeleton {
     String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
         .orElseThrow(() -> new SamzaException(
             "Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use"));
-    SystemFactory systemFactory =
-        ReflectionUtil.getObj(getClass().getClassLoader(), systemFactoryName, SystemFactory.class);
+    SystemFactory systemFactory = ReflectionUtil.getObj(systemFactoryName, SystemFactory.class);
 
     setSerde(log4jSystemConfig, systemName, streamName);
 
@@ -392,8 +391,7 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LoggingEvent> serdeFactory =
-          ReflectionUtil.getObj(getClass().getClassLoader(), serdeClass, SerdeFactory.class);
+      SerdeFactory<LoggingEvent> serdeFactory = ReflectionUtil.getObj(serdeClass, SerdeFactory.class);
       serde = serdeFactory.getSerde(systemName, config);
     } else {
       String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS, serdeName);

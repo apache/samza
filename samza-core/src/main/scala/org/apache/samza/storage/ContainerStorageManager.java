@@ -187,8 +187,7 @@ public class ContainerStorageManager {
       File nonLoggedStoreBaseDirectory,
       int maxChangeLogStreamPartitions,
       SerdeManager serdeManager,
-      Clock clock,
-      ClassLoader classLoader) {
+      Clock clock) {
 
     this.containerModel = containerModel;
     this.sideInputSystemStreams = new HashMap<>(sideInputSystemStreams);
@@ -244,7 +243,7 @@ public class ContainerStorageManager {
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock, this.samzaContainerMetrics);
 
     // create sideInput storage managers
-    sideInputStorageManagers = createSideInputStorageManagers(clock, classLoader);
+    sideInputStorageManagers = createSideInputStorageManagers(clock);
 
     // create sideInput consumers indexed by systemName
     this.sideInputConsumers = createConsumers(this.sideInputSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
@@ -515,7 +514,7 @@ public class ContainerStorageManager {
   // Create sideInput store processors, one per store per task
   private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config,
       ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams,
-      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, ClassLoader classLoader) {
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
 
     Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessors = new HashMap<>();
     getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
@@ -532,8 +531,7 @@ public class ContainerStorageManager {
                 .orElseThrow(() -> new SamzaException(
                     String.format("Could not find sideInputs processor factory for store: %s", storeName)));
             SideInputsProcessorFactory sideInputsProcessorFactory =
-                ReflectionUtil.getObj(classLoader, sideInputsProcessorFactoryClassName,
-                    SideInputsProcessorFactory.class);
+                ReflectionUtil.getObj(sideInputsProcessorFactoryClassName, SideInputsProcessorFactory.class);
             SideInputsProcessor sideInputsProcessor =
                 sideInputsProcessorFactory.getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry());
             sideInputStoresToProcessors.get(taskName).put(storeName, sideInputsProcessor);
@@ -571,12 +569,11 @@ public class ContainerStorageManager {
   }
 
   // Create task sideInput storage managers, one per task, index by the SSP they are responsible for consuming
-  private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock,
-      ClassLoader classLoader) {
+  private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock) {
     // creating sideInput store processors, one per store per task
     Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors =
         createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams,
-            this.taskInstanceMetrics, classLoader);
+            this.taskInstanceMetrics);
 
     Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers = new HashMap<>();
 

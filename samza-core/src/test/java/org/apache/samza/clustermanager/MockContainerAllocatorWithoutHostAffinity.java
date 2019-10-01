@@ -34,7 +34,7 @@ public class MockContainerAllocatorWithoutHostAffinity extends ContainerAllocato
   public MockContainerAllocatorWithoutHostAffinity(ClusterResourceManager manager,
                                 Config config,
                                 SamzaApplicationState state) {
-    super(manager, config, state, MockContainerAllocatorWithoutHostAffinity.class.getClassLoader(), false, Optional.empty());
+    super(manager, config, state, false, Optional.empty());
   }
 
   /**

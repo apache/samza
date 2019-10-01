@@ -108,7 +108,7 @@ class TestSamzaYarnAppMasterService {
     try {
       val changelogPartitionManager = new ChangelogStreamManager(namespaceAwareCoordinatorStore)
       val jobModelManager = JobModelManager(getDummyConfig, changelogPartitionManager.readPartitionMapping(),
-        coordinatorStreamStore, getClass.getClassLoader, new MetricsRegistryMap())
+        coordinatorStreamStore, new MetricsRegistryMap())
       jobModelManager
     } finally {
       coordinatorStreamStore.close()

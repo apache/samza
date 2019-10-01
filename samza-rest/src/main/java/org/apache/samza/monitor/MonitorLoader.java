@@ -28,11 +28,11 @@ import org.apache.samza.util.ReflectionUtil;
 public class MonitorLoader {
 
   public static Monitor instantiateMonitor(String monitorName, MonitorConfig monitorConfig,
-      MetricsRegistry metricsRegistry, ClassLoader classLoader)
+      MetricsRegistry metricsRegistry)
       throws InstantiationException {
       String factoryClass = monitorConfig.getMonitorFactoryClass();
       try {
-        MonitorFactory monitorFactory = ReflectionUtil.getObj(classLoader, factoryClass, MonitorFactory.class);
+        MonitorFactory monitorFactory = ReflectionUtil.getObj(factoryClass, MonitorFactory.class);
         return monitorFactory.getMonitorInstance(monitorName, monitorConfig, metricsRegistry);
       } catch (Exception e) {
         throw (InstantiationException)

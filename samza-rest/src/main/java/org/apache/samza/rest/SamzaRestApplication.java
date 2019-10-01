@@ -83,8 +83,7 @@ public class SamzaRestApplication extends ResourceConfig {
   private Collection<? extends Object> instantiateFactoryResources(String factoryClassName, Config config)
       throws InstantiationException {
     try {
-      ResourceFactory factory =
-          ReflectionUtil.getObj(getClass().getClassLoader(), factoryClassName, ResourceFactory.class);
+      ResourceFactory factory = ReflectionUtil.getObj(factoryClassName, ResourceFactory.class);
       return factory.getResourceInstances(config);
     } catch (Exception e) {
       throw (InstantiationException)

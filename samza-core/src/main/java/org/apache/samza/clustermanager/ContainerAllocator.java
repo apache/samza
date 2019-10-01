@@ -88,11 +88,6 @@ public class ContainerAllocator implements Runnable {
   private final Config config;
 
   /**
-   * Classloader for creating objects from config
-   */
-  private final ClassLoader pluginClassLoader;
-
-  /**
    * A ClusterResourceManager for the allocator to request for resources.
    */
   protected final ClusterResourceManager clusterResourceManager;
@@ -125,7 +120,6 @@ public class ContainerAllocator implements Runnable {
   public ContainerAllocator(ClusterResourceManager clusterResourceManager,
       Config config,
       SamzaApplicationState state,
-      ClassLoader pluginClassLoader,
       boolean hostAffinityEnabled,
       Optional<StandbyContainerManager> standbyContainerManager) {
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
@@ -137,7 +131,6 @@ public class ContainerAllocator implements Runnable {
     this.taskConfig = new TaskConfig(config);
     this.state = state;
     this.config = config;
-    this.pluginClassLoader = pluginClassLoader;
     this.hostAffinityEnabled = hostAffinityEnabled;
     this.standbyContainerManager = standbyContainerManager;
     this.requestExpiryTimeout = clusterManagerConfig.getContainerRequestTimeout();
@@ -428,8 +421,7 @@ public class ContainerAllocator implements Runnable {
    */
   private CommandBuilder getCommandBuilder(String processorId) {
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
-    CommandBuilder cmdBuilder =
-        ReflectionUtil.getObj(this.pluginClassLoader, cmdBuilderClassName, CommandBuilder.class);
+    CommandBuilder cmdBuilder = ReflectionUtil.getObj(cmdBuilderClassName, CommandBuilder.class);
 
     cmdBuilder.setConfig(config).setId(processorId).setUrl(state.jobModelManager.server().getUrl());
     return cmdBuilder;

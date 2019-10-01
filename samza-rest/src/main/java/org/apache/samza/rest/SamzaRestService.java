@@ -92,8 +92,8 @@ public class SamzaRestService {
       ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
       log.info("Creating new SamzaRestService with config: {}", config);
       MetricsConfig metricsConfig = new MetricsConfig(config);
-      Map<String, MetricsReporter> metricsReporters = MetricsReporterLoader.getMetricsReporters(metricsConfig,
-          Util.getLocalHost().getHostName(), SamzaRestService.class.getClassLoader());
+      Map<String, MetricsReporter> metricsReporters =
+          MetricsReporterLoader.getMetricsReporters(metricsConfig, Util.getLocalHost().getHostName());
       SamzaRestService restService = new SamzaRestService(new Server(config.getPort()), metricsRegistry, metricsReporters,
           new ServletContextHandler(ServletContextHandler.SESSIONS));
 

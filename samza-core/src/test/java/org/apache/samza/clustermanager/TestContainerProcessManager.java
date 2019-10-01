@@ -166,8 +166,7 @@ public class TestContainerProcessManager {
         state,
         new MetricsRegistryMap(),
         clusterResourceManager,
-        Optional.empty(),
-        getClass().getClassLoader()
+        Optional.empty()
     );
 
     allocator =
@@ -621,8 +620,8 @@ public class TestContainerProcessManager {
         state);
 
     ContainerProcessManager manager =
-        new ContainerProcessManager(new ClusterManagerConfig(config), state, new MetricsRegistryMap(), clusterResourceManager,
-            Optional.of(allocator), getClass().getClassLoader());
+        new ContainerProcessManager(new ClusterManagerConfig(config), state, new MetricsRegistryMap(),
+            clusterResourceManager, Optional.of(allocator));
 
     manager.start();
     SamzaResource resource = new SamzaResource(1, 1024, "host1", "resource-1");
@@ -892,7 +891,7 @@ public class TestContainerProcessManager {
 
   private ContainerProcessManager buildContainerProcessManager(ClusterManagerConfig clusterManagerConfig, SamzaApplicationState state,
       ClusterResourceManager clusterResourceManager, Optional<ContainerAllocator> allocator) {
-    return new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(), clusterResourceManager, allocator,
-        getClass().getClassLoader());
+    return new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(), clusterResourceManager,
+        allocator);
   }
 }
