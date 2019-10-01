@@ -16,30 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.rest.proxy.job;
 
-import org.apache.samza.SamzaException;
-import org.apache.samza.rest.resources.JobsResourceConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+package org.apache.samza.util;
+
+import org.apache.samza.config.Config;
 
 
 /**
- * Factory to produce SimpleJobProxy instances.
- *
- * See {@link AbstractJobProxy#fromFactory(JobsResourceConfig)}
+ * A CoordinatorStreamConfigFactory receives the job's config and create specific configs that are needed to
+ * create coordinator streams.
  */
-public class SimpleYarnJobProxyFactory implements JobProxyFactory {
+public interface CoordinatorStreamConfigFactory {
 
-  private static final Logger LOG = LoggerFactory.getLogger(SimpleYarnJobProxyFactory.class);
-
-  @Override
-  public JobProxy getJobProxy(JobsResourceConfig config) {
-    try {
-      return new SimpleYarnJobProxy(config);
-    } catch (Exception e) {
-      LOG.error("Exception during instantiation of SimpleYarnJobProxy: ", e);
-      throw new SamzaException(e);
-    }
-  }
+  /**
+   * Returns a Config what is needed to create coordinator streams.
+   *
+   * @param config known configs for job
+   * @return basic configs needed to create coordinator streams
+   */
+  Config buildCoordinatorStreamConfig(Config config);
 }

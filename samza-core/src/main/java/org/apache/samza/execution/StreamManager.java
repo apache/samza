@@ -40,7 +40,6 @@ import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.util.StreamUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConversions;
 
 
 public class StreamManager {
@@ -105,7 +104,7 @@ public class StreamManager {
    * For batch processing, we always clean up the previous internal streams and create a new set for each run.
    * @param prevConfig config of the previous run
    */
-  public void clearStreamsFromPreviousRun(Config prevConfig, ClassLoader classLoader) {
+  public void clearStreamsFromPreviousRun(Config prevConfig) {
     try {
       ApplicationConfig appConfig = new ApplicationConfig(prevConfig);
       LOGGER.info("run.id from previous run is {}", appConfig.getRunId());
@@ -113,7 +112,7 @@ public class StreamManager {
       StreamConfig streamConfig = new StreamConfig(prevConfig);
 
       //Find all intermediate streams and clean up
-      Set<StreamSpec> intStreams = JavaConversions.asJavaCollection(streamConfig.getStreamIds()).stream()
+      Set<StreamSpec> intStreams = streamConfig.getStreamIds().stream()
           .filter(streamConfig::getIsIntermediateStream)
           .map(id -> new StreamSpec(id, streamConfig.getPhysicalName(id), streamConfig.getSystem(id)))
           .collect(Collectors.toSet());
@@ -124,8 +123,7 @@ public class StreamManager {
 
       //Find checkpoint stream and clean up
       TaskConfig taskConfig = new TaskConfig(prevConfig);
-      taskConfig.getCheckpointManager(new MetricsRegistryMap(), classLoader)
-          .ifPresent(CheckpointManager::clearCheckpoints);
+      taskConfig.getCheckpointManager(new MetricsRegistryMap()).ifPresent(CheckpointManager::clearCheckpoints);
 
       //Find changelog streams and remove them
       StorageConfig storageConfig = new StorageConfig(prevConfig);

@@ -25,14 +25,14 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.Base64
+import java.util.{Base64, Optional}
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
+import java.util.stream.Collectors
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config._
+import org.apache.samza.config.{StreamConfig, _}
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
@@ -130,7 +130,6 @@ object SamzaContainer extends Logging {
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
     externalContextOption: Option[ExternalContext],
-    classLoader: ClassLoader,
     localityManager: LocalityManager = null,
     startpointManager: StartpointManager = null,
     diagnosticsManager: Option[DiagnosticsManager] = Option.empty) = {
@@ -196,14 +195,15 @@ object SamzaContainer extends Logging {
 
     info("Got system names: %s" format systemNames)
 
-    val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ config.getSerdeStreams(_))
+    val streamConfig = new StreamConfig(config)
+    val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ streamConfig.getSerdeStreams(_).asScala)
 
     info("Got serde streams: %s" format serdeStreams)
 
     val systemFactories = systemNames.map(systemName => {
       val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      (systemName, ReflectionUtil.getObj(classLoader, systemFactoryClassName, classOf[SystemFactory]))
+      (systemName, ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory]))
     }).toMap
     info("Got system factories: %s" format systemFactories.keys)
 
@@ -251,7 +251,7 @@ object SamzaContainer extends Logging {
     val serdesFromFactories = serializerConfig.getSerdeNames.asScala.map(serdeName => {
       val serdeClassName = JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption
         .getOrElse(SerializerConfig.getPredefinedSerdeFactoryName(serdeName))
-      val serde = ReflectionUtil.getObj(classLoader, serdeClassName, classOf[SerdeFactory[Object]])
+      val serde = ReflectionUtil.getObj(serdeClassName, classOf[SerdeFactory[Object]])
         .getSerde(serdeName, config)
       (serdeName, serde)
     }).toMap
@@ -302,9 +302,9 @@ object SamzaContainer extends Logging {
      * A Helper function to build a Map[SystemStream, Serde] for streams defined in the config.
      * This is useful to build both key and message serde maps.
      */
-    val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Option[String]) => {
+    val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Optional[String]) => {
       (serdeStreams ++ inputSystemStreamPartitions)
-        .filter(systemStream => getSerdeName(systemStream).isDefined)
+        .filter(systemStream => getSerdeName(systemStream).isPresent)
         .flatMap(systemStream => {
           val serdeName = getSerdeName(systemStream).get
           val serde = serdes.getOrElse(serdeName,
@@ -327,11 +327,11 @@ object SamzaContainer extends Logging {
 
     debug("Got system message serdes: %s" format systemMessageSerdes)
 
-    val systemStreamKeySerdes = buildSystemStreamSerdeMap(systemStream => config.getStreamKeySerde(systemStream))
+    val systemStreamKeySerdes = buildSystemStreamSerdeMap(systemStream => streamConfig.getStreamKeySerde(systemStream))
 
     debug("Got system stream key serdes: %s" format systemStreamKeySerdes)
 
-    val systemStreamMessageSerdes = buildSystemStreamSerdeMap(systemStream => config.getStreamMsgSerde(systemStream))
+    val systemStreamMessageSerdes = buildSystemStreamSerdeMap(systemStream => streamConfig.getStreamMsgSerde(systemStream))
 
     debug("Got system stream message serdes: %s" format systemStreamMessageSerdes)
 
@@ -360,16 +360,17 @@ object SamzaContainer extends Logging {
       SystemClock.instance,
       getChangelogSSPsForContainer(containerModel, changeLogSystemStreams).asJava)
 
-    val intermediateStreams = config
-      .getStreamIds
-      .filter(config.getIsIntermediateStream(_))
+    val intermediateStreams = streamConfig
+      .getStreamIds()
+      .asScala
+      .filter((streamId:String) => streamConfig.getIsIntermediateStream(streamId))
       .toList
 
     info("Got intermediate streams: %s" format intermediateStreams)
 
     val controlMessageKeySerdes = intermediateStreams
       .flatMap(streamId => {
-        val systemStream = config.streamIdToSystemStream(streamId)
+        val systemStream = streamConfig.streamIdToSystemStream(streamId)
         systemStreamKeySerdes.get(systemStream)
                 .orElse(systemKeySerdes.get(systemStream.getSystem))
                 .map(serde => (systemStream, new StringSerde("UTF-8")))
@@ -377,7 +378,7 @@ object SamzaContainer extends Logging {
 
     val intermediateStreamMessageSerdes = intermediateStreams
       .flatMap(streamId => {
-        val systemStream = config.streamIdToSystemStream(streamId)
+        val systemStream = streamConfig.streamIdToSystemStream(streamId)
         systemStreamMessageSerdes.get(systemStream)
                 .orElse(systemMessageSerdes.get(systemStream.getSystem))
                 .map(serde => (systemStream, new IntermediateMessageSerde(serde)))
@@ -402,26 +403,26 @@ object SamzaContainer extends Logging {
     val taskConfig = new TaskConfig(config)
     val chooserFactoryClassName = taskConfig.getMessageChooserClass
 
-    val chooserFactory = ReflectionUtil.getObj(classLoader, chooserFactoryClassName, classOf[MessageChooserFactory])
+    val chooserFactory = ReflectionUtil.getObj(chooserFactoryClassName, classOf[MessageChooserFactory])
 
     val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
 
     info("Setting up metrics reporters.")
 
     val reporters =
-      MetricsReporterLoader.getMetricsReporters(metricsConfig, containerName, classLoader).asScala.toMap ++ customReporters
+      MetricsReporterLoader.getMetricsReporters(metricsConfig, containerName).asScala.toMap ++ customReporters
 
     info("Got metrics reporters: %s" format reporters.keys)
 
     val securityManager = JavaOptionals.toRichOptional(jobConfig.getSecurityManagerFactory).toOption match {
       case Some(securityManagerFactoryClassName) =>
-        ReflectionUtil.getObj(classLoader, securityManagerFactoryClassName, classOf[SecurityManagerFactory])
+        ReflectionUtil.getObj(securityManagerFactoryClassName, classOf[SecurityManagerFactory])
           .getSecurityManager(config)
       case _ => null
     }
     info("Got security manager: %s" format securityManager)
 
-    val checkpointManager = taskConfig.getCheckpointManager(samzaContainerMetrics.registry, classLoader).orElse(null)
+    val checkpointManager = taskConfig.getCheckpointManager(samzaContainerMetrics.registry).orElse(null)
     info("Got checkpoint manager: %s" format checkpointManager)
 
     // create a map of consumers with callbacks to pass to the OffsetManager
@@ -460,7 +461,7 @@ object SamzaContainer extends Logging {
           JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
           .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
         (storeName,
-          ReflectionUtil.getObj(classLoader, storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]]))
+          ReflectionUtil.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]]))
       }).toMap
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
@@ -526,8 +527,7 @@ object SamzaContainer extends Logging {
       nonLoggedStorageBaseDir,
       maxChangeLogStreamPartitions,
       serdeManager,
-      new SystemClock,
-      classLoader)
+      new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
@@ -560,7 +560,7 @@ object SamzaContainer extends Logging {
         loggedStoreBaseDir = loggedStorageBaseDir,
         partition = taskModel.getChangelogPartition)
 
-      val tableManager = new TableManager(config, classLoader)
+      val tableManager = new TableManager(config)
 
       info("Got table manager")
 
@@ -618,8 +618,7 @@ object SamzaContainer extends Logging {
 
     val diskQuotaPolicyFactoryString = config.get("container.disk.quota.policy.factory",
       classOf[NoThrottlingDiskQuotaPolicyFactory].getName)
-    val diskQuotaPolicyFactory =
-      ReflectionUtil.getObj(classLoader, diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory])
+    val diskQuotaPolicyFactory = ReflectionUtil.getObj(diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory])
     val diskQuotaPolicy = diskQuotaPolicyFactory.create(config)
 
     var diskSpaceMonitor: DiskSpaceMonitor = null

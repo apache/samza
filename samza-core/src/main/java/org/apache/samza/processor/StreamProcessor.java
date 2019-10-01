@@ -398,14 +398,14 @@ public class StreamProcessor {
         this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
-        Option.apply(this.externalContextOptional.orElse(null)), getClass().getClassLoader(), null, startpointManager,
+        Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager,
         diagnosticsManager);
   }
 
   private static JobCoordinator createJobCoordinator(Config config, String processorId, MetricsRegistry metricsRegistry, MetadataStore metadataStore) {
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
     JobCoordinatorFactory jobCoordinatorFactory =
-        ReflectionUtil.getObj(StreamProcessor.class.getClassLoader(), jobCoordinatorFactoryClassName, JobCoordinatorFactory.class);
+        ReflectionUtil.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class);
     return jobCoordinatorFactory.getJobCoordinator(processorId, config, metricsRegistry, metadataStore);
   }
 

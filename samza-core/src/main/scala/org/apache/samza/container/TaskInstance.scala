@@ -22,10 +22,10 @@ package org.apache.samza.container
 
 import java.util.{Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
+
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.OffsetManager
-import org.apache.samza.config.Config
-import org.apache.samza.config.StreamConfig.Config2Stream
+import org.apache.samza.config.{Config, StreamConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
@@ -99,9 +99,10 @@ class TaskInstance(
 
   private val config: Config = jobContext.getConfig
 
-  val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
+  val streamConfig: StreamConfig = new StreamConfig(config)
+  val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
 
-  val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).map(config.getPhysicalName).toSet
+  val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
 
   def registerOffsets {
     debug("Registering offsets for taskName: %s" format taskName)

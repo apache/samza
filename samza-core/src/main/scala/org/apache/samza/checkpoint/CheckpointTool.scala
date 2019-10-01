@@ -148,7 +148,6 @@ object CheckpointTool {
 class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore: CoordinatorStreamStore, userDefinedConfig: Config) extends Logging {
 
   def run() {
-    val classLoader = getClass.getClassLoader
     val configFromCoordinatorStream: Config = getConfigFromCoordinatorStream(coordinatorStreamStore)
 
     println("Configuration read from the coordinator stream")
@@ -162,14 +161,14 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
     val taskConfig = new TaskConfig(combinedConfig)
     // Instantiate the checkpoint manager with coordinator stream configuration.
     val checkpointManager: CheckpointManager =
-      JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(new MetricsRegistryMap, classLoader))
+      JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(new MetricsRegistryMap))
         .toOption
         .getOrElse(throw new SamzaException("Configuration: task.checkpoint.factory is not defined."))
     try {
       // Find all the TaskNames that would be generated for this job config
       val changelogManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
       val jobModelManager = JobModelManager(combinedConfig, changelogManager.readPartitionMapping(),
-        coordinatorStreamStore, classLoader, new MetricsRegistryMap())
+        coordinatorStreamStore, new MetricsRegistryMap())
       val taskNames = jobModelManager
         .jobModel
         .getContainers
