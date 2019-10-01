@@ -40,7 +40,7 @@ public class TestClusterBasedProcessorLifecycleListener {
     mockShutdownHookCallback = mock(Runnable.class);
     processorLifecycleListener = mock(ProcessorLifecycleListener.class);
     clusterBasedProcessorLifecycleListener =
-        spy(new ClusterBasedProcessorLifecycleListener(new MapConfig(ImmutableMap.of(TaskConfig.TASK_SHUTDOWN_MS, "1")),
+        spy(new ClusterBasedProcessorLifecycleListener(new MapConfig(ImmutableMap.of(TaskConfig.TASK_SHUTDOWN_MS, "30000")),
             processorLifecycleListener, mockShutdownHookCallback));
     doNothing().when(clusterBasedProcessorLifecycleListener).addJVMShutdownHook(any(Thread.class));
     doNothing().when(clusterBasedProcessorLifecycleListener).removeJVMShutdownHook(any(Thread.class));
@@ -77,12 +77,18 @@ public class TestClusterBasedProcessorLifecycleListener {
 
   @Test
   public void testShutdownHookInvokesShutdownHookCallback() {
-    doNothing().when(mockShutdownHookCallback).run();
+    doAnswer(invocation -> {
+        // Simulate call to container.shutdown()
+        clusterBasedProcessorLifecycleListener.afterStop();
+        return null;
+      }).when(mockShutdownHookCallback).run();
 
-    // setup shutdown hook
+    // call beforeStart to setup shutdownHook
     clusterBasedProcessorLifecycleListener.beforeStart();
 
-    // Simulating shutdown hook invocation by JVM
+    // Simulating shutdown hook invocation by JVM.
+    // The shutdownHookThread should return immediately and shutdown
+    // cleanly if mockShutdownHookCallback.run() is invoked.
     clusterBasedProcessorLifecycleListener.getShutdownHookThread().run();
     Mockito.verify(mockShutdownHookCallback).run();
   }
