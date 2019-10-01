@@ -51,6 +51,7 @@ import org.slf4j.LoggerFactory;
  */
 public class IsolatingClassLoaderFactory {
   private static final Logger LOG = LoggerFactory.getLogger(IsolatingClassLoaderFactory.class);
+  private static final String SAMZA_FRAMEWORK_API_CLASS_LIST_FILE_NAME = "samza-framework-api-class-list.txt";
 
   public ClassLoader buildClassLoader() {
     String baseDirectoryPath = System.getProperty("user.dir");
@@ -129,7 +130,7 @@ public class IsolatingClassLoaderFactory {
 
   @VisibleForTesting
   static List<String> getApiClasses(File directoryWithClassList) {
-    File parentPreferredFile = new File(directoryWithClassList, "application-master-samza-api-class-list.txt");
+    File parentPreferredFile = new File(directoryWithClassList, SAMZA_FRAMEWORK_API_CLASS_LIST_FILE_NAME);
     validateCanAccess(parentPreferredFile);
     try {
       return Files.readAllLines(Paths.get(parentPreferredFile.toURI()), StandardCharsets.UTF_8);

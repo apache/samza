@@ -25,7 +25,9 @@ public class TestIsolatingClassLoaderFactory {
         "org.apache.samza.JavaClass",
         "org.apache.samza.JavaClass$InnerJavaClass",
         "org.apache.samza.ScalaClass$",
-        "org.apache.samza.ScalaClass$$anon$1");
+        "org.apache.samza.ScalaClass$$anon$1",
+        "my.package.with.wildcard.*",
+        "my.package.with.question.mark?");
     assertEquals(expected, apiClassNames);
   }
 
