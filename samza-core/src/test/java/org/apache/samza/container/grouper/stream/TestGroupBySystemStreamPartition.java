@@ -287,7 +287,6 @@ public class TestGroupBySystemStreamPartition {
   }
 
   private static SSPGrouperProxy buildSspGrouperProxy() {
-    return new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()),
-        TestGroupBySystemStreamPartition.class.getClassLoader());
+    return new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
   }
 }

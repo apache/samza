@@ -71,7 +71,8 @@ public class TestDiagnosticsManager {
     Mockito.when(mockExecutorService.scheduleWithFixedDelay(Mockito.any(), Mockito.anyLong(), Mockito.anyLong(),
         Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
             ((Runnable) invocation.getArguments()[0]).run();
-            return Mockito.mock(ScheduledFuture.class);
+            return Mockito.
+                mock(ScheduledFuture.class);
           });
 
     this.diagnosticsManager =

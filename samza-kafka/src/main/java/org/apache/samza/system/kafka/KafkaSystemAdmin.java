@@ -23,18 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -78,11 +66,23 @@ import org.slf4j.LoggerFactory;
 import scala.Function0;
 import scala.Function1;
 import scala.Function2;
-import scala.collection.JavaConverters;
 import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 public class KafkaSystemAdmin implements SystemAdmin {
@@ -140,12 +140,13 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("New admin client with props:" + props);
     adminClient = AdminClient.create(props);
 
+    StreamConfig streamConfig = new StreamConfig(config);
+
     KafkaConfig kafkaConfig = new KafkaConfig(config);
     coordinatorStreamReplicationFactor = Integer.valueOf(kafkaConfig.getCoordinatorReplicationFactor());
     coordinatorStreamProperties = getCoordinatorStreamProperties(kafkaConfig);
 
-    Map<String, String> storeToChangelog =
-        JavaConverters.mapAsJavaMapConverter(kafkaConfig.getKafkaChangelogEnabledStores()).asJava();
+    Map<String, String> storeToChangelog = kafkaConfig.getKafkaChangelogEnabledStores();
     // Construct the meta information for each topic, if the replication factor is not defined,
     // we use 2 (DEFAULT_REPL_FACTOR) as the number of replicas for the change log stream.
     changelogTopicMetaInformation = new HashMap<>();
@@ -546,6 +547,14 @@ public class KafkaSystemAdmin implements SystemAdmin {
       kafkaSpec = kafkaSpec.copyWithProperties(properties);
     } else {
       kafkaSpec = KafkaStreamSpec.fromSpec(spec);
+
+      // we check if there is a system-level rf config specified, else we use KafkaConfig.topic-default-rf
+      int replicationFactorFromSystemConfig = Integer.valueOf(
+          new KafkaConfig(config).getSystemDefaultReplicationFactor(spec.getSystemName(),
+              KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
+      LOG.info("Using replication-factor: {} for StreamSpec: {}", replicationFactorFromSystemConfig, spec);
+      return new KafkaStreamSpec(kafkaSpec.getId(), kafkaSpec.getPhysicalName(), kafkaSpec.getSystemName(),
+          kafkaSpec.getPartitionCount(), replicationFactorFromSystemConfig, kafkaSpec.getProperties());
     }
     return kafkaSpec;
   }
@@ -680,8 +689,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
     if (appConfig.getAppMode() == ApplicationConfig.ApplicationMode.BATCH) {
       StreamConfig streamConfig = new StreamConfig(config);
-      intermedidateStreamProperties = JavaConverters.asJavaCollectionConverter(streamConfig.getStreamIds())
-          .asJavaCollection()
+      intermedidateStreamProperties = streamConfig.getStreamIds()
           .stream()
           .filter(streamConfig::getIsIntermediateStream)
           .collect(Collectors.toMap(Function.identity(), streamId -> {

@@ -63,7 +63,7 @@ public class SamzaSqlValidator {
   /**
    * Validate a list of sql statements
    * @param sqlStmts list of sql statements
-   * @throws SamzaSqlValidatorException
+   * @throws SamzaSqlValidatorException exception for sql validation
    */
   public void validate(List<String> sqlStmts) throws SamzaSqlValidatorException {
     SamzaSqlApplicationConfig sqlConfig = SamzaSqlDslConverter.getSqlConfig(sqlStmts, config);

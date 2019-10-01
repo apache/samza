@@ -220,8 +220,7 @@ public class TestContainerStorageManager {
         DEFAULT_STORE_BASE_DIR,
         2,
         null,
-        new SystemClock(),
-        getClass().getClassLoader());
+        new SystemClock());
   }
 
   @Test

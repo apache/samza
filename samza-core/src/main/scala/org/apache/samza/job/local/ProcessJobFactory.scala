@@ -55,9 +55,8 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
 
-    val classLoader = getClass.getClassLoader
     val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
-      coordinatorStreamStore, classLoader, metricsRegistry)
+      coordinatorStreamStore, metricsRegistry)
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
@@ -70,7 +69,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader, config)
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, config)
     metadataResourceUtil.createResources()
 
     // fan out the startpoints
@@ -90,7 +89,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val taskConfig = new TaskConfig(config)
     val commandBuilderClass = taskConfig.getCommandClass(classOf[ShellCommandBuilder].getName)
     info("Using command builder class %s" format commandBuilderClass)
-    val commandBuilder = ReflectionUtil.getObj(classLoader, commandBuilderClass, classOf[CommandBuilder])
+    val commandBuilder = ReflectionUtil.getObj(commandBuilderClass, classOf[CommandBuilder])
 
     // JobCoordinator is stopped by ProcessJob when it exits
     coordinator.start

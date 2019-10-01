@@ -380,7 +380,7 @@ public class OperatorImplGraph {
    * @return mapping from output streams to input streams
    */
   static Multimap<SystemStream, SystemStream> getIntermediateToInputStreamsMap(
-      OperatorSpecGraph specGraph, StreamConfig streamConfig) {
+    OperatorSpecGraph specGraph, StreamConfig streamConfig) {
     Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
     specGraph.getInputOperators().entrySet().stream()
         .forEach(entry -> {
@@ -391,7 +391,7 @@ public class OperatorImplGraph {
   }
 
   private static void computeOutputToInput(SystemStream input, OperatorSpec opSpec,
-      Multimap<SystemStream, SystemStream> outputToInputStreams, StreamConfig streamConfig) {
+                                           Multimap<SystemStream, SystemStream> outputToInputStreams, StreamConfig streamConfig) {
     if (opSpec instanceof PartitionByOperatorSpec) {
       PartitionByOperatorSpec spec = (PartitionByOperatorSpec) opSpec;
       SystemStream systemStream = streamConfig.streamIdToSystemStream(spec.getOutputStream().getStreamId());

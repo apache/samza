@@ -18,14 +18,15 @@
  */
 package org.apache.samza.util;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStream;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class StreamUtil {
   /**

@@ -38,22 +38,14 @@ public class ReflectionUtil {
   /**
    * Create an instance of the specified class with the empty constructor.
    *
-   * Possible recommendations for the classloader to use:
-   * 1) If there is a custom classloader being passed to the caller, consider using that one.
-   * 2) If within instance scope, getClass().getClassLoader() can be used in order to use the same classloader as what
-   * loaded the caller instance.
-   * 3) If within a static scope, the Class object of the caller (e.g. MyClass.class) can be used.
-   *
    * @param <T> type of the object to return
-   * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
-   * {@link Class#forName(String, boolean, ClassLoader)}
    * @param className name of the class
    * @param clazz type of object to return
    * @return instance of the class
    * @throws SamzaException if an exception was thrown while trying to create the class
    */
-  public static <T> T getObj(ClassLoader classLoader, String className, Class<T> clazz) {
-    return doGetObjWithArgs(classLoader, className, clazz);
+  public static <T> T getObj(String className, Class<T> clazz) {
+    return doGetObjWithArgs(className, clazz);
   }
 
   /**
@@ -61,29 +53,20 @@ public class ReflectionUtil {
    * using {@link ConstructorArgument} match the compile-time types of the arguments of the constructor that should be
    * used.
    *
-   * Possible recommendations for the classloader to use:
-   * 1) If there is a custom classloader being passed to the caller, consider using that one.
-   * 2) If within instance scope, getClass().getClassLoader() can be used in order to use the same classloader as what
-   * loaded the caller instance.
-   * 3) If within a static scope, the Class object of the caller (e.g. MyClass.class) can be used.
-   *
    * @param <T> type of the object to return
-   * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
-   * {@link Class#forName(String, boolean, ClassLoader)}
    * @param className name of the class
    * @param clazz type of object to return
    * @param args arguments with types for finding and calling desired constructor to create an instance of className
    * @return instance of the class
    * @throws SamzaException if an exception was thrown while trying to create the class
    */
-  public static <T> T getObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz,
-      ConstructorArgument<?>... args) {
-    return doGetObjWithArgs(classLoader, className, clazz, args);
+  public static <T> T getObjWithArgs(String className, Class<T> clazz, ConstructorArgument<?>... args) {
+    return doGetObjWithArgs(className, clazz, args);
   }
 
   /**
    * Use this to create arguments for when calling
-   * {@link #doGetObjWithArgs(ClassLoader, String, Class, ConstructorArgument[])}
+   * {@link #doGetObjWithArgs(String, Class, ConstructorArgument[])}
    */
   public static <T> ConstructorArgument<T> constructorArgument(T value, Class<T> clazz) {
     return new ConstructorArgument<>(value, clazz);
@@ -95,21 +78,18 @@ public class ReflectionUtil {
    * compile-time types of the arguments of the constructor that should be used.
    *
    * @param <T> type of the object to return
-   * @param classLoader used to load the class; if null, will use the bootstrap classloader (see
-   * {@link Class#forName(String, boolean, ClassLoader)}
    * @param className name of the class
    * @param clazz type of object to return
    * @param args arguments with types for finding and calling desired constructor to create an instance of className
    * @return instance of the class
    * @throws SamzaException if an exception was thrown while trying to create the class
    */
-  private static <T> T doGetObjWithArgs(ClassLoader classLoader, String className, Class<T> clazz,
-      ConstructorArgument<?>... args) {
+  private static <T> T doGetObjWithArgs(String className, Class<T> clazz, ConstructorArgument<?>... args) {
     Validate.notNull(className, "Null class name");
 
     try {
       //noinspection unchecked
-      Class<T> classObj = (Class<T>) Class.forName(className, true, classLoader);
+      Class<T> classObj = (Class<T>) Class.forName(className);
       if (args.length == 0) {
         return classObj.newInstance();
       } else {

@@ -51,12 +51,12 @@ public class SSPGrouperProxy {
   private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
   private final SystemStreamPartitionGrouper grouper;
 
-  public SSPGrouperProxy(Config config, SystemStreamPartitionGrouper grouper, ClassLoader classLoader) {
+  public SSPGrouperProxy(Config config, SystemStreamPartitionGrouper grouper) {
     Preconditions.checkNotNull(config);
     Preconditions.checkNotNull(grouper);
     this.grouper = grouper;
     this.broadcastSystemStreamPartitions = new TaskConfig(config).getBroadcastSystemStreamPartitions();
-    this.systemStreamPartitionMapper = getSystemStreamPartitionMapper(config, classLoader);
+    this.systemStreamPartitionMapper = getSystemStreamPartitionMapper(config);
   }
 
   /**
@@ -171,11 +171,11 @@ public class SSPGrouperProxy {
    * @param config the configuration of the samza job.
    * @return the instantiated {@link SystemStreamPartitionMapper} object.
    */
-  private SystemStreamPartitionMapper getSystemStreamPartitionMapper(Config config, ClassLoader classLoader) {
+  private SystemStreamPartitionMapper getSystemStreamPartitionMapper(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     String systemStreamPartitionMapperClass = jobConfig.getSystemStreamPartitionMapperFactoryName();
     SystemStreamPartitionMapperFactory systemStreamPartitionMapperFactory =
-        ReflectionUtil.getObj(classLoader, systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class);
+        ReflectionUtil.getObj(systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class);
     return systemStreamPartitionMapperFactory.getStreamPartitionMapper(config, new MetricsRegistryMap());
   }
 

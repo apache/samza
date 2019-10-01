@@ -18,14 +18,15 @@
  */
 package org.apache.samza.util;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.system.StreamSpec;
 import org.junit.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -49,8 +50,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamWithPhysicalNameInConfig() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
 
@@ -62,7 +63,7 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamWithoutPhysicalNameInConfig() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
 
@@ -73,8 +74,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamWithSystemAtStreamScopeInConfig() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
 
@@ -85,7 +86,7 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamWithSystemAtDefaultScopeInConfig() {
     Config config = addConfigs(buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME),
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME),
         JobConfig.JOB_DEFAULT_SYSTEM, TEST_DEFAULT_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
@@ -97,8 +98,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamWithSystemAtBothScopesInConfig() {
     Config config = addConfigs(buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM),
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, TEST_SYSTEM),
         JobConfig.JOB_DEFAULT_SYSTEM, TEST_DEFAULT_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
@@ -110,7 +111,7 @@ public class TestStreamUtil {
   @Test(expected = IllegalArgumentException.class)
   public void testGetStreamWithOutSystemInConfig() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME);
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
 
@@ -121,8 +122,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamPropertiesPassthrough() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM,
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, TEST_SYSTEM,
         "systemProperty1", "systemValue1",
         "systemProperty2", "systemValue2",
         "systemProperty3", "systemValue3");
@@ -143,8 +144,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamSamzaPropertiesOmitted() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM,
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, TEST_SYSTEM,
         "systemProperty1", "systemValue1",
         "systemProperty2", "systemValue2",
         "systemProperty3", "systemValue3");
@@ -153,18 +154,18 @@ public class TestStreamUtil {
 
     Map<String, String> properties = spec.getConfig();
     assertEquals(3, properties.size());
-    assertNull(properties.get(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), STREAM_ID)));
-    assertNull(properties.get(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), STREAM_ID)));
-    assertNull(spec.get(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), STREAM_ID)));
-    assertNull(spec.get(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID(), STREAM_ID)));
+    assertNull(properties.get(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID, STREAM_ID)));
+    assertNull(properties.get(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID, STREAM_ID)));
+    assertNull(spec.get(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID, STREAM_ID)));
+    assertNull(spec.get(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID, STREAM_ID)));
   }
 
   @Test
   public void testStreamConfigOverrides() {
     final String sysStreamPrefix = String.format("systems.%s.streams.%s.", TEST_SYSTEM, TEST_PHYSICAL_NAME);
     Config config = addConfigs(buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM,
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, TEST_SYSTEM,
         "systemProperty1", "systemValue1",
         "systemProperty2", "systemValue2",
         "systemProperty3", "systemValue3"),
@@ -183,8 +184,8 @@ public class TestStreamUtil {
   @Test
   public void testStreamConfigOverridesWithSystemDefaults() {
     Config config = addConfigs(buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM,
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, TEST_SYSTEM,
         "segment.bytes", "5309"),
         String.format("systems.%s.default.stream.replication.factor", TEST_SYSTEM), "4", // System default property
         String.format("systems.%s.default.stream.segment.bytest", TEST_SYSTEM), "867"
@@ -202,8 +203,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamPhysicalNameArgSimple() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME2, // This should be ignored because of the explicit arg
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME2, // This should be ignored because of the explicit arg
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
 
@@ -216,8 +217,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamPhysicalNameArgSpecialCharacters() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME_SPECIAL_CHARS,
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME_SPECIAL_CHARS,
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
     assertEquals(TEST_PHYSICAL_NAME_SPECIAL_CHARS, spec.getPhysicalName());
@@ -227,8 +228,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamPhysicalNameArgNull() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), null,
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.PHYSICAL_NAME, null,
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
     assertNull(spec.getPhysicalName());
@@ -238,8 +239,8 @@ public class TestStreamUtil {
   @Test
   public void testGetStreamSystemNameArgValid() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME, // This should be ignored because of the explicit arg
-        StreamConfig.SYSTEM(), TEST_SYSTEM);              // This too
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME, // This should be ignored because of the explicit arg
+        StreamConfig.SYSTEM, TEST_SYSTEM);              // This too
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
 
@@ -252,8 +253,8 @@ public class TestStreamUtil {
   @Test(expected = IllegalArgumentException.class)
   public void testGetStreamSystemNameArgInvalid() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), TEST_SYSTEM_INVALID);
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, TEST_SYSTEM_INVALID);
 
     StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
   }
@@ -262,8 +263,8 @@ public class TestStreamUtil {
   @Test(expected = IllegalArgumentException.class)
   public void testGetStreamSystemNameArgEmpty() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), "");
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, "");
 
     StreamSpec spec = StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
   }
@@ -272,8 +273,8 @@ public class TestStreamUtil {
   @Test(expected = IllegalArgumentException.class)
   public void testGetStreamSystemNameArgNull() {
     Config config = buildStreamConfig(STREAM_ID,
-        StreamConfig.PHYSICAL_NAME(), TEST_PHYSICAL_NAME,
-        StreamConfig.SYSTEM(), null);
+        StreamConfig.PHYSICAL_NAME, TEST_PHYSICAL_NAME,
+        StreamConfig.SYSTEM, null);
 
     StreamUtil.getStreamSpec(STREAM_ID, new StreamConfig(config));
   }
@@ -282,7 +283,7 @@ public class TestStreamUtil {
   @Test(expected = IllegalArgumentException.class)
   public void testGetStreamStreamIdInvalid() {
     Config config = buildStreamConfig(STREAM_ID_INVALID,
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamUtil.getStreamSpec(STREAM_ID_INVALID, new StreamConfig(config));
   }
@@ -291,7 +292,7 @@ public class TestStreamUtil {
   @Test(expected = IllegalArgumentException.class)
   public void testGetStreamStreamIdEmpty() {
     Config config = buildStreamConfig("",
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamUtil.getStreamSpec("", new StreamConfig(config));
   }
@@ -300,7 +301,7 @@ public class TestStreamUtil {
   @Test(expected = IllegalArgumentException.class)
   public void testGetStreamStreamIdNull() {
     Config config = buildStreamConfig(null,
-        StreamConfig.SYSTEM(), TEST_SYSTEM);
+        StreamConfig.SYSTEM, TEST_SYSTEM);
 
     StreamUtil.getStreamSpec(null, new StreamConfig(config));
   }
@@ -311,7 +312,7 @@ public class TestStreamUtil {
   private Config buildStreamConfig(String streamId, String... kvs) {
     // inject streams.x. into each key
     for (int i = 0; i < kvs.length - 1; i += 2) {
-      kvs[i] = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId) + kvs[i];
+      kvs[i] = String.format(StreamConfig.STREAM_ID_PREFIX, streamId) + kvs[i];
     }
     return buildConfig(kvs);
   }

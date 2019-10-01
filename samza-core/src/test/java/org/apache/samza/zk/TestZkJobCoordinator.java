@@ -271,8 +271,7 @@ public class TestZkJobCoordinator {
     doReturn(mockStartpointManager).when(zkJobCoordinator).createStartpointManager();
 
     MetadataResourceUtil mockMetadataResourceUtil = mock(MetadataResourceUtil.class);
-    doReturn(mockMetadataResourceUtil).when(zkJobCoordinator)
-        .createMetadataResourceUtil(any(), eq(getClass().getClassLoader()), any(Config.class));
+    doReturn(mockMetadataResourceUtil).when(zkJobCoordinator).createMetadataResourceUtil(any(), any(Config.class));
 
     verifyZeroInteractions(mockStartpointManager);
 
