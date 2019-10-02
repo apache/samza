@@ -297,7 +297,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
   public void testExpiredRequestAllocationOnAnyHost() throws Exception {
     MockClusterResourceManager spyManager = spy(new MockClusterResourceManager(callback, state));
     spyAllocator = Mockito.spy(
-        new ContainerAllocator(spyManager, config, state, getClass().getClassLoader(), false, Optional.empty()));
+        new ContainerAllocator(spyManager, config, state, false, Optional.empty()));
 
     // Request Resources
     spyAllocator.requestResources(new HashMap<String, String>() {
