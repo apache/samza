@@ -747,7 +747,7 @@ class SamzaContainer(
       startAdmins
       startOffsetManager
       storeContainerLocality
-      // TODO HIGH pmaheshw: since store restore needs to trim changelog messages,
+      // TODO HIGH pmaheshw SAMZA-2338: since store restore needs to trim changelog messages,
       // need to start changelog producers before the stores, but stop them after stores.
       startProducers
       startStores
