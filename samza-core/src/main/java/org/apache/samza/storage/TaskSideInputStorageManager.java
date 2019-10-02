@@ -72,6 +72,7 @@ public class TaskSideInputStorageManager {
   private final TaskName taskName;
   private final TaskMode taskMode;
   private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
+  private final StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
@@ -244,7 +245,7 @@ public class TaskSideInputStorageManager {
         String storePath = storeLocation.toPath().toString();
         if (!isValidSideInputStore(storeName, storeLocation)) {
           LOG.info("Cleaning up the store directory at {} for {}", storePath, storeName);
-          FileUtil.rm(storeLocation);
+          new FileUtil().rm(storeLocation);
         }
 
         if (isPersistedStore(storeName) && !storeLocation.exists()) {
@@ -269,7 +270,8 @@ public class TaskSideInputStorageManager {
               .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
             try {
-              StorageManagerUtil.writeOffsetFile(storeBaseDir, storeName, taskName, taskMode, offsets, true);
+              File taskStoreDir = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode);
+              storageManagerUtil.writeOffsetFile(taskStoreDir, offsets, true);
             } catch (Exception e) {
               throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
             }
@@ -294,7 +296,8 @@ public class TaskSideInputStorageManager {
         if (isValidSideInputStore(storeName, storeLocation)) {
           try {
 
-            Map<SystemStreamPartition, String> offsets = StorageManagerUtil.readOffsetFile(storeLocation, storeToSSps.get(storeName), true);
+            Map<SystemStreamPartition, String> offsets =
+                storageManagerUtil.readOffsetFile(storeLocation, storeToSSps.get(storeName), true);
             fileOffsets.putAll(offsets);
           } catch (Exception e) {
             LOG.warn("Failed to load the offset file for side input store:" + storeName, e);
@@ -307,7 +310,7 @@ public class TaskSideInputStorageManager {
 
   @VisibleForTesting
   File getStoreLocation(String storeName) {
-    return StorageManagerUtil.getStorePartitionDir(storeBaseDir, storeName, taskName, taskMode);
+    return storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode);
   }
 
   /**
@@ -329,7 +332,7 @@ public class TaskSideInputStorageManager {
         String oldestOffset = oldestOffsets.get(ssp);
 
         startingOffsets.put(ssp,
-          StorageManagerUtil.getStartingOffset(
+          storageManagerUtil.getStartingOffset(
             ssp, systemAdmins.getSystemAdmin(ssp.getSystem()), fileOffset, oldestOffset));
       });
 
@@ -377,8 +380,8 @@ public class TaskSideInputStorageManager {
 
   private boolean isValidSideInputStore(String storeName, File storeLocation) {
     return isPersistedStore(storeName)
-        && !StorageManagerUtil.isStaleStore(storeLocation, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis(), true)
-        && StorageManagerUtil.isOffsetFileValid(storeLocation, storeToSSps.get(storeName), true);
+        && !storageManagerUtil.isStaleStore(storeLocation, STORE_DELETE_RETENTION_MS, clock.currentTimeMillis(), true)
+        && storageManagerUtil.isOffsetFileValid(storeLocation, storeToSSps.get(storeName), true);
   }
 
   private boolean isPersistedStore(String storeName) {
