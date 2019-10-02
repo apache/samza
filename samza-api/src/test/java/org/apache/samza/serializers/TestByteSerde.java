@@ -16,38 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.serializers;
 
-package org.apache.samza.serializers
+import org.junit.Test;
 
-import java.nio.BufferUnderflowException
-import java.util.UUID
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertNull;
 
-import org.junit.Assert._
-import org.junit.Test
 
-class TestUUIDSerde {
-  private val serde = new UUIDSerde
-
+public class TestByteSerde {
   @Test
-  def testUUIDSerde {
-    val uuid = new UUID(13, 42)
-    val bytes = serde.toBytes(uuid)
-    assertArrayEquals(Array[Byte](0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 42), bytes)
-    assertEquals(uuid, serde.fromBytes(bytes))
-  }
+  public void testByteSerde() {
+    ByteSerde serde = new ByteSerde();
+    assertNull(serde.toBytes(null));
+    assertNull(serde.fromBytes(null));
 
-  @Test
-  def testToBytesWhenNull {
-    assertEquals(null, serde.toBytes(null))
-  }
-
-  @Test
-  def testFromBytesWhenNull {
-    assertEquals(null, serde.fromBytes(null))
-  }
-
-  @Test(expected = classOf[BufferUnderflowException])
-  def testFromBytesWhenInvalid {
-    assertEquals(null, serde.fromBytes(Array[Byte](0)))
+    byte[] testBytes = "A lazy way of creating a byte array".getBytes();
+    assertArrayEquals(testBytes, serde.toBytes(testBytes));
+    assertArrayEquals(testBytes, serde.fromBytes(testBytes));
   }
 }
