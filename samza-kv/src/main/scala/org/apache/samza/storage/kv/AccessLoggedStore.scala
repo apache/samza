@@ -20,7 +20,10 @@
 package org.apache.samza.storage.kv
 
 
+import java.nio.file.Path
 import java.util
+import java.util.Optional
+
 import org.apache.samza.config.StorageConfig
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.Logging
@@ -158,5 +161,9 @@ class AccessLoggedStore[K, V](
     }
     val bytes = keySerde.toBytes(key)
     bytes
+  }
+
+  override def checkpoint(id: String): Optional[Path] = {
+    store.checkpoint(id)
   }
 }

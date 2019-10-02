@@ -26,6 +26,7 @@ import org.apache.samza.Partition
 import org.apache.samza.container.TaskName
 import org.apache.samza.storage.StoreProperties
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.task.MessageCollector
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
 import org.mockito.Mockito._
@@ -42,8 +43,11 @@ class TestKeyValueStorageEngine {
     val storeName = "test-storeName"
     val storeDir = mock(classOf[File])
     val properties = mock(classOf[StoreProperties])
+    val changelogSSP = mock(classOf[SystemStreamPartition])
+    val changelogCollector = mock(classOf[MessageCollector])
     metrics = new KeyValueStorageEngineMetrics
-    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
+    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv,
+      changelogSSP, changelogCollector, metrics, clock = () => { getNextTimestamp() })
   }
 
   @After

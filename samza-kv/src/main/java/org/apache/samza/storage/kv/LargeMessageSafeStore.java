@@ -18,8 +18,10 @@
  */
 package org.apache.samza.storage.kv;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -121,6 +123,11 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
   @Override
   public void flush() {
     store.flush();
+  }
+
+  @Override
+  public Optional<Path> checkpoint(String id) {
+    return store.checkpoint(id);
   }
 
   private void validateMessageSize(byte[] message) {

@@ -21,6 +21,8 @@ package org.apache.samza.storage;
 
 import java.util.Iterator;
 
+import java.nio.file.Path;
+import java.util.Optional;
 import org.apache.samza.system.IncomingMessageEnvelope;
 
 /**
@@ -50,6 +52,11 @@ public interface StorageEngine {
    * Flush any cached messages
    */
   void flush();
+
+  /**
+   * Checkpoint store snapshots.
+   */
+  Optional<Path> checkpoint(String id);
 
   /**
    * Close the storage engine
