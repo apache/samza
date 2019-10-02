@@ -64,6 +64,7 @@ import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeManager;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
+import org.apache.samza.system.ChangelogSSPIterator;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.StreamSpec;
@@ -76,7 +77,6 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.SystemStreamPartitionIterator;
 import org.apache.samza.system.chooser.DefaultChooser;
 import org.apache.samza.system.chooser.MessageChooser;
 import org.apache.samza.system.chooser.RoundRobinChooserFactory;
@@ -1153,11 +1153,13 @@ public class ContainerStorageManager {
       for (String storeName : taskStoresToRestore) {
         SystemConsumer systemConsumer = storeConsumers.get(storeName);
         SystemStream systemStream = changelogSystemStreams.get(storeName);
+        SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem());
 
-        SystemStreamPartitionIterator systemStreamPartitionIterator = new SystemStreamPartitionIterator(systemConsumer,
-            new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()));
+        // TODO HIGH pmaheshw: use actual changelog topic newest offset instead of trimEnabled flag
+        ChangelogSSPIterator changelogSSPIterator = new ChangelogSSPIterator(systemConsumer,
+            new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()), null, systemAdmin, false);
 
-        taskStores.get(storeName).restore(systemStreamPartitionIterator);
+        taskStores.get(storeName).restore(changelogSSPIterator);
       }
     }
 
