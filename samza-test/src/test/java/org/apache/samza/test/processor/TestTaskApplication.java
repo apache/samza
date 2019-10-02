@@ -47,7 +47,7 @@ public class TestTaskApplication implements TaskApplication {
   private final String outputTopic;
   private final CountDownLatch shutdownLatch;
   private final CountDownLatch processedMessageLatch;
-  private final Optional<TaskApplicationCallback> processCallback;
+  private final Optional<TaskApplicationProcessCallback> processCallback;
 
   /**
    * A test TaskApplication to use in test harnesses.
@@ -72,7 +72,7 @@ public class TestTaskApplication implements TaskApplication {
    * @param processCallback optional callback called per message processed.
    */
   public TestTaskApplication(String systemName, String inputTopic, String outputTopic,
-      CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch, Optional<TaskApplicationCallback> processCallback) {
+      CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch, Optional<TaskApplicationProcessCallback> processCallback) {
     this.systemName = systemName;
     this.inputTopic = inputTopic;
     this.outputTopic = outputTopic;
@@ -108,7 +108,7 @@ public class TestTaskApplication implements TaskApplication {
                  .withTaskFactory((AsyncStreamTaskFactory) () -> new TestTaskImpl());
   }
 
-  public interface TaskApplicationCallback {
+  public interface TaskApplicationProcessCallback {
     void onMessage(IncomingMessageEnvelope m, TaskCallback callback);
   }
 }

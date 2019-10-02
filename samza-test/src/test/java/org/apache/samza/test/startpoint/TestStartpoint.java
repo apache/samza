@@ -80,9 +80,9 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 
-public class StartpointTestHarness extends IntegrationTestHarness {
+public class TestStartpoint extends IntegrationTestHarness {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(StartpointTestHarness.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(TestStartpoint.class);
 
   private static final int NUM_KAFKA_EVENTS = 300;
   private static final int ZK_TEST_PARTITION_COUNT = 5;
@@ -108,8 +108,10 @@ public class StartpointTestHarness extends IntegrationTestHarness {
   private String testStreamAppName;
   private String testStreamAppId;
 
+  // Tests typically take 20-30 seconds each due to timers such as debounce time, embedded ZK and Kafka initialization, etc...
+  // Capping the timeout here with some buffer at 60 seconds to account for possible noisy neighbors while running the tests.
   @Rule
-  public Timeout testTimeOutInMillis = new Timeout(150000, TimeUnit.MILLISECONDS);
+  public Timeout testTimeOutInMillis = new Timeout(60000, TimeUnit.MILLISECONDS);
 
   @Rule
   public final ExpectedException expectedException = ExpectedException.none();
@@ -182,7 +184,7 @@ public class StartpointTestHarness extends IntegrationTestHarness {
     startpointManager.stop();
     coordinatorStreamStore.close();
 
-    TestTaskApplication.TaskApplicationCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
+    TestTaskApplication.TaskApplicationProcessCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
       try {
         String streamName = ime.getSystemStreamPartition().getStream();
         TestKafkaEvent testKafkaEvent = TestKafkaEvent.fromString((String) ime.getMessage());
@@ -243,7 +245,7 @@ public class StartpointTestHarness extends IntegrationTestHarness {
     startpointManager.stop();
     coordinatorStreamStore.close();
 
-    TestTaskApplication.TaskApplicationCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
+    TestTaskApplication.TaskApplicationProcessCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
       try {
         String streamName = ime.getSystemStreamPartition().getStream();
         TestKafkaEvent testKafkaEvent =
@@ -304,7 +306,7 @@ public class StartpointTestHarness extends IntegrationTestHarness {
     startpointManager.stop();
     coordinatorStreamStore.close();
 
-    TestTaskApplication.TaskApplicationCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
+    TestTaskApplication.TaskApplicationProcessCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
       try {
         String streamName = ime.getSystemStreamPartition().getStream();
         TestKafkaEvent testKafkaEvent =
@@ -359,7 +361,7 @@ public class StartpointTestHarness extends IntegrationTestHarness {
     startpointManager.stop();
     coordinatorStreamStore.close();
 
-    TestTaskApplication.TaskApplicationCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
+    TestTaskApplication.TaskApplicationProcessCallback processedCallback = (IncomingMessageEnvelope ime, TaskCallback callback) -> {
       try {
         String streamName = ime.getSystemStreamPartition().getStream();
         TestKafkaEvent testKafkaEvent =
