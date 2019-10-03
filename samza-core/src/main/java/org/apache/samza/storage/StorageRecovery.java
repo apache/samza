@@ -216,7 +216,7 @@ public class StorageRecovery extends CommandLine {
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
     Map<String, SystemFactory> systemFactories = new SystemConfig(jobConfig).getSystemFactories();
     CheckpointManager checkpointManager = new TaskConfig(jobConfig)
-        .getCheckpointManager(new MetricsRegistryMap(), getClass().getClassLoader()).orElse(null);
+        .getCheckpointManager(new MetricsRegistryMap()).orElse(null);
 
     for (ContainerModel containerModel : containers.values()) {
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
