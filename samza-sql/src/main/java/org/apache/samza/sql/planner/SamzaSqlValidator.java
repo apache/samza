@@ -40,6 +40,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
+import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.schema.SqlFieldSchema;
@@ -80,18 +81,41 @@ public class SamzaSqlValidator {
       try {
         relRoot = planner.plan(qinfo.getSelectQuery());
       } catch (SamzaException e) {
-        throw new SamzaSqlValidatorException(e);
+        throw new SamzaSqlValidatorException(String.format("Validation failed for sql stmt:\n%s\n", sql), e);
       }
 
       // Now that we have logical plan, validate different aspects.
-      validate(relRoot, qinfo.getSink(), sqlConfig);
+      String sink = qinfo.getSink();
+      validate(relRoot, sqlConfig.getRelSchemaProviders().get(sink), sqlConfig.getSamzaRelConverters().get(sink));
     }
   }
 
-  protected void validate(RelRoot relRoot, String sink, SamzaSqlApplicationConfig sqlConfig)
-      throws SamzaSqlValidatorException {
-    // Validate select fields (including Udf return types) with output schema
-    validateOutput(relRoot, sqlConfig.getRelSchemaProviders().get(sink));
+  /**
+   * Determine if validation needs to be done on Calcite plan based on the schema provider and schema converter.
+   * @param relRoot
+   * @param outputSchemaProvider
+   * @param ouputRelSchemaConverter
+   * @return if the validation needs to be skipped
+   */
+  protected boolean skipOutputValidation(RelRoot relRoot, RelSchemaProvider outputSchemaProvider,
+      SamzaRelConverter ouputRelSchemaConverter) {
+    return false;
+  }
+
+  // TODO: Remove this API. This API is introduced to take care of cases where RelSchemaProviders have a complex
+  // mechanism to determine if a given output field is optional. We will need system specific validators to take
+  // care of such cases and once that is introduced, we can get rid of the below API.
+  protected boolean isOptional(RelSchemaProvider outputRelSchemaProvider, String outputFieldName,
+      RelRecordType projectRecord) {
+    return false;
+  }
+
+  private void validate(RelRoot relRoot, RelSchemaProvider outputSchemaProvider,
+      SamzaRelConverter outputRelSchemaConverter) throws SamzaSqlValidatorException {
+    if (!skipOutputValidation(relRoot, outputSchemaProvider, outputRelSchemaConverter)) {
+      // Validate select fields (including Udf return types) with output schema
+      validateOutput(relRoot, outputSchemaProvider);
+    }
 
     // TODO:
     //  1. SAMZA-2314: Validate Udf arguments.
@@ -99,7 +123,7 @@ public class SamzaSqlValidator {
     //     Eg: LogicalAggregate with sum function is not supported by Samza Sql.
   }
 
-  protected void validateOutput(RelRoot relRoot, RelSchemaProvider outputRelSchemaProvider)
+  private void validateOutput(RelRoot relRoot, RelSchemaProvider outputRelSchemaProvider)
       throws SamzaSqlValidatorException {
     LogicalProject project = (LogicalProject) relRoot.rel;
 
@@ -116,15 +140,7 @@ public class SamzaSqlValidator {
     LOG.info("Samza Sql Validation finished successfully.");
   }
 
-  // TODO: Remove this API. This API is introduced to take care of cases where RelSchemaProviders have a complex
-  // mechanism to determine if a given output field is optional. Once the RelSchemaProviders are fixed to properly
-  // mark the fields as optional, this API will be removed.
-  protected boolean isOptional(RelSchemaProvider outputRelSchemaProvider, String outputFieldName,
-      RelRecordType projectRecord) {
-    return false;
-  }
-
-  protected void validateOutputRecords(SqlSchema outputSqlSchema, RelRecordType outputRecord,
+  private void validateOutputRecords(SqlSchema outputSqlSchema, RelRecordType outputRecord,
       RelRecordType projectRecord, RelSchemaProvider outputRelSchemaProvider)
       throws SamzaSqlValidatorException {
     Map<String, RelDataType> outputRecordMap = outputRecord.getFieldList().stream().collect(
@@ -203,7 +219,7 @@ public class SamzaSqlValidator {
     }
   }
 
-  protected boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
+  private boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
       RelDataType selectQueryFieldType, RelSchemaProvider outputRelSchemaProvider) {
     RelDataType projectFieldType;
 
