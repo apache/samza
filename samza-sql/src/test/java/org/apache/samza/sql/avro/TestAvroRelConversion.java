@@ -352,7 +352,7 @@ public class TestAvroRelConversion {
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("bool_value").get(), boolValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("double_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("string_value").get(), new Utf8(testStrValue));
-    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value0").get(), doubleValue);
+    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value0").get(), floatValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("long_value").get(), longValue);
     if (unionValue instanceof String) {
       Assert.assertEquals(message.getSamzaSqlRelRecord().getField("union_value").get(), new Utf8((String) unionValue));
