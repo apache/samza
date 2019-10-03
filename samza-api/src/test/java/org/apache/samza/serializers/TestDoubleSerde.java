@@ -16,30 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.serializers;
 
-package org.apache.samza.serializers
+import org.junit.Test;
 
-import org.junit.Assert._
-import org.junit.Test
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
-class TestSerializableSerde {
+
+public class TestDoubleSerde {
   @Test
-  def testSerializableSerde {
-    val serde = new SerializableSerde[String]
-    assertNull(serde.toBytes(null))
-    assertNull(serde.fromBytes(null))
-    
-    val obj = "String is serializable"
+  public void testDoubleSerde() {
+    DoubleSerde serde = new DoubleSerde();
+    assertNull(serde.toBytes(null));
+    assertNull(serde.fromBytes(null));
 
-    // Serialized string is prefix + string itself
-    val prefix = Array(0xAC, 0xED, 0x00, 0x05, 0x74, 0x00, 0x16).map(_.toByte)
-    val expected = (prefix ++ obj.getBytes("UTF-8"))
-    
-    val bytes = serde.toBytes(obj)
-
-    assertArrayEquals(expected, bytes)
-
-    val objRoundTrip:String = serde.fromBytes(bytes)
-    assertEquals(obj, objRoundTrip)
+    Double fooBar = 9.156013e-002;
+    byte[] fooBarBytes = serde.toBytes(fooBar);
+    assertArrayEquals(new byte[]{63, -73, 112, 124, 19, -9, -82, -93}, fooBarBytes);
+    assertEquals(fooBar, serde.fromBytes(fooBarBytes));
   }
 }

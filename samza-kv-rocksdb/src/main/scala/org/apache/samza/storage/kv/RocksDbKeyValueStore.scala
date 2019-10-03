@@ -20,13 +20,16 @@
 package org.apache.samza.storage.kv
 
 import java.io.File
+import java.nio.file.{Path, Paths}
 import java.util
-import java.util.Comparator
+import java.util.{Comparator, Optional}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
-import org.apache.samza.SamzaException
+import org.apache.commons.io.FileUtils
+import org.apache.samza.{SamzaException, checkpoint}
 import org.apache.samza.config.Config
+import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.util.Logging
 import org.rocksdb.{TtlDB, _}
 
@@ -235,6 +238,13 @@ class RocksDbKeyValueStore(
     trace("Flushing store: %s" format storeName)
     db.flush(flushOptions)
     trace("Flushed store: %s" format storeName)
+  }
+
+  override def checkpoint(id: String): Optional[Path] = {
+    val checkpoint = Checkpoint.create(db)
+    val checkpointPath = dir.getPath + "-" + id
+    checkpoint.createCheckpoint(checkpointPath)
+    Optional.of(Paths.get(checkpointPath))
   }
 
   def close(): Unit = {

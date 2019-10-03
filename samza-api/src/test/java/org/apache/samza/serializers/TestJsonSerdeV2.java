@@ -16,25 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.serializers;
 
-package org.apache.samza.serializers
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.Test;
 
-import java.util.Arrays
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-import org.junit.Assert._
-import org.junit.Test
 
-class TestLongSerde {
+public class TestJsonSerdeV2 {
   @Test
-  def testLongSerde {
-    val serde = new LongSerde
-    assertEquals(null, serde.toBytes(null))
-    assertEquals(null, serde.fromBytes(null))
-
-    val fooBar = 1234123412341234L
-    val fooBarBytes = serde.toBytes(fooBar)
-    fooBarBytes.foreach(System.err.println)
-    assertArrayEquals(Array[Byte](0, 4, 98, 109, -65, -102, 1, -14), fooBarBytes)
-    assertEquals(fooBar, serde.fromBytes(fooBarBytes))
+  public void testJsonSerdeV2ShouldWork() {
+    JsonSerdeV2<HashMap<String, Object>> serde = new JsonSerdeV2<>();
+    HashMap<String, Object> obj = new HashMap<>();
+    obj.put("hi", "bye");
+    obj.put("why", 2);
+    byte[] bytes = serde.toBytes(obj);
+    assertEquals(obj, serde.fromBytes(bytes));
+    JsonSerdeV2<Map.Entry<String, Object>> serdeHashMapEntry = new JsonSerdeV2<>();
+    obj.entrySet().forEach(entry -> {
+        try {
+          serdeHashMapEntry.toBytes(entry);
+        } catch (Exception e) {
+          fail("HashMap Entry serialization failed!");
+        }
+      });
   }
 }

@@ -19,6 +19,8 @@
 
 package org.apache.samza.storage.kv
 
+import java.nio.file.Path
+import java.util.Optional
 import org.apache.samza.util.Logging
 import org.apache.samza.serializers._
 
@@ -172,5 +174,9 @@ class SerializedKeyValueStore[K, V](
         snapshot.close()
       }
     }
+  }
+
+  override def checkpoint(id: String): Optional[Path] = {
+    store.checkpoint(id)
   }
 }

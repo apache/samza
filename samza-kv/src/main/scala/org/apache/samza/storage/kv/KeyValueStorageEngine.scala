@@ -23,10 +23,11 @@ import java.io.File
 
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StorageEngine, StoreProperties}
-import org.apache.samza.system.IncomingMessageEnvelope
+import org.apache.samza.system.{ChangelogSSPIterator, OutgoingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.TimerUtil
-
-import scala.collection.JavaConverters._
+import java.nio.file.Path
+import java.util.Optional
 
 /**
  * A key value store.
@@ -39,11 +40,11 @@ class KeyValueStorageEngine[K, V](
   storeProperties: StoreProperties,
   wrapperStore: KeyValueStore[K, V],
   rawStore: KeyValueStore[Array[Byte], Array[Byte]],
+  changelogSSP: SystemStreamPartition,
+  changelogCollector: MessageCollector,
   metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
   batchSize: Int = 500,
   val clock: () => Long = { System.nanoTime }) extends StorageEngine with KeyValueStore[K, V] with TimerUtil with Logging {
-
-  var count = 0
 
   /* delegate to underlying store */
   def get(key: K): V = {
@@ -104,47 +105,89 @@ class KeyValueStorageEngine[K, V](
   }
 
   /**
-   * Restore the contents of this key/value store from the change log,
-   * batching updates to underlying raw store to notAValidEvent wrapping functions for efficiency.
+   * Restore the contents of this key/value store from the change log, batching updates to underlying raw store
+   * for efficiency.
+   *
+   * With transactional state disabled, iterator mode will always be 'restore'. With transactional state enabled,
+   * iterator mode may switch from 'restore' to 'trim' at some point, but will not switch back to 'restore'.
    */
-  def restore(envelopes: java.util.Iterator[IncomingMessageEnvelope]) {
+  def restore(iterator: ChangelogSSPIterator) {
     info("Restoring entries for store: " + storeName + " in directory: " + storeDir.toString)
+    var restoredMessages = 0
+    var restoredBytes = 0
+    var trimmedMessages = 0
+    var trimmedBytes = 0
 
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
+    var lastBatchFlushed = false
 
-    for (envelope <- envelopes.asScala) {
+    while(iterator.hasNext) {
+      val envelope = iterator.next()
       val keyBytes = envelope.getKey.asInstanceOf[Array[Byte]]
       val valBytes = envelope.getMessage.asInstanceOf[Array[Byte]]
+      val mode = iterator.getMode
 
-      batch.add(new Entry(keyBytes, valBytes))
+      if (mode.equals(ChangelogSSPIterator.Mode.RESTORE)) {
+        batch.add(new Entry(keyBytes, valBytes))
 
-      if (batch.size >= batchSize) {
+        if (batch.size >= batchSize) {
+          doPutAll(rawStore, batch)
+          batch.clear()
+        }
+
+        // update metrics
+        restoredMessages += 1
+        restoredBytes += keyBytes.length
+        if (valBytes != null) restoredBytes += valBytes.length
+        metrics.restoredMessagesGauge.set(restoredMessages)
+        metrics.restoredBytesGauge.set(restoredBytes)
+
+        // log progress every million messages
+        if (restoredMessages % 1000000 == 0) {
+          info(restoredMessages + " entries restored for store: " + storeName + " in directory: " + storeDir.toString + "...")
+        }
+      } else {
+        // first write any open restore batches to store
+        if (!lastBatchFlushed) {
+          info(restoredMessages + " total entries restored for store: " + storeName + " in directory: " + storeDir.toString + ".")
+          if (batch.size > 0) {
+            doPutAll(rawStore, batch)
+          }
+          lastBatchFlushed = true
+        }
+
+        // then overwrite the value to be trimmed with its current store value
+        val currentValBytes = rawStore.get(keyBytes)
+        val changelogMessage = new OutgoingMessageEnvelope(
+          changelogSSP.getSystemStream, changelogSSP.getPartition, keyBytes, currentValBytes)
+        changelogCollector.send(changelogMessage)
+
+        // update metrics
+        trimmedMessages += 1
+        trimmedBytes += keyBytes.length
+        if (currentValBytes != null) trimmedBytes += currentValBytes.length
+        metrics.trimmedMessagesGauge.set(trimmedMessages)
+        metrics.trimmedBytesGauge.set(trimmedBytes)
+
+        // log progress every hundred thousand messages
+        if (trimmedMessages % 100000 == 0) {
+          info(restoredMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + "...")
+        }
+      }
+    }
+
+    // if the last batch isn't flushed yet (e.g., for non transactional state or no messages to trim), flush it now
+    if (!lastBatchFlushed) {
+      info(restoredMessages + " total entries restored for store: " + storeName + " in directory: " + storeDir.toString + ".")
+      if (batch.size > 0) {
         doPutAll(rawStore, batch)
-        batch.clear()
       }
-
-      if (valBytes != null) {
-        metrics.restoredBytes.inc(valBytes.length)
-        metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + valBytes.length)
-      }
-
-      metrics.restoredBytes.inc(keyBytes.length)
-      metrics.restoredBytesGauge.set(metrics.restoredBytesGauge.getValue + keyBytes.length)
-
-      metrics.restoredMessages.inc()
-      metrics.restoredMessagesGauge.set(metrics.restoredMessagesGauge.getValue + 1)
-      count += 1
-
-      if (count % 1000000 == 0) {
-        info(count + " entries restored for store: " + storeName + " in directory: " + storeDir.toString + "...")
-      }
+      lastBatchFlushed = true
     }
+    info(restoredMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + ".")
 
-    info(count + " total entries restored for store: " + storeName + " in directory: " + storeDir.toString + ".")
-
-    if (batch.size > 0) {
-      doPutAll(rawStore, batch)
-    }
+    // flush the store and the changelog producer
+    flush() // TODO HIGH pmaheshw: Need a way to flush changelog producers. This only flushes the stores.
   }
 
   def flush() = {
@@ -152,6 +195,14 @@ class KeyValueStorageEngine[K, V](
       trace("Flushing.")
       metrics.flushes.inc
       wrapperStore.flush()
+    }
+  }
+
+  def checkpoint(id: String): Optional[Path] = {
+    updateTimer(metrics.checkpointNs) {
+      trace("Checkpointing.")
+      metrics.checkpoints.inc
+      wrapperStore.checkpoint(id)
     }
   }
 

@@ -155,7 +155,7 @@ object TestKeyValuePerformance extends Logging {
         // Run the test method
         testMethod(db, storageConfig.subset("set-" + testSet + ".", true))
 
-        FileUtil.rm(output)
+        new FileUtil().rm(output)
       })
     }
   }

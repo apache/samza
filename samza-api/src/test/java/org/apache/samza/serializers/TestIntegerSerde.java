@@ -16,22 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.serializers;
 
-package org.apache.samza.serializers
+import org.junit.Test;
 
-import org.junit.Assert._
-import org.junit.Test
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
-class TestIntegerSerde {
+
+public class TestIntegerSerde {
   @Test
-  def testIntegerSerde {
-    val serde = new IntegerSerde
-    assertEquals(null, serde.toBytes(null))
-    assertEquals(null, serde.fromBytes(null))
+  public void testIntegerSerde() {
+    IntegerSerde serde = new IntegerSerde();
+    assertNull(serde.toBytes(null));
+    assertNull(serde.fromBytes(null));
 
-    val fooBar = 37
-    val fooBarBytes = serde.toBytes(fooBar)
-    assertArrayEquals(Array[Byte](0, 0, 0, 37), fooBarBytes)
-    assertEquals(fooBar, serde.fromBytes(fooBarBytes))
+    Integer fooBar = 37;
+    byte[] fooBarBytes = serde.toBytes(fooBar);
+    assertArrayEquals(new byte[]{0, 0, 0, 37}, fooBarBytes);
+    assertEquals(fooBar, serde.fromBytes(fooBarBytes));
   }
 }

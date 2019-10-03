@@ -69,18 +69,18 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
    * @param storeDir The directory of the storage engine.
    * @param keySerde The serializer to use for serializing keys when reading or writing to the store.
    * @param msgSerde The serializer to use for serializing messages when reading or writing to the store.
-   * @param collector MessageCollector the storage engine uses to persist changes.
+   * @param changelogCollector MessageCollector the storage engine uses to persist changes.
    * @param registry MetricsRegistry to which to publish storage-engine specific metrics.
-   * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
+   * @param changelogSSP Samza system stream partition from which to receive the changelog.
    * @param containerContext Information about the container in which the task is executing.
    **/
   def getStorageEngine(storeName: String,
     storeDir: File,
     keySerde: Serde[K],
     msgSerde: Serde[V],
-    collector: MessageCollector,
+    changelogCollector: MessageCollector,
     registry: MetricsRegistry,
-    changeLogSystemStreamPartition: SystemStreamPartition,
+    changelogSSP: SystemStreamPartition,
     jobContext: JobContext,
     containerContext: ContainerContext, storeMode : StoreMode): StorageEngine = {
     val storageConfigSubset = jobContext.getConfig.subset("stores." + storeName + ".", true)
@@ -117,15 +117,15 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     }
 
     val rawStore =
-      getKVStore(storeName, storeDir, registry, changeLogSystemStreamPartition, jobContext, containerContext, storeMode)
+      getKVStore(storeName, storeDir, registry, changelogSSP, jobContext, containerContext, storeMode)
 
     // maybe wrap with logging
-    val maybeLoggedStore = if (changeLogSystemStreamPartition == null) {
+    val maybeLoggedStore = if (changelogSSP == null) {
       rawStore
     } else {
       val loggedStoreMetrics = new LoggedStoreMetrics(storeName, registry)
       storePropertiesBuilder = storePropertiesBuilder.setLoggedStore(true)
-      new LoggedStore(rawStore, changeLogSystemStreamPartition, collector, loggedStoreMetrics)
+      new LoggedStore(rawStore, changelogSSP, changelogCollector, loggedStoreMetrics)
     }
 
     var toBeAccessLoggedStore: KeyValueStore[K, V] = null
@@ -166,7 +166,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     }
 
     val maybeAccessLoggedStore = if (accessLog) {
-      new AccessLoggedStore(toBeAccessLoggedStore, collector, changeLogSystemStreamPartition, storageConfig, storeName, keySerde)
+      new AccessLoggedStore(toBeAccessLoggedStore, changelogCollector, changelogSSP, storageConfig, storeName, keySerde)
     } else {
       toBeAccessLoggedStore
     }
@@ -175,7 +175,6 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     val nullSafeStore = new NullSafeKeyValueStore(maybeAccessLoggedStore)
 
     // create the storage engine and return
-    // TODO: Decide if we should use raw bytes when restoring
     val keyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics(storeName, registry)
     val metricsConfig = new MetricsConfig(jobContext.getConfig)
     val clock = if (metricsConfig.getMetricsTimerEnabled) {
@@ -189,7 +188,7 @@ trait BaseKeyValueStorageEngineFactory[K, V] extends StorageEngineFactory[K, V] 
     }
 
     new KeyValueStorageEngine(storeName, storeDir, storePropertiesBuilder.build(), nullSafeStore, rawStore,
-      keyValueStorageEngineMetrics, batchSize, () => clock.nanoTime())
+      changelogSSP, changelogCollector, keyValueStorageEngineMetrics, batchSize, () => clock.nanoTime())
   }
 
   def createCachedStore[K, V](storeName: String, registry: MetricsRegistry,

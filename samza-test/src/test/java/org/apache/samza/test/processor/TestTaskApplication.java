@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.processor;
 
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
@@ -46,14 +47,38 @@ public class TestTaskApplication implements TaskApplication {
   private final String outputTopic;
   private final CountDownLatch shutdownLatch;
   private final CountDownLatch processedMessageLatch;
+  private final Optional<TaskApplicationProcessCallback> processCallback;
 
+  /**
+   * A test TaskApplication to use in test harnesses.
+   * @param systemName test input/output system
+   * @param inputTopic topic to consume
+   * @param outputTopic topic to output
+   * @param processedMessageLatch latch that counts down per message processed
+   * @param shutdownLatch latch that counts down once during shutdown
+   */
   public TestTaskApplication(String systemName, String inputTopic, String outputTopic,
       CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch) {
+    this(systemName, inputTopic, outputTopic, processedMessageLatch, shutdownLatch, Optional.empty());
+  }
+
+  /**
+   * A test TaskApplication to use in test harnesses.
+   * @param systemName test input/output system
+   * @param inputTopic topic to consume
+   * @param outputTopic topic to output
+   * @param processedMessageLatch latch that counts down per message processed
+   * @param shutdownLatch latch that counts down once during shutdown
+   * @param processCallback optional callback called per message processed.
+   */
+  public TestTaskApplication(String systemName, String inputTopic, String outputTopic,
+      CountDownLatch processedMessageLatch, CountDownLatch shutdownLatch, Optional<TaskApplicationProcessCallback> processCallback) {
     this.systemName = systemName;
     this.inputTopic = inputTopic;
     this.outputTopic = outputTopic;
     this.processedMessageLatch = processedMessageLatch;
     this.shutdownLatch = shutdownLatch;
+    this.processCallback = processCallback;
   }
 
   private class TestTaskImpl implements AsyncStreamTask, ClosableTask {
@@ -62,7 +87,8 @@ public class TestTaskApplication implements TaskApplication {
     public void processAsync(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator, TaskCallback callback) {
       processedMessageLatch.countDown();
       // Implementation does not invokes callback.complete to block the RunLoop.process() after it exhausts the
-      // `task.max.concurrency` defined per task.
+      // `task.max.concurrency` defined per task. Call callback.complete() in the processCallback if needed.
+      processCallback.ifPresent(pcb -> pcb.onMessage(envelope, callback));
     }
 
     @Override
@@ -80,5 +106,9 @@ public class TestTaskApplication implements TaskApplication {
     appDescriptor.withInputStream(inputDescriptor)
                  .withOutputStream(outputDescriptor)
                  .withTaskFactory((AsyncStreamTaskFactory) () -> new TestTaskImpl());
+  }
+
+  public interface TaskApplicationProcessCallback {
+    void onMessage(IncomingMessageEnvelope m, TaskCallback callback);
   }
 }
