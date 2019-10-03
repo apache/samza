@@ -1,21 +1,21 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.planner;
 
@@ -86,18 +86,19 @@ public class SamzaSqlValidator {
 
       // Now that we have logical plan, validate different aspects.
       String sink = qinfo.getSink();
-      validate(relRoot, sqlConfig.getRelSchemaProviders().get(sink), sqlConfig.getSamzaRelConverters().get(sink));
+      validate(relRoot, sink, sqlConfig.getRelSchemaProviders().get(sink), sqlConfig.getSamzaRelConverters().get(sink));
     }
   }
 
   /**
    * Determine if validation needs to be done on Calcite plan based on the schema provider and schema converter.
    * @param relRoot
+   * @param sink
    * @param outputSchemaProvider
    * @param ouputRelSchemaConverter
    * @return if the validation needs to be skipped
    */
-  protected boolean skipOutputValidation(RelRoot relRoot, RelSchemaProvider outputSchemaProvider,
+  protected boolean skipOutputValidation(RelRoot relRoot, String sink, RelSchemaProvider outputSchemaProvider,
       SamzaRelConverter ouputRelSchemaConverter) {
     return false;
   }
@@ -110,9 +111,9 @@ public class SamzaSqlValidator {
     return false;
   }
 
-  private void validate(RelRoot relRoot, RelSchemaProvider outputSchemaProvider,
+  private void validate(RelRoot relRoot, String sink, RelSchemaProvider outputSchemaProvider,
       SamzaRelConverter outputRelSchemaConverter) throws SamzaSqlValidatorException {
-    if (!skipOutputValidation(relRoot, outputSchemaProvider, outputRelSchemaConverter)) {
+    if (!skipOutputValidation(relRoot, sink, outputSchemaProvider, outputRelSchemaConverter)) {
       // Validate select fields (including Udf return types) with output schema
       validateOutput(relRoot, outputSchemaProvider);
     }
@@ -264,7 +265,7 @@ public class SamzaSqlValidator {
         }
         return true;
       default:
-          return false;
+        return false;
     }
   }
 
@@ -350,7 +351,7 @@ public class SamzaSqlValidator {
       // Ignore any formatting errors.
       LOG.error("Formatting error (Not the actual error. Look for the logs for actual error)", ex);
       return String.format("Failed with formatting exception (not the actual error) for the following sql"
-              + " statement:\n\"%s\"\n\n%s", query, e.getMessage());
+          + " statement:\n\"%s\"\n\n%s", query, e.getMessage());
     }
   }
 

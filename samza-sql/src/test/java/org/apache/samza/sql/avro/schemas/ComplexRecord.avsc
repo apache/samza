@@ -40,7 +40,7 @@
             "default":null
         },
         {
-            "name": "float_value",
+            "name": "float_value0",
             "doc": "float Value.",
             "type": ["null", "float"],
             "default":null
