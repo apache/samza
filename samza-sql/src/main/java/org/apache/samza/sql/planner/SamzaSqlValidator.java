@@ -86,18 +86,19 @@ public class SamzaSqlValidator {
 
       // Now that we have logical plan, validate different aspects.
       String sink = qinfo.getSink();
-      validate(relRoot, sqlConfig.getRelSchemaProviders().get(sink), sqlConfig.getSamzaRelConverters().get(sink));
+      validate(relRoot, sink, sqlConfig.getRelSchemaProviders().get(sink), sqlConfig.getSamzaRelConverters().get(sink));
     }
   }
 
   /**
    * Determine if validation needs to be done on Calcite plan based on the schema provider and schema converter.
    * @param relRoot
+   * @param sink
    * @param outputSchemaProvider
    * @param ouputRelSchemaConverter
    * @return if the validation needs to be skipped
    */
-  protected boolean skipOutputValidation(RelRoot relRoot, RelSchemaProvider outputSchemaProvider,
+  protected boolean skipOutputValidation(RelRoot relRoot, String sink, RelSchemaProvider outputSchemaProvider,
       SamzaRelConverter ouputRelSchemaConverter) {
     return false;
   }
@@ -110,9 +111,9 @@ public class SamzaSqlValidator {
     return false;
   }
 
-  private void validate(RelRoot relRoot, RelSchemaProvider outputSchemaProvider,
+  private void validate(RelRoot relRoot, String sink, RelSchemaProvider outputSchemaProvider,
       SamzaRelConverter outputRelSchemaConverter) throws SamzaSqlValidatorException {
-    if (!skipOutputValidation(relRoot, outputSchemaProvider, outputRelSchemaConverter)) {
+    if (!skipOutputValidation(relRoot, sink, outputSchemaProvider, outputRelSchemaConverter)) {
       // Validate select fields (including Udf return types) with output schema
       validateOutput(relRoot, outputSchemaProvider);
     }
