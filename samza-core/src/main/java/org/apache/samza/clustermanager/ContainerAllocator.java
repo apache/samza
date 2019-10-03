@@ -56,10 +56,10 @@ import org.slf4j.LoggerFactory;
  *    When host-affinity is disabled, the resource-request's preferredHost param is set to {@link ResourceRequestState#ANY_HOST}
  *  </li>
  *  <li>
- *    When host-affinity is enabled and a preferred resource has not been obtained after {@code requestExpiryTimeout}
- *    milliseconds of the request being made, the resource is declared expired. The expired request are handled by
- *    allocating them to *ANY* allocated resource if available. If no surplus resources are available the current preferred
- *    resource-request is cancelled and resource-request for ANY_HOST is issued
+ *    When the preferred resource has not been obtained after {@code requestExpiryTimeout} milliseconds of the request
+ *    being made, the resource is declared expired. The expired request are handled by allocating them to *ANY*
+ *    allocated resource if available. If no surplus resources are available the current preferred resource-request
+ *    is cancelled and resource-request for ANY_HOST is issued
  *  </li>
  *  <li>
  *    When host-affinity is not enabled, this periodically wakes up to assign a processor to *ANY* allocated resource.
@@ -219,12 +219,7 @@ public class ContainerAllocator implements Runnable {
 
         if (expired) {
           updateExpiryMetrics(request);
-          if (hostAffinityEnabled) {
-            handleExpiredRequestWithHostAffinityEnabled(processorId, preferredHost, request);
-          } else {
-            handleExpiredRequestWithHostAffinityDisabled(processorId, request);
-          }
-
+          handleExpiredRequest(processorId, preferredHost, request);
         } else {
           LOG.info("Request for Processor ID: {} on preferred host {} has not expired yet."
                   + "Request creation time: {}. Current Time: {}. Request timeout: {} ms", processorId, preferredHost,
@@ -240,10 +235,10 @@ public class ContainerAllocator implements Runnable {
    * preferred host, we try to see if a surplus ANY_HOST is available in the request queue.
    */
   @VisibleForTesting
-  void handleExpiredRequestWithHostAffinityEnabled(String processorId, String preferredHost,
+  void handleExpiredRequest(String processorId, String preferredHost,
       SamzaResourceRequest request) {
     boolean resourceAvailableOnAnyHost = hasAllocatedResource(ResourceRequestState.ANY_HOST);
-    if (standbyContainerManager.isPresent()) {
+    if (hostAffinityEnabled && standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
           .handleExpiredResourceRequest(processorId, request,
               Optional.ofNullable(peekAllocatedResource(ResourceRequestState.ANY_HOST)), this, resourceRequestState);
@@ -256,18 +251,6 @@ public class ContainerAllocator implements Runnable {
       resourceRequestState.cancelResourceRequest(request);
       requestResource(processorId, ResourceRequestState.ANY_HOST);
     }
-  }
-
-  /**
-   * Handles an expired resource request when {@code hostAffinityEnabled} is false, in this case since there are no
-   * ANY_HOST available in the request queue we cancel existing request & reissue a new one
-   */
-  @VisibleForTesting
-  void handleExpiredRequestWithHostAffinityDisabled(String processorId, SamzaResourceRequest request) {
-    LOG.info("Request for Processor ID: {} on ANY_HOST has expired. Requesting additional resources on ANY_HOST.",
-        processorId);
-    resourceRequestState.cancelResourceRequest(request);
-    requestResource(processorId, ResourceRequestState.ANY_HOST);
   }
 
   /**

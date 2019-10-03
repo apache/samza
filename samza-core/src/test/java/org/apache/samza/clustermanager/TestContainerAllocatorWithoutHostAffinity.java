@@ -284,8 +284,8 @@ public class TestContainerAllocatorWithoutHostAffinity {
     resourceRequestCaptor.getAllValues()
         .forEach(resourceRequest -> assertEquals(resourceRequest.getPreferredHost(), ResourceRequestState.ANY_HOST));
     assertTrue(state.anyHostRequests.get() == containersToHostMapping.size());
-    // Expiry currently is only handled for host affinity enabled cases
-    verify(spyAllocator, never()).handleExpiredRequestWithHostAffinityEnabled(anyString(), anyString(),
+    // Expiry currently should not be invoked
+    verify(spyAllocator, never()).handleExpiredRequest(anyString(), anyString(),
         any(SamzaResourceRequest.class));
     // Only updated when host affinity is enabled
     assertTrue(state.matchedResourceRequests.get() == 0);
@@ -302,8 +302,8 @@ public class TestContainerAllocatorWithoutHostAffinity {
     // Request Resources
     spyAllocator.requestResources(new HashMap<String, String>() {
       {
-        put("0", "abc");
-        put("1", "def");
+        put("0", "host-0");
+        put("1", "host-1");
       }
     });
 
@@ -318,12 +318,12 @@ public class TestContainerAllocatorWithoutHostAffinity {
     // and all created requests expired
     assertEquals(state.preferredHostRequests.get(), 0);
     // Atleast 2 requests should expire & 2 ANY_HOST requests should be generated
-    assertTrue(state.anyHostRequests.get() >= 2);
+    assertTrue(state.anyHostRequests.get() >= 4);
     assertTrue(state.expiredAnyHostRequests.get() >= 2);
 
-    verify(spyAllocator, atLeastOnce()).handleExpiredRequestWithHostAffinityDisabled(eq("0"),
+    verify(spyAllocator, atLeastOnce()).handleExpiredRequest(eq("0"), eq(ResourceRequestState.ANY_HOST),
         any(SamzaResourceRequest.class));
-    verify(spyAllocator, atLeastOnce()).handleExpiredRequestWithHostAffinityDisabled(eq("1"),
+    verify(spyAllocator, atLeastOnce()).handleExpiredRequest(eq("1"), eq(ResourceRequestState.ANY_HOST),
         any(SamzaResourceRequest.class));
 
     // Verify that preferred host request were cancelled and since no surplus resources were available
