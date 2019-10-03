@@ -362,12 +362,13 @@ object JobModelManager extends Logging {
     configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", grouperMetadata.getProcessorLocality.keySet()))
     val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap))
 
-    val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
+    val jobConfig = new JobConfig(config)
 
-    val groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = if (isHostAffinityEnabled) {
+    val groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = if (jobConfig.isSSPGrouperProxyEnabled) {
       val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(config, grouper)
       sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata)
     } else {
+      warn("SSPGrouperProxy is disabled (%s = false). Stateful jobs may produce erroneous results if this is not enabled." format JobConfig.SSP_GROUPER_PROXY_ENABLED)
       grouper.group(allSystemStreamPartitions)
     }
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups))
@@ -398,17 +399,18 @@ object JobModelManager extends Logging {
     // SSPTaskNameGrouper for locality, load-balancing, etc.
     val containerGrouperFactory =
       ReflectionUtil.getObj(taskConfig.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
-    val standbyTasksEnabled = new JobConfig(config).getStandbyTasksEnabled
-    val standbyTaskReplicationFactor = new JobConfig(config).getStandbyTaskReplicationFactor
+    val standbyTasksEnabled = jobConfig.getStandbyTasksEnabled
+    val standbyTaskReplicationFactor = jobConfig.getStandbyTaskReplicationFactor
     val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)
     var containerModels: util.Set[ContainerModel] = null
+    val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
     if(isHostAffinityEnabled) {
       containerModels = taskNameGrouperProxy.group(taskModels, grouperMetadata)
     } else {
       containerModels = taskNameGrouperProxy.group(taskModels, new util.ArrayList[String](grouperMetadata.getProcessorLocality.keySet()))
     }
 
-    var containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
+    val containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
     new JobModel(config, containerMap.asJava)
   }
 }
