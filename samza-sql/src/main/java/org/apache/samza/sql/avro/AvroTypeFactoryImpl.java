@@ -1,21 +1,21 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.avro;
 
@@ -33,8 +33,8 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Factory that creates {@link SqlSchema} from the Avro Schema. This is used by the
- * {@link AvroRelConverter} to convert Avro schema to Samza Sql schema.
+ * Factory that creates {@link SqlSchema} from the Avro Schema.
+ * TODO: This class will be renamed to AvroTypeFactoryImpl and copied to open source.
  */
 public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
 
@@ -46,10 +46,23 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
 
   public SqlSchema createType(Schema schema) {
     validateTopLevelAvroType(schema);
-    return convertSchema(schema.getFields());
+    return convertSchema(schema.getFields(), true);
   }
 
-  public static void validateTopLevelAvroType(Schema schema) {
+  /**
+   * Given a schema field, determine if it is an optional field. There could be cases where a field (like audit header)
+   * is considered as optional even if it is marked as required in the schema. The producer could be filling in this
+   * field and hence need not be specified in the query and hence is optional. Typically, such audit headers are
+   * the top level fields in the schema.
+   * @param field schema field
+   * @param isTopLevelField if it is top level field in the schema
+   * @return if the field is optional
+   */
+  protected boolean isOptional(Schema.Field field, boolean isTopLevelField) {
+    return field.defaultValue() != null;
+  }
+
+  private void validateTopLevelAvroType(Schema schema) {
     Schema.Type type = schema.getType();
     if (type != Schema.Type.RECORD) {
       String msg =
@@ -59,18 +72,17 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     }
   }
 
-  public static SqlSchema convertSchema(List<Schema.Field> fields) {
+  private SqlSchema convertSchema(List<Schema.Field> fields, boolean isTopLevelField) {
     SqlSchemaBuilder schemaBuilder = SqlSchemaBuilder.builder();
     for (Schema.Field field : fields) {
-      boolean isOptional = (field.defaultValue() != null);
-      SqlFieldSchema fieldSchema = convertField(field.schema(), false, isOptional);
+      SqlFieldSchema fieldSchema = convertField(field.schema(), false, isOptional(field, isTopLevelField));
       schemaBuilder.addField(field.name(), fieldSchema);
     }
 
     return schemaBuilder.build();
   }
 
-  public static SqlFieldSchema convertField(Schema fieldSchema, boolean isNullable, boolean isOptional) {
+  private SqlFieldSchema convertField(Schema fieldSchema, boolean isNullable, boolean isOptional) {
     switch (fieldSchema.getType()) {
       case ARRAY:
         SqlFieldSchema elementSchema = convertField(fieldSchema.getElementType(), false, false);
@@ -97,7 +109,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
       case LONG:
         return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.INT64, isNullable, isOptional);
       case RECORD:
-        SqlSchema rowSchema = convertSchema(fieldSchema.getFields());
+        SqlSchema rowSchema = convertSchema(fieldSchema.getFields(), false);
         return SqlFieldSchema.createRowFieldSchema(rowSchema, isNullable, isOptional);
       case MAP:
         // Can the value type be nullable and have default values ? Guess not!
@@ -110,7 +122,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     }
   }
 
-  private static SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types, boolean isNullable, boolean isOptional) {
+  private SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types, boolean isNullable, boolean isOptional) {
     // Typically a nullable field's schema is configured as an union of Null and a Type.
     // This is to check whether the Union is a Nullable field
     if (types.size() == 2) {
