@@ -50,9 +50,9 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
   }
 
   /**
-   * Given a schema field, determine if it is an optional field. There could be cases where a field (like audit header)
+   * Given a schema field, determine if it is an optional field. There could be cases where a field
    * is considered as optional even if it is marked as required in the schema. The producer could be filling in this
-   * field and hence need not be specified in the query and hence is optional. Typically, such audit headers are
+   * field and hence need not be specified in the query and hence is optional. Typically, such fields are
    * the top level fields in the schema.
    * @param field schema field
    * @param isTopLevelField if it is top level field in the schema
