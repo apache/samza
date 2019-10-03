@@ -33,8 +33,8 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Factory that creates {@link SqlSchema} from the Avro Schema.
- * TODO: This class will be renamed to AvroTypeFactoryImpl and copied to open source.
+ * Factory that creates {@link SqlSchema} from the Avro Schema. This is used by the
+ * {@link AvroRelConverter} to convert Avro schema to Samza Sql schema.
  */
 public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
 
