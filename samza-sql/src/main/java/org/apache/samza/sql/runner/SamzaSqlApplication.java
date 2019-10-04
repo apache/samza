@@ -28,7 +28,6 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.context.ApplicationContainerContext;
-import org.apache.samza.context.ApplicationTaskContext;
 import org.apache.samza.context.ApplicationTaskContextFactory;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ExternalContext;
