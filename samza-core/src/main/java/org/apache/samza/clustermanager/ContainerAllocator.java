@@ -231,8 +231,9 @@ public class ContainerAllocator implements Runnable {
   }
 
   /**
-   * Handles an expired resource request when {@code hostAffinityEnabled} is true, in this case since the
-   * preferred host, we try to see if a surplus ANY_HOST is available in the request queue.
+   * Handles an expired resource request for both active and standby containers. Since a preferred host cannot be obtained
+   * this method checks the availability of surplus ANY_HOST resources and launches the container if available. Otherwise
+   * issues an ANY_HOST request. This behavior holds regardless of host-affinity enabled or not.
    */
   @VisibleForTesting
   void handleExpiredRequest(String processorId, String preferredHost,
