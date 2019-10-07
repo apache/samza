@@ -187,9 +187,11 @@ public class SamzaSqlValidator {
       Validate.notNull(outputFieldType);
       Validate.notNull(outputSqlFieldSchema);
 
-      if (!compareFieldTypes(outputFieldType, outputSqlFieldSchema, entry.getValue(), outputRelSchemaProvider)) {
-        String errMsg = String.format("Field '%s' with type '%s' in select query does not match the field type '%s' in"
-            + " output schema.", entry.getKey(), entry.getValue(), outputFieldType);
+      RelDataType calciteSqlType = getCalciteSqlFieldType(entry.getValue());
+      if (!compareFieldTypes(outputFieldType, outputSqlFieldSchema, calciteSqlType, outputRelSchemaProvider)) {
+        String errMsg = String.format("Field '%s' with type '%s' in select query does not match the field type '%s'"
+            + "(calciteSqlType:'%s') in output schema.", entry.getKey(), outputFieldType, calciteSqlType,
+            outputSqlFieldSchema.getFieldType());
         LOG.error(errMsg);
         throw new SamzaSqlValidatorException(errMsg);
       }
@@ -211,30 +213,39 @@ public class SamzaSqlValidator {
             + "select query.", entry.getKey());
         LOG.error(errMsg);
         throw new SamzaSqlValidatorException(errMsg);
-      } else if (!compareFieldTypes(entry.getValue(), outputSqlFieldSchema, projectFieldType, outputRelSchemaProvider)) {
-        String errMsg = String.format("Field '%s' with type '%s' in output schema does not match the field type '%s' in"
-            + " projected fields.", entry.getKey(), entry.getValue(), projectFieldType);
-        LOG.error(errMsg);
-        throw new SamzaSqlValidatorException(errMsg);
+      } else {
+        RelDataType calciteSqlType = getCalciteSqlFieldType(entry.getValue());
+        if (!compareFieldTypes(entry.getValue(), outputSqlFieldSchema, calciteSqlType, outputRelSchemaProvider)) {
+          String errMsg = String.format("Field '%s' with type '%s'(calciteSqlType:'%s') in output schema does not match the field"
+                  + " type '%s' in projected fields.", entry.getKey(), outputSqlFieldSchema.getFieldType(),
+              calciteSqlType, projectFieldType);
+          LOG.error(errMsg);
+          throw new SamzaSqlValidatorException(errMsg);
+        }
       }
     }
   }
 
-  private boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
-      RelDataType selectQueryFieldType, RelSchemaProvider outputRelSchemaProvider) {
-    RelDataType projectFieldType;
+  private RelDataType getCalciteSqlFieldType(RelDataType fieldType) {
+    RelDataType sqlFieldType;
 
     // JavaTypes are relevant for Udf argument and return types
     // TODO: Support UDF argument validation. Currently, only return types are validated and argument types are
     //  validated during run-time.
-    if (selectQueryFieldType instanceof RelDataTypeFactoryImpl.JavaType) {
-      projectFieldType = new SamzaSqlJavaTypeFactoryImpl().toSql(selectQueryFieldType);
+    if (fieldType instanceof RelDataTypeFactoryImpl.JavaType) {
+      sqlFieldType = new SamzaSqlJavaTypeFactoryImpl().toSql(fieldType);
     } else {
-      projectFieldType = selectQueryFieldType;
+      sqlFieldType = fieldType;
     }
 
+    return sqlFieldType;
+  }
+
+  private boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
+      RelDataType selectQueryFieldType, RelSchemaProvider outputRelSchemaProvider) {
+
     SqlTypeName outputSqlType = outputFieldType.getSqlTypeName();
-    SqlTypeName projectSqlType = projectFieldType.getSqlTypeName();
+    SqlTypeName projectSqlType = selectQueryFieldType.getSqlTypeName();
 
     if (projectSqlType == SqlTypeName.ANY || outputSqlType == SqlTypeName.ANY) {
       return true;
@@ -258,7 +269,7 @@ public class SamzaSqlValidator {
       case ROW:
         try {
           validateOutputRecords(sqlFieldSchema.getRowSchema(), (RelRecordType) outputFieldType,
-              (RelRecordType) projectFieldType, outputRelSchemaProvider);
+              (RelRecordType) selectQueryFieldType, outputRelSchemaProvider);
         } catch (SamzaSqlValidatorException e) {
           LOG.error("A field in select query does not match with the output schema.", e);
           return false;
