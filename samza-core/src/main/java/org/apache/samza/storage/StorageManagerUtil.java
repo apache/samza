@@ -342,10 +342,11 @@ public class StorageManagerUtil {
       String taskStoreName = getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode).getName();
 
       if (storeDir.exists()) { // new store or no local state
-        return Files.list(storeDir.toPath())
+        List<File> checkpointDirs = Files.list(storeDir.toPath())
             .map(Path::toFile)
             .filter(file -> file.getName().contains(taskStoreName + "-"))
             .collect(Collectors.toList());
+        return checkpointDirs;
       } else {
         return Collections.emptyList();
       }

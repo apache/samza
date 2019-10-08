@@ -171,7 +171,7 @@ public class TestContainerStorageManager {
     configMap.put("stores." + STORE_NAME + ".key.serde", "stringserde");
     configMap.put("stores." + STORE_NAME + ".msg.serde", "stringserde");
     configMap.put("serializers.registry.stringserde.class", StringSerdeFactory.class.getName());
-    configMap.put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
+    configMap.put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE, "true");
     Config config = new MapConfig(configMap);
 
     Map<String, Serde<Object>> serdes = new HashMap<>();

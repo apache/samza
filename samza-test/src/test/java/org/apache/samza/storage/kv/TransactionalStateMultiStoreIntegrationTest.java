@@ -88,7 +88,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
       put(TaskConfig.CHECKPOINT_MANAGER_FACTORY, "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory");
       put(TaskConfig.COMMIT_MS, "-1"); // manual commit only
       put(TaskConfig.TRANSACTIONAL_STATE_ENABLED, "true");
-      put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
+      put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE, "true");
       put(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR(), "1");
       put(JobConfig.JOB_LOGGED_STORE_BASE_DIR, LOGGED_STORE_BASE_DIR);
     } };
@@ -178,7 +178,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
   private void secondRun(String changelogTopic, List<String> expectedChangelogMessages,
       List<String> expectedInitialStoreContents) {
     // clear the local store directory
-    if (hostAffinity) {
+    if (!hostAffinity) {
       new FileUtil().rm(new File(LOGGED_STORE_BASE_DIR));
     }
 

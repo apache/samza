@@ -216,6 +216,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
             !storageEngine.getStoreProperties().isLoggedStore()) {
           File currentDir = storageManagerUtil.getTaskStoreDir(
               nonLoggedStoreBaseDirectory, storeName, taskName, taskMode);
+          LOG.info("Marking current directory: {} for store: {} in task: {} for deletion since it is not a logged store.",
+              currentDir, storeName, taskName);
           storeDirsToDelete.put(storeName, currentDir);
           // persistent but non-logged stores should not have checkpoint dirs
           return;
@@ -247,9 +249,11 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
         LOG.info("For store: {} in task: {} got current dir: {}, checkpoint dirs: {}, checkpointed changelog offset: {}",
             storeName, taskName, currentDirOptional, checkpointDirsOptional, checkpointedOffset);
 
-        // TODO BLOCKER pmaheshw: will do full restore from changelog even if retain existing state == true
-        // always delete current logged store dir for persistent stores.
-        currentDirOptional.ifPresent(currentDir -> storeDirsToDelete.put(storeName, currentDir));
+        currentDirOptional.ifPresent(currentDir -> {
+            LOG.info("Marking current directory: {} for store: {} in task: {} for deletion.",
+                currentDir, storeName, taskName);
+            storeDirsToDelete.put(storeName, currentDir);
+          });
 
         // first check if checkpointed offset is invalid (i.e., out of range of current offsets, or null)
         if (checkpointedOffset == null && oldestOffset != null) {
@@ -267,17 +271,22 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           // deploy). for simplicity, we'll always delete the local store, and restore from changelog if necessary.
 
           checkpointDirsOptional.ifPresent(checkpointDirs ->
-              checkpointDirs.forEach(checkpointDir -> storeDirsToDelete.put(storeName, checkpointDir)));
+              checkpointDirs.forEach(checkpointDir -> {
+                  LOG.info("Marking checkpoint directory: {} for store: {} in task: {} for deletion since checkpointed " +
+                          "offset is null and oldest offset: {} is not.",
+                      checkpointDir, storeName, taskName, oldestOffset);
+                  storeDirsToDelete.put(storeName, checkpointDir);
+                }));
 
-          if (new TaskConfig(config).getTransactionalStateRetainExistingState()) {
+          if (new TaskConfig(config).getTransactionalStateRetainExistingChangelogState()) {
             // mark for restore from (oldest, newest) to recreate local state.
             LOG.warn("Checkpointed offset for store: {} in task: {} is null. Since retain existing state is true, " +
-                "local state will be restored from current changelog contents. " +
+                "local state will be fully restored from current changelog contents. " +
                 "There is no transactional local state guarantee.", storeName, taskName);
             storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, newestOffset));
           } else {
             LOG.warn("Checkpointed offset for store: {} in task: {} is null. Since retain existing state is false, " +
-                "any local state and changelog topic contents will be cleared", storeName, taskName);
+                "any local state and changelog topic contents will be deleted.", storeName, taskName);
             // mark for restore from (oldest, null) to trim entire changelog.
             storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, null));
           }
@@ -290,7 +299,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           // for local store. if the topic was deleted and recreated, this will have the side effect of
           // clearing the store as well.
           LOG.warn("Checkpointed offset: {} for store: {} in task: {} is out of range of oldest: {} or newest: {} offset." +
-                  "Deleting existing store and restoring from changelog topic from oldest to newest offset. If the topic " +
+                  "Deleting existing store and fully restoring from changelog topic from oldest to newest offset. If the topic " +
                   "has time-based retention, there is no transactional local state guarantees. If the topic was changed," +
                   "local state will be cleaned up and fully restored to match the new topic contents.",
               checkpointedOffset, storeName, taskName, oldestOffset, newestOffset);
@@ -299,6 +308,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, newestOffset));
         } else { // happy path. checkpointed offset is in range of current oldest and newest offsets
           if (!checkpointDirsOptional.isPresent()) { // non-persistent logged store
+            LOG.info("Did not find any checkpoint directories for logged (maybe non-persistent) store: {}. Local state " +
+                "will be fully restored from current changelog contents.", storeName);
             storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, checkpointedOffset));
           } else { // persistent logged store
             // if there exists a valid store checkpoint directory with oldest offset <= local offset <= checkpointed offset,
@@ -306,7 +317,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
             // checkpoint directory exists, retain the one with the highest local offset and delete the rest.
             boolean hasValidCheckpointDir = false;
             for (File checkpointDir: checkpointDirsOptional.get()) {
-              // TODO BLOCKER pmaheshw: should validation check / warn for compact lag config staleness too?
+              // TODO HIGH pmaheshw: should validation check / warn for compact lag config staleness too?
               if (storageManagerUtil.isLoggedStoreValid(
                   storeName, checkpointDir, config, storeChangelogs, taskModel, clock, storeEngines)) {
                 String localOffset = storageManagerUtil.readOffsetFile(
@@ -319,9 +330,12 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
                     (storesToRestore.get(storeName) == null ||
                         admin.offsetComparator(localOffset, storesToRestore.get(storeName).startingOffset) > 0)) {
                   hasValidCheckpointDir = true;
+                  LOG.info("Temporarily marking checkpoint dir: {} for store: {} in task: {} for retention. " +
+                          "May be overridden later.", checkpointDir, storeName, taskName);
                   storeDirToRetain.put(storeName, checkpointDir);
-                  LOG.info("Temporarily retaining checkpoint dir: {}", checkpointDir);
                   // mark for restore even if local == checkpointed, so that the changelog gets trimmed.
+                  LOG.info("Temporarily marking store: {} in task: {} for restore from beginning offset: {} to " +
+                          "ending offset: {}. May be overridden later", storeName, taskName, localOffset, checkpointedOffset);
                   storesToRestore.put(storeName, new RestoreOffsets(localOffset, checkpointedOffset));
                 }
               }
@@ -331,6 +345,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
             for (File checkpointDir: checkpointDirsOptional.get()) {
               if (storeDirToRetain.get(storeName) == null ||
                   !storeDirToRetain.get(storeName).equals(checkpointDir)) {
+                LOG.info("Marking checkpoint directory: {} for store: {} in task: {} for deletion since it is not " +
+                    "marked for retention.", checkpointDir, storeName, taskName);
                 storeDirsToDelete.put(storeName, checkpointDir);
               }
             }
@@ -343,10 +359,9 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
         }
       });
 
-    LOG.info("Determined the following store actions for stores in task: {}:", taskName);
-    LOG.info("Store directories to retain: {}", storeDirToRetain);
-    LOG.info("Store directories to delete: {}", storeDirsToDelete);
-    LOG.info("Stores to restore: {}", storesToRestore);
+    LOG.info("Store directories to be retained in Task: {} are: {}", taskName, storeDirToRetain);
+    LOG.info("Store directories to be deleted in Task: {} are: {}", taskName, storeDirsToDelete);
+    LOG.info("Stores to be restored in Task: {} are: {}", taskName, storesToRestore);
     return new StoreActions(storeDirToRetain, storeDirsToDelete, storesToRestore);
   }
 
@@ -444,7 +459,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
         SystemConsumer systemConsumer = storeConsumers.get(storeName);
         SystemStreamPartitionMetadata currentOffsets = currentChangelogOffsets.get(changelogSSP);
         String upcomingOffset = currentOffsets.getUpcomingOffset();
-        LOG.info("Initially registering upcoming offset: {} as the starting offest for changelog ssp: {}. " +
+        LOG.info("Temporarily registering upcoming offset: {} as the starting offest for changelog ssp: {}. " +
             "This might be overridden later for stores that need restoring.", upcomingOffset, changelogSSP);
         systemConsumer.register(changelogSSP, upcomingOffset);
       });

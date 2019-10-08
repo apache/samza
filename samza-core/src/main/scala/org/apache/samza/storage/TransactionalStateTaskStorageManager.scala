@@ -81,7 +81,7 @@ class TransactionalStateTaskStorageManager(
 
   def removeOldCheckpoints(latestCheckpointId: String): Unit = {
     if (latestCheckpointId != null) {
-      debug("Remove older checkpoints before " + latestCheckpointId)
+      debug("Removing older checkpoints before " + latestCheckpointId)
 
       val files = loggedStoreBaseDir.listFiles()
       if (files != null) {

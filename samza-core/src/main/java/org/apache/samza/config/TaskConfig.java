@@ -108,7 +108,8 @@ public class TaskConfig extends MapConfig {
 
   public static final String TRANSACTIONAL_STATE_ENABLED = "task.transactional.state.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_ENABLED = false;
-  public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = "task.transactional.state.retain.existing.state";
+  public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE =
+      "task.transactional.state.retain.existing.changelog.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
 
   public TaskConfig(Config config) {
@@ -306,7 +307,7 @@ public class TaskConfig extends MapConfig {
     return getBoolean(TRANSACTIONAL_STATE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_ENABLED);
   }
 
-  public boolean getTransactionalStateRetainExistingState() {
-    return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
+  public boolean getTransactionalStateRetainExistingChangelogState() {
+    return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
   }
 }
