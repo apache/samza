@@ -199,7 +199,7 @@ public class TestAvroRelConversion {
     record.put("id", id);
     record.put("bool_value", boolValue);
     record.put("double_value", doubleValue);
-    record.put("float_value", floatValue);
+    record.put("float_value0", floatValue);
     record.put("string_value", testStrValue);
     record.put("bytes_value", testBytes);
     record.put("fixed_value", fixedBytes);
@@ -212,7 +212,7 @@ public class TestAvroRelConversion {
     complexRecord.id = id;
     complexRecord.bool_value = boolValue;
     complexRecord.double_value = doubleValue;
-    complexRecord.float_value = floatValue;
+    complexRecord.float_value0 = floatValue;
     complexRecord.string_value = testStrValue;
     complexRecord.bytes_value = testBytes;
     complexRecord.fixed_value = fixedBytes;
@@ -352,7 +352,7 @@ public class TestAvroRelConversion {
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("bool_value").get(), boolValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("double_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("string_value").get(), new Utf8(testStrValue));
-    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), floatValue);
+    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value0").get(), floatValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("long_value").get(), longValue);
     if (unionValue instanceof String) {
       Assert.assertEquals(message.getSamzaSqlRelRecord().getField("union_value").get(), new Utf8((String) unionValue));

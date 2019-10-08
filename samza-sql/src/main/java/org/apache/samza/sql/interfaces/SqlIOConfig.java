@@ -81,13 +81,13 @@ public class SqlIOConfig {
     this.streamId = String.format("%s-%s", systemName, streamName);
 
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
-    Validate.notEmpty(samzaRelConverterName,
-        String.format("%s is not set or empty for system %s", CFG_SAMZA_REL_CONVERTER, systemName));
+    Validate.notEmpty(samzaRelConverterName, String.format("System %s is unknown. %s is not set or empty for this"
+        + " system", systemName, CFG_SAMZA_REL_CONVERTER));
 
     if (isRemoteTable()) {
       samzaRelTableKeyConverterName = streamConfigs.get(CFG_SAMZA_REL_TABLE_KEY_CONVERTER);
-      Validate.notEmpty(samzaRelTableKeyConverterName,
-          String.format("%s is not set or empty for system %s", CFG_SAMZA_REL_CONVERTER, systemName));
+      Validate.notEmpty(samzaRelTableKeyConverterName, String.format("System %s is unknown. %s is not set or empty for"
+          + " this system", systemName, CFG_SAMZA_REL_CONVERTER));
     } else {
       samzaRelTableKeyConverterName = "";
     }

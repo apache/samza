@@ -1,21 +1,21 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.planner;
 
@@ -33,11 +33,14 @@ import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
+import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.schema.SqlFieldSchema;
@@ -78,18 +81,42 @@ public class SamzaSqlValidator {
       try {
         relRoot = planner.plan(qinfo.getSelectQuery());
       } catch (SamzaException e) {
-        throw new SamzaSqlValidatorException("Calcite planning for sql failed.", e);
+        throw new SamzaSqlValidatorException(String.format("Validation failed for sql stmt:\n%s\n", sql), e);
       }
 
       // Now that we have logical plan, validate different aspects.
-      validate(relRoot, qinfo, sqlConfig);
+      String sink = qinfo.getSink();
+      validate(relRoot, sink, sqlConfig.getRelSchemaProviders().get(sink), sqlConfig.getSamzaRelConverters().get(sink));
     }
   }
 
-  protected void validate(RelRoot relRoot, SamzaSqlQueryParser.QueryInfo qinfo, SamzaSqlApplicationConfig sqlConfig)
-      throws SamzaSqlValidatorException {
-    // Validate select fields (including Udf return types) with output schema
-    validateOutput(relRoot, sqlConfig.getRelSchemaProviders().get(qinfo.getSink()));
+  /**
+   * Determine if validation needs to be done on Calcite plan based on the schema provider and schema converter.
+   * @param relRoot
+   * @param sink
+   * @param outputSchemaProvider
+   * @param ouputRelSchemaConverter
+   * @return if the validation needs to be skipped
+   */
+  protected boolean skipOutputValidation(RelRoot relRoot, String sink, RelSchemaProvider outputSchemaProvider,
+      SamzaRelConverter ouputRelSchemaConverter) {
+    return false;
+  }
+
+  // TODO: Remove this API. This API is introduced to take care of cases where RelSchemaProviders have a complex
+  // mechanism to determine if a given output field is optional. We will need system specific validators to take
+  // care of such cases and once that is introduced, we can get rid of the below API.
+  protected boolean isOptional(RelSchemaProvider outputRelSchemaProvider, String outputFieldName,
+      RelRecordType projectRecord) {
+    return false;
+  }
+
+  private void validate(RelRoot relRoot, String sink, RelSchemaProvider outputSchemaProvider,
+      SamzaRelConverter outputRelSchemaConverter) throws SamzaSqlValidatorException {
+    if (!skipOutputValidation(relRoot, sink, outputSchemaProvider, outputRelSchemaConverter)) {
+      // Validate select fields (including Udf return types) with output schema
+      validateOutput(relRoot, outputSchemaProvider);
+    }
 
     // TODO:
     //  1. SAMZA-2314: Validate Udf arguments.
@@ -97,22 +124,25 @@ public class SamzaSqlValidator {
     //     Eg: LogicalAggregate with sum function is not supported by Samza Sql.
   }
 
-  protected void validateOutput(RelRoot relRoot, RelSchemaProvider relSchemaProvider) throws SamzaSqlValidatorException {
-    RelRecordType outputRecord = (RelRecordType) QueryPlanner.getSourceRelSchema(relSchemaProvider,
-        new RelSchemaConverter());
-    // Get Samza Sql schema along with Calcite schema. The reason is that the Calcite schema does not have a way
-    // to represent optional fields while Samza Sql schema can represent optional fields. This is the only reason that
-    // we use SqlSchema in validating output.
-    SqlSchema outputSqlSchema = QueryPlanner.getSourceSqlSchema(relSchemaProvider);
-
+  private void validateOutput(RelRoot relRoot, RelSchemaProvider outputRelSchemaProvider)
+      throws SamzaSqlValidatorException {
     LogicalProject project = (LogicalProject) relRoot.rel;
-    RelRecordType projetRecord = (RelRecordType) project.getRowType();
 
-    validateOutputRecords(outputRecord, outputSqlSchema, projetRecord);
+    RelRecordType projetRecord = (RelRecordType) project.getRowType();
+    RelRecordType outputRecord = (RelRecordType) QueryPlanner.getSourceRelSchema(outputRelSchemaProvider,
+        new RelSchemaConverter());
+
+    // Get Samza Sql schema along with Calcite schema. The reason is that the Calcite schema does not have a way
+    // to represent optional fields while Samza Sql schema can represent optional fields. This is the reason that
+    // we use SqlSchema in validating output.
+    SqlSchema outputSqlSchema = QueryPlanner.getSourceSqlSchema(outputRelSchemaProvider);
+
+    validateOutputRecords(outputSqlSchema, outputRecord, projetRecord, outputRelSchemaProvider);
+    LOG.info("Samza Sql Validation finished successfully.");
   }
 
-  protected void validateOutputRecords(RelRecordType outputRecord, SqlSchema outputSqlSchema,
-      RelRecordType projectRecord)
+  private void validateOutputRecords(SqlSchema outputSqlSchema, RelRecordType outputRecord,
+      RelRecordType projectRecord, RelSchemaProvider outputRelSchemaProvider)
       throws SamzaSqlValidatorException {
     Map<String, RelDataType> outputRecordMap = outputRecord.getFieldList().stream().collect(
         Collectors.toMap(RelDataTypeField::getName, RelDataTypeField::getType));
@@ -120,6 +150,52 @@ public class SamzaSqlValidator {
         Collectors.toMap(SqlSchema.SqlField::getFieldName, SqlSchema.SqlField::getFieldSchema));
     Map<String, RelDataType> projectRecordMap = projectRecord.getFieldList().stream().collect(
         Collectors.toMap(RelDataTypeField::getName, RelDataTypeField::getType));
+
+    // Ensure that all fields from sql statement exist in the output schema and are of the same type.
+    for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
+      String projectedFieldName = entry.getKey();
+      RelDataType outputFieldType = outputRecordMap.get(projectedFieldName);
+      SqlFieldSchema outputSqlFieldSchema = outputFieldSchemaMap.get(projectedFieldName);
+
+      if (outputFieldType == null) {
+        // If the field names are specified more than once in the select query, calcite appends 'n' as suffix to the
+        // dup fields based on the order they are specified, where 'n' starts from 0 for the first dup field.
+        // Take the following example: SELECT id as str, secondaryId as str, tertiaryId as str FROM store.myTable
+        //   Calcite renames the projected fieldNames in select query as str, str0, str1 respectively.
+        // Samza Sql allows a field name to be specified up to 2 times. Do the validation accordingly.
+
+        // This type of pattern is typically followed when users want to just modify one field in the input table while
+        // keeping rest of the fields the same. Eg: SELECT myUdf(id) as id, * from store.myTable
+        if (projectedFieldName.endsWith("0")) {
+          projectedFieldName = StringUtils.chop(projectedFieldName);
+          outputFieldType = outputRecordMap.get(projectedFieldName);
+          outputSqlFieldSchema = outputFieldSchemaMap.get(projectedFieldName);
+        }
+
+        if (outputFieldType == null) {
+          // If a field in sql query is not found in the output schema, ignore if it is a Samza Sql special op.
+          // Otherwise, throw an error.
+          if (entry.getKey().equals(SamzaSqlRelMessage.OP_NAME)) {
+            continue;
+          }
+          String errMsg = String.format("Field '%s' in select query does not match any field in output schema.", entry.getKey());
+          LOG.error(errMsg);
+          throw new SamzaSqlValidatorException(errMsg);
+        }
+      }
+
+      Validate.notNull(outputFieldType);
+      Validate.notNull(outputSqlFieldSchema);
+
+      RelDataType calciteSqlType = getCalciteSqlFieldType(entry.getValue());
+      if (!compareFieldTypes(outputFieldType, outputSqlFieldSchema, calciteSqlType, outputRelSchemaProvider)) {
+        String errMsg = String.format("Field '%s' with type '%s' in select query does not match the field type '%s'"
+            + "(calciteSqlType:'%s') in output schema.", entry.getKey(), outputFieldType, calciteSqlType,
+            outputSqlFieldSchema.getFieldType());
+        LOG.error(errMsg);
+        throw new SamzaSqlValidatorException(errMsg);
+      }
+    }
 
     // Ensure that all non-optional fields in output schema are set in the sql query and are of the
     // same type.
@@ -130,60 +206,46 @@ public class SamzaSqlValidator {
       if (projectFieldType == null) {
         // If an output schema field is not found in the sql query, ignore it if the field is optional.
         // Otherwise, throw an error.
-        if (outputSqlFieldSchema.isOptional()) {
+        if (outputSqlFieldSchema.isOptional() || isOptional(outputRelSchemaProvider, entry.getKey(), projectRecord)) {
           continue;
         }
-        String errMsg = String.format("Field '%s' in output schema does not match any projected fields.",
-            entry.getKey());
+        String errMsg = String.format("Non-optional field '%s' in output schema is missing in projected fields of "
+            + "select query.", entry.getKey());
         LOG.error(errMsg);
         throw new SamzaSqlValidatorException(errMsg);
-      } else if (!compareFieldTypes(entry.getValue(), outputSqlFieldSchema, projectFieldType)) {
-        String errMsg = String.format("Field '%s' with type '%s' in output schema does not match the field type '%s' in"
-            + " projected fields.", entry.getKey(), entry.getValue(), projectFieldType);
-        LOG.error(errMsg);
-        throw new SamzaSqlValidatorException(errMsg);
-      }
-    }
-
-    // Ensure that all fields from sql statement exist in the output schema and are of the same type.
-    for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
-      RelDataType outputFieldType = outputRecordMap.get(entry.getKey());
-      SqlFieldSchema outputSqlFieldSchema = outputFieldSchemaMap.get(entry.getKey());
-
-      if (outputFieldType == null) {
-        // If a field in sql query is not found in the output schema, ignore if it is a Samza Sql special op.
-        // Otherwise, throw an error.
-        if (entry.getKey().equals(SamzaSqlRelMessage.OP_NAME)) {
-          continue;
+      } else {
+        RelDataType calciteSqlType = getCalciteSqlFieldType(entry.getValue());
+        if (!compareFieldTypes(entry.getValue(), outputSqlFieldSchema, calciteSqlType, outputRelSchemaProvider)) {
+          String errMsg = String.format("Field '%s' with type '%s'(calciteSqlType:'%s') in output schema does not match the field"
+                  + " type '%s' in projected fields.", entry.getKey(), outputSqlFieldSchema.getFieldType(),
+              calciteSqlType, projectFieldType);
+          LOG.error(errMsg);
+          throw new SamzaSqlValidatorException(errMsg);
         }
-        String errMsg = String.format("Field '%s' in select query does not match any field in output schema.",
-            entry.getKey());
-        LOG.error(errMsg);
-        throw new SamzaSqlValidatorException(errMsg);
-      } else if (!compareFieldTypes(outputFieldType, outputSqlFieldSchema, entry.getValue())) {
-        String errMsg = String.format("Field '%s' with type '%s' in select query does not match the field type '%s' in"
-            + " output schema.", entry.getKey(), entry.getValue(), outputFieldType);
-        LOG.error(errMsg);
-        throw new SamzaSqlValidatorException(errMsg);
       }
     }
   }
 
-  protected boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
-      RelDataType selectQueryFieldType) {
-    RelDataType projectFieldType;
+  private RelDataType getCalciteSqlFieldType(RelDataType fieldType) {
+    RelDataType sqlFieldType;
 
     // JavaTypes are relevant for Udf argument and return types
     // TODO: Support UDF argument validation. Currently, only return types are validated and argument types are
     //  validated during run-time.
-    if (selectQueryFieldType instanceof RelDataTypeFactoryImpl.JavaType) {
-      projectFieldType = new SamzaSqlJavaTypeFactoryImpl().toSql(selectQueryFieldType);
+    if (fieldType instanceof RelDataTypeFactoryImpl.JavaType) {
+      sqlFieldType = new SamzaSqlJavaTypeFactoryImpl().toSql(fieldType);
     } else {
-      projectFieldType = selectQueryFieldType;
+      sqlFieldType = fieldType;
     }
 
+    return sqlFieldType;
+  }
+
+  private boolean compareFieldTypes(RelDataType outputFieldType, SqlFieldSchema sqlFieldSchema,
+      RelDataType selectQueryFieldType, RelSchemaProvider outputRelSchemaProvider) {
+
     SqlTypeName outputSqlType = outputFieldType.getSqlTypeName();
-    SqlTypeName projectSqlType = projectFieldType.getSqlTypeName();
+    SqlTypeName projectSqlType = selectQueryFieldType.getSqlTypeName();
 
     if (projectSqlType == SqlTypeName.ANY || outputSqlType == SqlTypeName.ANY) {
       return true;
@@ -206,15 +268,15 @@ public class SamzaSqlValidator {
         return projectSqlType == SqlTypeName.FLOAT;
       case ROW:
         try {
-          validateOutputRecords((RelRecordType) outputFieldType, sqlFieldSchema.getRowSchema(),
-              (RelRecordType) projectFieldType);
+          validateOutputRecords(sqlFieldSchema.getRowSchema(), (RelRecordType) outputFieldType,
+              (RelRecordType) selectQueryFieldType, outputRelSchemaProvider);
         } catch (SamzaSqlValidatorException e) {
           LOG.error("A field in select query does not match with the output schema.", e);
           return false;
         }
         return true;
       default:
-          return false;
+        return false;
     }
   }
 
@@ -300,7 +362,7 @@ public class SamzaSqlValidator {
       // Ignore any formatting errors.
       LOG.error("Formatting error (Not the actual error. Look for the logs for actual error)", ex);
       return String.format("Failed with formatting exception (not the actual error) for the following sql"
-              + " statement:\n\"%s\"\n\n%s", query, e.getMessage());
+          + " statement:\n\"%s\"\n\n%s", query, e.getMessage());
     }
   }
 
