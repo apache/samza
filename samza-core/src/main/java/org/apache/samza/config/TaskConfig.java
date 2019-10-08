@@ -106,6 +106,11 @@ public class TaskConfig extends MapConfig {
   private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
 
+  public static final String TRANSACTIONAL_STATE_ENABLED = "samza.transactional.state.enabled";
+  private static final boolean DEFAULT_TRANSACTIONAL_STATE_ENABLED = false;
+  public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = "samza.transactional.state.retain.existing.state";
+  private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
+
   public TaskConfig(Config config) {
     super(config);
   }
@@ -198,10 +203,10 @@ public class TaskConfig extends MapConfig {
    * @param metricsRegistry Registry of metrics to use. Can be null if not using metrics.
    * @return CheckpointManager object if checkpoint manager factory is configured, otherwise empty.
    */
-  public Optional<CheckpointManager> getCheckpointManager(MetricsRegistry metricsRegistry, ClassLoader classLoader) {
+  public Optional<CheckpointManager> getCheckpointManager(MetricsRegistry metricsRegistry) {
     return Optional.ofNullable(get(CHECKPOINT_MANAGER_FACTORY))
         .filter(StringUtils::isNotBlank)
-        .map(checkpointManagerFactoryName -> ReflectionUtil.getObj(classLoader, checkpointManagerFactoryName,
+        .map(checkpointManagerFactoryName -> ReflectionUtil.getObj(checkpointManagerFactoryName,
             CheckpointManagerFactory.class).getCheckpointManager(this, metricsRegistry));
   }
 
@@ -295,5 +300,13 @@ public class TaskConfig extends MapConfig {
           DEFAULT_TASK_SHUTDOWN_MS));
       return DEFAULT_TASK_SHUTDOWN_MS;
     }
+  }
+
+  public boolean getTransactionalStateEnabled() {
+    return getBoolean(TRANSACTIONAL_STATE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_ENABLED);
+  }
+
+  public boolean getTransactionalStateRetainExistingState() {
+    return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
   }
 }

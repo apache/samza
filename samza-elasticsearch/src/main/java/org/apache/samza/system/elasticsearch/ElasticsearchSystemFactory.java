@@ -54,7 +54,7 @@ public class ElasticsearchSystemFactory implements SystemFactory {
     return new ElasticsearchSystemProducer(name,
                                            getBulkProcessorFactory(elasticsearchConfig),
                                            getClient(elasticsearchConfig),
-                                           getIndexRequestFactory(elasticsearchConfig, getClass().getClassLoader()),
+                                           getIndexRequestFactory(elasticsearchConfig),
                                            new ElasticsearchSystemProducerMetrics(name, metricsRegistry));
   }
 
@@ -80,11 +80,9 @@ public class ElasticsearchSystemFactory implements SystemFactory {
     }
   }
 
-  protected static IndexRequestFactory getIndexRequestFactory(ElasticsearchConfig config,
-      ClassLoader classLoader) {
+  protected static IndexRequestFactory getIndexRequestFactory(ElasticsearchConfig config) {
     if (config.getIndexRequestFactoryClassName().isPresent()) {
-      return ReflectionUtil.getObj(classLoader, config.getIndexRequestFactoryClassName().get(),
-          IndexRequestFactory.class);
+      return ReflectionUtil.getObj(config.getIndexRequestFactoryClassName().get(), IndexRequestFactory.class);
     } else {
       return new DefaultIndexRequestFactory();
     }

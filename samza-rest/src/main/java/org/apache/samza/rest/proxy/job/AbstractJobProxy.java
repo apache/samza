@@ -46,11 +46,11 @@ public abstract class AbstractJobProxy implements JobProxy {
    * @param config  the config containing the job proxy factory property.
    * @return        the JobProxy produced by the factory.
    */
-  public static JobProxy fromFactory(JobsResourceConfig config, ClassLoader classLoader) {
+  public static JobProxy fromFactory(JobsResourceConfig config) {
     String jobProxyFactoryClassName = config.getJobProxyFactory();
     if (jobProxyFactoryClassName != null && !jobProxyFactoryClassName.isEmpty()) {
       try {
-        JobProxyFactory factory = ReflectionUtil.getObj(classLoader, jobProxyFactoryClassName, JobProxyFactory.class);
+        JobProxyFactory factory = ReflectionUtil.getObj(jobProxyFactoryClassName, JobProxyFactory.class);
         return factory.getJobProxy(config);
       } catch (Exception e) {
         throw new SamzaException(e);

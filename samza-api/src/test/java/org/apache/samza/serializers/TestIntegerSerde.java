@@ -16,30 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.serializers;
 
-package org.apache.samza.serializers
+import org.junit.Test;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 
-import org.junit.Assert._
-import org.junit.Test
-
-import scala.collection.JavaConverters._
-
-
-class TestJsonSerdeV2 {
+public class TestIntegerSerde {
   @Test
-  def testJsonSerdeV2ShouldWork {
-    val serde = new JsonSerdeV2[java.util.HashMap[String, Object]]
-    val obj = new java.util.HashMap[String, Object](Map[String, Object]("hi" -> "bye", "why" -> new java.lang.Integer(2)).asJava)
-    val bytes = serde.toBytes(obj)
-    assertEquals(obj, serde.fromBytes(bytes))
-    val serdeHashMapEntry = new JsonSerdeV2[java.util.Map.Entry[String, Object]]
-    obj.entrySet().asScala.foreach(entry => {
-      try {
-        val entryBytes = serdeHashMapEntry.toBytes(entry)
-      } catch {
-        case e: Exception => fail("HashMap Entry serialization failed!")
-      }
-    })
+  public void testIntegerSerde() {
+    IntegerSerde serde = new IntegerSerde();
+    assertNull(serde.toBytes(null));
+    assertNull(serde.fromBytes(null));
+
+    Integer fooBar = 37;
+    byte[] fooBarBytes = serde.toBytes(fooBar);
+    assertArrayEquals(new byte[]{0, 0, 0, 37}, fooBarBytes);
+    assertEquals(fooBar, serde.fromBytes(fooBarBytes));
   }
 }

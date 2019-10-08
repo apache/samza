@@ -21,19 +21,17 @@ package org.apache.samza.clustermanager;
 import org.apache.samza.config.Config;
 
 import java.lang.reflect.Field;
-
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class MockContainerAllocator extends ContainerAllocator {
-  public int requestedContainers = 0;
+public class MockContainerAllocatorWithHostAffinity extends ContainerAllocator {
   private Semaphore semaphore = new Semaphore(0);
 
-  public MockContainerAllocator(ClusterResourceManager manager,
-                                Config config,
-                                SamzaApplicationState state) {
-    super(manager, config, state, MockContainerAllocator.class.getClassLoader());
+  public MockContainerAllocatorWithHostAffinity(ClusterResourceManager manager,
+      Config config, SamzaApplicationState state) {
+    super(manager, config, state, true, Optional.empty());
   }
 
   /**
@@ -52,12 +50,11 @@ public class MockContainerAllocator extends ContainerAllocator {
 
   @Override
   public void requestResources(Map<String, String> processorToHostMapping) {
-    requestedContainers += processorToHostMapping.size();
     super.requestResources(processorToHostMapping);
   }
 
   public ResourceRequestState getContainerRequestState() throws Exception {
-    Field field = AbstractContainerAllocator.class.getDeclaredField("resourceRequestState");
+    Field field = ContainerAllocator.class.getDeclaredField("resourceRequestState");
     field.setAccessible(true);
 
     return (ResourceRequestState) field.get(this);

@@ -22,29 +22,25 @@ package org.apache.samza.container
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
+import org.apache.samza.Partition
 import org.apache.samza.config.{ClusterManagerConfig, Config, MapConfig}
-import org.apache.samza.context.{ApplicationContainerContext, ContainerContext, JobContext}
+import org.apache.samza.context.{ApplicationContainerContext, ContainerContext}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
-import org.apache.samza.metrics.{Gauge, MetricsReporter, Timer}
-import org.apache.samza.storage.{ContainerStorageManager, TaskStorageManager}
+import org.apache.samza.metrics.Gauge
+import org.apache.samza.storage.ContainerStorageManager
 import org.apache.samza.system._
-import org.apache.samza.task.{StreamTaskFactory, TaskFactory}
-import org.apache.samza.Partition
 import org.junit.Assert._
 import org.junit.{Before, Test}
 import org.mockito.Matchers.{any, notNull}
 import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
-import org.mockito.{ArgumentCaptor, Mock, Mockito, MockitoAnnotations}
+import org.mockito.{Mock, Mockito, MockitoAnnotations}
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   private val TASK_NAME = new TaskName("taskName")

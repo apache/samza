@@ -25,6 +25,7 @@
   commonsCollectionVersion = "3.2.1"
   commonsHttpClientVersion = "3.1"
   commonsLang3Version = "3.4"
+  commonsIoVersion = "2.6"
   elasticsearchVersion = "2.2.0"
   gsonVersion = "2.8.5"
   guavaVersion = "23.0"

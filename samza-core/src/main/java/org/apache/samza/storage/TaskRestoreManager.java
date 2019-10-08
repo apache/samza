@@ -17,24 +17,30 @@
  * under the License.
  */
 
-package org.apache.samza.serializers
+package org.apache.samza.storage;
 
-import java.util.Arrays
+import java.util.Map;
+import org.apache.samza.system.SystemStreamPartition;
 
-import org.junit.Assert._
-import org.junit.Test
 
-class TestLongSerde {
-  @Test
-  def testLongSerde {
-    val serde = new LongSerde
-    assertEquals(null, serde.toBytes(null))
-    assertEquals(null, serde.fromBytes(null))
+/**
+ * The helper interface restores task state.
+ */
+public interface TaskRestoreManager {
 
-    val fooBar = 1234123412341234L
-    val fooBarBytes = serde.toBytes(fooBar)
-    fooBarBytes.foreach(System.err.println)
-    assertArrayEquals(Array[Byte](0, 4, 98, 109, -65, -102, 1, -14), fooBarBytes)
-    assertEquals(fooBar, serde.fromBytes(fooBarBytes))
-  }
+  /**
+   * Init state resources such as file directories.
+   */
+  void init(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets);
+
+  /**
+   * Restore state from checkpoints, state snapshots and changelog.
+   */
+  void restore();
+
+  /**
+   * Stop all persistent stores after restoring.
+   */
+  void stopPersistentStores();
+
 }

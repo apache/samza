@@ -21,8 +21,7 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, JobConfig, MetricsConfig, SerializerConfig, SystemConfig}
-import org.apache.samza.config.StreamConfig.Config2Stream
+import org.apache.samza.config.{Config, JobConfig, MetricsConfig, SerializerConfig, StreamConfig, SystemConfig}
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -63,10 +62,11 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val producer = systemFactory.getProducer(systemName, config, registry)
 
     info("Got producer %s." format producer)
+    val streamConfig = new StreamConfig(config)
 
-    val streamSerdeName = config.getStreamMsgSerde(systemStream)
-    val systemSerdeName = JavaOptionals.toRichOptional(systemConfig.getSystemMsgSerde(systemName)).toOption
-    val serdeName = streamSerdeName.getOrElse(systemSerdeName.getOrElse(null))
+    val streamSerdeName = streamConfig.getStreamMsgSerde(systemStream)
+    val systemSerdeName = systemConfig.getSystemMsgSerde(systemName)
+    val serdeName = streamSerdeName.orElse(systemSerdeName.orElse(null))
     val serializerConfig = new SerializerConfig(config)
     val serde = if (serdeName != null) {
       JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption match {

@@ -184,6 +184,7 @@ project(":samza-core_$scalaSuffix") {
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "org.apache.commons:commons-collections4:$apacheCommonsCollections4Version"
     compile "org.apache.commons:commons-lang3:$commonsLang3Version"
+    compile "commons-io:commons-io:$commonsIoVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
     compile "org.scala-lang:scala-library:$scalaVersion"

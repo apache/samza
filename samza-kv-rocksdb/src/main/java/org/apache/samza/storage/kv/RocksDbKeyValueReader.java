@@ -57,10 +57,8 @@ public class RocksDbKeyValueReader {
     StorageConfig storageConfig = new StorageConfig(config);
     SerializerConfig serializerConfig = new SerializerConfig(config);
 
-    keySerde = getSerdeFromName(storageConfig.getStorageKeySerde(storeName).orElse(null), serializerConfig,
-        getClass().getClassLoader());
-    valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName).orElse(null), serializerConfig,
-        getClass().getClassLoader());
+    keySerde = getSerdeFromName(storageConfig.getStorageKeySerde(storeName).orElse(null), serializerConfig);
+    valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName).orElse(null), serializerConfig);
 
     // get db options
     Options options = RocksDbOptionsHelper.options(config, 1, new File(dbPath), StorageEngineFactory.StoreMode.ReadWrite);
@@ -117,9 +115,9 @@ public class RocksDbKeyValueReader {
    * @param serializerConfig serializer config
    * @return a Serde of this serde name
    */
-  private Serde<Object> getSerdeFromName(String name, SerializerConfig serializerConfig, ClassLoader classLoader) {
+  private Serde<Object> getSerdeFromName(String name, SerializerConfig serializerConfig) {
     String serdeClassName =
         serializerConfig.getSerdeFactoryClass(name).orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(name));
-    return ReflectionUtil.getObj(classLoader, serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
+    return ReflectionUtil.getObj(serdeClassName, SerdeFactory.class).getSerde(name, serializerConfig);
   }
 }

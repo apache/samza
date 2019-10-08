@@ -272,6 +272,23 @@ class TestKafkaSystemAdmin {
   }
 
   @Test
+  def testShouldCreateCheckpointStream {
+    val topic = "test-checkpoint-stream"
+    val expectedReplicationFactor = 1
+    val map = new java.util.HashMap[String, String]()
+    map.put(org.apache.samza.config.KafkaConfig.CHECKPOINT_REPLICATION_FACTOR, expectedReplicationFactor.toString)
+    val systemAdmin = createSystemAdmin(SYSTEM, map)
+
+    val spec = StreamSpec.createCheckpointStreamSpec(topic, "kafka")
+    val actualReplicationFactor = systemAdmin.toKafkaSpec(spec).getReplicationFactor
+    // Ensure we respect the replication factor passed to system admin
+    assertEquals(expectedReplicationFactor, actualReplicationFactor)
+
+    systemAdmin.createStream(spec)
+    validateTopic(topic, 1)
+  }
+
+  @Test
   def testGetNewestOffset {
     createTopic(TOPIC2, 16)
     validateTopic(TOPIC2, 16)

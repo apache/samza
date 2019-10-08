@@ -297,6 +297,6 @@ public class TestGroupByPartition {
   }
 
   private SSPGrouperProxy buildSspGrouperProxy() {
-    return new SSPGrouperProxy(new MapConfig(), new GroupByPartition(new MapConfig()), getClass().getClassLoader());
+    return new SSPGrouperProxy(new MapConfig(), new GroupByPartition(new MapConfig()));
   }
 }

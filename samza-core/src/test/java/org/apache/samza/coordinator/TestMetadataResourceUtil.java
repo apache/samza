@@ -47,7 +47,7 @@ public class TestMetadataResourceUtil {
   public void testLoadWithCheckpointConfigured() {
     MapConfig mapConfig = new MapConfig(ImmutableMap.of(TaskConfig.CHECKPOINT_MANAGER_FACTORY,
         TestCheckpointManagerFactory.class.getName()));
-    MetadataResourceUtil metadataResourceUtil = Mockito.spy(new MetadataResourceUtil(mockJobModel, mockMetricsRegistry, getClass().getClassLoader(), mapConfig));
+    MetadataResourceUtil metadataResourceUtil = Mockito.spy(new MetadataResourceUtil(mockJobModel, mockMetricsRegistry, mapConfig));
     Mockito.doNothing().when(metadataResourceUtil).createChangelogStreams();
 
     metadataResourceUtil.createResources();
@@ -60,7 +60,7 @@ public class TestMetadataResourceUtil {
   @Test
   public void testLoadWithoutCheckpointConfigured() {
     MapConfig mapConfig = new MapConfig();
-    MetadataResourceUtil metadataResourceUtil = Mockito.spy(new MetadataResourceUtil(mockJobModel, mockMetricsRegistry, getClass().getClassLoader(), mapConfig));
+    MetadataResourceUtil metadataResourceUtil = Mockito.spy(new MetadataResourceUtil(mockJobModel, mockMetricsRegistry, mapConfig));
     Mockito.doNothing().when(metadataResourceUtil).createChangelogStreams();
 
     metadataResourceUtil.createResources();

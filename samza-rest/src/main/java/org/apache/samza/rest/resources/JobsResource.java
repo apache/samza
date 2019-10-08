@@ -56,7 +56,7 @@ public class JobsResource {
    * @param config  the configuration containing the {@link JobProxyFactory} class.
    */
   public JobsResource(JobsResourceConfig config) {
-    jobProxy = AbstractJobProxy.fromFactory(config, getClass().getClassLoader());
+    jobProxy = AbstractJobProxy.fromFactory(config);
   }
 
   /**

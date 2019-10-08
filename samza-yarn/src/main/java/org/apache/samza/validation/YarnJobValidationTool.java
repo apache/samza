@@ -166,7 +166,7 @@ public class YarnJobValidationTool {
       ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamStore);
       JobModelManager jobModelManager =
           JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
-              coordinatorStreamStore, getClass().getClassLoader(), metricsRegistry);
+              coordinatorStreamStore, metricsRegistry);
       validator.init(config);
       Map<String, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
       for (Map.Entry<String, String> entry : jmxUrls.entrySet()) {

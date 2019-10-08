@@ -20,11 +20,13 @@
 package org.apache.samza.storage;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 
 import java.util.List;
+import java.util.Optional;
+import org.apache.samza.system.ChangelogSSPIterator;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -50,14 +52,19 @@ public class MockStorageEngine implements StorageEngine {
   }
 
   @Override
-  public void restore(Iterator<IncomingMessageEnvelope> envelopes) {
-    while (envelopes.hasNext()) {
-      incomingMessageEnvelopes.add(envelopes.next());
+  public void restore(ChangelogSSPIterator messagesToRestore) {
+    while (messagesToRestore.hasNext()) {
+      incomingMessageEnvelopes.add(messagesToRestore.next());
     }
   }
 
   @Override
   public void flush() {
+  }
+
+  @Override
+  public Optional<Path> checkpoint(String id) {
+    return Optional.empty();
   }
 
   @Override
