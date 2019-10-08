@@ -17,20 +17,30 @@
  * under the License.
  */
 
-package org.apache.samza.storage
+package org.apache.samza.storage;
 
-import org.apache.samza.system.SystemStreamPartition
+import java.util.Map;
+import org.apache.samza.system.SystemStreamPartition;
 
-trait TaskStorageManager {
 
-  def getStore(storeName: String): Option[StorageEngine]
+/**
+ * The helper interface restores task state.
+ */
+public interface TaskRestoreManager {
 
-  def flush(): Map[SystemStreamPartition, Option[String]]
+  /**
+   * Init state resources such as file directories.
+   */
+  void init(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets);
 
-  def checkpoint(newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): String
+  /**
+   * Restore state from checkpoints, state snapshots and changelog.
+   */
+  void restore();
 
-  def removeOldCheckpoints(checkpointId: String): Unit
-
-  def stop(): Unit
+  /**
+   * Stop all persistent stores after restoring.
+   */
+  void stopPersistentStores();
 
 }
