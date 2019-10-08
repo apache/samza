@@ -57,7 +57,7 @@ import org.slf4j.LoggerFactory;
  *  </li>
  *  <li>
  *    When the preferred resource has not been obtained after {@code requestExpiryTimeout} milliseconds of the request
- *    being made, the resource is declared expired. The expired request are handled by allocating them to *ANY*
+ *    being made, the resource is declared expired. Expired request are handled by allocating them to *ANY*
  *    allocated resource if available. If no surplus resources are available the current preferred resource-request
  *    is cancelled and resource-request for ANY_HOST is issued
  *  </li>
@@ -239,7 +239,7 @@ public class ContainerAllocator implements Runnable {
   void handleExpiredRequest(String processorId, String preferredHost,
       SamzaResourceRequest request) {
     boolean resourceAvailableOnAnyHost = hasAllocatedResource(ResourceRequestState.ANY_HOST);
-    if (hostAffinityEnabled && standbyContainerManager.isPresent()) {
+    if (standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
           .handleExpiredResourceRequest(processorId, request,
               Optional.ofNullable(peekAllocatedResource(ResourceRequestState.ANY_HOST)), this, resourceRequestState);
