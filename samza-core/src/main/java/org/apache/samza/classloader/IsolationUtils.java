@@ -20,14 +20,20 @@ package org.apache.samza.classloader;
 
 public class IsolationUtils {
   /**
+   * Directory inside the home directory of the application master in which the framework API artifacts are placed, for
+   * usage in dependency isolation for the application master.
    * TODO make this configurable or taken from an environment variable
    */
   public static final String APPLICATION_MASTER_API_DIRECTORY = "__samzaFrameworkApi";
   /**
+   * Directory inside the home directory of the application master in which the framework infrastructure artifacts are
+   * placed, for usage in dependency isolation for the application master.
    * TODO make this configurable or taken from an environment variable
    */
   public static final String APPLICATION_MASTER_INFRASTRUCTURE_DIRECTORY = "__samzaFrameworkInfrastructure";
   /**
+   * Directory inside the home directory of the application master in which the application artifacts are placed, for
+   * usage in dependency isolation for the application master.
    * TODO make this configurable or taken from an environment variable
    */
   public static final String APPLICATION_MASTER_APPLICATION_DIRECTORY = "__package";
