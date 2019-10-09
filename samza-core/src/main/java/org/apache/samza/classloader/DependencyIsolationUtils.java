@@ -18,23 +18,23 @@
  */
 package org.apache.samza.classloader;
 
-public class IsolationUtils {
+public class DependencyIsolationUtils {
   /**
-   * Directory inside the home directory of the application master in which the framework API artifacts are placed, for
-   * usage in dependency isolation for the application master.
+   * Directory inside the home directory of the cluster-based job coordinator in which the framework API artifacts are
+   * placed, for usage in dependency isolation for the cluster-based job coordinator.
    * TODO make this configurable or taken from an environment variable
    */
-  public static final String APPLICATION_MASTER_API_DIRECTORY = "__samzaFrameworkApi";
+  public static final String FRAMEWORK_API_DIRECTORY = "__samzaFrameworkApi";
   /**
-   * Directory inside the home directory of the application master in which the framework infrastructure artifacts are
-   * placed, for usage in dependency isolation for the application master.
+   * Directory inside the home directory of the cluster-based job coordinator in which the framework infrastructure
+   * artifacts are placed, for usage in dependency isolation for the cluster-based job coordinator.
    * TODO make this configurable or taken from an environment variable
    */
-  public static final String APPLICATION_MASTER_INFRASTRUCTURE_DIRECTORY = "__samzaFrameworkInfrastructure";
+  public static final String FRAMEWORK_INFRASTRUCTURE_DIRECTORY = "__samzaFrameworkInfrastructure";
   /**
-   * Directory inside the home directory of the application master in which the application artifacts are placed, for
-   * usage in dependency isolation for the application master.
+   * Directory inside the home directory of the cluster-based job coordinator in which the application artifacts are
+   * placed, for usage in dependency isolation for the cluster-based job coordinator.
    * TODO make this configurable or taken from an environment variable
    */
-  public static final String APPLICATION_MASTER_APPLICATION_DIRECTORY = "__package";
+  public static final String APPLICATION_DIRECTORY = "__package";
 }

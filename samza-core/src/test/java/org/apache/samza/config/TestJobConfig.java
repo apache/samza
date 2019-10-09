@@ -549,14 +549,16 @@ public class TestJobConfig {
   }
 
   @Test
-  public void testGetApplicationMasterIsolationEnabled() {
-    Config config = new MapConfig(ImmutableMap.of(JobConfig.SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, "true"));
-    assertTrue(new JobConfig(config).getApplicationMasterIsolationEnabled());
+  public void testGetClusterBasedJobCoordinatorDependencyIsolationEnabled() {
+    Config config =
+        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true"));
+    assertTrue(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
 
-    config = new MapConfig(ImmutableMap.of(JobConfig.SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, "false"));
-    assertFalse(new JobConfig(config).getApplicationMasterIsolationEnabled());
+    config =
+        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false"));
+    assertFalse(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
 
-    assertFalse(new JobConfig(new MapConfig()).getApplicationMasterIsolationEnabled());
+    assertFalse(new JobConfig(new MapConfig()).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
   }
 
   @Test
