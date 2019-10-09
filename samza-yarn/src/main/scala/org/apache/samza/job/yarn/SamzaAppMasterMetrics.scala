@@ -39,12 +39,10 @@ object SamzaAppMasterMetrics {
  */
 class SamzaAppMasterMetrics(val config: Config,
   val state: SamzaApplicationState,
-  val registry: ReadableMetricsRegistry,
-  val classLoader: ClassLoader) extends MetricsHelper with Logging {
+  val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
 
   private val metricsConfig = new MetricsConfig(config)
-  val reporters =
-    MetricsReporterLoader.getMetricsReporters(metricsConfig, SamzaAppMasterMetrics.sourceName, classLoader).asScala
+  val reporters = MetricsReporterLoader.getMetricsReporters(metricsConfig, SamzaAppMasterMetrics.sourceName).asScala
   reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
   def start() {

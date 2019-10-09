@@ -28,6 +28,7 @@ import org.apache.samza.config.KafkaConfig.Config2Kafka
 import org.apache.samza.config._
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.{SystemAdmin, SystemConsumer, SystemFactory, SystemProducer}
+import scala.collection.JavaConverters._
 import org.apache.samza.util._
 
 object KafkaSystemFactory extends Logging {
@@ -109,7 +110,7 @@ class KafkaSystemFactory extends SystemFactory with Logging {
     val appConfig = new ApplicationConfig(config)
     if (appConfig.getAppMode == ApplicationMode.BATCH) {
       val streamConfig = new StreamConfig(config)
-      streamConfig.getStreamIds().filter(streamConfig.getIsIntermediateStream(_)).map(streamId => {
+      streamConfig.getStreamIds().asScala.filter(streamConfig.getIsIntermediateStream(_)).map(streamId => {
         // only the override here
         val properties = new Properties()
         properties.putIfAbsent("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))

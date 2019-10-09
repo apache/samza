@@ -149,8 +149,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     systemAdmins = new SystemAdmins(config);
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     LocationIdProviderFactory locationIdProviderFactory =
-        ReflectionUtil.getObj(getClass().getClassLoader(), new JobConfig(config).getLocationIdProviderFactory(),
-            LocationIdProviderFactory.class);
+        ReflectionUtil.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
     this.coordinatorStreamStore = (CoordinatorStreamStore) coordinatorStreamStore;
@@ -313,7 +312,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   void loadMetadataResources(JobModel jobModel) {
     try {
-      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, getClass().getClassLoader(), config);
+      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, config);
       metadataResourceUtil.createResources();
 
       if (coordinatorStreamStore != null) {
@@ -343,8 +342,8 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   @VisibleForTesting
-  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel, ClassLoader classLoader, Config config) {
-    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), classLoader, config);
+  MetadataResourceUtil createMetadataResourceUtil(JobModel jobModel, Config config) {
+    return new MetadataResourceUtil(jobModel, metrics.getMetricsRegistry(), config);
   }
 
   /**
@@ -363,8 +362,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     }
 
     GrouperMetadata grouperMetadata = getGrouperMetadata(zkJobModelVersion, processorNodes);
-    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, grouperMetadata,
-        getClass().getClassLoader());
+    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, grouperMetadata);
     return new JobModel(new MapConfig(), model.getContainers());
   }
 

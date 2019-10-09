@@ -19,9 +19,12 @@
 
 package org.apache.samza.storage.kv;
 
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
 
 /**
  * A key-value store that supports put, get, delete, and range queries.
@@ -141,4 +144,9 @@ public interface KeyValueStore<K, V> {
    * Flushes this key-value store, if applicable.
    */
   void flush();
+
+  /**
+   * Checkpoint the store snapshot.
+   */
+  Optional<Path> checkpoint(String id);
 }

@@ -16,30 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.serializers;
 
-package org.apache.samza.serializers
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.Test;
 
-import org.junit.Assert._
-import org.junit.Test
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-class TestSerializableSerde {
+
+public class TestJsonSerdeV2 {
   @Test
-  def testSerializableSerde {
-    val serde = new SerializableSerde[String]
-    assertNull(serde.toBytes(null))
-    assertNull(serde.fromBytes(null))
-    
-    val obj = "String is serializable"
-
-    // Serialized string is prefix + string itself
-    val prefix = Array(0xAC, 0xED, 0x00, 0x05, 0x74, 0x00, 0x16).map(_.toByte)
-    val expected = (prefix ++ obj.getBytes("UTF-8"))
-    
-    val bytes = serde.toBytes(obj)
-
-    assertArrayEquals(expected, bytes)
-
-    val objRoundTrip:String = serde.fromBytes(bytes)
-    assertEquals(obj, objRoundTrip)
+  public void testJsonSerdeV2ShouldWork() {
+    JsonSerdeV2<HashMap<String, Object>> serde = new JsonSerdeV2<>();
+    HashMap<String, Object> obj = new HashMap<>();
+    obj.put("hi", "bye");
+    obj.put("why", 2);
+    byte[] bytes = serde.toBytes(obj);
+    assertEquals(obj, serde.fromBytes(bytes));
+    JsonSerdeV2<Map.Entry<String, Object>> serdeHashMapEntry = new JsonSerdeV2<>();
+    obj.entrySet().forEach(entry -> {
+        try {
+          serdeHashMapEntry.toBytes(entry);
+        } catch (Exception e) {
+          fail("HashMap Entry serialization failed!");
+        }
+      });
   }
 }

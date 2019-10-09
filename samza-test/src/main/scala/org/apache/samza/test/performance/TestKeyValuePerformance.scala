@@ -124,7 +124,7 @@ object TestKeyValuePerformance extends Logging {
         val storageFactoryClassName =
           JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
                 .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
-        (storeName, ReflectionUtil.getObj(getClass.getClassLoader, storageFactoryClassName,
+        (storeName, ReflectionUtil.getObj(storageFactoryClassName,
           classOf[StorageEngineFactory[Array[Byte], Array[Byte]]]))
     })
 
@@ -155,7 +155,7 @@ object TestKeyValuePerformance extends Logging {
         // Run the test method
         testMethod(db, storageConfig.subset("set-" + testSet + ".", true))
 
-        FileUtil.rm(output)
+        new FileUtil().rm(output)
       })
     }
   }

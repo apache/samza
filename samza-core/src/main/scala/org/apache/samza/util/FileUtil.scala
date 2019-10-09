@@ -27,7 +27,7 @@ import java.util.zip.CRC32
 
 import org.apache.samza.util.Util.info
 
-object FileUtil extends Logging {
+class FileUtil extends Logging {
   /**
     * Writes checksum & data to a file
     * Checksum is pre-fixed to the data and is a 32-bit long type data.
@@ -51,7 +51,7 @@ object FileUtil extends Logging {
     }
 
     //atomic swap of tmp and real offset file
-    swapFiles(tmpFile, file)
+    move(tmpFile, file)
   }
 
   /**
@@ -68,7 +68,7 @@ object FileUtil extends Logging {
 
     //atomic swap of tmp and real file if we need to append
     if (append) {
-      swapFiles(file, tmpFile)
+      move(file, tmpFile)
     }
 
     try {
@@ -83,11 +83,13 @@ object FileUtil extends Logging {
     }
 
     //atomic swap of tmp and real file
-    swapFiles(tmpFile, file)
+    move(tmpFile, file)
   }
 
-  private def swapFiles(source: File, destination: File) : Unit = {
-    //atomic swap of source and destination file
+  /**
+   * Moves source file to destination file, replacing destination file if it already exists.
+   */
+  def move(source: File, destination: File) : Unit = {
     try {
       if (source.exists()) {
         Files.move(source.toPath, destination.toPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
@@ -139,6 +141,14 @@ object FileUtil extends Logging {
     } else {
       file.delete()
     }
+  }
+
+  def exists(path: Path): Boolean = {
+    Files.exists(path)
+  }
+
+  def createDirectories(path: Path): Path = {
+    Files.createDirectories(path)
   }
 
   /**

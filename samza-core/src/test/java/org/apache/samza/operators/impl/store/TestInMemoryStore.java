@@ -25,10 +25,12 @@ import org.apache.samza.storage.kv.KeyValueSnapshot;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
 
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -127,6 +129,11 @@ public class TestInMemoryStore<K, V> implements KeyValueStore<K, V> {
   @Override
   public void flush() {
 
+  }
+
+  @Override
+  public Optional<Path> checkpoint(String id) {
+    return Optional.empty();
   }
 
   private static class InMemoryIterator<K, V> implements KeyValueIterator<K, V> {

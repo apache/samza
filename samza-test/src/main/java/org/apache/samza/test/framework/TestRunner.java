@@ -419,7 +419,7 @@ public class TestRunner {
   private void deleteDirectory(String path) {
     File dir = new File(path);
     LOG.info("Deleting the directory " + path);
-    FileUtil.rm(dir);
+    new FileUtil().rm(dir);
     if (dir.exists()) {
       LOG.warn("Could not delete the directory " + path);
     }
@@ -431,9 +431,9 @@ public class TestRunner {
    * over {@link org.apache.samza.application.descriptors.ApplicationDescriptor} generated configs
    */
   private void addSerdeConfigs(StreamDescriptor descriptor) {
-    String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), descriptor.getStreamId());
-    String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
-    String msgSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+    String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, descriptor.getStreamId());
+    String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE;
+    String msgSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE;
     this.configs.put(keySerdeConfigKey, null);
     this.configs.put(msgSerdeConfigKey, null);
   }

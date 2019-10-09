@@ -19,6 +19,9 @@
 
 package org.apache.samza.storage.kv
 
+import java.nio.file.Path
+import java.util.Optional
+
 import org.apache.samza.util.Logging
 import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task.MessageCollector
@@ -116,5 +119,9 @@ class LoggedStore[K, V](
 
   override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     store.snapshot(from, to)
+  }
+
+  override def checkpoint(id: String): Optional[Path] = {
+    store.checkpoint(id)
   }
 }

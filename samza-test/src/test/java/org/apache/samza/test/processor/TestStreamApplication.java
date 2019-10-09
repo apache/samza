@@ -21,11 +21,10 @@ package org.apache.samza.test.processor;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.Serializable;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -37,6 +36,7 @@ import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
+import org.apache.samza.test.util.TestKafkaEvent;
 
 
 /**
@@ -111,38 +111,6 @@ public class TestStreamApplication implements StreamApplication {
       this.latch1 = (CountDownLatch) contextFactory.getSharedObject("processedMsgLatch");
       this.latch2 = (CountDownLatch) contextFactory.getSharedObject("kafkaMsgsConsumedLatch");
       this.callback = (StreamApplicationCallback) contextFactory.getSharedObject("callback");
-    }
-  }
-
-  public static class TestKafkaEvent implements Serializable {
-
-    // Actual content of the event.
-    private String eventData;
-
-    // Contains Integer value, which is greater than previous message id.
-    private String eventId;
-
-    TestKafkaEvent(String eventId, String eventData) {
-      this.eventData = eventData;
-      this.eventId = eventId;
-    }
-
-    String getEventId() {
-      return eventId;
-    }
-
-    String getEventData() {
-      return eventData;
-    }
-
-    @Override
-    public String toString() {
-      return eventId + "|" + eventData;
-    }
-
-    static TestKafkaEvent fromString(String message) {
-      String[] messageComponents = message.split("|");
-      return new TestKafkaEvent(messageComponents[0], messageComponents[1]);
     }
   }
 

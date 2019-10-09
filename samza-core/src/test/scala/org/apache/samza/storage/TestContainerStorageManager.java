@@ -24,8 +24,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import org.apache.samza.Partition;
+import org.apache.samza.checkpoint.Checkpoint;
+import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskInstanceMetrics;
@@ -37,6 +40,7 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerdeFactory;
+import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
@@ -44,14 +48,16 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.SystemClock;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import scala.collection.JavaConverters;
+
+import static org.mockito.Mockito.*;
 
 
 public class TestContainerStorageManager {
@@ -79,16 +85,16 @@ public class TestContainerStorageManager {
    * @param taskname the desired taskname.
    */
   private void addMockedTask(String taskname, int changelogPartition) {
-    TaskInstance mockTaskInstance = Mockito.mock(TaskInstance.class);
-    Mockito.doAnswer(invocation -> {
+    TaskInstance mockTaskInstance = mock(TaskInstance.class);
+    doAnswer(invocation -> {
         return new TaskName(taskname);
       }).when(mockTaskInstance).taskName();
 
-    Gauge testGauge = Mockito.mock(Gauge.class);
+    Gauge testGauge = mock(Gauge.class);
     this.tasks.put(new TaskName(taskname),
         new TaskModel(new TaskName(taskname), new HashSet<>(), new Partition(changelogPartition)));
     this.taskRestoreMetricGauges.put(new TaskName(taskname), testGauge);
-    this.taskInstanceMetrics.put(new TaskName(taskname), Mockito.mock(TaskInstanceMetrics.class));
+    this.taskInstanceMetrics.put(new TaskName(taskname), mock(TaskInstanceMetrics.class));
   }
 
   /**
@@ -105,8 +111,8 @@ public class TestContainerStorageManager {
     addMockedTask("task 1", 1);
 
     // Mock container metrics
-    samzaContainerMetrics = Mockito.mock(SamzaContainerMetrics.class);
-    Mockito.when(samzaContainerMetrics.taskStoreRestorationMetrics()).thenReturn(taskRestoreMetricGauges);
+    samzaContainerMetrics = mock(SamzaContainerMetrics.class);
+    when(samzaContainerMetrics.taskStoreRestorationMetrics()).thenReturn(taskRestoreMetricGauges);
 
     // Create a map of test changeLogSSPs
     Map<String, SystemStream> changelogSystemStreams = new HashMap<>();
@@ -115,33 +121,35 @@ public class TestContainerStorageManager {
     // Create mocked storage engine factories
     Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories = new HashMap<>();
     StorageEngineFactory mockStorageEngineFactory =
-        (StorageEngineFactory<Object, Object>) Mockito.mock(StorageEngineFactory.class);
-    StorageEngine mockStorageEngine = Mockito.mock(StorageEngine.class);
-    Mockito.doAnswer(invocation -> {
+        (StorageEngineFactory<Object, Object>) mock(StorageEngineFactory.class);
+    StorageEngine mockStorageEngine = mock(StorageEngine.class);
+    when(mockStorageEngine.getStoreProperties())
+        .thenReturn(new StoreProperties.StorePropertiesBuilder().setLoggedStore(true).setPersistedToDisk(true).build());
+    doAnswer(invocation -> {
         return mockStorageEngine;
-      }).when(mockStorageEngineFactory).getStorageEngine(Mockito.anyString(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
-            Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+      }).when(mockStorageEngineFactory).getStorageEngine(anyString(), any(), any(), any(), any(),
+            any(), any(), any(), any(), any());
 
     storageEngineFactories.put(STORE_NAME, mockStorageEngineFactory);
 
     // Add instrumentation to mocked storage engine, to record the number of store.restore() calls
-    Mockito.doAnswer(invocation -> {
+    doAnswer(invocation -> {
         storeRestoreCallCount++;
         return null;
-      }).when(mockStorageEngine).restore(Mockito.any());
+      }).when(mockStorageEngine).restore(any());
 
     // Set the mocked stores' properties to be persistent
-    Mockito.doAnswer(invocation -> {
+    doAnswer(invocation -> {
         return new StoreProperties.StorePropertiesBuilder().setLoggedStore(true).build();
       }).when(mockStorageEngine).getStoreProperties();
 
     // Mock and setup sysconsumers
-    SystemConsumer mockSystemConsumer = Mockito.mock(SystemConsumer.class);
-    Mockito.doAnswer(invocation -> {
+    SystemConsumer mockSystemConsumer = mock(SystemConsumer.class);
+    doAnswer(invocation -> {
         systemConsumerStartCount++;
         return null;
       }).when(mockSystemConsumer).start();
-    Mockito.doAnswer(invocation -> {
+    doAnswer(invocation -> {
         systemConsumerStopCount++;
         return null;
       }).when(mockSystemConsumer).stop();
@@ -150,11 +158,11 @@ public class TestContainerStorageManager {
     Map<String, SystemFactory> systemFactories = new HashMap<>();
 
     // Count the number of sysConsumers created
-    SystemFactory mockSystemFactory = Mockito.mock(SystemFactory.class);
-    Mockito.doAnswer(invocation -> {
+    SystemFactory mockSystemFactory = mock(SystemFactory.class);
+    doAnswer(invocation -> {
         this.systemConsumerCreationCount++;
         return mockSystemConsumer;
-      }).when(mockSystemFactory).getConsumer(Mockito.anyString(), Mockito.any(), Mockito.any());
+      }).when(mockSystemFactory).getConsumer(anyString(), any(), any());
 
     systemFactories.put(SYSTEM_NAME, mockSystemFactory);
 
@@ -163,22 +171,23 @@ public class TestContainerStorageManager {
     configMap.put("stores." + STORE_NAME + ".key.serde", "stringserde");
     configMap.put("stores." + STORE_NAME + ".msg.serde", "stringserde");
     configMap.put("serializers.registry.stringserde.class", StringSerdeFactory.class.getName());
+    configMap.put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
     Config config = new MapConfig(configMap);
 
     Map<String, Serde<Object>> serdes = new HashMap<>();
-    serdes.put("stringserde", Mockito.mock(Serde.class));
+    serdes.put("stringserde", mock(Serde.class));
 
     // Create mocked system admins
-    SystemAdmin mockSystemAdmin = Mockito.mock(SystemAdmin.class);
-    Mockito.doAnswer(new Answer<Void>() {
+    SystemAdmin mockSystemAdmin = mock(SystemAdmin.class);
+    doAnswer(new Answer<Void>() {
         public Void answer(InvocationOnMock invocation) {
           Object[] args = invocation.getArguments();
           System.out.println("called with arguments: " + Arrays.toString(args));
           return null;
         }
-      }).when(mockSystemAdmin).validateStream(Mockito.any());
-    SystemAdmins mockSystemAdmins = Mockito.mock(SystemAdmins.class);
-    Mockito.when(mockSystemAdmins.getSystemAdmin("kafka")).thenReturn(mockSystemAdmin);
+      }).when(mockSystemAdmin).validateStream(any());
+    SystemAdmins mockSystemAdmins = mock(SystemAdmins.class);
+    when(mockSystemAdmins.getSystemAdmin("kafka")).thenReturn(mockSystemAdmin);
 
     // Create a mocked mockStreamMetadataCache
     SystemStreamMetadata.SystemStreamPartitionMetadata sspMetadata =
@@ -187,13 +196,20 @@ public class TestContainerStorageManager {
     partitionMetadata.put(new Partition(0), sspMetadata);
     partitionMetadata.put(new Partition(1), sspMetadata);
     SystemStreamMetadata systemStreamMetadata = new SystemStreamMetadata(STREAM_NAME, partitionMetadata);
-    StreamMetadataCache mockStreamMetadataCache = Mockito.mock(StreamMetadataCache.class);
+    StreamMetadataCache mockStreamMetadataCache = mock(StreamMetadataCache.class);
 
-    Mockito.when(mockStreamMetadataCache.
+    when(mockStreamMetadataCache.
         getStreamMetadata(JavaConverters.
             asScalaSetConverter(new HashSet<SystemStream>(changelogSystemStreams.values())).asScala().toSet(), false))
         .thenReturn(
             new scala.collection.immutable.Map.Map1(new SystemStream(SYSTEM_NAME, STREAM_NAME), systemStreamMetadata));
+
+    CheckpointManager checkpointManager = mock(CheckpointManager.class);
+    when(checkpointManager.readLastCheckpoint(any(TaskName.class))).thenReturn(new Checkpoint(new HashMap<>()));
+
+    SSPMetadataCache mockSSPMetadataCache = mock(SSPMetadataCache.class);
+    when(mockSSPMetadataCache.getMetadata(any(SystemStreamPartition.class)))
+        .thenReturn(new SystemStreamMetadata.SystemStreamPartitionMetadata("0", "10", "11"));
 
     // Reset the  expected number of sysConsumer create, start and stop calls, and store.restore() calls
     this.systemConsumerCreationCount = 0;
@@ -202,8 +218,11 @@ public class TestContainerStorageManager {
     this.storeRestoreCallCount = 0;
 
     // Create the container storage manager
-    this.containerStorageManager = new ContainerStorageManager(new ContainerModel("samza-container-test", tasks),
+    this.containerStorageManager = new ContainerStorageManager(
+        checkpointManager,
+        new ContainerModel("samza-container-test", tasks),
         mockStreamMetadataCache,
+        mockSSPMetadataCache,
         mockSystemAdmins,
         changelogSystemStreams,
         new HashMap<>(),
@@ -213,15 +232,14 @@ public class TestContainerStorageManager {
         config,
         taskInstanceMetrics,
         samzaContainerMetrics,
-        Mockito.mock(JobContext.class),
-        Mockito.mock(ContainerContext.class),
-        Mockito.mock(Map.class),
+        mock(JobContext.class),
+        mock(ContainerContext.class),
+        mock(Map.class),
         DEFAULT_LOGGED_STORE_BASE_DIR,
         DEFAULT_STORE_BASE_DIR,
         2,
         null,
-        new SystemClock(),
-        getClass().getClassLoader());
+        new SystemClock());
   }
 
   @Test
@@ -231,7 +249,7 @@ public class TestContainerStorageManager {
 
     for (Gauge gauge : taskRestoreMetricGauges.values()) {
       Assert.assertTrue("Restoration time gauge value should be invoked atleast once",
-          Mockito.mockingDetails(gauge).getInvocations().size() >= 1);
+          mockingDetails(gauge).getInvocations().size() >= 1);
     }
 
     Assert.assertTrue("Store restore count should be 2 because there are 2 tasks", this.storeRestoreCallCount == 2);

@@ -31,7 +31,6 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
-
 import org.apache.samza.system.kinesis.consumer.KinesisSystemConsumer;
 
 

@@ -100,8 +100,8 @@ public class LocalStoreMonitor implements Monitor {
               LOG.info(String.format("Local store: %s is actively used by the task: %s.", storeName, task.getTaskName()));
             } else {
               LOG.info(String.format("Local store: %s not used by the task: %s.", storeName, task.getTaskName()));
-              markSweepTaskStore(StorageManagerUtil.getStorePartitionDir(jobDir, storeName, new TaskName(task.getTaskName()),
-                  TaskMode.Active));
+              markSweepTaskStore(new StorageManagerUtil().getTaskStoreDir(jobDir, storeName,
+                  new TaskName(task.getTaskName()), TaskMode.Active));
             }
           }
         }

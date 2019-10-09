@@ -23,9 +23,10 @@ import java.io.File
 import java.util.Arrays
 
 import org.apache.samza.Partition
-import org.apache.samza.container.TaskName
 import org.apache.samza.storage.StoreProperties
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.system.ChangelogSSPIterator.Mode
+import org.apache.samza.system.{ChangelogSSPIterator, IncomingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.task.MessageCollector
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
 import org.mockito.Mockito._
@@ -42,8 +43,11 @@ class TestKeyValueStorageEngine {
     val storeName = "test-storeName"
     val storeDir = mock(classOf[File])
     val properties = mock(classOf[StoreProperties])
+    val changelogSSP = mock(classOf[SystemStreamPartition])
+    val changelogCollector = mock(classOf[MessageCollector])
     metrics = new KeyValueStorageEngineMetrics
-    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
+    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv,
+      changelogSSP, changelogCollector, metrics, clock = () => { getNextTimestamp() })
   }
 
   @After
@@ -138,12 +142,22 @@ class TestKeyValueStorageEngine {
   @Test
   def testRestoreMetrics(): Unit = {
     val changelogSSP = new SystemStreamPartition("TestSystem", "TestStream", new Partition(0))
-    val changelogEntries = java.util.Arrays asList(
-      new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)),
-      new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)),
-      new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
+    val iterator = mock(classOf[ChangelogSSPIterator])
+    when(iterator.hasNext)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenReturn(false)
+    when(iterator.next())
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
+    when(iterator.getMode)
+      .thenReturn(Mode.RESTORE)
+      .thenReturn(Mode.RESTORE)
+      .thenReturn(Mode.RESTORE)
 
-    engine.restore(changelogEntries.iterator())
+    engine.restore(iterator)
 
     assertEquals(3, metrics.restoredMessagesGauge.getValue)
     assertEquals(15, metrics.restoredBytesGauge.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg

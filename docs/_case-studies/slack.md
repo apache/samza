@@ -28,7 +28,7 @@ How Slack monitors their infrastructure using Samza's streaming data-pipelines?
 
 <!--more-->
 
-Slack is a cloud based company that offers collaboration tools and services to increase productivity. With a rapidly growing user base and a daily active users north of 8 million, they needed to react quickly to issues and proactively monitor the application health. For this, the team went on to build a new monitoiring solution using Apache Samza with the following requirements:
+Slack is a cloud based company that offers collaboration tools and services to increase productivity. With a rapidly growing user base and a daily active users north of 8 million, they needed to react quickly to issues and proactively monitor the application health. For this, the team went on to build a new monitoring solution using Apache Samza with the following requirements:
 
 - Near real-time alerting to quickly surface issues
 - Fault-tolerant processing of data streams

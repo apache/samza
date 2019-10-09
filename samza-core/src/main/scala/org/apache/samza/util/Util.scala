@@ -52,8 +52,7 @@ object Util extends Logging {
   /**
    * Instantiate an object of type T from a given className.
    *
-   * Deprecated: Use [[ReflectionUtil.getObj(ClassLoader, String, Class)]] instead. See javadocs for that method for
-   * recommendations of classloaders to use.
+   * Deprecated: Use [[ReflectionUtil.getObj(String, Class)]] instead.
    */
   @Deprecated
   def getObj[T](className: String, clazz: Class[T]) = {
@@ -103,8 +102,7 @@ object Util extends Logging {
   /**
     * Instantiate an object from given className, and given constructor parameters.
     *
-    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(ClassLoader, String, Class, ConstructorArgument...)]] instead. See
-    * javadocs for that method for recommendations of classloaders to use.
+    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(String, Class, ConstructorArgument...)]] instead.
     */
   @Deprecated
   @throws[ClassNotFoundException]
@@ -174,7 +172,7 @@ object Util extends Logging {
     val rewriterClassName = JavaOptionals.toRichOptional(new JobConfig(config).getConfigRewriterClass(rewriterName))
       .toOption
       .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-    val rewriter = ReflectionUtil.getObj(this.getClass.getClassLoader, rewriterClassName, classOf[ConfigRewriter])
+    val rewriter = ReflectionUtil.getObj(rewriterClassName, classOf[ConfigRewriter])
     info("Re-writing config with " + rewriter)
     rewriter.rewrite(rewriterName, config)
   }

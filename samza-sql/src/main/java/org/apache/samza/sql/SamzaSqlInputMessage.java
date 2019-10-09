@@ -43,9 +43,9 @@ public class SamzaSqlInputMessage {
 
   /**
    * Constructs a new SamzaSqMessage given the input arguments
-   * @param keyAndMessageKV
-   * @param metadata
-   * @return
+   * @param keyAndMessageKV key-value of the message
+   * @param metadata metadata of the message
+   * @return new object of SamzaSqlInputMessage type
    */
   public static SamzaSqlInputMessage of (KV<Object, Object> keyAndMessageKV, SamzaSqlRelMsgMetadata metadata) {
     return new SamzaSqlInputMessage(keyAndMessageKV, metadata);
