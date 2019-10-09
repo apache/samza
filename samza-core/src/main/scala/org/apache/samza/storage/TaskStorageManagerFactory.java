@@ -36,7 +36,8 @@ public class TaskStorageManagerFactory {
       File loggedStoreBaseDir, Partition changelogPartition,
       Config config, TaskMode taskMode) {
     if (new TaskConfig(config).getTransactionalStateEnabled()) {
-      throw new UnsupportedOperationException();
+      return new TransactionalStateTaskStorageManager(taskName, containerStorageManager, storeChangelogs, systemAdmins,
+          loggedStoreBaseDir, changelogPartition, taskMode);
     } else {
       return new NonTransactionalStateTaskStorageManager(taskName, containerStorageManager, storeChangelogs, systemAdmins,
           loggedStoreBaseDir, changelogPartition);
