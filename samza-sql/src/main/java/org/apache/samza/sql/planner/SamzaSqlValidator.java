@@ -32,6 +32,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelRecordType;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.Validate;
@@ -132,6 +133,12 @@ public class SamzaSqlValidator {
     RelRecordType outputRecord = (RelRecordType) QueryPlanner.getSourceRelSchema(outputRelSchemaProvider,
         new RelSchemaConverter());
 
+    // Handle any DELETE ops.
+    if (projetRecord.getFieldList().stream().anyMatch(f -> f.getName().equalsIgnoreCase(SamzaSqlRelMessage.OP_NAME))) {
+      validateDeleteOp(relRoot);
+      return;
+    }
+
     // Get Samza Sql schema along with Calcite schema. The reason is that the Calcite schema does not have a way
     // to represent optional fields while Samza Sql schema can represent optional fields. This is the reason that
     // we use SqlSchema in validating output.
@@ -139,6 +146,34 @@ public class SamzaSqlValidator {
 
     validateOutputRecords(outputSqlSchema, outputRecord, projetRecord, outputRelSchemaProvider);
     LOG.info("Samza Sql Validation finished successfully.");
+  }
+
+  private void validateDeleteOp(RelRoot relRoot) throws SamzaSqlValidatorException {
+    LogicalProject project = (LogicalProject) relRoot.rel;
+    RelRecordType projetRecord = (RelRecordType) project.getRowType();
+
+    // In the case of DELETE op, only the key and DELETE op are required.
+
+    if (projetRecord.getFieldCount() != 2) {
+      throw new SamzaSqlValidatorException(String.format("Only two select query fields are expected for DELETE op."
+          + " But there are %d fields given in the query.", projetRecord.getFieldCount()));
+    }
+
+    RelDataTypeField keyField = projetRecord.getField(SamzaSqlRelMessage.KEY_NAME, true, true);
+    if (keyField == null) {
+      throw new SamzaSqlValidatorException(String.format("Select query needs to specify '%s' field while using DELETE"
+              + " op. Eg: 'SELECT myKey AS %s, '%s' AS %s FROM myTable'", SamzaSqlRelMessage.KEY_NAME,
+          SamzaSqlRelMessage.KEY_NAME, SamzaSqlRelMessage.DELETE_OP, SamzaSqlRelMessage.OP_NAME));
+    }
+    int keyIdx = projetRecord.getFieldList().indexOf(keyField);
+    // Get the node corresponding to the special op.
+    RexNode node = project.getProjects().get(1 - keyIdx);
+    if (!node.toString().equals(String.format("'%s'", SamzaSqlRelMessage.DELETE_OP))) {
+      throw new SamzaSqlValidatorException(String.format("%s op is not supported. Please note that only '%s' op is"
+              + " currently supported. Eg:'SELECT myKey AS %s, '%s' AS %s FROM myStream'", node.toString(),
+          SamzaSqlRelMessage.DELETE_OP, SamzaSqlRelMessage.KEY_NAME, SamzaSqlRelMessage.DELETE_OP,
+          SamzaSqlRelMessage.OP_NAME));
+    }
   }
 
   private void validateOutputRecords(SqlSchema outputSqlSchema, RelRecordType outputRecord,
@@ -173,11 +208,6 @@ public class SamzaSqlValidator {
         }
 
         if (outputFieldType == null) {
-          // If a field in sql query is not found in the output schema, ignore if it is a Samza Sql special op.
-          // Otherwise, throw an error.
-          if (entry.getKey().equals(SamzaSqlRelMessage.OP_NAME)) {
-            continue;
-          }
           String errMsg = String.format("Field '%s' in select query does not match any field in output schema.", entry.getKey());
           LOG.error(errMsg);
           throw new SamzaSqlValidatorException(errMsg);
