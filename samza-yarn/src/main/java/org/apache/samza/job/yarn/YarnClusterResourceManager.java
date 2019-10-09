@@ -42,7 +42,6 @@ import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.clustermanager.ProcessorLaunchException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.YarnConfig;
 import org.apache.samza.coordinator.JobModelManager;
@@ -585,15 +584,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   public void runProcessor(String processorId, Container container, CommandBuilder cmdBuilder) throws IOException {
     String containerIdStr = ConverterUtils.toString(container.getId());
-    // check if we have framework path specified. If yes - use it, if not use default ./__package/
-    String jobLib = ""; // in case of separate framework, this directory will point at the job's libraries
     String cmdPath = "./__package/";
-
-    String fwkPath = JobConfig.getFwkPath(this.config);
-    if(fwkPath != null && (! fwkPath.isEmpty())) {
-      cmdPath = fwkPath;
-      jobLib = "export JOB_LIB_DIR=./__package/lib";
-    }
     cmdBuilder.setCommandPath(cmdPath);
     String command = cmdBuilder.buildCommand();
 
@@ -601,8 +592,9 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     env.put(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID(), Util.envVarEscape(container.getId().toString()));
 
     Path packagePath = new Path(yarnConfig.getPackagePath());
-    String formattedCommand = getFormattedCommand(ApplicationConstants.LOG_DIR_EXPANSION_VAR, jobLib, command,
-        ApplicationConstants.STDOUT, ApplicationConstants.STDERR);
+    String formattedCommand =
+        getFormattedCommand(ApplicationConstants.LOG_DIR_EXPANSION_VAR, command, ApplicationConstants.STDOUT,
+            ApplicationConstants.STDERR);
 
     log.info("Running Processor ID: {} on Container ID: {} on host: {} using command: {} and env: {} and package path: {}",
         processorId, containerIdStr, container.getNodeHttpAddress(), formattedCommand, env, packagePath);
@@ -696,18 +688,9 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   }
 
 
-  private String getFormattedCommand(String logDirExpansionVar,
-                                     String jobLib,
-                                     String command,
-                                     String stdOut,
-                                     String stdErr) {
-    if (!jobLib.isEmpty()) {
-      jobLib = "&& " + jobLib; // add job's libraries exported to an env variable
-    }
-
-    return String
-        .format("export SAMZA_LOG_DIR=%s %s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s", logDirExpansionVar,
-            jobLib, logDirExpansionVar, command, stdOut, stdErr);
+  private String getFormattedCommand(String logDirExpansionVar, String command, String stdOut, String stdErr) {
+    return String.format("export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s",
+        logDirExpansionVar, logDirExpansionVar, command, stdOut, stdErr);
   }
 
   /**

@@ -548,23 +548,6 @@ public class TestJobConfig {
   }
 
   @Test
-  public void testGetFwkPath() {
-    String samzaFwkPath = "/path/to/samza/fwk", samzaFwkVersion = "1.2.3";
-
-    // has path and version
-    Config config = new MapConfig(
-        ImmutableMap.of(JobConfig.SAMZA_FWK_PATH, samzaFwkPath, JobConfig.SAMZA_FWK_VERSION, samzaFwkVersion));
-    assertEquals(samzaFwkPath + File.separator + samzaFwkVersion, JobConfig.getFwkPath(config));
-
-    // only has path; use STABLE for version
-    config = new MapConfig(ImmutableMap.of(JobConfig.SAMZA_FWK_PATH, samzaFwkPath));
-    assertEquals(samzaFwkPath + File.separator + "STABLE", JobConfig.getFwkPath(config));
-
-    // no path; return empty string
-    assertTrue(JobConfig.getFwkPath(new MapConfig()).isEmpty());
-  }
-
-  @Test
   public void testGetMetadataFile() {
     String execEnvContainerId = "container-id";
     String containerMetadataDirectory = "/tmp/samza/log/dir";
