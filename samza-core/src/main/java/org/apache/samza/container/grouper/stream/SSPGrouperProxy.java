@@ -145,7 +145,7 @@ public class SSPGrouperProxy {
       String errMsg =
         String.format("Error in partition-to-task assignment via the SSPGroupProxy. To disable the SSPGroupProxy, "
                 + "set config %s = false, only if you cannot address the root cause as shown in the underlying exception.",
-            JobConfig.SSP_GROUPER_PROXY_ENABLED);
+            JobConfig.SSP_INPUT_EXPANSION_ENABLED);
       throw new SamzaException(errMsg, ex);
     }
 

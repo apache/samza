@@ -368,7 +368,7 @@ object JobModelManager extends Logging {
       val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(config, grouper)
       sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata)
     } else {
-      warn("SSPGrouperProxy is disabled (%s = false). Stateful jobs may produce erroneous results if this is not enabled." format JobConfig.SSP_GROUPER_PROXY_ENABLED)
+      warn("SSPGrouperProxy is disabled (%s = false). Stateful jobs may produce erroneous results if this is not enabled." format JobConfig.SSP_INPUT_EXPANSION_ENABLED)
       grouper.group(allSystemStreamPartitions)
     }
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups))
