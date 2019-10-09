@@ -60,7 +60,8 @@ class SerializedKeyValueStore[K, V](
     val keyBytes = toBytesOrNull(key, keySerde)
     val valBytes = toBytesOrNull(value, msgSerde)
     store.put(keyBytes, valBytes)
-    updatePutMetrics(1, valBytes.length)
+    val valSizeBytes = if (valBytes == null) 0 else valBytes.length
+    updatePutMetrics(1, valSizeBytes)
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
@@ -71,11 +72,12 @@ class SerializedKeyValueStore[K, V](
       val curr = iter.next
       val keyBytes = toBytesOrNull(curr.getKey, keySerde)
       val valBytes = toBytesOrNull(curr.getValue, msgSerde)
-      newMaxRecordSizeBytes = Math.max(newMaxRecordSizeBytes, valBytes.length)
+      val valSizeBytes = if (valBytes == null) 0 else valBytes.length
+      newMaxRecordSizeBytes = Math.max(newMaxRecordSizeBytes, valSizeBytes)
       list.add(new Entry(keyBytes, valBytes))
     }
     store.putAll(list)
-    updatePutMetrics(list.size(), newMaxRecordSizeBytes)
+    updatePutMetrics(list.size, newMaxRecordSizeBytes)
   }
 
   def delete(key: K) {
