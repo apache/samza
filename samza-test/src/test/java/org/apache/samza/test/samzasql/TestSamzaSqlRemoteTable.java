@@ -277,6 +277,66 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals((numMessages + 1) / 2, RemoteStoreIOResolverTestFactory.records.size());
   }
 
+  @Test
+  public void testDeleteOpValidation() throws SamzaSqlValidatorException {
+    int numMessages = 1;
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+
+    String sql =
+        "Insert into testRemoteStore.Profile.`$table` "
+            + "select p.__key__ as __key__, 'DELETE' as __op__ "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId ";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+  }
+
+  @Test (expected = SamzaSqlValidatorException.class)
+  public void testUnsupportedOpValidation() throws SamzaSqlValidatorException {
+    int numMessages = 1;
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+
+    String sql =
+        "Insert into testRemoteStore.Profile.`$table` "
+            + "select p.__key__ as __key__, 'UPDATE' as __op__ "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId ";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+  }
+
+  @Test (expected = SamzaSqlValidatorException.class)
+  public void testNonKeyWithDeleteOpValidation() throws SamzaSqlValidatorException {
+    int numMessages = 1;
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+
+    String sql =
+        "Insert into testRemoteStore.Profile.`$table` "
+            + "select p.__key__ as pageKey, 'UPDATE' as __op__ "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId ";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+  }
+
   private void populateProfileTable(Map<String, String> staticConfigs, int numMessages) {
     RemoteStoreIOResolverTestFactory.records.clear();
 
