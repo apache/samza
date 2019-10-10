@@ -20,7 +20,7 @@ public class TestIsolatingClassLoaderFactory {
   @Test
   public void testGetApiClasses() throws URISyntaxException {
     File apiClassListFile = Paths.get(getClass().getResource("/classloader").toURI()).toFile();
-    List<String> apiClassNames = IsolatingClassLoaderFactory.getApiClasses(apiClassListFile);
+    List<String> apiClassNames = IsolatingClassLoaderFactory.getFrameworkApiClassGlobs(apiClassListFile);
     List<String> expected = ImmutableList.of(
         "org.apache.samza.JavaClass",
         "org.apache.samza.JavaClass$InnerJavaClass",
@@ -35,7 +35,7 @@ public class TestIsolatingClassLoaderFactory {
   public void testGetApiClassesFileDoesNotExist() throws URISyntaxException {
     File nonExistentDirectory =
         new File(Paths.get(getClass().getResource("/classloader").toURI()).toFile(), "doesNotExist");
-    IsolatingClassLoaderFactory.getApiClasses(nonExistentDirectory);
+    IsolatingClassLoaderFactory.getFrameworkApiClassGlobs(nonExistentDirectory);
   }
 
   @Test

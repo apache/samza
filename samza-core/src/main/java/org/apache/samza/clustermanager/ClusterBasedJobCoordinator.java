@@ -409,27 +409,28 @@ public class ClusterBasedJobCoordinator {
    * The entry point for the {@link ClusterBasedJobCoordinator}.
    */
   public static void main(String[] args) {
-    boolean isolationEnabled =
-        Boolean.parseBoolean(System.getenv(ShellCommandConfig.ENV_APPLICATION_MASTER_ISOLATION_ENABLED()));
-    if (!isolationEnabled) {
+    boolean dependencyIsolationEnabled = Boolean.parseBoolean(
+        System.getenv(ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED()));
+    if (!dependencyIsolationEnabled) {
       // no isolation enabled, so can just execute runClusterBasedJobCoordinator directly
       runClusterBasedJobCoordinator(args);
     } else {
-      runWithIsolatedClassLoader(args);
+      runWithClassLoader(new IsolatingClassLoaderFactory().buildClassLoader(), args);
     }
   }
 
   /**
    * Execute the coordinator using a separate isolated classloader.
+   * @param classLoader {@link ClassLoader} to use to load the {@link ClusterBasedJobCoordinator} which will run
+   * @param args arguments to pass when running the {@link ClusterBasedJobCoordinator}
    */
-  private static void runWithIsolatedClassLoader(String[] args) {
-    ClassLoader isolatedClassLoader = new IsolatingClassLoaderFactory().buildClassLoader();
+  @VisibleForTesting
+  static void runWithClassLoader(ClassLoader classLoader, String[] args) {
 
     // need to use the isolated classloader to load ClusterBasedJobCoordinator and then run using that new class
-    Class<?> isolatedClusterBasedJobCoordinatorClass;
+    Class<?> clusterBasedJobCoordinatorClass;
     try {
-      isolatedClusterBasedJobCoordinatorClass =
-          isolatedClassLoader.loadClass(ClusterBasedJobCoordinator.class.getName());
+      clusterBasedJobCoordinatorClass = classLoader.loadClass(ClusterBasedJobCoordinator.class.getName());
     } catch (ClassNotFoundException e) {
       throw new SamzaException(
           "Isolation was enabled, but unable to find ClusterBasedJobCoordinator in isolated classloader", e);
@@ -437,26 +438,35 @@ public class ClusterBasedJobCoordinator {
 
     // save the current context classloader so it can be reset after finishing the call to runClusterBasedJobCoordinator
     ClassLoader previousContextClassLoader = Thread.currentThread().getContextClassLoader();
-    // this is needed because certain libraries use the context classloader
-    Thread.currentThread().setContextClassLoader(isolatedClassLoader);
+    // this is needed because certain libraries (e.g. log4j) use the context classloader
+    Thread.currentThread().setContextClassLoader(classLoader);
 
     try {
-      executeRunClusterBasedJobCoordinatorForClass(isolatedClusterBasedJobCoordinatorClass, args);
+      executeRunClusterBasedJobCoordinatorForClass(clusterBasedJobCoordinatorClass, args);
     } finally {
-      // reset the context class loader
+      // reset the context class loader; it's good practice, and could be important when running a test suite
       Thread.currentThread().setContextClassLoader(previousContextClassLoader);
     }
   }
 
-  private static void executeRunClusterBasedJobCoordinatorForClass(Class<?> isolatedClusterBasedJobCoordinatorClass,
+  /**
+   * Runs the {@link ClusterBasedJobCoordinator#runClusterBasedJobCoordinator(String[])} method of the given
+   * {@code clusterBasedJobCoordinatorClass} using reflection.
+   * @param clusterBasedJobCoordinatorClass {@link ClusterBasedJobCoordinator} {@link Class} for which to execute
+   * {@link ClusterBasedJobCoordinator#runClusterBasedJobCoordinator(String[])}
+   * @param args arguments to pass to {@link ClusterBasedJobCoordinator#runClusterBasedJobCoordinator(String[])}
+   */
+  @VisibleForTesting
+  private static void executeRunClusterBasedJobCoordinatorForClass(Class<?> clusterBasedJobCoordinatorClass,
       String[] args) {
     Method runClusterBasedJobCoordinatorMethod;
     try {
       runClusterBasedJobCoordinatorMethod =
-          isolatedClusterBasedJobCoordinatorClass.getDeclaredMethod("runClusterBasedJobCoordinator", String[].class);
+          clusterBasedJobCoordinatorClass.getDeclaredMethod("runClusterBasedJobCoordinator", String[].class);
     } catch (NoSuchMethodException e) {
       throw new SamzaException("Isolation was enabled, but unable to find runClusterBasedJobCoordinator method", e);
     }
+    // only sets accessible flag for this Method instance, not other Method instances for runClusterBasedJobCoordinator
     runClusterBasedJobCoordinatorMethod.setAccessible(true);
 
     try {
