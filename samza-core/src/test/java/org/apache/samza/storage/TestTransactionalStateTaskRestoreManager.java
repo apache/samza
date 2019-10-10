@@ -52,6 +52,7 @@ import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -212,6 +213,10 @@ public class TestTransactionalStateTaskRestoreManager {
     assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * This can happen if the changelog topic was manually deleted and recreated, and the checkpointed/local changelog
+   * offset is not valid anymore.
+   */
   @Test
   public void testGetStoreActionsForLoggedNonPersistentStore_FullRestoreIfCheckpointedOffsetNewerThanNewest() {
     TaskModel mockTaskModel = mock(TaskModel.class);
@@ -253,7 +258,6 @@ public class TestTransactionalStateTaskRestoreManager {
     Config mockConfig = mock(Config.class);
     Clock mockClock = mock(Clock.class);
 
-
     Mockito.when(mockSystemAdmin.offsetComparator(anyString(), anyString()))
         .thenAnswer((Answer<Integer>) invocation -> {
             String offset1 = (String) invocation.getArguments()[0];
@@ -274,6 +278,10 @@ public class TestTransactionalStateTaskRestoreManager {
     assertEquals("10", storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * This can happen if the changelog topic gets compacted and the local store offset was written prior to the
+   * compaction. If so, we do a full restore.
+   */
   @Test
   public void testGetStoreActionsForLoggedNonPersistentStore_FullRestoreIfCheckpointedOffsetOlderThanOldest() {
     TaskModel mockTaskModel = mock(TaskModel.class);
@@ -315,7 +323,6 @@ public class TestTransactionalStateTaskRestoreManager {
     Config mockConfig = mock(Config.class);
     Clock mockClock = mock(Clock.class);
 
-
     Mockito.when(mockSystemAdmin.offsetComparator(anyString(), anyString()))
         .thenAnswer((Answer<Integer>) invocation -> {
             String offset1 = (String) invocation.getArguments()[0];
@@ -336,6 +343,14 @@ public class TestTransactionalStateTaskRestoreManager {
     assertEquals("20", storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * We need to trim the changelog topic to handle the scenario where container wrote some messages to store and
+   * changelog, but died before the first commit (leaving checkpointed changelog offset as null).
+   *
+   * Retain existing state flag exists to support cases when user is turning on transactional support for the first
+   * time and does not have an existing checkpointed changelog offset. Retain existing state flag allows them to
+   * carry over the existing changelog state after a full bootstrap. Flag should be turned off after the first deploy.
+   */
   @Test
   public void testGetStoreActionsForLoggedNonPersistentStore_FullTrimIfNullCheckpointedOffsetAndNotRetainExistingChangelogState() {
     TaskModel mockTaskModel = mock(TaskModel.class);
@@ -396,6 +411,68 @@ public class TestTransactionalStateTaskRestoreManager {
     // ensure that we mark the store for restore (full trim == restore from oldest to null)
     assertEquals("0", storeActions.storesToRestore.get(store1Name).startingOffset);
     assertNull(storeActions.storesToRestore.get(store1Name).endingOffset);
+  }
+
+  @Test
+  public void testGetStoreActionsForLoggedNonPersistentStore_FullRestoreIfNullCheckpointedOffsetAndRetainExistingChangelogState() {
+    TaskModel mockTaskModel = mock(TaskModel.class);
+    TaskName taskName = new TaskName("Partition 0");
+    when(mockTaskModel.getTaskName()).thenReturn(taskName);
+    Partition taskChangelogPartition = new Partition(0);
+    when(mockTaskModel.getChangelogPartition()).thenReturn(taskChangelogPartition);
+
+    String store1Name = "store1";
+    StorageEngine store1Engine = mock(StorageEngine.class);
+    StoreProperties mockStore1Properties = mock(StoreProperties.class);
+    when(store1Engine.getStoreProperties()).thenReturn(mockStore1Properties);
+    when(mockStore1Properties.isLoggedStore()).thenReturn(true);
+    when(mockStore1Properties.isPersistedToDisk()).thenReturn(false); // non-persistent store
+    Map<String, StorageEngine> mockStoreEngines = ImmutableMap.of(store1Name, store1Engine);
+
+    String changelog1SystemName = "system1";
+    String changelog1StreamName = "store1Changelog";
+    SystemStream changelog1SystemStream = new SystemStream(changelog1SystemName, changelog1StreamName);
+    SystemStreamPartition changelog1SSP = new SystemStreamPartition(changelog1SystemStream, taskChangelogPartition);
+    SystemStreamPartitionMetadata changelog1SSPMetadata = new SystemStreamPartitionMetadata("0", "10", "11");
+    Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
+
+    String changelog1CheckpointedOffset = null;
+    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
+        new HashMap<SystemStreamPartition, String>() { {
+          put(changelog1SSP, changelog1CheckpointedOffset);
+        } };
+    Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
+        ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
+
+    SystemAdmins mockSystemAdmins = mock(SystemAdmins.class);
+    SystemAdmin mockSystemAdmin = mock(SystemAdmin.class);
+    when(mockSystemAdmins.getSystemAdmin(changelog1SSP.getSystem())).thenReturn(mockSystemAdmin);
+    StorageManagerUtil mockStorageManagerUtil = mock(StorageManagerUtil.class);
+    File mockLoggedStoreBaseDir = mock(File.class);
+    File mockNonLoggedStoreBaseDir = mock(File.class);
+    HashMap<String, String> configMap = new HashMap<>();
+    configMap.put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE, "true");
+    Config mockConfig = new MapConfig(configMap);
+    Clock mockClock = mock(Clock.class);
+
+    Mockito.when(mockSystemAdmin.offsetComparator(anyString(), anyString()))
+        .thenAnswer((Answer<Integer>) invocation -> {
+            String offset1 = (String) invocation.getArguments()[0];
+            String offset2 = (String) invocation.getArguments()[1];
+            return Long.valueOf(offset1).compareTo(Long.valueOf(offset2));
+          });
+
+    StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
+        mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
+
+    // ensure that there is nothing to delete or retain
+    assertEquals(0, storeActions.storeDirsToDelete.size());
+    assertEquals(0, storeActions.storeDirsToRetain.size());
+    // ensure that we mark the store for restore (full trim == restore from oldest to null)
+    assertEquals("0", storeActions.storesToRestore.get(store1Name).startingOffset);
+    assertEquals("10", storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
   @Test
@@ -622,6 +699,10 @@ public class TestTransactionalStateTaskRestoreManager {
     assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * Ensure that we do a trim even if the local offset == checkpointed changelog offset, since there may be
+   * additional messages in the changelog since the last commit that we need to revert.
+   */
   @Test
   public void testGetStoreActionsForLoggedPersistentStore_NoRestoreButTrimIfUpToDateStoreCheckpoint() {
     TaskModel mockTaskModel = mock(TaskModel.class);
@@ -701,6 +782,179 @@ public class TestTransactionalStateTaskRestoreManager {
     assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * This can happen if container failed after checkpointing store but before writing newest changelog offset to
+   * checkpoint topic. In this case, the previously checkpointed (older) store directory should be used.
+   */
+  @Test
+  public void testGetStoreActionsForLoggedPersistentStore_DeleteStoreCheckpointIfLocalOffsetHigherThanCheckpointed() {
+    TaskModel mockTaskModel = mock(TaskModel.class);
+    TaskName taskName = new TaskName("Partition 0");
+    when(mockTaskModel.getTaskName()).thenReturn(taskName);
+    Partition taskChangelogPartition = new Partition(0);
+    when(mockTaskModel.getChangelogPartition()).thenReturn(taskChangelogPartition);
+
+    String store1Name = "store1";
+    StorageEngine store1Engine = mock(StorageEngine.class);
+    StoreProperties mockStore1Properties = mock(StoreProperties.class);
+    when(store1Engine.getStoreProperties()).thenReturn(mockStore1Properties);
+    when(mockStore1Properties.isLoggedStore()).thenReturn(true);
+    when(mockStore1Properties.isPersistedToDisk()).thenReturn(true);
+    Map<String, StorageEngine> mockStoreEngines = ImmutableMap.of(store1Name, store1Engine);
+
+    String changelog1SystemName = "system1";
+    String changelog1StreamName = "store1Changelog";
+    SystemStream changelog1SystemStream = new SystemStream(changelog1SystemName, changelog1StreamName);
+    SystemStreamPartition changelog1SSP = new SystemStreamPartition(changelog1SystemStream, taskChangelogPartition);
+    SystemStreamPartitionMetadata changelog1SSPMetadata = new SystemStreamPartitionMetadata("0", "10", "11");
+    Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
+
+    String changelog1CheckpointedOffset = "5";
+    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(changelog1SSP, changelog1CheckpointedOffset);
+    Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
+        ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
+
+    SystemAdmins mockSystemAdmins = mock(SystemAdmins.class);
+    SystemAdmin mockSystemAdmin = mock(SystemAdmin.class);
+    when(mockSystemAdmins.getSystemAdmin(changelog1SSP.getSystem())).thenReturn(mockSystemAdmin);
+    StorageManagerUtil mockStorageManagerUtil = mock(StorageManagerUtil.class);
+    File mockLoggedStoreBaseDir = mock(File.class);
+    File mockNonLoggedStoreBaseDir = mock(File.class);
+    Config mockConfig = mock(Config.class);
+    Clock mockClock = mock(Clock.class);
+
+    File mockCurrentStoreDir = mock(File.class);
+    File mockStoreNewerCheckpointDir = mock(File.class);
+    File mockStoreOlderCheckpointDir = mock(File.class);
+    when(mockStorageManagerUtil.getTaskStoreDir(eq(mockLoggedStoreBaseDir), eq(store1Name), eq(taskName), any()))
+        .thenReturn(mockCurrentStoreDir);
+    when(mockStorageManagerUtil.getTaskStoreCheckpointDirs(eq(mockLoggedStoreBaseDir), eq(store1Name), eq(taskName), any()))
+        .thenReturn(ImmutableList.of(mockStoreNewerCheckpointDir, mockStoreOlderCheckpointDir));
+    when(mockStorageManagerUtil.isLoggedStoreValid(eq(store1Name), eq(mockStoreNewerCheckpointDir), any(),
+        eq(mockStoreChangelogs), eq(mockTaskModel), any(), eq(mockStoreEngines))).thenReturn(true);
+    when(mockStorageManagerUtil.isLoggedStoreValid(eq(store1Name), eq(mockStoreOlderCheckpointDir), any(),
+        eq(mockStoreChangelogs), eq(mockTaskModel), any(), eq(mockStoreEngines))).thenReturn(true);
+    Set<SystemStreamPartition> mockChangelogSSPs = ImmutableSet.of(changelog1SSP);
+    when(mockStorageManagerUtil.readOffsetFile(eq(mockStoreNewerCheckpointDir), eq(mockChangelogSSPs), eq(false)))
+        .thenReturn(ImmutableMap.of(changelog1SSP, "10"));  // greater than checkpointed offset (5)
+    when(mockStorageManagerUtil.readOffsetFile(eq(mockStoreOlderCheckpointDir), eq(mockChangelogSSPs), eq(false)))
+        .thenReturn(ImmutableMap.of(changelog1SSP, changelog1CheckpointedOffset));
+
+    Mockito.when(mockSystemAdmin.offsetComparator(anyString(), anyString()))
+        .thenAnswer((Answer<Integer>) invocation -> {
+            String offset1 = (String) invocation.getArguments()[0];
+            String offset2 = (String) invocation.getArguments()[1];
+            return Long.valueOf(offset1).compareTo(Long.valueOf(offset2));
+          });
+
+    StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
+        mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
+
+    // ensure that both the current dir and newer checkpoint dir are marked for deletion
+    assertEquals(2, storeActions.storeDirsToDelete.get(store1Name).size());
+    assertTrue(storeActions.storeDirsToDelete.get(store1Name).contains(mockCurrentStoreDir));
+    assertTrue(storeActions.storeDirsToDelete.get(store1Name).contains(mockStoreNewerCheckpointDir));
+    // ensure that the older store checkpoint is marked for retention
+    assertEquals(mockStoreOlderCheckpointDir, storeActions.storeDirsToRetain.get(store1Name));
+    // ensure that we mark the store for restore even if local offset == checkpointed offset
+    // this is required since there may be message we need to trim
+    assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).startingOffset);
+    assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).endingOffset);
+  }
+
+  /**
+   * This can happen if no new messages were written to the store between commits. There may be more than one store
+   * checkpoint if container fails during commit after creating a checkpoint but before deleting the old one.
+   */
+  @Test
+  public void testGetStoreActionsForLoggedPersistentStore_RetainOneCheckpointIfMultipleCheckpointsWithSameOffset() {
+    TaskModel mockTaskModel = mock(TaskModel.class);
+    TaskName taskName = new TaskName("Partition 0");
+    when(mockTaskModel.getTaskName()).thenReturn(taskName);
+    Partition taskChangelogPartition = new Partition(0);
+    when(mockTaskModel.getChangelogPartition()).thenReturn(taskChangelogPartition);
+
+    String store1Name = "store1";
+    StorageEngine store1Engine = mock(StorageEngine.class);
+    StoreProperties mockStore1Properties = mock(StoreProperties.class);
+    when(store1Engine.getStoreProperties()).thenReturn(mockStore1Properties);
+    when(mockStore1Properties.isLoggedStore()).thenReturn(true);
+    when(mockStore1Properties.isPersistedToDisk()).thenReturn(true);
+    Map<String, StorageEngine> mockStoreEngines = ImmutableMap.of(store1Name, store1Engine);
+
+    String changelog1SystemName = "system1";
+    String changelog1StreamName = "store1Changelog";
+    SystemStream changelog1SystemStream = new SystemStream(changelog1SystemName, changelog1StreamName);
+    SystemStreamPartition changelog1SSP = new SystemStreamPartition(changelog1SystemStream, taskChangelogPartition);
+    SystemStreamPartitionMetadata changelog1SSPMetadata = new SystemStreamPartitionMetadata("0", "10", "11");
+    Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
+
+    String changelog1CheckpointedOffset = "5";
+    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(changelog1SSP, changelog1CheckpointedOffset);
+    Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
+        ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
+
+    SystemAdmins mockSystemAdmins = mock(SystemAdmins.class);
+    SystemAdmin mockSystemAdmin = mock(SystemAdmin.class);
+    when(mockSystemAdmins.getSystemAdmin(changelog1SSP.getSystem())).thenReturn(mockSystemAdmin);
+    StorageManagerUtil mockStorageManagerUtil = mock(StorageManagerUtil.class);
+    File mockLoggedStoreBaseDir = mock(File.class);
+    File mockNonLoggedStoreBaseDir = mock(File.class);
+    Config mockConfig = mock(Config.class);
+    Clock mockClock = mock(Clock.class);
+
+    File mockCurrentStoreDir = mock(File.class);
+    File mockStoreNewerCheckpointDir = mock(File.class);
+    File mockStoreOlderCheckpointDir = mock(File.class);
+    when(mockStorageManagerUtil.getTaskStoreDir(eq(mockLoggedStoreBaseDir), eq(store1Name), eq(taskName), any()))
+        .thenReturn(mockCurrentStoreDir);
+    when(mockStorageManagerUtil.getTaskStoreCheckpointDirs(eq(mockLoggedStoreBaseDir), eq(store1Name), eq(taskName), any()))
+        .thenReturn(ImmutableList.of(mockStoreNewerCheckpointDir, mockStoreOlderCheckpointDir));
+    when(mockStorageManagerUtil.isLoggedStoreValid(eq(store1Name), eq(mockStoreNewerCheckpointDir), any(),
+        eq(mockStoreChangelogs), eq(mockTaskModel), any(), eq(mockStoreEngines))).thenReturn(true);
+    when(mockStorageManagerUtil.isLoggedStoreValid(eq(store1Name), eq(mockStoreOlderCheckpointDir), any(),
+        eq(mockStoreChangelogs), eq(mockTaskModel), any(), eq(mockStoreEngines))).thenReturn(true);
+    Set<SystemStreamPartition> mockChangelogSSPs = ImmutableSet.of(changelog1SSP);
+    when(mockStorageManagerUtil.readOffsetFile(eq(mockStoreNewerCheckpointDir), eq(mockChangelogSSPs), eq(false)))
+        .thenReturn(ImmutableMap.of(changelog1SSP, changelog1CheckpointedOffset));  // equal to checkpointed offset (5)
+    when(mockStorageManagerUtil.readOffsetFile(eq(mockStoreOlderCheckpointDir), eq(mockChangelogSSPs), eq(false)))
+        .thenReturn(ImmutableMap.of(changelog1SSP, changelog1CheckpointedOffset)); // also equal to checkpointed offset (5)
+
+    Mockito.when(mockSystemAdmin.offsetComparator(anyString(), anyString()))
+        .thenAnswer((Answer<Integer>) invocation -> {
+            String offset1 = (String) invocation.getArguments()[0];
+            String offset2 = (String) invocation.getArguments()[1];
+            return Long.valueOf(offset1).compareTo(Long.valueOf(offset2));
+          });
+
+    StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
+        mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
+
+    // ensure that both the current dir and one of the checkpoint dirs are marked for deletion
+    assertEquals(2, storeActions.storeDirsToDelete.get(store1Name).size());
+    assertTrue(storeActions.storeDirsToDelete.get(store1Name).contains(mockCurrentStoreDir));
+    // ensure that the one of the store checkpoint is marked for retention
+    assertNotNull(storeActions.storeDirsToRetain.get(store1Name));
+    // ensure that we mark the store for restore even if local offset == checkpointed offset
+    // this is required since there may be message we need to trim
+    assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).startingOffset);
+    assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).endingOffset);
+  }
+
+  /**
+   * We need to trim the changelog topic to handle the scenario where container wrote some messages to store and
+   * changelog, but died before the first commit (leaving checkpointed changelog offset as null).
+   *
+   * Retain existing state flag exists to support cases when user is turning on transactional support for the first
+   * time and does not have an existing checkpointed changelog offset. Retain existing state flag allows them to
+   * carry over the existing changelog state after a full bootstrap. Flag should be turned off after the first deploy.
+   */
   @Test
   public void testGetStoreActionsForLoggedPersistentStore_FullRestoreIfNullCheckpointedOffsetAndRetainExistingChangelogState() {
     TaskModel mockTaskModel = mock(TaskModel.class);
@@ -786,6 +1040,14 @@ public class TestTransactionalStateTaskRestoreManager {
     assertEquals("10", storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * We need to trim the changelog topic to handle the scenario where container wrote some messages to store and
+   * changelog, but died before the first commit (leaving checkpointed changelog offset as null).
+   *
+   * Retain existing state flag exists to support cases when user is turning on transactional support for the first
+   * time and does not have an existing checkpointed changelog offset. Retain existing state flag allows them to
+   * carry over the existing changelog state after a full bootstrap. Flag should be turned off after the first deploy.
+   */
   @Test
   public void testGetStoreActionsForLoggedPersistentStore_FullTrimIfNullCheckpointedOffsetAndNotRetainExistingState() {
     TaskModel mockTaskModel = mock(TaskModel.class);
@@ -871,9 +1133,14 @@ public class TestTransactionalStateTaskRestoreManager {
     assertNull(storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * This is the case when the changelog topic is empty but not new. E.g., if wrote 100 messages,
+   * then deleted 100 messages, and after compaction oldest == newest == checkpointed. In this case
+   * full restore does not do anything since there is nothing to restore or trim, but the code path will
+   * leave us in a consistent state with the appropriate stores deleted and retained.
+   */
   @Test
   public void testGetStoreActionsForLoggedPersistentStore_FullRestoreIfEqualCheckpointedOldestAndNewestOffset() {
-    // full restore == clear existing state
     TaskModel mockTaskModel = mock(TaskModel.class);
     TaskName taskName = new TaskName("Partition 0");
     when(mockTaskModel.getTaskName()).thenReturn(taskName);
@@ -952,6 +1219,10 @@ public class TestTransactionalStateTaskRestoreManager {
     assertEquals("5", storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * This can be the case if the changelog topic is empty (although KafkaSystemAdmin returns 0 as the oldest offset
+   * instead of null for empty topics).
+   */
   @Test
   public void testGetStoreActionsForLoggedPersistentStore_FullRestoreIfNullCheckpointedAndOldestOffset() {
     // full restore == clear existing state
@@ -1043,6 +1314,10 @@ public class TestTransactionalStateTaskRestoreManager {
     assertNull(storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * This can happen if the changelog topic gets compacted and the local store offset was written prior to the
+   * compaction. If so, we do a full restore.
+   */
   @Test
   public void testGetStoreActionsForLoggedPersistentStore_FullRestoreIfCheckpointedOffsetOlderThanOldest() {
     TaskModel mockTaskModel = mock(TaskModel.class);
@@ -1127,6 +1402,10 @@ public class TestTransactionalStateTaskRestoreManager {
     assertEquals("20", storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
+  /**
+   * This can happen if the changelog topic was manually deleted and recreated, and the checkpointed/local changelog
+   * offset is not valid anymore.
+   */
   @Test
   public void testGetStoreActionsForLoggedPersistentStore_FullRestoreIfCheckpointedOffsetNewerThanNewest() {
     TaskModel mockTaskModel = mock(TaskModel.class);
@@ -1285,7 +1564,7 @@ public class TestTransactionalStateTaskRestoreManager {
 
     // verify that store checkpoint directories to retain are moved to (empty) current dirs only for store 1
     // setupStoreDirs doesn't guarantee that the dir is empty by itself, but the dir will be part of dirs to delete.
-    verify(mockStorageManagerUtil, times(1)).moveCheckpointFiles(any(), any());
+    verify(mockStorageManagerUtil, times(1)).restoreCheckpointFiles(any(), any());
     verify(mockFileUtil, times(1)).exists(mockStore1CurrentDirPath);
     verify(mockFileUtil, times(1)).createDirectories(mockStore1CurrentDirPath);
     verify(mockFileUtil, times(1)).exists(mockStore2CurrentDirPath);

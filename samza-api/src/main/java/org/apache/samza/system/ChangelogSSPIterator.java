@@ -72,6 +72,8 @@ public class ChangelogSSPIterator {
 
     IncomingMessageEnvelope envelope = peeks.poll();
 
+    // if trimming changelog is enabled, then switch to trim mode if if we've consumed past the end offset
+    // (i.e., endOffset was null or current offset is > endOffset)
     if (this.trimEnabled && (endOffset == null || admin.offsetComparator(envelope.getOffset(), endOffset) > 0)) {
       mode = Mode.TRIM;
     }

@@ -357,7 +357,7 @@ public class StorageManagerUtil {
     }
   }
 
-  public void moveCheckpointFiles(File checkpointDir, File storeDir) {
+  public void restoreCheckpointFiles(File checkpointDir, File storeDir) {
     // the current task store dir should already be deleted for restore
     assert !storeDir.exists();
 

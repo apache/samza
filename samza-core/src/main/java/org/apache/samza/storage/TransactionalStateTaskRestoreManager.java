@@ -406,7 +406,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
             loggedStoreBaseDirectory, storeName, taskName, taskMode);
         LOG.info("Moving logged store checkpoint directory: {} for store: {} in task: {} to current directory: {}",
             storeDirsToRetain.toString(), storeName, taskName, currentDir);
-        storageManagerUtil.moveCheckpointFiles(storeDirToRetain, currentDir);
+        storageManagerUtil.restoreCheckpointFiles(storeDirToRetain, currentDir);
         // do not remove the checkpoint directory yet. in case commit fails and container restarts,
         // we can retry the move. if we delete the checkpoint, the current dir will be deleted as well on
         // restart, and we will have to do a full restore.
