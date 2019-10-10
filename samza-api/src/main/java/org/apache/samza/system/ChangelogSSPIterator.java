@@ -28,6 +28,17 @@ import java.util.Queue;
 import java.util.Set;
 import org.apache.samza.SamzaException;
 
+/**
+ * Iterates over messages in the provided changelog {@link SystemStreamPartition} using the provided
+ * {@link SystemConsumer} until all messages have been consumed.
+ *
+ * The iterator has a {@link Mode} that depends on its position in the changelog SSP. If trim mode
+ * is enabled, the mode switches to {@code TRIM} if the current message offset is greater than the
+ * provided {@code endOffset}, or if {@code endOffset} is null.
+ *
+ * The iterator mode is used during transactional state restore to determine which changelog SSP entries
+ * should be restored and which ones need to be reverted / trimmed from the changelog topic.
+ */
 public class ChangelogSSPIterator {
   public enum Mode {
     RESTORE,

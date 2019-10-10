@@ -29,7 +29,7 @@ import org.junit.{AfterClass, BeforeClass, Test}
 
 import scala.collection.JavaConverters._
 
-object TestShutdownStatefulTask {
+object NonTransactionalStateShutdownIntegrationTest {
   val STORE_NAME = "loggedstore"
   val STATE_TOPIC_STREAM = "storeChangelog"
 
@@ -52,7 +52,7 @@ object TestShutdownStatefulTask {
  * 4. Start the job again.
  * 5. Validate that the job restored all states (1,2,3,99) to the store, including the pending flushed messages before shutdown
  */
-class TestShutdownStatefulTask extends StreamTaskTestUtil {
+class NonTransactionalStateShutdownIntegrationTest extends StreamTaskTestUtil {
 
   StreamTaskTestUtil(Map(
     "job.name" -> "state-stateful-world",
@@ -116,7 +116,7 @@ class ShutdownStateStoreTask extends TestTask {
 
   override def testInit(context: Context) {
     store = context.getTaskContext
-      .getStore(TestShutdownStatefulTask.STORE_NAME)
+      .getStore(NonTransactionalStateShutdownIntegrationTest.STORE_NAME)
       .asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
     iter.asScala.foreach( p => restored += (p.getKey -> p.getValue))

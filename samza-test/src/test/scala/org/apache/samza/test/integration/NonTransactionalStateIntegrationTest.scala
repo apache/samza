@@ -30,7 +30,7 @@ import org.junit.{AfterClass, BeforeClass, Test}
 
 import scala.collection.JavaConverters._
 
-object TestStatefulTask {
+object NonTransactionalStateIntegrationTest {
   val STORE_NAME = "mystore"
   val STATE_TOPIC_STREAM = "mystoreChangelog"
 
@@ -65,7 +65,7 @@ object TestStatefulTask {
  * 8. Send three more messages to input MESSAGES_SEND_2, and validate that TestStateStoreTask receives them.
  * 9. Kill the job again.
  */
-class TestStatefulTask extends StreamTaskTestUtil {
+class NonTransactionalStateIntegrationTest extends StreamTaskTestUtil {
 
   StreamTaskTestUtil(Map(
     "job.name" -> "hello-stateful-world",
@@ -96,12 +96,12 @@ class TestStatefulTask extends StreamTaskTestUtil {
     assertEquals(0, task.received.size)
 
     // Send some messages to input stream.
-    TestStatefulTask.MESSAGES_SEND_1.foreach(m => send(task, m))
+    NonTransactionalStateIntegrationTest.MESSAGES_SEND_1.foreach(m => send(task, m))
 
     // Validate that messages appear in store stream.
-    val messages = readAll(TestStatefulTask.STATE_TOPIC_STREAM, TestStatefulTask.MESSAGES_RECV_1.length-1, "testShouldStartTaskForFirstTime")
+    val messages = readAll(NonTransactionalStateIntegrationTest.STATE_TOPIC_STREAM, NonTransactionalStateIntegrationTest.MESSAGES_RECV_1.length-1, "testShouldStartTaskForFirstTime")
 
-    assertEquals(TestStatefulTask.MESSAGES_RECV_1, messages)
+    assertEquals(NonTransactionalStateIntegrationTest.MESSAGES_RECV_1, messages)
 
     stopJob(job)
   }
@@ -110,14 +110,14 @@ class TestStatefulTask extends StreamTaskTestUtil {
     val (job, task) = startJob
 
     // Validate that restored has expected data.
-    assertEquals(TestStatefulTask.STORE_CONTENTS_1.length, task.asInstanceOf[StateStoreTestTask].restored.size)
-    TestStatefulTask.STORE_CONTENTS_1.foreach(m =>  assertTrue(task.asInstanceOf[StateStoreTestTask].restored.contains(m)))
+    assertEquals(NonTransactionalStateIntegrationTest.STORE_CONTENTS_1.length, task.asInstanceOf[StateStoreTestTask].restored.size)
+    NonTransactionalStateIntegrationTest.STORE_CONTENTS_1.foreach(m =>  assertTrue(task.asInstanceOf[StateStoreTestTask].restored.contains(m)))
 
     var count = 0
 
     // We should get the original size messages in the stream (1,2,3,2,99,-99).
     // Note that this will trigger four new outgoing messages to the STATE_TOPIC.
-    while (task.received.size < TestStatefulTask.MESSAGES_RECV_1.length && count < 100) {
+    while (task.received.size < NonTransactionalStateIntegrationTest.MESSAGES_RECV_1.length && count < 100) {
       Thread.sleep(600)
       count += 1
     }
@@ -128,14 +128,14 @@ class TestStatefulTask extends StreamTaskTestUtil {
     task.awaitMessage
 
     // Send some messages to input stream.
-    TestStatefulTask.MESSAGES_SEND_2.foreach(m => send(task, m))
+    NonTransactionalStateIntegrationTest.MESSAGES_SEND_2.foreach(m => send(task, m))
 
-    val expectedMessagesRcvd =  TestStatefulTask.MESSAGES_RECV_1 ++ // From initial start.
-                                TestStatefulTask.MESSAGES_RECV_1 ++ // From second startup.
-                                TestStatefulTask.MESSAGES_RECV_2    // From sending in this method.
+    val expectedMessagesRcvd =  NonTransactionalStateIntegrationTest.MESSAGES_RECV_1 ++ // From initial start.
+                                NonTransactionalStateIntegrationTest.MESSAGES_RECV_1 ++ // From second startup.
+                                NonTransactionalStateIntegrationTest.MESSAGES_RECV_2    // From sending in this method.
 
     // Validate that messages appear in store stream.
-    val messages = readAll(TestStatefulTask.STATE_TOPIC_STREAM, expectedMessagesRcvd.length-1, "testShouldRestoreStore")
+    val messages = readAll(NonTransactionalStateIntegrationTest.STATE_TOPIC_STREAM, expectedMessagesRcvd.length-1, "testShouldRestoreStore")
 
     assertEquals(expectedMessagesRcvd, messages)
 
@@ -149,7 +149,7 @@ class StateStoreTestTask extends TestTask {
   var restored = Set[String]()
 
   override def testInit(context: Context): Unit = {
-    store = context.getTaskContext.getStore(TestStatefulTask.STORE_NAME).asInstanceOf[KeyValueStore[String, String]]
+    store = context.getTaskContext.getStore(NonTransactionalStateIntegrationTest.STORE_NAME).asInstanceOf[KeyValueStore[String, String]]
     val iter = store.all
     restored ++= iter
       .asScala
