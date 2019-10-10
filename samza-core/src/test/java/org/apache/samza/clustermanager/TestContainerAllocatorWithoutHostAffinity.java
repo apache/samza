@@ -312,7 +312,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
     spyThread.start();
 
     // Let the request expire, expiration timeout is 3 ms
-    Thread.sleep(20);
+    Thread.sleep(100);
 
     // Verify that all the request that were created as ANY_HOST host
     // and all created requests expired
