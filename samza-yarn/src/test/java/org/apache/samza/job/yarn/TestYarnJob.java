@@ -18,10 +18,10 @@
  */
 package org.apache.samza.job.yarn;
 
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.Map;
-import org.apache.samza.classloader.IsolationUtils;
+import com.google.common.collect.ImmutableMap;
+import org.apache.samza.classloader.DependencyIsolationUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -33,22 +33,22 @@ import org.apache.samza.util.Util;
 import org.junit.Test;
 import scala.collection.JavaConverters;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 
 public class TestYarnJob {
   @Test
-  public void testBuildAmCmd() {
-    // application master isolation is not enabled; use script from __package directory
+  public void testBuildJobCoordinatorCmd() {
+    // cluster-based job coordinator dependency isolation is not enabled; use script from __package directory
     Config config = new MapConfig();
-    assertEquals("./__package/bin/run-jc.sh", YarnJob$.MODULE$.buildAmCmd(config, new JobConfig(config)));
+    assertEquals("./__package/bin/run-jc.sh", YarnJob$.MODULE$.buildJobCoordinatorCmd(config, new JobConfig(config)));
 
-    // application master isolation is enabled; use script from framework infrastructure directory
-    Config configApplicationMasterIsolationEnabled =
-        new MapConfig(ImmutableMap.of(JobConfig.SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, "true"));
-    assertEquals(String.format("./%s/bin/run-jc.sh", IsolationUtils.APPLICATION_MASTER_INFRASTRUCTURE_DIRECTORY),
-        YarnJob$.MODULE$.buildAmCmd(configApplicationMasterIsolationEnabled,
-            new JobConfig(configApplicationMasterIsolationEnabled)));
+    // cluster-based job coordinator dependency isolation is enabled; use script from framework infrastructure directory
+    Config configJobCoordinatorDependencyIsolationEnabled =
+        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true"));
+    assertEquals(String.format("./%s/bin/run-jc.sh", DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY),
+        YarnJob$.MODULE$.buildJobCoordinatorCmd(configJobCoordinatorDependencyIsolationEnabled,
+            new JobConfig(configJobCoordinatorDependencyIsolationEnabled)));
   }
 
   @Test
@@ -59,33 +59,33 @@ public class TestYarnJob {
         .put(JobConfig.JOB_ID, "jobId")
         .put(JobConfig.JOB_COORDINATOR_SYSTEM, "jobCoordinatorSystem")
         .put(YarnConfig.AM_JVM_OPTIONS, amJvmOptions) // needs escaping
-        .put(JobConfig.SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, "false")
+        .put(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false")
         .build());
     String expectedCoordinatorStreamConfigStringValue = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
         .writeValueAsString(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)));
     Map<String, String> expected = ImmutableMap.of(
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG(), expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS(), Util.envVarEscape(amJvmOptions),
-        ShellCommandConfig.ENV_APPLICATION_MASTER_ISOLATION_ENABLED(), "false");
+        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED(), "false");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
 
   @Test
-  public void testBuildEnvironmentApplicationMasterIsolationEnabled() throws IOException {
+  public void testBuildEnvironmentJobCoordinatorDependencyIsolationEnabled() throws IOException {
     Config config = new MapConfig(new ImmutableMap.Builder<String, String>()
         .put(JobConfig.JOB_NAME, "jobName")
         .put(JobConfig.JOB_ID, "jobId")
         .put(JobConfig.JOB_COORDINATOR_SYSTEM, "jobCoordinatorSystem")
         .put(YarnConfig.AM_JVM_OPTIONS, "")
-        .put(JobConfig.SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, "true")
+        .put(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true")
         .build());
     String expectedCoordinatorStreamConfigStringValue = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
         .writeValueAsString(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)));
     Map<String, String> expected = ImmutableMap.of(
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG(), expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS(), "",
-        ShellCommandConfig.ENV_APPLICATION_MASTER_ISOLATION_ENABLED(), "true",
+        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED(), "true",
         ShellCommandConfig.ENV_APPLICATION_LIB_DIR(), "./__package/lib");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
@@ -98,7 +98,7 @@ public class TestYarnJob {
         .put(JobConfig.JOB_ID, "jobId")
         .put(JobConfig.JOB_COORDINATOR_SYSTEM, "jobCoordinatorSystem")
         .put(YarnConfig.AM_JVM_OPTIONS, "")
-        .put(JobConfig.SAMZA_APPLICATION_MASTER_ISOLATION_ENABLED, "false")
+        .put(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false")
         .put(YarnConfig.AM_JAVA_HOME, "/some/path/to/java/home")
         .build());
     String expectedCoordinatorStreamConfigStringValue = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
@@ -106,7 +106,7 @@ public class TestYarnJob {
     Map<String, String> expected = ImmutableMap.of(
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG(), expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS(), "",
-        ShellCommandConfig.ENV_APPLICATION_MASTER_ISOLATION_ENABLED(), "false",
+        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED(), "false",
         ShellCommandConfig.ENV_JAVA_HOME(), "/some/path/to/java/home");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
