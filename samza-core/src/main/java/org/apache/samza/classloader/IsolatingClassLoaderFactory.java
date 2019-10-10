@@ -47,13 +47,19 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Use this to build an isolating classloader for running Samza.
+ * Use this to build a classloader for running Samza which isolates the Samza framework code/dependencies from the
+ * application code/dependencies.
  */
 public class IsolatingClassLoaderFactory {
   private static final Logger LOG = LoggerFactory.getLogger(IsolatingClassLoaderFactory.class);
+  /**
+   * This file specifies the classes which need to be loaded using the framework API.
+   * This file needs to be specified in the lib directory of the API package.
+   */
   private static final String SAMZA_FRAMEWORK_API_CLASS_LIST_FILE_NAME = "samza-framework-api-class-list.txt";
 
   public ClassLoader buildClassLoader() {
+    // start at the user.dir to find the resources for the classpaths
     String baseDirectoryPath = System.getProperty("user.dir");
     File apiLibDirectory =
         libDirectory(new File(baseDirectoryPath, IsolationUtils.APPLICATION_MASTER_API_DIRECTORY));
@@ -69,7 +75,9 @@ public class IsolatingClassLoaderFactory {
     ClassLoader applicationClassLoader =
         buildApplicationClassLoader(applicationLibDirectory, apiLibDirectory, apiClassLoader);
 
-    // the classloader to ultimately return is the one with the infrastructure classpath
+    /*
+     * The classloader to return is the one with the infrastructure classpath
+     */
     return buildInfrastructureClassLoader(infrastructureLibDirectory, apiLibDirectory, apiClassLoader,
         applicationClassLoader);
   }
@@ -82,7 +90,7 @@ public class IsolatingClassLoaderFactory {
   private static ClassLoader buildApplicationClassLoader(File applicationLibDirectory, File apiLibDirectory,
       ClassLoader apiClassLoader) {
     return LoaderBuilder.anIsolatingLoader()
-        // look in application directory for JARs
+        // look in application lib directory for JARs
         .withClasspath(getClasspathAsURIs(applicationLibDirectory))
         // getClasspathAsURIs should already satisfy this, but doing it to be safe
         .withOriginRestriction(OriginRestriction.denyByDefault().allowingDirectory(applicationLibDirectory, false))
@@ -93,12 +101,16 @@ public class IsolatingClassLoaderFactory {
   private static ClassLoader buildInfrastructureClassLoader(File infrastructureLibDirectory, File apiLibDirectory,
       ClassLoader apiClassLoader, ClassLoader applicationClassLoader) {
     return LoaderBuilder.anIsolatingLoader()
-        // look in application directory for JARs
+        // look in infrastructure lib directory for JARs
         .withClasspath(getClasspathAsURIs(infrastructureLibDirectory))
         // getClasspathAsURIs should already satisfy this, but doing it to be safe
         .withOriginRestriction(OriginRestriction.denyByDefault().allowingDirectory(infrastructureLibDirectory, false))
         .withParentRelationship(buildApiParentRelationship(apiLibDirectory, apiClassLoader))
-        // need to be able to fall back to application for loading certain classes
+        /*
+         * Fall back to the application classloader for certain classes. For example, the application might implement
+         * some pluggable classes (e.g. SystemFactory). Another example is message schemas that are supplied by the
+         * application.
+         */
         .addFallbackDelegate(buildFallbackDelegateRelationship(applicationClassLoader))
         .build();
   }
