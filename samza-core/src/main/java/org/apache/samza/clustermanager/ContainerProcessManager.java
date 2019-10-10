@@ -606,6 +606,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     return null;
   }
 
+  /**
+   * Request {@link ContainerManager#handleContainerStop} to determine next step of actions for the stopped container
+   */
   private void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus, Duration preferredHostRetryDelay) {
     containerManager.handleContainerStop(processorId, containerId, preferredHost, exitStatus, preferredHostRetryDelay, containerAllocator);
   }

@@ -55,10 +55,10 @@ import org.slf4j.LoggerFactory;
  *    When host-affinity is disabled, the resource-request's preferredHost param is set to {@link ResourceRequestState#ANY_HOST}
  *  </li>
  *  <li>
- *    When host-affinity is enabled and a preferred resource has not been obtained after {@code requestExpiryTimeout}
- *    milliseconds of the request being made, the resource is declared expired. The expired request are handled by
- *    allocating them to *ANY* allocated resource if available. If no surplus resources are available the current preferred
- *    resource-request is cancelled and resource-request for ANY_HOST is issued
+ *    When the preferred resource has not been obtained after {@code requestExpiryTimeout} milliseconds of the request
+ *    being made, the resource is declared expired. Expired request are handled by allocating them to *ANY*
+ *    allocated resource if available. If no surplus resources are available the current preferred resource-request
+ *    is cancelled and resource-request for ANY_HOST is issued
  *  </li>
  *  <li>
  *    When host-affinity is not enabled, this periodically wakes up to assign a processor to *ANY* allocated resource.
@@ -203,7 +203,7 @@ public class ContainerAllocator implements Runnable {
           state.matchedResourceRequests.incrementAndGet();
         }
 
-        containerManager.handleContainerStart(request, preferredHost, peekAllocatedResource(preferredHost), resourceRequestState, this);
+        containerManager.handleContainerLaunch(request, preferredHost, peekAllocatedResource(preferredHost), resourceRequestState, this);
 
       } else {
 
@@ -213,9 +213,7 @@ public class ContainerAllocator implements Runnable {
 
         if (expired) {
           updateExpiryMetrics(request);
-          if (hostAffinityEnabled) {
-            containerManager.handleContainerRequestExpiredWhenHostAffinityEnabled(processorId, preferredHost, request, this, resourceRequestState);
-          }
+          containerManager.handleExpiredResourceRequest(processorId, preferredHost, request, this, resourceRequestState);
         } else {
           LOG.info("Request for Processor ID: {} on preferred host {} has not expired yet."
                   + "Request creation time: {}. Current Time: {}. Request timeout: {} ms", processorId, preferredHost,

@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -25,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * ContainerManager is a single place that manages control actions like start, stop for both active and standby containers
+ * ContainerManager is a centralized entity that manages control actions like start, stop for both active and standby containers
  * ContainerManager acts as a brain for validating and issuing any actions on containers in the Job Coordinator.
  *
  * The requests to allocate resources resources made by {@link ContainerAllocator} can either expire or succeed.
@@ -61,6 +62,26 @@ public class ContainerManager {
   }
 
   /**
+   * Handles the container start action for both active & standby containers.
+   *
+   * @param request pending request for the preferred host
+   * @param preferredHost preferred host to start the container
+   * @param allocatedResource resource allocated from {@link ClusterResourceManager}
+   * @param resourceRequestState state of request in {@link ContainerAllocator}
+   * @param allocator to request resources from @{@link ClusterResourceManager}
+   */
+  void handleContainerLaunch(SamzaResourceRequest request, String preferredHost, SamzaResource allocatedResource,
+      ResourceRequestState resourceRequestState, ContainerAllocator allocator) {
+    if (this.standbyContainerManager.isPresent()) {
+      standbyContainerManager.get()
+          .checkStandbyConstraintsAndRunStreamProcessor(request, preferredHost, allocatedResource, allocator,
+              resourceRequestState);
+    } else {
+      allocator.runStreamProcessor(request, preferredHost);
+    }
+  }
+
+  /**
    * Handles the action to be taken after the container has been stopped.
    * Case 1. When standby is enabled, refer to {@link StandbyContainerManager#handleContainerStop} to check constraints.
    * Case 2. When standby is disabled there are two cases according to host-affinity being enabled
@@ -74,7 +95,7 @@ public class ContainerManager {
    * @param preferredHostRetryDelay delay to be incurred before requesting resources
    * @param containerAllocator allocator for requesting resources
    */
-  public void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus,
+  void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus,
       Duration preferredHostRetryDelay, ContainerAllocator containerAllocator) {
     if (standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
@@ -87,14 +108,16 @@ public class ContainerManager {
   }
 
   /**
-   * Handle the container launch failure for active containers and standby (if enabled)
+   * Handle the container launch failure for active containers and standby (if enabled).
+   * Case 1. When standby is enabled, refer to {@link StandbyContainerManager#handleContainerLaunchFail} to check behavior
+   * Case 2. When standby is disabled the allocator issues a request for ANY_HOST resources
    *
    * @param processorId logical id of the container
    * @param containerId last known id of the container deployed
    * @param preferredHost host on which container is requested to be deployed
    * @param containerAllocator allocator for requesting resources
    */
-  public void handleContainerLaunchFail(String processorId, String containerId, String preferredHost,
+  void handleContainerLaunchFail(String processorId, String containerId, String preferredHost,
       ContainerAllocator containerAllocator) {
     if (processorId != null && standbyContainerManager.isPresent()) {
       standbyContainerManager.get().handleContainerLaunchFail(processorId, containerId, containerAllocator);
@@ -109,24 +132,18 @@ public class ContainerManager {
   }
 
   /**
-   * Validate the container starts for both active and standby containers
+   * Handles an expired resource request for both active and standby containers. Since a preferred host cannot be obtained
+   * this method checks the availability of surplus ANY_HOST resources and launches the container if available. Otherwise
+   * issues an ANY_HOST request. This behavior holds regardless of host-affinity enabled or not.
+   *
+   * @param processorId logical id of the container
+   * @param preferredHost host on which container is requested to be deployed
+   * @param request pending request for the preferred host
+   * @param allocator allocator for requesting resources
+   * @param resourceRequestState state of request in {@link ContainerAllocator}
    */
-  public void handleContainerStart(SamzaResourceRequest request, String preferredHost, SamzaResource allocatedResource,
-      ResourceRequestState resourceRequestState, ContainerAllocator allocator) {
-    if (this.standbyContainerManager.isPresent()) {
-      standbyContainerManager.get()
-          .checkStandbyConstraintsAndRunStreamProcessor(request, preferredHost, allocatedResource, allocator,
-              resourceRequestState);
-    } else {
-      allocator.runStreamProcessor(request, preferredHost);
-    }
-  }
-
-  /**
-   * Handles an expired resource request when {@code hostAffinityEnabled} is true, in this case since the
-   * preferred host, we try to see if a surplus ANY_HOST is available in the request queue.
-   */
-  public void handleContainerRequestExpiredWhenHostAffinityEnabled(String processorId, String preferredHost,
+  @VisibleForTesting
+  void handleExpiredResourceRequest(String processorId, String preferredHost,
       SamzaResourceRequest request, ContainerAllocator allocator, ResourceRequestState resourceRequestState) {
     boolean resourceAvailableOnAnyHost = allocator.hasAllocatedResource(ResourceRequestState.ANY_HOST);
     if (standbyContainerManager.isPresent()) {
@@ -144,5 +161,4 @@ public class ContainerManager {
       allocator.requestResource(processorId, ResourceRequestState.ANY_HOST);
     }
   }
-
 }

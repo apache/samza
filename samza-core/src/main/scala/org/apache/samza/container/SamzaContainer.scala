@@ -335,13 +335,13 @@ object SamzaContainer extends Logging {
 
     debug("Got system stream message serdes: %s" format systemStreamMessageSerdes)
 
-    val changeLogSystemStreams = storageConfig
+    val storeChangelogs = storageConfig
       .getStoreNames.asScala
       .filter(storageConfig.getChangelogStream(_).isPresent)
       .map(name => (name, storageConfig.getChangelogStream(name).get)).toMap
       .mapValues(StreamUtil.getSystemStreamFromNames(_))
 
-    info("Got change log system streams: %s" format changeLogSystemStreams)
+    info("Got change log system streams: %s" format storeChangelogs)
 
     /*
      * This keeps track of the changelog SSPs that are associated with the whole container. This is used so that we can
@@ -358,7 +358,7 @@ object SamzaContainer extends Logging {
     val changelogSSPMetadataCache = new SSPMetadataCache(systemAdmins,
       Duration.ofSeconds(5),
       SystemClock.instance,
-      getChangelogSSPsForContainer(containerModel, changeLogSystemStreams).asJava)
+      getChangelogSSPsForContainer(containerModel, storeChangelogs).asJava)
 
     val intermediateStreams = streamConfig
       .getStreamIds()
@@ -390,7 +390,7 @@ object SamzaContainer extends Logging {
       systemMessageSerdes = systemMessageSerdes,
       systemStreamKeySerdes = systemStreamKeySerdes,
       systemStreamMessageSerdes = systemStreamMessageSerdes,
-      changeLogSystemStreams = changeLogSystemStreams.values.toSet,
+      changeLogSystemStreams = storeChangelogs.values.toSet,
       controlMessageKeySerdes = controlMessageKeySerdes,
       intermediateMessageSerdes = intermediateStreamMessageSerdes)
 
@@ -509,10 +509,13 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
-    val containerStorageManager = new ContainerStorageManager(containerModel,
+    val containerStorageManager = new ContainerStorageManager(
+      checkpointManager,
+      containerModel,
       streamMetadataCache,
+      changelogSSPMetadataCache,
       systemAdmins,
-      changeLogSystemStreams.asJava,
+      storeChangelogs.asJava,
       sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
       storageEngineFactories.asJava,
       systemFactories.asJava,
@@ -552,13 +555,15 @@ object SamzaContainer extends Logging {
       val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
-      val storageManager = new TaskStorageManager(
-        taskName = taskName,
-        containerStorageManager = containerStorageManager,
-        changeLogSystemStreams = changeLogSystemStreams,
-        sspMetadataCache = changelogSSPMetadataCache,
-        loggedStoreBaseDir = loggedStorageBaseDir,
-        partition = taskModel.getChangelogPartition)
+      val storageManager = TaskStorageManagerFactory.create(
+        taskName,
+        containerStorageManager,
+        storeChangelogs,
+        systemAdmins,
+        loggedStorageBaseDir,
+        taskModel.getChangelogPartition,
+        config,
+        taskModel.getTaskMode)
 
       val tableManager = new TableManager(config)
 
@@ -742,11 +747,13 @@ class SamzaContainer(
       startAdmins
       startOffsetManager
       storeContainerLocality
+      // TODO HIGH pmaheshw SAMZA-2338: since store restore needs to trim changelog messages,
+      // need to start changelog producers before the stores, but stop them after stores.
+      startProducers
       startStores
       startTableManager
       startDiskSpaceMonitor
       startHostStatisticsMonitor
-      startProducers
       startTask
       startConsumers
       startSecurityManger

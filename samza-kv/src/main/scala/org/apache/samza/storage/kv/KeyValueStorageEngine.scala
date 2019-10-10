@@ -187,7 +187,7 @@ class KeyValueStorageEngine[K, V](
     info(restoredMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + ".")
 
     // flush the store and the changelog producer
-    flush() // TODO HIGH pmaheshw: Need a way to flush changelog producers. This only flushes the stores.
+    flush() // TODO HIGH pmaheshw SAMZA-2338: Need a way to flush changelog producers. This only flushes the stores.
   }
 
   def flush() = {

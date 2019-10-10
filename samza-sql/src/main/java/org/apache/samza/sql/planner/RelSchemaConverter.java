@@ -70,35 +70,36 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
     return relFields;
   }
 
+  // TODO: SAMZA-2345 - Change RelSchemaConverter code to apply nullability based on Sql schema.
   private RelDataType getRelDataType(SqlFieldSchema fieldSchema) {
     switch (fieldSchema.getFieldType()) {
       case ARRAY:
         RelDataType elementType = getRelDataType(fieldSchema.getElementSchema());
-        return new ArraySqlType(elementType, fieldSchema.isNullable());
+        return new ArraySqlType(elementType, true);
       case BOOLEAN:
-        return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), true);
       case DOUBLE:
-        return createTypeWithNullability(createSqlType(SqlTypeName.DOUBLE), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.DOUBLE), true);
       case REAL:
-        return createTypeWithNullability(createSqlType(SqlTypeName.REAL), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.REAL), true);
       case FLOAT:
-        return createTypeWithNullability(createSqlType(SqlTypeName.FLOAT), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.FLOAT), true);
       case STRING:
-        return createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), true);
       case BYTES:
-        return createTypeWithNullability(createSqlType(SqlTypeName.VARBINARY), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.VARBINARY), true);
       case INT16:
       case INT32:
-        return createTypeWithNullability(createSqlType(SqlTypeName.INTEGER), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.INTEGER), true);
       case INT64:
-        return createTypeWithNullability(createSqlType(SqlTypeName.BIGINT), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.BIGINT), true);
       case ROW:
       case ANY:
         // TODO Calcite execution engine doesn't support record type yet.
-        return createTypeWithNullability(createSqlType(SqlTypeName.ANY), fieldSchema.isNullable());
+        return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case MAP:
         RelDataType valueType = getRelDataType(fieldSchema.getValueScehma());
-        return new MapSqlType(createSqlType(SqlTypeName.VARCHAR), valueType, fieldSchema.isNullable());
+        return new MapSqlType(createSqlType(SqlTypeName.VARCHAR), valueType, true);
       default:
         String msg = String.format("Field Type %s is not supported", fieldSchema.getFieldType());
         LOG.error(msg);

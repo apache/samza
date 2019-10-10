@@ -226,6 +226,10 @@ public class StreamSpec implements Serializable {
     return id.equals(COORDINATOR_STREAM_ID);
   }
 
+  public boolean isCheckpointStream() {
+    return id.equals(CHECKPOINT_STREAM_ID);
+  }
+
   private void validateLogicalIdentifier(String identifierName, String identifierValue) {
     if (identifierValue == null || !identifierValue.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException(String.format("Identifier '%s' is '%s'. It must match the expression [A-Za-z0-9_-]+", identifierName, identifierValue));

@@ -27,12 +27,12 @@ import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.Objects;
 import java.util.Set;
-import java.util.HashSet;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -40,16 +40,16 @@ import org.I0Itec.zkclient.ZkClient;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.ClusterManagerConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
@@ -68,12 +68,13 @@ import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.test.StandaloneTestUtils;
 import org.apache.samza.test.harness.IntegrationTestHarness;
+import org.apache.samza.test.util.TestKafkaEvent;
 import org.apache.samza.util.NoOpMetricsRegistry;
 import org.apache.samza.util.ReflectionUtil;
-import org.apache.samza.zk.ZkMetadataStore;
-import org.apache.samza.zk.ZkStringSerializer;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkKeyBuilder;
+import org.apache.samza.zk.ZkMetadataStore;
+import org.apache.samza.zk.ZkStringSerializer;
 import org.apache.samza.zk.ZkUtils;
 import org.junit.Assert;
 import org.junit.Rule;
@@ -83,7 +84,10 @@ import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 
 
 /**
@@ -184,7 +188,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     for (int eventIndex = startIndex; eventIndex < endIndex; eventIndex++) {
       try {
         LOGGER.info("Publish kafka event with index : {} for stream processor: {}.", eventIndex, streamProcessorId);
-        producer.send(new ProducerRecord(topic, new TestStreamApplication.TestKafkaEvent(streamProcessorId, String.valueOf(eventIndex)).toString().getBytes()));
+        producer.send(new ProducerRecord(topic, new TestKafkaEvent(streamProcessorId, String.valueOf(eventIndex)).toString().getBytes()));
       } catch (Exception  e) {
         LOGGER.error("Publishing to kafka topic: {} resulted in exception: {}.", new Object[]{topic, e});
         throw new SamzaException(e);
@@ -540,7 +544,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[1]);
     Config applicationConfig2 = new MapConfig(configMap);
 
-    List<TestStreamApplication.TestKafkaEvent> messagesProcessed = new ArrayList<>();
+    List<TestKafkaEvent> messagesProcessed = new ArrayList<>();
     TestStreamApplication.StreamApplicationCallback streamApplicationCallback = messagesProcessed::add;
 
     // Create StreamApplication from configuration.
@@ -570,7 +574,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     appRunner1.waitForFinish();
 
     int lastProcessedMessageId = -1;
-    for (TestStreamApplication.TestKafkaEvent message : messagesProcessed) {
+    for (TestKafkaEvent message : messagesProcessed) {
       lastProcessedMessageId = Math.max(lastProcessedMessageId, Integer.parseInt(message.getEventData()));
     }
     messagesProcessed.clear();
