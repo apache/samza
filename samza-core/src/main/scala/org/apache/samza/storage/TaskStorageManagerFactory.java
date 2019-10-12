@@ -35,9 +35,9 @@ public class TaskStorageManagerFactory {
       Map<String, SystemStream> storeChangelogs, SystemAdmins systemAdmins,
       File loggedStoreBaseDir, Partition changelogPartition,
       Config config, TaskMode taskMode) {
-    if (new TaskConfig(config).getTransactionalStateEnabled()) {
+    if (new TaskConfig(config).getTransactionalStateCheckpointEnabled()) {
       return new TransactionalStateTaskStorageManager(taskName, containerStorageManager, storeChangelogs, systemAdmins,
-          loggedStoreBaseDir, changelogPartition, taskMode);
+          loggedStoreBaseDir, changelogPartition, taskMode, new StorageManagerUtil());
     } else {
       return new NonTransactionalStateTaskStorageManager(taskName, containerStorageManager, storeChangelogs, systemAdmins,
           loggedStoreBaseDir, changelogPartition);

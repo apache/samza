@@ -225,21 +225,19 @@ public class StorageManagerUtil {
   }
 
   /**
-   *  Delete the offset file for this task and store, if one exists.
-   * @param storeBaseDir the base directory of the store
-   * @param storeName the store name to use
-   * @param taskName the task name which is referencing the store
+   * Delete the offset file for this store, if one exists.
+   * @param storeDir the directory of the store
    */
-  public void deleteOffsetFile(File storeBaseDir, String storeName, TaskName taskName) {
-    deleteOffsetFile(storeBaseDir, storeName, taskName, OFFSET_FILE_NAME_NEW);
-    deleteOffsetFile(storeBaseDir, storeName, taskName, OFFSET_FILE_NAME_LEGACY);
+  public void deleteOffsetFile(File storeDir) {
+    deleteOffsetFile(storeDir, OFFSET_FILE_NAME_NEW);
+    deleteOffsetFile(storeDir, OFFSET_FILE_NAME_LEGACY);
   }
 
   /**
    * Delete the given offsetFile for the store if it exists.
    */
-  private void deleteOffsetFile(File storeBaseDir, String storeName, TaskName taskName, String offsetFileName) {
-    File offsetFile = new File(getTaskStoreDir(storeBaseDir, storeName, taskName, TaskMode.Active), offsetFileName);
+  private void deleteOffsetFile(File storeDir, String offsetFileName) {
+    File offsetFile = new File(storeDir, offsetFileName);
     if (offsetFile.exists()) {
       new FileUtil().rm(offsetFile);
     }

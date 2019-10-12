@@ -49,7 +49,7 @@ class TaskRestoreManagerFactory {
       Config config,
       Clock clock) {
 
-    if (new TaskConfig(config).getTransactionalStateEnabled()) {
+    if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
       // Create checkpoint-snapshot based state restoration which is transactional.
       return new TransactionalStateTaskRestoreManager(
           taskModel,

@@ -122,7 +122,7 @@ class TaskInstance(
     initCaughtUpMapping()
 
     val taskConfig = new TaskConfig(config)
-    if (taskConfig.getTransactionalStateEnabled() && taskConfig.getCommitMs > 0) {
+    if (taskConfig.getTransactionalStateRestoreEnabled() && taskConfig.getCommitMs > 0) {
       // Commit immediately so the trimmed changelog messages
       // will be sealed in a checkpoint
       commit

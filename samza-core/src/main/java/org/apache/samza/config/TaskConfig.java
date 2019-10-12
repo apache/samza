@@ -106,8 +106,10 @@ public class TaskConfig extends MapConfig {
   private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
 
-  public static final String TRANSACTIONAL_STATE_ENABLED = "task.transactional.state.enabled";
-  private static final boolean DEFAULT_TRANSACTIONAL_STATE_ENABLED = false;
+  public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
+  private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
+  public static final String TRANSACTIONAL_STATE_RESTORE_ENABLED = "task.transactional.state.restore.enabled";
+  private static final boolean DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED = false;
   public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE =
       "task.transactional.state.retain.existing.changelog.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
@@ -303,8 +305,12 @@ public class TaskConfig extends MapConfig {
     }
   }
 
-  public boolean getTransactionalStateEnabled() {
-    return getBoolean(TRANSACTIONAL_STATE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_ENABLED);
+  public boolean getTransactionalStateCheckpointEnabled() {
+    return getBoolean(TRANSACTIONAL_STATE_CHECKPOINT_ENABLED, DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED);
+  }
+
+  public boolean getTransactionalStateRestoreEnabled() {
+    return getBoolean(TRANSACTIONAL_STATE_RESTORE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED);
   }
 
   public boolean getTransactionalStateRetainExistingChangelogState() {

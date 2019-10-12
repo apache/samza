@@ -88,7 +88,7 @@ public class TransactionalStateIntegrationTest extends StreamApplicationIntegrat
       put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
       put(TaskConfig.CHECKPOINT_MANAGER_FACTORY, "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory");
       put(TaskConfig.COMMIT_MS, "-1"); // manual commit only
-      put(TaskConfig.TRANSACTIONAL_STATE_ENABLED, "true");
+      put(TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED, "true");
       put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE, "true");
       put(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR(), "1");
       put(JobConfig.JOB_LOGGED_STORE_BASE_DIR, LOGGED_STORE_BASE_DIR);

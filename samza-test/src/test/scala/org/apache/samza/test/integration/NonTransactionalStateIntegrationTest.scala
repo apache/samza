@@ -70,7 +70,7 @@ class NonTransactionalStateIntegrationTest extends StreamTaskTestUtil {
   StreamTaskTestUtil(Map(
     "job.name" -> "hello-stateful-world",
     "task.class" -> "org.apache.samza.test.integration.StateStoreTestTask",
-    TaskConfig.TRANSACTIONAL_STATE_ENABLED -> "false",
+    TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED -> "false",
     "stores.mystore.factory" -> "org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory",
     "stores.mystore.key.serde" -> "string",
     "stores.mystore.msg.serde" -> "string",

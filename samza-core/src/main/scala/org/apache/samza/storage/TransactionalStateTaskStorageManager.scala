@@ -45,9 +45,8 @@ class TransactionalStateTaskStorageManager(
   systemAdmins: SystemAdmins,
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition,
-  taskMode: TaskMode) extends Logging with TaskStorageManager {
-
-  private val storageManagerUtil = new StorageManagerUtil
+  taskMode: TaskMode,
+  storageManagerUtil: StorageManagerUtil) extends Logging with TaskStorageManager {
 
   def getStore(storeName: String): Option[StorageEngine] =  JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
 
@@ -144,14 +143,17 @@ class TransactionalStateTaskStorageManager(
   }
 
   /**
-   * Writes the newest changelog ssp offset for each persistent store the OFFSET file in the checkpoint directory.
+   * Writes the newest changelog ssp offset for each persistent store the OFFSET file in both the checkpoint
+   * and the current store directory (the latter for allowing rollbacks).
+   *
    * These files are used during container startup to ensure transactional state, and to determine whether the
    * there is any new information in the changelog that is not reflected in the on-disk copy of the store.
    * If there is any delta, it is replayed from the changelog e.g. This can happen if the job was run on this host,
    * then another host, and then back to this host.
    */
   @VisibleForTesting
-  def writeChangelogOffsetFiles(checkpointPaths: Map[String, Path], storeChangelogs: Map[String, SystemStream], newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {
+  def writeChangelogOffsetFiles(checkpointPaths: Map[String, Path], storeChangelogs: Map[String, SystemStream],
+      newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {
     debug("Writing OFFSET files for logged persistent key value stores for task %s." format(checkpointPaths))
 
     storeChangelogs
@@ -159,14 +161,26 @@ class TransactionalStateTaskStorageManager(
       .foreach { case (storeName, systemStream) => {
         try {
           val ssp = new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition)
-          newestChangelogOffsets(ssp).foreach(newestOffset => {
-            val path = checkpointPaths(storeName)
-            debug("Storing newest offset: %s for taskName: %s store: %s changelog: %s in OFFSET file at path: %s."
-              format(newestOffset, taskName, storeName, systemStream, path))
-            storageManagerUtil.writeOffsetFile(path.toFile, Map(ssp -> newestOffset).asJava, false)
-            debug("Successfully stored offset: %s for taskName: %s store: %s changelog: %s in OFFSET file at path: %s."
-              format(newestOffset, taskName, storeName, systemStream, path))
-          })
+          val currentStoreDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active)
+          newestChangelogOffsets(ssp) match {
+            case Some(newestOffset) => {
+              // write the offset file for the checkpoint directory
+              val checkpointPath = checkpointPaths(storeName)
+              writeChangelogOffsetFile(storeName, ssp, newestOffset, checkpointPath.toFile)
+              // write the OFFSET file for the current store (for backwards compatibility / allowing rollbacks)
+              writeChangelogOffsetFile(storeName, ssp, newestOffset, currentStoreDir)
+            }
+            case None => {
+              // retain existing behavior for current store directory for backwards compatibility / allowing rollbacks
+
+              // if newestOffset is null, then it means the changelog ssp is (or has become) empty. This could be
+              // either because the changelog topic was newly added, repartitioned, or manually deleted and recreated.
+              // No need to persist the offset file.
+              storageManagerUtil.deleteOffsetFile(currentStoreDir)
+              debug("Deleting OFFSET file for taskName %s current store %s changelog ssp %s since the newestOffset is null."
+                format (taskName, storeName, ssp))
+            }
+          }
         } catch {
           case e: Exception =>
             throw new SamzaException("Error storing offset for taskName %s store %s changelog %s."
@@ -174,5 +188,14 @@ class TransactionalStateTaskStorageManager(
         }
       }}
     debug("Done writing OFFSET files for logged persistent key value stores for task %s" format(taskName))
+  }
+
+  private def writeChangelogOffsetFile(storeName: String, ssp: SystemStreamPartition,
+      newestOffset: String, dir: File): Unit = {
+    debug("Storing newest offset: %s for taskName: %s store: %s changelog: %s in OFFSET file at path: %s."
+      format(newestOffset, taskName, storeName, ssp, dir))
+    storageManagerUtil.writeOffsetFile(dir, Map(ssp -> newestOffset).asJava, false)
+    debug("Successfully stored offset: %s for taskName: %s store: %s changelog: %s in OFFSET file at path: %s."
+      format(newestOffset, taskName, storeName, ssp, dir))
   }
 }
