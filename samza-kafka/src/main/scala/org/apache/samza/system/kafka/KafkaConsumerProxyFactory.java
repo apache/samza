@@ -25,5 +25,5 @@ package org.apache.samza.system.kafka;
  * {@link KafkaConsumerProxy} needs to be used within kafka system components like {@link KafkaSystemConsumer}.
  */
 public interface KafkaConsumerProxyFactory<K, V> {
-  KafkaConsumerProxy<K, V> create(KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink);
+  KafkaConsumerProxy<K, V> create(KafkaSystemConsumer<K, V> kafkaSystemConsumer);
 }
