@@ -223,7 +223,8 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    * Invoked by {@link KafkaConsumerProxy} to notify the consumer of failure, so it can relay and stop the BEM polling.
    * @param throwable
    */
-  public void setProxyFailureCause(Throwable throwable) {
+  @Override
+  public void setFailureCause(Throwable throwable) {
     this.setFailureCause(throwable); // notify the BEM
   }
 

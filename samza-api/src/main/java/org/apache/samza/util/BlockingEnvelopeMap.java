@@ -143,9 +143,15 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
         if (timeout == SystemConsumer.BLOCK_ON_OUTSTANDING_MESSAGES) {
           // Block until we get at least one message, or until we catch up to
           // the head of the stream.
-          while (envelope == null && !isAtHead(systemStreamPartition) && !isConsumerFailed()) {
+          while (envelope == null && !isAtHead(systemStreamPartition)) {
             metrics.incBlockingPoll(systemStreamPartition);
             envelope = queue.poll(1000, TimeUnit.MILLISECONDS);
+
+            // Check for consumerFailure and throw exception
+            if (this.failureCause != null) {
+              String message = String.format("%s: Consumer has stopped.", this);
+              throw new SamzaException(message, this.failureCause);
+            }
           }
         } else if (timeout > 0 && timeRemaining > 0) {
           // Block until we get at least one message.
@@ -245,15 +251,6 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
 
   protected void setFailureCause(Throwable throwable) {
     this.failureCause = throwable;
-  }
-
-  protected boolean isConsumerFailed() {
-    if (this.failureCause != null) {
-      String message = String.format("%s: Consumer has stopped.", this);
-      throw new SamzaException(message, this.failureCause);
-    } else {
-      return false;
-    }
   }
 
   public class BlockingEnvelopeMapMetrics {
