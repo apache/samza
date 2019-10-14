@@ -101,7 +101,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     messageSink = new KafkaConsumerMessageSink();
 
     // Create the proxy to do the actual message reading.
-    proxy = kafkaConsumerProxyFactory.create(this.messageSink);
+    proxy = kafkaConsumerProxyFactory.create(this);
     LOG.info("{}: Created proxy {} ", this, proxy);
   }
 
@@ -327,6 +327,10 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    */
   public String getSystemName() {
     return systemName;
+  }
+
+  public KafkaConsumerMessageSink getMessageSink() {
+    return this.messageSink;
   }
 
   public class KafkaConsumerMessageSink {
