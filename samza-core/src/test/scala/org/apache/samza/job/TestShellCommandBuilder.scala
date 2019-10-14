@@ -44,7 +44,7 @@ class TestShellCommandBuilder {
 
   // if cmdPath is specified, the full path to the command should be adjusted
   @Test
-  def testCommandWithFwkPath {
+  def testBuildCommandWithCommandPath {
     val urlStr = "http://www.linkedin.com"
     val config = new MapConfig(Map(ShellCommandConfig.COMMAND_SHELL_EXECUTE -> "foo").asJava)
     val scb = new ShellCommandBuilder
@@ -54,8 +54,8 @@ class TestShellCommandBuilder {
     val command = scb.buildCommand
     assertEquals("foo", command)
 
-    scb.setCommandPath("/fwk/path")
+    scb.setCommandPath("/package/path")
     val command1 = scb.buildCommand
-    assertEquals("/fwk/path/foo", command1)
+    assertEquals("/package/path/foo", command1)
   }
 }
