@@ -32,12 +32,12 @@
             "name": "bool_value",
             "doc": "Boolean Value.",
             "type": "boolean",
-            "default": null
+            "default": false
         },
         {
             "name": "double_value",
             "doc": "double Value.",
-            "type": ["null", "double"],
+            "type": ["null", "double"]
         },
         {
             "name": "float_value0",
