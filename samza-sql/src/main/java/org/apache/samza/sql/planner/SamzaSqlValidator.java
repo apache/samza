@@ -82,7 +82,8 @@ public class SamzaSqlValidator {
       try {
         relRoot = planner.plan(qinfo.getSelectQuery());
       } catch (SamzaException e) {
-        throw new SamzaSqlValidatorException(String.format("Validation failed for sql stmt:\n%s\n", sql), e);
+        throw new SamzaSqlValidatorException(String.format("Validation failed for sql stmt:\n%s\n with the following"
+            + " error: \n%s\n", sql, e), e);
       }
 
       // Now that we have logical plan, validate different aspects.

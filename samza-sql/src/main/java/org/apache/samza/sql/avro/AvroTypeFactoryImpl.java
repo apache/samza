@@ -35,6 +35,30 @@ import org.slf4j.LoggerFactory;
 /**
  * Factory that creates {@link SqlSchema} from the Avro Schema. This is used by the
  * {@link AvroRelConverter} to convert Avro schema to Samza Sql schema.
+ *
+ * Below is some background on Nullability and Optionality of fields in Avro.
+ *
+ * Nullable fields in avro are of type union with one of the values being null.
+ * Fields with default values are optional ONLY while reading. Default values are
+ * meant for schema evolution where reader schema is different from writer schema.
+ * Please note here that even the fields with default values MUST be specified at
+ * the time of serialization.
+ *
+ * Behavior on the consumption side:
+ * While reading, the fields that are not written will be filled with default values
+ * that are specified in the reader schema. Please note that this happens only when
+ * the field with default value is not present in writer schema but is present in
+ * reader schema.
+ *
+ * Behavior on the producer side:
+ * All non-nullable avro fields should have values including fields with default values.
+ * Nullable fields need not be explicitly set as they are set at the time of serialization.
+ *
+ * So, all nullable fields are optional fields on the producer side in Avro.
+ * {@link AvroTypeFactoryImpl} reflects the state of fields on the producer side.
+ *
+ * Note: There could be cases where the producer might embed some fields, in which case
+ * a non-nullable field is considered optional.
  */
 public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
 
@@ -51,7 +75,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
 
   /**
    * Given a schema field, determine if it is an optional field. There could be cases where a field
-   * is considered as optional even if it is marked as required in the schema. The producer could be filling in this
+   * is considered as optional even if it is marked as non-nullable in the schema. The producer could be filling in this
    * field and hence need not be specified in the query and hence is optional. Typically, such fields are
    * the top level fields in the schema.
    * @param field schema field
@@ -59,7 +83,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
    * @return if the field is optional
    */
   protected boolean isOptional(Schema.Field field, boolean isTopLevelField) {
-    return field.defaultValue() != null;
+    return false;
   }
 
   private void validateTopLevelAvroType(Schema schema) {
@@ -124,15 +148,23 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
 
   private SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types, boolean isNullable, boolean isOptional) {
     // Typically a nullable field's schema is configured as an union of Null and a Type.
-    // This is to check whether the Union is a Nullable field
     if (types.size() == 2) {
       if (types.get(0).getType() == Schema.Type.NULL) {
-        return convertField(types.get(1), true, isOptional);
+        return convertField(types.get(1), true, true);
       } else if ((types.get(1).getType() == Schema.Type.NULL)) {
-        return convertField(types.get(0), true, isOptional);
+        return convertField(types.get(0), true, true);
+      }
+    } else if (types.size() > 2) {
+      // Union field with more than 2 Types is considered nullable and optional only if one of the Types is NULL.
+      boolean isNullTypeFound = types.stream().anyMatch(t -> t.getType() == Schema.Type.NULL);
+      if (isNullTypeFound) {
+        isNullable = isNullTypeFound;
+        isOptional = isNullTypeFound;
       }
     }
 
+    // If we reach here, it means that the union has two or more non-null types. Mark the type for such fields
+    // as ANY.
     return SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY, isNullable, isOptional);
   }
 }
