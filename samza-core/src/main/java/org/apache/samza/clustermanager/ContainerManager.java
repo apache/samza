@@ -43,10 +43,10 @@ public class ContainerManager {
   /**
    * Resource-manager, used to stop containers
    */
-  private ClusterResourceManager clusterResourceManager;
+  private final ClusterResourceManager clusterResourceManager;
   private final SamzaApplicationState samzaApplicationState;
 
-  private Optional<StandbyContainerManager> standbyContainerManager;
+  private final Optional<StandbyContainerManager> standbyContainerManager;
 
   public ContainerManager(SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager,
       Boolean standByEnabled) {

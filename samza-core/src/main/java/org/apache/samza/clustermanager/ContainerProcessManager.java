@@ -594,7 +594,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * ContainerProcessManager [INFO] Container ID: container_e66_1569376389369_0221_01_000049 matched pending Processor ID: 0 on host: ltx1-app0772.stg.linkedin.com
    *
    * @param containerId last known id of the container deployed
-   * @return the logical id of the Samza container
+   * @return the logical processorId of the processor (e.g., 0, 1, 2 ...)
    */
   private String getPendingProcessorId(String containerId) {
     for (Map.Entry<String, SamzaResource> entry: state.pendingProcessors.entrySet()) {
