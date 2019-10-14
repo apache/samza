@@ -219,6 +219,14 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
         this, fetchThresholdBytes, fetchThreshold, numPartitions, perPartitionFetchThreshold, perPartitionFetchThresholdBytes);
   }
 
+  /**
+   * Invoked by {@link KafkaConsumerProxy} to notify the consumer of failure, so it can relay and stop the BEM polling.
+   * @param throwable
+   */
+  public void setProxyFailureCause(Throwable throwable) {
+    this.setFailureCause(throwable); // notify the BEM
+  }
+
   @Override
   public void stop() {
     if (!stopped.compareAndSet(false, true)) {

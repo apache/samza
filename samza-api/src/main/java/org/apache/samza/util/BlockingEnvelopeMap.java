@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -68,6 +69,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   private final ConcurrentHashMap<SystemStreamPartition, AtomicLong> bufferedMessagesSize;  // size in bytes per SystemStreamPartition
   private final Map<SystemStreamPartition, Boolean> noMoreMessage;
   private final Clock clock;
+  private volatile Throwable failureCause = null;
 
   public BlockingEnvelopeMap() {
     this(new NoOpMetricsRegistry());
@@ -141,7 +143,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
         if (timeout == SystemConsumer.BLOCK_ON_OUTSTANDING_MESSAGES) {
           // Block until we get at least one message, or until we catch up to
           // the head of the stream.
-          while (envelope == null && !isAtHead(systemStreamPartition)) {
+          while (envelope == null && !isAtHead(systemStreamPartition) && !isConsumerFailed()) {
             metrics.incBlockingPoll(systemStreamPartition);
             envelope = queue.poll(1000, TimeUnit.MILLISECONDS);
           }
@@ -239,6 +241,19 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     Boolean isAtHead = noMoreMessage.get(systemStreamPartition);
 
     return getNumMessagesInQueue(systemStreamPartition) == 0 && isAtHead != null && isAtHead.equals(true);
+  }
+
+  protected void setFailureCause(Throwable throwable) {
+    this.failureCause = throwable;
+  }
+
+  protected boolean isConsumerFailed() {
+    if (this.failureCause != null) {
+      String message = String.format("%s: Consumer has stopped.", this);
+      throw new SamzaException(message, this.failureCause);
+    } else {
+      return false;
+    }
   }
 
   public class BlockingEnvelopeMapMetrics {

@@ -204,6 +204,7 @@ public class KafkaConsumerProxy<K, V> {
         // KafkaSystemConsumer uses the failureCause to propagate the throwable to the container
         failureCause = throwable;
         isRunning = false;
+        ((KafkaSystemConsumer) this.kafkaConsumer).setProxyFailureCause(this.failureCause);
       }
 
       if (!isRunning) {
