@@ -20,12 +20,30 @@
 package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableMap;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.StandbyTaskUtil;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
 import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.JsonMappingException;
@@ -34,13 +52,6 @@ import org.codehaus.jackson.map.ObjectWriter;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 
 public class StorageManagerUtil {
@@ -52,7 +63,7 @@ public class StorageManagerUtil {
   private static final TypeReference<Map<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
             new TypeReference<Map<SystemStreamPartition, String>>() { };
   private static final ObjectWriter OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
-
+  private static final String SST_FILE_SUFFIX = ".sst";
 
   /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
@@ -134,7 +145,33 @@ public class StorageManagerUtil {
   }
 
   /**
-   * An offset file associated with logged store {@code storeDir} is valid if it exists and is not empty.
+   * Directory loggedStoreDir associated with the store storeName is valid if all of the following
+   * conditions are true:
+   * a) If the store is a persistent store.
+   * b) If there is a valid offset file associated with the store.
+   * c) If the store has not gone stale.
+   *
+   * @return true if the logged store is valid, false otherwise.
+   */
+  public boolean isLoggedStoreValid(String storeName, File loggedStoreDir, Config config,
+      Map<String, SystemStream> storeChangelogs, TaskModel taskModel, Clock clock, Map<String, StorageEngine> taskStores) {
+    long changeLogDeleteRetentionInMs = new StorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
+
+    if (storeChangelogs.containsKey(storeName)) {
+      SystemStreamPartition changelogSSP = new SystemStreamPartition(
+          storeChangelogs.get(storeName), taskModel.getChangelogPartition());
+
+      return taskStores.get(storeName).getStoreProperties().isPersistedToDisk()
+          && isOffsetFileValid(loggedStoreDir, Collections.singleton(changelogSSP), false)
+          && !isStaleStore(loggedStoreDir, changeLogDeleteRetentionInMs, clock.currentTimeMillis(), false);
+    }
+
+    return false;
+  }
+
+  /**
+   * An offset file associated with logged store {@code storeDir} is valid if it exists, is not empty,
+   * and the offsets are for the store's current changelog or side input SSPs.
    *
    * @param storeDir the base directory of the store
    * @param storeSSPs ssps (if any) associated with the store
@@ -188,21 +225,19 @@ public class StorageManagerUtil {
   }
 
   /**
-   *  Delete the offset file for this task and store, if one exists.
-   * @param storeBaseDir the base directory of the store
-   * @param storeName the store name to use
-   * @param taskName the task name which is referencing the store
+   * Delete the offset file for this store, if one exists.
+   * @param storeDir the directory of the store
    */
-  public void deleteOffsetFile(File storeBaseDir, String storeName, TaskName taskName) {
-    deleteOffsetFile(storeBaseDir, storeName, taskName, OFFSET_FILE_NAME_NEW);
-    deleteOffsetFile(storeBaseDir, storeName, taskName, OFFSET_FILE_NAME_LEGACY);
+  public void deleteOffsetFile(File storeDir) {
+    deleteOffsetFile(storeDir, OFFSET_FILE_NAME_NEW);
+    deleteOffsetFile(storeDir, OFFSET_FILE_NAME_LEGACY);
   }
 
   /**
    * Delete the given offsetFile for the store if it exists.
    */
-  private void deleteOffsetFile(File storeBaseDir, String storeName, TaskName taskName, String offsetFileName) {
-    File offsetFile = new File(getTaskStoreDir(storeBaseDir, storeName, taskName, TaskMode.Active), offsetFileName);
+  private void deleteOffsetFile(File storeDir, String offsetFileName) {
+    File offsetFile = new File(storeDir, offsetFileName);
     if (offsetFile.exists()) {
       new FileUtil().rm(offsetFile);
     }
@@ -296,5 +331,52 @@ public class StorageManagerUtil {
       taskNameForDirName =  StandbyTaskUtil.getActiveTaskName(taskName);
     }
     return new File(storeBaseDir, (storeName + File.separator + taskNameForDirName.toString()).replace(' ', '_'));
+  }
+
+  public List<File> getTaskStoreCheckpointDirs(File storeBaseDir, String storeName,
+      TaskName taskName, TaskMode taskMode) {
+    try {
+      File storeDir = new File(storeBaseDir, storeName);
+      String taskStoreName = getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode).getName();
+
+      if (storeDir.exists()) { // new store or no local state
+        List<File> checkpointDirs = Files.list(storeDir.toPath())
+            .map(Path::toFile)
+            .filter(file -> file.getName().contains(taskStoreName + "-"))
+            .collect(Collectors.toList());
+        return checkpointDirs;
+      } else {
+        return Collections.emptyList();
+      }
+    } catch (IOException e) {
+      throw new SamzaException(
+          String.format("Error finding checkpoint dirs for task: %s mode: %s store: %s in dir: %s",
+              taskName, taskMode, storeName, storeBaseDir), e);
+    }
+  }
+
+  public void restoreCheckpointFiles(File checkpointDir, File storeDir) {
+    // the current task store dir should already be deleted for restore
+    assert !storeDir.exists();
+
+    try {
+      Files.createDirectory(storeDir.toPath());
+
+      for (File file : checkpointDir.listFiles()) {
+        String fileName = file.getName();
+        File targetFile = new File(storeDir, fileName);
+
+        if (fileName.endsWith(SST_FILE_SUFFIX)) {
+          // hardlink'ing the immutable sst-files.
+          Files.createLink(targetFile.toPath(), file.toPath());
+        } else {
+          // true copy for all other files.
+          Files.copy(file.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        }
+      }
+    } catch (Exception e) {
+      throw new SamzaException(String.format(
+          "Failed to restore store from checkpoint dir: %s to current dir: %s", checkpointDir, storeDir), e);
+    }
   }
 }

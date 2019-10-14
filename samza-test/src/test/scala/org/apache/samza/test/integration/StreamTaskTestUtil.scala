@@ -19,9 +19,10 @@
 
 package org.apache.samza.test.integration
 
+import java.io.File
 import java.time.Duration
 import java.util
-import java.util.{Collections, Properties}
+import java.util.{Collections, Properties, Random}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import javax.security.auth.login.Configuration
@@ -75,6 +76,11 @@ object StreamTaskTestUtil {
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123").asJava)
   val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345").asJava)
 
+  // use a random store directory for each run. prevents test failures due to left over state from
+  // previously aborted test runs
+  val random = new Random()
+  val LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "logged-store-" + random.nextInt()).getAbsolutePath
+
   /*
    * This is the default job configuration. Each test class can override the default configuration below.
    */
@@ -96,7 +102,9 @@ object StreamTaskTestUtil {
     "task.checkpoint.replication.factor" -> "1",
     // However, don't have the inputs use the checkpoint manager
     // since the second part of the test expects to replay the input streams.
-    "systems.kafka.streams.input.samza.reset.offset" -> "false")
+    "systems.kafka.streams.input.samza.reset.offset" -> "false",
+    JobConfig.JOB_LOGGED_STORE_BASE_DIR -> LOGGED_STORE_BASE_DIR
+  )
 
   def apply(map: Map[String, String]): Unit = {
     jobConfig ++= map
