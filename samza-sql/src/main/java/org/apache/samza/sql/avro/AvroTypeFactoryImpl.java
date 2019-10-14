@@ -52,13 +52,14 @@ import org.slf4j.LoggerFactory;
  *
  * Behavior on the producer side:
  * All non-nullable avro fields should have values including fields with default values.
- * Nullable fields need not be explicitly set as they are set at the time of serialization.
+ * Nullable fields need not be explicitly set as they are set to null by
+ * {@link org.apache.avro.generic.GenericDatumWriter} during serialization.
  *
  * So, all nullable fields are optional fields on the producer side in Avro.
  * {@link AvroTypeFactoryImpl} reflects the state of fields on the producer side.
  *
  * Note: There could be cases where the producer might embed some fields, in which case
- * a non-nullable field is considered optional.
+ * a non-nullable field is optional in Samza Sql.
  */
 public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
 
