@@ -221,6 +221,7 @@ public class TestSamzaSqlValidator {
 
     Assert.fail("Validation test has failed.");
   }
+
   @Test
   public void testNonDefaultOutputField() {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
