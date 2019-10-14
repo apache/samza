@@ -162,3 +162,5 @@ To deploy a Samza application, you need to specify the implementation class for 
     app.runner.class=org.apache.samza.runtime.RemoteApplicationRunner
     
 {% endhighlight %}
+
+## [Samza Container &raquo;](/learn/documentation/{{site.version}}/container/samza-container.html)
