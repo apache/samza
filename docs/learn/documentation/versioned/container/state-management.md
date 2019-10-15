@@ -23,7 +23,7 @@ One of the more interesting features of Samza is stateful stream processing. Tas
 
 Some stream processing jobs don't require state: if you only need to transform one message at a time, or filter out messages based on some condition, your job can be simple. Every call to your task's [process method](../api/overview.html) handles one incoming message, and each message is independent of all the other messages.
 
-However, being able to maintain state opens up many possibilities for sophisticated stream processing jobs: joining input streams, grouping messages and aggregating groups of messages. By analogy to SQL, the *select* and *where* clauses of a query are usually stateless, but *join*, *group by* and aggregation functions like *sum* and *count* require state. Samza supports [Samza SQL](/learn/documentation/{{site.version}}/api/samza-sql.html) for higher-level SQL-like language and [Beam API](/learn/documentation/{{site.version}}/api/beam-api.html) for streaming aggregation and joins.
+However, being able to maintain state opens up many possibilities for sophisticated stream processing jobs: joining input streams, grouping messages and aggregating groups of messages. By analogy to SQL, the *select* and *where* clauses of a query are usually stateless, but *join*, *group by* and aggregation functions like *sum* and *count* require state. Samza doesn't yet provide a higher-level SQL-like language, but it does provide lower-level primitives that you can use to implement streaming aggregation and joins.
 
 ### Common use cases for stateful processing
 
