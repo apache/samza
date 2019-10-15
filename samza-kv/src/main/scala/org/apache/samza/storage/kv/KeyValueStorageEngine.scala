@@ -178,7 +178,7 @@ class KeyValueStorageEngine[K, V](
 
         // log progress every hundred thousand messages
         if (trimmedMessages % 100000 == 0) {
-          info(restoredMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + "...")
+          info(trimmedMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + "...")
         }
       }
 
