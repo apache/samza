@@ -20,6 +20,7 @@
 package org.apache.samza.config
 
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 import org.apache.samza.config.factories.PropertiesConfigFactory
 import org.junit.Assert._
@@ -82,11 +83,11 @@ class TestKafkaConfig {
 
   @Test
   def testChangeLogProperties() {
+    props.setProperty("job.changelog.system", SYSTEM_NAME)
     props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory")
     props.setProperty("stores.test1.changelog", "kafka.mychangelog1")
     props.setProperty("stores.test2.changelog", "kafka.mychangelog2")
     props.setProperty("stores.test2.changelog.max.message.bytes", "1024000")
-    props.setProperty("job.changelog.system", "kafka")
     props.setProperty("stores.test3.changelog", "otherstream")
     props.setProperty("stores.test1.changelog.kafka.cleanup.policy", "delete")
     props.setProperty("stores.test4.rocksdb.ttl.ms", "3600")
@@ -107,6 +108,7 @@ class TestKafkaConfig {
     assertEquals("otherstream", storeToChangelog.getOrDefault("test3", ""))
     assertNull(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("retention.ms"))
     assertNull(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("retention.ms"))
+    assertNull(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("min.compaction.lag.ms"))
 
     props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.SomeOtherFactory")
     val storeToChangelog1 = kafkaConfig.getKafkaChangelogEnabledStores()
@@ -138,6 +140,17 @@ class TestKafkaConfig {
       String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
     assertEquals(batchKafkaConfig.getChangelogKafkaProperties("test3").getProperty("max.message.bytes"),
       KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES)
+
+    // test compaction config for transactional state
+    props.setProperty(TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED, "true")
+    props.setProperty("stores.test2.changelog.kafka.min.compaction.lag.ms",
+      String.valueOf(TimeUnit.HOURS.toMillis(6)))
+    val tsMapConfig = new MapConfig(props.asScala.asJava)
+    val tsKafkaConfig = new KafkaConfig(tsMapConfig)
+    assertEquals(KafkaConfig.CHANGELOG_DEFAULT_MIN_COMPACTION_LAG_MS.toString,
+      tsKafkaConfig.getChangelogKafkaProperties("test1").getProperty("min.compaction.lag.ms"))
+    assertEquals(String.valueOf(TimeUnit.HOURS.toMillis(6)),
+      tsKafkaConfig.getChangelogKafkaProperties("test2").getProperty("min.compaction.lag.ms"))
   }
 
   @Test
