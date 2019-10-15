@@ -52,6 +52,9 @@ public class StorageConfig extends MapConfig {
   public static final boolean DEFAULT_DISALLOW_LARGE_MESSAGES = false;
   public static final String DROP_LARGE_MESSAGES = STORE_PREFIX + "%s.drop.large.messages";
   public static final boolean DEFAULT_DROP_LARGE_MESSAGES = false;
+  // The log compaction lag time for transactional state change log
+  public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.kafka.changelog.replication.factor";
+  public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -205,6 +208,10 @@ public class StorageConfig extends MapConfig {
 
   public boolean getDropLargeMessages(String storeName) {
     return getBoolean(String.format(DROP_LARGE_MESSAGES, storeName), DEFAULT_DROP_LARGE_MESSAGES);
+  }
+
+  public long getChangelogMinCompactionLagMs(String storeName) {
+    return getLong(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, storeName), DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS);
   }
 
   /**

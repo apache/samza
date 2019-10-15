@@ -142,14 +142,14 @@ class TestKafkaConfig {
       KafkaConfig.DEFAULT_LOG_COMPACT_TOPIC_MAX_MESSAGE_BYTES)
 
     // test compaction config for transactional state
+    val lagOverride = String.valueOf(TimeUnit.HOURS.toMillis(6))
     props.setProperty(TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED, "true")
-    props.setProperty("stores.test2.changelog.kafka.min.compaction.lag.ms",
-      String.valueOf(TimeUnit.HOURS.toMillis(6)))
+    props.setProperty("stores.test2.changelog.kafka.min.compaction.lag.ms", lagOverride)
     val tsMapConfig = new MapConfig(props.asScala.asJava)
     val tsKafkaConfig = new KafkaConfig(tsMapConfig)
-    assertEquals(KafkaConfig.CHANGELOG_DEFAULT_MIN_COMPACTION_LAG_MS.toString,
+    assertEquals(String.valueOf(StorageConfig.DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS),
       tsKafkaConfig.getChangelogKafkaProperties("test1").getProperty("min.compaction.lag.ms"))
-    assertEquals(String.valueOf(TimeUnit.HOURS.toMillis(6)),
+    assertEquals(lagOverride,
       tsKafkaConfig.getChangelogKafkaProperties("test2").getProperty("min.compaction.lag.ms"))
   }
 

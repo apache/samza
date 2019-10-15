@@ -56,8 +56,6 @@ object KafkaConfig {
   // The default segment size to use for changelog topics
   val CHANGELOG_DEFAULT_SEGMENT_SIZE = "536870912"
   val CHANGELOG_MAX_MESSAGE_BYTES = "stores.%s.changelog." + MAX_MESSAGE_BYTES
-  // The default log compaction lag time for transactional state change log
-  val CHANGELOG_DEFAULT_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4)
 
   // Helper regular expression definitions to extract/match configurations
   val CHANGELOG_STREAM_NAMES_REGEX = "stores\\.(.*)\\.changelog$"
@@ -89,6 +87,8 @@ object KafkaConfig {
   val CONSUMER_FETCH_THRESHOLD_BYTES = SystemConfig.SYSTEM_ID_PREFIX + "samza.fetch.threshold.bytes"
 
   val DEFAULT_RETENTION_MS_FOR_BATCH = TimeUnit.DAYS.toMillis(1)
+
+  val MIN_COMPACTION_LOG_MS = "min.compaction.lag.ms"
 
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
@@ -345,8 +345,8 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     // (the messages after last checkpoint) being log-compacted so we can trim the rest of the updates.
     // We use min.compaction.log.ms to control the compaction time.
     if (new TaskConfig(this).getTransactionalStateRestoreEnabled) {
-      kafkaChangeLogProperties.setProperty("min.compaction.lag.ms",
-        String.valueOf(KafkaConfig.CHANGELOG_DEFAULT_MIN_COMPACTION_LAG_MS))
+      kafkaChangeLogProperties.setProperty(KafkaConfig.MIN_COMPACTION_LOG_MS,
+        String.valueOf(StorageConfig.DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS))
     }
 
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }
