@@ -88,7 +88,7 @@ object KafkaConfig {
 
   val DEFAULT_RETENTION_MS_FOR_BATCH = TimeUnit.DAYS.toMillis(1)
 
-  val MIN_COMPACTION_LOG_MS = "min.compaction.lag.ms"
+  val MIN_COMPACTION_LAG_MS = "min.compaction.lag.ms"
 
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
@@ -345,7 +345,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     // (the messages after last checkpoint) being log-compacted so we can trim the rest of the updates.
     // We use min.compaction.log.ms to control the compaction time.
     if (new TaskConfig(this).getTransactionalStateRestoreEnabled) {
-      kafkaChangeLogProperties.setProperty(KafkaConfig.MIN_COMPACTION_LOG_MS,
+      kafkaChangeLogProperties.setProperty(KafkaConfig.MIN_COMPACTION_LAG_MS,
         String.valueOf(StorageConfig.DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS))
     }
 
