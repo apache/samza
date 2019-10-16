@@ -214,6 +214,7 @@ public class SamzaSqlApplicationConfig {
     Properties props = new Properties();
     props.putAll(domainConfig);
     HashMap<String, String> udfConfig = getDomainProperties(config, CFG_UDF_CONFIG_DOMAIN, false);
+    // TODO: SAMZA-2355: Make the UDFResolver pluggable.
     return new ReflectionBasedUdfResolver(new MapConfig(udfConfig));
   }
 
