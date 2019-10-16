@@ -54,7 +54,6 @@ public class ReflectionBasedUdfResolver implements UdfResolver {
   public ReflectionBasedUdfResolver(Config udfConfig) {
     // Searching the entire classpath to discover the subtypes of SamzaSqlUdf is expensive. To reduce the search space,
     // the search is limited to the set of package prefixes defined in the configuration.
-    // Within Linkedin this configuration will be overridden to ["com.linkedin.samza", "org.apache.samza", "com.linkedin.samza.sql.shade.prefix"].
     String samzaSqlUdfPackagePrefix = udfConfig.getOrDefault(CONFIG_PACKAGE_PREFIX, "org.apache.samza");
 
     // 1. Build the reflections instance  with appropriate configuration.
