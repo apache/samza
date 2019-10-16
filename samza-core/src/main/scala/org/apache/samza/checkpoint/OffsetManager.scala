@@ -343,7 +343,12 @@ class OffsetManager(
         val sspToOffsets = checkpoint.getOffsets
         if(sspToOffsets != null) {
           sspToOffsets.asScala.foreach {
-            case (ssp, cp) => offsetManagerMetrics.checkpointedOffsets.get(ssp).set(cp)
+            case (ssp, cp) => {
+              val metric = offsetManagerMetrics.checkpointedOffsets.get(ssp)
+              // metric will be null for changelog SSPs since they're not registered with / tracked by the
+              // OffsetManager. Ignore such SSPs.
+              if (metric != null) metric.set(cp)
+            }
           }
         }
       }
