@@ -225,7 +225,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    */
   @Override
   public void setFailureCause(Throwable throwable) {
-    this.setFailureCause(throwable); // notify the BEM
+    super.setFailureCause(throwable); // notify the BEM
   }
 
   @Override
