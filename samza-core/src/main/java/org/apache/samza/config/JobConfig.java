@@ -51,9 +51,6 @@ public class JobConfig extends MapConfig {
   public static final String JOB_ID = "job.id";
   static final String DEFAULT_JOB_ID = "1";
 
-  public static final String SAMZA_FWK_PATH = "samza.fwk.path";
-  public static final String SAMZA_FWK_VERSION = "samza.fwk.version";
-
   public static final String JOB_COORDINATOR_SYSTEM = "job.coordinator.system";
   public static final String JOB_DEFAULT_SYSTEM = "job.default.system";
 
@@ -319,22 +316,6 @@ public class JobConfig extends MapConfig {
 
   public boolean getClusterBasedJobCoordinatorDependencyIsolationEnabled() {
     return getBoolean(CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, false);
-  }
-
-  /**
-   * Reads the config to figure out if split deployment is enabled and fwk directory is setup
-   * @return fwk + "/" + version, or empty string if fwk path is not specified
-   */
-  public static String getFwkPath(Config config) {
-    String fwkPath = config.get(SAMZA_FWK_PATH, "");
-    String fwkVersion = config.get(SAMZA_FWK_VERSION);
-    if (fwkVersion == null || fwkVersion.isEmpty()) {
-      fwkVersion = "STABLE";
-    }
-    if (!fwkPath.isEmpty()) {
-      fwkPath = fwkPath + File.separator + fwkVersion;
-    }
-    return fwkPath;
   }
 
   /**

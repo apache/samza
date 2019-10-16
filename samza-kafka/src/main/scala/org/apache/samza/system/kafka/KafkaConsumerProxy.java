@@ -59,6 +59,7 @@ public class KafkaConsumerProxy<K, V> {
 
   private final Thread consumerPollThread;
   private final Consumer<K, V> kafkaConsumer;
+  private final KafkaSystemConsumer kafkaSystemConsumer;
   private final KafkaSystemConsumer.KafkaConsumerMessageSink sink;
   private final KafkaSystemConsumerMetrics kafkaConsumerMetrics;
   private final String metricName;
@@ -75,10 +76,11 @@ public class KafkaConsumerProxy<K, V> {
   private volatile Throwable failureCause = null;
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
-  public KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
+  public KafkaConsumerProxy(KafkaSystemConsumer kafkaSystemConsumer, Consumer<K, V> kafkaConsumer, String systemName, String clientId,
       KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
 
+    this.kafkaSystemConsumer = kafkaSystemConsumer;
     this.kafkaConsumer = kafkaConsumer;
     this.systemName = systemName;
     this.sink = messageSink;
@@ -204,6 +206,7 @@ public class KafkaConsumerProxy<K, V> {
         // KafkaSystemConsumer uses the failureCause to propagate the throwable to the container
         failureCause = throwable;
         isRunning = false;
+        kafkaSystemConsumer.setFailureCause(this.failureCause);
       }
 
       if (!isRunning) {
@@ -466,9 +469,9 @@ public class KafkaConsumerProxy<K, V> {
       this.kafkaSystemConsumerMetrics = kafkaSystemConsumerMetrics;
     }
 
-    public KafkaConsumerProxy<K, V> create(KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink) {
+    public KafkaConsumerProxy<K, V> create(KafkaSystemConsumer<K, V> kafkaSystemConsumer) {
       String metricName = String.format("%s-%s", systemName, clientId);
-      return new KafkaConsumerProxy<>(this.kafkaConsumer, this.systemName, this.clientId, messageSink,
+      return new KafkaConsumerProxy<>(kafkaSystemConsumer, this.kafkaConsumer, this.systemName, this.clientId, kafkaSystemConsumer.getMessageSink(),
           this.kafkaSystemConsumerMetrics, metricName);
     }
   }

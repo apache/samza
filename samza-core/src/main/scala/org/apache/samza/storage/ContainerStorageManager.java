@@ -629,7 +629,7 @@ public class ContainerStorageManager {
 
   public void start() throws SamzaException {
     Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets = new HashMap<>();
-    if (new TaskConfig(config).getTransactionalStateEnabled()) {
+    if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
       getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
           if (checkpointManager != null) {
             Set<SystemStream> changelogSystemStreams = new HashSet<>(this.changelogSystemStreams.values());

@@ -31,13 +31,13 @@
         {
             "name": "bool_value",
             "doc": "Boolean Value.",
-            "type": ["null", "boolean"]
+            "type": "boolean",
+            "default": false
         },
         {
             "name": "double_value",
             "doc": "double Value.",
-            "type": ["null", "double"],
-            "default":null
+            "type": ["null", "double"]
         },
         {
             "name": "float_value0",

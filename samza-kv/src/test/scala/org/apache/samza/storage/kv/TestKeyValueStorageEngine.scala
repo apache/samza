@@ -163,6 +163,27 @@ class TestKeyValueStorageEngine {
     assertEquals(15, metrics.restoredBytesGauge.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg
   }
 
+  @Test(expected = classOf[IllegalStateException])
+  def testThrowsIfIteratorModeChangesFromTrimToRestore(): Unit = {
+    val changelogSSP = new SystemStreamPartition("TestSystem", "TestStream", new Partition(0))
+    val iterator = mock(classOf[ChangelogSSPIterator])
+    when(iterator.hasNext)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenReturn(false)
+    when(iterator.next())
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
+    when(iterator.getMode)
+      .thenReturn(Mode.RESTORE)
+      .thenReturn(Mode.TRIM)
+      .thenReturn(Mode.RESTORE)
+
+    engine.restore(iterator)
+  }
+
   def getNextTimestamp(): Long = {
     now += 1
     now

@@ -52,9 +52,6 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob wit
       appId = client.submitApplication(
         config,
         List(
-          // we need something like this:
-          //"export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec <fwk_path>/bin/run-am.sh 1>logs/%s 2>logs/%s"
-
           "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s"
             format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR,
             cmdExec, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),
@@ -202,28 +199,10 @@ object YarnJob extends Logging {
     */
   @VisibleForTesting
   private[yarn] def buildJobCoordinatorCmd(config: Config, jobConfig: JobConfig): String = {
-    // figure out if we have framework is deployed into a separate location
-    val fwkPath = config.get(JobConfig.SAMZA_FWK_PATH, "")
-    var fwkVersion = config.get(JobConfig.SAMZA_FWK_VERSION)
-    if (fwkVersion == null || fwkVersion.isEmpty()) {
-      fwkVersion = "STABLE"
-    }
-    logger.info("Inside YarnJob: fwk_path is %s, ver is %s use it directly " format(fwkPath, fwkVersion))
-
     var cmdExec = "./__package/bin/run-jc.sh" // default location
-
-    if (!fwkPath.isEmpty()) {
-      // if we have framework installed as a separate package - use it
-      cmdExec = fwkPath + "/" + fwkVersion + "/bin/run-jc.sh"
-
-      logger.info("Using FWK path: " + "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s".
-        format(ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, cmdExec,
-          ApplicationConstants.STDOUT, ApplicationConstants.STDERR))
-    } else {
-      if (jobConfig.getClusterBasedJobCoordinatorDependencyIsolationEnabled) {
-        cmdExec = "./%s/bin/run-jc.sh" format DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY
-        logger.info("Using isolated cluster-based job coordinator path: %s" format cmdExec)
-      }
+    if (jobConfig.getClusterBasedJobCoordinatorDependencyIsolationEnabled) {
+      cmdExec = "./%s/bin/run-jc.sh" format DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY
+      logger.info("Using isolated cluster-based job coordinator path: %s" format cmdExec)
     }
     cmdExec
   }

@@ -873,7 +873,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       "stores.store1.msg.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.loggedStore1.key.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.loggedStore1.msg.serde" -> classOf[StringSerdeFactory].getCanonicalName,
-      TaskConfig.TRANSACTIONAL_STATE_ENABLED -> "false").asJava)
+      TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED -> "false").asJava)
 
     var mockSerdes: Map[String, Serde[AnyRef]] = HashMap[String, Serde[AnyRef]]((classOf[StringSerdeFactory].getCanonicalName, Mockito.mock(classOf[Serde[AnyRef]])))
 

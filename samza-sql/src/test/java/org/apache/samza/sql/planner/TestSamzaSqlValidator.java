@@ -191,14 +191,27 @@ public class TestSamzaSqlValidator {
   }
 
   @Test
-  public void testNonDefaultButNullableField() {
+  public void testNonDefaultButNullableField() throws SamzaSqlValidatorException {
     Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
-    // bool_value is missing
+    // double_value is missing
     config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
-        "Insert into testavro.outputTopic(id) select Flatten(a) as id from (select MyTestArray(id) a from testavro.SIMPLE1)");
+        "Insert into testavro.outputTopic(id) select id, NOT(id = 5) as bool_value from testavro.SIMPLE1");
     Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
 
     List<String> sqlStmts = fetchSqlFromConfig(config);
+    new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
+  }
+
+  @Test
+  public void testDefaultWithNonNullableField() {
+    Map<String, String> config = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(configs, 1);
+    // bool_value is missing which has default value but is non-nullable
+    config.put(SamzaSqlApplicationConfig.CFG_SQL_STMT,
+        "Insert into testavro.outputTopic(id) select id from testavro.SIMPLE1");
+    Config samzaConfig = SamzaSqlApplicationRunner.computeSamzaConfigs(true, new MapConfig(config));
+
+    List<String> sqlStmts = fetchSqlFromConfig(config);
+
     try {
       new SamzaSqlValidator(samzaConfig).validate(sqlStmts);
     } catch (SamzaSqlValidatorException e) {
