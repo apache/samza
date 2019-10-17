@@ -70,9 +70,9 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
   /**
    * Add side inputs to the table. Each stream is of the format
    * <i>system-name</i>.<i>stream-name</i>. The streams are marked as bootstrap streams and once the table is bootstrapped, it is
-   * updated on the background in change capture mode.
+   * updated in the background in change capture mode.
    * Applications should specify the transformation logic using {@link #withSideInputsProcessor(SideInputsProcessor)}, which is
-   * will be applied on the side input messages before writing to the table.
+   * will be applied to the incoming messages and the results are written to the table.
    *
    * @param sideInputs list of side input streams
    * @return this table descriptor instance
@@ -87,8 +87,8 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
   }
 
   /**
-   * Provide the {@link SideInputsProcessor} for this table. It is a mapper function applied on the side inputs
-   * specified using {@link #withSideInputs(List)} prior to writing the entries to the table.
+   * Provide the {@link SideInputsProcessor} for this table. It is applied on the side inputs and the results are 
+   * written to the table.
    *
    * @param sideInputsProcessor a side input processor
    * @return this table descriptor instance
