@@ -41,7 +41,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
-import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
+import org.apache.samza.sql.udf.ReflectionBasedUdfResolver;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
@@ -214,7 +214,8 @@ public class SamzaSqlApplicationConfig {
     Properties props = new Properties();
     props.putAll(domainConfig);
     HashMap<String, String> udfConfig = getDomainProperties(config, CFG_UDF_CONFIG_DOMAIN, false);
-    return new ConfigBasedUdfResolver(props, new MapConfig(udfConfig));
+    // TODO: SAMZA-2355: Make the UDFResolver pluggable.
+    return new ReflectionBasedUdfResolver(new MapConfig(udfConfig));
   }
 
   private static HashMap<String, String> getDomainProperties(Map<String, String> props, String prefix,
