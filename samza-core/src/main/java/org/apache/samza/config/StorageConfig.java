@@ -31,6 +31,8 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.util.StreamUtil;
 
+import static com.google.common.base.Preconditions.*;
+
 
 /**
  * Config helper methods related to storage.
@@ -45,6 +47,7 @@ public class StorageConfig extends MapConfig {
   public static final String MSG_SERDE = STORE_PREFIX + "%s.msg.serde";
   public static final String CHANGELOG_STREAM = STORE_PREFIX + "%s" + CHANGELOG_SUFFIX;
   public static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
+  // TODO: setting replication.factor seems not working as in KafkaConfig.
   public static final String CHANGELOG_REPLICATION_FACTOR = STORE_PREFIX + "%s.changelog.replication.factor";
   public static final String CHANGELOG_MAX_MSG_SIZE_BYTES = STORE_PREFIX + "%s.changelog.max.message.size.bytes";
   public static final int DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES = 1048576;
@@ -52,6 +55,10 @@ public class StorageConfig extends MapConfig {
   public static final boolean DEFAULT_DISALLOW_LARGE_MESSAGES = false;
   public static final String DROP_LARGE_MESSAGES = STORE_PREFIX + "%s.drop.large.messages";
   public static final boolean DEFAULT_DROP_LARGE_MESSAGES = false;
+  // The log compaction lag time for transactional state change log
+  public static final String MIN_COMPACTION_LAG_MS = "min.compaction.lag.ms";
+  public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
+  public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -205,6 +212,15 @@ public class StorageConfig extends MapConfig {
 
   public boolean getDropLargeMessages(String storeName) {
     return getBoolean(String.format(DROP_LARGE_MESSAGES, storeName), DEFAULT_DROP_LARGE_MESSAGES);
+  }
+
+  public long getChangelogMinCompactionLagMs(String storeName) {
+    String minCompactLagConfigName = String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, storeName);
+    // Avoid the inconsistency of overriding using stores.x.changelog.kafka...
+    checkArgument(get("stores." + storeName + ".changelog.kafka." + MIN_COMPACTION_LAG_MS) == null,
+        "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
+
+    return getLong(minCompactLagConfigName, DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS);
   }
 
   /**

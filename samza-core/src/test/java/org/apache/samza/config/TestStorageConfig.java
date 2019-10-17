@@ -25,6 +25,7 @@ import java.util.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
 import org.junit.Test;
 
@@ -295,5 +296,18 @@ public class TestStorageConfig {
     StorageConfig storageConfig = new StorageConfig(
         new MapConfig(ImmutableMap.of(String.format(StorageConfig.DROP_LARGE_MESSAGES, STORE_NAME0), "true")));
     assertEquals(true, storageConfig.getDropLargeMessages(STORE_NAME0));
+  }
+
+  @Test
+  public void testGetChangelogMinCompactionLagMs() {
+    // empty config, return default lag ms
+    assertEquals(DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS,
+        new StorageConfig(new MapConfig()).getChangelogMinCompactionLagMs(STORE_NAME0));
+
+    long lagOverride = TimeUnit.HOURS.toMillis(6);
+    StorageConfig storageConfig = new StorageConfig(
+        new MapConfig(ImmutableMap.of(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, STORE_NAME0),
+            String.valueOf(lagOverride))));
+    assertEquals(lagOverride, storageConfig.getChangelogMinCompactionLagMs(STORE_NAME0));
   }
 }
