@@ -25,15 +25,14 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.Base64
+import java.util.{Base64, Optional}
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
+import java.util.stream.Collectors
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
-import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config._
+import org.apache.samza.config.{StreamConfig, _}
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
 import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
@@ -78,8 +77,8 @@ object SamzaContainer extends Logging {
   /**
     * If a base-directory was NOT explicitly provided in config, a default base directory is returned.
     */
-  def getNonLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
-    config.getNonLoggedStorePath match {
+  def getNonLoggedStorageBaseDir(jobConfig: JobConfig, defaultStoreBaseDir: File) = {
+    JavaOptionals.toRichOptional(jobConfig.getNonLoggedStorePath).toOption match {
       case Some(nonLoggedStorePath) =>
         new File(nonLoggedStorePath)
       case None =>
@@ -91,8 +90,8 @@ object SamzaContainer extends Logging {
     * If a base-directory was NOT explicitly provided in config or via an environment variable
     * (see ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR), then a default base directory is returned.
     */
-  def getLoggedStorageBaseDir(config: Config, defaultStoreBaseDir: File) = {
-    val defaultLoggedStorageBaseDir = config.getLoggedStorePath match {
+  def getLoggedStorageBaseDir(jobConfig: JobConfig, defaultStoreBaseDir: File) = {
+    val defaultLoggedStorageBaseDir = JavaOptionals.toRichOptional(jobConfig.getLoggedStorePath).toOption match {
       case Some(durableStorePath) =>
         new File(durableStorePath)
       case None =>
@@ -100,16 +99,17 @@ object SamzaContainer extends Logging {
     }
 
     var loggedStorageBaseDir:File = null
-    if(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
+    if (System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR) != null) {
       val jobNameAndId = (
-        config.getName.getOrElse(throw new ConfigException("Missing required config: job.name")),
-        config.getJobId
+        JavaOptionals.toRichOptional(jobConfig.getName).toOption
+          .getOrElse(throw new ConfigException("Missing required config: job.name")),
+        jobConfig.getJobId
       )
 
       loggedStorageBaseDir = new File(System.getenv(ShellCommandConfig.ENV_LOGGED_STORE_BASE_DIR)
         + File.separator + jobNameAndId._1 + "-" + jobNameAndId._2)
     } else {
-      if (config.getLoggedStorePath.isEmpty) {
+      if (!jobConfig.getLoggedStorePath.isPresent) {
         warn("No override was provided for logged store base directory. This disables local state re-use on " +
           "application restart. If you want to enable this feature, set LOGGED_STORE_BASE_DIR as an environment " +
           "variable in all machines running the Samza container or configure job.logged.store.base.dir for your application")
@@ -130,16 +130,14 @@ object SamzaContainer extends Logging {
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
     applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
     externalContextOption: Option[ExternalContext],
-    classLoader: ClassLoader,
     localityManager: LocalityManager = null,
     startpointManager: StartpointManager = null,
     diagnosticsManager: Option[DiagnosticsManager] = Option.empty) = {
     val config = jobContext.getConfig
+    val jobConfig = new JobConfig(config)
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
-    val jobName = config.getName.get
-    val jobId = config.getJobId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
@@ -197,14 +195,15 @@ object SamzaContainer extends Logging {
 
     info("Got system names: %s" format systemNames)
 
-    val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ config.getSerdeStreams(_))
+    val streamConfig = new StreamConfig(config)
+    val serdeStreams = systemNames.foldLeft(Set[SystemStream]())(_ ++ streamConfig.getSerdeStreams(_).asScala)
 
     info("Got serde streams: %s" format serdeStreams)
 
     val systemFactories = systemNames.map(systemName => {
       val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
         .getOrElse(throw new SamzaException("A stream uses system %s, which is missing from the configuration." format systemName))
-      (systemName, ReflectionUtil.getObj(classLoader, systemFactoryClassName, classOf[SystemFactory]))
+      (systemName, ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory]))
     }).toMap
     info("Got system factories: %s" format systemFactories.keys)
 
@@ -252,7 +251,7 @@ object SamzaContainer extends Logging {
     val serdesFromFactories = serializerConfig.getSerdeNames.asScala.map(serdeName => {
       val serdeClassName = JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption
         .getOrElse(SerializerConfig.getPredefinedSerdeFactoryName(serdeName))
-      val serde = ReflectionUtil.getObj(classLoader, serdeClassName, classOf[SerdeFactory[Object]])
+      val serde = ReflectionUtil.getObj(serdeClassName, classOf[SerdeFactory[Object]])
         .getSerde(serdeName, config)
       (serdeName, serde)
     }).toMap
@@ -303,9 +302,9 @@ object SamzaContainer extends Logging {
      * A Helper function to build a Map[SystemStream, Serde] for streams defined in the config.
      * This is useful to build both key and message serde maps.
      */
-    val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Option[String]) => {
+    val buildSystemStreamSerdeMap = (getSerdeName: (SystemStream) => Optional[String]) => {
       (serdeStreams ++ inputSystemStreamPartitions)
-        .filter(systemStream => getSerdeName(systemStream).isDefined)
+        .filter(systemStream => getSerdeName(systemStream).isPresent)
         .flatMap(systemStream => {
           val serdeName = getSerdeName(systemStream).get
           val serde = serdes.getOrElse(serdeName,
@@ -328,21 +327,21 @@ object SamzaContainer extends Logging {
 
     debug("Got system message serdes: %s" format systemMessageSerdes)
 
-    val systemStreamKeySerdes = buildSystemStreamSerdeMap(systemStream => config.getStreamKeySerde(systemStream))
+    val systemStreamKeySerdes = buildSystemStreamSerdeMap(systemStream => streamConfig.getStreamKeySerde(systemStream))
 
     debug("Got system stream key serdes: %s" format systemStreamKeySerdes)
 
-    val systemStreamMessageSerdes = buildSystemStreamSerdeMap(systemStream => config.getStreamMsgSerde(systemStream))
+    val systemStreamMessageSerdes = buildSystemStreamSerdeMap(systemStream => streamConfig.getStreamMsgSerde(systemStream))
 
     debug("Got system stream message serdes: %s" format systemStreamMessageSerdes)
 
-    val changeLogSystemStreams = storageConfig
+    val storeChangelogs = storageConfig
       .getStoreNames.asScala
       .filter(storageConfig.getChangelogStream(_).isPresent)
       .map(name => (name, storageConfig.getChangelogStream(name).get)).toMap
       .mapValues(StreamUtil.getSystemStreamFromNames(_))
 
-    info("Got change log system streams: %s" format changeLogSystemStreams)
+    info("Got change log system streams: %s" format storeChangelogs)
 
     /*
      * This keeps track of the changelog SSPs that are associated with the whole container. This is used so that we can
@@ -359,18 +358,19 @@ object SamzaContainer extends Logging {
     val changelogSSPMetadataCache = new SSPMetadataCache(systemAdmins,
       Duration.ofSeconds(5),
       SystemClock.instance,
-      getChangelogSSPsForContainer(containerModel, changeLogSystemStreams).asJava)
+      getChangelogSSPsForContainer(containerModel, storeChangelogs).asJava)
 
-    val intermediateStreams = config
-      .getStreamIds
-      .filter(config.getIsIntermediateStream(_))
+    val intermediateStreams = streamConfig
+      .getStreamIds()
+      .asScala
+      .filter((streamId:String) => streamConfig.getIsIntermediateStream(streamId))
       .toList
 
     info("Got intermediate streams: %s" format intermediateStreams)
 
     val controlMessageKeySerdes = intermediateStreams
       .flatMap(streamId => {
-        val systemStream = config.streamIdToSystemStream(streamId)
+        val systemStream = streamConfig.streamIdToSystemStream(streamId)
         systemStreamKeySerdes.get(systemStream)
                 .orElse(systemKeySerdes.get(systemStream.getSystem))
                 .map(serde => (systemStream, new StringSerde("UTF-8")))
@@ -378,7 +378,7 @@ object SamzaContainer extends Logging {
 
     val intermediateStreamMessageSerdes = intermediateStreams
       .flatMap(streamId => {
-        val systemStream = config.streamIdToSystemStream(streamId)
+        val systemStream = streamConfig.streamIdToSystemStream(streamId)
         systemStreamMessageSerdes.get(systemStream)
                 .orElse(systemMessageSerdes.get(systemStream.getSystem))
                 .map(serde => (systemStream, new IntermediateMessageSerde(serde)))
@@ -390,7 +390,7 @@ object SamzaContainer extends Logging {
       systemMessageSerdes = systemMessageSerdes,
       systemStreamKeySerdes = systemStreamKeySerdes,
       systemStreamMessageSerdes = systemStreamMessageSerdes,
-      changeLogSystemStreams = changeLogSystemStreams.values.toSet,
+      changeLogSystemStreams = storeChangelogs.values.toSet,
       controlMessageKeySerdes = controlMessageKeySerdes,
       intermediateMessageSerdes = intermediateStreamMessageSerdes)
 
@@ -403,26 +403,26 @@ object SamzaContainer extends Logging {
     val taskConfig = new TaskConfig(config)
     val chooserFactoryClassName = taskConfig.getMessageChooserClass
 
-    val chooserFactory = ReflectionUtil.getObj(classLoader, chooserFactoryClassName, classOf[MessageChooserFactory])
+    val chooserFactory = ReflectionUtil.getObj(chooserFactoryClassName, classOf[MessageChooserFactory])
 
     val chooser = DefaultChooser(inputStreamMetadata, chooserFactory, config, samzaContainerMetrics.registry, systemAdmins)
 
     info("Setting up metrics reporters.")
 
     val reporters =
-      MetricsReporterLoader.getMetricsReporters(metricsConfig, containerName, classLoader).asScala.toMap ++ customReporters
+      MetricsReporterLoader.getMetricsReporters(metricsConfig, containerName).asScala.toMap ++ customReporters
 
     info("Got metrics reporters: %s" format reporters.keys)
 
-    val securityManager = config.getSecurityManagerFactory match {
+    val securityManager = JavaOptionals.toRichOptional(jobConfig.getSecurityManagerFactory).toOption match {
       case Some(securityManagerFactoryClassName) =>
-        ReflectionUtil.getObj(classLoader, securityManagerFactoryClassName, classOf[SecurityManagerFactory])
+        ReflectionUtil.getObj(securityManagerFactoryClassName, classOf[SecurityManagerFactory])
           .getSecurityManager(config)
       case _ => null
     }
     info("Got security manager: %s" format securityManager)
 
-    val checkpointManager = taskConfig.getCheckpointManager(samzaContainerMetrics.registry, classLoader).orElse(null)
+    val checkpointManager = taskConfig.getCheckpointManager(samzaContainerMetrics.registry).orElse(null)
     info("Got checkpoint manager: %s" format checkpointManager)
 
     // create a map of consumers with callbacks to pass to the OffsetManager
@@ -461,12 +461,12 @@ object SamzaContainer extends Logging {
           JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
           .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
         (storeName,
-          ReflectionUtil.getObj(classLoader, storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]]))
+          ReflectionUtil.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Object, Object]]))
       }).toMap
 
     info("Got storage engines: %s" format storageEngineFactories.keys)
 
-    val threadPoolSize = config.getThreadPoolSize
+    val threadPoolSize = jobConfig.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
 
     val taskThreadPool = if (threadPoolSize > 0) {
@@ -503,16 +503,19 @@ object SamzaContainer extends Logging {
     val defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state")
     info("Got default storage engine base directory: %s" format defaultStoreBaseDir)
 
-    val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(config, defaultStoreBaseDir)
+    val nonLoggedStorageBaseDir = getNonLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for non logged data stores: %s" format nonLoggedStorageBaseDir)
 
-    val loggedStorageBaseDir = getLoggedStorageBaseDir(config, defaultStoreBaseDir)
+    val loggedStorageBaseDir = getLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
-    val containerStorageManager = new ContainerStorageManager(containerModel,
+    val containerStorageManager = new ContainerStorageManager(
+      checkpointManager,
+      containerModel,
       streamMetadataCache,
+      changelogSSPMetadataCache,
       systemAdmins,
-      changeLogSystemStreams.asJava,
+      storeChangelogs.asJava,
       sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
       storageEngineFactories.asJava,
       systemFactories.asJava,
@@ -527,8 +530,7 @@ object SamzaContainer extends Logging {
       nonLoggedStorageBaseDir,
       maxChangeLogStreamPartitions,
       serdeManager,
-      new SystemClock,
-      classLoader)
+      new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
@@ -553,15 +555,17 @@ object SamzaContainer extends Logging {
       val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
-      val storageManager = new TaskStorageManager(
-        taskName = taskName,
-        containerStorageManager = containerStorageManager,
-        changeLogSystemStreams = changeLogSystemStreams,
-        sspMetadataCache = changelogSSPMetadataCache,
-        loggedStoreBaseDir = loggedStorageBaseDir,
-        partition = taskModel.getChangelogPartition)
+      val storageManager = TaskStorageManagerFactory.create(
+        taskName,
+        containerStorageManager,
+        storeChangelogs,
+        systemAdmins,
+        loggedStorageBaseDir,
+        taskModel.getChangelogPartition,
+        config,
+        taskModel.getTaskMode)
 
-      val tableManager = new TableManager(config, classLoader)
+      val tableManager = new TableManager(config)
 
       info("Got table manager")
 
@@ -579,6 +583,7 @@ object SamzaContainer extends Logging {
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, taskConfig),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
+          inputStreamMetadata = inputStreamMetadata,
           timerExecutor = timerExecutor,
           jobContext = jobContext,
           containerContext = containerContext,
@@ -618,8 +623,7 @@ object SamzaContainer extends Logging {
 
     val diskQuotaPolicyFactoryString = config.get("container.disk.quota.policy.factory",
       classOf[NoThrottlingDiskQuotaPolicyFactory].getName)
-    val diskQuotaPolicyFactory =
-      ReflectionUtil.getObj(classLoader, diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory])
+    val diskQuotaPolicyFactory = ReflectionUtil.getObj(diskQuotaPolicyFactoryString, classOf[DiskQuotaPolicyFactory])
     val diskQuotaPolicy = diskQuotaPolicyFactory.create(config)
 
     var diskSpaceMonitor: DiskSpaceMonitor = null
@@ -704,9 +708,9 @@ class SamzaContainer(
   containerStorageManager: ContainerStorageManager,
   diagnosticsManager: Option[DiagnosticsManager] = Option.empty) extends Runnable with Logging {
 
+  private val jobConfig = new JobConfig(config)
   private val taskConfig = new TaskConfig(config)
   val shutdownMs: Long = taskConfig.getShutdownMs
-  var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
@@ -733,7 +737,7 @@ class SamzaContainer(
 
       val startTime = System.nanoTime()
       status = SamzaContainerStatus.STARTING
-      if (config.getJMXEnabled) {
+      if (jobConfig.getJMXEnabled) {
         jmxServer = new JmxServer()
       }
       applicationContainerContextOption.foreach(_.start)
@@ -743,16 +747,17 @@ class SamzaContainer(
       startAdmins
       startOffsetManager
       storeContainerLocality
+      // TODO HIGH pmaheshw SAMZA-2338: since store restore needs to trim changelog messages,
+      // need to start changelog producers before the stores, but stop them after stores.
+      startProducers
       startStores
       startTableManager
       startDiskSpaceMonitor
       startHostStatisticsMonitor
-      startProducers
       startTask
       startConsumers
       startSecurityManger
 
-      addShutdownHook
       info("Entering run loop.")
       status = SamzaContainerStatus.STARTED
       if (containerListener != null) {
@@ -776,7 +781,6 @@ class SamzaContainer(
 
     try {
       info("Shutting down SamzaContainer.")
-      removeShutdownHook
       if (jmxServer != null) {
         jmxServer.stop
       }
@@ -972,41 +976,6 @@ class SamzaContainer(
       info("Starting security manager.")
 
       securityManager.start
-    }
-  }
-
-  def addShutdownHook {
-    val runLoopThread = Thread.currentThread()
-    shutdownHookThread = new Thread("Samza Container Shutdown Hook Thread") {
-      override def run() = {
-        info("Shutting down, will wait up to %s ms." format shutdownMs)
-        shutdownRunLoop()  //TODO: Pull out shutdown hook to LocalContainerRunner or SP
-        try {
-          runLoopThread.join(shutdownMs)
-        } catch {
-          case e: Throwable => // Ignore to avoid deadlock with uncaughtExceptionHandler. See SAMZA-1220
-            error("Did not shut down within %s ms, exiting." format shutdownMs, e)
-        }
-        if (!runLoopThread.isAlive) {
-          info("Shutdown complete")
-        } else {
-          error("Did not shut down within %s ms, exiting." format shutdownMs)
-          ThreadUtil.logThreadDump("Thread dump from Samza Container Shutdown Hook.")
-        }
-      }
-    }
-    Runtime.getRuntime().addShutdownHook(shutdownHookThread)
-  }
-
-  def removeShutdownHook = {
-    try {
-      if (shutdownHookThread != null) {
-        Runtime.getRuntime.removeShutdownHook(shutdownHookThread)
-      }
-    } catch {
-      case e: IllegalStateException => {
-        // Thrown when then JVM is already shutting down, so safe to ignore.
-      }
     }
   }
 

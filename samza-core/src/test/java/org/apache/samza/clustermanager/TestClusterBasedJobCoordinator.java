@@ -94,7 +94,7 @@ public class TestClusterBasedJobCoordinator {
   @Test
   public void testPartitionCountMonitorWithDurableStates() {
     configMap.put("stores.mystore.changelog", "mychangelog");
-    configMap.put(JobConfig.JOB_CONTAINER_COUNT(), "1");
+    configMap.put(JobConfig.JOB_CONTAINER_COUNT, "1");
     when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(new MapConfig(configMap));
     Config config = new MapConfig(configMap);
 
@@ -114,7 +114,7 @@ public class TestClusterBasedJobCoordinator {
 
   @Test
   public void testPartitionCountMonitorWithoutDurableStates() {
-    configMap.put(JobConfig.JOB_CONTAINER_COUNT(), "1");
+    configMap.put(JobConfig.JOB_CONTAINER_COUNT, "1");
     when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(new MapConfig(configMap));
     Config config = new MapConfig(configMap);
 
@@ -134,7 +134,7 @@ public class TestClusterBasedJobCoordinator {
 
   @Test
   public void testVerifyStartpointManagerFanOut() throws IOException {
-    configMap.put(JobConfig.JOB_CONTAINER_COUNT(), "1");
+    configMap.put(JobConfig.JOB_CONTAINER_COUNT, "1");
     configMap.put("job.jmx.enabled", "false");
     when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(new MapConfig(configMap));
     Config config = new MapConfig(configMap);
@@ -149,8 +149,7 @@ public class TestClusterBasedJobCoordinator {
     // ClusterBasedJobCoordinator will need to be refactored for better mock support.
     doThrow(stopException).when(mockStartpointManager).stop();
 
-    doReturn(mockContainerProcessManager).when(clusterCoordinator)
-        .createContainerProcessManager(getClass().getClassLoader());
+    doReturn(mockContainerProcessManager).when(clusterCoordinator).createContainerProcessManager();
     doReturn(mockStartpointManager).when(clusterCoordinator).createStartpointManager();
     try {
       clusterCoordinator.run();

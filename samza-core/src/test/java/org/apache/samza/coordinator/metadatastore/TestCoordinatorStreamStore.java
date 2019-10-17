@@ -19,6 +19,7 @@
 package org.apache.samza.coordinator.metadatastore;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
@@ -27,7 +28,7 @@ import org.apache.samza.serializers.Serde;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import java.util.*;
+import org.mockito.Mockito;
 
 public class TestCoordinatorStreamStore {
 
@@ -81,6 +82,30 @@ public class TestCoordinatorStreamStore {
     coordinatorStreamStore.put(key, value1);
     Assert.assertEquals(value1, coordinatorStreamStore.get(key));
     Assert.assertEquals(1, namespaceAwareCoordinatorStreamStore.all().size());
+  }
+
+  @Test
+  public void testPutAll() {
+    CoordinatorStreamStore spyCoordinatorStreamStore = Mockito.spy(coordinatorStreamStore);
+    String key1 = getCoordinatorMessageKey("test-key1");
+    String key2 = getCoordinatorMessageKey("test-key2");
+    String key3 = getCoordinatorMessageKey("test-key3");
+    String key4 = getCoordinatorMessageKey("test-key4");
+    String key5 = getCoordinatorMessageKey("test-key5");
+    byte[] value1 = getValue("test-value1");
+    byte[] value2 = getValue("test-value2");
+    byte[] value3 = getValue("test-value3");
+    byte[] value4 = getValue("test-value4");
+    byte[] value5 = getValue("test-value5");
+    ImmutableMap<String, byte[]> map =
+        ImmutableMap.of(key1, value1, key2, value2, key3, value3, key4, value4, key5, value5);
+    spyCoordinatorStreamStore.putAll(map);
+    Assert.assertEquals(value1, spyCoordinatorStreamStore.get(key1));
+    Assert.assertEquals(value2, spyCoordinatorStreamStore.get(key2));
+    Assert.assertEquals(value3, spyCoordinatorStreamStore.get(key3));
+    Assert.assertEquals(value4, spyCoordinatorStreamStore.get(key4));
+    Assert.assertEquals(value5, spyCoordinatorStreamStore.get(key5));
+    Mockito.verify(spyCoordinatorStreamStore).flush(); // verify flush called only once during putAll
   }
 
   @Test

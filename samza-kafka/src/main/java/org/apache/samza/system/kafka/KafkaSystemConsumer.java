@@ -101,7 +101,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
     messageSink = new KafkaConsumerMessageSink();
 
     // Create the proxy to do the actual message reading.
-    proxy = kafkaConsumerProxyFactory.create(this.messageSink);
+    proxy = kafkaConsumerProxyFactory.create(this);
     LOG.info("{}: Created proxy {} ", this, proxy);
   }
 
@@ -219,6 +219,15 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
         this, fetchThresholdBytes, fetchThreshold, numPartitions, perPartitionFetchThreshold, perPartitionFetchThresholdBytes);
   }
 
+  /**
+   * Invoked by {@link KafkaConsumerProxy} to notify the consumer of failure, so it can relay and stop the BEM polling.
+   * @param throwable the cause of the failure of the proxy
+   */
+  @Override
+  public void setFailureCause(Throwable throwable) {
+    super.setFailureCause(throwable); // notify the BEM
+  }
+
   @Override
   public void stop() {
     if (!stopped.compareAndSet(false, true)) {
@@ -318,6 +327,10 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
    */
   public String getSystemName() {
     return systemName;
+  }
+
+  public KafkaConsumerMessageSink getMessageSink() {
+    return this.messageSink;
   }
 
   public class KafkaConsumerMessageSink {

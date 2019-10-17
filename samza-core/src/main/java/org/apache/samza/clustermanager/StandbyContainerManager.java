@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -82,10 +83,10 @@ public class StandbyContainerManager {
    * @param containerAllocator the container allocator
    */
   public void handleContainerStop(String containerID, String resourceID, String preferredHost, int exitStatus,
-      AbstractContainerAllocator containerAllocator) {
+      ContainerAllocator containerAllocator, Duration preferredHostRetryDelay) {
 
     if (StandbyTaskUtil.isStandbyContainer(containerID)) {
-      handleStandbyContainerStop(containerID, resourceID, preferredHost, containerAllocator);
+      handleStandbyContainerStop(containerID, resourceID, preferredHost, containerAllocator, preferredHostRetryDelay);
     } else {
       // initiate failover for the active container based on the exitStatus
       switch (exitStatus) {
@@ -98,7 +99,8 @@ public class StandbyContainerManager {
         // if this request expires, we can do a failover -- select a standby to stop & start the active on standby's host
         default:
           log.info("Requesting resource for active-container {} on host {}", containerID, preferredHost);
-          SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequest(containerID, preferredHost);
+          SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequestWithDelay(containerID, preferredHost, preferredHostRetryDelay);
+
           FailoverMetadata failoverMetadata = registerActiveContainerFailure(containerID, resourceID);
           failoverMetadata.recordResourceRequest(resourceRequest);
           containerAllocator.issueResourceRequest(resourceRequest);
@@ -114,7 +116,7 @@ public class StandbyContainerManager {
    * @param containerID the ID of the container that has failed
    */
   public void handleContainerLaunchFail(String containerID, String resourceID,
-      AbstractContainerAllocator containerAllocator) {
+      ContainerAllocator containerAllocator) {
 
     if (StandbyTaskUtil.isStandbyContainer(containerID)) {
       log.info("Handling launch fail for standby-container {}, requesting resource on any host {}", containerID);
@@ -135,7 +137,7 @@ public class StandbyContainerManager {
    * @param preferredHost Preferred host of the standby container
    */
   private void handleStandbyContainerStop(String standbyContainerID, String resourceID, String preferredHost,
-      AbstractContainerAllocator containerAllocator) {
+      ContainerAllocator containerAllocator, Duration preferredHostRetryDelay) {
 
     // if this standbyContainerResource was stopped for a failover, we will find a metadata entry
     Optional<StandbyContainerManager.FailoverMetadata> failoverMetadata = this.checkIfUsedForFailover(resourceID);
@@ -149,7 +151,7 @@ public class StandbyContainerManager {
 
       // request standbycontainer's host for active-container
       SamzaResourceRequest resourceRequestForActive =
-          containerAllocator.getResourceRequest(activeContainerID, standbyContainerHostname);
+          containerAllocator.getResourceRequestWithDelay(activeContainerID, standbyContainerHostname, preferredHostRetryDelay);
       // record the resource request, before issuing it to avoid race with allocation-thread
       failoverMetadata.get().recordResourceRequest(resourceRequestForActive);
       containerAllocator.issueResourceRequest(resourceRequestForActive);
@@ -159,7 +161,7 @@ public class StandbyContainerManager {
     } else {
       log.info("Issuing request for standby container {} on host {}, since this is not for a failover",
           standbyContainerID, preferredHost);
-      containerAllocator.requestResource(standbyContainerID, preferredHost);
+      containerAllocator.requestResourceWithDelay(standbyContainerID, preferredHost, preferredHostRetryDelay);
     }
   }
 
@@ -171,7 +173,7 @@ public class StandbyContainerManager {
    * @param resourceID  the samza-resource-ID of the container when it failed (used to index failover-state)
    */
   private void initiateStandbyAwareAllocation(String activeContainerID, String resourceID,
-      AbstractContainerAllocator containerAllocator) {
+      ContainerAllocator containerAllocator) {
 
     String standbyHost = this.selectStandbyHost(activeContainerID, resourceID);
 
@@ -369,7 +371,7 @@ public class StandbyContainerManager {
    * @param samzaResource the resource candidate
    */
   public void checkStandbyConstraintsAndRunStreamProcessor(SamzaResourceRequest request, String preferredHost,
-      SamzaResource samzaResource, AbstractContainerAllocator containerAllocator,
+      SamzaResource samzaResource, ContainerAllocator containerAllocator,
       ResourceRequestState resourceRequestState) {
     String containerID = request.getProcessorId();
 
@@ -412,7 +414,7 @@ public class StandbyContainerManager {
    * @param resourceRequestState used to cancel resource requests if required.
    */
   public void handleExpiredResourceRequest(String containerID, SamzaResourceRequest request,
-      Optional<SamzaResource> alternativeResource, AbstractContainerAllocator containerAllocator,
+      Optional<SamzaResource> alternativeResource, ContainerAllocator containerAllocator,
       ResourceRequestState resourceRequestState) {
 
     if (StandbyTaskUtil.isStandbyContainer(containerID)) {
@@ -425,7 +427,7 @@ public class StandbyContainerManager {
 
   // Handle an expired resource request that was made for placing a standby container
   private void handleExpiredRequestForStandbyContainer(String containerID, SamzaResourceRequest request,
-      Optional<SamzaResource> alternativeResource, AbstractContainerAllocator containerAllocator,
+      Optional<SamzaResource> alternativeResource, ContainerAllocator containerAllocator,
       ResourceRequestState resourceRequestState) {
 
     if (alternativeResource.isPresent()) {
@@ -445,7 +447,7 @@ public class StandbyContainerManager {
 
   // Handle an expired resource request that was made for placing an active container
   private void handleExpiredRequestForActiveContainer(String containerID, SamzaResourceRequest request,
-      AbstractContainerAllocator containerAllocator, ResourceRequestState resourceRequestState) {
+      ContainerAllocator containerAllocator, ResourceRequestState resourceRequestState) {
 
     log.info("Handling expired request for active container {}", containerID);
     Optional<FailoverMetadata> failoverMetadata = getFailoverMetadata(request);

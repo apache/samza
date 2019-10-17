@@ -26,23 +26,21 @@
         {
             "name": "id",
             "doc": "Record id.",
-            "type": ["null", "int"],
-            "default":null
+            "type": "int"
         },
         {
             "name": "bool_value",
             "doc": "Boolean Value.",
-            "type": ["null", "boolean"],
-            "default":null
+            "type": "boolean",
+            "default": false
         },
         {
             "name": "double_value",
             "doc": "double Value.",
-            "type": ["null", "double"],
-            "default":null
+            "type": ["null", "double"]
         },
         {
-            "name": "float_value",
+            "name": "float_value0",
             "doc": "float Value.",
             "type": ["null", "float"],
             "default":null
@@ -72,8 +70,8 @@
                "name": "MyFixed",
                "type":"fixed",
                "size":16
-            }
-          ]
+            }],
+            "default":null
         },
         {
             "name": "array_values",
@@ -120,7 +118,8 @@
             "doc" : "",
             "fields" : [ ]
             }
-          ]
+          ],
+          "default":null
         },
         {
             "name": "array_records",

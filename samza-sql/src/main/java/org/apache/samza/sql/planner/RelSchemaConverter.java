@@ -27,6 +27,7 @@ import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.sql.type.ArraySqlType;
+import org.apache.calcite.sql.type.MapSqlType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.samza.SamzaException;
@@ -69,6 +70,7 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
     return relFields;
   }
 
+  // TODO: SAMZA-2345 - Change RelSchemaConverter code to apply nullability based on Sql schema.
   private RelDataType getRelDataType(SqlFieldSchema fieldSchema) {
     switch (fieldSchema.getFieldType()) {
       case ARRAY:
@@ -78,6 +80,8 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
         return createTypeWithNullability(createSqlType(SqlTypeName.BOOLEAN), true);
       case DOUBLE:
         return createTypeWithNullability(createSqlType(SqlTypeName.DOUBLE), true);
+      case REAL:
+        return createTypeWithNullability(createSqlType(SqlTypeName.REAL), true);
       case FLOAT:
         return createTypeWithNullability(createSqlType(SqlTypeName.FLOAT), true);
       case STRING:
@@ -95,8 +99,7 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
         return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case MAP:
         RelDataType valueType = getRelDataType(fieldSchema.getValueScehma());
-        return super.createMapType(createTypeWithNullability(createSqlType(SqlTypeName.VARCHAR), true),
-            createTypeWithNullability(valueType, true));
+        return new MapSqlType(createSqlType(SqlTypeName.VARCHAR), valueType, true);
       default:
         String msg = String.format("Field Type %s is not supported", fieldSchema.getFieldType());
         LOG.error(msg);

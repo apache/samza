@@ -19,10 +19,10 @@
 
 package org.apache.samza.clustermanager;
 
+import java.time.Instant;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.UUID;
 
 /**
  * Specification of a Request for resources from a ClusterResourceManager. A
@@ -60,24 +60,28 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   /**
    * The timestamp in millis when the request was created.
    */
-  private final long requestTimestampMs;
+  private final Instant requestTimestamp;
 
   public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId) {
+    this(numCores, memoryMB, preferredHost, processorId, Instant.now());
+  }
+
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp) {
     this.numCores = numCores;
     this.memoryMB = memoryMB;
     this.preferredHost = preferredHost;
     this.requestId = UUID.randomUUID().toString();
     this.processorId = processorId;
-    this.requestTimestampMs = System.currentTimeMillis();
-    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestampMs, this.requestId);
+    this.requestTimestamp = requestTimestamp;
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
   }
 
   public String getProcessorId() {
     return processorId;
   }
 
-  public long getRequestTimestampMs() {
-    return requestTimestampMs;
+  public Instant getRequestTimestamp() {
+    return requestTimestamp;
   }
 
   public String getRequestId() {
@@ -104,29 +108,34 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
             ", preferredHost='" + preferredHost + '\'' +
             ", requestId='" + requestId + '\'' +
             ", processorId=" + processorId +
-            ", requestTimestampMs=" + requestTimestampMs +
+            ", requestTimestampMs=" + requestTimestamp +
             '}';
   }
 
   /**
    * Requests are ordered by the processor type and the time at which they were created.
-   * Active processors take precedence over standby processors, regardless of timestamp.
+   * Requests with timestamps in the future for retries take less precedence than timestamps in the past or current.
+   * Otherwise, active processors take precedence over standby processors, regardless of timestamp.
    * @param o the other
    */
   @Override
   public int compareTo(SamzaResourceRequest o) {
-    if (!StandbyTaskUtil.isStandbyContainer(this.processorId) && StandbyTaskUtil.isStandbyContainer(o.processorId)) {
+    if (!StandbyTaskUtil.isStandbyContainer(processorId) && StandbyTaskUtil.isStandbyContainer(o.processorId)) {
       return -1;
     }
 
-    if (StandbyTaskUtil.isStandbyContainer(this.processorId) && !StandbyTaskUtil.isStandbyContainer(o.processorId)) {
+    if (StandbyTaskUtil.isStandbyContainer(processorId) && !StandbyTaskUtil.isStandbyContainer(o.processorId)) {
       return 1;
     }
 
-    if (this.requestTimestampMs < o.requestTimestampMs)
+    if (requestTimestamp.isBefore(o.requestTimestamp)) {
       return -1;
-    if (this.requestTimestampMs > o.requestTimestampMs)
+    }
+
+    if (requestTimestamp.isAfter(o.requestTimestamp)) {
       return 1;
+    }
+
     return 0;
   }
 }

@@ -128,8 +128,8 @@ public class WatermarkIntegrationTest extends IntegrationTestHarness {
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.partitionCount", String.valueOf(PARTITION_COUNT));
 
-    configs.put(JobConfig.JOB_NAME(), "test-watermark-job");
-    configs.put(JobConfig.PROCESSOR_ID(), "1");
+    configs.put(JobConfig.JOB_NAME, "test-watermark-job");
+    configs.put(JobConfig.PROCESSOR_ID, "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 

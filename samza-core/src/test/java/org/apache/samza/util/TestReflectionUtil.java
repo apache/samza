@@ -18,96 +18,74 @@
  */
 package org.apache.samza.util;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import com.google.common.collect.ImmutableList;
 import org.apache.samza.SamzaException;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 
 public class TestReflectionUtil {
   @Test
   public void testGetObj() {
-    // using caller classloader
-    assertTrue(
-        ReflectionUtil.getObj(getClass().getClassLoader(), ArrayList.class.getName(), List.class) instanceof ArrayList);
-    assertEquals(new ArrayList<>(),
-        ReflectionUtil.getObj(getClass().getClassLoader(), ArrayList.class.getName(), List.class));
-
-    // using custom classloader
-    assertTrue(ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), ArrayList.class.getName(),
-        List.class) instanceof ArrayList);
-    assertEquals(new ArrayList<>(),
-        ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), ArrayList.class.getName(), List.class));
+    assertTrue(ReflectionUtil.getObj(ArrayList.class.getName(), List.class) instanceof ArrayList);
+    assertEquals(new ArrayList<>(), ReflectionUtil.getObj(ArrayList.class.getName(), List.class));
   }
 
-  /**
-   * This test verifies two things:
-   * 1) Exception is handled in the expected way
-   * 2) The classloader passed as an argument gets used for classloading
-   */
   @Test(expected = SamzaException.class)
   public void testGetObjNoClass() {
-    ReflectionUtil.getObj(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class);
+    ReflectionUtil.getObj("not.a.class", Set.class);
   }
 
   @Test(expected = SamzaException.class)
   public void testGetObjInvalidConstructor() {
-    ReflectionUtil.getObj(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class);
+    ReflectionUtil.getObj(WithTwoArgConstructor.class.getName(), Object.class);
   }
 
   @Test
   public void testGetObjWithArgs() {
     assertEquals(new WithTwoArgConstructor("hello", ImmutableList.of("hello", "world")),
-        ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(),
-            WithTwoArgConstructor.class, ReflectionUtil.constructorArgument("hello", String.class),
+        ReflectionUtil.getObjWithArgs(WithTwoArgConstructor.class.getName(),
+            WithTwoArgConstructor.class,
+            ReflectionUtil.constructorArgument("hello", String.class),
             ReflectionUtil.constructorArgument(ImmutableList.of("hello", "world"), List.class)));
 
     // should still work if pass no args, since should use empty constructor
-    assertTrue(ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), ArrayList.class.getName(),
-        List.class) instanceof ArrayList);
-    assertEquals(new ArrayList<>(),
-        ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), ArrayList.class.getName(), List.class));
+    assertTrue(ReflectionUtil.getObjWithArgs(ArrayList.class.getName(), List.class) instanceof ArrayList);
+    assertEquals(new ArrayList<>(), ReflectionUtil.getObjWithArgs(ArrayList.class.getName(), List.class));
   }
 
-  /**
-   * This test verifies two things:
-   * 1) Exception is handled in the expected way
-   * 2) The classloader passed as an argument gets used for classloading
-   */
   @Test(expected = SamzaException.class)
   public void testGetObjWithArgsNoClass() {
-    ReflectionUtil.getObjWithArgs(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class,
-        ReflectionUtil.constructorArgument(10, Integer.class));
+    ReflectionUtil.getObjWithArgs("not.a.class", Set.class, ReflectionUtil.constructorArgument(10, Integer.class));
   }
 
   @Test(expected = SamzaException.class)
   public void testGetObjWithArgsWrongArgumentCount() {
-    ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class,
+    ReflectionUtil.getObjWithArgs(WithTwoArgConstructor.class.getName(), Object.class,
         ReflectionUtil.constructorArgument("hello world", String.class));
   }
 
   @Test(expected = SamzaException.class)
   public void testGetObjWithArgsWrongArgumentTypes() {
-    ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class,
+    ReflectionUtil.getObjWithArgs(WithTwoArgConstructor.class.getName(),
+        Object.class,
         ReflectionUtil.constructorArgument("hello world", String.class),
         ReflectionUtil.constructorArgument(ImmutableList.of("hello", "world"), ImmutableList.class));
   }
 
   @Test(expected = SamzaException.class)
   public void testGetObjWithArgsZeroArgsNoClass() {
-    ReflectionUtil.getObjWithArgs(new ArrayListOnlyClassLoader(), HashSet.class.getName(), Set.class);
+    ReflectionUtil.getObjWithArgs("not.a.class", Set.class);
   }
 
   @Test(expected = SamzaException.class)
-  public void testGetObjWithArgsZeroArgsNoClassInvalidConstructor() {
-    ReflectionUtil.getObjWithArgs(getClass().getClassLoader(), WithTwoArgConstructor.class.getName(), Object.class);
+  public void testGetObjWithArgsZeroArgsInvalidConstructor() {
+    ReflectionUtil.getObjWithArgs(WithTwoArgConstructor.class.getName(), Object.class);
   }
 
   private static class WithTwoArgConstructor {
@@ -135,20 +113,6 @@ public class TestReflectionUtil {
     @Override
     public int hashCode() {
       return Objects.hash(string, list);
-    }
-  }
-
-  /**
-   * Only loads ArrayList. Throws ClassNotFoundException otherwise.
-   */
-  private static class ArrayListOnlyClassLoader extends ClassLoader {
-    @Override
-    public Class<?> loadClass(String name) throws ClassNotFoundException {
-      if (ArrayList.class.getName().equals(name)) {
-        return ArrayList.class;
-      } else {
-        throw new ClassNotFoundException();
-      }
     }
   }
 }

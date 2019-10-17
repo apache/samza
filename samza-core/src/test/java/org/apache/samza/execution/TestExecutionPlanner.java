@@ -40,7 +40,7 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig$;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
@@ -449,8 +449,8 @@ public class TestExecutionPlanner {
   @Before
   public void setup() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), "test-app");
-    configMap.put(JobConfig.JOB_DEFAULT_SYSTEM(), DEFAULT_SYSTEM);
+    configMap.put(JobConfig.JOB_NAME, "test-app");
+    configMap.put(JobConfig.JOB_DEFAULT_SYSTEM, DEFAULT_SYSTEM);
     StreamTestUtils.addStreamConfigs(configMap, "input1", "system1", "input1");
     StreamTestUtils.addStreamConfigs(configMap, "input2", "system2", "input2");
     StreamTestUtils.addStreamConfigs(configMap, "input3", "system2", "input3");
@@ -624,7 +624,7 @@ public class TestExecutionPlanner {
   @Test
   public void testDefaultPartitions() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS, String.valueOf(DEFAULT_PARTITIONS));
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
@@ -640,7 +640,7 @@ public class TestExecutionPlanner {
   @Test
   public void testBroadcastConfig() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(String.format(StreamConfig$.MODULE$.BROADCAST_FOR_STREAM_ID(), "input1"), "true");
+    map.put(String.format(StreamConfig.BROADCAST_FOR_STREAM_ID, "input1"), "true");
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
@@ -699,7 +699,7 @@ public class TestExecutionPlanner {
   @Test
   public void testTriggerIntervalForJoins() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS, String.valueOf(DEFAULT_PARTITIONS));
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
@@ -715,7 +715,7 @@ public class TestExecutionPlanner {
   @Test
   public void testTriggerIntervalForWindowsAndJoins() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS, String.valueOf(DEFAULT_PARTITIONS));
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
@@ -731,7 +731,7 @@ public class TestExecutionPlanner {
   @Test
   public void testTriggerIntervalWithNoWindowMs() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS, String.valueOf(DEFAULT_PARTITIONS));
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
@@ -747,7 +747,7 @@ public class TestExecutionPlanner {
   @Test
   public void testTriggerIntervalForStatelessOperators() {
     Map<String, String> map = new HashMap<>(config);
-    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS, String.valueOf(DEFAULT_PARTITIONS));
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);
@@ -762,7 +762,7 @@ public class TestExecutionPlanner {
   public void testTriggerIntervalWhenWindowMsIsConfigured() {
     Map<String, String> map = new HashMap<>(config);
     map.put(TaskConfig.WINDOW_MS, "2000");
-    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS(), String.valueOf(DEFAULT_PARTITIONS));
+    map.put(JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS, String.valueOf(DEFAULT_PARTITIONS));
     Config cfg = new MapConfig(map);
 
     ExecutionPlanner planner = new ExecutionPlanner(cfg, streamManager);

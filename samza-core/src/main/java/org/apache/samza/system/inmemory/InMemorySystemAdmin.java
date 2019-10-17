@@ -90,11 +90,15 @@ public class InMemorySystemAdmin implements SystemAdmin {
    */
   @Override
   public Integer offsetComparator(String offset1, String offset2) {
-    if (offset1 == null || offset2 == null) {
-      return null;
+    if (offset1 == null && offset2 == null) {
+      return 0;
+    } else if (offset1 == null) {
+      return -1;
+    } else if (offset2 == null) {
+      return 1;
+    } else {
+      return Integer.compare(Integer.parseInt(offset1), Integer.parseInt(offset2));
     }
-
-    return Integer.compare(Integer.parseInt(offset1), Integer.parseInt(offset2));
   }
 
   /**

@@ -28,13 +28,14 @@ import org.junit.Test
 
 class TestFileUtil {
   val data = "100"
-  val checksum = FileUtil.getChecksum(data)
+  val fileUtil = new FileUtil()
+  val checksum = fileUtil.getChecksum(data)
   val file = new File(System.getProperty("java.io.tmpdir"), "test")
 
   @Test
   def testWriteDataToFile() {
     // Invoke test
-    FileUtil.writeWithChecksum(file, data)
+    fileUtil.writeWithChecksum(file, data)
 
     // Check that file exists
     assertTrue("File was not created!", file.exists())
@@ -53,9 +54,9 @@ class TestFileUtil {
     // Invoke test
     val file = new File(System.getProperty("java.io.tmpdir"), "test2")
     // write the same file three times
-    FileUtil.writeWithChecksum(file, data)
-    FileUtil.writeWithChecksum(file, data)
-    FileUtil.writeWithChecksum(file, data)
+    fileUtil.writeWithChecksum(file, data)
+    fileUtil.writeWithChecksum(file, data)
+    fileUtil.writeWithChecksum(file, data)
 
     // Check that file exists
     assertTrue("File was not created!", file.exists())
@@ -81,7 +82,7 @@ class TestFileUtil {
     fos.close()
 
     // Invoke test
-    val result = FileUtil.readWithChecksum(file)
+    val result = fileUtil.readWithChecksum(file)
 
     // Check data returned
     assertEquals(data, result)
@@ -98,7 +99,7 @@ class TestFileUtil {
     fos.close()
 
     // Invoke test
-    val result = FileUtil.readWithChecksum(file)
+    val result = fileUtil.readWithChecksum(file)
 
     // Check data returned
     assertNull(result)

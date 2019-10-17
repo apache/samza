@@ -56,9 +56,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
 
-    val classLoader = getClass.getClassLoader
     val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
-      coordinatorStreamStore, classLoader, metricsRegistry)
+      coordinatorStreamStore, metricsRegistry)
     val jobModel = coordinator.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
@@ -71,7 +70,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     changelogStreamManager.writePartitionMapping(taskPartitionMappings)
 
     //create necessary checkpoint and changelog streams
-    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, classLoader)
+    val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, config)
     metadataResourceUtil.createResources()
 
     // fan out the startpoints
@@ -132,8 +131,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         JobContextImpl.fromConfigWithDefaults(config),
         Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
         Option(appDesc.getApplicationTaskContextFactory.orElse(null)),
-        buildExternalContext(config),
-        classLoader
+        buildExternalContext(config)
       )
       container.setContainerListener(containerListener)
 

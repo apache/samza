@@ -31,7 +31,6 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
-
 import org.apache.samza.system.kinesis.consumer.KinesisSystemConsumer;
 
 
@@ -64,7 +63,7 @@ public class KinesisSystemFactory implements SystemFactory {
         AllSspToSingleTaskGrouperFactory.class.getCanonicalName())) {
       String errMsg = String.format("Incorrect Grouper %s used for KinesisSystemConsumer %s. Please set the %s config"
               + " to %s.", jobConfig.getSystemStreamPartitionGrouperFactory(), system,
-          JobConfig.SSP_GROUPER_FACTORY(), AllSspToSingleTaskGrouperFactory.class.getCanonicalName());
+          JobConfig.SSP_GROUPER_FACTORY, AllSspToSingleTaskGrouperFactory.class.getCanonicalName());
       throw new ConfigException(errMsg);
     }
 

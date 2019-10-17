@@ -18,6 +18,7 @@
  */
 package org.apache.samza.processor;
 
+import com.google.common.collect.ImmutableMap;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -29,7 +30,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -40,6 +40,7 @@ import org.apache.samza.container.SamzaContainerStatus;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.processor.StreamProcessor.State;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
@@ -87,7 +88,7 @@ public class TestStreamProcessor {
     processorListenerState.clear();
   }
 
-  class TestableStreamProcessor extends StreamProcessor {
+  static class TestableStreamProcessor extends StreamProcessor {
     private final CountDownLatch containerStop = new CountDownLatch(1);
     private final CountDownLatch runLoopStartForMain = new CountDownLatch(1);
     private SamzaContainer container = null;
@@ -110,7 +111,9 @@ public class TestStreamProcessor {
         JobCoordinator jobCoordinator,
         SamzaContainer container,
         Duration runLoopShutdownDuration) {
-      super("TEST_PROCESSOR_ID", config, customMetricsReporters, streamTaskFactory, processorListener, jobCoordinator);
+
+      super("TEST_PROCESSOR_ID", config, customMetricsReporters, streamTaskFactory, Optional.empty(), Optional.empty(), Optional.empty(), sp -> processorListener,
+          jobCoordinator, Mockito.mock(MetadataStore.class));
       this.container = container;
       this.runLoopShutdownDuration = runLoopShutdownDuration;
     }
@@ -151,6 +154,7 @@ public class TestStreamProcessor {
     when(mockJobModel.getContainers()).thenReturn(containers);
     return mockJobModel;
   }
+
   /**
    * Tests stop() method when Container AND JobCoordinator are running
    */
@@ -217,7 +221,7 @@ public class TestStreamProcessor {
       }).when(mockJobCoordinator).start();
 
     processor.start();
-    processorListenerStart.await();
+    processorListenerStart.await(10, TimeUnit.SECONDS);
 
     assertEquals(SamzaContainerStatus.STARTED, processor.getContainerStatus());
 
@@ -406,7 +410,9 @@ public class TestStreamProcessor {
     JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
     Mockito.doNothing().when(mockJobCoordinator).start();
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
-    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", new MapConfig(), new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = Mockito.spy(new StreamProcessor("TestProcessorId", new MapConfig(),
+        new HashMap<>(), null, Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener,
+        mockJobCoordinator, Mockito.mock(MetadataStore.class)));
     assertEquals(State.NEW, streamProcessor.getState());
     streamProcessor.start();
 
@@ -425,7 +431,8 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
     /**
      * Without a SamzaContainer running in StreamProcessor and current StreamProcessor state is STARTED,
@@ -493,7 +500,9 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor("TestProcessorId", config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator));
+    StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor("TestProcessorId", config, new HashMap<>(),
+        null, Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator,
+        Mockito.mock(MetadataStore.class)));
 
     Mockito.doNothing().when(mockJobCoordinator).stop();
     Mockito.doNothing().when(mockSamzaContainer).shutdown();
@@ -515,7 +524,8 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
     Exception failureException = new Exception("dummy exception");
 
@@ -536,7 +546,8 @@ public class TestStreamProcessor {
     JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
     streamProcessor.state = State.RUNNING;
     streamProcessor.jobCoordinatorListener.onCoordinatorStop();
@@ -549,10 +560,10 @@ public class TestStreamProcessor {
   public void testStreamProcessorWithStreamProcessorListenerFactory() {
     AtomicReference<MockStreamProcessorLifecycleListener> mockListener = new AtomicReference<>();
     StreamProcessor streamProcessor =
-        new StreamProcessor("TestProcessorId", mock(Config.class), new HashMap<>(), mock(TaskFactory.class), Optional.empty(),
-            Optional.empty(), Optional.empty(),
+        new StreamProcessor("TestProcessorId", mock(Config.class), new HashMap<>(), mock(TaskFactory.class),
+            Optional.empty(), Optional.empty(), Optional.empty(),
             sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)),
-            mock(JobCoordinator.class));
+            mock(JobCoordinator.class), Mockito.mock(MetadataStore.class));
     assertEquals(streamProcessor, mockListener.get().processor);
   }
 

@@ -44,8 +44,7 @@ public class SamzaTaskProxyFactory implements TaskProxyFactory {
                                 String.format("Config param %s is not defined.", BaseResourceConfig.CONFIG_JOB_INSTALLATIONS_PATH));
     String configFactoryClass = config.getJobConfigFactory();
     try {
-      ConfigFactory configFactory =
-          ReflectionUtil.getObj(getClass().getClassLoader(), configFactoryClass, ConfigFactory.class);
+      ConfigFactory configFactory = ReflectionUtil.getObj(configFactoryClass, ConfigFactory.class);
       InstallationFinder installFinder = new SimpleInstallationFinder(installationsPath, configFactory);
       return new SamzaTaskProxy(config, installFinder);
     } catch (Exception e) {

@@ -21,13 +21,15 @@ package org.apache.samza.storage.kv
 
 import org.apache.samza.util.Logging
 import scala.collection._
-import java.util.Arrays
+import java.nio.file.Path
+import java.util.{Arrays, Optional}
 
 /**
  * A write-behind caching layer around the rocksdb store. The purpose of this cache is three-fold:
  * 1. Batch together writes to rocksdb, this turns out to be a great optimization
  * 2. Avoid duplicate writes and duplicate log entries within a commit interval. i.e. if there are two updates to the same key, log only the later.
- * 3. Avoid deserialization cost for gets on very common keys
+ * 3. Avoid deserialization cost for gets on very common keys (unless the keys itself are an array of bytes,
+ * in which case they don't need to be deserialized and there is no performance benefit).
  *
  * This caching does introduce a few odd corner cases :-(
  * 1. Items in the cache have pass-by-reference semantics but items in rocksdb have pass-by-value semantics. Modifying items after a put is a bad idea.
@@ -289,6 +291,10 @@ class CachedStore[K, V](
 
   override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     store.snapshot(from, to)
+  }
+
+  override def checkpoint(id: String): Optional[Path] = {
+    store.checkpoint(id)
   }
 }
 

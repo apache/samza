@@ -19,7 +19,7 @@
 
 package org.apache.samza.sql.client.cli;
 
-import org.apache.samza.sql.client.interfaces.ExecutorException;
+import org.apache.samza.sql.client.exceptions.ExecutorException;
 import org.apache.samza.sql.client.interfaces.QueryResult;
 
 /**

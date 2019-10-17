@@ -82,15 +82,15 @@ class ExecutionPlannerTestBase {
         .withPhysicalName("jobName-jobId-broadcast-b1");
 
     Map<String, String> configs = new HashMap<>();
-    configs.put(JobConfig.JOB_NAME(), "jobName");
-    configs.put(JobConfig.JOB_ID(), "jobId");
+    configs.put(JobConfig.JOB_NAME, "jobName");
+    configs.put(JobConfig.JOB_ID, "jobId");
     configs.putAll(input1Descriptor.toConfig());
     configs.putAll(input2Descriptor.toConfig());
     configs.putAll(outputDescriptor.toConfig());
     configs.putAll(inputSystemDescriptor.toConfig());
     configs.putAll(outputSystemDescriptor.toConfig());
     configs.putAll(intermediateSystemDescriptor.toConfig());
-    configs.put(JobConfig.JOB_DEFAULT_SYSTEM(), intermediateSystemDescriptor.getSystemName());
+    configs.put(JobConfig.JOB_DEFAULT_SYSTEM, intermediateSystemDescriptor.getSystemName());
     mockConfig = spy(new MapConfig(configs));
 
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);

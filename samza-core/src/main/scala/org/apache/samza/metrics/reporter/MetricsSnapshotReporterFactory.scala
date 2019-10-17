@@ -21,9 +21,7 @@ package org.apache.samza.metrics.reporter
 
 import org.apache.samza.util.{Logging, StreamUtil, Util}
 import org.apache.samza.SamzaException
-import org.apache.samza.config.{Config, MetricsConfig, SerializerConfig, SystemConfig}
-import org.apache.samza.config.JobConfig.Config2Job
-import org.apache.samza.config.StreamConfig.Config2Stream
+import org.apache.samza.config.{Config, JobConfig, MetricsConfig, SerializerConfig, StreamConfig, SystemConfig}
 import org.apache.samza.metrics.MetricsReporter
 import org.apache.samza.metrics.MetricsReporterFactory
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -35,12 +33,10 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
   def getMetricsReporter(name: String, containerName: String, config: Config): MetricsReporter = {
     info("Creating new metrics snapshot reporter.")
 
-    val jobName = config
-      .getName
+    val jobConfig = new JobConfig(config)
+    val jobName = JavaOptionals.toRichOptional(jobConfig.getName).toOption
       .getOrElse(throw new SamzaException("Job name must be defined in config."))
-
-    val jobId = config
-      .getJobId
+    val jobId = jobConfig.getJobId
 
     val metricsConfig = new MetricsConfig(config)
     val metricsSystemStreamName = JavaOptionals.toRichOptional(metricsConfig.getMetricsSnapshotReporterStream(name))
@@ -66,10 +62,11 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val producer = systemFactory.getProducer(systemName, config, registry)
 
     info("Got producer %s." format producer)
+    val streamConfig = new StreamConfig(config)
 
-    val streamSerdeName = config.getStreamMsgSerde(systemStream)
-    val systemSerdeName = JavaOptionals.toRichOptional(systemConfig.getSystemMsgSerde(systemName)).toOption
-    val serdeName = streamSerdeName.getOrElse(systemSerdeName.getOrElse(null))
+    val streamSerdeName = streamConfig.getStreamMsgSerde(systemStream)
+    val systemSerdeName = systemConfig.getSystemMsgSerde(systemName)
+    val serdeName = streamSerdeName.orElse(systemSerdeName.orElse(null))
     val serializerConfig = new SerializerConfig(config)
     val serde = if (serdeName != null) {
       JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption match {

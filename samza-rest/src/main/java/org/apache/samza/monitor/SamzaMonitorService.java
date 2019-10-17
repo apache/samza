@@ -67,8 +67,7 @@ public class SamzaMonitorService {
                     int monitorSchedulingJitterInMs = (int) (RANDOM.nextInt(schedulingIntervalInMs + 1) * (monitorConfig.getSchedulingJitterPercent() / 100.0));
                     schedulingIntervalInMs += monitorSchedulingJitterInMs;
                     LOGGER.info("Scheduling the monitor: {} to run every {} ms.", monitorName, schedulingIntervalInMs);
-                    scheduler.schedule(getRunnable(
-                        instantiateMonitor(monitorName, monitorConfig, metricsRegistry, getClass().getClassLoader())),
+                    scheduler.schedule(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
                         schedulingIntervalInMs);
                 } else {
                   // When MonitorFactoryClass is not defined in the config, ignore the monitor config

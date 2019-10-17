@@ -19,12 +19,10 @@
 
 package org.apache.samza.sql.translator;
 
-import com.google.common.annotations.VisibleForTesting;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.samza.SamzaException;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
@@ -45,7 +43,7 @@ import org.slf4j.LoggerFactory;
  */
 class FilterTranslator {
 
-  private static final Logger log = LoggerFactory.getLogger(FilterTranslator.class);
+  private static final Logger LOG = LoggerFactory.getLogger(FilterTranslator.class);
   private final int queryId;
 
   FilterTranslator(int queryId) {
@@ -96,19 +94,25 @@ class FilterTranslator {
 
     @Override
     public boolean apply(SamzaSqlRelMessage message) {
-      Instant startProcessing = Instant.now();
+      long startProcessing = System.nanoTime();
       Object[] result = new Object[1];
-      expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
-          message.getSamzaSqlRelRecord().getFieldValues().toArray(), result);
-      if (result.length > 0 && result[0] instanceof Boolean) {
+      try {
+        expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
+            message.getSamzaSqlRelRecord().getFieldValues().toArray(), result);
+      } catch (Exception e) {
+        String errMsg = String.format("Handling the following rel message ran into an error. %s", message);
+        LOG.error(errMsg, e);
+        throw new SamzaException(errMsg, e);
+      }
+      if (result[0] instanceof Boolean) {
         boolean retVal = (Boolean) result[0];
-        log.debug(
+        LOG.debug(
             String.format("return value for input %s is %s",
                 Arrays.asList(message.getSamzaSqlRelRecord().getFieldValues()).toString(), retVal));
-        updateMetrics(startProcessing, retVal, Instant.now());
+        updateMetrics(startProcessing, retVal, System.nanoTime());
         return retVal;
       } else {
-        log.error("return value is not boolean");
+        LOG.error("return value is not boolean for rel message: {}", message);
         return false;
       }
     }
@@ -118,14 +122,14 @@ class FilterTranslator {
      * @param startProcessing = begin processing of the message
      * @param endProcessing = end of processing
      */
-    private void updateMetrics(Instant startProcessing, boolean isOutput, Instant endProcessing) {
+    private void updateMetrics(long startProcessing, boolean isOutput, long endProcessing) {
       inputEvents.inc();
       if (isOutput) {
         outputEvents.inc();
       } else {
         filteredOutEvents.inc();
       }
-      processingTime.update(Duration.between(startProcessing, endProcessing).toMillis());
+      processingTime.update(endProcessing - startProcessing);
     }
 
   }

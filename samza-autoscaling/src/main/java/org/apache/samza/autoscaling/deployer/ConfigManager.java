@@ -94,11 +94,11 @@ public class ConfigManager {
     int rmPort = config.getInt(rmPortOpt);
 
     //get job name and id;
-    if (!config.containsKey(JobConfig.JOB_NAME())) {
+    if (!config.containsKey(JobConfig.JOB_NAME)) {
       throw new IllegalArgumentException("Missing config: the config does not contain the job name");
     }
-    jobName = config.get(JobConfig.JOB_NAME());
-    jobID = config.getInt(JobConfig.JOB_ID(), 1);
+    jobName = config.get(JobConfig.JOB_NAME);
+    jobID = config.getInt(JobConfig.JOB_ID, 1);
 
     //set polling interval
     if (config.containsKey(pollingIntervalOpt)) {

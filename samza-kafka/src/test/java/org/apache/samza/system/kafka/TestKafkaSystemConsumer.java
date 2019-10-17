@@ -58,12 +58,12 @@ public class TestKafkaSystemConsumer {
   private KafkaSystemConsumer createConsumer(String fetchMsg, String fetchBytes) {
     final Map<String, String> map = new HashMap<>();
 
-    map.put(JobConfig.JOB_NAME(), TEST_JOB);
+    map.put(JobConfig.JOB_NAME, TEST_JOB);
 
     map.put(String.format(KafkaConfig.CONSUMER_FETCH_THRESHOLD(), TEST_SYSTEM), fetchMsg);
     map.put(String.format(KafkaConfig.CONSUMER_FETCH_THRESHOLD_BYTES(), TEST_SYSTEM), fetchBytes);
     map.put(String.format("systems.%s.consumer.%s", TEST_SYSTEM, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG), BOOTSTRAP_SERVERS);
-    map.put(JobConfig.JOB_NAME(), "jobName");
+    map.put(JobConfig.JOB_NAME, "jobName");
 
     Config config = new MapConfig(map);
     String clientId = KafkaConsumerConfig.createClientId(TEST_CLIENT_ID, config);

@@ -73,8 +73,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     this.processorId = processorId;
     this.config = config;
     LocationIdProviderFactory locationIdProviderFactory =
-        ReflectionUtil.getObj(getClass().getClassLoader(), new JobConfig(config).getLocationIdProviderFactory(),
-            LocationIdProviderFactory.class);
+        ReflectionUtil.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
   }
@@ -86,7 +85,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     try {
       jobModel = getJobModel();
       // TODO metrics registry has been null here for a while; is it safe?
-      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, getClass().getClassLoader());
+      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, config);
       metadataResourceUtil.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
@@ -125,10 +124,9 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
     systemAdmins.start();
     try {
-      String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
+      String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID));
       GrouperMetadata grouperMetadata = new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
-      return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata,
-          getClass().getClassLoader());
+      return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
     } finally {
       systemAdmins.stop();
     }

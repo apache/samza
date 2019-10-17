@@ -87,7 +87,8 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
       // SAMZA: 2230 To allow UDFS to accept Untyped arguments.
       // We explicitly Convert the untyped arguments to type that the UDf expects.
       for(int index = 0; index < translatedOperands.size(); index++) {
-        if (translatedOperands.get(index).type == Object.class && udfMethod.getParameters()[index].getType() != Object.class) {
+        if (!udfMetadata.isDisableArgCheck() && translatedOperands.get(index).type == Object.class
+            && udfMethod.getParameters()[index].getType() != Object.class) {
           convertedOperands.add(Expressions.convert_(translatedOperands.get(index), udfMethod.getParameters()[index].getType()));
         } else {
           convertedOperands.add(translatedOperands.get(index));

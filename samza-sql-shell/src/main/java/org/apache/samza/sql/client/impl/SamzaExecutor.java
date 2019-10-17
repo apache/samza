@@ -31,6 +31,8 @@ import org.apache.samza.config.*;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.serializers.StringSerdeFactory;
+import org.apache.samza.sql.client.exceptions.ExecutorException;
+import org.apache.samza.sql.client.interfaces.ExecutionStatus;
 import org.apache.samza.sql.client.interfaces.*;
 import org.apache.samza.sql.client.util.Pair;
 import org.apache.samza.sql.client.util.RandomAccessQueue;
@@ -291,9 +293,9 @@ public class SamzaExecutor implements SqlExecutor {
      */
     List<SqlFunction> udfs = new ArrayList<>();
     udfs.add(new SamzaSqlUdfDisplayInfo("RegexMatch", "Matches the string to the regex",
-            Arrays.asList(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING),
-                SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING)),
-        SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN)));
+            Arrays.asList(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING, false, false),
+                SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.STRING, false, false)),
+        SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.BOOLEAN, false, false)));
 
     return udfs;
   }
@@ -314,8 +316,8 @@ public class SamzaExecutor implements SqlExecutor {
   Map<String, String> fetchSamzaSqlConfig(int execId) {
     HashMap<String, String> staticConfigs = new HashMap<>();
 
-    staticConfigs.put(JobConfig.JOB_NAME(), "sql-job-" + execId);
-    staticConfigs.put(JobConfig.PROCESSOR_ID(), String.valueOf(execId));
+    staticConfigs.put(JobConfig.JOB_NAME, "sql-job-" + execId);
+    staticConfigs.put(JobConfig.PROCESSOR_ID, String.valueOf(execId));
     staticConfigs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     staticConfigs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 

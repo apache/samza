@@ -22,13 +22,14 @@ package org.apache.samza.util
 
 import java.lang.reflect.InvocationTargetException
 
-import org.apache.samza.config.JobConfig.Config2Job
 import org.apache.samza.config._
 import org.apache.samza.SamzaException
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.util.Random
+
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.collection.JavaConverters._
 
@@ -51,8 +52,7 @@ object Util extends Logging {
   /**
    * Instantiate an object of type T from a given className.
    *
-   * Deprecated: Use [[ReflectionUtil.getObj(ClassLoader, String, Class)]] instead. See javadocs for that method for
-   * recommendations of classloaders to use.
+   * Deprecated: Use [[ReflectionUtil.getObj(String, Class)]] instead.
    */
   @Deprecated
   def getObj[T](className: String, clazz: Class[T]) = {
@@ -102,8 +102,7 @@ object Util extends Logging {
   /**
     * Instantiate an object from given className, and given constructor parameters.
     *
-    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(ClassLoader, String, Class, ConstructorArgument...)]] instead. See
-    * javadocs for that method for recommendations of classloaders to use.
+    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(String, Class, ConstructorArgument...)]] instead.
     */
   @Deprecated
   @throws[ClassNotFoundException]
@@ -157,7 +156,7 @@ object Util extends Logging {
    * @return re-written config
    */
   def rewriteConfig(config: Config): Config = {
-    config.getConfigRewriters match {
+    JavaOptionals.toRichOptional(new JobConfig(config).getConfigRewriters).toOption match {
       case Some(rewriters) => rewriters.split(",").foldLeft(config)(applyRewriter(_, _))
       case _ => config
     }
@@ -170,10 +169,10 @@ object Util extends Logging {
     * @return the rewritten config
     */
   def applyRewriter(config: Config, rewriterName: String): Config = {
-    val rewriterClassName = config
-      .getConfigRewriterClass(rewriterName)
+    val rewriterClassName = JavaOptionals.toRichOptional(new JobConfig(config).getConfigRewriterClass(rewriterName))
+      .toOption
       .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-    val rewriter = ReflectionUtil.getObj(this.getClass.getClassLoader, rewriterClassName, classOf[ConfigRewriter])
+    val rewriter = ReflectionUtil.getObj(rewriterClassName, classOf[ConfigRewriter])
     info("Re-writing config with " + rewriter)
     rewriter.rewrite(rewriterName, config)
   }

@@ -132,7 +132,7 @@ public class TestStreamManager {
     config.put("stores.test-store.changelog", SYSTEM2 + "." + STREAM2);
 
     StreamManager manager = new StreamManager(systemAdmins);
-    manager.clearStreamsFromPreviousRun(new MapConfig(config), getClass().getClassLoader());
+    manager.clearStreamsFromPreviousRun(new MapConfig(config));
 
     ArgumentCaptor<StreamSpec> captor = ArgumentCaptor.forClass(StreamSpec.class);
     verify(admin1).clearStream(captor.capture());

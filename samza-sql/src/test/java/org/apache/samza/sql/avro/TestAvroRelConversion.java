@@ -56,7 +56,6 @@ import org.apache.samza.sql.avro.schemas.PhoneNumber;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
 import org.apache.samza.sql.avro.schemas.StreetNumRecord;
-import org.apache.samza.sql.avro.schemas.SubRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.planner.RelSchemaConverter;
 import org.apache.samza.sql.schema.SqlSchema;
@@ -200,7 +199,7 @@ public class TestAvroRelConversion {
     record.put("id", id);
     record.put("bool_value", boolValue);
     record.put("double_value", doubleValue);
-    record.put("float_value", floatValue);
+    record.put("float_value0", floatValue);
     record.put("string_value", testStrValue);
     record.put("bytes_value", testBytes);
     record.put("fixed_value", fixedBytes);
@@ -213,7 +212,7 @@ public class TestAvroRelConversion {
     complexRecord.id = id;
     complexRecord.bool_value = boolValue;
     complexRecord.double_value = doubleValue;
-    complexRecord.float_value = floatValue;
+    complexRecord.float_value0 = floatValue;
     complexRecord.string_value = testStrValue;
     complexRecord.bytes_value = testBytes;
     complexRecord.fixed_value = fixedBytes;
@@ -353,7 +352,7 @@ public class TestAvroRelConversion {
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("bool_value").get(), boolValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("double_value").get(), doubleValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("string_value").get(), new Utf8(testStrValue));
-    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value").get(), doubleValue);
+    Assert.assertEquals(message.getSamzaSqlRelRecord().getField("float_value0").get(), floatValue);
     Assert.assertEquals(message.getSamzaSqlRelRecord().getField("long_value").get(), longValue);
     if (unionValue instanceof String) {
       Assert.assertEquals(message.getSamzaSqlRelRecord().getField("union_value").get(), new Utf8((String) unionValue));
@@ -386,10 +385,6 @@ public class TestAvroRelConversion {
         Assert.assertTrue(record.get(field.name()).equals(complexRecordValue.get(field.name())));
       } else {
         Object expected = complexRecordValue.get(field.name());
-        if (expected instanceof Float) {
-          // AvroRelConverter converts float to double to be in sync with what Calcite does in JavaTypeFactoryImpl
-          expected = Double.parseDouble(Float.toString((Float) expected));
-        }
         Assert.assertEquals(expected, record.get(field.name()));
       }
     }

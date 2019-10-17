@@ -84,10 +84,10 @@ import org.slf4j.LoggerFactory;
   }
 
   static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
-    String userConfiguredJobId = originalConfig.get(JobConfig.JOB_ID());
-    String userConfiguredJobName = originalConfig.get(JobConfig.JOB_NAME());
-    String generatedJobId = generatedConfig.get(JobConfig.JOB_ID());
-    String generatedJobName = generatedConfig.get(JobConfig.JOB_NAME());
+    String userConfiguredJobId = originalConfig.get(JobConfig.JOB_ID);
+    String userConfiguredJobName = originalConfig.get(JobConfig.JOB_NAME);
+    String generatedJobId = generatedConfig.get(JobConfig.JOB_ID);
+    String generatedJobName = generatedConfig.get(JobConfig.JOB_NAME);
 
     if (generatedJobName != null && userConfiguredJobName != null && !StringUtils.equals(generatedJobName,
         userConfiguredJobName)) {
@@ -111,8 +111,8 @@ import org.slf4j.LoggerFactory;
 
     Map<String, String> generatedConfig = new HashMap<>();
     // set up job name and job ID
-    generatedConfig.put(JobConfig.JOB_NAME(), jobNode.getJobName());
-    generatedConfig.put(JobConfig.JOB_ID(), jobNode.getJobId());
+    generatedConfig.put(JobConfig.JOB_NAME, jobNode.getJobName());
+    generatedConfig.put(JobConfig.JOB_ID, jobNode.getJobId());
 
     Map<String, StreamEdge> inEdges = jobNode.getInEdges();
     Map<String, StreamEdge> outEdges = jobNode.getOutEdges();
@@ -251,7 +251,7 @@ import org.slf4j.LoggerFactory;
                 .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
                 .forEach(systemStream -> {
                     inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
-                    generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
+                    generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX + StreamConfig.BOOTSTRAP,
                         systemStream.getSystem(), systemStream.getStream()), "true");
                   });
           }
@@ -314,14 +314,14 @@ import org.slf4j.LoggerFactory;
 
     // set key and msg serdes for streams to the serde names generated above
     streamKeySerdes.forEach((streamId, serde) -> {
-        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
-        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
+        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE;
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     streamMsgSerdes.forEach((streamId, serde) -> {
-        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
-        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
+        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE;
         configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
       });
 

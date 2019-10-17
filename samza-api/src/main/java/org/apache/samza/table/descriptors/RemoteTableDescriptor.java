@@ -77,7 +77,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public static final String WRITE_RETRY_POLICY = "io.write.retry.policy";
   public static final String BATCH_PROVIDER = "io.batch.provider";
 
-  // Input support for a specific remote store (required)
+  // Input support for a specific remote store (optional)
   private TableReadFunction<K, V> readFn;
 
   // Output support for a specific remote store (optional)
@@ -86,6 +86,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   // Rate limiter for client-side throttling; it is set by withRateLimiter()
   private RateLimiter rateLimiter;
 
+  // Indicate whether read rate limiter is enabled or not
   private boolean enableReadRateLimiter = true;
 
   // Indicate whether write rate limiter is enabled or not
@@ -224,7 +225,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * it is invalid to call {@link RemoteTableDescriptor#withRateLimiter(RateLimiter,
    * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
    * and vice versa.
-   * @param creditsPerSec rate limit for read operations; must be positive
+   * Note that this is the total credit of rate limit for the entire job, each task will get a per task
+   * credit of creditsPerSec/tasksCount. Hence creditsPerSec should be greater than total number of tasks.
+   * @param creditsPerSec rate limit for read operations; must be positive and greater than total number tasks
    * @return this table descriptor instance
    */
   public RemoteTableDescriptor<K, V> withReadRateLimit(int creditsPerSec) {
@@ -238,7 +241,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * it is invalid to call {@link RemoteTableDescriptor#withRateLimiter(RateLimiter,
    * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
    * and vice versa.
-   * @param creditsPerSec rate limit for write operations; must be positive
+   * Note that this is the total credit of rate limit for the entire job, each task will get a per task
+   * credit of creditsPerSec/tasksCount. Hence creditsPerSec should be greater than total number of tasks.
+   * @param creditsPerSec rate limit for write operations; must be positive and greater than total number tasks
    * @return this table descriptor instance
    */
   public RemoteTableDescriptor<K, V> withWriteRateLimit(int creditsPerSec) {
@@ -327,8 +332,10 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     addTableConfig(ASYNC_CALLBACK_POOL_SIZE, String.valueOf(asyncCallbackPoolSize), tableConfig);
 
     // Handle table reader function
-    addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
-    addTablePartConfig(READ_FN, readFn, jobConfig, tableConfig);
+    if (readFn != null) {
+      addTableConfig(READ_FN, SerdeUtils.serialize("read function", readFn), tableConfig);
+      addTablePartConfig(READ_FN, readFn, jobConfig, tableConfig);
+    }
 
     // Handle table write function
     if (writeFn != null) {
@@ -345,7 +352,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
 
   @Override
   protected void validate() {
-    Preconditions.checkNotNull(readFn, "TableReadFunction is required.");
+    Preconditions.checkArgument(writeFn != null || readFn != null,
+        "Must have one of TableReadFunction or TableWriteFunction");
     Preconditions.checkArgument(rateLimiter == null || tagCreditsMap.isEmpty(),
         "Only one of rateLimiter instance or read/write limits can be specified");
     // Assume callback executor pool should have no more than 20 threads

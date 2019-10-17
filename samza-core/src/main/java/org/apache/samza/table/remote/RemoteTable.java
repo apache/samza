@@ -130,7 +130,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
       ExecutorService callbackExecutor) {
 
     super(tableId);
-    Preconditions.checkNotNull(readFn, "null readFn");
+    Preconditions.checkArgument(writeFn != null || readFn != null,
+        "Must have one of TableReadFunction or TableWriteFunction");
 
     this.readFn = readFn;
     this.writeFn = writeFn;
@@ -348,7 +349,9 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   public void init(Context context) {
     super.init(context);
     asyncTable.init(context);
-    readFn.init(context, this);
+    if (readFn != null) {
+      readFn.init(context, this);
+    }
     if (writeFn != null) {
       writeFn.init(context, this);
     }

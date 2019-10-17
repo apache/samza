@@ -68,9 +68,9 @@ public class TableManager {
    * Construct a table manager instance
    * @param config job configuration
    */
-  public TableManager(Config config, ClassLoader classLoader) {
+  public TableManager(Config config) {
     new JavaTableConfig(config).getTableIds().forEach(tableId -> {
-        addTable(tableId, config, classLoader);
+        addTable(tableId, config);
         logger.debug("Added table " + tableId);
       });
     logger.info(String.format("Added %d tables", tableContexts.size()));
@@ -85,14 +85,14 @@ public class TableManager {
     initialized = true;
   }
 
-  private void addTable(String tableId, Config config, ClassLoader classLoader) {
+  private void addTable(String tableId, Config config) {
     if (tableContexts.containsKey(tableId)) {
       throw new SamzaException("Table " + tableId + " already exists");
     }
     JavaTableConfig tableConfig = new JavaTableConfig(config);
     String providerFactoryClassName = tableConfig.getTableProviderFactory(tableId);
     TableProviderFactory tableProviderFactory =
-        ReflectionUtil.getObj(classLoader, providerFactoryClassName, TableProviderFactory.class);
+        ReflectionUtil.getObj(providerFactoryClassName, TableProviderFactory.class);
     TableCtx ctx = new TableCtx();
     ctx.tableProvider = tableProviderFactory.getTableProvider(tableId);
     tableContexts.put(tableId, ctx);

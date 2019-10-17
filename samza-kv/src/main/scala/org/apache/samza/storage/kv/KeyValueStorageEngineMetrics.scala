@@ -34,6 +34,7 @@ class KeyValueStorageEngineMetrics(
   val deletes = newCounter("deletes")
   val deleteAlls = newCounter("delete-alls")
   val flushes = newCounter("flushes")
+  val checkpoints = newCounter("checkpoints")
   val alls = newCounter("alls")
   val ranges = newCounter("ranges")
   val snapshots = newCounter("snapshots")
@@ -45,15 +46,16 @@ class KeyValueStorageEngineMetrics(
   val deleteNs = newTimer("delete-ns")
   val deleteAllNs = newTimer("delete-all-ns")
   val flushNs = newTimer("flush-ns")
+  val checkpointNs = newTimer("checkpoint-ns")
   val allNs = newTimer("all-ns")
   val rangeNs = newTimer("range-ns")
   val snapshotNs = newTimer("snapshot-ns")
 
-  val restoredMessages = newCounter("messages-restored") //Deprecated
   val restoredMessagesGauge = newGauge("restored-messages", 0)
+  val trimmedMessagesGauge = newGauge("trimmed-messages", 0)
 
-  val restoredBytes = newCounter("messages-bytes") //Deprecated
   val restoredBytesGauge = newGauge("restored-bytes", 0)
+  val trimmedBytesGauge = newGauge("trimmed-bytes", 0)
 
   override def getPrefix = storeName + "-"
 }

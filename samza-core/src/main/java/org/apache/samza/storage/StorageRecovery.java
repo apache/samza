@@ -20,15 +20,20 @@
 package org.apache.samza.storage;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.SystemConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.ContainerContextImpl;
@@ -41,10 +46,12 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
+import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.CoordinatorStreamUtil;
@@ -132,7 +139,7 @@ public class StorageRecovery extends CommandLine {
       ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamStore);
       JobModelManager jobModelManager =
           JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
-              coordinatorStreamStore, getClass().getClassLoader(), metricsRegistryMap);
+              coordinatorStreamStore, metricsRegistryMap);
       JobModel jobModel = jobModelManager.jobModel();
       containers = jobModel.getContainers();
     } finally {
@@ -161,8 +168,7 @@ public class StorageRecovery extends CommandLine {
 
       Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
       if (factoryClass.isPresent()) {
-        storageEngineFactories.put(storeName,
-            ReflectionUtil.getObj(getClass().getClassLoader(), factoryClass.get(), StorageEngineFactory.class));
+        storageEngineFactories.put(storeName, ReflectionUtil.getObj(factoryClass.get(), StorageEngineFactory.class));
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }
@@ -191,8 +197,8 @@ public class StorageRecovery extends CommandLine {
         .forEach(serdeName -> {
             String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
               .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
-            Serde serde = ReflectionUtil.getObj(getClass().getClassLoader(), serdeClassName, SerdeFactory.class)
-                .getSerde(serdeName, serializerConfig);
+            Serde serde =
+                ReflectionUtil.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });
 
@@ -208,15 +214,25 @@ public class StorageRecovery extends CommandLine {
     Clock clock = SystemClock.instance();
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
-
     Map<String, SystemFactory> systemFactories = new SystemConfig(jobConfig).getSystemFactories();
+    CheckpointManager checkpointManager = new TaskConfig(jobConfig)
+        .getCheckpointManager(new MetricsRegistryMap()).orElse(null);
 
     for (ContainerModel containerModel : containers.values()) {
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
 
+      Set<SystemStreamPartition> changelogSSPs = changeLogSystemStreams.values().stream()
+          .flatMap(ss -> containerModel.getTasks().values().stream()
+              .map(tm -> new SystemStreamPartition(ss, tm.getChangelogPartition())))
+          .collect(Collectors.toSet());
+      SSPMetadataCache sspMetadataCache = new SSPMetadataCache(systemAdmins, Duration.ofMillis(5000), clock, changelogSSPs);
+
       ContainerStorageManager containerStorageManager =
-          new ContainerStorageManager(containerModel,
+          new ContainerStorageManager(
+              checkpointManager,
+              containerModel,
               streamMetadataCache,
+              sspMetadataCache,
               systemAdmins,
               changeLogSystemStreams,
               new HashMap<>(),
@@ -233,8 +249,7 @@ public class StorageRecovery extends CommandLine {
               storeBaseDir,
               maxPartitionNumber,
               null,
-              new SystemClock(),
-              getClass().getClassLoader());
+              new SystemClock());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }

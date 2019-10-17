@@ -42,6 +42,8 @@ public class RocksDbOptionsHelper {
   private static final String ROCKSDB_NUM_WRITE_BUFFERS = "rocksdb.num.write.buffers";
   private static final String ROCKSDB_MAX_LOG_FILE_SIZE_BYTES = "rocksdb.max.log.file.size.bytes";
   private static final String ROCKSDB_KEEP_LOG_FILE_NUM = "rocksdb.keep.log.file.num";
+  private static final String ROCKSDB_DELETE_OBSOLETE_FILES_PERIOD_MICROS = "rocksdb.delete.obsolete.files.period.micros";
+  private static final String ROCKSDB_MAX_MANIFEST_FILE_SIZE = "rocksdb.max.manifest.file.size";
 
   public static Options options(Config storeConfig, int numTasksForContainer, File storeDir, StorageEngineFactory.StoreMode storeMode) {
     Options options = new Options();
@@ -106,11 +108,16 @@ public class RocksDbOptionsHelper {
 
     options.setMaxLogFileSize(storeConfig.getLong(ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, 64 * 1024 * 1024L));
     options.setKeepLogFileNum(storeConfig.getLong(ROCKSDB_KEEP_LOG_FILE_NUM, 2));
-
+    options.setDeleteObsoleteFilesPeriodMicros(storeConfig.getLong(ROCKSDB_DELETE_OBSOLETE_FILES_PERIOD_MICROS, 21600000000L));
+    // The default for rocksdb is 18446744073709551615, which is larger than java Long.MAX_VALUE. Hence setting it only if it's passed.
+    if(storeConfig.containsKey(ROCKSDB_MAX_MANIFEST_FILE_SIZE)) {
+        options.setMaxManifestFileSize(storeConfig.getLong(ROCKSDB_MAX_MANIFEST_FILE_SIZE));
+    }
     // use prepareForBulk load only when i. the store is being requested in BulkLoad mode
     // and ii. the storeDirectory does not exist (fresh restore), because bulk load does not work seamlessly with
     // existing stores : https://github.com/facebook/rocksdb/issues/2734
-    if(storeMode.equals(StorageEngineFactory.StoreMode.BulkLoad) && !StorageManagerUtil.storeExists(storeDir)) {
+    StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
+    if(storeMode.equals(StorageEngineFactory.StoreMode.BulkLoad) && !storageManagerUtil.storeExists(storeDir)) {
       log.info("Using prepareForBulkLoad for restore to " + storeDir);
       options.prepareForBulkLoad();
     }

@@ -25,7 +25,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.sql.planner.SamzaSqlValidator;
+import org.apache.samza.sql.planner.SamzaSqlValidatorException;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.system.TestAvroSystemFactory;
 import org.apache.samza.sql.util.JsonUtil;
@@ -38,7 +41,7 @@ import org.junit.Test;
 
 public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   @Test
-  public void testSinkEndToEndWithKey() {
+  public void testSinkEndToEndWithKey() throws SamzaSqlValidatorException {
     int numMessages = 20;
 
     RemoteStoreIOResolverTestFactory.records.clear();
@@ -48,14 +51,18 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     String sql = "Insert into testRemoteStore.testTable.`$table` select __key__, id, name from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    runApplication(new MapConfig(staticConfigs));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
 
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
 
   @Test
   @Ignore("Disabled due to flakiness related to data generation; Refer Pull Request #905 for details")
-  public void testSinkEndToEndWithKeyWithNullRecords() {
+  public void testSinkEndToEndWithKeyWithNullRecords() throws SamzaSqlValidatorException {
     int numMessages = 20;
 
     RemoteStoreIOResolverTestFactory.records.clear();
@@ -68,13 +75,17 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    runApplication(new MapConfig(staticConfigs));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
 
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
 
   @Test (expected = AssertionError.class)
-  public void testSinkEndToEndWithoutKey() {
+  public void testSinkEndToEndWithoutKey() throws SamzaSqlValidatorException {
     int numMessages = 20;
 
     RemoteStoreIOResolverTestFactory.records.clear();
@@ -83,13 +94,17 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     String sql = "Insert into testRemoteStore.testTable.`$table`(id,name) select id, name from testavro.SIMPLE1";
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    runApplication(new MapConfig(staticConfigs));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
 
     Assert.assertEquals(numMessages, RemoteStoreIOResolverTestFactory.records.size());
   }
 
   @Test
-  public void testSourceEndToEndWithKey() {
+  public void testSourceEndToEndWithKey() throws SamzaSqlValidatorException {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -107,7 +122,11 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    runApplication(new MapConfig(staticConfigs));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
@@ -120,7 +139,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testSourceEndToEndWithKeyAndUdf() {
+  public void testSourceEndToEndWithKeyAndUdf() throws SamzaSqlValidatorException {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -138,7 +157,11 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    runApplication(new MapConfig(staticConfigs));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
@@ -151,7 +174,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testSourceEndToEndWithKeyWithNullForeignKeys() {
+  public void testSourceEndToEndWithKeyWithNullForeignKeys() throws SamzaSqlValidatorException {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -170,7 +193,11 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    runApplication(new MapConfig(staticConfigs));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
@@ -183,7 +210,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testSourceEndToEndWithKeyWithNullForeignKeysRightOuterJoin() {
+  public void testSourceEndToEndWithKeyWithNullForeignKeysRightOuterJoin() throws SamzaSqlValidatorException {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -202,7 +229,11 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    runApplication(new MapConfig(staticConfigs));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
@@ -215,7 +246,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testSameJoinTargetSinkEndToEndRightOuterJoin() {
+  public void testSameJoinTargetSinkEndToEndRightOuterJoin() throws SamzaSqlValidatorException {
     int numMessages = 21;
 
     TestAvroSystemFactory.messages.clear();
@@ -237,9 +268,73 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
-    runApplication(new MapConfig(staticConfigs));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
 
     Assert.assertEquals((numMessages + 1) / 2, RemoteStoreIOResolverTestFactory.records.size());
+  }
+
+  @Test
+  public void testDeleteOpValidation() throws SamzaSqlValidatorException {
+    int numMessages = 1;
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+
+    String sql =
+        "Insert into testRemoteStore.Profile.`$table` "
+            + "select p.__key__ as __key__, 'DELETE' as __op__ "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId ";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+  }
+
+  @Test (expected = SamzaSqlValidatorException.class)
+  public void testUnsupportedOpValidation() throws SamzaSqlValidatorException {
+    int numMessages = 1;
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+
+    String sql =
+        "Insert into testRemoteStore.Profile.`$table` "
+            + "select p.__key__ as __key__, 'UPDATE' as __op__ "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId ";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+  }
+
+  @Test (expected = SamzaSqlValidatorException.class)
+  public void testNonKeyWithDeleteOpValidation() throws SamzaSqlValidatorException {
+    int numMessages = 1;
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+
+    String sql =
+        "Insert into testRemoteStore.Profile.`$table` "
+            + "select p.__key__ as pageKey, 'UPDATE' as __op__ "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId ";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
   }
 
   private void populateProfileTable(Map<String, String> staticConfigs, int numMessages) {

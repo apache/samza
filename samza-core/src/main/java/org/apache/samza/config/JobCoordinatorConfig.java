@@ -62,11 +62,11 @@ public class JobCoordinatorConfig extends MapConfig {
     return coordinationUtilsFactory;
   }
 
-  public CoordinationUtilsFactory getCoordinationUtilsFactory(ClassLoader classLoader) {
+  public CoordinationUtilsFactory getCoordinationUtilsFactory() {
     // load the class
     String coordinationUtilsFactoryClass = getJobCoordinationUtilsFactoryClassName();
 
-    return ReflectionUtil.getObj(classLoader, coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
+    return ReflectionUtil.getObj(coordinationUtilsFactoryClass, CoordinationUtilsFactory.class);
   }
 
   public String getJobCoordinatorFactoryClassName() {

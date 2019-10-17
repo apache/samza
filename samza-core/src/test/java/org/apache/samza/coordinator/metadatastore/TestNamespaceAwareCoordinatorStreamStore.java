@@ -63,6 +63,29 @@ public class TestNamespaceAwareCoordinatorStreamStore {
   }
 
   @Test
+  public void testPutAllShouldDelegateTheInvocationToUnderlyingStore() {
+    byte[] value = RandomStringUtils.randomAlphabetic(5).getBytes(StandardCharsets.UTF_8);
+    ImmutableMap<String, byte[]> map = ImmutableMap.of(
+        "key1", value,
+        "key2", value,
+        "key3", value,
+        "key4", value,
+        "key5", value);
+    ImmutableMap<String, byte[]> namespacedMap = ImmutableMap.of(
+        CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(namespace, "key1"), value,
+        CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(namespace, "key2"), value,
+        CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(namespace, "key3"), value,
+        CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(namespace, "key4"), value,
+        CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(namespace, "key5"), value);
+
+    Mockito.doNothing().when(coordinatorStreamStore).putAll(namespacedMap);
+
+    namespaceAwareCoordinatorStreamStore.putAll(map);
+
+    Mockito.verify(coordinatorStreamStore).putAll(namespacedMap);
+  }
+
+  @Test
   public void testDeleteShouldDelegateTheInvocationToUnderlyingStore() {
     String namespacedKey = CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(namespace, KEY1);
 

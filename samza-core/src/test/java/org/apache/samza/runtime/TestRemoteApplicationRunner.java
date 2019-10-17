@@ -78,17 +78,17 @@ public class TestRemoteApplicationRunner {
   @Test
   public void testGetStatus() {
     Map m = new HashMap<String, String>();
-    m.put(JobConfig.JOB_NAME(), "jobName");
-    m.put(JobConfig.STREAM_JOB_FACTORY_CLASS(), MockStreamJobFactory.class.getName());
+    m.put(JobConfig.JOB_NAME, "jobName");
+    m.put(JobConfig.STREAM_JOB_FACTORY_CLASS, MockStreamJobFactory.class.getName());
 
-    m.put(JobConfig.JOB_ID(), "newJob");
+    m.put(JobConfig.JOB_ID, "newJob");
 
     StreamApplication userApp = appDesc -> { };
     runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
 
     Assert.assertEquals(ApplicationStatus.New, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
 
-    m.put(JobConfig.JOB_ID(), "runningJob");
+    m.put(JobConfig.JOB_ID, "runningJob");
     runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
     Assert.assertEquals(ApplicationStatus.Running, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
   }

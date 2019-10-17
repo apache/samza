@@ -19,9 +19,13 @@
 
 package org.apache.samza.storage.kv;
 
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.apache.samza.annotation.InterfaceStability;
+
 
 /**
  * A key-value store that supports put, get, delete, and range queries.
@@ -141,4 +145,11 @@ public interface KeyValueStore<K, V> {
    * Flushes this key-value store, if applicable.
    */
   void flush();
+
+  /**
+   * Create a persistent checkpoint / snapshot of the current store state and return it's path.
+   * @return the path of the persistent store checkpoint, or an empty optional if checkpoints are not supported.
+   */
+  @InterfaceStability.Evolving
+  Optional<Path> checkpoint(String id);
 }

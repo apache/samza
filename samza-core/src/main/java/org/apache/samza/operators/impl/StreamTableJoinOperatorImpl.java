@@ -74,10 +74,9 @@ class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M
   }
 
   private Collection<JM> getJoinOutput(K key, Object value, M message) {
-    JM output = Optional.ofNullable(value)
-        .map(val -> (R) KV.of(key, val))
-        .map(record -> joinOpSpec.getJoinFn().apply(message, record))
-        .orElseGet(() -> joinOpSpec.getJoinFn().apply(message, null));
+    R record = value == null ? null : (R) KV.of(key, value);
+
+    JM output = joinOpSpec.getJoinFn().apply(message, record);
 
     // The support for inner and outer join will be provided in the jonFn. For inner join, the joinFn might
     // return null, when the corresponding record is absent in the table.

@@ -59,6 +59,7 @@ public class KafkaConsumerProxy<K, V> {
 
   private final Thread consumerPollThread;
   private final Consumer<K, V> kafkaConsumer;
+  private final KafkaSystemConsumer kafkaSystemConsumer;
   private final KafkaSystemConsumer.KafkaConsumerMessageSink sink;
   private final KafkaSystemConsumerMetrics kafkaConsumerMetrics;
   private final String metricName;
@@ -75,10 +76,11 @@ public class KafkaConsumerProxy<K, V> {
   private volatile Throwable failureCause = null;
   private final CountDownLatch consumerPollThreadStartLatch = new CountDownLatch(1);
 
-  public KafkaConsumerProxy(Consumer<K, V> kafkaConsumer, String systemName, String clientId,
+  public KafkaConsumerProxy(KafkaSystemConsumer kafkaSystemConsumer, Consumer<K, V> kafkaConsumer, String systemName, String clientId,
       KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink, KafkaSystemConsumerMetrics samzaConsumerMetrics,
       String metricName) {
 
+    this.kafkaSystemConsumer = kafkaSystemConsumer;
     this.kafkaConsumer = kafkaConsumer;
     this.systemName = systemName;
     this.sink = messageSink;
@@ -99,6 +101,8 @@ public class KafkaConsumerProxy<K, V> {
   /**
    * Add new partition to the list of polled partitions.
    * Bust only be called before {@link KafkaConsumerProxy#start} is called..
+   * @param ssp - SystemStreamPartition to add
+   * @param nextOffset - add partition with this starting offset
    */
   public void addTopicPartition(SystemStreamPartition ssp, long nextOffset) {
     LOG.info(String.format("Adding new topicPartition %s with offset %s to queue for consumer %s", ssp, nextOffset,
@@ -202,6 +206,7 @@ public class KafkaConsumerProxy<K, V> {
         // KafkaSystemConsumer uses the failureCause to propagate the throwable to the container
         failureCause = throwable;
         isRunning = false;
+        kafkaSystemConsumer.setFailureCause(this.failureCause);
       }
 
       if (!isRunning) {
@@ -339,6 +344,8 @@ public class KafkaConsumerProxy<K, V> {
 
   /**
    * Protected to help extensions of this class build {@link IncomingMessageEnvelope}s.
+   * @param r consumer record to size
+   * @return the size of the serialized record
    */
   protected int getRecordSize(ConsumerRecord<K, V> r) {
     int keySize = (r.key() == null) ? 0 : r.serializedKeySize();
@@ -397,7 +404,9 @@ public class KafkaConsumerProxy<K, V> {
         // These are required by the KafkaConsumer to get the metrics
         HashMap<String, String> tags = new HashMap<>();
         tags.put("client-id", clientId);
-        tags.put("topic", tp.topic());
+        // kafka replaces '.' with underscore '_' in many/all of their metrics tags for topic names.
+        // see https://github.com/apache/kafka/commit/5d81639907869ce7355c40d2bac176a655e52074#diff-b45245913eaae46aa847d2615d62cde0R1331
+        tags.put("topic", tp.topic().replace('.', '_'));
         tags.put("partition", Integer.toString(tp.partition()));
 
         perPartitionMetrics.put(ssp, new MetricName("records-lag", "consumer-fetch-manager-metrics", "", tags));
@@ -460,9 +469,9 @@ public class KafkaConsumerProxy<K, V> {
       this.kafkaSystemConsumerMetrics = kafkaSystemConsumerMetrics;
     }
 
-    public KafkaConsumerProxy<K, V> create(KafkaSystemConsumer<K, V>.KafkaConsumerMessageSink messageSink) {
+    public KafkaConsumerProxy<K, V> create(KafkaSystemConsumer<K, V> kafkaSystemConsumer) {
       String metricName = String.format("%s-%s", systemName, clientId);
-      return new KafkaConsumerProxy<>(this.kafkaConsumer, this.systemName, this.clientId, messageSink,
+      return new KafkaConsumerProxy<>(kafkaSystemConsumer, this.kafkaConsumer, this.systemName, this.clientId, kafkaSystemConsumer.getMessageSink(),
           this.kafkaSystemConsumerMetrics, metricName);
     }
   }

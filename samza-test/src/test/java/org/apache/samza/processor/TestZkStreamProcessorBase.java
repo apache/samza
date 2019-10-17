@@ -45,6 +45,7 @@ import org.apache.samza.config.ZkConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -63,6 +64,7 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.Assert;
 import org.junit.Before;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -131,9 +133,8 @@ public class TestZkStreamProcessorBase extends IntegrationTestHarness {
     map.put(ApplicationConfig.PROCESSOR_ID, pId);
     Config config = new MapConfig(map);
     String jobCoordinatorFactoryClassName = new JobCoordinatorConfig(config).getJobCoordinatorFactoryClassName();
-    JobCoordinator jobCoordinator =
-        ReflectionUtil.getObj(getClass().getClassLoader(), jobCoordinatorFactoryClassName, JobCoordinatorFactory.class)
-            .getJobCoordinator(pId, config, new MetricsRegistryMap());
+    JobCoordinator jobCoordinator = ReflectionUtil.getObj(jobCoordinatorFactoryClassName, JobCoordinatorFactory.class)
+        .getJobCoordinator(pId, config, new MetricsRegistryMap(), Mockito.mock(CoordinatorStreamStore.class));
 
     ProcessorLifecycleListener listener = new ProcessorLifecycleListener() {
       @Override
@@ -198,7 +199,7 @@ public class TestZkStreamProcessorBase extends IntegrationTestHarness {
 
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.zk.ZkJobCoordinatorFactory");
     configs.put(TaskConfig.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS);
-    configs.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS);
+    configs.put(JobConfig.JOB_DEBOUNCE_TIME_MS, JOB_DEBOUNCE_TIME_MS);
     configs.put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS);
     configs.put(ZkConfig.ZK_SESSION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS);
     configs.put(ZkConfig.ZK_CONNECTION_TIMEOUT_MS, ZK_CONNECTION_TIMEOUT_MS);

@@ -191,14 +191,12 @@ public abstract class OperatorImpl<M, RM> {
             .toArray(CompletableFuture[]::new));
       });
 
-    result.thenAccept(x -> {
-        WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
-        if (watermarkFn != null) {
-          // check whether there is new watermark emitted from the user function
-          Long outputWm = watermarkFn.getOutputWatermark();
-          propagateWatermark(outputWm, collector, coordinator);
-        }
-      });
+    WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
+    if (watermarkFn != null) {
+      // check whether there is new watermark emitted from the user function
+      Long outputWm = watermarkFn.getOutputWatermark();
+      return result.thenCompose(ignored -> propagateWatermark(outputWm, collector, coordinator));
+    }
 
     return result;
   }
@@ -415,7 +413,7 @@ public abstract class OperatorImpl<M, RM> {
                 .toArray(CompletableFuture[]::new));
       }
 
-      watermarkFuture.thenCompose(res -> propagateWatermark(outputWm, collector, coordinator));
+      watermarkFuture = watermarkFuture.thenCompose(res -> propagateWatermark(outputWm, collector, coordinator));
     }
 
     return watermarkFuture;

@@ -40,8 +40,7 @@ public class SystemConfig extends MapConfig {
 
   private static final String SYSTEM_FACTORY_SUFFIX = ".samza.factory";
   public static final String SYSTEM_FACTORY_FORMAT = SYSTEMS_PREFIX + "%s" + SYSTEM_FACTORY_SUFFIX;
-  @VisibleForTesting
-  static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_ID_PREFIX + "default.stream.";
+  public static final String SYSTEM_DEFAULT_STREAMS_PREFIX_FORMAT = SYSTEM_ID_PREFIX + "default.stream.";
 
   // If true, automatically delete committed messages from streams whose committed messages can be deleted.
   // A stream's committed messages can be deleted if it is a intermediate stream, or if user has manually
@@ -161,7 +160,7 @@ public class SystemConfig extends MapConfig {
    * @return the key serde for the {@code systemName}, or empty if it was not found
    */
   public Optional<String> getSystemKeySerde(String systemName) {
-    return getSystemDefaultStreamProperty(systemName, StreamConfig.KEY_SERDE());
+    return getSystemDefaultStreamProperty(systemName, StreamConfig.KEY_SERDE);
   }
 
   /**
@@ -169,7 +168,7 @@ public class SystemConfig extends MapConfig {
    * @return the message serde for the {@code systemName}, or empty if it was not found
    */
   public Optional<String> getSystemMsgSerde(String systemName) {
-    return getSystemDefaultStreamProperty(systemName, StreamConfig.MSG_SERDE());
+    return getSystemDefaultStreamProperty(systemName, StreamConfig.MSG_SERDE);
   }
 
   /**

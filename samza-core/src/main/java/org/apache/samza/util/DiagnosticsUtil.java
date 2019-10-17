@@ -59,9 +59,9 @@ public class DiagnosticsUtil {
   public static void writeMetadataFile(String jobName, String jobId, String containerId,
       Optional<String> execEnvContainerId, Config config) {
 
-    Option<File> metadataFile = JobConfig.getMetadataFile(Option.apply(execEnvContainerId.orElse(null)));
+    Optional<File> metadataFile = JobConfig.getMetadataFile(execEnvContainerId.orElse(null));
 
-    if (metadataFile.isDefined()) {
+    if (metadataFile.isPresent()) {
       MetricsHeader metricsHeader =
           new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""),
               LocalContainerRunner.class.getName(), Util.getTaskClassVersion(config), Util.getSamzaVersion(),
@@ -80,7 +80,7 @@ public class DiagnosticsUtil {
       MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
       MetadataFileContents metadataFileContents =
           new MetadataFileContents("1", new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
-      FileUtil.writeToTextFile(metadataFile.get(), new String(new JsonSerde<>().toBytes(metadataFileContents)), false);
+      new FileUtil().writeToTextFile(metadataFile.get(), new String(new JsonSerde<>().toBytes(metadataFileContents)), false);
     } else {
       log.info("Skipping writing metadata file.");
     }
@@ -94,13 +94,16 @@ public class DiagnosticsUtil {
   public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName,
       String jobId, JobModel jobModel, String containerId, Optional<String> execEnvContainerId, Config config) {
 
+    JobConfig jobConfig = new JobConfig(config);
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
 
-    if (new JobConfig(config).getDiagnosticsEnabled()) {
+    if (jobConfig.getDiagnosticsEnabled()) {
 
       ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
       int containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
       int containerNumCores = clusterManagerConfig.getNumCores();
+      long maxHeapSizeBytes = Runtime.getRuntime().maxMemory();
+      int containerThreadPoolSize = jobConfig.getThreadPoolSize();
 
       // Diagnostic stream, producer, and reporter related parameters
       String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS;
@@ -129,7 +132,7 @@ public class DiagnosticsUtil {
           systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
       DiagnosticsManager diagnosticsManager =
           new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
-              new StorageConfig(config).getNumStoresWithChangelog(), containerId, execEnvContainerId.orElse(""),
+              new StorageConfig(config).getNumPersistentStores(), maxHeapSizeBytes, containerThreadPoolSize, containerId, execEnvContainerId.orElse(""),
               taskClassVersion, samzaVersion, hostName, diagnosticsSystemStream, systemProducer,
               Duration.ofMillis(new TaskConfig(config).getShutdownMs()));
 

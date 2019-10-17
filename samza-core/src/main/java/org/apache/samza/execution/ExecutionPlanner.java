@@ -128,8 +128,8 @@ public class ExecutionPlanner {
 
     // Generate job.id and job.name configs from app.id and app.name if defined
     MapConfig generatedJobConfigs = JobPlanner.generateSingleJobConfig(config);
-    String jobName = generatedJobConfigs.get(JobConfig.JOB_NAME());
-    String jobId = generatedJobConfigs.get(JobConfig.JOB_ID(), "1");
+    String jobName = generatedJobConfigs.get(JobConfig.JOB_NAME);
+    String jobId = generatedJobConfigs.get(JobConfig.JOB_ID, "1");
 
     // For this phase, we have a single job node for the whole DAG
     JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId);

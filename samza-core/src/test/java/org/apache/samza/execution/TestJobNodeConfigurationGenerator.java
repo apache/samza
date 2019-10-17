@@ -223,8 +223,8 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
   public void testConfigRewriter() {
     Map<String, String> configs = new HashMap<>(mockConfig);
     String streamCfgToOverride = String.format("streams.%s.samza.system", intermediateInputDescriptor.getStreamId());
-    configs.put(String.format(JobConfig.CONFIG_REWRITER_CLASS(), "mock"), MockConfigRewriter.class.getName());
-    configs.put(JobConfig.CONFIG_REWRITERS(), "mock");
+    configs.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, "mock"), MockConfigRewriter.class.getName());
+    configs.put(JobConfig.CONFIG_REWRITERS, "mock");
     configs.put(String.format("job.config.rewriter.mock.%s", streamCfgToOverride), "rewritten-system");
     mockConfig = spy(new MapConfig(configs));
     mockStreamAppDesc = new StreamApplicationDescriptorImpl(getRepartitionJoinStreamApplication(), mockConfig);
@@ -295,8 +295,8 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
   }
 
   private void validateJobConfig(Config expectedConfig, JobConfig jobConfig) {
-    assertEquals(expectedConfig.get(JobConfig.JOB_NAME()), jobConfig.getName().get());
-    assertEquals(expectedConfig.get(JobConfig.JOB_ID()), jobConfig.getJobId());
+    assertEquals(expectedConfig.get(JobConfig.JOB_NAME), jobConfig.getName().get());
+    assertEquals(expectedConfig.get(JobConfig.JOB_ID), jobConfig.getJobId());
     assertEquals("testJobGraphJson", jobConfig.get(JobNodeConfigurationGenerator.CONFIG_INTERNAL_EXECUTION_PLAN));
     assertEquals(expectedConfig.get(TaskConfig.INPUT_STREAMS), jobConfig.get(TaskConfig.INPUT_STREAMS));
     assertEquals(expectedConfig.get(TaskConfig.BROADCAST_INPUT_STREAMS), jobConfig.get(TaskConfig.BROADCAST_INPUT_STREAMS));

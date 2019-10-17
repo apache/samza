@@ -27,6 +27,7 @@ import java.util.*;
 import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
@@ -125,7 +126,7 @@ public class TestJobModelManager {
     Map<String, LocationId> containerLocality = ImmutableMap.of("0", new LocationId("abc-affinity"));
     this.jobModelManager =
         JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server,
-            mockLocalityManager, containerLocality, getClass().getClassLoader());
+            mockLocalityManager, containerLocality);
 
     assertEquals(jobModelManager.jobModel().getAllContainerLocality(), ImmutableMap.of("0", "abc-affinity"));
   }
@@ -159,7 +160,7 @@ public class TestJobModelManager {
 
     this.jobModelManager =
         JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server,
-            mockLocalityManager, containerLocality, getClass().getClassLoader());
+            mockLocalityManager, containerLocality);
 
     assertEquals(jobModelManager.jobModel().getAllContainerLocality(), Collections.singletonMap("0", null));
   }
@@ -197,7 +198,7 @@ public class TestJobModelManager {
     Mockito.verify(mockLocalityManager).readContainerLocality();
     Mockito.verify(mockTaskAssignmentManager).readTaskAssignment();
 
-    Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity"), "1", new LocationId("ANY_HOST")), grouperMetadata.getProcessorLocality());
+    Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity")), grouperMetadata.getProcessorLocality());
     Assert.assertEquals(ImmutableMap.of(new TaskName("task-0"), new LocationId("abc-affinity")), grouperMetadata.getTaskLocality());
 
     Map<TaskName, List<SystemStreamPartition>> expectedTaskToSSPAssignments = ImmutableMap.of(new TaskName("task-0"), ImmutableList.of(testSystemStreamPartition1),
@@ -208,20 +209,42 @@ public class TestJobModelManager {
   }
 
   @Test
-  public void testGetProcessorLocality() {
-    // Mock the dependencies.
-    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+  public void testGetProcessorLocalityAllEntriesExisting() {
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_CONTAINER_COUNT, "2"));
 
     Map<String, Map<String, String>> localityMappings = new HashMap<>();
-    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
-
-    // Mock the container locality assignment.
+    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "0-affinity"));
+    localityMappings.put("1", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "1-affinity"));
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
 
-    Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(new MapConfig(), mockLocalityManager);
+    Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(config, mockLocalityManager);
 
     Mockito.verify(mockLocalityManager).readContainerLocality();
-    Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity"), "1", new LocationId("ANY_HOST")), processorLocality);
+    ImmutableMap<String, LocationId> expected =
+        ImmutableMap.of("0", new LocationId("0-affinity"), "1", new LocationId("1-affinity"));
+    Assert.assertEquals(expected, processorLocality);
+  }
+
+  @Test
+  public void testGetProcessorLocalityNewContainer() {
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_CONTAINER_COUNT, "2"));
+
+    Map<String, Map<String, String>> localityMappings = new HashMap<>();
+    // 2 containers, but only return 1 existing mapping
+    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+    when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
+
+    Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(config, mockLocalityManager);
+
+    Mockito.verify(mockLocalityManager).readContainerLocality();
+    ImmutableMap<String, LocationId> expected = ImmutableMap.of(
+        // found entry in existing locality
+        "0", new LocationId("abc-affinity"),
+        // no entry in existing locality
+        "1", new LocationId("ANY_HOST"));
+    Assert.assertEquals(expected, processorLocality);
   }
 
   @Test

@@ -102,17 +102,17 @@ class TestKafkaConfig {
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("max.message.bytes"), "1024000")
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test3").getProperty("cleanup.policy"), "compact")
     val storeToChangelog = kafkaConfig.getKafkaChangelogEnabledStores()
-    assertEquals("mychangelog1", storeToChangelog.get("test1").getOrElse(""))
-    assertEquals("mychangelog2", storeToChangelog.get("test2").getOrElse(""))
-    assertEquals("otherstream", storeToChangelog.get("test3").getOrElse(""))
+    assertEquals("mychangelog1", storeToChangelog.getOrDefault("test1", ""))
+    assertEquals("mychangelog2", storeToChangelog.getOrDefault("test2", ""))
+    assertEquals("otherstream", storeToChangelog.getOrDefault("test3", ""))
     assertNull(kafkaConfig.getChangelogKafkaProperties("test1").getProperty("retention.ms"))
     assertNull(kafkaConfig.getChangelogKafkaProperties("test2").getProperty("retention.ms"))
 
     props.setProperty("systems." + SYSTEM_NAME + ".samza.factory", "org.apache.samza.system.kafka.SomeOtherFactory")
     val storeToChangelog1 = kafkaConfig.getKafkaChangelogEnabledStores()
-    assertEquals("mychangelog1", storeToChangelog1.get("test1").getOrElse(""))
-    assertEquals("mychangelog2", storeToChangelog1.get("test2").getOrElse(""))
-    assertEquals("otherstream", storeToChangelog1.get("test3").getOrElse(""))
+    assertEquals("mychangelog1", storeToChangelog1.getOrDefault("test1", ""))
+    assertEquals("mychangelog2", storeToChangelog1.getOrDefault("test2", ""))
+    assertEquals("otherstream", storeToChangelog1.getOrDefault("test3", ""))
 
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test4").getProperty("cleanup.policy"), "delete")
     assertEquals(kafkaConfig.getChangelogKafkaProperties("test4").getProperty("retention.ms"), "3600")
@@ -212,15 +212,25 @@ class TestKafkaConfig {
   }
 
   @Test
+  def testGetSystemDefaultReplicationFactor(): Unit = {
+    assertEquals(KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR, new KafkaConfig(new MapConfig()).getSystemDefaultReplicationFactor("kafka-system",KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR))
+
+    props.setProperty("systems.kafka-system.default.stream.replication.factor", "8")
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    assertEquals("8", kafkaConfig.getSystemDefaultReplicationFactor("kafka-system","2"))
+  }
+
+  @Test
   def testChangeLogReplicationFactor() {
     props.setProperty("stores.store-with-override.changelog", "kafka-system.changelog-topic")
     props.setProperty("stores.store-with-override.changelog.replication.factor", "3")
+    props.setProperty("stores.default.changelog.replication.factor", "2")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("3", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
     assertEquals("2", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
-    assertEquals("2", kafkaConfig.getDefaultChangelogStreamReplicationFactor)
   }
 
   @Test
@@ -231,11 +241,11 @@ class TestKafkaConfig {
     // Override the "default" default value
     props.setProperty("stores.default.changelog.replication.factor", "5")
 
+
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("4", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
     assertEquals("5", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
-    assertEquals("5", kafkaConfig.getDefaultChangelogStreamReplicationFactor)
   }
 
   @Test
@@ -243,12 +253,12 @@ class TestKafkaConfig {
     props.setProperty(StorageConfig.CHANGELOG_SYSTEM, "kafka-system")
     props.setProperty("systems.kafka-system.default.stream.replication.factor", "8")
     props.setProperty("stores.store-with-override.changelog.replication.factor", "4")
+    props.setProperty("stores.store-without-override.changelog", "change-for-store-without-override")
 
     val mapConfig = new MapConfig(props.asScala.asJava)
     val kafkaConfig = new KafkaConfig(mapConfig)
     assertEquals("4", kafkaConfig.getChangelogStreamReplicationFactor("store-with-override"))
     assertEquals("8", kafkaConfig.getChangelogStreamReplicationFactor("store-without-override"))
-    assertEquals("8", kafkaConfig.getDefaultChangelogStreamReplicationFactor)
   }
 
   @Test

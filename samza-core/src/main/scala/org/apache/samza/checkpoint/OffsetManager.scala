@@ -25,8 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
-import org.apache.samza.config.StreamConfig.Config2Stream
-import org.apache.samza.config.{Config, SystemConfig}
+import org.apache.samza.config.{Config, StreamConfig, SystemConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.startpoint.{Startpoint, StartpointManager}
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
@@ -80,13 +79,15 @@ object OffsetManager extends Logging {
     offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) = {
     debug("Building offset manager for %s." format systemStreamMetadata)
 
+    val streamConfig = new StreamConfig(config)
+
     val offsetSettings = systemStreamMetadata
       .map {
         case (systemStream, systemStreamMetadata) =>
           // Get default offset.
-          val streamDefaultOffset = config.getDefaultStreamOffset(systemStream)
+          val streamDefaultOffset = streamConfig.getDefaultStreamOffset(systemStream)
           val systemDefaultOffset = new SystemConfig(config).getSystemOffsetDefault(systemStream.getSystem)
-          val defaultOffsetType = if (streamDefaultOffset.isDefined) {
+          val defaultOffsetType = if (streamDefaultOffset.isPresent) {
             OffsetType.valueOf(streamDefaultOffset.get.toUpperCase)
           } else if (systemDefaultOffset != null) {
             OffsetType.valueOf(systemDefaultOffset.toUpperCase)
@@ -97,7 +98,7 @@ object OffsetManager extends Logging {
           debug("Using default offset %s for %s." format (defaultOffsetType, systemStream))
 
           // Get reset offset.
-          val resetOffset = config.getResetOffset(systemStream)
+          val resetOffset = streamConfig.getResetOffset(systemStream)
           debug("Using reset offset %s for %s." format (resetOffset, systemStream))
 
           // Build OffsetSetting so we can create a map for OffsetManager.
@@ -342,7 +343,12 @@ class OffsetManager(
         val sspToOffsets = checkpoint.getOffsets
         if(sspToOffsets != null) {
           sspToOffsets.asScala.foreach {
-            case (ssp, cp) => offsetManagerMetrics.checkpointedOffsets.get(ssp).set(cp)
+            case (ssp, cp) => {
+              val metric = offsetManagerMetrics.checkpointedOffsets.get(ssp)
+              // metric will be null for changelog SSPs since they're not registered with / tracked by the
+              // OffsetManager. Ignore such SSPs.
+              if (metric != null) metric.set(cp)
+            }
           }
         }
       }

@@ -107,17 +107,17 @@ public class TestRunner {
     this.configs = new HashMap<>();
     this.inMemoryScope = RandomStringUtils.random(10, true, true);
     configs.put(ApplicationConfig.APP_NAME, APP_NAME);
-    configs.put(JobConfig.PROCESSOR_ID(), "1");
+    configs.put(JobConfig.PROCESSOR_ID, "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
-    configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY(), InMemoryMetadataStoreFactory.class.getCanonicalName());
+    configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY, InMemoryMetadataStoreFactory.class.getCanonicalName());
     configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
     // Changing the base directory for non-changelog stores used by Samza application to separate the
     // on-disk store locations for concurrently executing tests
-    configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR(),
+    configs.put(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR,
         new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-non-logged").getAbsolutePath());
-    configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR(),
+    configs.put(JobConfig.JOB_LOGGED_STORE_BASE_DIR,
         new File(System.getProperty("java.io.tmpdir"), this.inMemoryScope + "-logged").getAbsolutePath());
-    addConfig(JobConfig.JOB_DEFAULT_SYSTEM(), JOB_DEFAULT_SYSTEM);
+    addConfig(JobConfig.JOB_DEFAULT_SYSTEM, JOB_DEFAULT_SYSTEM);
     // Disabling host affinity since it requires reading locality information from a Kafka coordinator stream
     addConfig(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED, Boolean.FALSE.toString());
     addConfig(InMemorySystemConfig.INMEMORY_SCOPE, inMemoryScope);
@@ -283,7 +283,7 @@ public class TestRunner {
     // Cleaning store directories to ensure current run does not pick up state from previous run
     deleteStoreDirectories();
     Config config = new MapConfig(JobPlanner.generateSingleJobConfig(configs));
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config, new InMemoryMetadataStoreFactory());
     runner.run(externalContext);
     if (!runner.waitForFinish(timeout)) {
       throw new SamzaException("Timed out waiting for application to finish");
@@ -339,10 +339,10 @@ public class TestRunner {
         SystemStreamPartition ssp = entry.getKey();
         output.computeIfAbsent(ssp, k -> new LinkedList<IncomingMessageEnvelope>());
         List<IncomingMessageEnvelope> currentBuffer = entry.getValue();
-        Integer totalMessagesToFetch = Integer.valueOf(metadata.get(outputDescriptor.getStreamId())
+        int totalMessagesToFetch = Integer.valueOf(metadata.get(outputDescriptor.getStreamId())
             .getSystemStreamPartitionMetadata()
             .get(ssp.getPartition())
-            .getNewestOffset());
+            .getUpcomingOffset());
         if (output.get(ssp).size() + currentBuffer.size() == totalMessagesToFetch) {
           didNotReachEndOfStream.remove(entry.getKey());
           ssps.remove(entry.getKey());
@@ -410,16 +410,16 @@ public class TestRunner {
   }
 
   private void deleteStoreDirectories() {
-    Preconditions.checkNotNull(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR()));
-    Preconditions.checkNotNull(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
-    deleteDirectory(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR()));
-    deleteDirectory(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR()));
+    Preconditions.checkNotNull(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR));
+    Preconditions.checkNotNull(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR));
+    deleteDirectory(configs.get(JobConfig.JOB_NON_LOGGED_STORE_BASE_DIR));
+    deleteDirectory(configs.get(JobConfig.JOB_LOGGED_STORE_BASE_DIR));
   }
 
   private void deleteDirectory(String path) {
     File dir = new File(path);
     LOG.info("Deleting the directory " + path);
-    FileUtil.rm(dir);
+    new FileUtil().rm(dir);
     if (dir.exists()) {
       LOG.warn("Could not delete the directory " + path);
     }
@@ -431,9 +431,9 @@ public class TestRunner {
    * over {@link org.apache.samza.application.descriptors.ApplicationDescriptor} generated configs
    */
   private void addSerdeConfigs(StreamDescriptor descriptor) {
-    String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), descriptor.getStreamId());
-    String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
-    String msgSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+    String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, descriptor.getStreamId());
+    String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE;
+    String msgSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE;
     this.configs.put(keySerdeConfigKey, null);
     this.configs.put(msgSerdeConfigKey, null);
   }

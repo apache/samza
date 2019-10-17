@@ -77,7 +77,7 @@ public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGr
       throw new ConfigException("The job configured with AllSspToSingleTaskGrouper cannot have broadcast streams.");
     }
 
-    String processors = config.get(JobConfig.PROCESSOR_LIST());
+    String processors = config.get(JobConfig.PROCESSOR_LIST);
     List<String> processorList = Arrays.asList(processors.split(","));
     if (processorList.isEmpty()) {
       throw new SamzaException("processor list cannot be empty!");

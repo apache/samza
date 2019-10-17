@@ -23,15 +23,12 @@ package org.apache.samza.container
 import java.util.{Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
-import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.OffsetManager
-import org.apache.samza.config.Config
-import org.apache.samza.config.StreamConfig.Config2Stream
+import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
+import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
-import org.apache.samza.startpoint.Startpoint
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
@@ -57,13 +54,13 @@ class TaskInstance(
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
   jobModel: JobModel = null,
   streamMetadataCache: StreamMetadataCache = null,
+  inputStreamMetadata: Map[SystemStream, SystemStreamMetadata] = Map(),
   timerExecutor : ScheduledExecutorService = null,
   jobContext: JobContext,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
   applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-  externalContextOption: Option[ExternalContext]
-) extends Logging {
+  externalContextOption: Option[ExternalContext]) extends Logging {
 
   val taskName: TaskName = taskModel.getTaskName
   val isInitableTask = task.isInstanceOf[InitableTask]
@@ -101,9 +98,10 @@ class TaskInstance(
 
   private val config: Config = jobContext.getConfig
 
-  val intermediateStreams: Set[String] = config.getStreamIds.filter(config.getIsIntermediateStream).toSet
+  val streamConfig: StreamConfig = new StreamConfig(config)
+  val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
 
-  val streamsToDeleteCommittedMessages: Set[String] = config.getStreamIds.filter(config.getDeleteCommittedMessages).map(config.getPhysicalName).toSet
+  val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
 
   def registerOffsets {
     debug("Registering offsets for taskName: %s" format taskName)
@@ -122,6 +120,13 @@ class TaskInstance(
 
   def initTask {
     initCaughtUpMapping()
+
+    val taskConfig = new TaskConfig(config)
+    if (taskConfig.getTransactionalStateRestoreEnabled() && taskConfig.getCommitMs > 0) {
+      // Commit immediately so the trimmed changelog messages
+      // will be sealed in a checkpoint
+      commit
+    }
 
     if (isInitableTask) {
       debug("Initializing task for taskName: %s" format taskName)
@@ -228,26 +233,50 @@ class TaskInstance(
   def commit {
     metrics.commits.inc
 
-    val checkpoint = offsetManager.buildCheckpoint(taskName)
+    val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
+    val inputCheckpoint = offsetManager.buildCheckpoint(taskName)
+    if (inputCheckpoint != null) {
+      trace("Got input offsets for taskName: %s as: %s" format(taskName, inputCheckpoint.getOffsets))
+      allCheckpointOffsets.putAll(inputCheckpoint.getOffsets)
+    }
 
     trace("Flushing producers for taskName: %s" format taskName)
     collector.flush
 
-    trace("Flushing state stores for taskName: %s" format taskName)
-    if (storageManager != null) {
-      storageManager.flush
-    }
-
-    trace("Flushing tables for taskName: %s" format taskName)
     if (tableManager != null) {
-      tableManager.flush
+      trace("Flushing tables for taskName: %s" format taskName)
+      tableManager.flush()
     }
 
-    trace("Checkpointing offsets for taskName: %s" format taskName)
+    var newestChangelogOffsets: Map[SystemStreamPartition, Option[String]] = null
+    if (storageManager != null) {
+      trace("Flushing state stores for taskName: %s" format taskName)
+      newestChangelogOffsets = storageManager.flush()
+      trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestChangelogOffsets))
+      newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
+        allCheckpointOffsets.put(ssp, newestOffsetOption.orNull)
+      }
+    }
+
+    val checkpoint = new Checkpoint(allCheckpointOffsets)
+    trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
+
+    var checkpointId: String = null
+    if (storageManager != null && newestChangelogOffsets != null) {
+      trace("Checkpointing stores for taskName: %s" format taskName)
+      checkpointId = storageManager.checkpoint(newestChangelogOffsets.toMap)
+    }
+
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
-    if (checkpoint != null) {
-      checkpoint.getOffsets.asScala
+    if (storageManager != null && checkpointId != null) {
+      trace("Remove old checkpoint stores for taskName: %s" format taskName)
+      storageManager.removeOldCheckpoints(checkpointId)
+    }
+
+    if (inputCheckpoint != null) {
+      trace("Deleting committed input offsets for taskName: %s" format taskName)
+      inputCheckpoint.getOffsets.asScala
         .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
         .groupBy { case (ssp, _) => ssp.getSystem }
         .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>
@@ -326,22 +355,22 @@ class TaskInstance(
     * Check each partition assigned to the task is caught to the last offset
     */
   def initCaughtUpMapping() {
-    if (taskContext.getStreamMetadataCache != null) {
+    if (inputStreamMetadata != null && inputStreamMetadata.nonEmpty) {
       systemStreamPartitions.foreach(ssp => {
-        val partitionMetadata = taskContext
-          .getStreamMetadataCache
-          .getSystemStreamMetadata(ssp.getSystemStream, false)
-          .getSystemStreamPartitionMetadata.get(ssp.getPartition)
+        if (inputStreamMetadata.contains(ssp.getSystemStream)) {
+          val partitionMetadata = inputStreamMetadata(ssp.getSystemStream)
+            .getSystemStreamPartitionMetadata.get(ssp.getPartition)
 
-        val upcomingOffset = partitionMetadata.getUpcomingOffset
-        val startingOffset = offsetManager.getStartingOffset(taskName, ssp)
-          .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format ssp))
+          val upcomingOffset = partitionMetadata.getUpcomingOffset
+          val startingOffset = offsetManager.getStartingOffset(taskName, ssp)
+            .getOrElse(throw new SamzaException("No offset defined for SystemStreamPartition: %s" format ssp))
 
-        // Mark ssp to be caught up if the starting offset is already the
-        // upcoming offset, meaning the task has consumed all the messages
-        // in this partition before and waiting for the future incoming messages.
-        if(Objects.equals(upcomingOffset, startingOffset)) {
-          ssp2CaughtupMapping(ssp) = true
+          // Mark ssp to be caught up if the starting offset is already the
+          // upcoming offset, meaning the task has consumed all the messages
+          // in this partition before and waiting for the future incoming messages.
+          if(Objects.equals(upcomingOffset, startingOffset)) {
+            ssp2CaughtupMapping(ssp) = true
+          }
         }
       })
     }

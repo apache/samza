@@ -34,7 +34,6 @@ import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.system.SystemStreamPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Option;
 
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -42,6 +41,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -78,8 +78,8 @@ public class AzureCheckpointManager implements CheckpointManager {
   private final Set<TaskName> taskNames = new HashSet<>();
   private final JsonSerdeV2<Map<String, String>> jsonSerde = new JsonSerdeV2<>();
 
-  AzureCheckpointManager(AzureConfig azureConfig, Option<String> jobName) {
-    if (!jobName.isDefined()) {
+  AzureCheckpointManager(AzureConfig azureConfig, Optional<String> jobName) {
+    if (!jobName.isPresent()) {
       throw new AzureException("Jobs must have a name to use Azure Checkpoint Manager");
     }
     // Remove invalid characters

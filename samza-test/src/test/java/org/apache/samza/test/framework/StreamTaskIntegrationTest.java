@@ -214,7 +214,7 @@ public class StreamTaskIntegrationTest {
         inputPartitionIME.get(partitionId).add(KV.of(message.key, ime));
       }
     }
-    syncTaskWithMultiplePartitionMultithreadedHelper(inputPartitionData, expectedOutputPartitionData);
+    syncTaskWithMultiplePartitionMultithreadedHelper(inputPartitionIME, expectedOutputPartitionData);
   }
 
   void syncTaskWithMultiplePartitionMultithreadedHelper(Map<Integer, List<KV>> inputPartitionData,
