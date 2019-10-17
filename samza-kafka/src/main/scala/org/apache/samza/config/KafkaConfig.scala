@@ -88,8 +88,6 @@ object KafkaConfig {
 
   val DEFAULT_RETENTION_MS_FOR_BATCH = TimeUnit.DAYS.toMillis(1)
 
-  val MIN_COMPACTION_LAG_MS = "min.compaction.lag.ms"
-
   implicit def Config2Kafka(config: Config) = new KafkaConfig(config)
 }
 
@@ -338,15 +336,16 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
         kafkaChangeLogProperties.setProperty("max.message.bytes", getChangelogStreamMaxMessageByte(name))
     }
 
+    val storageConfig = new StorageConfig(config)
     kafkaChangeLogProperties.setProperty("segment.bytes", KafkaConfig.CHANGELOG_DEFAULT_SEGMENT_SIZE)
-    kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(new StorageConfig(config).getChangeLogDeleteRetentionInMs(name)))
+    kafkaChangeLogProperties.setProperty("delete.retention.ms", String.valueOf(storageConfig.getChangeLogDeleteRetentionInMs(name)))
 
     // To enable transactional state, we will need to avoid the head of the changelog
     // (the messages after last checkpoint) being log-compacted so we can trim the rest of the updates.
     // We use min.compaction.log.ms to control the compaction time.
     if (new TaskConfig(this).getTransactionalStateRestoreEnabled) {
-      kafkaChangeLogProperties.setProperty(KafkaConfig.MIN_COMPACTION_LAG_MS,
-        String.valueOf(StorageConfig.DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS))
+      kafkaChangeLogProperties.setProperty(StorageConfig.MIN_COMPACTION_LAG_MS,
+        String.valueOf(storageConfig.getChangelogMinCompactionLagMs(name)))
     }
 
     filteredConfigs.asScala.foreach { kv => kafkaChangeLogProperties.setProperty(kv._1, kv._2) }

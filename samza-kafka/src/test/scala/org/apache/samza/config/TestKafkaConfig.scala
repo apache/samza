@@ -144,7 +144,7 @@ class TestKafkaConfig {
     // test compaction config for transactional state
     val lagOverride = String.valueOf(TimeUnit.HOURS.toMillis(6))
     props.setProperty(TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED, "true")
-    props.setProperty("stores.test2.changelog.kafka.min.compaction.lag.ms", lagOverride)
+    props.setProperty("stores.test2.changelog.min.compaction.lag.ms", lagOverride)
     val tsMapConfig = new MapConfig(props.asScala.asJava)
     val tsKafkaConfig = new KafkaConfig(tsMapConfig)
     assertEquals(String.valueOf(StorageConfig.DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS),
