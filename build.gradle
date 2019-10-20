@@ -568,6 +568,27 @@ project(":samza-yarn_$scalaSuffix") {
   jar.dependsOn("lesscss")
 }
 
+project(":samza-kubernetes_$scalaSuffix") {
+  apply plugin: 'java'
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaSuffix")
+    compile "org.codehaus.jackson:jackson-core-asl:1.9.7"
+    compile group: 'io.fabric8', name: 'kubernetes-client', version: kubernetesJavaClientVersion
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
+  }
+
+  tasks.create(name: "releaseKubeTarGz", dependsOn: configurations.archives.artifacts, type: Tar) {
+    into "samza-kubernetes-${version}"
+    compression = Compression.GZIP
+    from(configurations.runtime) { into("lib/") }
+    from(configurations.archives.artifacts.files) { into("lib/") }
+    duplicatesStrategy 'exclude'
+  }
+}
+
 project(":samza-shell") {
   apply plugin: 'java'
 

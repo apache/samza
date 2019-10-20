@@ -23,34 +23,22 @@ import java.util
 import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.samza.{Partition, SamzaException}
-import org.apache.samza.config._
-import org.apache.samza.config.Config
-import org.apache.samza.container.grouper.stream.SSPGrouperProxy
-import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
+import org.apache.samza.config.{Config, _}
+import org.apache.samza.container.grouper.stream.{SSPGrouperProxy, SystemStreamPartitionGrouperFactory}
 import org.apache.samza.container.grouper.task._
-import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore
-import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping
-import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping
-import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
-import org.apache.samza.container.LocalityManager
-import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
-import org.apache.samza.coordinator.server.HttpServer
-import org.apache.samza.coordinator.server.JobServlet
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
-import org.apache.samza.job.model.ContainerModel
-import org.apache.samza.job.model.JobModel
-import org.apache.samza.job.model.TaskMode
-import org.apache.samza.job.model.TaskModel
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.container.{LocalityManager, TaskName}
+import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
+import org.apache.samza.coordinator.stream.messages.{SetContainerHostMapping, SetTaskContainerMapping, SetTaskModeMapping, SetTaskPartitionMapping}
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
+import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Logging, ReflectionUtil, Util}
 
-import scala.collection.JavaConverters
 import scala.collection.JavaConversions._
+import scala.collection.JavaConverters
 import scala.collection.JavaConverters._
 
 /**

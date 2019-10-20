@@ -30,6 +30,7 @@ def scalaModules = [
         'samza-elasticsearch',
         'samza-hdfs',
         'samza-kafka',
+        'samza-kubernetes',
         'samza-kv',
         'samza-kv-inmemory',
         'samza-kv-rocksdb',
