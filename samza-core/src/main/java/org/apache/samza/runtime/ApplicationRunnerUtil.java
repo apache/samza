@@ -21,7 +21,7 @@ package org.apache.samza.runtime;
 
 import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ConfigUtil;
 
 
 /**
@@ -39,7 +39,7 @@ public class ApplicationRunnerUtil {
    * @return the {@link ApplicationRunner} object.
    */
   public static ApplicationRunner invoke(Config originalConfig, ApplicationRunnerOperation op) {
-    Config config = Util.rewriteConfig(originalConfig);
+    Config config = ConfigUtil.rewriteConfig(originalConfig);
 
     ApplicationRunner appRunner =
         ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
