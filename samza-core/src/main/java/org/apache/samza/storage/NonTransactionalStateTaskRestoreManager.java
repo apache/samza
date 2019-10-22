@@ -71,7 +71,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
   private final StreamMetadataCache streamMetadataCache;
   private final Map<String, SystemConsumer> storeConsumers;
   private final int maxChangeLogStreamPartitions;
-  private final Config config;
+  private final StorageConfig storageConfig;
   private final StorageManagerUtil storageManagerUtil;
 
   NonTransactionalStateTaskRestoreManager(
@@ -100,7 +100,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
     this.streamMetadataCache = streamMetadataCache;
     this.storeConsumers = storeConsumers;
     this.maxChangeLogStreamPartitions = maxChangeLogStreamPartitions;
-    this.config = config;
+    this.storageConfig = new StorageConfig(config);
     this.storageManagerUtil = new StorageManagerUtil();
   }
 
@@ -110,7 +110,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    */
   @Override
   public void init(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets) {
-    cleanBaseDirsAndReadOffsetFiles(new StorageConfig(config).getCleanLoggedStoreDirsOnStart());
+    cleanBaseDirsAndReadOffsetFiles(storageConfig.getCleanLoggedStoreDirsOnStart());
     setupBaseDirs();
     validateChangelogStreams();
     getOldestChangeLogOffsets();
@@ -172,7 +172,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * @return true if the logged store is valid, false otherwise.
    */
   private boolean isLoggedStoreValid(String storeName, File loggedStoreDir) {
-    long changeLogDeleteRetentionInMs = new StorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
+    long changeLogDeleteRetentionInMs = storageConfig.getChangeLogDeleteRetentionInMs(storeName);
 
     if (changelogSystemStreams.containsKey(storeName)) {
       SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
