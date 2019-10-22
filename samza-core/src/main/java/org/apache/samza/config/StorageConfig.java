@@ -73,7 +73,7 @@ public class StorageConfig extends MapConfig {
   static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
       "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
 
-  public static final String CLEAN_LOGGED_STOREDIRS_ON_INIT = STORE_PREFIX + "init.clean";
+  public static final String CLEAN_LOGGED_STOREDIRS_ON_START = STORE_PREFIX + "container.start.clean";
 
   public StorageConfig(Config config) {
     super(config);
@@ -259,7 +259,7 @@ public class StorageConfig extends MapConfig {
    * Helper method to get if logged store dirs should be deleted regardless of their contents.
    * @return
    */
-  public boolean getCleanLoggedStoreDirsOnInit() {
-    return getBoolean(CLEAN_LOGGED_STOREDIRS_ON_INIT, false);
+  public boolean getCleanLoggedStoreDirsOnStart() {
+    return getBoolean(CLEAN_LOGGED_STOREDIRS_ON_START, false);
   }
 }
