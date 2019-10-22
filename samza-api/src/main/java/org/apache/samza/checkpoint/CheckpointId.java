@@ -18,6 +18,7 @@
  */
 package org.apache.samza.checkpoint;
 
+import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.annotation.InterfaceStability;
 
@@ -63,5 +64,19 @@ public class CheckpointId {
   @Override
   public String toString() {
     return String.format("%s%s%s", millis, SEPARATOR, nanos);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    CheckpointId that = (CheckpointId) o;
+    return millis == that.millis &&
+        nanos == that.nanos;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(millis, nanos);
   }
 }

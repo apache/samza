@@ -18,6 +18,7 @@
  */
 package org.apache.samza.checkpoint;
 
+import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.annotation.InterfaceStability;
 
@@ -63,5 +64,19 @@ public class CheckpointedChangelogOffset {
   @Override
   public String toString() {
     return String.format("%s%s%s", checkpointId, SEPARATOR, offset);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    CheckpointedChangelogOffset that = (CheckpointedChangelogOffset) o;
+    return Objects.equals(checkpointId, that.checkpointId) &&
+        Objects.equals(offset, that.offset);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(checkpointId, offset);
   }
 }
