@@ -30,7 +30,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.*;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
@@ -163,7 +162,7 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
 
   @Override
   public void requestResources(SamzaResourceRequest resourceRequest) {
-    String samzaContainerId = resourceRequest.getContainerID();
+    String samzaContainerId = resourceRequest.getProcessorId();
     LOG.info("Requesting resources on " + resourceRequest.getPreferredHost() + " for container " + samzaContainerId);
     CommandBuilder builder = getCommandBuilder(samzaContainerId);
     String command = buildCmd(builder);
@@ -238,7 +237,7 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
 
   @Override
   public void stopStreamProcessor(SamzaResource resource) {
-    client.pods().withName(resource.getResourceID()).delete();
+    client.pods().withName(resource.getContainerId()).delete();
   }
 
   @Override
@@ -249,17 +248,7 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
   }
 
   private String buildCmd(CommandBuilder cmdBuilder) {
-    // TODO: check if we have framework path specified. If yes - use it, if not use default /opt/hello-samza/
-    String jobLib = ""; // in case of separate framework, this directory will point at the job's libraries
     String cmdPath = "/opt/samza/"; // TODO
-
-    String fwkPath = JobConfig.getFwkPath(config);
-    if(fwkPath != null && (! fwkPath.isEmpty())) {
-      cmdPath = fwkPath;
-      jobLib = "export JOB_LIB_DIR=/opt/samza/lib";
-    }
-    LOG.info("In runContainer in util: fwkPath= " + fwkPath + ";cmdPath=" + cmdPath + ";jobLib=" + jobLib);
-
     cmdBuilder.setCommandPath(cmdPath);
 
     return cmdBuilder.buildCommand();

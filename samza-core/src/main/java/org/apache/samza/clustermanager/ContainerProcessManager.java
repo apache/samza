@@ -260,11 +260,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // Shutdown allocator thread
     containerAllocator.stop();
     if (allocatorThread != null) {
-
       try {
-      allocatorThread.join();
-      LOG.info("Stopped container allocator");
-    } catch (InterruptedException ie) {
+        allocatorThread.join();
+        LOG.info("Stopped container allocator");
+      } catch (InterruptedException ie) {
         LOG.error("Allocator thread join threw an interrupted exception", ie);
         Thread.currentThread().interrupt();
       }
