@@ -110,20 +110,21 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    */
   @Override
   public void init(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets) {
-    cleanBaseDirsAndReadOffsetFiles();
+    cleanBaseDirsAndReadOffsetFiles(new StorageConfig(config).getCleanLoggedStoreDirsOnInit());
     setupBaseDirs();
     validateChangelogStreams();
     getOldestChangeLogOffsets();
     registerStartingOffsets();
   }
 
-  /**
-   * For each store for this task,
+  /** For each store for this task,
    * a. Deletes the corresponding non-logged-store base dir.
-   * b. Deletes the logged-store-base-dir if it not valid. See {@link #isLoggedStoreValid} for validation semantics.
+   * b. Deletes the logged-store-base-dir (depending on {@param cleanLoggedStoreDirs} value). See {@link #isLoggedStoreValid} for validation semantics.
    * c. If the logged-store-base-dir is valid, this method reads the offset file and stores each offset.
+   *
+   * @param cleanLoggedStoreDirs If false, clean logged store dirs only when its invalid, true, clean regardless.
    */
-  private void cleanBaseDirsAndReadOffsetFiles() {
+  private void cleanBaseDirsAndReadOffsetFiles(boolean cleanLoggedStoreDirs) {
     LOG.debug("Cleaning base directories for stores.");
 
     FileUtil fileUtil = new FileUtil();
@@ -143,7 +144,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
           LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
 
           // Delete the logged store if it is not valid.
-          if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
+          if (!isLoggedStoreValid(storeName, loggedStorePartitionDir) || cleanLoggedStoreDirs) {
             LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
             fileUtil.rm(loggedStorePartitionDir);
           } else {
