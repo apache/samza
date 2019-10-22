@@ -110,7 +110,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    */
   @Override
   public void init(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets) {
-    cleanBaseDirsAndReadOffsetFiles(new StorageConfig(config).getCleanLoggedStoreDirsOnInit());
+    cleanBaseDirsAndReadOffsetFiles(new StorageConfig(config).getCleanLoggedStoreDirsOnStart());
     setupBaseDirs();
     validateChangelogStreams();
     getOldestChangeLogOffsets();
