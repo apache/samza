@@ -425,9 +425,9 @@ public class TestContainerAllocatorWithHostAffinity {
     // Verify that all the request that were created as preferred host requests expired
     assertTrue(state.preferredHostRequests.get() == 2);
     assertTrue(state.expiredPreferredHostRequests.get() == 2);
-    verify(spyAllocator, times(1)).handleExpiredRequest(eq("0"), eq("hostname-0"),
+    verify(spyAllocator, times(1)).handleExpiredRequestWithHostAffinityEnabled(eq("0"), eq("hostname-0"),
         any(SamzaResourceRequest.class));
-    verify(spyAllocator, times(1)).handleExpiredRequest(eq("1"), eq("hostname-1"),
+    verify(spyAllocator, times(1)).handleExpiredRequestWithHostAffinityEnabled(eq("1"), eq("hostname-1"),
         any(SamzaResourceRequest.class));
 
     // Verify that preferred host request were cancelled and since no surplus resources were available
@@ -469,10 +469,10 @@ public class TestContainerAllocatorWithHostAffinity {
     Thread.sleep(100);
 
     // Verify that all the request that were created as preferred host requests expired
-    assertEquals(state.expiredPreferredHostRequests.get(), 2);
-    verify(spyAllocator, times(1)).handleExpiredRequest(eq("0"), eq("hostname-0"),
+    assertTrue(state.expiredPreferredHostRequests.get() == 2);
+    verify(spyAllocator, times(1)).handleExpiredRequestWithHostAffinityEnabled(eq("0"), eq("hostname-0"),
         any(SamzaResourceRequest.class));
-    verify(spyAllocator, times(1)).handleExpiredRequest(eq("1"), eq("hostname-1"),
+    verify(spyAllocator, times(1)).handleExpiredRequestWithHostAffinityEnabled(eq("1"), eq("hostname-1"),
         any(SamzaResourceRequest.class));
 
     // Verify that runStreamProcessor was invoked with already available ANY_HOST requests
