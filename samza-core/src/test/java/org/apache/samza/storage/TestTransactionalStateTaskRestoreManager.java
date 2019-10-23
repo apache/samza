@@ -183,8 +183,10 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
+    CheckpointedChangelogOffset changelog1CheckpointMessage =
+        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
     ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointedOffset);
+        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
