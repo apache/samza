@@ -110,8 +110,8 @@ public class TaskConfig extends MapConfig {
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
   public static final String TRANSACTIONAL_STATE_RESTORE_ENABLED = "task.transactional.state.restore.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED = false;
-  public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE =
-      "task.transactional.state.retain.existing.changelog.state";
+  public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE =
+      "task.transactional.state.retain.existing.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
 
   public TaskConfig(Config config) {
@@ -313,7 +313,7 @@ public class TaskConfig extends MapConfig {
     return getBoolean(TRANSACTIONAL_STATE_RESTORE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED);
   }
 
-  public boolean getTransactionalStateRetainExistingChangelogState() {
-    return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_CHANGELOG_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
+  public boolean getTransactionalStateRetainExistingState() {
+    return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
   }
 }

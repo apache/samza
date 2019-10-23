@@ -24,6 +24,7 @@ import java.nio.file.Path
 import java.util
 import java.util.Optional
 
+import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.config.StorageConfig
 import org.apache.samza.task.MessageCollector
 import org.apache.samza.util.Logging
@@ -163,7 +164,7 @@ class AccessLoggedStore[K, V](
     bytes
   }
 
-  override def checkpoint(id: String): Optional[Path] = {
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
     store.checkpoint(id)
   }
 }
