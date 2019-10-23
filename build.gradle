@@ -517,6 +517,7 @@ project(":samza-yarn_$scalaSuffix") {
     compile project(":samza-core_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.scala-lang:scala-compiler:$scalaVersion"
+    compile "com.google.guava:guava:$guavaVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
     compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
