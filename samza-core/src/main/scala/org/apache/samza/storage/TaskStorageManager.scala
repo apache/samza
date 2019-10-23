@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage
 
+import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.system.SystemStreamPartition
 
 trait TaskStorageManager {
@@ -27,9 +28,9 @@ trait TaskStorageManager {
 
   def flush(): Map[SystemStreamPartition, Option[String]]
 
-  def checkpoint(newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): String
+  def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit
 
-  def removeOldCheckpoints(checkpointId: String): Unit
+  def removeOldCheckpoints(checkpointId: CheckpointId): Unit
 
   def stop(): Unit
 

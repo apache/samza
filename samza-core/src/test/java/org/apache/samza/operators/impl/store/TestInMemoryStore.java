@@ -19,6 +19,8 @@
 package org.apache.samza.operators.impl.store;
 
 import com.google.common.primitives.UnsignedBytes;
+
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueSnapshot;
@@ -132,7 +134,7 @@ public class TestInMemoryStore<K, V> implements KeyValueStore<K, V> {
   }
 
   @Override
-  public Optional<Path> checkpoint(String id) {
+  public Optional<Path> checkpoint(CheckpointId id) {
     return Optional.empty();
   }
 

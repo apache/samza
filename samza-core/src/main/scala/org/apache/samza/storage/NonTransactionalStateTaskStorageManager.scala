@@ -23,6 +23,7 @@ import java.io._
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
+import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
@@ -57,11 +58,10 @@ class NonTransactionalStateTaskStorageManager(
     newestChangelogSSPOffsets
   }
 
-  def checkpoint(newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): String = {
-    null
-  }
+  override def checkpoint(checkpointId: CheckpointId,
+    newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {}
 
-  override def removeOldCheckpoints(checkpointId: String): Unit =  {}
+  override def removeOldCheckpoints(checkpointId: CheckpointId): Unit = {}
 
   @VisibleForTesting
   def stop() {
