@@ -34,6 +34,7 @@ import java.util.Optional;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
@@ -231,6 +232,18 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
         String oldestOffset = changelogSSPMetadata.getOldestOffset();
         String newestOffset = changelogSSPMetadata.getNewestOffset();
         String checkpointedOffset = checkpointedChangelogOffsets.get(changelogSSP);
+
+
+        // if the clean.store.start config is set, delete the currentDir, restore from oldest offset to checkpointed
+        if (storageEngine.getStoreProperties().isPersistedToDisk() && new StorageConfig(
+          config).getCleanLoggedStoreDirsOnStart(storeName)) {
+          File currentDir = storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskName, taskMode);
+          LOG.info("Marking current directory: {} for store: {} in task: {}.", currentDir, storeName, taskName);
+          storeDirsToDelete.put(storeName, currentDir);
+          LOG.info("Marking restore offsets for store: {} in task: {} to {}, {} ", storeName, taskName, oldestOffset, checkpointedOffset);
+          storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, checkpointedOffset));
+          return;
+        }
 
 
         Optional<File> currentDirOptional;
