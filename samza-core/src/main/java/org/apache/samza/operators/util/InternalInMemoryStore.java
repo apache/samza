@@ -19,6 +19,7 @@
 
 package org.apache.samza.operators.util;
 
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueSnapshot;
 import org.apache.samza.storage.kv.KeyValueIterator;
@@ -140,7 +141,7 @@ public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
   }
 
   @Override
-  public Optional<Path> checkpoint(String id) {
+  public Optional<Path> checkpoint(CheckpointId id) {
     return Optional.empty();
   }
 }
