@@ -34,6 +34,7 @@ import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.reflections.Reflections;
 import org.reflections.util.ConfigurationBuilder;
+import org.reflections.util.FilterBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +61,8 @@ public class ReflectionBasedUdfResolver implements UdfResolver {
     ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
     configurationBuilder.forPackages(samzaSqlUdfPackagePrefix.split(","));
     configurationBuilder.addClassLoader(Thread.currentThread().getContextClassLoader());
+    // Include only the SamzaSqlUDFClass implementations defined in the package prefix.
+    configurationBuilder.filterInputsBy(new FilterBuilder().includePackage(samzaSqlUdfPackagePrefix.split(",")));
     Reflections reflections = new Reflections(configurationBuilder);
 
     // 2. Get all the sub-types of SamzaSqlUdf.

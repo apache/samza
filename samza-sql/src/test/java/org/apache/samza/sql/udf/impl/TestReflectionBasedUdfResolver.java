@@ -21,6 +21,9 @@ package org.apache.samza.sql.udf.impl;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
@@ -54,7 +57,6 @@ public class TestReflectionBasedUdfResolver {
             "Test samza sql udf implementation", method, new MapConfig(), ImmutableList.of(SamzaSqlFieldType.STRING),
                SamzaSqlFieldType.STRING, true);
 
-    Assert.assertFalse(udfMetadataList.isEmpty());
-    Assert.assertTrue(udfMetadataList.contains(udfMetadata));
+    Assert.assertArrayEquals(new UdfMetadata[]{udfMetadata}, udfMetadataList.toArray(new UdfMetadata[0]));
   }
 }
