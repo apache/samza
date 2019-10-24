@@ -197,7 +197,7 @@ public class TestTransactionalStateTaskRestoreManager {
     File mockLoggedStoreBaseDir = mock(File.class);
     File mockNonLoggedStoreBaseDir = mock(File.class);
 
-    // set the container.start.clean config set on the store
+    // set the clean.on.container.start config set on the store
     Config mockConfig = new MapConfig(Collections.singletonMap("stores.store1.clean.on.container.start", "true"));
     Clock mockClock = mock(Clock.class);
 
