@@ -888,8 +888,8 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     var systemFactories : Map[String, SystemFactory] = HashMap[String, SystemFactory](("kafka", mockSystemFactory))
 
     var config =  new MapConfig(mutable.Map(
-      "stores.store1.container.start.clean" -> cleanStoreDirsOnStart.toString,
-      "stores.loggedStore1.container.start.clean" -> cleanStoreDirsOnStart.toString,
+      "stores.store1.clear.on.container.start" -> cleanStoreDirsOnStart.toString,
+      "stores.loggedStore1.clear.on.container.start" -> cleanStoreDirsOnStart.toString,
       "stores.store1.key.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.store1.msg.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.loggedStore1.key.serde" -> classOf[StringSerdeFactory].getCanonicalName,
