@@ -27,6 +27,7 @@ import com.google.common.collect.ListMultimap;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -156,6 +157,67 @@ public class TestTransactionalStateTaskRestoreManager {
     // ensure that there is nothing to retain or restore.
     assertEquals(0, storeActions.storeDirsToRetain.size());
     assertEquals(0, storeActions.storesToRestore.size());
+  }
+
+  @Test
+  public void testStoreDeletedWhenCleanDirsFlagSet() {
+    TaskModel mockTaskModel = mock(TaskModel.class);
+    TaskName taskName = new TaskName("Partition 0");
+    when(mockTaskModel.getTaskName()).thenReturn(taskName);
+    Partition taskChangelogPartition = new Partition(0);
+    when(mockTaskModel.getChangelogPartition()).thenReturn(taskChangelogPartition);
+
+    String store1Name = "store1";
+    StorageEngine store1Engine = mock(StorageEngine.class);
+    StoreProperties mockStore1Properties = mock(StoreProperties.class);
+    when(store1Engine.getStoreProperties()).thenReturn(mockStore1Properties);
+    when(mockStore1Properties.isLoggedStore()).thenReturn(true);
+    when(mockStore1Properties.isPersistedToDisk()).thenReturn(true);
+    Map<String, StorageEngine> mockStoreEngines = ImmutableMap.of(store1Name, store1Engine);
+
+    String changelog1SystemName = "system1";
+    String changelog1StreamName = "store1Changelog";
+    SystemStream changelog1SystemStream = new SystemStream(changelog1SystemName, changelog1StreamName);
+    SystemStreamPartition changelog1SSP = new SystemStreamPartition(changelog1SystemStream, taskChangelogPartition);
+    SystemStreamPartitionMetadata changelog1SSPMetadata = new SystemStreamPartitionMetadata("0", "10", "11");
+    Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
+
+    String changelog1CheckpointedOffset = "5";
+    CheckpointedChangelogOffset changelog1CheckpointMessage =
+        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
+    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
+        ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
+
+    SystemAdmins mockSystemAdmins = mock(SystemAdmins.class);
+    SystemAdmin mockSystemAdmin = mock(SystemAdmin.class);
+    when(mockSystemAdmins.getSystemAdmin(changelog1SSP.getSystem())).thenReturn(mockSystemAdmin);
+    StorageManagerUtil mockStorageManagerUtil = mock(StorageManagerUtil.class);
+    File mockLoggedStoreBaseDir = mock(File.class);
+    File mockNonLoggedStoreBaseDir = mock(File.class);
+
+    // set the clean.on.container.start config set on the store
+    Config mockConfig = new MapConfig(Collections.singletonMap("stores.store1.clean.on.container.start", "true"));
+    Clock mockClock = mock(Clock.class);
+
+    Mockito.when(mockSystemAdmin.offsetComparator(anyString(), anyString()))
+        .thenAnswer((Answer<Integer>) invocation -> {
+            String offset1 = (String) invocation.getArguments()[0];
+            String offset2 = (String) invocation.getArguments()[1];
+            return Long.valueOf(offset1).compareTo(Long.valueOf(offset2));
+          });
+
+    StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
+        mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
+
+    // ensure that there is one directory to delete
+    assertEquals(1, storeActions.storeDirsToDelete.size());
+    // ensure that we restore from the oldest changelog offset to checkpointed changelog offset
+    assertEquals("0", storeActions.storesToRestore.get(store1Name).startingOffset);
+    assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).endingOffset);
   }
 
   @Test
