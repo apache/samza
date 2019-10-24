@@ -384,10 +384,7 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
-
-      
-      
-      SystemAdmins mockSystemAdmins = mock(SystemAdmins.class);
+    SystemAdmins mockSystemAdmins = mock(SystemAdmins.class);
     SystemAdmin mockSystemAdmin = mock(SystemAdmin.class);
     when(mockSystemAdmins.getSystemAdmin(changelog1SSP.getSystem())).thenReturn(mockSystemAdmin);
     StorageManagerUtil mockStorageManagerUtil = mock(StorageManagerUtil.class);
