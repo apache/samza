@@ -74,7 +74,7 @@ public class StorageConfig extends MapConfig {
       "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
 
   // Internal config to clean storeDirs of a store on container start. This is used to benchmark bootstrap performance.
-  static final String CLEAN_LOGGED_STOREDIRS_ON_START = STORE_PREFIX + "%s.container.start.clean";
+  static final String CLEAN_LOGGED_STOREDIRS_ON_START = STORE_PREFIX + "%s.clean.on.container.start";
 
   public StorageConfig(Config config) {
     super(config);
