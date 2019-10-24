@@ -243,7 +243,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           timeSinceLastCheckpointInMs = System.currentTimeMillis() -
               checkpointedChangelogOffset.getCheckpointId().getMillis();
         }
-
+      
         // if the clean.store.start config is set, delete the currentDir, restore from oldest offset to checkpointed
         if (storageEngine.getStoreProperties().isPersistedToDisk() && new StorageConfig(
           config).getCleanLoggedStoreDirsOnStart(storeName)) {
@@ -254,7 +254,6 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, checkpointedOffset));
           return;
         }
-
 
         Optional<File> currentDirOptional;
         Optional<List<File>> checkpointDirsOptional;
