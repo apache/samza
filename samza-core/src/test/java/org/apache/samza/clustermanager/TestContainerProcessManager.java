@@ -70,7 +70,7 @@ public class TestContainerProcessManager {
       put("cluster-manager.container.retry.count", "1");
       put("cluster-manager.container.retry.window.ms", "1999999999");
       put("cluster-manager.allocator.sleep.ms", "1");
-      put("cluster-manager.container.request.timeout.ms", "100");
+      put("cluster-manager.container.request.timeout.ms", "2");
       put("cluster-manager.container.memory.mb", "512");
       put("yarn.package.path", "/foo");
       put("task.inputs", "test-system.test-stream");
