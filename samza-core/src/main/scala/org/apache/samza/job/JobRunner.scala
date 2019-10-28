@@ -29,7 +29,7 @@ import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLi
 import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.system.{StreamSpec, SystemAdmins}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{CoordinatorStreamUtil, Logging, StreamUtil, Util}
+import org.apache.samza.util._
 
 import scala.collection.JavaConverters._
 
@@ -43,7 +43,7 @@ object JobRunner extends Logging {
     val config = cmdline.loadConfig(options)
     val operation = cmdline.getOperation(options)
 
-    val runner = new JobRunner(Util.rewriteConfig(config))
+    val runner = new JobRunner(ConfigUtil.rewriteConfig(config))
     doOperation(runner, operation)
   }
 
