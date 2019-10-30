@@ -51,9 +51,6 @@ public class JobConfig extends MapConfig {
   public static final String JOB_ID = "job.id";
   static final String DEFAULT_JOB_ID = "1";
 
-  public static final String SAMZA_FWK_PATH = "samza.fwk.path";
-  public static final String SAMZA_FWK_VERSION = "samza.fwk.version";
-
   public static final String JOB_COORDINATOR_SYSTEM = "job.coordinator.system";
   public static final String JOB_DEFAULT_SYSTEM = "job.default.system";
 
@@ -65,6 +62,9 @@ public class JobConfig extends MapConfig {
 
   public static final String JOB_DEBOUNCE_TIME_MS = "job.debounce.time.ms";
   static final int DEFAULT_DEBOUNCE_TIME_MS = 20000;
+
+  public static final String SSP_INPUT_EXPANSION_ENABLED = "job.systemstreampartition.input.expansion.enabled";
+  public static final boolean DEFAULT_INPUT_EXPANSION_ENABLED = true;
 
   public static final String SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory";
   public static final String SSP_MATCHER_CLASS = "job.systemstreampartition.matcher.class";
@@ -127,6 +127,9 @@ public class JobConfig extends MapConfig {
 
   public static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
   public static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
+
+  public static final String CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED =
+      "samza.cluster.based.job.coordinator.dependency.isolation.enabled";
 
   public JobConfig(Config config) {
     super(config);
@@ -241,6 +244,10 @@ public class JobConfig extends MapConfig {
     return Optional.ofNullable(get(String.format(CONFIG_REWRITER_CLASS, name)));
   }
 
+  public boolean isSSPGrouperProxyEnabled() {
+    return getBoolean(SSP_INPUT_EXPANSION_ENABLED, DEFAULT_INPUT_EXPANSION_ENABLED);
+  }
+
   public String getSystemStreamPartitionGrouperFactory() {
     return Optional.ofNullable(get(SSP_GROUPER_FACTORY)).orElseGet(GroupByPartitionFactory.class::getName);
   }
@@ -314,20 +321,8 @@ public class JobConfig extends MapConfig {
     return getStandbyTaskReplicationFactor() > 1;
   }
 
-  /**
-   * Reads the config to figure out if split deployment is enabled and fwk directory is setup
-   * @return fwk + "/" + version, or empty string if fwk path is not specified
-   */
-  public static String getFwkPath(Config config) {
-    String fwkPath = config.get(SAMZA_FWK_PATH, "");
-    String fwkVersion = config.get(SAMZA_FWK_VERSION);
-    if (fwkVersion == null || fwkVersion.isEmpty()) {
-      fwkVersion = "STABLE";
-    }
-    if (!fwkPath.isEmpty()) {
-      fwkPath = fwkPath + File.separator + fwkVersion;
-    }
-    return fwkPath;
+  public boolean getClusterBasedJobCoordinatorDependencyIsolationEnabled() {
+    return getBoolean(CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, false);
   }
 
   /**

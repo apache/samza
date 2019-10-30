@@ -22,6 +22,8 @@ package org.apache.samza.storage;
 
 import java.nio.file.Path;
 import java.util.Optional;
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.system.ChangelogSSPIterator;
 
 /**
@@ -55,7 +57,8 @@ public interface StorageEngine {
   /**
    * Checkpoint store snapshots.
    */
-  Optional<Path> checkpoint(String id);
+  @InterfaceStability.Unstable
+  Optional<Path> checkpoint(CheckpointId id);
 
   /**
    * Close the storage engine

@@ -30,7 +30,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.JobModelManager;
@@ -71,7 +70,7 @@ public class TestContainerProcessManager {
       put("cluster-manager.container.retry.count", "1");
       put("cluster-manager.container.retry.window.ms", "1999999999");
       put("cluster-manager.allocator.sleep.ms", "1");
-      put("cluster-manager.container.request.timeout.ms", "100");
+      put("cluster-manager.container.request.timeout.ms", "2");
       put("cluster-manager.container.memory.mb", "512");
       put("yarn.package.path", "/foo");
       put("task.inputs", "test-system.test-stream");
@@ -879,30 +878,6 @@ public class TestContainerProcessManager {
     assertEquals(ResourceRequestState.ANY_HOST, allocator.getContainerRequestState().peekPendingRequest().getPreferredHost());
 
     cpm.stop();
-  }
-
-  @Test
-  public void testAppMasterWithFwk() {
-    Config conf = getConfig();
-    SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
-    MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-
-
-    ContainerProcessManager cpm =
-        buildContainerProcessManager(new ClusterManagerConfig(conf), state, clusterResourceManager, Optional.empty());
-    cpm.start();
-    SamzaResource container2 = new SamzaResource(1, 1024, "", "id0");
-    assertFalse(cpm.shouldShutdown());
-    cpm.onResourceAllocated(container2);
-
-    configVals.put(JobConfig.SAMZA_FWK_PATH, "/export/content/whatever");
-    Config config1 = new MapConfig(configVals);
-
-    ContainerProcessManager cpm1 =
-        buildContainerProcessManager(new ClusterManagerConfig(config), state, clusterResourceManager, Optional.empty());
-    cpm1.start();
-    cpm1.onResourceAllocated(container2);
   }
 
   @After

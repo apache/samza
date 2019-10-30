@@ -82,7 +82,8 @@ public class SamzaSqlValidator {
       try {
         relRoot = planner.plan(qinfo.getSelectQuery());
       } catch (SamzaException e) {
-        throw new SamzaSqlValidatorException(String.format("Validation failed for sql stmt:\n%s\n", sql), e);
+        throw new SamzaSqlValidatorException(String.format("Validation failed for sql stmt:\n%s\n with the following"
+            + " error: \n%s\n", sql, e), e);
       }
 
       // Now that we have logical plan, validate different aspects.
@@ -183,11 +184,11 @@ public class SamzaSqlValidator {
         Collectors.toMap(RelDataTypeField::getName, RelDataTypeField::getType));
     Map<String, SqlFieldSchema> outputFieldSchemaMap = outputSqlSchema.getFields().stream().collect(
         Collectors.toMap(SqlSchema.SqlField::getFieldName, SqlSchema.SqlField::getFieldSchema));
-    Map<String, RelDataType> projectRecordMap = projectRecord.getFieldList().stream().collect(
+    Map<String, RelDataType> projectedRecordMap = projectRecord.getFieldList().stream().collect(
         Collectors.toMap(RelDataTypeField::getName, RelDataTypeField::getType));
 
     // Ensure that all fields from sql statement exist in the output schema and are of the same type.
-    for (Map.Entry<String, RelDataType> entry : projectRecordMap.entrySet()) {
+    for (Map.Entry<String, RelDataType> entry : projectedRecordMap.entrySet()) {
       String projectedFieldName = entry.getKey();
       RelDataType outputFieldType = outputRecordMap.get(projectedFieldName);
       SqlFieldSchema outputSqlFieldSchema = outputFieldSchemaMap.get(projectedFieldName);
@@ -219,8 +220,8 @@ public class SamzaSqlValidator {
 
       RelDataType calciteSqlType = getCalciteSqlFieldType(entry.getValue());
       if (!compareFieldTypes(outputFieldType, outputSqlFieldSchema, calciteSqlType, outputRelSchemaProvider)) {
-        String errMsg = String.format("Field '%s' with type '%s' in select query does not match the field type '%s'"
-            + "(calciteSqlType:'%s') in output schema.", entry.getKey(), outputFieldType, calciteSqlType,
+        String errMsg = String.format("Field '%s' with type '%s' (calciteSqlType:'%s') in select query does not match "
+                + "the field type '%s' in output schema.", entry.getKey(), entry.getValue(), calciteSqlType,
             outputSqlFieldSchema.getFieldType());
         LOG.error(errMsg);
         throw new SamzaSqlValidatorException(errMsg);
@@ -230,10 +231,10 @@ public class SamzaSqlValidator {
     // Ensure that all non-optional fields in output schema are set in the sql query and are of the
     // same type.
     for (Map.Entry<String, RelDataType> entry : outputRecordMap.entrySet()) {
-      RelDataType projectFieldType = projectRecordMap.get(entry.getKey());
+      RelDataType projectedFieldType = projectedRecordMap.get(entry.getKey());
       SqlFieldSchema outputSqlFieldSchema = outputFieldSchemaMap.get(entry.getKey());
 
-      if (projectFieldType == null) {
+      if (projectedFieldType == null) {
         // If an output schema field is not found in the sql query, ignore it if the field is optional.
         // Otherwise, throw an error.
         if (outputSqlFieldSchema.isOptional() || isOptional(outputRelSchemaProvider, entry.getKey(), projectRecord)) {
@@ -244,11 +245,11 @@ public class SamzaSqlValidator {
         LOG.error(errMsg);
         throw new SamzaSqlValidatorException(errMsg);
       } else {
-        RelDataType calciteSqlType = getCalciteSqlFieldType(entry.getValue());
+        RelDataType calciteSqlType = getCalciteSqlFieldType(projectedFieldType);
         if (!compareFieldTypes(entry.getValue(), outputSqlFieldSchema, calciteSqlType, outputRelSchemaProvider)) {
-          String errMsg = String.format("Field '%s' with type '%s'(calciteSqlType:'%s') in output schema does not match the field"
-                  + " type '%s' in projected fields.", entry.getKey(), outputSqlFieldSchema.getFieldType(),
-              calciteSqlType, projectFieldType);
+          String errMsg = String.format("Field '%s' with type '%s' in output schema does not match the field"
+                  + " type '%s' (calciteType:'%s') in projected fields.", entry.getKey(),
+              outputSqlFieldSchema.getFieldType(), projectedFieldType, calciteSqlType);
           LOG.error(errMsg);
           throw new SamzaSqlValidatorException(errMsg);
         }
@@ -342,7 +343,10 @@ public class SamzaSqlValidator {
     Matcher matcher = pattern.matcher(e.getMessage());
     String[] queryLines = query.split("\\n");
     StringBuilder result = new StringBuilder();
-    int startColIdx, endColIdx, startLineIdx, endLineIdx;
+    int startColIdx;
+    int endColIdx;
+    int startLineIdx;
+    int endLineIdx;
 
     try {
       if (matcher.find()) {

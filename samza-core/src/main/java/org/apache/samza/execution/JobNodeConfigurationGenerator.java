@@ -53,9 +53,9 @@ import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableConfigGenerator;
 import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.MathUtil;
 import org.apache.samza.util.StreamUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,7 +80,7 @@ import org.slf4j.LoggerFactory;
         mergedConfig.put(k, v);
       });
 
-    return Util.rewriteConfig(new MapConfig(mergedConfig));
+    return ConfigUtil.rewriteConfig(new MapConfig(mergedConfig));
   }
 
   static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {

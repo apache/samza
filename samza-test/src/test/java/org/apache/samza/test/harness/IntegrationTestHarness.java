@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreatePartitionsResult;
@@ -48,6 +49,9 @@ import org.apache.samza.context.ExternalContext;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.system.kafka.KafkaSystemAdmin;
 import org.apache.samza.system.kafka.KafkaSystemConsumer;
+import org.junit.Before;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.kafka.clients.consumer.ConsumerConfig.*;
 import static org.apache.kafka.clients.producer.ProducerConfig.*;
@@ -58,6 +62,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.*;
  * It provides additional helper functions to consume, produce and manage topics in Kafka.
  */
 public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
+  private static final Logger LOG = LoggerFactory.getLogger(IntegrationTestHarness.class);
   private static final long ADMIN_OPERATION_WAIT_DURATION_MS = 5000;
   private static final String BYTE_ARRAY_SERIALIZER = ByteArraySerializer.class.getName();
   private static final String BYTE_ARRAY_DESERIALIZER = ByteArrayDeserializer.class.getName();
@@ -75,6 +80,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
    * Sub-classes should invoke {@link #zkConnect()} and {@link #bootstrapUrl()}s to
    * obtain the urls (and ports) of the started zookeeper and kafka broker.
    */
+  @Before
   @Override
   public void setUp() {
     super.setUp();
@@ -128,6 +134,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
   protected Properties createProducerConfigs() {
     Properties producerProps = new Properties();
     producerProps.setProperty(CommonClientConfigs.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers());
+    producerProps.setProperty(CommonClientConfigs.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
     producerProps.setProperty(KEY_SERIALIZER_CLASS_CONFIG, STRING_SERIALIZER);
     producerProps.setProperty(VALUE_SERIALIZER_CLASS_CONFIG, BYTE_ARRAY_SERIALIZER);
     return producerProps;
@@ -169,6 +176,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
           adminClient.createTopics(newTopics);
       resultFuture.all().get(ADMIN_OPERATION_WAIT_DURATION_MS, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
+      LOG.error("Error creating topics: {}", StringUtils.join(newTopics, ","), e);
       createStatus = false;
     }
 
@@ -182,6 +190,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
       DeleteTopicsResult resultFutures = adminClient.deleteTopics(topics);
       resultFutures.all().get(ADMIN_OPERATION_WAIT_DURATION_MS, TimeUnit.MILLISECONDS);
     } catch (Exception e) {
+      LOG.error("Error deleting topics: {}", StringUtils.join(topics, ","), e);
       deleteStatus = false;
     }
 

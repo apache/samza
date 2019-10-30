@@ -21,13 +21,13 @@ package org.apache.samza.container
 
 import java.util.Collections
 
-import org.apache.samza.Partition
-import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
+import org.apache.samza.{Partition, SamzaException}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointedChangelogOffset, OffsetManager}
+import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
-import org.apache.samza.startpoint.Startpoint
-import org.apache.samza.storage.TaskStorageManager
+import org.apache.samza.storage.NonTransactionalStateTaskStorageManager
 import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -67,7 +67,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   @Mock
   private var offsetManager: OffsetManager = null
   @Mock
-  private var taskStorageManager: TaskStorageManager = null
+  private var taskStorageManager: NonTransactionalStateTaskStorageManager = null
   @Mock
   private var taskTableManager: TableManager = null
   // not a mock; using MockTaskInstanceExceptionHandler
@@ -97,6 +97,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       Matchers.eq(this.containerContext), any(), Matchers.eq(this.applicationContainerContext)))
       .thenReturn(this.applicationTaskContext)
     when(this.systemAdmins.getSystemAdmin(SYSTEM_NAME)).thenReturn(this.systemAdmin)
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(Collections.singletonMap("task.commit.ms", "-1")))
     setupTaskInstance(Some(this.applicationTaskContextFactory))
   }
 
@@ -212,26 +213,149 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitOrder() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
-    val checkpoint = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
-    when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(checkpoint)
-
+    val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+    val changelogOffsets = Map(changelogSSP -> Some("5"))
+    when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.flush()).thenReturn(changelogOffsets)
+    doNothing().when(this.taskStorageManager).checkpoint(any(), any[Map[SystemStreamPartition, Option[String]]])
     taskInstance.commit
 
-    val mockOrder = inOrder(this.offsetManager, this.collector, this.taskStorageManager, this.taskTableManager)
+    val mockOrder = inOrder(this.offsetManager, this.collector, this.taskTableManager, this.taskStorageManager)
 
-    // We must first get a snapshot of the checkpoint so it doesn't change while we flush. SAMZA-1384
+    // We must first get a snapshot of the input offsets so it doesn't change while we flush. SAMZA-1384
     mockOrder.verify(this.offsetManager).buildCheckpoint(TASK_NAME)
+
     // Producers must be flushed next and ideally the output would be flushed before the changelog
     // s.t. the changelog and checkpoints (state and inputs) are captured last
     mockOrder.verify(this.collector).flush
-    // Local state is next, to ensure that the state (particularly the offset file) never points to a newer changelog
-    // offset than what is reflected in the on disk state.
-    mockOrder.verify(this.taskStorageManager).flush()
-    // Tables are next
+
+    // Tables should be flushed next
     mockOrder.verify(this.taskTableManager).flush()
-    // Finally, checkpoint the inputs with the snapshotted checkpoint captured at the beginning of commit
-    mockOrder.verify(offsetManager).writeCheckpoint(TASK_NAME, checkpoint)
+
+    // Local state should be flushed next next
+    mockOrder.verify(this.taskStorageManager).flush()
+
+    // Stores checkpoints should be created next with the newest changelog offsets
+    mockOrder.verify(this.taskStorageManager).checkpoint(any(), Matchers.eq(changelogOffsets))
+
+    // Input checkpoint should be written with the snapshot captured at the beginning of commit and the
+    // newest changelog offset captured during storage manager flush
+    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
+    mockOrder.verify(offsetManager).writeCheckpoint(any(), captor.capture)
+    val cp = captor.getValue
+    assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
+    assertEquals("5", CheckpointedChangelogOffset.fromString(cp.getOffsets.get(changelogSSP)).getOffset)
+
+    // Old checkpointed stores should be cleared
+    mockOrder.verify(this.taskStorageManager).removeOldCheckpoints(any())
     verify(commitsCounter).inc()
+  }
+
+  @Test
+  def testEmptyChangelogSSPOffsetInCommit() { // e.g. if changelog topic is empty
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+    val changelogOffsets = Map(changelogSSP -> None)
+    when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.flush()).thenReturn(changelogOffsets)
+    taskInstance.commit
+
+    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
+    verify(offsetManager).writeCheckpoint(any(), captor.capture)
+    val cp = captor.getValue
+    assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
+    val message = cp.getOffsets.get(changelogSSP)
+    val checkpointedOffset = CheckpointedChangelogOffset.fromString(message)
+    assertNull(checkpointedOffset.getOffset)
+    assertNotNull(checkpointedOffset.getCheckpointId)
+    verify(commitsCounter).inc()
+  }
+
+  @Test
+  def testEmptyChangelogOffsetsInCommit() { // e.g. if stores have no changelogs
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
+    val changelogOffsets = Map[SystemStreamPartition, Option[String]]()
+    when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.flush()).thenReturn(changelogOffsets)
+    taskInstance.commit
+
+    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
+    verify(offsetManager).writeCheckpoint(any(), captor.capture)
+    val cp = captor.getValue
+    assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
+    assertEquals(1, cp.getOffsets.size())
+    verify(commitsCounter).inc()
+  }
+
+  @Test
+  def testCommitFailsIfErrorGettingChangelogOffset() { // required for transactional state
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
+    when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.flush()).thenThrow(new SamzaException("Error getting changelog offsets"))
+
+    try {
+      taskInstance.commit
+    } catch {
+      case e: SamzaException =>
+        // exception is expected, container should fail if could not get changelog offsets.
+        return
+    }
+
+    fail("Should have failed commit if error getting newest changelog offests")
+  }
+
+  @Test
+  def testCommitFailsIfErrorCreatingStoreCheckpoints() { // required for transactional state
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
+    when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.flush()).thenReturn(Map[SystemStreamPartition, Option[String]]())
+    when(this.taskStorageManager.checkpoint(any(), any())).thenThrow(new SamzaException("Error creating store checkpoint"))
+
+    try {
+      taskInstance.commit
+    } catch {
+      case e: SamzaException =>
+        // exception is expected, container should fail if could not get changelog offsets.
+        return
+    }
+
+    fail("Should have failed commit if error getting newest changelog offests")
+  }
+
+  @Test
+  def testCommitFailsIfErrorClearingOldCheckpoints() { // required for transactional state
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
+    when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.flush()).thenReturn(Map[SystemStreamPartition, Option[String]]())
+    doNothing().when(this.taskStorageManager).checkpoint(any(), any())
+    when(this.taskStorageManager.removeOldCheckpoints(any()))
+      .thenThrow(new SamzaException("Error clearing old checkpoints"))
+
+    try {
+      taskInstance.commit
+    } catch {
+      case e: SamzaException =>
+        // exception is expected, container should fail if could not get changelog offsets.
+        return
+    }
+
+    fail("Should have failed commit if error getting newest changelog offests")
   }
 
   /**
@@ -249,7 +373,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testProducerExceptionsIsPropagated() {
     when(this.metrics.commits).thenReturn(mock[Counter])
     when(this.collector.flush).thenThrow(new SystemProducerException("systemProducerException"))
-
     try {
       taskInstance.commit // Should not swallow the SystemProducerException
     } finally {

@@ -24,8 +24,8 @@ import java.util.{Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.OffsetManager
-import org.apache.samza.config.{Config, StreamConfig}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointedChangelogOffset, OffsetManager}
+import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
@@ -60,8 +60,7 @@ class TaskInstance(
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
   applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-  externalContextOption: Option[ExternalContext]
-) extends Logging {
+  externalContextOption: Option[ExternalContext]) extends Logging {
 
   val taskName: TaskName = taskModel.getTaskName
   val isInitableTask = task.isInstanceOf[InitableTask]
@@ -121,6 +120,13 @@ class TaskInstance(
 
   def initTask {
     initCaughtUpMapping()
+
+    val taskConfig = new TaskConfig(config)
+    if (taskConfig.getTransactionalStateRestoreEnabled() && taskConfig.getCommitMs > 0) {
+      // Commit immediately so the trimmed changelog messages
+      // will be sealed in a checkpoint
+      commit
+    }
 
     if (isInitableTask) {
       debug("Initializing task for taskName: %s" format taskName)
@@ -227,26 +233,53 @@ class TaskInstance(
   def commit {
     metrics.commits.inc
 
-    val checkpoint = offsetManager.buildCheckpoint(taskName)
+    val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
+    val inputCheckpoint = offsetManager.buildCheckpoint(taskName)
+    if (inputCheckpoint != null) {
+      trace("Got input offsets for taskName: %s as: %s" format(taskName, inputCheckpoint.getOffsets))
+      allCheckpointOffsets.putAll(inputCheckpoint.getOffsets)
+    }
 
     trace("Flushing producers for taskName: %s" format taskName)
     collector.flush
 
-    trace("Flushing state stores for taskName: %s" format taskName)
-    if (storageManager != null) {
-      storageManager.flush
-    }
-
-    trace("Flushing tables for taskName: %s" format taskName)
     if (tableManager != null) {
-      tableManager.flush
+      trace("Flushing tables for taskName: %s" format taskName)
+      tableManager.flush()
     }
 
-    trace("Checkpointing offsets for taskName: %s" format taskName)
+    var newestChangelogOffsets: Map[SystemStreamPartition, Option[String]] = null
+    if (storageManager != null) {
+      trace("Flushing state stores for taskName: %s" format taskName)
+      newestChangelogOffsets = storageManager.flush()
+      trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestChangelogOffsets))
+    }
+
+    val checkpointId = CheckpointId.create()
+    if (storageManager != null && newestChangelogOffsets != null) {
+      trace("Checkpointing stores for taskName: %s with checkpoint id: %s" format (taskName, checkpointId))
+      storageManager.checkpoint(checkpointId, newestChangelogOffsets.toMap)
+    }
+
+    if (newestChangelogOffsets != null) {
+      newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
+        val offset = new CheckpointedChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
+        allCheckpointOffsets.put(ssp, offset)
+      }
+    }
+    val checkpoint = new Checkpoint(allCheckpointOffsets)
+    trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
+
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
-    if (checkpoint != null) {
-      checkpoint.getOffsets.asScala
+    if (storageManager != null) {
+      trace("Remove old checkpoint stores for taskName: %s" format taskName)
+      storageManager.removeOldCheckpoints(checkpointId)
+    }
+
+    if (inputCheckpoint != null) {
+      trace("Deleting committed input offsets for taskName: %s" format taskName)
+      inputCheckpoint.getOffsets.asScala
         .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
         .groupBy { case (ssp, _) => ssp.getSystem }
         .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>

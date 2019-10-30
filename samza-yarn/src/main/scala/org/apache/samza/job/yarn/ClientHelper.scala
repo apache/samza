@@ -60,8 +60,6 @@ import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.samza.webapp.ApplicationMasterRestClient
 
 object ClientHelper {
-  val applicationType = "Samza"
-
   val CREDENTIALS_FILE = "credentials"
 
   val SOURCE = "yarn"
@@ -230,7 +228,7 @@ class ClientHelper(conf: Configuration) extends Logging {
     }
 
     appCtx.setAMContainerSpec(containerCtx)
-    appCtx.setApplicationType(ClientHelper.applicationType)
+    appCtx.setApplicationType(yarnConfig.getYarnApplicationType)
     info("submitting application request for %s" format appId.get)
     yarnClient.submitApplication(appCtx)
     appId

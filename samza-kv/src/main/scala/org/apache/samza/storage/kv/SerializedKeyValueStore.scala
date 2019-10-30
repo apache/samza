@@ -21,6 +21,8 @@ package org.apache.samza.storage.kv
 
 import java.nio.file.Path
 import java.util.Optional
+
+import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.util.Logging
 import org.apache.samza.serializers._
 
@@ -57,27 +59,23 @@ class SerializedKeyValueStore[K, V](
   }
 
   def put(key: K, value: V) {
+    metrics.puts.inc
     val keyBytes = toBytesOrNull(key, keySerde)
     val valBytes = toBytesOrNull(value, msgSerde)
     store.put(keyBytes, valBytes)
-    val valSizeBytes = if (valBytes == null) 0 else valBytes.length
-    updatePutMetrics(1, valSizeBytes)
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
     val list = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](entries.size())
     val iter = entries.iterator
-    var newMaxRecordSizeBytes = 0
     while (iter.hasNext) {
       val curr = iter.next
       val keyBytes = toBytesOrNull(curr.getKey, keySerde)
       val valBytes = toBytesOrNull(curr.getValue, msgSerde)
-      val valSizeBytes = if (valBytes == null) 0 else valBytes.length
-      newMaxRecordSizeBytes = Math.max(newMaxRecordSizeBytes, valSizeBytes)
       list.add(new Entry(keyBytes, valBytes))
     }
     store.putAll(list)
-    updatePutMetrics(list.size, newMaxRecordSizeBytes)
+    metrics.puts.inc(list.size)
   }
 
   def delete(key: K) {
@@ -155,14 +153,6 @@ class SerializedKeyValueStore[K, V](
     bytes
   }
 
-  private def updatePutMetrics(batchSize: Long, newMaxRecordSizeBytes: Long) = {
-    metrics.puts.inc(batchSize)
-    var max = metrics.maxRecordSizeBytes.getValue
-    while (newMaxRecordSizeBytes > max && !metrics.maxRecordSizeBytes.compareAndSet(max, newMaxRecordSizeBytes)) {
-      max = metrics.maxRecordSizeBytes.getValue
-    }
-  }
-
   override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     val fromBytes = toBytesOrNull(from, keySerde)
     val toBytes = toBytesOrNull(to, keySerde)
@@ -178,7 +168,7 @@ class SerializedKeyValueStore[K, V](
     }
   }
 
-  override def checkpoint(id: String): Optional[Path] = {
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
     store.checkpoint(id)
   }
 }

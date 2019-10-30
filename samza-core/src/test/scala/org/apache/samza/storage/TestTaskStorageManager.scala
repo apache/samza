@@ -39,7 +39,7 @@ import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import org.junit.{After, Before, Test}
 import org.mockito.Matchers._
-import org.mockito.{Matchers, Mockito}
+import org.mockito.{Mockito}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -298,6 +298,25 @@ class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extend
       .addLoggedStore(loggedStore, true)
       .setStreamMetadataCache(createMockStreamMetadataCache("0", "1", "2"))
       .initializeContainerStorageManager()
+      .build
+
+    assertTrue("Offset file was found in store partition directory. Clean up failed!", !offsetFile.exists())
+    assertTrue("Store directory should be deleted and re-created with new last modified time", storeDirectory.lastModified() > 0)
+  }
+
+  @Test
+  def testStoreDeletedWhenCleanDirsFlagSet() {
+    // This test ensures that store gets deleted when the stores.container.start.clean config is set,
+    // and new dir is created with a new last modified time
+    val storeDirectory = storageManagerUtil.getTaskStoreDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName, TaskMode.Active)
+    val offsetFile = new File(storeDirectory, offsetFileName)
+    offsetFile.createNewFile()
+    fileUtil.writeWithChecksum(offsetFile, "Test Offset Data")
+
+    val taskStorageManager = new TaskStorageManagerBuilder().addStore(store, false)
+      .addLoggedStore(loggedStore, true)
+      .setStreamMetadataCache(createMockStreamMetadataCache("0", "1", "2"))
+      .initializeContainerStorageManager(true)
       .build
 
     assertTrue("Offset file was found in store partition directory. Clean up failed!", !offsetFile.exists())
@@ -840,7 +859,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
   /**
     * This method creates and starts a {@link ContainerStorageManager}
     */
-  def initializeContainerStorageManager() = {
+  def initializeContainerStorageManager(cleanStoreDirsOnStart : Boolean = false) = {
     var tasks: Map[TaskName, TaskModel] = HashMap[TaskName, TaskModel]((taskName, new TaskModel(taskName, new util.HashSet[SystemStreamPartition], new Partition(0))))
     var containerModel = new ContainerModel("container", tasks.asJava)
 
@@ -869,11 +888,13 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     var systemFactories : Map[String, SystemFactory] = HashMap[String, SystemFactory](("kafka", mockSystemFactory))
 
     var config =  new MapConfig(mutable.Map(
+      "stores.store1.clean.on.container.start" -> cleanStoreDirsOnStart.toString,
+      "stores.loggedStore1.clean.on.container.start" -> cleanStoreDirsOnStart.toString,
       "stores.store1.key.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.store1.msg.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.loggedStore1.key.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.loggedStore1.msg.serde" -> classOf[StringSerdeFactory].getCanonicalName,
-      TaskConfig.TRANSACTIONAL_STATE_ENABLED -> "false").asJava)
+      TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED -> "false").asJava)
 
     var mockSerdes: Map[String, Serde[AnyRef]] = HashMap[String, Serde[AnyRef]]((classOf[StringSerdeFactory].getCanonicalName, Mockito.mock(classOf[Serde[AnyRef]])))
 

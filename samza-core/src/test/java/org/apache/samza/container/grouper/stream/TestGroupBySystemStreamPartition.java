@@ -19,24 +19,21 @@
 
 package org.apache.samza.container.grouper.stream;
 
-import static org.junit.Assert.*;
-
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.container.grouper.task.GrouperMetadata;
-import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.system.SystemStreamPartition;
-import org.junit.Assert;
 import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 
 public class TestGroupBySystemStreamPartition {
   private SystemStreamPartition aa0 = new SystemStreamPartition("SystemA", "StreamA", new Partition(0));
@@ -76,217 +73,5 @@ public class TestGroupBySystemStreamPartition {
             .build();
 
     assertEquals(expectedResult, result);
-  }
-
-  @Test
-  public void testSingleStreamRepartitioning() {
-    Map<TaskName, List<SystemStreamPartition>> prevGroupingWithSingleStream = ImmutableMap.<TaskName, List<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(3))))
-            .build();
-
-    Set<SystemStreamPartition> currSsps = IntStream.range(0, 8)
-            .mapToObj(partitionId -> new SystemStreamPartition("kafka", "PVE", new Partition(partitionId)))
-            .collect(Collectors.toSet());
-
-    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = ImmutableMap.<TaskName, Set<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(1)),
-                    new SystemStreamPartition("kafka", "PVE", new Partition(5))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(0)),
-                    new SystemStreamPartition("kafka", "PVE", new Partition(4))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(7)),
-                    new SystemStreamPartition("kafka", "PVE", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(2)),
-                    new SystemStreamPartition("kafka", "PVE", new Partition(6))))
-            .build();
-
-    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
-    GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithSingleStream, new HashMap<>());
-    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
-    Assert.assertEquals(expectedGrouping, finalGrouping);
-  }
-
-  @Test
-  public void testMultipleStreamsWithSingleStreamRepartitioning() {
-    Map<TaskName, List<SystemStreamPartition>> prevGroupingWithMultipleStreams = ImmutableMap.<TaskName, List<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(3))))
-            .build();
-
-    Set<SystemStreamPartition> currSsps = IntStream.range(0, 8)
-            .mapToObj(partitionId -> new SystemStreamPartition("kafka", "PVE", new Partition(partitionId)))
-            .collect(Collectors.toSet());
-    IntStream.range(0, 8).forEach(partitionId -> currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(partitionId))));
-    IntStream.range(0, 4).forEach(partitionId -> currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(partitionId))));
-
-    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = ImmutableMap.<TaskName, Set<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 7]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(7))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 6]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(6))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 4]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(4))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 5]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(5))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(1)),
-                                                                                        new SystemStreamPartition("kafka", "PVE", new Partition(5))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(2)),
-                                                                                        new SystemStreamPartition("kafka", "PVE", new Partition(6))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(3)),
-                                                                                        new SystemStreamPartition("kafka", "PVE", new Partition(7))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(0)),
-                                                                                        new SystemStreamPartition("kafka", "PVE", new Partition(4))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(0))))
-            .build();
-
-    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
-    GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
-    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
-    Assert.assertEquals(expectedGrouping, finalGrouping);
-  }
-
-  @Test
-  public void testOnlyNewlyAddedStreams() {
-    Map<TaskName, List<SystemStreamPartition>> prevGroupingWithMultipleStreams = ImmutableMap.<TaskName, List<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(3))))
-            .build();
-
-    Set<SystemStreamPartition> currSsps = IntStream.range(0, 8)
-            .mapToObj(partitionId -> new SystemStreamPartition("kafka", "BOB", new Partition(partitionId)))
-            .collect(Collectors.toSet());
-
-    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = ImmutableMap.<TaskName, Set<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 5]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(5))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 4]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(4))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 7]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(7))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 6]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(6))))
-            .build();
-
-    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
-    GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
-    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
-    Assert.assertEquals(expectedGrouping, finalGrouping);
-  }
-
-
-  @Test
-  public void testRemovalAndAdditionOfStreamsWithRepartitioning() {
-    Map<TaskName, List<SystemStreamPartition>> prevGroupingWithMultipleStreams = ImmutableMap.<TaskName, List<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(3))))
-            .build();
-
-    Set<SystemStreamPartition> currSsps = IntStream.range(0, 8)
-            .mapToObj(partitionId -> new SystemStreamPartition("kafka", "PVE", new Partition(partitionId)))
-            .collect(Collectors.toSet());
-    IntStream.range(0, 8).forEach(partitionId -> currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(partitionId))));
-
-    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = ImmutableMap.<TaskName, Set<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(5)),
-                    new SystemStreamPartition("kafka", "PVE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(6)),
-                    new SystemStreamPartition("kafka", "PVE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(7)),
-                    new SystemStreamPartition("kafka", "PVE", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(4)),
-                    new SystemStreamPartition("kafka", "PVE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 7]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(7))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 6]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(6))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 5]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(5))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 4]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(4))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(0))))
-            .build();
-
-    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
-    GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
-    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
-    Assert.assertEquals(expectedGrouping, finalGrouping);
-  }
-
-  @Test
-  public void testMultipleStreamRepartitioningWithNewStreams() {
-    Map<TaskName, List<SystemStreamPartition>> prevGroupingWithMultipleStreams = ImmutableMap.<TaskName, List<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "PVE", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 0]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 1]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 2]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 3]"), ImmutableList.of(new SystemStreamPartition("kafka", "URE", new Partition(3))))
-            .build();
-
-    Set<SystemStreamPartition> currSsps = IntStream.range(0, 8)
-                                                   .mapToObj(partitionId -> new SystemStreamPartition("kafka", "PVE", new Partition(partitionId)))
-                                                   .collect(Collectors.toSet());
-    IntStream.range(0, 8).forEach(partitionId -> currSsps.add(new SystemStreamPartition("kafka", "BOB", new Partition(partitionId))));
-    IntStream.range(0, 8).forEach(partitionId -> currSsps.add(new SystemStreamPartition("kafka", "URE", new Partition(partitionId))));
-
-    Map<TaskName, Set<SystemStreamPartition>> expectedGrouping = ImmutableMap.<TaskName, Set<SystemStreamPartition>>builder()
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(1))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(0))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(3))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(2))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 5]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(5))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 4]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(4))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 7]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(7))))
-            .put(new TaskName("SystemStreamPartition [kafka, BOB, 6]"), ImmutableSet.of(new SystemStreamPartition("kafka", "BOB", new Partition(6))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(1)),
-                                                                                        new SystemStreamPartition("kafka", "PVE", new Partition(5))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(2)),
-                                                                                        new SystemStreamPartition("kafka", "PVE", new Partition(6))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(3)),
-                                                                                        new SystemStreamPartition("kafka", "PVE", new Partition(7))))
-            .put(new TaskName("SystemStreamPartition [kafka, PVE, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "PVE", new Partition(0)),
-                                                                                        new SystemStreamPartition("kafka", "PVE", new Partition(4))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 1]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(1)),
-                                                                                        new SystemStreamPartition("kafka", "URE", new Partition(5))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 2]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(2)),
-                                                                                        new SystemStreamPartition("kafka", "URE", new Partition(6))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 3]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(3)),
-                                                                                        new SystemStreamPartition("kafka", "URE", new Partition(7))))
-            .put(new TaskName("SystemStreamPartition [kafka, URE, 0]"), ImmutableSet.of(new SystemStreamPartition("kafka", "URE", new Partition(0)),
-                                                                                        new SystemStreamPartition("kafka", "URE", new Partition(4))))
-            .build();
-
-    SSPGrouperProxy groupBySystemStreamPartition = buildSspGrouperProxy();
-    GrouperMetadata grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), prevGroupingWithMultipleStreams, new HashMap<>());
-    Map<TaskName, Set<SystemStreamPartition>> finalGrouping = groupBySystemStreamPartition.group(currSsps, grouperMetadata);
-    Assert.assertEquals(expectedGrouping, finalGrouping);
-  }
-
-  private static SSPGrouperProxy buildSspGrouperProxy() {
-    return new SSPGrouperProxy(new MapConfig(), new GroupBySystemStreamPartition(new MapConfig()));
   }
 }

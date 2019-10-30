@@ -134,7 +134,7 @@ public class ContainerManager {
   /**
    * Handles an expired resource request for both active and standby containers. Since a preferred host cannot be obtained
    * this method checks the availability of surplus ANY_HOST resources and launches the container if available. Otherwise
-   * issues an ANY_HOST request. This behavior holds regardless of host-affinity enabled or not.
+   * issues an ANY_HOST request. Only applies to HOST_AFFINITY enabled cases
    *
    * @param processorId logical id of the container
    * @param preferredHost host on which container is requested to be deployed
@@ -143,7 +143,7 @@ public class ContainerManager {
    * @param resourceRequestState state of request in {@link ContainerAllocator}
    */
   @VisibleForTesting
-  void handleExpiredResourceRequest(String processorId, String preferredHost,
+  void handleExpiredRequestWithHostAffinityEnabled(String processorId, String preferredHost,
       SamzaResourceRequest request, ContainerAllocator allocator, ResourceRequestState resourceRequestState) {
     boolean resourceAvailableOnAnyHost = allocator.hasAllocatedResource(ResourceRequestState.ANY_HOST);
     if (standbyContainerManager.isPresent()) {

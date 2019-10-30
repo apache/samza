@@ -23,6 +23,7 @@ import java.io._
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
+import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
@@ -57,11 +58,10 @@ class NonTransactionalStateTaskStorageManager(
     newestChangelogSSPOffsets
   }
 
-  def checkpoint(newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): String = {
-    null
-  }
+  override def checkpoint(checkpointId: CheckpointId,
+    newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {}
 
-  override def removeOldCheckpoints(checkpointId: String): Unit =  {}
+  override def removeOldCheckpoints(checkpointId: CheckpointId): Unit = {}
 
   @VisibleForTesting
   def stop() {
@@ -112,6 +112,7 @@ class NonTransactionalStateTaskStorageManager(
       .filterKeys(storeName => persistedStores.contains(storeName))
       .foreach { case (storeName, systemStream) => {
         debug("Writing changelog offset for taskName %s store %s changelog %s." format(taskName, storeName, systemStream))
+        val currentStoreDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active)
         try {
           val ssp = new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition)
           newestChangelogOffsets(ssp) match {
@@ -119,7 +120,6 @@ class NonTransactionalStateTaskStorageManager(
               debug("Storing newest offset %s for taskName %s store %s changelog %s in OFFSET file."
                 format(newestOffset, taskName, storeName, systemStream))
               // TaskStorageManagers are only created for active tasks
-              val currentStoreDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active)
               storageManagerUtil.writeOffsetFile(currentStoreDir, Map(ssp -> newestOffset).asJava, false)
               debug("Successfully stored offset %s for taskName %s store %s changelog %s in OFFSET file."
                 format(newestOffset, taskName, storeName, systemStream))
@@ -128,7 +128,7 @@ class NonTransactionalStateTaskStorageManager(
               // if newestOffset is null, then it means the changelog ssp is (or has become) empty. This could be
               // either because the changelog topic was newly added, repartitioned, or manually deleted and recreated.
               // No need to persist the offset file.
-              storageManagerUtil.deleteOffsetFile(loggedStoreBaseDir, storeName, taskName)
+              storageManagerUtil.deleteOffsetFile(currentStoreDir)
               debug("Deleting OFFSET file for taskName %s store %s changelog ssp %s since the newestOffset is null."
                 format (taskName, storeName, ssp))
             }

@@ -29,6 +29,8 @@ import org.apache.samza.util.TimerUtil
 import java.nio.file.Path
 import java.util.Optional
 
+import org.apache.samza.checkpoint.CheckpointId
+
 /**
  * A key value store.
  *
@@ -117,6 +119,7 @@ class KeyValueStorageEngine[K, V](
     var restoredBytes = 0
     var trimmedMessages = 0
     var trimmedBytes = 0
+    var previousMode = ChangelogSSPIterator.Mode.RESTORE
 
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
     var lastBatchFlushed = false
@@ -128,6 +131,11 @@ class KeyValueStorageEngine[K, V](
       val mode = iterator.getMode
 
       if (mode.equals(ChangelogSSPIterator.Mode.RESTORE)) {
+        if (previousMode == ChangelogSSPIterator.Mode.TRIM) {
+          throw new IllegalStateException(
+            String.format("Illegal ChangelogSSPIterator mode change from TRIM to RESTORE for store: %s " +
+              "in dir: %s with changelog SSP: {}.", storeName, storeDir, changelogSSP))
+        }
         batch.add(new Entry(keyBytes, valBytes))
 
         if (batch.size >= batchSize) {
@@ -152,6 +160,7 @@ class KeyValueStorageEngine[K, V](
           info(restoredMessages + " total entries restored for store: " + storeName + " in directory: " + storeDir.toString + ".")
           if (batch.size > 0) {
             doPutAll(rawStore, batch)
+            batch.clear()
           }
           lastBatchFlushed = true
         }
@@ -171,9 +180,11 @@ class KeyValueStorageEngine[K, V](
 
         // log progress every hundred thousand messages
         if (trimmedMessages % 100000 == 0) {
-          info(restoredMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + "...")
+          info(trimmedMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + "...")
         }
       }
+
+      previousMode = mode
     }
 
     // if the last batch isn't flushed yet (e.g., for non transactional state or no messages to trim), flush it now
@@ -181,6 +192,7 @@ class KeyValueStorageEngine[K, V](
       info(restoredMessages + " total entries restored for store: " + storeName + " in directory: " + storeDir.toString + ".")
       if (batch.size > 0) {
         doPutAll(rawStore, batch)
+        batch.clear()
       }
       lastBatchFlushed = true
     }
@@ -198,7 +210,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def checkpoint(id: String): Optional[Path] = {
+  def checkpoint(id: CheckpointId): Optional[Path] = {
     updateTimer(metrics.checkpointNs) {
       trace("Checkpointing.")
       metrics.checkpoints.inc

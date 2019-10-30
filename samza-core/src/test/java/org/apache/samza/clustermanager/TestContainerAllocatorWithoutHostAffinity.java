@@ -23,7 +23,6 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.JobModelManager;
@@ -88,7 +87,6 @@ public class TestContainerAllocatorWithoutHostAffinity {
         put("cluster-manager.container.count", "1");
         put("cluster-manager.container.retry.count", "1");
         put("cluster-manager.container.retry.window.ms", "1999999999");
-        put("cluster-manager.container.request.timeout.ms", "3");
         put("cluster-manager.allocator.sleep.ms", "10");
         put("cluster-manager.container.memory.mb", "512");
         put("yarn.package.path", "/foo");
@@ -285,61 +283,12 @@ public class TestContainerAllocatorWithoutHostAffinity {
     resourceRequestCaptor.getAllValues()
         .forEach(resourceRequest -> assertEquals(resourceRequest.getPreferredHost(), ResourceRequestState.ANY_HOST));
     assertTrue(state.anyHostRequests.get() == containersToHostMapping.size());
-    // Expiry currently should not be invoked
-    verify(spyContainerManager, never()).handleExpiredResourceRequest(anyString(), anyString(),
+    // Expiry currently should not be invoked for host affinity enabled cases only
+    verify(spyContainerManager, never()).handleExpiredRequestWithHostAffinityEnabled(anyString(), anyString(),
         any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
     // Only updated when host affinity is enabled
     assertTrue(state.matchedResourceRequests.get() == 0);
     assertTrue(state.preferredHostRequests.get() == 0);
     spyAllocator.stop();
   }
-
-  @Test
-  public void testExpiredRequestAllocationOnAnyHost() throws Exception {
-    MockClusterResourceManager spyManager = spy(new MockClusterResourceManager(callback, state));
-    ContainerManager spyContainerManager = spy(new ContainerManager(state, spyManager, false));
-    spyAllocator = Mockito.spy(
-        new ContainerAllocator(spyManager, config, state, false, spyContainerManager));
-
-    // Request Resources
-    spyAllocator.requestResources(new HashMap<String, String>() {
-      {
-        put("0", "host-0");
-        put("1", "host-1");
-      }
-    });
-
-    spyThread = new Thread(spyAllocator);
-    // Start the container allocator thread periodic assignment
-    spyThread.start();
-
-    // Let the request expire, expiration timeout is 3 ms
-    Thread.sleep(100);
-
-    // Verify that all the request that were created as ANY_HOST host
-    // and all created requests expired
-    assertEquals(state.preferredHostRequests.get(), 0);
-    // Atleast 2 requests should expire & 2 ANY_HOST requests should be generated
-    assertTrue(state.anyHostRequests.get() >= 4);
-    assertTrue(state.expiredAnyHostRequests.get() >= 2);
-
-    verify(spyContainerManager, atLeastOnce()).handleExpiredResourceRequest(eq("0"), eq(ResourceRequestState.ANY_HOST),
-        any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
-    verify(spyContainerManager, atLeastOnce()).handleExpiredResourceRequest(eq("1"), eq(ResourceRequestState.ANY_HOST),
-        any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
-    // Verify that preferred host request were cancelled and since no surplus resources were available
-    // requestResource was invoked with ANY_HOST requests
-    ArgumentCaptor<SamzaResourceRequest> cancelledRequestCaptor = ArgumentCaptor.forClass(SamzaResourceRequest.class);
-    // At least 2 preferred host requests were cancelled
-    verify(spyManager, atLeast(2)).cancelResourceRequest(cancelledRequestCaptor.capture());
-    // Verify all the request cancelled were ANY_HOST
-    assertTrue(cancelledRequestCaptor.getAllValues()
-        .stream()
-        .map(resourceRequest -> resourceRequest.getPreferredHost())
-        .collect(Collectors.toSet())
-        .size() == 1);
-    containerAllocator.stop();
-
-  }
-
 }

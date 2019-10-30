@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
@@ -548,20 +549,16 @@ public class TestJobConfig {
   }
 
   @Test
-  public void testGetFwkPath() {
-    String samzaFwkPath = "/path/to/samza/fwk", samzaFwkVersion = "1.2.3";
+  public void testGetClusterBasedJobCoordinatorDependencyIsolationEnabled() {
+    Config config =
+        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true"));
+    assertTrue(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
 
-    // has path and version
-    Config config = new MapConfig(
-        ImmutableMap.of(JobConfig.SAMZA_FWK_PATH, samzaFwkPath, JobConfig.SAMZA_FWK_VERSION, samzaFwkVersion));
-    assertEquals(samzaFwkPath + File.separator + samzaFwkVersion, JobConfig.getFwkPath(config));
+    config =
+        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false"));
+    assertFalse(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
 
-    // only has path; use STABLE for version
-    config = new MapConfig(ImmutableMap.of(JobConfig.SAMZA_FWK_PATH, samzaFwkPath));
-    assertEquals(samzaFwkPath + File.separator + "STABLE", JobConfig.getFwkPath(config));
-
-    // no path; return empty string
-    assertTrue(JobConfig.getFwkPath(new MapConfig()).isEmpty());
+    assertFalse(new JobConfig(new MapConfig()).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
   }
 
   @Test
