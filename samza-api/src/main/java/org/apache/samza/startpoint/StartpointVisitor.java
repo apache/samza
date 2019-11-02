@@ -28,7 +28,7 @@ import org.apache.samza.system.SystemAdmin;
 public interface StartpointVisitor<IN, OUT> {
 
   /**
-   * Performs a sequence of operations using the {@link IN} and {@link StartpointSpecific} and returns the result of the execution.
+   * Performs a sequence of operations using IN and {@link StartpointSpecific} and returns the result of the execution.
    * @param input the input metadata about the startpoint.
    * @param startpointSpecific the {@link Startpoint} that represents the specific offset.
    * @return the result of executing the operations defined by the visit method.
@@ -38,7 +38,7 @@ public interface StartpointVisitor<IN, OUT> {
   }
 
   /**
-   * Performs a sequence of operations using the {@link IN} and {@link StartpointTimestamp} and returns the result of the execution.
+   * Performs a sequence of operations using IN and {@link StartpointTimestamp} and returns the result of the execution.
    * @param input the input metadata about the startpoint.
    * @param startpointTimestamp the {@link Startpoint} that represents the timestamp.
    * @return the result of executing the operations defined by the visit method.
@@ -48,7 +48,7 @@ public interface StartpointVisitor<IN, OUT> {
   }
 
   /**
-   * Performs a sequence of operations using the {@link IN} and {@link StartpointOldest} and returns the result of the execution.
+   * Performs a sequence of operations using IN and {@link StartpointOldest} and returns the result of the execution.
    * @param input the input metadata about the startpoint.
    * @param startpointOldest the {@link Startpoint} that represents the earliest offset.
    * @return the result of executing the operations defined by the visit method.
@@ -58,7 +58,7 @@ public interface StartpointVisitor<IN, OUT> {
   }
 
   /**
-   * Performs a sequence of operations using the {@link IN} and {@link StartpointUpcoming} and returns the result of the execution.
+   * Performs a sequence of operations using IN and {@link StartpointUpcoming} and returns the result of the execution.
    * @param input the input metadata about the startpoint.
    * @param startpointUpcoming the {@link Startpoint} that represents the latest offset.
    * @return the result of executing the operations defined by the visit method.
