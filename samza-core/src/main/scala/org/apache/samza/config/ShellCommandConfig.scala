@@ -87,9 +87,23 @@ object ShellCommandConfig {
    */
   val EXECUTION_PLAN_DIR = "EXECUTION_PLAN_DIR"
 
+  /**
+   * Points to the lib directory of the localized resources(other than the framework dependencies).
+   */
+  val ENV_LOCALIZED_RESOURCE_LIB_DIR = "LOCALIZED_RESOURCE_LIB_DIR"
+
   val COMMAND_SHELL_EXECUTE = "task.execute"
   val TASK_JVM_OPTS = "task.opts"
   val TASK_JAVA_HOME = "task.java.home"
+
+  /**
+   * SamzaContainer uses JARs from the lib directory of the framework in it classpath. In some cases, it is necessary to include
+   * the jars from lib directories of the resources that are localized along with the framework dependencies. These resources are logically
+   * independent of the framework and cannot be bundled with the framework dependencies. The URI of these resources are set dynamically at
+   * run-time before launching the SamzaContainer. This environment variable can be set to a lib directory of the localized resource and
+   * it will be included in the java classpath of the SamzaContainer.
+   */
+  val LOCALIZED_RESOURCE_LIB_DIR = "localized.resources.lib.dir"
 
   implicit def Config2ShellCommand(config: Config) = new ShellCommandConfig(config)
 }
@@ -100,4 +114,6 @@ class ShellCommandConfig(config: Config) extends ScalaMapConfig(config) {
   def getTaskOpts = getOption(ShellCommandConfig.TASK_JVM_OPTS)
 
   def getJavaHome = getOption(ShellCommandConfig.TASK_JAVA_HOME)
+
+  def getLocalizedResourceLibDir = getOption(ShellCommandConfig.LOCALIZED_RESOURCE_LIB_DIR)
 }
