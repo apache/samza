@@ -129,7 +129,7 @@ fi
 echo $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:pathing.jar "$@"
 
 ## If localized resource lib directory is defined, then include it in the classpath.
-if [[-z "${LOCALIZED_RESOURCE_LIB_DIR}" ]]; then
+if [[ -z "${LOCALIZED_RESOURCE_LIB_DIR}" ]]; then
    exec $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:pathing.jar "$@"
 else
   exec $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:pathing.jar:$LOCALIZED_RESOURCE_LIB_DIR "$@"
