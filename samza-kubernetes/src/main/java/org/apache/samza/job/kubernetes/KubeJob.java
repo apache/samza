@@ -76,12 +76,13 @@ public class KubeJob implements StreamJob {
    */
   public KubeJob submit() {
     // create SamzaResourceRequest
-    int memoryMB = config.getInt("cluster-manager.container.memory.mb", 1024);  // TODO
-    int numCores = config.getInt("cluster-manager.container.cpu.cores", 1);  // TODO
+    int memoryMB = config.getInt(CLUSTER_MANAGER_CONTAINER_MEM_SIZE, DEFAULT_CLUSTER_MANAGER_CONTAINER_MEM_SIZE);
+    int numCores = config.getInt(CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM, DEFAULT_CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM);
     String preferredHost = ResourceRequestState.ANY_HOST;
     SamzaResourceRequest request = new SamzaResourceRequest(numCores, memoryMB, preferredHost, podName);
 
     // create Container
+    // TODO: SAMZA-2368: Figure out "samza.fwk.path" and "samza.fwk.version" are still needed in Samza 1.3
     String fwkPath = config.get("samza.fwk.path", "");
     String fwkVersion = config.get("samza.fwk.version");
     String cmd = buildJobCoordinatorCmd(fwkPath, fwkVersion);
@@ -92,12 +93,12 @@ public class KubeJob implements StreamJob {
     PodBuilder podBuilder;
     if (config.getBoolean(AZURE_REMOTE_VOLUME_ENABLED)) {
       AzureFileVolumeSource azureFileVolumeSource = new AzureFileVolumeSource(false,
-              config.get(AZURE_SECRET, "azure-secret"), config.get(AZURE_FILESHARE, "aksshare"));
+              config.get(AZURE_SECRET, DEFAULT_AZURE_SECRET), config.get(AZURE_FILESHARE, DEFAULT_AZURE_FILESHARE));
       Volume volume = new Volume();
       volume.setAzureFile(azureFileVolumeSource);
       volume.setName("azure");
       VolumeMount volumeMount = new VolumeMount();
-      volumeMount.setMountPath(config.get(SAMZA_MOUNT_DIR, "/tmp/mnt"));
+      volumeMount.setMountPath(config.get(SAMZA_MOUNT_DIR, DEFAULT_SAMZA_MOUNT_DIR));
       volumeMount.setName("azure");
       volumeMount.setSubPath(podName);
       container.setVolumeMounts(Collections.singletonList(volumeMount));
@@ -112,7 +113,6 @@ public class KubeJob implements StreamJob {
               .withVolumes(volume)
               .endSpec();
     } else {
-
       // create Pod
        podBuilder = new PodBuilder()
               .editOrNewMetadata()
@@ -127,7 +127,8 @@ public class KubeJob implements StreamJob {
 
     Pod pod = podBuilder.build();
     kubernetesClient.pods().create(pod);
-    // TODO: adding watcher here makes Client waiting .. Need to fix.
+    // TODO: SAMZA-2247: the watcher here makes Client hung (always waiting). Although it doesn't affect the operator
+    //  and worker containers, we still need to fix this issue.
     kubernetesClient.pods().withName(podName).watch(watcher);
     return this;
   }
@@ -213,7 +214,7 @@ public class KubeJob implements StreamJob {
     LOG.info(String.format("KubeJob: fwk_path is %s, ver is %s use it directly ", fwkPath, fwkVersion));
 
     // default location
-    String cmdExec = "/opt/hello-samza/bin/run-jc.sh";
+    String cmdExec = DEFAULT_DIRECTORY + "bin/run-jc.sh";
     if (!fwkPath.isEmpty()) {
       // if we have framework installed as a separate package - use it
       cmdExec = fwkPath + "/" + fwkVersion + "/bin/run-jc.sh";
@@ -224,6 +225,7 @@ public class KubeJob implements StreamJob {
   // Construct the envs for the job coordinator pod
   private List<EnvVar> getEnvs() {
     MapConfig coordinatorSystemConfig = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config);
+    LOG.info("Coordinator system config: {}", coordinatorSystemConfig);
     List<EnvVar> envList = new ArrayList<>();
     ObjectMapper objectMapper = getObjectMapper();
     String coordinatorSysConfig;

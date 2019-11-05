@@ -55,8 +55,7 @@ object HttpUtil {
       (exception, loop) => {
         exception match {
           case ioe: IOException => {
-            error(ioe)
-            warn("Error getting response from Job coordinator server. received IOException: %s. Retrying..." format ioe.getClass)
+            error("Error getting response from Job coordinator server. Received IOException: %s. Retrying..." format ioe)
             httpConn = getHttpConnection(url, timeout)
           }
           case e: Exception =>

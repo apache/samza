@@ -19,14 +19,27 @@
 
 package org.apache.samza.config;
 
+/**
+ * Kubernetes related configurations
+ */
 public class KubeConfig {
 
   // the image name of samza
   public static final String APP_IMAGE = "kube.app.image";
   public static final String DEFAULT_IMAGE = "weiqingyang/samza:v0";
 
+  // the default working directory
+  public static final String DEFAULT_DIRECTORY = "/opt/samza/";
+
+  // the memory and the cpu cores of container
+  public static final String CLUSTER_MANAGER_CONTAINER_MEM_SIZE = "cluster-manager.container.memory.mb";
+  public static final int DEFAULT_CLUSTER_MANAGER_CONTAINER_MEM_SIZE = 1024;
+  public static final String CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM = "cluster-manager.container.cpu.cores";
+  public static final int DEFAULT_CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM = 1;
+
   // The directory path inside which the log will be stored.
   public static final String SAMZA_MOUNT_DIR = "kube.app.pod.mnt.path";
+  public static final String DEFAULT_SAMZA_MOUNT_DIR = "/tmp/mnt";
   public static final String K8S_API_NAMESPACE = "kube.app.namespace";
   public static final String STREAM_PROCESSOR_CONTAINER_NAME_PREFIX = "sp";
   public static final String JC_CONTAINER_NAME_PREFIX = "jc";
@@ -38,9 +51,12 @@ public class KubeConfig {
   public static final String COORDINATOR_POD_NAME = "COORDINATOR_POD_NAME";
   public static final String AZURE_REMOTE_VOLUME_ENABLED = "kube.app.volume.azure.file-share.enabled";
   public static final String AZURE_SECRET = "kube.app.volume.azure-secret";
+  public static final String DEFAULT_AZURE_SECRET = "azure-secret";
   public static final String AZURE_FILESHARE = "kube.app.volume.azure.file-share";
+  public static final String DEFAULT_AZURE_FILESHARE = "aksshare";
 
   private Config config;
+
   public KubeConfig(Config config) {
     this.config = config;
   }
@@ -51,7 +67,8 @@ public class KubeConfig {
     return kc;
   }
 
+  // TODO: SAMZA-2365: validate KubeConfig before starting the job
   private void validate() throws ConfigException {
-    // TODO
+
   }
 }

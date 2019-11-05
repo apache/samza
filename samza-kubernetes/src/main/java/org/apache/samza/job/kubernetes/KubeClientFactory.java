@@ -26,7 +26,9 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+/**
+ * A KubeClientFactory returns a default KubernetesClient
+ */
 public class KubeClientFactory {
   private static final Logger LOG = LoggerFactory.getLogger(KubeClientFactory.class);
 

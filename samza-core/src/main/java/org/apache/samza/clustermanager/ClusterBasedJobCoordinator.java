@@ -413,7 +413,8 @@ public class ClusterBasedJobCoordinator {
       //Read and parse the coordinator system config.
       LOG.info("Parsing coordinator system config {}", coordinatorSystemEnv);
       coordinatorSystemConfig =
-          new MapConfig(SamzaObjectMapper.getObjectMapper().readValue(coordinatorSystemEnv, Config.class));
+          new MapConfig(SamzaObjectMapper.getObjectMapper()
+              .readValue(coordinatorSystemEnv.replace("\\\"", "\""), Config.class));
       LOG.info("Using the coordinator system config: {}.", coordinatorSystemConfig);
     } catch (IOException e) {
       LOG.error("Exception while reading coordinator stream config", e);

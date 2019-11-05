@@ -28,7 +28,11 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A monitor for the running Kubernetes pod of a Samza application
+ */
 
+// TODO: SAMZA-2369: Add a logging thread which is similar to LoggingPodStatusWatcher in Spark
 public class KubePodStatusWatcher implements Watcher<Pod> {
   private static final Logger LOG = LoggerFactory.getLogger(KubeJob.class);
   private Optional<Pod> pod = Optional.empty();
@@ -141,23 +145,19 @@ public class KubePodStatusWatcher implements Watcher<Pod> {
 
   private void closeWatchWhenRunning() {
     podRunningLatch.countDown();
-    // TODO: may add a logging thread
   }
 
   private void closeWatchWhenPending() {
     podPendingLatch.countDown();
-    // TODO: may add a logging thread
   }
 
 
   private void closeWatchWhenFailed() {
     podFailedLatch.countDown();
-    // TODO: may add a logging thread
   }
 
   private void closeWatchWhenSucceed() {
     podSucceededLatch.countDown();
-    // TODO: may add a logging thread
   }
 
   private void closeAllWatch() {
@@ -167,6 +167,5 @@ public class KubePodStatusWatcher implements Watcher<Pod> {
     closeWatchWhenRunning();
     closeWatchWhenFailed();
     closeWatchWhenSucceed();
-    // TODO: may add a logging thread
   }
 }

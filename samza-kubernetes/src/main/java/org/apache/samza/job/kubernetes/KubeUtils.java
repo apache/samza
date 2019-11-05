@@ -22,6 +22,9 @@ package org.apache.samza.job.kubernetes;
 import io.fabric8.kubernetes.api.model.*;
 import org.apache.samza.clustermanager.SamzaResourceRequest;
 
+/**
+ * Convenient utility class with static methods.
+ */
 public class KubeUtils {
 
   public static String getSamzaContainerNameFromPodName(String podName) {
@@ -51,6 +54,6 @@ public class KubeUtils {
       .addToRequests("memory", memQuantity).addToRequests("cpu", cpuQuantity).endResources().build();
   }
 
-  // TODO: will add util methods describing details about Pod status and container status. Refer to Spark'KubernetesUtils.
-  //       Then we can use them in logs and exception messages.
+  // TODO: SAMZA-2371: add util methods (similar to KubernetesUtils in Spark) describing details about pod status and
+  //  container status, then we can use these methods in logs and exception messages.
 }

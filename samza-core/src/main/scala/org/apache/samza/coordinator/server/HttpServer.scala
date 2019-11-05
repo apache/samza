@@ -125,7 +125,7 @@ class HttpServer(
   }
 
   /**
-   * Returns the URL for the root of the HTTP server. This method
+   * Returns the URL for the root of the HTTP server. This URL is generated with host name.
    */
   def getUrl = {
     if (running) {
@@ -137,6 +137,9 @@ class HttpServer(
     }
   }
 
+  /**
+    * Returns the URL for the root of the HTTP server. This URL is generated with host address.
+    */
   def getIpUrl = {
     if (running) {
       val runningPort = server.getConnectors()(0).asInstanceOf[NetworkConnector].getLocalPort()

@@ -204,14 +204,20 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   }
 
   public boolean shouldShutdown() {
-    LOG.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
-      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
+    LOG.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}",
+      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no");
+
+    if (shouldStartAllocateThread()) {
+      LOG.debug("Is allocator thread alive: {}", allocatorThread.isAlive() ? "yes" : "no");
+    }
 
     if (exceptionOccurred != null) {
       LOG.error("Exception in container process manager", exceptionOccurred);
       throw new SamzaException(exceptionOccurred);
     }
-    return jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
+
+    boolean shouldShutdown = jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get();
+    return shouldStartAllocateThread() ? shouldShutdown || !allocatorThread.isAlive() : shouldShutdown;
   }
 
   public void start() {

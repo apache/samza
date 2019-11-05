@@ -26,6 +26,9 @@ import org.apache.samza.coordinator.JobModelManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * A KubeResourceManagerFactory returns an implementation of a {@link ClusterResourceManager} for Kubernetes.
+ */
 public class KubeResourceManagerFactory implements ResourceManagerFactory {
   private static Logger log = LoggerFactory.getLogger(KubeResourceManagerFactory.class);
 

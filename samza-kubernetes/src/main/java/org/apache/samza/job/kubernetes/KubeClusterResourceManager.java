@@ -23,11 +23,13 @@ import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.Watcher;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
-import org.apache.samza.SamzaException;
-import org.apache.samza.clustermanager.*;
+import org.apache.samza.clustermanager.ClusterResourceManager;
+import org.apache.samza.clustermanager.ResourceRequestState;
+import org.apache.samza.clustermanager.SamzaApplicationState;
+import org.apache.samza.clustermanager.SamzaResourceRequest;
+import org.apache.samza.clustermanager.SamzaResource;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfig;
@@ -42,6 +44,10 @@ import org.slf4j.LoggerFactory;
 import static org.apache.samza.config.ApplicationConfig.*;
 import static org.apache.samza.config.KubeConfig.*;
 
+/**
+ * An {@link KubeClusterResourceManager} implements a ClusterResourceManager using Kubernetes as the underlying
+ * resource manager.
+ */
 public class KubeClusterResourceManager extends ClusterResourceManager {
   private static final Logger LOG = LoggerFactory.getLogger(KubeClusterResourceManager.class);
   private final Map<String, String> podLabels = new HashMap<>();
@@ -129,7 +135,7 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
       }
     };
 
-    // TODO: "podLabels" is empty. Need to add lable when creating Pod
+    // TODO: SAMZA-2367: "podLabels" is empty. Need to add labels when creating Pod
     client.pods().withLabels(podLabels).watch(watcher);
   }
 
@@ -173,16 +179,16 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
 
     PodBuilder podBuilder;
     if (config.getBoolean(AZURE_REMOTE_VOLUME_ENABLED)) {
-      AzureFileVolumeSource azureFileVolumeSource =
-              new AzureFileVolumeSource(false, config.get(AZURE_SECRET, "azure-secret"), config.get(AZURE_FILESHARE, "aksshare"));
+      AzureFileVolumeSource azureFileVolumeSource = new AzureFileVolumeSource(false,
+          config.get(AZURE_SECRET, DEFAULT_AZURE_SECRET), config.get(AZURE_FILESHARE, DEFAULT_AZURE_FILESHARE));
       Volume volume = new Volume();
       volume.setAzureFile(azureFileVolumeSource);
       volume.setName("azure");
       VolumeMount volumeMount = new VolumeMount();
-      volumeMount.setMountPath(config.get(SAMZA_MOUNT_DIR, "/tmp/mnt"));
+      volumeMount.setMountPath(config.get(SAMZA_MOUNT_DIR, DEFAULT_SAMZA_MOUNT_DIR));
       volumeMount.setName("azure");
       volumeMount.setSubPath(podName);
-      LOG.info("Set subpath to " + podName + ", mountpath to " + config.get(SAMZA_MOUNT_DIR, "/tmp/mnt"));
+      LOG.info("Set subpath to " + podName + ", mountpath to " + config.get(SAMZA_MOUNT_DIR, DEFAULT_SAMZA_MOUNT_DIR));
       container.setVolumeMounts(Collections.singletonList(volumeMount));
       podBuilder = new PodBuilder().editOrNewMetadata()
               .withName(podName)
@@ -244,13 +250,10 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
   public void stop(SamzaApplicationState.SamzaAppStatus status) {
     LOG.info("Kubernetes Cluster ResourceManager stopped");
     jobModelManager.stop();
-    // TODO: need to check
   }
 
   private String buildCmd(CommandBuilder cmdBuilder) {
-    String cmdPath = "/opt/samza/"; // TODO
-    cmdBuilder.setCommandPath(cmdPath);
-
+    cmdBuilder.setCommandPath(DEFAULT_DIRECTORY);
     return cmdBuilder.buildCommand();
   }
 
@@ -280,7 +283,8 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
       sb.append(String.format("\n%s=%s", entry.getKey(), entry.getValue())); //logging
     }
 
-    // TODO: The ID assigned to the container by the execution environment: K8s container Id. ?? Seems there is no id
+    // TODO: SAMZA-2366: make the container ID as an execution environment and pass it to the container.
+    //  Seems there is no such id (K8s container id)?
     // envList.add(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID(), container.getId().toString());
     // sb.append(String.format("\n%s=%s", ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID(), container.getId().toString()));
 
@@ -291,22 +295,5 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
     LOG.info("Using environment variables: {}", cmdBuilder, sb.toString());
 
     return envList;
-  }
-
-  private URL formatUrl(URL url) {
-    int port = url.getPort();
-    String host = url.getHost();
-    LOG.info("Original host: {}, port: {}, url: {}", host, port, url);
-
-    String formattedHost = host + "."+ namespace + ".svc.cluster.local";
-    LOG.info("Formatted host: {}, port: {}", formattedHost, port);
-    URL newUrl;
-    try {
-      newUrl = new URL("http://" + formattedHost + ":" + url.getPort());
-      LOG.info("Formatted URL: {}", newUrl);
-    } catch (MalformedURLException ex) {
-      throw new SamzaException(ex);
-    }
-    return newUrl;
   }
 }
