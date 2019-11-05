@@ -257,7 +257,6 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
     return cmdBuilder.buildCommand();
   }
 
-  // TODO: Need to check it again later!! Check AbstractContainerAllocator.getCommandBuilder(samzaContainerId)
   private CommandBuilder getCommandBuilder(String containerId) {
     TaskConfig taskConfig = new TaskConfig(config);
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
