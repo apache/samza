@@ -39,7 +39,7 @@ class ShellCommandBuilder extends CommandBuilder {
       ShellCommandConfig.ENV_CONTAINER_ID -> id.toString,
       ShellCommandConfig.ENV_COORDINATOR_URL -> url.toString,
       ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""),
-      ShellCommandConfig.ENV_LOCALIZED_RESOURCE_LIB_DIR -> config.getLocalizedResourceLibDir.getOrElse(""))
+      ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR -> config.getAdditionalClasspathDir.getOrElse(""))
 
     val envMapWithJavaHome = config.getJavaHome match {
       case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)
