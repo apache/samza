@@ -35,6 +35,7 @@ class SerializedKeyValueStoreMetrics(
   val flushes = newCounter("flushes")
   val bytesSerialized = newCounter("bytes-serialized")
   val bytesDeserialized = newCounter("bytes-deserialized")
+  val maxRecordSizeBytes = newGauge("max-record-size-bytes", 0L)
 
   override def getPrefix = storeName + "-"
 }
