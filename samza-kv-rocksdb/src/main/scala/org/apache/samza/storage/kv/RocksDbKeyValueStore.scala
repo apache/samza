@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.{Comparator, Optional}
 
-import org.apache.commons.io.FileUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.config.Config
@@ -101,8 +100,6 @@ object RocksDbKeyValueStore extends Logging {
             "0"
           }
         ))
-
-      metrics.newGauge("rocksdb.size-on-disk", () => FileUtils.sizeOfDirectory(new File(dir.getAbsolutePath)))
 
       rocksDb
     } catch {
