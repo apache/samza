@@ -102,7 +102,7 @@ object RocksDbKeyValueStore extends Logging {
           }
         ))
 
-      metrics.newGauge("rocksdb.size-on-disk", () -> FileUtils.sizeOfDirectory(new File(dir.getAbsolutePath)))
+      metrics.newGauge("rocksdb.size-on-disk", () => FileUtils.sizeOfDirectory(new File(dir.getAbsolutePath)))
 
       rocksDb
     } catch {
