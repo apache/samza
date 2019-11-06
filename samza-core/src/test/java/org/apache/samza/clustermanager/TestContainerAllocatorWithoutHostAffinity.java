@@ -23,6 +23,7 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.JobModelManager;
@@ -66,8 +67,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new ContainerAllocator(manager, config, state, false,
-        new ContainerManager(state, manager, false));
+    containerAllocator = new ContainerAllocator(manager, config, state, false, Optional.empty());
     requestState = new MockContainerRequestState(manager, false);
     Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
@@ -261,10 +261,9 @@ public class TestContainerAllocatorWithoutHostAffinity {
     };
 
     ClusterResourceManager.Callback mockCPM = mock(ClusterResourceManager.Callback.class);
-    ClusterResourceManager mockManager = new MockClusterResourceManager(mockCPM, state);
-    ContainerManager spyContainerManager = spy(new ContainerManager(state, mockManager, false));
     spyAllocator = Mockito.spy(
-        new ContainerAllocator(mockManager, config, state, false, spyContainerManager));
+        new ContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state, false,
+            Optional.empty()));
     // Mock the callback from ClusterManager to add resources to the allocator
     doAnswer((InvocationOnMock invocation) -> {
         SamzaResource resource = (SamzaResource) invocation.getArgumentAt(0, List.class).get(0);
@@ -283,9 +282,9 @@ public class TestContainerAllocatorWithoutHostAffinity {
     resourceRequestCaptor.getAllValues()
         .forEach(resourceRequest -> assertEquals(resourceRequest.getPreferredHost(), ResourceRequestState.ANY_HOST));
     assertTrue(state.anyHostRequests.get() == containersToHostMapping.size());
-    // Expiry currently should not be invoked for host affinity enabled cases only
-    verify(spyContainerManager, never()).handleExpiredRequestWithHostAffinityEnabled(anyString(), anyString(),
-        any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
+    // Expiry currently is only handled for host affinity enabled cases
+    verify(spyAllocator, never()).handleExpiredRequestWithHostAffinityEnabled(anyString(), anyString(),
+        any(SamzaResourceRequest.class));
     // Only updated when host affinity is enabled
     assertTrue(state.matchedResourceRequests.get() == 0);
     assertTrue(state.preferredHostRequests.get() == 0);
