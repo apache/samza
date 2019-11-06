@@ -95,8 +95,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final ContainerAllocator containerAllocator;
   private final Thread allocatorThread;
 
-  // The ContainerManager manages control actions for both active & standby containers
-  private final ContainerManager containerManager;
+  // The StandbyContainerManager manages standby-aware allocation and failover of containers
+  private final Optional<StandbyContainerManager> standbyContainerManager;
 
   private final Option<DiagnosticsManager> diagnosticsManager;
 
@@ -158,9 +158,14 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // Wire all metrics to all reporters
     this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
 
-    this.containerManager = new ContainerManager(state, clusterResourceManager, jobConfig.getStandbyTasksEnabled());
+    // Enable standby container manager if required
+    if (jobConfig.getStandbyTasksEnabled()) {
+      this.standbyContainerManager = Optional.of(new StandbyContainerManager(state, clusterResourceManager));
+    } else {
+      this.standbyContainerManager = Optional.empty();
+    }
 
-    this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
+    this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.standbyContainerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     LOG.info("Finished container process manager initialization.");
   }
@@ -170,8 +175,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       SamzaApplicationState state,
       MetricsRegistryMap registry,
       ClusterResourceManager resourceManager,
-      Optional<ContainerAllocator> allocator,
-      ContainerManager containerManager) {
+      Optional<ContainerAllocator> allocator) {
     this.state = state;
     this.clusterManagerConfig = clusterManagerConfig;
     this.jobConfig = new JobConfig(clusterManagerConfig);
@@ -179,11 +183,11 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
     this.clusterResourceManager = resourceManager;
-    this.containerManager = containerManager;
+    this.standbyContainerManager = Optional.empty();
     this.diagnosticsManager = Option.empty();
     this.containerAllocator = allocator.orElseGet(
         () -> new ContainerAllocator(this.clusterResourceManager, clusterManagerConfig, state,
-            hostAffinityEnabled, this.containerManager));
+            hostAffinityEnabled, this.standbyContainerManager));
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     LOG.info("Finished container process manager initialization");
   }
@@ -423,7 +427,16 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     // 3. Re-request resources on ANY_HOST in case of launch failures on the preferred host, if standby are not enabled
     // otherwise calling standbyContainerManager
-    containerManager.handleContainerLaunchFail(processorId, containerId, containerHost, containerAllocator);
+    if (processorId != null && standbyContainerManager.isPresent()) {
+      standbyContainerManager.get().handleContainerLaunchFail(processorId, containerId, containerAllocator);
+    } else if (processorId != null) {
+      LOG.info("Falling back to ANY_HOST for Processor ID: {} since launch failed for Container ID: {} on host: {}",
+          processorId, containerId, containerHost);
+      containerAllocator.requestResource(processorId, ResourceRequestState.ANY_HOST);
+    } else {
+      LOG.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. " +
+          "Ignoring invalid/redundant notification.", containerId, containerHost);
+    }
   }
 
   /**
@@ -591,25 +604,25 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   /**
    * Obtains the ID of the Samza processor pending launch on the provided resource (container).
    *
-   * ContainerProcessManager [INFO] Container ID: container_e66_1569376389369_0221_01_000049 matched pending Processor ID: 0 on host: ltx1-app0772.stg.linkedin.com
-   *
-   * @param containerId last known id of the container deployed
-   * @return the logical processorId of the processor (e.g., 0, 1, 2 ...)
+   * @param resourceId the ID of the resource (container)
+   * @return the ID of the Samza processor on this resource
    */
-  private String getPendingProcessorId(String containerId) {
+  private String getPendingProcessorId(String resourceId) {
     for (Map.Entry<String, SamzaResource> entry: state.pendingProcessors.entrySet()) {
-      if (entry.getValue().getContainerId().equals(containerId)) {
-        LOG.info("Container ID: {} matched pending Processor ID: {} on host: {}", containerId, entry.getKey(), entry.getValue().getHost());
+      if (entry.getValue().getContainerId().equals(resourceId)) {
+        LOG.info("Container ID: {} matched pending Processor ID: {} on host: {}", resourceId, entry.getKey(), entry.getValue().getHost());
         return entry.getKey();
       }
     }
     return null;
   }
 
-  /**
-   * Request {@link ContainerManager#handleContainerStop} to determine next step of actions for the stopped container
-   */
-  private void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus, Duration preferredHostRetryDelay) {
-    containerManager.handleContainerStop(processorId, containerId, preferredHost, exitStatus, preferredHostRetryDelay, containerAllocator);
+  private void handleContainerStop(String processorId, String resourceID, String preferredHost, int exitStatus, Duration preferredHostRetryDelay) {
+    if (standbyContainerManager.isPresent()) {
+      standbyContainerManager.get().handleContainerStop(processorId, resourceID, preferredHost, exitStatus, containerAllocator, preferredHostRetryDelay);
+    } else {
+      // If StandbyTasks are not enabled, we simply make a request for the preferredHost
+      containerAllocator.requestResourceWithDelay(processorId, preferredHost, preferredHostRetryDelay);
+    }
   }
 }
