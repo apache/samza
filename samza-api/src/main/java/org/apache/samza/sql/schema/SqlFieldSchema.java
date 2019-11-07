@@ -97,7 +97,7 @@ public class SqlFieldSchema {
   /**
    * Get the schema of the value if the field type is {@link SamzaSqlFieldType#MAP}
    */
-  public SqlFieldSchema getValueScehma() {
+  public SqlFieldSchema getValueSchema() {
     return valueType;
   }
 
