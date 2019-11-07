@@ -202,7 +202,7 @@ class KeyValueStorageEngine[K, V](
     flush() // TODO HIGH pmaheshw SAMZA-2338: Need a way to flush changelog producers. This only flushes the stores.
 
     if (Thread.currentThread().isInterrupted) {
-      warn("Received an interrupt during store restoration. Exiting without restore the full state.")
+      warn("Received an interrupt during store restoration. Exiting without restoring the full state.")
       throw new InterruptedException("Received an interrupt during store restoration.")
     }
   }
