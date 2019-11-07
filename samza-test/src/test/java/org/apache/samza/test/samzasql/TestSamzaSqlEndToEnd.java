@@ -603,7 +603,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.outputTopic(id, bool_value, long_value) "
-        + "select id, NOT(id = 5) as bool_value, MYTest(id) as long_value from testavro.SIMPLE1";
+        + "select id, NOT(id = 5) as bool_value, MYTest(id) as long_value from testavro.SIMPLE1;;";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
 

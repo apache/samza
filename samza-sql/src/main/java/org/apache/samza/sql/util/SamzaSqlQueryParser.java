@@ -101,6 +101,8 @@ public class SamzaSqlQueryParser {
   public static QueryInfo parseQuery(String sql) {
     Planner planner = createPlanner();
     SqlNode sqlNode;
+    // Remove trailing semi-colons
+    sql = sql.replaceAll(";+$", "");
     try {
       sqlNode = planner.parse(sql);
     } catch (SqlParseException e) {
