@@ -36,7 +36,7 @@ public interface TaskRestoreManager {
   /**
    * Restore state from checkpoints, state snapshots and changelog.
    */
-  void restore();
+  void restore() throws InterruptedException;
 
   /**
    * Stop all persistent stores after restoring.

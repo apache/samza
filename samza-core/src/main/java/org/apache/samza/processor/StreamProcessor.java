@@ -133,7 +133,6 @@ public class StreamProcessor {
   private final Config config;
   private final long taskShutdownMs;
   private final String processorId;
-  private final ExecutorService containerExcecutorService;
   private final Object lock = new Object();
   private final MetricsRegistryMap metricsRegistry;
   private final MetadataStore metadataStore;
@@ -175,6 +174,9 @@ public class StreamProcessor {
 
   @VisibleForTesting
   JobCoordinatorListener jobCoordinatorListener = null;
+
+  @VisibleForTesting
+  ExecutorService containerExecutorService;
 
   /**
    * Same as {@link #StreamProcessor(String, Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
@@ -288,9 +290,13 @@ public class StreamProcessor {
         : createJobCoordinator(config, processorId, metricsRegistry, metadataStore);
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
-    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
-    this.containerExcecutorService = Executors.newSingleThreadExecutor(threadFactory);
+    this.containerExecutorService = createExecutorService();
     this.processorListener = listenerFactory.createInstance(this);
+  }
+
+  private ExecutorService createExecutorService() {
+    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
+    return Executors.newSingleThreadExecutor(threadFactory);
   }
 
   /**
@@ -346,9 +352,10 @@ public class StreamProcessor {
         try {
           LOGGER.info("Shutting down the container: {} of stream processor: {}.", container, processorId);
           boolean hasContainerShutdown = stopSamzaContainer();
+          // todo: use interruptSamzaContainer method instead to give one more chance for container to shutdown
           if (!hasContainerShutdown) {
             LOGGER.info("Interrupting the container: {} thread to die.", container);
-            containerExcecutorService.shutdownNow();
+            containerExecutorService.shutdownNow();
           }
         } catch (Throwable throwable) {
           LOGGER.error(String.format("Exception occurred on container: %s shutdown of stream processor: %s.", container, processorId), throwable);
@@ -444,6 +451,21 @@ public class StreamProcessor {
     return hasContainerShutdown;
   }
 
+  private boolean interruptSamzaContainer() {
+    if (container != null) {
+      try {
+        containerExecutorService.shutdownNow();
+        containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        LOGGER.info("Received an interrupt during interrupting container. Proceeding to check if the container callback "
+            + "decremented the shutdown latch. ");
+      }
+    }
+
+    // we call interrupt successful as long as the shut down latch is decremented by the container call back.
+    return containerShutdownLatch.getCount() == 0;
+  }
+
   private JobCoordinatorListener createJobCoordinatorListener() {
     return new JobCoordinatorListener() {
 
@@ -461,8 +483,25 @@ public class StreamProcessor {
             } else {
               LOGGER.info("Container: {} shutdown completed for stream processor: {}.", container, processorId);
             }
+          } else if (state == State.IN_REBALANCE) {
+            if (container != null) {
+              boolean hasContainerShutdown = interruptSamzaContainer();
+              if (!hasContainerShutdown) {
+                LOGGER.warn("Job model expire unsuccessful. Failed to interrupt container: {} safely. "
+                    + "Stopping the stream processor: {}", container, processorId);
+                state = State.STOPPING;
+                jobCoordinator.stop();
+              } else {
+                Preconditions.checkState(containerExecutorService.isShutdown(),
+                    "Executor service did not shutdown cleanly.");
+                containerExecutorService = createExecutorService();
+              }
+            } else {
+              LOGGER.info("Ignoring Job model expired since a rebalance is already in progress");
+            }
           } else {
-            LOGGER.info("Ignoring onJobModelExpired invocation since the current state is {} and not in {}.", state, ImmutableList.of(State.RUNNING, State.STARTED));
+            LOGGER.info("Ignoring onJobModelExpired invocation since the current state is {} and not in {}.", state,
+                ImmutableList.of(State.RUNNING, State.STARTED, State.IN_REBALANCE));
           }
         }
       }
@@ -475,7 +514,7 @@ public class StreamProcessor {
             container = createSamzaContainer(processorId, jobModel);
             container.setContainerListener(new ContainerListener());
             LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
-            containerExcecutorService.submit(container);
+            containerExecutorService.submit(container);
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
           }
@@ -490,7 +529,7 @@ public class StreamProcessor {
 
           // we only want to interrupt when container shutdown times out.
           if (!hasContainerShutdown) {
-            containerExcecutorService.shutdownNow();
+            containerExecutorService.shutdownNow();
           }
           state = State.STOPPED;
         }
@@ -508,7 +547,7 @@ public class StreamProcessor {
 
           // we only want to interrupt when container shutdown times out.
           if (!hasContainerShutdown) {
-            containerExcecutorService.shutdownNow();
+            containerExecutorService.shutdownNow();
           }
           state = State.STOPPED;
         }

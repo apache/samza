@@ -124,7 +124,7 @@ class KeyValueStorageEngine[K, V](
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
     var lastBatchFlushed = false
 
-    while(iterator.hasNext) {
+    while(iterator.hasNext && !Thread.currentThread().isInterrupted) {
       val envelope = iterator.next()
       val keyBytes = envelope.getKey.asInstanceOf[Array[Byte]]
       val valBytes = envelope.getMessage.asInstanceOf[Array[Byte]]
@@ -200,6 +200,11 @@ class KeyValueStorageEngine[K, V](
 
     // flush the store and the changelog producer
     flush() // TODO HIGH pmaheshw SAMZA-2338: Need a way to flush changelog producers. This only flushes the stores.
+
+    if (Thread.currentThread().isInterrupted) {
+      warn("Received an interrupt during store restoration. Exiting without restore the full state.")
+      throw new InterruptedException("Received an interrupt during store restoration.")
+    }
   }
 
   def flush() = {

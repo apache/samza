@@ -117,7 +117,12 @@ public class StorageRecovery extends CommandLine {
 
     systemAdmins.start();
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
-        containerStorageManager.start();
+        try {
+          containerStorageManager.start();
+        } catch (InterruptedException e) {
+          LOG.warn("Received an interrupt during store restoration for container {}."
+              + " Proceeding with the next container", containerName);
+        }
       });
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
         containerStorageManager.shutdown();

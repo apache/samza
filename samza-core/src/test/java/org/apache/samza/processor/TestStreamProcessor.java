@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,9 +55,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
@@ -467,13 +466,69 @@ public class TestStreamProcessor {
     assertEquals(State.STOPPING, streamProcessor.getState());
     Mockito.verify(mockSamzaContainer, Mockito.times(1)).shutdown();
     Mockito.verify(mockJobCoordinator, Mockito.times(1)).stop();
+  }
 
-    // If StreamProcessor is in IN_REBALANCE state, onJobModelExpired should be a NO_OP.
-    streamProcessor.state = State.IN_REBALANCE;
+  @Test
+  public void testJobModelExpiredDuringAnExistingRebalance() {
+    JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
+    ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
+    ExecutorService mockExecutorService = Mockito.mock(ExecutorService.class);
+    MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
-    streamProcessor.jobCoordinatorListener.onJobModelExpired();
+    runJobModelExpireDuringRebalance(streamProcessor, mockExecutorService, false);
 
     assertEquals(State.IN_REBALANCE, streamProcessor.state);
+    assertNotEquals(mockExecutorService, streamProcessor.containerExecutorService);
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
+    Mockito.verify(mockExecutorService, Mockito.times(1)).isShutdown();
+  }
+
+  @Test
+  public void testJobModelExpiredDuringAnExistingRebalanceWithContainerInterruptFailed() {
+    JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
+    ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
+    ExecutorService mockExecutorService = Mockito.mock(ExecutorService.class);
+    MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
+
+    runJobModelExpireDuringRebalance(streamProcessor, mockExecutorService, true);
+
+    assertEquals(State.STOPPING, streamProcessor.state);
+    assertEquals(mockExecutorService, streamProcessor.containerExecutorService);
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
+    Mockito.verify(mockExecutorService, Mockito.times(0)).isShutdown();
+    Mockito.verify(mockJobCoordinator, Mockito.times(1)).stop();
+  }
+
+  private void runJobModelExpireDuringRebalance(StreamProcessor streamProcessor, ExecutorService executorService,
+      boolean failContainerInterrupt) {
+    SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
+    CountDownLatch shutdownLatch = new CountDownLatch(1);
+
+    /*
+     * When there is an initialized container that hasn't started and the stream processor is still in re-balance phase,
+     * subsequent job model expire request should attempt to interrupt the existing container to safely shut it down
+     * before proceeding to join the barrier. As part of safe shutdown sequence,  we want to ensure shutdownNow is invoked
+     * on the existing executorService to signal interrupt and make sure new executor service is created.
+     */
+
+    Mockito.when(executorService.shutdownNow()).thenAnswer(ctx -> {
+        if (!failContainerInterrupt) {
+          shutdownLatch.countDown();
+        }
+        return null;
+      });
+    Mockito.when(executorService.isShutdown()).thenReturn(true);
+
+    streamProcessor.state = State.IN_REBALANCE;
+    streamProcessor.container = mockSamzaContainer;
+    streamProcessor.containerExecutorService = executorService;
+    streamProcessor.containerShutdownLatch = shutdownLatch;
+
+    streamProcessor.jobCoordinatorListener.onJobModelExpired();
   }
 
   @Test

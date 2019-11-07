@@ -35,16 +35,21 @@ class SystemProducers(
    */
   dropSerializationError: Boolean = false) extends Logging {
 
+  private var started = false
+
   def start {
     debug("Starting producers.")
 
     producers.values.foreach(_.start)
+    started = true
   }
 
   def stop {
-    debug("Stopping producers.")
+    if (started) {
+      debug("Stopping producers.")
 
-    producers.values.foreach(_.stop)
+      producers.values.foreach(_.stop)
+    }
   }
 
   def register(source: String) {

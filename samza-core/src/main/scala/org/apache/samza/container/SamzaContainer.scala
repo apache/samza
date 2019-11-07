@@ -27,7 +27,6 @@ import java.time.Duration
 import java.util
 import java.util.{Base64, Optional}
 import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
-import java.util.stream.Collectors
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -769,6 +768,27 @@ class SamzaContainer(
       else
         Thread.sleep(Long.MaxValue)
     } catch {
+      case e: InterruptedException =>
+        /*
+         * We don't want to categorize interrupts as failure since the only place the container thread gets interrupted within
+         * our code is inside stream processor is during the following two scenarios
+         *    1. During a re-balance, if the container has not started or hasn't reported start status to StreamProcessor.
+         *       Subsequently stream processor attempts to interrupt the container thread before proceeding to join the barrier
+         *       to agree on the new work assignment.
+         *    2. During shutdown signals to stream processor (external or internal), the stream processor signals the container to
+         *       shutdown and waits for `task.shutdown.ms` before forcefully shutting down the container executor service which in
+         *       turn interrupts the container thread.
+         *
+         * In the both of these scenarios, the failure cause is either captured externally (timing out scenario) or internally
+         * (failed attempt to shut down the container). The act of interrupting the container thread is an explicit intent to shutdown
+         * the container since it is not capable of reacting to shutdown signals in all scenarios.
+         *
+         */
+        if (status.equals(SamzaContainerStatus.STARTED)) {
+          warn("Received an interrupt in run loop.", e)
+        } else {
+          warn("Received an interrupt during initialization.", e)
+        }
       case e: Throwable =>
         if (status.equals(SamzaContainerStatus.STARTED)) {
           error("Caught exception/error in run loop.", e)

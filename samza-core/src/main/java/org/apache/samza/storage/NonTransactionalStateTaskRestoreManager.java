@@ -316,7 +316,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * Restore each store in taskStoresToRestore sequentially
    */
   @Override
-  public void restore() {
+  public void restore() throws InterruptedException {
     for (String storeName : taskStoresToRestore) {
       LOG.info("Restoring store: {} for task: {}", storeName, taskModel.getTaskName());
       SystemConsumer systemConsumer = storeConsumers.get(storeName);
