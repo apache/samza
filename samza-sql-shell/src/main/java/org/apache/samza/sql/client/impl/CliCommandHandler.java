@@ -671,7 +671,7 @@ public class CliCommandHandler implements CommandHandler {
         return String.format("ARRAY(%s)", getFieldDisplayValue(fieldSchema.getElementSchema()));
       case MAP:
         return String.format("MAP(%s, %s)", SamzaSqlFieldType.STRING.toString(),
-            getFieldDisplayValue(fieldSchema.getValueSchema()));
+            getFieldDisplayValue(fieldSchema.getValueScehma()));
       case ROW:
         String rowDisplayValue = fieldSchema.getRowSchema()
             .getFields()

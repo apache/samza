@@ -98,7 +98,7 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
         // TODO Calcite execution engine doesn't support record type yet.
         return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case MAP:
-        RelDataType valueType = getRelDataType(fieldSchema.getValueSchema());
+        RelDataType valueType = getRelDataType(fieldSchema.getValueScehma());
         return new MapSqlType(createSqlType(SqlTypeName.VARCHAR), valueType, true);
       default:
         String msg = String.format("Field Type %s is not supported", fieldSchema.getFieldType());
