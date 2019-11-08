@@ -20,8 +20,8 @@
 package org.apache.samza.sql.interfaces;
 
 import java.lang.reflect.Method;
-
 import java.util.List;
+import com.google.common.base.Objects;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 
@@ -99,4 +99,19 @@ public class UdfMetadata {
     return disableArgCheck;
   }
 
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(name, udfMethod, arguments, returnType);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof UdfMetadata)) return false;
+    UdfMetadata that = (UdfMetadata) o;
+    return Objects.equal(name, that.name) &&
+            Objects.equal(udfMethod, that.udfMethod) &&
+            Objects.equal(arguments, that.arguments) &&
+            returnType == that.returnType;
+  }
 }

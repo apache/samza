@@ -24,7 +24,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -61,6 +60,7 @@ public class TestContainerAllocatorWithHostAffinity {
   private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
 
   private final MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+  private final ContainerManager containerManager = new ContainerManager(state, clusterResourceManager, false);
 
   private JobModelManager initializeJobModelManager(Config config, int containerCount) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
@@ -83,7 +83,8 @@ public class TestContainerAllocatorWithHostAffinity {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new ContainerAllocator(clusterResourceManager, config, state, true, Optional.empty());
+    containerAllocator =
+        new ContainerAllocator(clusterResourceManager, config, state, true, containerManager);
     requestState = new MockContainerRequestState(clusterResourceManager, true);
     Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
@@ -359,6 +360,8 @@ public class TestContainerAllocatorWithHostAffinity {
   @Test
   public void testRequestAllocationOnPreferredHostWithRunStreamProcessor() throws Exception {
     ClusterResourceManager.Callback mockCPM = mock(MockClusterResourceManagerCallback.class);
+    ClusterResourceManager mockClusterResourceManager = new MockClusterResourceManager(mockCPM, state);
+    ContainerManager containerManager = new ContainerManager(state, mockClusterResourceManager, false);
     // Mock the callback from ClusterManager to add resources to the allocator
     doAnswer((InvocationOnMock invocation) -> {
         SamzaResource resource = (SamzaResource) invocation.getArgumentAt(0, List.class).get(0);
@@ -367,8 +370,7 @@ public class TestContainerAllocatorWithHostAffinity {
       }).when(mockCPM).onResourcesAvailable(anyList());
 
     spyAllocator = Mockito.spy(
-        new ContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state, true,
-            Optional.empty()));
+        new ContainerAllocator(mockClusterResourceManager, config, state, true, containerManager));
 
     // Request Resources
     spyAllocator.requestResources(new HashMap<String, String>() {
@@ -405,8 +407,9 @@ public class TestContainerAllocatorWithHostAffinity {
   @Test
   public void testExpiredRequestAllocationOnAnyHost() throws Exception {
     MockClusterResourceManager spyManager = spy(new MockClusterResourceManager(callback, state));
-    spyAllocator = Mockito.spy(new ContainerAllocator(spyManager, config, state, true, Optional.empty()));
-
+    ContainerManager spyContainerManager = spy(new ContainerManager(state, spyManager, false));
+    spyAllocator = Mockito.spy(
+        new ContainerAllocator(spyManager, config, state, true, spyContainerManager));
     // Request Preferred Resources
     spyAllocator.requestResources(new HashMap<String, String>() {
       {
@@ -425,10 +428,10 @@ public class TestContainerAllocatorWithHostAffinity {
     // Verify that all the request that were created as preferred host requests expired
     assertTrue(state.preferredHostRequests.get() == 2);
     assertTrue(state.expiredPreferredHostRequests.get() == 2);
-    verify(spyAllocator, times(1)).handleExpiredRequest(eq("0"), eq("hostname-0"),
-        any(SamzaResourceRequest.class));
-    verify(spyAllocator, times(1)).handleExpiredRequest(eq("1"), eq("hostname-1"),
-        any(SamzaResourceRequest.class));
+    verify(spyContainerManager, times(1)).handleExpiredRequestWithHostAffinityEnabled(eq("0"), eq("hostname-0"),
+        any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
+    verify(spyContainerManager, times(1)).handleExpiredRequestWithHostAffinityEnabled(eq("1"), eq("hostname-1"),
+        any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
 
     // Verify that preferred host request were cancelled and since no surplus resources were available
     // requestResource was invoked with ANY_HOST requests
@@ -446,10 +449,11 @@ public class TestContainerAllocatorWithHostAffinity {
   @Test
   public void testExpiredRequestAllocationOnSurplusAnyHostWithRunStreamProcessor() throws Exception {
     // Add Extra Resources
-    spyAllocator = Mockito.spy(
-        new ContainerAllocator(new MockClusterResourceManager(callback, state), config, state, true,
-            Optional.empty()));
+    MockClusterResourceManager spyClusterResourceManager = spy(new MockClusterResourceManager(callback, state));
+    ContainerManager spyContainerManager = spy(new ContainerManager(state, spyClusterResourceManager, false));
 
+    spyAllocator = Mockito.spy(
+        new ContainerAllocator(spyClusterResourceManager, config, state, true, spyContainerManager));
     spyAllocator.addResource(new SamzaResource(1, 1000, "xyz", "id1"));
     spyAllocator.addResource(new SamzaResource(1, 1000, "zzz", "id2"));
 
@@ -470,10 +474,10 @@ public class TestContainerAllocatorWithHostAffinity {
 
     // Verify that all the request that were created as preferred host requests expired
     assertEquals(state.expiredPreferredHostRequests.get(), 2);
-    verify(spyAllocator, times(1)).handleExpiredRequest(eq("0"), eq("hostname-0"),
-        any(SamzaResourceRequest.class));
-    verify(spyAllocator, times(1)).handleExpiredRequest(eq("1"), eq("hostname-1"),
-        any(SamzaResourceRequest.class));
+    verify(spyContainerManager, times(1)).handleExpiredRequestWithHostAffinityEnabled(eq("0"), eq("hostname-0"),
+        any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
+    verify(spyContainerManager, times(1)).handleExpiredRequestWithHostAffinityEnabled(eq("1"), eq("hostname-1"),
+        any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
 
     // Verify that runStreamProcessor was invoked with already available ANY_HOST requests
     ArgumentCaptor<SamzaResourceRequest> resourceRequestCaptor = ArgumentCaptor.forClass(SamzaResourceRequest.class);

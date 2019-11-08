@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
@@ -545,6 +546,19 @@ public class TestJobConfig {
 
     jobConfig = new JobConfig(new MapConfig());
     assertEquals(JobConfig.DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR, jobConfig.getStandbyTaskReplicationFactor());
+  }
+
+  @Test
+  public void testGetClusterBasedJobCoordinatorDependencyIsolationEnabled() {
+    Config config =
+        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true"));
+    assertTrue(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
+
+    config =
+        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false"));
+    assertFalse(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
+
+    assertFalse(new JobConfig(new MapConfig()).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
   }
 
   @Test

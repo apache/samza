@@ -22,7 +22,7 @@ package org.apache.samza.container
 import java.util.Collections
 
 import org.apache.samza.{Partition, SamzaException}
-import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointedChangelogOffset, OffsetManager}
 import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
@@ -216,10 +216,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
     val changelogOffsets = Map(changelogSSP -> Some("5"))
-    val checkpointId = "1234"
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskStorageManager.flush()).thenReturn(changelogOffsets)
-    when(this.taskStorageManager.checkpoint(any[Map[SystemStreamPartition, Option[String]]])).thenReturn(checkpointId)
+    doNothing().when(this.taskStorageManager).checkpoint(any(), any[Map[SystemStreamPartition, Option[String]]])
     taskInstance.commit
 
     val mockOrder = inOrder(this.offsetManager, this.collector, this.taskTableManager, this.taskStorageManager)
@@ -238,7 +237,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     mockOrder.verify(this.taskStorageManager).flush()
 
     // Stores checkpoints should be created next with the newest changelog offsets
-    mockOrder.verify(this.taskStorageManager).checkpoint(changelogOffsets)
+    mockOrder.verify(this.taskStorageManager).checkpoint(any(), Matchers.eq(changelogOffsets))
 
     // Input checkpoint should be written with the snapshot captured at the beginning of commit and the
     // newest changelog offset captured during storage manager flush
@@ -246,10 +245,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     mockOrder.verify(offsetManager).writeCheckpoint(any(), captor.capture)
     val cp = captor.getValue
     assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
-    assertEquals("5", cp.getOffsets.get(changelogSSP))
+    assertEquals("5", CheckpointedChangelogOffset.fromString(cp.getOffsets.get(changelogSSP)).getOffset)
 
     // Old checkpointed stores should be cleared
-    mockOrder.verify(this.taskStorageManager).removeOldCheckpoints(checkpointId)
+    mockOrder.verify(this.taskStorageManager).removeOldCheckpoints(any())
     verify(commitsCounter).inc()
   }
 
@@ -269,7 +268,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(offsetManager).writeCheckpoint(any(), captor.capture)
     val cp = captor.getValue
     assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
-    assertEquals(null, cp.getOffsets.get(changelogSSP))
+    val message = cp.getOffsets.get(changelogSSP)
+    val checkpointedOffset = CheckpointedChangelogOffset.fromString(message)
+    assertNull(checkpointedOffset.getOffset)
+    assertNotNull(checkpointedOffset.getCheckpointId)
     verify(commitsCounter).inc()
   }
 
@@ -320,7 +322,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskStorageManager.flush()).thenReturn(Map[SystemStreamPartition, Option[String]]())
-    when(this.taskStorageManager.checkpoint(any())).thenThrow(new SamzaException("Error creating store checkpoint"))
+    when(this.taskStorageManager.checkpoint(any(), any())).thenThrow(new SamzaException("Error creating store checkpoint"))
 
     try {
       taskInstance.commit
@@ -341,8 +343,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskStorageManager.flush()).thenReturn(Map[SystemStreamPartition, Option[String]]())
-    when(this.taskStorageManager.checkpoint(any())).thenReturn("id")
-    when(this.taskStorageManager.removeOldCheckpoints("id"))
+    doNothing().when(this.taskStorageManager).checkpoint(any(), any())
+    when(this.taskStorageManager.removeOldCheckpoints(any()))
       .thenThrow(new SamzaException("Error clearing old checkpoints"))
 
     try {

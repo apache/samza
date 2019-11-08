@@ -50,6 +50,30 @@ object ShellCommandConfig {
     */
   val ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID"
 
+  /**
+   * Set to "true" if cluster-based job coordinator dependency isolation is enabled. Otherwise, will be considered
+   * false.
+   *
+   * The launch process for the cluster-based job coordinator depends on the value of this, since it needs to be known
+   * if the cluster-based job coordinator should be launched in an isolated mode. This needs to be an environment
+   * variable, because the value needs to be known before the full configs can be read from the metadata store (full
+   * configs are only read after launch is complete).
+   */
+  val ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED =
+    "CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED"
+
+  /**
+   * When running the cluster-based job coordinator in an isolated mode, it uses JARs and resources from a lib directory
+   * which is provided by the framework. In some cases, it is necessary to use some resources specified by the
+   * application as well. This environment variable can be set to a directory which is different from the framework lib
+   * directory in order to tell Samza where application resources live.
+   * This is an environment variable because it is needed in order to launch the cluster-based job coordinator Java
+   * process, which means access to full configs is not available yet.
+   * For example, this is used to set a system property for the location of an application-specified log4j configuration
+   * file when launching the cluster-based job coordinator Java process.
+   */
+  val ENV_APPLICATION_LIB_DIR = "APPLICATION_LIB_DIR"
+
   /*
    * The base directory for storing logged data stores used in Samza. This has to be set on all machine running Samza
    * containers. For example, when using YARN, it has to be set in all NMs and passed to the containers.
@@ -63,9 +87,23 @@ object ShellCommandConfig {
    */
   val EXECUTION_PLAN_DIR = "EXECUTION_PLAN_DIR"
 
+  /**
+   * Points to the lib directory of the localized resources(other than the framework dependencies).
+   */
+  val ENV_ADDITIONAL_CLASSPATH_DIR = "ADDITIONAL_CLASSPATH_DIR"
+
   val COMMAND_SHELL_EXECUTE = "task.execute"
   val TASK_JVM_OPTS = "task.opts"
   val TASK_JAVA_HOME = "task.java.home"
+
+  /**
+   * SamzaContainer uses JARs from the lib directory of the framework in it classpath. In some cases, it is necessary to include
+   * the jars from lib directories of the resources that are localized along with the framework dependencies. These resources are logically
+   * independent of the framework and cannot be bundled with the framework dependencies. The URI of these resources are set dynamically at
+   * run-time before launching the SamzaContainer. This environment variable can be set to a lib directory of the localized resource and
+   * it will be included in the java classpath of the SamzaContainer.
+   */
+  val ADDITIONAL_CLASSPATH_DIR = "additional.classpath.dir"
 
   implicit def Config2ShellCommand(config: Config) = new ShellCommandConfig(config)
 }
@@ -76,4 +114,6 @@ class ShellCommandConfig(config: Config) extends ScalaMapConfig(config) {
   def getTaskOpts = getOption(ShellCommandConfig.TASK_JVM_OPTS)
 
   def getJavaHome = getOption(ShellCommandConfig.TASK_JAVA_HOME)
+
+  def getAdditionalClasspathDir(): Option[String] = getOption(ShellCommandConfig.ADDITIONAL_CLASSPATH_DIR)
 }

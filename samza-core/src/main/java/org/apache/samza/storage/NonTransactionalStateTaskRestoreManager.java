@@ -71,7 +71,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
   private final StreamMetadataCache streamMetadataCache;
   private final Map<String, SystemConsumer> storeConsumers;
   private final int maxChangeLogStreamPartitions;
-  private final Config config;
+  private final StorageConfig storageConfig;
   private final StorageManagerUtil storageManagerUtil;
 
   NonTransactionalStateTaskRestoreManager(
@@ -100,7 +100,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
     this.streamMetadataCache = streamMetadataCache;
     this.storeConsumers = storeConsumers;
     this.maxChangeLogStreamPartitions = maxChangeLogStreamPartitions;
-    this.config = config;
+    this.storageConfig = new StorageConfig(config);
     this.storageManagerUtil = new StorageManagerUtil();
   }
 
@@ -117,10 +117,9 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
     registerStartingOffsets();
   }
 
-  /**
-   * For each store for this task,
+  /** For each store for this task,
    * a. Deletes the corresponding non-logged-store base dir.
-   * b. Deletes the logged-store-base-dir if it not valid. See {@link #isLoggedStoreValid} for validation semantics.
+   * b. Deletes the logged-store-base-dir (depending on {@param cleanLoggedStoreDirs} value). See {@link #isLoggedStoreValid} for validation semantics.
    * c. If the logged-store-base-dir is valid, this method reads the offset file and stores each offset.
    */
   private void cleanBaseDirsAndReadOffsetFiles() {
@@ -143,7 +142,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
           LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
 
           // Delete the logged store if it is not valid.
-          if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
+          if (!isLoggedStoreValid(storeName, loggedStorePartitionDir) || storageConfig.getCleanLoggedStoreDirsOnStart(storeName)) {
             LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
             fileUtil.rm(loggedStorePartitionDir);
           } else {
@@ -171,7 +170,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * @return true if the logged store is valid, false otherwise.
    */
   private boolean isLoggedStoreValid(String storeName, File loggedStoreDir) {
-    long changeLogDeleteRetentionInMs = new StorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
+    long changeLogDeleteRetentionInMs = storageConfig.getChangeLogDeleteRetentionInMs(storeName);
 
     if (changelogSystemStreams.containsKey(storeName)) {
       SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());

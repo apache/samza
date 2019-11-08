@@ -29,6 +29,8 @@ import org.apache.samza.util.TimerUtil
 import java.nio.file.Path
 import java.util.Optional
 
+import org.apache.samza.checkpoint.CheckpointId
+
 /**
  * A key value store.
  *
@@ -208,7 +210,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def checkpoint(id: String): Optional[Path] = {
+  def checkpoint(id: CheckpointId): Optional[Path] = {
     updateTimer(metrics.checkpointNs) {
       trace("Checkpointing.")
       metrics.checkpoints.inc

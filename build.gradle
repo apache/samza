@@ -334,6 +334,7 @@ project(":samza-sql_$scalaSuffix") {
     compile "org.apache.avro:avro:$avroVersion"
     compile "org.apache.calcite:calcite-core:$calciteVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
+    compile "org.reflections:reflections:0.9.10"
 
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
@@ -516,6 +517,7 @@ project(":samza-yarn_$scalaSuffix") {
     compile project(":samza-core_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.scala-lang:scala-compiler:$scalaVersion"
+    compile "com.google.guava:guava:$guavaVersion"
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
     compile "org.apache.httpcomponents:httpclient:$httpClientVersion"

@@ -79,6 +79,7 @@ public class ContainerLaunchUtil {
       JobModel jobModel) {
 
     Config config = jobModel.getConfig();
+    DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
     run(appDesc, jobName, jobId, containerId, execEnvContainerId, jobModel, config, buildExternalContext(config));
 
     System.exit(0);
