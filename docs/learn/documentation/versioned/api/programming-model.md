@@ -65,14 +65,13 @@ Alternatively, you can implement a [TaskApplication](javadocs/org/apache/samza/a
 {% endhighlight %}
 
 
-#### Streams and Table Descriptors
+#### Streams, Side Inputs and Table Descriptors
 Descriptors let you specify the properties of various aspects of your application from within it. 
 
 [InputDescriptor](javadocs/org/apache/samza/system/descriptors/InputDescriptor.html)s and [OutputDescriptor](javadocs/org/apache/samza/system/descriptors/OutputDescriptor.html)s can be used for specifying Samza and implementation-specific properties of the streaming inputs and outputs for your application. You can obtain InputDescriptors and OutputDescriptors using a [SystemDescriptor](javadocs/org/apache/samza/system/descriptors/SystemDescriptor.html) for your system. This SystemDescriptor can be used for specify Samza and implementation-specific properties of the producer and consumers for your I/O system. Most Samza system implementations come with their own SystemDescriptors, but if one isn't available, you 
 can use the [GenericSystemDescriptor](javadocs/org/apache/samza/system/descriptors/GenericSystemDescriptor.html).
 
-A [TableDescriptor](javadocs/org/apache/samza/table/descriptors/TableDescriptor.html) can be used for specifying Samza and implementation-specific properties of a [Table](javadocs/org/apache/samza/table/Table.html). You can use a Local TableDescriptor (e.g. [RocksDbTableDescriptor](javadocs/org/apache/samza/storage/kv/descriptors/RocksDbTableDescriptor.html) or a [RemoteTableDescriptor](javadocs/org/apache/samza/table/descriptors/RemoteTableDescriptor).
-
+A [TableDescriptor](javadocs/org/apache/samza/table/descriptors/TableDescriptor.html) can be used for specifying Samza and implementation-specific properties of a [Table](javadocs/org/apache/samza/table/Table.html). You can use a Local TableDescriptor (e.g. [RocksDbTableDescriptor](javadocs/org/apache/samza/storage/kv/descriptors/RocksDbTableDescriptor.html) or a [RemoteTableDescriptor](javadocs/org/apache/samza/table/descriptors/RemoteTableDescriptor). For local tables that are populated by secondary data sources, side inputs can be used to populate the data. The source streams will be used to bootstrap the data instead of a changelog in the event of failure.    
 
 The following example illustrates how you can use input and output descriptors for a Kafka system, and a table descriptor for a local RocksDB table within your application:
 
@@ -91,6 +90,13 @@ The following example illustrates how you can use input and output descriptors f
 
         RocksDbTableDescriptor<String, Integer> td = 
             new RocksDbTableDescriptor(“viewCounts”, KVSerde.of(new StringSerde(), new IntegerSerde()));
+            
+        RocksDbTableDescriptor<String, Profile> tableDesc = 
+            new RocksDbTableDescriptor(“viewCounts”, KVSerde.of(new StringSerde(), new JsonSerdeV2<>(Profile.class)))
+                 .withSideInput(ImmutableList.of("profile"))
+                 .withSideInputsProcessor((message, store) -> {
+                    ...
+                 });
             
         // Implement your processing logic here
       }

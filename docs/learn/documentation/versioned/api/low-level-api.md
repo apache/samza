@@ -274,6 +274,24 @@ For example:
 
 {% endhighlight %}
 
+### Side Inputs for Local Tables
+
+For populating a local [Table](javadocs/org/apache/samza/table/Table) with secondary data sources, we can use side inputs to specify the source stream. Additionally, the table descriptor also takes
+in a `SideInputsProcessor` that will be applied before writing the entries to the table. The `TableDescriptor` that is registered with the `TaskApplicationDescriptor` can be used to specify side input properties.
+
+The following code snippet shows a sample `TableDescriptor` for a local table that is backed by side inputs.
+
+{% highlight java %}
+
+    RocksDbTableDescriptor<String, Profile> tableDesc = 
+      new RocksDbTableDescriptor(“viewCounts”, KVSerde.of(new StringSerde(), new JsonSerdeV2<>(Profile.class)))
+        .withSideInput(ImmutableList.of("profile"))
+        .withSideInputsProcessor((message, store) -> {
+          ...
+        });
+
+{% endhighlight %} 
+
 ### Legacy Applications
 
 For legacy Low Level API applications, you can continue specifying your system, stream and store properties along with your task.class in configuration. An incomplete example of configuration for legacy task application looks like this (see the [configuration](../jobs/configuration.html) documentation for more detail):
@@ -295,5 +313,12 @@ For legacy Low Level API applications, you can continue specifying your system, 
 
     # Use the "json" serializer for messages in the "PageViewEvent" topic
     systems.kafka.streams.PageViewEvent.samza.msg.serde=json
+    
+    # Use "ProfileEvent" from the "kafka" system for side inputs for "profile-store"
+    stores.profile-store.side.inputs=kafka.ProfileEvent
+    
+    # Use "MySideInputsProcessorFactory" to instantiate the "SideInputsProcessor" 
+    # that will applied on the "ProfileEvent" before writing to "profile-store"
+    stores.profile-store.side.inputs.processor.factory=org.apache.samza.MySideInputsProcessorFactory
     
 {% endhighlight %}

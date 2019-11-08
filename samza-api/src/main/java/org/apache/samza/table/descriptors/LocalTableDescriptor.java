@@ -87,7 +87,7 @@ abstract public class LocalTableDescriptor<K, V, D extends LocalTableDescriptor<
   }
 
   /**
-   * Provide the {@link SideInputsProcessor} for this table. It is applied on the side inputs and the results are 
+   * Provide the {@link SideInputsProcessor} for this table. It is applied on the side inputs and the results are
    * written to the table.
    *
    * @param sideInputsProcessor a side input processor
