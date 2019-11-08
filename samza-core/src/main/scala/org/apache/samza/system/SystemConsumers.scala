@@ -204,6 +204,10 @@ class SystemConsumers (
       consumers.values.foreach(_.stop)
 
       chooser.stop
+
+      started = false
+    } else {
+      debug("Ignoring the consumers stop request since it never started.")
     }
   }
 

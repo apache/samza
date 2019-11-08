@@ -352,7 +352,6 @@ public class StreamProcessor {
         try {
           LOGGER.info("Shutting down the container: {} of stream processor: {}.", container, processorId);
           boolean hasContainerShutdown = stopSamzaContainer();
-          // todo: use interruptSamzaContainer method instead to give one more chance for container to shutdown
           if (!hasContainerShutdown) {
             LOGGER.info("Interrupting the container: {} thread to die.", container);
             containerExecutorService.shutdownNow();
@@ -451,15 +450,13 @@ public class StreamProcessor {
     return hasContainerShutdown;
   }
 
-  private boolean interruptSamzaContainer() {
-    if (container != null) {
-      try {
-        containerExecutorService.shutdownNow();
-        containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
-      } catch (InterruptedException e) {
-        LOGGER.info("Received an interrupt during interrupting container. Proceeding to check if the container callback "
-            + "decremented the shutdown latch. ");
-      }
+  private boolean interruptContainerAndShutdownExecutorService() {
+    try {
+      containerExecutorService.shutdownNow();
+      containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      LOGGER.info("Received an interrupt during interrupting container. Proceeding to check if the container callback "
+          + "decremented the shutdown latch. ");
     }
 
     // we call interrupt successful as long as the shut down latch is decremented by the container call back.
@@ -485,7 +482,7 @@ public class StreamProcessor {
             }
           } else if (state == State.IN_REBALANCE) {
             if (container != null) {
-              boolean hasContainerShutdown = interruptSamzaContainer();
+              boolean hasContainerShutdown = interruptContainerAndShutdownExecutorService();
               if (!hasContainerShutdown) {
                 LOGGER.warn("Job model expire unsuccessful. Failed to interrupt container: {} safely. "
                     + "Stopping the stream processor: {}", container, processorId);

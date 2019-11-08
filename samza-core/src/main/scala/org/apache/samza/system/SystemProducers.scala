@@ -54,6 +54,9 @@ class SystemProducers(
       debug("Stopping producers.")
 
       producers.values.foreach(_.stop)
+      started = false
+    } else {
+      debug("Ignoring the producers stop request since it never started.")
     }
   }
 
