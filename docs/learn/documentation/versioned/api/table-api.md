@@ -503,7 +503,11 @@ on the current implementation of in-memory and RocksDB stores. Both tables provi
 feature parity to existing in-memory and RocksDB-based stores. For more detailed 
 information please refer to 
 [`RocksDbTableDescriptor`] (https://github.com/apache/samza/blob/master/samza-kv-rocksdb/src/main/java/org/apache/samza/storage/kv/RocksDbTableDescriptor.java) and 
-[`InMemoryTableDescriptor`] (https://github.com/apache/samza/blob/master/samza-kv-inmemory/src/main/java/org/apache/samza/storage/kv/inmemory/InMemoryTableDescriptor.java). 
+[`InMemoryTableDescriptor`] (https://github.com/apache/samza/blob/master/samza-kv-inmemory/src/main/java/org/apache/samza/storage/kv/inmemory/InMemoryTableDescriptor.java).
+
+For local tables that are populated by secondary data sources, side inputs can be used to populate the data.
+The source streams will be used to bootstrap the data instead of a changelog in the event of failure. Side inputs and 
+the processor implementation can be provided as properties to the `TableDescriptor`.
 
 ## Hybrid Table
 
