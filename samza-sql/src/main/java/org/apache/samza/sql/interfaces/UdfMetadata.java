@@ -31,6 +31,9 @@ import org.apache.samza.sql.schema.SamzaSqlFieldType;
  */
 public class UdfMetadata {
 
+  // To support case insensitivity for udfs in sql statement, we store name in upper-case while displayName
+  // retains the name as it is given to UdfMetadata.
+  // For example: if displayName is 'GetSqlField', name would be 'GETSQLFIELD'.
   private final String name;
   private final String displayName;
 
