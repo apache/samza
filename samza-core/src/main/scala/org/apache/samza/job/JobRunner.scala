@@ -66,17 +66,33 @@ object JobRunner extends Logging {
 class JobRunner(config: Config) extends Logging {
 
   /**
-   * This function submits the samza job.
-   * @param resetJobConfig This flag indicates whether or not to reset the job configurations when submitting the job.
+   * This function persist config in coordinator stream, create diagnostics stream if applicable and
+   * then submits the samza job.
+   * @param resetJobConfig This flag indicates whether or not to reset the job configurations in coordinator stream
+   *                       when submitting the job.
    *                       If this value is set to true, all previously written configs to coordinator stream will be
    *                       deleted, and only the configs in the input config file will have an affect. Otherwise, any
    *                       config that is not deleted will have an affect.
    *                       By default this value is set to true.
    * @return The job submitted
    */
-  def run(resetJobConfig: Boolean = true) = {
+  def run(resetJobConfig: Boolean = true): StreamJob = {
+    persist(resetJobConfig)
+    submit()
+  }
+
+  /**
+   * This function persist config in coordinator stream.
+   *
+   * @param resetJobConfig This flag indicates whether or not to reset the job configurations in coordinator stream
+   *                       when submitting the job.
+   *                       If this value is set to true, all previously written configs to coordinator stream will be
+   *                       deleted, and only the configs in the input config file will have an affect. Otherwise, any
+   *                       config that is not deleted will have an affect.
+   *                       By default this value is set to true.
+   */
+  def persist(resetJobConfig: Boolean = true): Unit = {
     debug("config: %s" format (config))
-    val jobFactory: StreamJobFactory = getJobFactory
     val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
     val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
     val systemAdmins = new SystemAdmins(config)
@@ -135,10 +151,16 @@ class JobRunner(config: Config) extends Logging {
       }
       diagnosticsSysAdmin.stop()
     }
+  }
 
-
+  /**
+   * This function submits the samza job.
+   *
+   * @return The job submitted
+   */
+  def submit(): StreamJob = {
     // Create the actual job, and submit it.
-    val job = jobFactory.getJob(config)
+    val job = getJobFactory.getJob(config)
 
     job.submit()
 
