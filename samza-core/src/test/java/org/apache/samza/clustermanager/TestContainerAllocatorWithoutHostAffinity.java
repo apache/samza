@@ -67,7 +67,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
   @Before
   public void setup() throws Exception {
     containerAllocator = new ContainerAllocator(manager, config, state, false,
-        new ContainerManager(state, manager, false));
+        new ContainerManager(state, manager, false, false));
     requestState = new MockContainerRequestState(manager, false);
     Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
@@ -262,7 +262,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
     ClusterResourceManager.Callback mockCPM = mock(ClusterResourceManager.Callback.class);
     ClusterResourceManager mockManager = new MockClusterResourceManager(mockCPM, state);
-    ContainerManager spyContainerManager = spy(new ContainerManager(state, mockManager, false));
+    ContainerManager spyContainerManager = spy(new ContainerManager(state, mockManager, false, false));
     spyAllocator = Mockito.spy(
         new ContainerAllocator(mockManager, config, state, false, spyContainerManager));
     // Mock the callback from ClusterManager to add resources to the allocator
@@ -284,7 +284,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
         .forEach(resourceRequest -> assertEquals(resourceRequest.getPreferredHost(), ResourceRequestState.ANY_HOST));
     assertTrue(state.anyHostRequests.get() == containersToHostMapping.size());
     // Expiry currently should not be invoked for host affinity enabled cases only
-    verify(spyContainerManager, never()).handleExpiredRequestWithHostAffinityEnabled(anyString(), anyString(),
+    verify(spyContainerManager, never()).handleExpiredRequestForControlActionOrHostAffinityEnabled(anyString(), anyString(),
         any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
     // Only updated when host affinity is enabled
     assertTrue(state.matchedResourceRequests.get() == 0);
