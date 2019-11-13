@@ -572,7 +572,7 @@ public class ContainerStorageManager {
                 }
               }
             };
-            LOG.info("Using identitty side-inputs-processor for store: {}, task: {}", storeName, taskName);
+            LOG.info("Using identity side-inputs-processor for store: {}, task: {}", storeName, taskName);
           }
 
           sideInputStoresToProcessors.get(taskName).put(storeName, sideInputsProcessor);
