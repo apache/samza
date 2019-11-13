@@ -554,7 +554,7 @@ public class ContainerStorageManager {
             // if this is a standby-task and the store is a non-side-input changelog store
             // we creating identity sideInputProcessor for stores of standbyTasks
             // have to use the right serde because the sideInput stores are created
-            
+
             Serde keySerde = serdes.get(config.getStorageKeySerde(storeName)
                 .orElseThrow(() -> new SamzaException("Could not find storage key serde for store: " + storeName)));
             Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName)
@@ -572,6 +572,7 @@ public class ContainerStorageManager {
                 }
               }
             };
+            LOG.info("Using identitty side-inputs-processor for store: {}, task: {}", storeName, taskName);
           }
 
           sideInputStoresToProcessors.get(taskName).put(storeName, sideInputsProcessor);
