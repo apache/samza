@@ -32,7 +32,7 @@ import org.apache.samza.config.MapConfig
 class TestCoordinatorStreamUtil {
 
   @Test
-  def testCreateCoordinatorStream  {
+  def testCreateCoordinatorStream() {
     val systemStream = Mockito.spy(new SystemStream("testSystem", "testStream"))
     val systemAdmin = Mockito.mock(classOf[SystemAdmin])
 
@@ -42,7 +42,7 @@ class TestCoordinatorStreamUtil {
   }
 
   @Test
-  def testBuildCoordinatorStreamConfig: Unit = {
+  def testBuildCoordinatorStreamConfig() {
     val addConfig = new util.HashMap[String, String]
     addConfig.put("job.name", "test-job-name")
     addConfig.put("job.id", "i001")
@@ -57,7 +57,7 @@ class TestCoordinatorStreamUtil {
   }
 
   @Test
-  def testReadConfigFromCoordinatorStream {
+  def testReadConfigFromCoordinatorStream() {
     val keyForNonBlankVal = "app.id"
     val nonBlankVal = "1"
     val keyForEmptyVal = "task.opt"
@@ -83,5 +83,20 @@ class TestCoordinatorStreamUtil {
     Assert.assertEquals(configFromCoordinatorStream.get(keyForNonBlankVal), nonBlankVal)
     Assert.assertEquals(configFromCoordinatorStream.get(keyForEmptyVal), emptyVal)
     Assert.assertFalse(configFromCoordinatorStream.containsKey(keyForNullVal))
+  }
+
+  @Test
+  def testWriteConfigToCoordinatorStream() {
+    val addConfig = new util.HashMap[String, String]
+    addConfig.put("job.name", "test-job-name")
+    addConfig.put("job.id", "i001")
+    addConfig.put("job.coordinator.system", "samzatest")
+    addConfig.put("systems.samzatest.test","test")
+    addConfig.put("test.only","nothing")
+    addConfig.put("systems.samzatest.samza.factory", "org.apache.samza.system.MockSystemFactory")
+    val config = new MapConfig(addConfig)
+    val configMap = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
+
+    CoordinatorStreamUtil.writeConfigToCoordinatorStream(configMap)
   }
 }
