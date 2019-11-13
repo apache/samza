@@ -56,6 +56,7 @@ import scala.Option;
 
 public class DiagnosticsUtil {
   private static final Logger log = LoggerFactory.getLogger(DiagnosticsUtil.class);
+  private static final String DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id";
 
   // Write a file in the samza.log.dir named {exec-env-container-id}.metadata that contains
   // metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
@@ -160,7 +161,6 @@ public class DiagnosticsUtil {
     // if diagnostics is enabled, create diagnostics stream if it doesnt exist
 
     SystemAdmins systemAdmins = new SystemAdmins(config);
-    String DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id";
     String diagnosticsSystemStreamName = new MetricsConfig(config)
         .getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)
         .orElseThrow(() -> new ConfigException("Missing required config: " +
