@@ -548,15 +548,13 @@ public class ContainerStorageManager {
             sideInputsProcessor = sideInputsProcessorFactory.getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry());
             LOG.info("Using side-inputs-processor from factory: {} for store: {}, task: {}", config.getSideInputsProcessorFactory(storeName).get(), storeName, taskName);
 
-          } else if (!config.getSideInputsProcessorFactory(storeName).isPresent() && taskMode.equals(TaskMode.Active)) {
-
-            // this is a active-task with a side-input store but no sideinput-processor-factory defined in config
-            throw new SamzaException(String.format("Could not find sideInputs processor factory for store: %s", storeName));
           } else {
-            // this is a standby-task and the store is a non-side-input changelog store
+            // if this is a active-task with a side-input store but no sideinput-processor-factory defined in config, we rely on upstream validations to fail the deploy
 
-            // creating identity sideInputProcessor for stores of standbyTasks
+            // if this is a standby-task and the store is a non-side-input changelog store
+            // we creating identity sideInputProcessor for stores of standbyTasks
             // have to use the right serde because the sideInput stores are created
+            
             Serde keySerde = serdes.get(config.getStorageKeySerde(storeName)
                 .orElseThrow(() -> new SamzaException("Could not find storage key serde for store: " + storeName)));
             Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName)
