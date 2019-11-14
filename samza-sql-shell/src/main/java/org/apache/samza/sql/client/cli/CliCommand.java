@@ -30,7 +30,7 @@ public class CliCommand {
 
   /**
    * Constructor with empty parameters
-   * @param cmdType: the given {@link CommandType}
+   * @param cmdType the given {@link CommandType}
    */
   public CliCommand(CommandType cmdType) {
     this.commandType = cmdType;
@@ -38,8 +38,8 @@ public class CliCommand {
 
   /**
    * Constructor using both {@link CommandType} and parameters
-   * @param cmdType: the given {@link CommandType}
-   * @param parameters: the parameters as single String
+   * @param cmdType the given {@link CommandType}
+   * @param parameters the parameters as single String
    */
   public CliCommand(CommandType cmdType, String parameters) {
     this(cmdType);
@@ -63,7 +63,7 @@ public class CliCommand {
 
   /**
    * Sets the parameters of this command
-   * @param parameters: input parameters
+   * @param parameters input parameters
    */
   public void setParameters(String parameters) {
     this.parameters = parameters;
