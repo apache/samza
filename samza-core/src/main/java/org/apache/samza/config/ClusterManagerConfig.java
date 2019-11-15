@@ -114,6 +114,12 @@ public class ClusterManagerConfig extends MapConfig {
   private static final int DEFAULT_CLUSTER_MANAGER_SLEEP_MS = 1000;
 
   /**
+   * The container placement handler sleeps for a configurable time before checking for now ContainerPlacement messages
+   */
+  public static final String CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS = "cluster-manager.container-placement-handler.sleep.interval.ms";
+  private static final int DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS = 5000;
+
+  /**
    * Determines whether a JMX server should be started on JobCoordinator and SamzaContainer
    * Default: true
    */
@@ -227,9 +233,13 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
-
   public int getJobCoordinatorSleepInterval() {
     return getInt(CLUSTER_MANAGER_SLEEP_MS, DEFAULT_CLUSTER_MANAGER_SLEEP_MS);
+  }
+
+  public int getClusterManagerContainerPlacementHandlerSleepMs() {
+    return getInt(CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS,
+        DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS);
   }
 
   public String getContainerManagerClass() {

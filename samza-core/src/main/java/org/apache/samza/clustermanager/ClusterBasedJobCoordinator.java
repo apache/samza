@@ -399,7 +399,7 @@ public class ClusterBasedJobCoordinator {
 
   @VisibleForTesting
   ContainerProcessManager createContainerProcessManager() {
-    return new ContainerProcessManager(config, state, metrics);
+    return new ContainerProcessManager(config, state, metrics, coordinatorStreamStore);
   }
 
   /**

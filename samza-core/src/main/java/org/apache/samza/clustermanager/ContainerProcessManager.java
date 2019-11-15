@@ -27,12 +27,15 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementHandler;
+import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
 import org.apache.samza.metrics.JvmMetrics;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -97,6 +100,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   // The ContainerManager manages control actions for both active & standby containers
   private final ContainerManager containerManager;
+  private ContainerPlacementHandler containerPlacementHandler;
+  private Thread containerPlacementHandlerThread;
 
   private final Option<DiagnosticsManager> diagnosticsManager;
 
@@ -126,7 +131,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private JvmMetrics jvmMetrics;
   private Map<String, MetricsReporter> metricsReporters;
 
-  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry) {
+  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry, MetadataStore metadataStore) {
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
@@ -162,6 +167,11 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+
+    // Instantiate Container Placement Handler
+    this.containerPlacementHandler = new ContainerPlacementHandler(metadataStore, this, clusterManagerConfig.getClusterManagerContainerPlacementHandlerSleepMs());
+    this.containerPlacementHandlerThread = new Thread(containerPlacementHandler, "ContainerPlacementHandler Thread");
+
     LOG.info("Finished container process manager initialization.");
   }
 
@@ -171,7 +181,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       MetricsRegistryMap registry,
       ClusterResourceManager resourceManager,
       Optional<ContainerAllocator> allocator,
-      ContainerManager containerManager) {
+      ContainerManager containerManager,
+      MetadataStore metadataStore) {
     this.state = state;
     this.clusterManagerConfig = clusterManagerConfig;
     this.jobConfig = new JobConfig(clusterManagerConfig);
@@ -185,18 +196,22 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         () -> new ContainerAllocator(this.clusterResourceManager, clusterManagerConfig, state,
             hostAffinityEnabled, this.containerManager));
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    this.containerPlacementHandler = new ContainerPlacementHandler(metadataStore, this, clusterManagerConfig.getClusterManagerContainerPlacementHandlerSleepMs());
+    this.containerPlacementHandlerThread = new Thread(containerPlacementHandler, "Container Placement Handler Thread");
     LOG.info("Finished container process manager initialization");
   }
 
   public boolean shouldShutdown() {
-    LOG.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
-      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
+    LOG.debug(
+        "ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}, Is the ContainerPlacementHandler thread alive: {}",
+        state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no",
+        allocatorThread.isAlive() ? "yes" : "no", containerPlacementHandlerThread.isAlive() ? "yes" : "no");
 
     if (exceptionOccurred != null) {
       LOG.error("Exception in container process manager", exceptionOccurred);
       throw new SamzaException(exceptionOccurred);
     }
-    return jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
+    return jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive() || !containerPlacementHandlerThread.isAlive();
   }
 
   public void start() {
@@ -234,6 +249,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // Start container allocator thread
     LOG.info("Starting the container allocator thread");
     allocatorThread.start();
+    LOG.info("Starting the container placement handler thread");
+    containerPlacementHandlerThread.start();
     LOG.info("Starting the container process manager");
   }
 
@@ -242,6 +259,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     // Shutdown allocator thread
     containerAllocator.stop();
+    // Shutdown container placement handler thread
+    containerPlacementHandler.stop();
     try {
       allocatorThread.join();
       LOG.info("Stopped container allocator");
@@ -365,6 +384,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       diagnosticsManager.get().addProcessorStopEvent(processorId, resourceStatus.getContainerId(), hostName, exitStatus);
     }
   }
+
 
   @Override
   public void onResourcesAvailable(List<SamzaResource> resources) {
@@ -562,6 +582,17 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
   }
 
+  /**
+   * Registers a ContainerPlacement action, this method is invoked by ContainerPlacementHandler. {@link ContainerProcessManager}
+   * needs to intercept container placement actions between ContainerPlacementHandler and {@link ContainerManager} to avoid
+   * cyclic dependency between {@link ContainerManager} and {@link ContainerAllocator} on each other
+   *
+   * @param requestMessage request containing details of the desited container placement action
+   */
+  public void registerContainerPlacementAction(ContainerPlacementRequestMessage requestMessage) {
+    // Call the ContainerManager#registerContainerPlacementAction
+  }
+
   private Duration getRetryDelay(String processorId) {
     return processorFailures.containsKey(processorId)
         ? processorFailures.get(processorId).getLastRetryDelay()
@@ -612,4 +643,5 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus, Duration preferredHostRetryDelay) {
     containerManager.handleContainerStop(processorId, containerId, preferredHost, exitStatus, preferredHostRetryDelay, containerAllocator);
   }
+
 }
