@@ -216,6 +216,17 @@ public class TestUtil {
     assertEquals(new MapConfig(expectedConfigMap), Util.rewriteConfig(new MapConfig(fullConfig)));
   }
 
+  /**
+   * This fails because Util will interpret the empty string value as a single rewriter which has the empty string as a
+   * name, and there is no rewriter class config for a rewriter name which is the empty string.
+   * TODO: should this be fixed to interpret the empty string as an empty list?
+   */
+  @Test(expected = SamzaException.class)
+  public void testRewriteConfigConfigRewritersEmptyString() {
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.CONFIG_REWRITERS, ""));
+    Util.rewriteConfig(config);
+  }
+
   @Test(expected = SamzaException.class)
   public void testRewriteConfigNoClassForConfigRewriterName() {
     Config config =
