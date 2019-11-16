@@ -29,7 +29,7 @@ import static org.powermock.api.mockito.PowerMockito.when;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({NetworkingUtil.class})
+@PrepareForTest({JavaUtil.NetworkingUtil.class})
 public class TestUtil {
   private static final String CONFIG_KEY = "config.key";
   private static final String CONFIG_VALUE = "value";
@@ -41,11 +41,11 @@ public class TestUtil {
   public void testEnvVarEscape() {
     // no special characters in original
     String noSpecialCharacters = "hello world 123 .?!";
-    assertEquals(noSpecialCharacters, Util.envVarEscape(noSpecialCharacters));
+    assertEquals(noSpecialCharacters, JavaUtil.envVarEscape(noSpecialCharacters));
 
     String withSpecialCharacters = "quotation \" apostrophe '";
     String escaped = "quotation \\\" apostrophe \\'";
-    assertEquals(escaped, Util.envVarEscape(withSpecialCharacters));
+    assertEquals(escaped, JavaUtil.envVarEscape(withSpecialCharacters));
   }
 
   /**
@@ -54,9 +54,10 @@ public class TestUtil {
    */
   @Test
   public void testGetSamzaVersion() {
-    String utilImplementationVersion = Util.class.getPackage().getImplementationVersion();
-    String expectedVersion = (utilImplementationVersion != null) ? utilImplementationVersion : Util.FALLBACK_VERSION();
-    assertEquals(expectedVersion, Util.getSamzaVersion());
+    String utilImplementationVersion = JavaUtil.class.getPackage().getImplementationVersion();
+    String expectedVersion =
+        (utilImplementationVersion != null) ? utilImplementationVersion : JavaUtil.FALLBACK_VERSION;
+    assertEquals(expectedVersion, JavaUtil.getSamzaVersion());
   }
 
   /**
@@ -66,25 +67,25 @@ public class TestUtil {
   @Test
   public void testGetTaskClassVersion() {
     // cannot find app nor task
-    assertEquals(Util.FALLBACK_VERSION(), Util.getTaskClassVersion(new MapConfig()));
+    assertEquals(JavaUtil.FALLBACK_VERSION, JavaUtil.getTaskClassVersion(new MapConfig()));
 
     // only app
     String appClassVersion = MyAppClass.class.getPackage().getImplementationVersion();
-    String expectedAppClassVersion = (appClassVersion != null) ? appClassVersion : Util.FALLBACK_VERSION();
+    String expectedAppClassVersion = (appClassVersion != null) ? appClassVersion : JavaUtil.FALLBACK_VERSION;
     Config config = new MapConfig(ImmutableMap.of(ApplicationConfig.APP_CLASS, MyAppClass.class.getName()));
-    assertEquals(expectedAppClassVersion, Util.getTaskClassVersion(config));
+    assertEquals(expectedAppClassVersion, JavaUtil.getTaskClassVersion(config));
 
     // only task
     String taskClassVersion = MyTaskClass.class.getPackage().getImplementationVersion();
-    String expectedTaskClassVersion = (taskClassVersion != null) ? taskClassVersion : Util.FALLBACK_VERSION();
+    String expectedTaskClassVersion = (taskClassVersion != null) ? taskClassVersion : JavaUtil.FALLBACK_VERSION;
     config = new MapConfig(ImmutableMap.of(TaskConfig.TASK_CLASS, MyTaskClass.class.getName()));
-    assertEquals(expectedTaskClassVersion, Util.getTaskClassVersion(config));
+    assertEquals(expectedTaskClassVersion, JavaUtil.getTaskClassVersion(config));
 
     // both app and task; choose app
     config = new MapConfig(ImmutableMap.of(ApplicationConfig.APP_CLASS, MyAppClass.class.getName(),
         // shouldn't even try to load the task class
         TaskConfig.TASK_CLASS, "this_is_not_a_class"));
-    assertEquals(expectedAppClassVersion, Util.getTaskClassVersion(config));
+    assertEquals(expectedAppClassVersion, JavaUtil.getTaskClassVersion(config));
   }
 
   @Test
@@ -93,7 +94,7 @@ public class TestUtil {
     InetAddress inetAddressLocalHost = mock(InetAddress.class);
     when(inetAddressLocalHost.isLoopbackAddress()).thenReturn(false);
     when(InetAddress.getLocalHost()).thenReturn(inetAddressLocalHost);
-    assertEquals(inetAddressLocalHost, Util.getLocalHost());
+    assertEquals(inetAddressLocalHost, JavaUtil.getLocalHost());
   }
 
   @Test
@@ -118,7 +119,7 @@ public class TestUtil {
     when(NetworkInterface.getNetworkInterfaces()).thenReturn(
         Collections.enumeration(Arrays.asList(networkInterface0, networkInterface1)));
 
-    assertEquals(inetAddressLocalHost, Util.getLocalHost());
+    assertEquals(inetAddressLocalHost, JavaUtil.getLocalHost());
   }
 
   @Test
@@ -151,7 +152,7 @@ public class TestUtil {
     InetAddress finalInetAddress = mock(InetAddress.class);
     when(InetAddress.getByAddress(aryEq(externalInet4AddressBytes))).thenReturn(finalInetAddress);
 
-    assertEquals(finalInetAddress, Util.getLocalHost());
+    assertEquals(finalInetAddress, JavaUtil.getLocalHost());
   }
 
   @Test
@@ -176,7 +177,7 @@ public class TestUtil {
     InetAddress finalInetAddress = mock(InetAddress.class);
     when(InetAddress.getByAddress(aryEq(externalAddressBytes))).thenReturn(finalInetAddress);
 
-    assertEquals(finalInetAddress, Util.getLocalHost());
+    assertEquals(finalInetAddress, JavaUtil.getLocalHost());
   }
 
   @Test
@@ -185,7 +186,7 @@ public class TestUtil {
 
     // no rewriters
     Map<String, String> fullConfig = new HashMap<>(baseConfigMap);
-    assertEquals(fullConfig, Util.rewriteConfig(new MapConfig(fullConfig)));
+    assertEquals(fullConfig, JavaUtil.rewriteConfig(new MapConfig(fullConfig)));
 
     // one rewriter
     fullConfig = new HashMap<>(baseConfigMap);
@@ -193,7 +194,7 @@ public class TestUtil {
     fullConfig.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME), NewPropertyRewriter.class.getName());
     Map<String, String> expectedConfigMap = new HashMap<>(fullConfig);
     expectedConfigMap.put(NEW_CONFIG_KEY, CONFIG_VALUE);
-    assertEquals(new MapConfig(expectedConfigMap), Util.rewriteConfig(new MapConfig(fullConfig)));
+    assertEquals(new MapConfig(expectedConfigMap), JavaUtil.rewriteConfig(new MapConfig(fullConfig)));
 
     // only apply rewriters from rewriters list
     fullConfig = new HashMap<>(baseConfigMap);
@@ -203,7 +204,7 @@ public class TestUtil {
         UpdatePropertyRewriter.class.getName());
     expectedConfigMap = new HashMap<>(fullConfig);
     expectedConfigMap.put(CONFIG_KEY, CONFIG_VALUE + CONFIG_VALUE);
-    assertEquals(new MapConfig(expectedConfigMap), Util.rewriteConfig(new MapConfig(fullConfig)));
+    assertEquals(new MapConfig(expectedConfigMap), JavaUtil.rewriteConfig(new MapConfig(fullConfig)));
 
     // two rewriters; second rewriter overwrites configs from first
     fullConfig = new HashMap<>(baseConfigMap);
@@ -213,7 +214,7 @@ public class TestUtil {
         UpdatePropertyRewriter.class.getName());
     expectedConfigMap = new HashMap<>(fullConfig);
     expectedConfigMap.put(NEW_CONFIG_KEY, CONFIG_VALUE + CONFIG_VALUE);
-    assertEquals(new MapConfig(expectedConfigMap), Util.rewriteConfig(new MapConfig(fullConfig)));
+    assertEquals(new MapConfig(expectedConfigMap), JavaUtil.rewriteConfig(new MapConfig(fullConfig)));
   }
 
   /**
@@ -224,21 +225,21 @@ public class TestUtil {
   @Test(expected = SamzaException.class)
   public void testRewriteConfigConfigRewritersEmptyString() {
     Config config = new MapConfig(ImmutableMap.of(JobConfig.CONFIG_REWRITERS, ""));
-    Util.rewriteConfig(config);
+    JavaUtil.rewriteConfig(config);
   }
 
   @Test(expected = SamzaException.class)
   public void testRewriteConfigNoClassForConfigRewriterName() {
     Config config =
         new MapConfig(ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, JobConfig.CONFIG_REWRITERS, "unknownRewriter"));
-    Util.rewriteConfig(config);
+    JavaUtil.rewriteConfig(config);
   }
 
   @Test(expected = SamzaException.class)
   public void testRewriteConfigRewriterClassDoesNotExist() {
     Config config = new MapConfig(ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, JobConfig.CONFIG_REWRITERS, REWRITER_NAME,
         String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME), "not_a_class"));
-    Util.rewriteConfig(config);
+    JavaUtil.rewriteConfig(config);
   }
 
   @Test
@@ -249,7 +250,7 @@ public class TestUtil {
             NewPropertyRewriter.class.getName());
     Map<String, String> expectedConfigMap = new HashMap<>(fullConfig);
     expectedConfigMap.put(NEW_CONFIG_KEY, CONFIG_VALUE);
-    assertEquals(new MapConfig(expectedConfigMap), Util.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
+    assertEquals(new MapConfig(expectedConfigMap), JavaUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
 
     // update property
     fullConfig =
@@ -257,7 +258,7 @@ public class TestUtil {
             UpdatePropertyRewriter.class.getName());
     expectedConfigMap = new HashMap<>(fullConfig);
     expectedConfigMap.put(CONFIG_KEY, CONFIG_VALUE + CONFIG_VALUE);
-    assertEquals(new MapConfig(expectedConfigMap), Util.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
+    assertEquals(new MapConfig(expectedConfigMap), JavaUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
 
     // remove property
     fullConfig =
@@ -265,13 +266,13 @@ public class TestUtil {
             DeletePropertyRewriter.class.getName());
     expectedConfigMap = new HashMap<>(fullConfig);
     expectedConfigMap.remove(CONFIG_KEY);
-    assertEquals(new MapConfig(expectedConfigMap), Util.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
+    assertEquals(new MapConfig(expectedConfigMap), JavaUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
   }
 
   @Test(expected = SamzaException.class)
   public void testApplyRewriterNoClassForConfigRewriterName() {
     Map<String, String> fullConfig = ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE);
-    Util.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME);
+    JavaUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME);
   }
 
   @Test(expected = SamzaException.class)
@@ -280,7 +281,7 @@ public class TestUtil {
         ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME),
             "not_a_class");
     Config expectedConfig = new MapConfig(ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, NEW_CONFIG_KEY, CONFIG_VALUE));
-    assertEquals(expectedConfig, Util.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
+    assertEquals(expectedConfig, JavaUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
   }
 
   /**
