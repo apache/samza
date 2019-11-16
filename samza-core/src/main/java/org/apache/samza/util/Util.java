@@ -24,7 +24,6 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -87,72 +86,38 @@ public class Util {
    */
   public static InetAddress getLocalHost() {
     try {
-      return doGetLocalHost(new NetworkingUtil());
+      return doGetLocalHost();
     } catch (Exception e) {
       throw new SamzaException("Error while getting localhost", e);
     }
   }
 
-  private static InetAddress doGetLocalHost(NetworkingUtil networkingUtil)
-      throws UnknownHostException, SocketException {
-    InetAddress localHost = networkingUtil.inetAddressGetLocalHost();
+  private static InetAddress doGetLocalHost() throws UnknownHostException, SocketException {
+    InetAddress localHost = InetAddress.getLocalHost();
     if (localHost.isLoopbackAddress()) {
       LOG.debug("Hostname {} resolves to a loopback address, trying to resolve an external IP address.",
           localHost.getHostName());
       List<NetworkInterface> networkInterfaces;
       if (System.getProperty("os.name").startsWith("Windows")) {
-        networkInterfaces = Collections.list(networkingUtil.networkInterfaceGetNetworkInterfaces());
+        networkInterfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
       } else {
-        networkInterfaces = Lists.reverse(Collections.list(networkingUtil.networkInterfaceGetNetworkInterfaces()));
+        networkInterfaces = Lists.reverse(Collections.list(NetworkInterface.getNetworkInterfaces()));
       }
       for (NetworkInterface networkInterface : networkInterfaces) {
-        List<InetAddress> addresses =
-            Collections.list(networkingUtil.networkInterfaceGetInetAddresses(networkInterface))
-                .stream()
-                .filter(address -> !(address.isLinkLocalAddress() || address.isLoopbackAddress()))
-                .collect(Collectors.toList());
+        List<InetAddress> addresses = Collections.list(networkInterface.getInetAddresses())
+            .stream()
+            .filter(address -> !(address.isLinkLocalAddress() || address.isLoopbackAddress()))
+            .collect(Collectors.toList());
         if (!addresses.isEmpty()) {
           InetAddress address = addresses.stream()
               .filter(addr -> addr instanceof Inet4Address)
               .findFirst()
               .orElseGet(() -> addresses.get(0));
-          LOG.debug("Found an external IP address {} which represents the localhost.",
-              networkingUtil.inetAddressGetHostAddress(address));
-          return networkingUtil.inetAddressGetByAddress(networkingUtil.inetAddressGetAddress(address));
+          LOG.debug("Found an external IP address {} which represents the localhost.", address.getHostAddress());
+          return InetAddress.getByAddress(address.getAddress());
         }
       }
     }
     return localHost;
-  }
-
-  /**
-   * Do this so Powermockito can mock the system classes.
-   * Powermockito doesn't seem to work as well with Scala singletons.
-   * In Java, it seems like it will work to use Powermock without this wrapper.
-   */
-  static class NetworkingUtil {
-    public InetAddress inetAddressGetLocalHost() throws UnknownHostException {
-      return InetAddress.getLocalHost();
-    }
-
-    public InetAddress inetAddressGetByAddress(byte[] address) throws UnknownHostException {
-      return InetAddress.getByAddress(address);
-    }
-
-    public String inetAddressGetHostAddress(InetAddress inetAddress) {
-      return inetAddress.getHostAddress();
-    }
-
-    public byte[] inetAddressGetAddress(InetAddress inetAddress) {
-      return inetAddress.getAddress();
-    }
-
-    public Enumeration<NetworkInterface> networkInterfaceGetNetworkInterfaces() throws SocketException {
-      return NetworkInterface.getNetworkInterfaces();
-    }
-
-    public Enumeration<InetAddress> networkInterfaceGetInetAddresses(NetworkInterface networkInterface) {
-      return networkInterface.getInetAddresses();
-    }
   }
 }

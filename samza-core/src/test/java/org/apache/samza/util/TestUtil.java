@@ -42,7 +42,7 @@ import static org.powermock.api.mockito.PowerMockito.when;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({Util.NetworkingUtil.class})
+@PrepareForTest(Util.class) // need this to be able to use powermock with system classes like InetAddress
 public class TestUtil {
   @Test
   public void testEnvVarEscape() {
