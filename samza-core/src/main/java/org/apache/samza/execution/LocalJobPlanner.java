@@ -36,7 +36,7 @@ import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -210,7 +210,8 @@ public class LocalJobPlanner extends JobPlanner {
     if (metadataStoreFactoryClass == null) {
       metadataStoreFactoryClass = DEFAULT_METADATA_STORE_FACTORY;
     }
-    MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
+    MetadataStoreFactory metadataStoreFactory =
+        ReflectionUtil.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
     return metadataStoreFactory.getMetadataStore(STREAM_CREATION_METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
   }
 }

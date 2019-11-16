@@ -132,7 +132,7 @@ public class DiagnosticsUtil {
       }
 
       // Create a systemProducer for giving to diagnostic-reporter and diagnosticsManager
-      SystemFactory systemFactory = Util.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
+      SystemFactory systemFactory = ReflectionUtil.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
       SystemProducer systemProducer =
           systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
       DiagnosticsManager diagnosticsManager =

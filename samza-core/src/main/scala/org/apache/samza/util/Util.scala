@@ -36,38 +36,11 @@ import scala.collection.JavaConverters._
 
 object Util extends Logging {
   val FALLBACK_VERSION = "0.0.1"
-  val Random = new Random
 
   /**
    * Make an environment variable string safe to pass.
    */
   def envVarEscape(str: String) = str.replace("\"", "\\\"").replace("'", "\\'")
-
-  /**
-   * Get a random number >= startInclusive, and < endExclusive.
-   */
-  def randomBetween(startInclusive: Int, endExclusive: Int) =
-    startInclusive + Random.nextInt(endExclusive - startInclusive)
-
-  /**
-   * Instantiate an object of type T from a given className.
-   *
-   * Deprecated: Use [[ReflectionUtil.getObj(String, Class)]] instead.
-   */
-  @Deprecated
-  def getObj[T](className: String, clazz: Class[T]) = {
-    try {
-      Class
-        .forName(className)
-        .newInstance
-        .asInstanceOf[T]
-    } catch {
-      case e: Throwable => {
-        error("Unable to create an instance for class %s." format className, e)
-        throw e
-      }
-    }
-  }
 
   def getSamzaVersion(): String = {
     Option(this.getClass.getPackage.getImplementationVersion)
@@ -95,27 +68,6 @@ object Util extends Logging {
       case e: Exception => {
         warn("Unable to find implementation version in jar's meta info. Defaulting to %s" format FALLBACK_VERSION)
         FALLBACK_VERSION
-      }
-    }
-  }
-
-  /**
-    * Instantiate an object from given className, and given constructor parameters.
-    *
-    * Deprecated: Use [[ReflectionUtil.getObjWithArgs(String, Class, ConstructorArgument...)]] instead.
-    */
-  @Deprecated
-  @throws[ClassNotFoundException]
-  @throws[InstantiationException]
-  @throws[InvocationTargetException]
-  def getObj(className: String, constructorParams: (Class[_], Object)*) = {
-    try {
-      Class.forName(className).getDeclaredConstructor(constructorParams.map(x => x._1): _*)
-        .newInstance(constructorParams.map(x => x._2): _*)
-    } catch {
-      case e@(_: ClassNotFoundException | _: InstantiationException | _: InvocationTargetException) => {
-        warn("Could not instantiate an instance for class %s." format className, e)
-        throw e
       }
     }
   }

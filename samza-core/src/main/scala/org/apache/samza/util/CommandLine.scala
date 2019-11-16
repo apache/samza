@@ -33,19 +33,19 @@ import scala.collection.JavaConverters._
  */
 class CommandLine {
   val parser = new OptionParser()
-  val configFactoryOpt = 
+  val configFactoryOpt =
     parser.accepts("config-factory", "The config factory to use to read your config file.")
           .withRequiredArg
           .ofType(classOf[java.lang.String])
           .describedAs("com.foo.bar.ClassName")
           .defaultsTo(classOf[PropertiesConfigFactory].getName)
   val configPathOpt =
-    parser.accepts("config-path", "URI location to a config file (e.g. file:///some/local/path.properties). " + 
+    parser.accepts("config-path", "URI location to a config file (e.g. file:///some/local/path.properties). " +
                                   "If multiple files are given they are all used with later files overriding any values that appear in earlier files.")
           .withRequiredArg
           .ofType(classOf[URI])
           .describedAs("path")
-  val configOverrideOpt = 
+  val configOverrideOpt =
     parser.accepts("config", "A configuration value in the form key=value. Command line properties override any configuration values given.")
           .withRequiredArg
           .ofType(classOf[KeyValuePair])
@@ -63,7 +63,7 @@ class CommandLine {
     // Set up the job parameters.
     val configFactoryClassName = options.valueOf(configFactoryOpt)
     val configPaths = options.valuesOf(configPathOpt)
-    configFactory = Util.getObj(configFactoryClassName, classOf[ConfigFactory])
+    configFactory = ReflectionUtil.getObj(configFactoryClassName, classOf[ConfigFactory])
     val configOverrides = options.valuesOf(configOverrideOpt).asScala.map(kv => (kv.key, kv.value)).toMap
 
     val configs: Buffer[java.util.Map[String, String]] = configPaths.asScala.map(configFactory.getConfig)
