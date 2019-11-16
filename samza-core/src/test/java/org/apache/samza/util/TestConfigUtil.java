@@ -21,52 +21,186 @@ package org.apache.samza.util;
 
 import java.util.HashMap;
 import java.util.Map;
+import com.google.common.collect.ImmutableMap;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 
 public class TestConfigUtil {
-  Map<String, String> configMap = new HashMap<>();
+  private static final String CONFIG_KEY = "config.key";
+  private static final String CONFIG_VALUE = "value";
+  private static final String NEW_CONFIG_KEY = "new.rewritten.config.key";
+  private static final String REWRITER_NAME = "propertyRewriter";
+  private static final String OTHER_REWRITER_NAME = "otherPropertyRewriter";
 
-  @Before
-  public void setup() {
-    configMap.put("job.config.rewriter.testRewriter.class", TestConfigRewriter.class.getName());
-    configMap.put("job.config.rewriter.testNoneRewriter.class", "");
+  @Test
+  public void testRewriteConfig() {
+    Map<String, String> baseConfigMap = ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE);
 
+    // no rewriters
+    Map<String, String> fullConfig = new HashMap<>(baseConfigMap);
+    assertEquals(fullConfig, ConfigUtil.rewriteConfig(new MapConfig(fullConfig)));
+
+    // rewriter that adds property
+    fullConfig = new HashMap<>(baseConfigMap);
+    fullConfig.put(JobConfig.CONFIG_REWRITERS, REWRITER_NAME);
+    fullConfig.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME), NewPropertyRewriter.class.getName());
+    Map<String, String> expectedConfigMap = new HashMap<>(fullConfig);
+    expectedConfigMap.put(NEW_CONFIG_KEY, CONFIG_VALUE);
+    assertEquals(new MapConfig(expectedConfigMap), ConfigUtil.rewriteConfig(new MapConfig(fullConfig)));
+
+    // rewriter that updates property
+    fullConfig = new HashMap<>(baseConfigMap);
+    fullConfig.put(JobConfig.CONFIG_REWRITERS, REWRITER_NAME);
+    fullConfig.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME),
+        UpdatePropertyRewriter.class.getName());
+    expectedConfigMap = new HashMap<>(fullConfig);
+    expectedConfigMap.put(CONFIG_KEY, CONFIG_VALUE + CONFIG_VALUE);
+    assertEquals(new MapConfig(expectedConfigMap), ConfigUtil.rewriteConfig(new MapConfig(fullConfig)));
+
+    // rewriter that removes property
+    fullConfig = new HashMap<>(baseConfigMap);
+    fullConfig.put(JobConfig.CONFIG_REWRITERS, REWRITER_NAME);
+    fullConfig.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME),
+        DeletePropertyRewriter.class.getName());
+    expectedConfigMap = new HashMap<>(fullConfig);
+    expectedConfigMap.remove(CONFIG_KEY);
+    assertEquals(new MapConfig(expectedConfigMap), ConfigUtil.rewriteConfig(new MapConfig(fullConfig)));
+
+    // only apply rewriters from rewriters list
+    fullConfig = new HashMap<>(baseConfigMap);
+    fullConfig.put(JobConfig.CONFIG_REWRITERS, OTHER_REWRITER_NAME);
+    fullConfig.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME), NewPropertyRewriter.class.getName());
+    fullConfig.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, OTHER_REWRITER_NAME),
+        UpdatePropertyRewriter.class.getName());
+    expectedConfigMap = new HashMap<>(fullConfig);
+    expectedConfigMap.put(CONFIG_KEY, CONFIG_VALUE + CONFIG_VALUE);
+    assertEquals(new MapConfig(expectedConfigMap), ConfigUtil.rewriteConfig(new MapConfig(fullConfig)));
+
+    // two rewriters; second rewriter overwrites configs from first
+    fullConfig = new HashMap<>(baseConfigMap);
+    fullConfig.put(JobConfig.CONFIG_REWRITERS, REWRITER_NAME + "," + OTHER_REWRITER_NAME);
+    fullConfig.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME), NewPropertyRewriter.class.getName());
+    fullConfig.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, OTHER_REWRITER_NAME),
+        UpdatePropertyRewriter.class.getName());
+    expectedConfigMap = new HashMap<>(fullConfig);
+    expectedConfigMap.put(NEW_CONFIG_KEY, CONFIG_VALUE + CONFIG_VALUE);
+    assertEquals(new MapConfig(expectedConfigMap), ConfigUtil.rewriteConfig(new MapConfig(fullConfig)));
+  }
+
+  /**
+   * This fails because Util will interpret the empty string value as a single rewriter which has the empty string as a
+   * name, and there is no rewriter class config for a rewriter name which is the empty string.
+   * TODO: should this be fixed to interpret the empty string as an empty list?
+   */
+  @Test(expected = SamzaException.class)
+  public void testRewriteConfigConfigRewritersEmptyString() {
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.CONFIG_REWRITERS, ""));
+    ConfigUtil.rewriteConfig(config);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testRewriteConfigNoClassForConfigRewriterName() {
+    Config config =
+        new MapConfig(ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, JobConfig.CONFIG_REWRITERS, "unknownRewriter"));
+    ConfigUtil.rewriteConfig(config);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testRewriteConfigRewriterClassDoesNotExist() {
+    Config config = new MapConfig(ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, JobConfig.CONFIG_REWRITERS, REWRITER_NAME,
+        String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME), "not_a_class"));
+    ConfigUtil.rewriteConfig(config);
   }
 
   @Test
-  public void testRewriterWithConfigRewriter() {
-    configMap.put("job.config.rewriters", "testRewriter");
-    configMap.put("job.config.rewriter.testRewriter.value", "rewrittenTest");
+  public void testApplyRewriter() {
+    // new property
+    Map<String, String> fullConfig =
+        ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME),
+            NewPropertyRewriter.class.getName());
+    Map<String, String> expectedConfigMap = new HashMap<>(fullConfig);
+    expectedConfigMap.put(NEW_CONFIG_KEY, CONFIG_VALUE);
+    assertEquals(new MapConfig(expectedConfigMap), ConfigUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
 
-    Config config = ConfigUtil.rewriteConfig(new MapConfig(configMap));
-    assertEquals("rewrittenTest", config.get("value"));
+    // update property
+    fullConfig =
+        ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME),
+            UpdatePropertyRewriter.class.getName());
+    expectedConfigMap = new HashMap<>(fullConfig);
+    expectedConfigMap.put(CONFIG_KEY, CONFIG_VALUE + CONFIG_VALUE);
+    assertEquals(new MapConfig(expectedConfigMap), ConfigUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
+
+    // remove property
+    fullConfig =
+        ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME),
+            DeletePropertyRewriter.class.getName());
+    expectedConfigMap = new HashMap<>(fullConfig);
+    expectedConfigMap.remove(CONFIG_KEY);
+    assertEquals(new MapConfig(expectedConfigMap), ConfigUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
   }
 
-  @Test
-  public void testGetRewriterWithoutConfigRewriter() {
-    Config config = ConfigUtil.rewriteConfig(new MapConfig(configMap));
-    assertEquals(config, new MapConfig(configMap));
+  @Test(expected = SamzaException.class)
+  public void testApplyRewriterNoClassForConfigRewriterName() {
+    Map<String, String> fullConfig = ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE);
+    ConfigUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME);
   }
 
-  @Test (expected = RuntimeException.class)
-  public void testGetRewriterWithExceptoion() {
-    configMap.put("job.config.rewriters", "testNoneRewriter");
-    ConfigUtil.rewriteConfig(new MapConfig(configMap));
+  @Test(expected = SamzaException.class)
+  public void testApplyRewriterClassDoesNotExist() {
+    Map<String, String> fullConfig =
+        ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME),
+            "not_a_class");
+    Config expectedConfig = new MapConfig(ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, NEW_CONFIG_KEY, CONFIG_VALUE));
+    assertEquals(expectedConfig, ConfigUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
   }
 
-  public static class TestConfigRewriter implements ConfigRewriter {
+  /**
+   * Adds a new config entry for the key {@link #NEW_CONFIG_KEY} which has the same value as {@link #CONFIG_KEY}.
+   */
+  public static class NewPropertyRewriter implements ConfigRewriter {
     @Override
     public Config rewrite(String name, Config config) {
-      Map<String, String> configMap = new HashMap<>(config);
-      configMap.putAll(config.subset(String.format("job.config.rewriter.%s.", name)));
-      return new MapConfig(configMap);
+      ImmutableMap.Builder<String, String> newConfigMapBuilder = new ImmutableMap.Builder<>();
+      newConfigMapBuilder.putAll(config);
+      newConfigMapBuilder.put(NEW_CONFIG_KEY, config.get(CONFIG_KEY));
+      return new MapConfig(newConfigMapBuilder.build());
+    }
+  }
+
+  /**
+   * If an entry at {@link #NEW_CONFIG_KEY} exists, overwrites it to be the value concatenated with itself. Otherwise,
+   * updates the entry at {@link #CONFIG_KEY} to be the value concatenated to itself.
+   */
+  public static class UpdatePropertyRewriter implements ConfigRewriter {
+    @Override
+    public Config rewrite(String name, Config config) {
+      Map<String, String> newConfigMap = new HashMap<>(config);
+      if (config.containsKey(NEW_CONFIG_KEY)) {
+        // for testing overwriting of new configs
+        newConfigMap.put(NEW_CONFIG_KEY, config.get(NEW_CONFIG_KEY) + config.get(NEW_CONFIG_KEY));
+      } else {
+        newConfigMap.put(CONFIG_KEY, config.get(CONFIG_KEY) + config.get(CONFIG_KEY));
+      }
+      return new MapConfig(newConfigMap);
+    }
+  }
+
+  /**
+   * Removes config entry for the key {@link #CONFIG_KEY} and {@link #NEW_CONFIG_KEY}.
+   */
+  public static class DeletePropertyRewriter implements ConfigRewriter {
+    @Override
+    public Config rewrite(String name, Config config) {
+      Map<String, String> newConfigMap = new HashMap<>(config);
+      newConfigMap.remove(CONFIG_KEY);
+      return new MapConfig(newConfigMap);
     }
   }
 }

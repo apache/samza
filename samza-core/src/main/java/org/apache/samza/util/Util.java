@@ -110,42 +110,6 @@ public class Util {
   }
 
   /**
-   * Re-writes configuration using a ConfigRewriter, if one is defined. If there is no ConfigRewriter defined for the
-   * job, then this method is a no-op.
-   *
-   * @param config The config to re-write
-   * @return re-written config
-   */
-  public static Config rewriteConfig(Config config) {
-    Optional<String> configRewriterNamesOptional = new JobConfig(config).getConfigRewriters();
-    if (configRewriterNamesOptional.isPresent()) {
-      String[] configRewriterNames = configRewriterNamesOptional.get().split(",");
-      Config rewrittenConfig = config;
-      for (String configRewriterName : configRewriterNames) {
-        rewrittenConfig = applyRewriter(rewrittenConfig, configRewriterName);
-      }
-      return rewrittenConfig;
-    } else {
-      return config;
-    }
-  }
-
-  /**
-   * Re-writes configuration using a ConfigRewriter, defined with the given rewriterName in config.
-   * @param config the config to re-write
-   * @param rewriterName the name of the rewriter to apply
-   * @return the rewritten config
-   */
-  public static Config applyRewriter(Config config, String rewriterName) {
-    String rewriterClassName = new JobConfig(config).getConfigRewriterClass(rewriterName)
-        .orElseThrow(() -> new SamzaException(
-            String.format("Unable to find class config for config rewriter %s.", rewriterName)));
-    ConfigRewriter rewriter = ReflectionUtil.getObj(rewriterClassName, ConfigRewriter.class);
-    LOG.info("Re-writing config with {}", rewriter);
-    return rewriter.rewrite(rewriterName, config);
-  }
-
-  /**
    * Do this so Powermockito can mock the system classes.
    * Powermockito doesn't seem to work as well with Scala singletons.
    * In Java, it seems like it will work to use Powermock without this wrapper.
