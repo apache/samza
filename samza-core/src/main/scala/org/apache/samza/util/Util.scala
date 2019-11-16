@@ -35,7 +35,7 @@ import scala.collection.JavaConverters._
 
 
 object Util extends Logging {
-  private val FALLBACK_VERSION = "0.0.1"
+  val FALLBACK_VERSION = "0.0.1"
   val Random = new Random
 
   /**
@@ -120,27 +120,31 @@ object Util extends Logging {
     }
   }
 
+  def getLocalHost: InetAddress = {
+    doGetLocalHost(new NetworkingUtil)
+  }
+
   /**
    * Returns the the first host address which is not the loopback address, or [[java.net.InetAddress#getLocalHost]] as a fallback
    *
    * @return the [[java.net.InetAddress]] which represents the localhost
    */
-  def getLocalHost: InetAddress = {
-    val localHost = InetAddress.getLocalHost
+  def doGetLocalHost(networkingUtil: NetworkingUtil): InetAddress = {
+    val localHost = networkingUtil.inetAddressGetLocalHost
     if (localHost.isLoopbackAddress) {
       debug("Hostname %s resolves to a loopback address, trying to resolve an external IP address.".format(localHost.getHostName))
       val networkInterfaces = if (System.getProperty("os.name").startsWith("Windows")) {
-        NetworkInterface.getNetworkInterfaces.asScala.toList
+        networkingUtil.networkInterfaceGetNetworkInterfaces.asScala.toList
       } else {
-        NetworkInterface.getNetworkInterfaces.asScala.toList.reverse
+        networkingUtil.networkInterfaceGetNetworkInterfaces.asScala.toList.reverse
       }
       for (networkInterface <- networkInterfaces) {
-        val addresses = networkInterface.getInetAddresses.asScala.toList
+        val addresses = networkingUtil.networkInterfaceGetInetAddresses(networkInterface).asScala.toList
           .filterNot(address => address.isLinkLocalAddress || address.isLoopbackAddress)
         if (addresses.nonEmpty) {
           val address = addresses.find(_.isInstanceOf[Inet4Address]).getOrElse(addresses.head)
-          debug("Found an external IP address %s which represents the localhost.".format(address.getHostAddress))
-          return InetAddress.getByAddress(address.getAddress)
+          debug("Found an external IP address %s which represents the localhost.".format(networkingUtil.inetAddressGetHostAddress(address)))
+          return networkingUtil.inetAddressGetByAddress(networkingUtil.inetAddressGetAddress(address))
         }
       }
     }
@@ -177,4 +181,35 @@ object Util extends Logging {
     rewriter.rewrite(rewriterName, config)
   }
 
+}
+
+/**
+ * Do this so Powermockito can mock the system classes.
+ * Powermockito doesn't seem to work as well with Scala singletons.
+ * In Java, it seems like it will work to use Powermock without this wrapper.
+ */
+class NetworkingUtil {
+  def inetAddressGetLocalHost: InetAddress = {
+    InetAddress.getLocalHost
+  }
+
+  def inetAddressGetByAddress(address: Array[Byte]): InetAddress = {
+    InetAddress.getByAddress(address)
+  }
+
+  def inetAddressGetHostAddress(inetAddress: InetAddress): String = {
+    inetAddress.getHostAddress
+  }
+
+  def inetAddressGetAddress(inetAddress: InetAddress): Array[Byte] = {
+    inetAddress.getAddress
+  }
+
+  def networkInterfaceGetNetworkInterfaces: java.util.Enumeration[NetworkInterface] = {
+    NetworkInterface.getNetworkInterfaces
+  }
+
+  def networkInterfaceGetInetAddresses(networkInterface: NetworkInterface): java.util.Enumeration[InetAddress] = {
+    networkInterface.getInetAddresses
+  }
 }
