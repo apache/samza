@@ -21,8 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class JavaUtil {
-  private static final Logger LOG = LoggerFactory.getLogger(JavaUtil.class);
+public class Util {
+  private static final Logger LOG = LoggerFactory.getLogger(Util.class);
 
   static final String FALLBACK_VERSION = "0.0.1";
 
@@ -34,7 +34,7 @@ public class JavaUtil {
   }
 
   public static String getSamzaVersion() {
-    return Optional.ofNullable(JavaUtil.class.getPackage().getImplementationVersion()).orElseGet(() -> {
+    return Optional.ofNullable(Util.class.getPackage().getImplementationVersion()).orElseGet(() -> {
       LOG.warn("Unable to find implementation samza version in jar's meta info. Defaulting to {}", FALLBACK_VERSION);
       return FALLBACK_VERSION;
     });
