@@ -25,6 +25,7 @@ import java.util.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
 import org.junit.Test;
@@ -44,6 +45,7 @@ public class TestStorageConfig {
     // empty config, so no stores
     assertEquals(Collections.emptyList(), new StorageConfig(new MapConfig()).getStoreNames());
 
+    Set<String> expectedStoreNames = ImmutableSet.of(STORE_NAME0, STORE_NAME1);
     // has stores
     StorageConfig storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(String.format(StorageConfig.FACTORY, STORE_NAME0), "store0.factory.class",
@@ -51,7 +53,17 @@ public class TestStorageConfig {
     List<String> actual = storageConfig.getStoreNames();
     // ordering shouldn't matter
     assertEquals(2, actual.size());
-    assertEquals(ImmutableSet.of(STORE_NAME0, STORE_NAME1), ImmutableSet.copyOf(actual));
+    assertEquals(expectedStoreNames, ImmutableSet.copyOf(actual));
+
+    //has side input stores
+    StorageConfig config = new StorageConfig(new MapConfig(
+        ImmutableMap.of(String.format(FACTORY, STORE_NAME0), "store0.factory.class",
+            String.format(StorageConfig.SIDE_INPUTS_PROCESSOR_FACTORY, STORE_NAME1), "store1.factory.class")));
+
+    actual = storageConfig.getStoreNames();
+
+    assertEquals(2, actual.size());
+    assertEquals(expectedStoreNames, ImmutableSet.copyOf(actual));
   }
 
   @Test

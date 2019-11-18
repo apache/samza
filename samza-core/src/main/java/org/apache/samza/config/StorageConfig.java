@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.*;
 public class StorageConfig extends MapConfig {
   private static final String FACTORY_SUFFIX = ".factory";
   private static final String CHANGELOG_SUFFIX = ".changelog";
+  private static final String SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX = ".side.inputs.processor.factory";
   private static final String STORE_PREFIX = "stores.";
 
   public static final String FACTORY = STORE_PREFIX + "%s" + FACTORY_SUFFIX;
@@ -67,7 +68,7 @@ public class StorageConfig extends MapConfig {
   static final String ACCESSLOG_ENABLED = STORE_PREFIX + "%s.accesslog.enabled";
   static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
   static final String SIDE_INPUTS = STORE_PREFIX + "%s.side.inputs";
-  static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s.side.inputs.processor.factory";
+  static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s" + SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX;
   static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
       STORE_PREFIX + "%s.side.inputs.processor.serialized.instance";
   static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
@@ -84,7 +85,9 @@ public class StorageConfig extends MapConfig {
     Config subConfig = subset(STORE_PREFIX, true);
     List<String> storeNames = new ArrayList<>();
     for (String key : subConfig.keySet()) {
-      if (key.endsWith(FACTORY_SUFFIX)) {
+      if (key.endsWith(SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX)) {
+        storeNames.add(key.substring(0, key.length() - SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX.length()));
+      } else if (key.endsWith(FACTORY_SUFFIX)) {
         storeNames.add(key.substring(0, key.length() - FACTORY_SUFFIX.length()));
       }
     }
