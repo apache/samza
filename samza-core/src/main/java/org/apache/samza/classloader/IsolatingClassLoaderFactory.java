@@ -190,7 +190,7 @@ public class IsolatingClassLoaderFactory {
          * application.
          */
         .addFallbackDelegate(DelegateRelationshipBuilder.builder()
-            .withDelegateClassLoader(fallbackClassLoader)
+            .withDelegateClassLoader(applicationClassLoader)
             /*
              * NONE means that a class will be loaded from here if it is not found in the classpath of the loader that uses
              * this relationship.
