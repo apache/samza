@@ -22,7 +22,6 @@ import org.apache.samza.config.Config;
 
 import java.lang.reflect.Field;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -30,8 +29,8 @@ public class MockContainerAllocatorWithHostAffinity extends ContainerAllocator {
   private Semaphore semaphore = new Semaphore(0);
 
   public MockContainerAllocatorWithHostAffinity(ClusterResourceManager manager,
-      Config config, SamzaApplicationState state) {
-    super(manager, config, state, true, Optional.empty());
+      Config config, SamzaApplicationState state, ContainerManager containerManager) {
+    super(manager, config, state, true, containerManager);
   }
 
   /**

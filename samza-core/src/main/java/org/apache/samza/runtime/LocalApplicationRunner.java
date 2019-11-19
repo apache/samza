@@ -234,7 +234,11 @@ public class LocalApplicationRunner implements ApplicationRunner {
   public void kill() {
     processors.forEach(sp -> {
         sp.getLeft().stop();    // Stop StreamProcessor
-        sp.getRight().close();  // Close associated coordinator metadata store
+
+        // Coordinator stream isn't required so a null check is necessary
+        if (sp.getRight() != null) {
+          sp.getRight().close();  // Close associated coordinator metadata store
+        }
       });
     cleanup();
   }

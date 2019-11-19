@@ -24,7 +24,7 @@ import java.util.{Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointedChangelogOffset, OffsetManager}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
@@ -253,23 +253,26 @@ class TaskInstance(
       trace("Flushing state stores for taskName: %s" format taskName)
       newestChangelogOffsets = storageManager.flush()
       trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestChangelogOffsets))
-      newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
-        allCheckpointOffsets.put(ssp, newestOffsetOption.orNull)
-      }
     }
 
+    val checkpointId = CheckpointId.create()
+    if (storageManager != null && newestChangelogOffsets != null) {
+      trace("Checkpointing stores for taskName: %s with checkpoint id: %s" format (taskName, checkpointId))
+      storageManager.checkpoint(checkpointId, newestChangelogOffsets.toMap)
+    }
+
+    if (newestChangelogOffsets != null) {
+      newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
+        val offset = new CheckpointedChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
+        allCheckpointOffsets.put(ssp, offset)
+      }
+    }
     val checkpoint = new Checkpoint(allCheckpointOffsets)
     trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
 
-    var checkpointId: String = null
-    if (storageManager != null && newestChangelogOffsets != null) {
-      trace("Checkpointing stores for taskName: %s" format taskName)
-      checkpointId = storageManager.checkpoint(newestChangelogOffsets.toMap)
-    }
-
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
-    if (storageManager != null && checkpointId != null) {
+    if (storageManager != null) {
       trace("Remove old checkpoint stores for taskName: %s" format taskName)
       storageManager.removeOldCheckpoints(checkpointId)
     }

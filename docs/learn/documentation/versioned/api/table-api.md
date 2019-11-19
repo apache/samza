@@ -180,6 +180,66 @@ join with a table and finally write the output to another table.
    function defined in lines 30-39.
 6. Line 12: writes the join result stream to another table
 
+# Using Table with Samza High Level API using Side Inputs
+
+The code snippet below illustrates the usage of table in Samza high level API using side inputs.
+
+{% highlight java %}
+
+ 1  class SamzaStreamApplication implements StreamApplication {
+ 2    @Override
+ 3    public void describe(StreamApplicationDescriptor appDesc) {
+ 4      TableDescriptor<Integer, Profile> desc = new InMemoryTableDescriptor(
+ 5          "t1", KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
+ 6          .withSideInputs(ImmutableList.of(PROFILE_STREAM))
+ 7          .withSideInputsProcessor((msg, store) -> {
+ 8              Profile profile = (Profile) msg.getMessage();
+ 9              int key = profile.getMemberId();
+10              return ImmutableList.of(new Entry<>(key, profile));
+11            });
+12 
+13      Table<KV<Integer, Profile>> table = appDesc.getTable(desc);
+14 
+15      appDesc.getInputStream("PageView", new NoOpSerde<PageView>())
+16          .map(new MyMapFunc())
+17          .join(table, new MyJoinFunc())
+18          .sendTo(anotherTable);
+19    }
+21  }
+22
+23  static class MyMapFunc implements MapFunction<PageView, KV<Integer, PageView>> {
+24    private ReadableTable<Integer, Profile> profileTable;
+25
+26    @Override
+27    public void init(Config config, TaskContext context) {
+28      profileTable = (ReadableTable<Integer, Profile>) context.getTable("t1");
+29    }
+30 
+31    @Override
+32    public KV<Integer, PageView> apply(PageView message) {
+33      return new KV.of(message.getId(), message);
+34    }
+35  }
+36
+37  static class MyJoinFunc implements StreamTableJoinFunction
+38      <Integer, KV<Integer, PageView>, KV<Integer, Profile>, EnrichedPageView> {
+39
+40    @Override
+41    public EnrichedPageView apply(KV<Integer, PageView> m, KV<Integer, Profile> r) {
+42      counterPerJoinFn.get(this.currentSeqNo).incrementAndGet();
+43        return r == null ? null : new EnrichedPageView(
+44            m.getValue().getPageKey(), m.getKey(), r.getValue().getCompany());
+45    }
+46  }
+
+{% endhighlight %}
+
+The code above uses side inputs to populate the profile table. 
+1. Line 6: Denotes the source stream for the profile table
+2. Line 7-11: Provides an implementation of `SideInputsProcessor` that reads from profile stream
+     and populates the table.
+3. Line 17: Incoming page views are joined against the profile table.
+
 # Using Table with Samza Low Level API
 
 The code snippet below illustrates the usage of table in Samza Low Level Task API.
@@ -443,7 +503,11 @@ on the current implementation of in-memory and RocksDB stores. Both tables provi
 feature parity to existing in-memory and RocksDB-based stores. For more detailed 
 information please refer to 
 [`RocksDbTableDescriptor`] (https://github.com/apache/samza/blob/master/samza-kv-rocksdb/src/main/java/org/apache/samza/storage/kv/RocksDbTableDescriptor.java) and 
-[`InMemoryTableDescriptor`] (https://github.com/apache/samza/blob/master/samza-kv-inmemory/src/main/java/org/apache/samza/storage/kv/inmemory/InMemoryTableDescriptor.java). 
+[`InMemoryTableDescriptor`] (https://github.com/apache/samza/blob/master/samza-kv-inmemory/src/main/java/org/apache/samza/storage/kv/inmemory/InMemoryTableDescriptor.java).
+
+For local tables that are populated by secondary data sources, side inputs can be used to populate the data.
+The source streams will be used to bootstrap the data instead of a changelog in the event of failure. Side inputs and 
+the processor implementation can be provided as properties to the `TableDescriptor`.
 
 ## Hybrid Table
 

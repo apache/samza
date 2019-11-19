@@ -31,6 +31,8 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
 import org.apache.samza.util.StreamUtil;
 
+import static com.google.common.base.Preconditions.*;
+
 
 /**
  * Config helper methods related to storage.
@@ -38,6 +40,7 @@ import org.apache.samza.util.StreamUtil;
 public class StorageConfig extends MapConfig {
   private static final String FACTORY_SUFFIX = ".factory";
   private static final String CHANGELOG_SUFFIX = ".changelog";
+  private static final String SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX = ".side.inputs.processor.factory";
   private static final String STORE_PREFIX = "stores.";
 
   public static final String FACTORY = STORE_PREFIX + "%s" + FACTORY_SUFFIX;
@@ -45,6 +48,7 @@ public class StorageConfig extends MapConfig {
   public static final String MSG_SERDE = STORE_PREFIX + "%s.msg.serde";
   public static final String CHANGELOG_STREAM = STORE_PREFIX + "%s" + CHANGELOG_SUFFIX;
   public static final String ACCESSLOG_STREAM_SUFFIX = "access-log";
+  // TODO: setting replication.factor seems not working as in KafkaConfig.
   public static final String CHANGELOG_REPLICATION_FACTOR = STORE_PREFIX + "%s.changelog.replication.factor";
   public static final String CHANGELOG_MAX_MSG_SIZE_BYTES = STORE_PREFIX + "%s.changelog.max.message.size.bytes";
   public static final int DEFAULT_CHANGELOG_MAX_MSG_SIZE_BYTES = 1048576;
@@ -52,6 +56,10 @@ public class StorageConfig extends MapConfig {
   public static final boolean DEFAULT_DISALLOW_LARGE_MESSAGES = false;
   public static final String DROP_LARGE_MESSAGES = STORE_PREFIX + "%s.drop.large.messages";
   public static final boolean DEFAULT_DROP_LARGE_MESSAGES = false;
+  // The log compaction lag time for transactional state change log
+  public static final String MIN_COMPACTION_LAG_MS = "min.compaction.lag.ms";
+  public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
+  public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -60,11 +68,14 @@ public class StorageConfig extends MapConfig {
   static final String ACCESSLOG_ENABLED = STORE_PREFIX + "%s.accesslog.enabled";
   static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
   static final String SIDE_INPUTS = STORE_PREFIX + "%s.side.inputs";
-  static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s.side.inputs.processor.factory";
+  static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s" + SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX;
   static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
       STORE_PREFIX + "%s.side.inputs.processor.serialized.instance";
   static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
       "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
+
+  // Internal config to clean storeDirs of a store on container start. This is used to benchmark bootstrap performance.
+  static final String CLEAN_LOGGED_STOREDIRS_ON_START = STORE_PREFIX + "%s.clean.on.container.start";
 
   public StorageConfig(Config config) {
     super(config);
@@ -74,7 +85,9 @@ public class StorageConfig extends MapConfig {
     Config subConfig = subset(STORE_PREFIX, true);
     List<String> storeNames = new ArrayList<>();
     for (String key : subConfig.keySet()) {
-      if (key.endsWith(FACTORY_SUFFIX)) {
+      if (key.endsWith(SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX)) {
+        storeNames.add(key.substring(0, key.length() - SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX.length()));
+      } else if (key.endsWith(FACTORY_SUFFIX)) {
         storeNames.add(key.substring(0, key.length() - FACTORY_SUFFIX.length()));
       }
     }
@@ -207,6 +220,15 @@ public class StorageConfig extends MapConfig {
     return getBoolean(String.format(DROP_LARGE_MESSAGES, storeName), DEFAULT_DROP_LARGE_MESSAGES);
   }
 
+  public long getChangelogMinCompactionLagMs(String storeName) {
+    String minCompactLagConfigName = String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, storeName);
+    // Avoid the inconsistency of overriding using stores.x.changelog.kafka...
+    checkArgument(get("stores." + storeName + ".changelog.kafka." + MIN_COMPACTION_LAG_MS) == null,
+        "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
+
+    return getLong(minCompactLagConfigName, DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS);
+  }
+
   /**
    * Helper method to check if a system has a changelog attached to it.
    */
@@ -235,5 +257,13 @@ public class StorageConfig extends MapConfig {
         .filter(factoryName -> factoryName.isPresent())
         .filter(factoryName -> !factoryName.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY))
         .count();
+  }
+
+  /**
+   * Helper method to get if logged store dirs should be deleted regardless of their contents.
+   * @return
+   */
+  public boolean getCleanLoggedStoreDirsOnStart(String storeName) {
+    return getBoolean(String.format(CLEAN_LOGGED_STOREDIRS_ON_START, storeName), false);
   }
 }

@@ -25,6 +25,8 @@ import java.nio.file.Path
 import java.util
 import java.util.Optional
 
+import org.apache.samza.checkpoint.CheckpointId
+
 /**
  * In memory implementation of a key value store.
  *
@@ -127,7 +129,7 @@ class InMemoryKeyValueStore(val metrics: KeyValueStoreMetrics = new KeyValueStor
     }
   }
 
-  override def checkpoint(id: String): Optional[Path] = {
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
     // No checkpoint being persisted. State restores from Changelog.
     Optional.empty()
   }

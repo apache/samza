@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.checkpoint.CheckpointId;
 
 
 /**
@@ -150,6 +151,6 @@ public interface KeyValueStore<K, V> {
    * Create a persistent checkpoint / snapshot of the current store state and return it's path.
    * @return the path of the persistent store checkpoint, or an empty optional if checkpoints are not supported.
    */
-  @InterfaceStability.Evolving
-  Optional<Path> checkpoint(String id);
+  @InterfaceStability.Unstable
+  Optional<Path> checkpoint(CheckpointId id);
 }

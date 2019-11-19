@@ -20,8 +20,8 @@
 package org.apache.samza.sql.interfaces;
 
 import java.lang.reflect.Method;
-
 import java.util.List;
+import com.google.common.base.Objects;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 
@@ -31,7 +31,11 @@ import org.apache.samza.sql.schema.SamzaSqlFieldType;
  */
 public class UdfMetadata {
 
+  // To support case insensitivity for udfs in sql statement, we store name in upper-case while displayName
+  // retains the name as it is given to UdfMetadata.
+  // For example: if displayName is 'GetSqlField', name would be 'GETSQLFIELD'.
   private final String name;
+  private final String displayName;
 
   private final String description;
   private final Method udfMethod;
@@ -45,6 +49,8 @@ public class UdfMetadata {
       SamzaSqlFieldType returnType, boolean disableArgCheck) {
     // Udfs are case insensitive
     this.name = name.toUpperCase();
+    // Let's also store the original name for display purposes.
+    this.displayName = name;
     this.description = description;
     this.udfMethod = udfMethod;
     this.udfConfig = udfConfig;
@@ -79,6 +85,13 @@ public class UdfMetadata {
   }
 
   /**
+   * @return Returns the name of the Udf for display purposes.
+   */
+  public String getDisplayName() {
+    return displayName;
+  }
+
+  /**
    * @return Returns the description of the udf.
    */
   public String getDescription() {
@@ -99,4 +112,19 @@ public class UdfMetadata {
     return disableArgCheck;
   }
 
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(name, udfMethod, arguments, returnType);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof UdfMetadata)) return false;
+    UdfMetadata that = (UdfMetadata) o;
+    return Objects.equal(name, that.name) &&
+            Objects.equal(udfMethod, that.udfMethod) &&
+            Objects.equal(arguments, that.arguments) &&
+            returnType == that.returnType;
+  }
 }

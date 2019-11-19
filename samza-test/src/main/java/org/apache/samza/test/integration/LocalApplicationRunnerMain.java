@@ -28,7 +28,7 @@ import org.apache.samza.context.ExternalContext;
 import org.apache.samza.runtime.ApplicationRunnerMain;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +46,7 @@ public class LocalApplicationRunnerMain {
     ApplicationRunnerMain.ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerMain.ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
-    Config config = Util.rewriteConfig(orgConfig);
+    Config config = ConfigUtil.rewriteConfig(orgConfig);
 
     SamzaApplication app = ApplicationUtil.fromConfig(config);
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);

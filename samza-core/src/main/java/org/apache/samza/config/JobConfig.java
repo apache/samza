@@ -63,6 +63,9 @@ public class JobConfig extends MapConfig {
   public static final String JOB_DEBOUNCE_TIME_MS = "job.debounce.time.ms";
   static final int DEFAULT_DEBOUNCE_TIME_MS = 20000;
 
+  public static final String SSP_INPUT_EXPANSION_ENABLED = "job.systemstreampartition.input.expansion.enabled";
+  public static final boolean DEFAULT_INPUT_EXPANSION_ENABLED = true;
+
   public static final String SSP_GROUPER_FACTORY = "job.systemstreampartition.grouper.factory";
   public static final String SSP_MATCHER_CLASS = "job.systemstreampartition.matcher.class";
   public static final String SSP_MATCHER_CLASS_REGEX = "org.apache.samza.system.RegexSystemStreamPartitionMatcher";
@@ -239,6 +242,10 @@ public class JobConfig extends MapConfig {
 
   public Optional<String> getConfigRewriterClass(String name) {
     return Optional.ofNullable(get(String.format(CONFIG_REWRITER_CLASS, name)));
+  }
+
+  public boolean isSSPGrouperProxyEnabled() {
+    return getBoolean(SSP_INPUT_EXPANSION_ENABLED, DEFAULT_INPUT_EXPANSION_ENABLED);
   }
 
   public String getSystemStreamPartitionGrouperFactory() {

@@ -29,7 +29,7 @@ import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLi
 import org.apache.samza.runtime.ApplicationRunnerOperation
 import org.apache.samza.system.{StreamSpec, SystemAdmins}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{CoordinatorStreamUtil, Logging, StreamUtil, Util}
+import org.apache.samza.util._
 
 import scala.collection.JavaConverters._
 
@@ -43,7 +43,7 @@ object JobRunner extends Logging {
     val config = cmdline.loadConfig(options)
     val operation = cmdline.getOperation(options)
 
-    val runner = new JobRunner(Util.rewriteConfig(config))
+    val runner = new JobRunner(ConfigUtil.rewriteConfig(config))
     doOperation(runner, operation)
   }
 
@@ -66,79 +66,30 @@ object JobRunner extends Logging {
 class JobRunner(config: Config) extends Logging {
 
   /**
-   * This function submits the samza job.
-   * @param resetJobConfig This flag indicates whether or not to reset the job configurations when submitting the job.
+   * This function persist config in coordinator stream, create diagnostics stream if applicable and
+   * then submits the samza job.
+   * @param resetJobConfig This flag indicates whether or not to reset the job configurations in coordinator stream
+   *                       when submitting the job.
    *                       If this value is set to true, all previously written configs to coordinator stream will be
    *                       deleted, and only the configs in the input config file will have an affect. Otherwise, any
    *                       config that is not deleted will have an affect.
    *                       By default this value is set to true.
    * @return The job submitted
    */
-  def run(resetJobConfig: Boolean = true) = {
-    debug("config: %s" format (config))
-    val jobFactory: StreamJobFactory = getJobFactory
-    val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
-    val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
-    val systemAdmins = new SystemAdmins(config)
+  def run(resetJobConfig: Boolean = true): StreamJob = {
+    CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, resetJobConfig)
+    DiagnosticsUtil.createDiagnosticsStream(config)
+    submit()
+  }
 
-    // Create the coordinator stream if it doesn't exist
-    info("Creating coordinator stream")
-    val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
-    val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
-    coordinatorSystemAdmin.start()
-    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin)
-    coordinatorSystemAdmin.stop()
-
-    if (resetJobConfig) {
-      info("Storing config in coordinator stream.")
-      coordinatorSystemProducer.register(JobRunner.SOURCE)
-      coordinatorSystemProducer.start()
-      coordinatorSystemProducer.writeConfig(JobRunner.SOURCE, config)
-    }
-    info("Loading old config from coordinator stream.")
-    coordinatorSystemConsumer.register()
-    coordinatorSystemConsumer.start()
-    coordinatorSystemConsumer.bootstrap()
-    coordinatorSystemConsumer.stop()
-
-    val oldConfig = coordinatorSystemConsumer.getConfig
-    if (resetJobConfig) {
-      val keysToRemove = oldConfig.keySet.asScala.toSet.diff(config.keySet.asScala)
-      info("Deleting old configs that are no longer defined: %s".format(keysToRemove))
-      keysToRemove.foreach(key => { coordinatorSystemProducer.send(new Delete(JobRunner.SOURCE, key, SetConfig.TYPE)) })
-    }
-    coordinatorSystemProducer.stop()
-
-
-    // if diagnostics is enabled, create diagnostics stream if it doesnt exist
-    if (new JobConfig(config).getDiagnosticsEnabled) {
-      val DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id"
-      val diagnosticsSystemStreamName = JavaOptionals.toRichOptional(
-        new MetricsConfig(config)
-          .getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS))
-        .toOption
-        .getOrElse(throw new ConfigException("Missing required config: " +
-          String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM,
-            MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)))
-
-      val diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(diagnosticsSystemStreamName)
-      val diagnosticsSysAdmin = systemAdmins.getSystemAdmin(diagnosticsSystemStream.getSystem)
-      val diagnosticsStreamSpec = new StreamSpec(DIAGNOSTICS_STREAM_ID, diagnosticsSystemStream.getStream,
-        diagnosticsSystemStream.getSystem, new StreamConfig(config).getStreamProperties(DIAGNOSTICS_STREAM_ID))
-
-      info("Creating diagnostics stream %s" format diagnosticsSystemStream.getStream)
-      diagnosticsSysAdmin.start()
-      if (diagnosticsSysAdmin.createStream(diagnosticsStreamSpec)) {
-        info("Created diagnostics stream %s" format diagnosticsSystemStream.getStream)
-      } else {
-        info("Diagnostics stream %s already exists" format diagnosticsSystemStream.getStream)
-      }
-      diagnosticsSysAdmin.stop()
-    }
-
-
+  /**
+   * This function submits the samza job.
+   *
+   * @return The job submitted
+   */
+  def submit(): StreamJob = {
     // Create the actual job, and submit it.
-    val job = jobFactory.getJob(config)
+    val job = getJobFactory.getJob(config)
 
     job.submit()
 
