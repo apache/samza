@@ -92,7 +92,7 @@ public class IsolatingClassLoaderFactory {
    * This is the delegation structure for the classloaders:
    * <pre>
    *   (bootstrap               (API                  (application
-   *   classloader) <------- classloader) <---------- classloader)
+   *   classloader) &lt;---- classloader) &lt;------- classloader)
    *                             ^                      ^
    *                             |                     /
    *                             |                    /
