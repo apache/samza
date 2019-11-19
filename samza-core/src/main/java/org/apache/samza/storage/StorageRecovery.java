@@ -120,6 +120,8 @@ public class StorageRecovery extends CommandLine {
         try {
           containerStorageManager.start();
         } catch (InterruptedException e) {
+          // we can ignore the exception since its only used in the context of a command line tool and bubbling the
+          // exception upstream isn't needed.
           LOG.warn("Received an interrupt during store restoration for container {}."
               + " Proceeding with the next container", containerName);
         }

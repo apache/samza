@@ -771,7 +771,7 @@ class SamzaContainer(
       case e: InterruptedException =>
         /*
          * We don't want to categorize interrupts as failure since the only place the container thread gets interrupted within
-         * our code is inside stream processor is during the following two scenarios
+         * our code inside stream processor is during the following two scenarios
          *    1. During a re-balance, if the container has not started or hasn't reported start status to StreamProcessor.
          *       Subsequently stream processor attempts to interrupt the container thread before proceeding to join the barrier
          *       to agree on the new work assignment.

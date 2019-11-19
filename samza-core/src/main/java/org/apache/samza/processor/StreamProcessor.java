@@ -85,16 +85,18 @@ import scala.Option;
  *
  * Describes the valid state transitions of the {@link StreamProcessor}.
  *
- *
- *                                                                                                   ────────────────────────────────
- *                                                                                                  │                               │
- *                                                                                                  │                               │
- *                                                                                                  │                               │
- *                                                                                                  │                               │
- *     New                                StreamProcessor.start()          Rebalance triggered      V        Receives JobModel      │
- *  StreamProcessor ──────────▶   NEW ───────────────────────────▶ STARTED ──────────────────▶ IN_REBALANCE ─────────────────────▶ RUNNING
- *   Creation                      │                                 │     by group leader          │     and starts Container      │
- *                                 │                                 │                              │                               │
+ *                                                                                                     Receives another re-balance request when the container
+ *                                                                                                     from the previous re-balance is still in INIT phase
+ *                                                                                                   ────────────────────────────────────────────────
+ *                                                                                                  │                               │                │
+ *                                                                                                  │                               │                │
+ *                                                                                                  │                               │                │
+ *                                                                                                  │                               │                │
+ *     New                                StreamProcessor.start()          Rebalance triggered      V        Receives JobModel      │                │
+ *  StreamProcessor ──────────▶   NEW ───────────────────────────▶ STARTED ──────────────────▶ IN_REBALANCE ─────────────────────▶ RUNNING           │
+ *   Creation                      │                                 │     by group leader          │     and starts │Container     │                │
+ *                                 │                                 │                              │                │              │                │
+ *                                 │                                 │                              │                 ───────────────────────────────
  *                             Stre│amProcessor.stop()           Stre│amProcessor.stop()        Stre│amProcessor.stop()         Stre│amProcessor.stop()
  *                                 │                                 │                              │                               │
  *                                 │                                 │                              │                               │
