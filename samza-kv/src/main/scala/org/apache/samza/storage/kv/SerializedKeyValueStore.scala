@@ -59,23 +59,27 @@ class SerializedKeyValueStore[K, V](
   }
 
   def put(key: K, value: V) {
-    metrics.puts.inc
     val keyBytes = toBytesOrNull(key, keySerde)
     val valBytes = toBytesOrNull(value, msgSerde)
     store.put(keyBytes, valBytes)
+    val valSizeBytes = if (valBytes == null) 0 else valBytes.length
+    updatePutMetrics(1, valSizeBytes)
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
     val list = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](entries.size())
     val iter = entries.iterator
+    var newMaxRecordSizeBytes = 0
     while (iter.hasNext) {
       val curr = iter.next
       val keyBytes = toBytesOrNull(curr.getKey, keySerde)
       val valBytes = toBytesOrNull(curr.getValue, msgSerde)
+      val valSizeBytes = if (valBytes == null) 0 else valBytes.length
+      newMaxRecordSizeBytes = Math.max(newMaxRecordSizeBytes, valSizeBytes)
       list.add(new Entry(keyBytes, valBytes))
     }
     store.putAll(list)
-    metrics.puts.inc(list.size)
+    updatePutMetrics(list.size, newMaxRecordSizeBytes)
   }
 
   def delete(key: K) {
@@ -151,6 +155,19 @@ class SerializedKeyValueStore[K, V](
       bytes.add(toBytesOrNull(keysIterator.next, keySerde))
     }
     bytes
+  }
+
+  /**
+   * Updates put metrics with the given batch and record sizes. The max record size metric is updated with a
+   * thread UN-SAFE read-then-write, so accuracy is not guaranteed; if multiple threads overlap in their invocation of
+   * this method, the last to write simply wins regardless of the value it read.
+   */
+  private def updatePutMetrics(batchSize: Long, newMaxRecordSizeBytes: Long) = {
+    metrics.puts.inc(batchSize)
+    val max = metrics.maxRecordSizeBytes.getValue
+    if (newMaxRecordSizeBytes > max) {
+      metrics.maxRecordSizeBytes.set(newMaxRecordSizeBytes)
+    }
   }
 
   override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
