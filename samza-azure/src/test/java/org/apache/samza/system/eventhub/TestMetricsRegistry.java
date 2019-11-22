@@ -78,6 +78,13 @@ public class TestMetricsRegistry implements MetricsRegistry {
   }
 
   @Override
+  public <T> Gauge<T> newGauge(String group, Gauge<T> gauge, Boolean overrideExistingGauge) {
+    gauges.putIfAbsent(group, new ArrayList<>());
+    gauges.get(group).add(gauge);
+    return gauge;
+  }
+
+  @Override
   public Timer newTimer(String group, String name) {
     return null;
   }

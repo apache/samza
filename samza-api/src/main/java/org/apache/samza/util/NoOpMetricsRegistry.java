@@ -51,6 +51,11 @@ public class NoOpMetricsRegistry implements MetricsRegistry {
   }
 
   @Override
+  public <T> Gauge<T> newGauge(String group, Gauge<T> gauge, Boolean overrideExistingGauge) {
+    return gauge;
+  }
+
+  @Override
   public Timer newTimer(String group, String name) {
     return new Timer(name);
   }

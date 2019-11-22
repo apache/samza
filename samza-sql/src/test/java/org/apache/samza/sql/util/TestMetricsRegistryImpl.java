@@ -97,6 +97,13 @@ public class TestMetricsRegistryImpl implements org.apache.samza.metrics.Metrics
     return gauge;
   }
 
+  @Override
+  public <T> Gauge<T> newGauge(String group, Gauge<T> gauge, Boolean overrideExistingGauge) {
+    gauges.putIfAbsent(group, new ArrayList<>());
+    gauges.get(group).add(gauge);
+    return gauge;
+  }
+
   /**
    * retrieves the Map of Gauges
    * @return gauges

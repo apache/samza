@@ -62,6 +62,15 @@ public class MetricGroup {
     });
   }
 
+  public <T> Gauge<T> newGauge(String name, final ValueFunction<T> valueFunc, Boolean overwrite) {
+    return registry.newGauge(groupName, new Gauge<T>((prefix + name).toLowerCase(), valueFunc.getValue()) {
+      @Override
+      public T getValue() {
+        return valueFunc.getValue();
+      }
+    }, overwrite);
+  }
+
   public Timer newTimer(String name) {
     return registry.newTimer(groupName, (prefix + name).toLowerCase());
   }

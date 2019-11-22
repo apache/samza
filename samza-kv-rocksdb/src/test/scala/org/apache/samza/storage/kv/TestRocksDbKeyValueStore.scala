@@ -25,7 +25,7 @@ import java.util
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config.MapConfig
-import org.apache.samza.metrics.{Gauge, MetricsRegistryMap}
+import org.apache.samza.metrics.{Counter, Gauge, MetricsRegistryMap, MetricsVisitor, Timer}
 import org.apache.samza.util.ExponentialSleepStrategy
 import org.junit.{Assert, Test}
 import org.rocksdb.{FlushOptions, Options, RocksDB, RocksIterator}
@@ -221,13 +221,13 @@ class TestRocksDbKeyValueStore
     val readWriteStoreMetricValue = "10"
 
     // Metric during bulk-load/bootstrap
-    metrics.newGauge("estimate-num-keys", () => bulkloadStoreMetricValue)
+    metrics.newGauge("estimate-num-keys", () => bulkloadStoreMetricValue, true)
 
     assert(registry.getGroup("org.apache.samza.storage.kv.KeyValueStoreMetrics").
       get("dbstore-estimate-num-keys").asInstanceOf[Gauge[String]].getValue.eq("100"))
 
     // Bulk-load complete, new store in read-write mode
-    metrics.newGauge("estimate-num-keys", () => readWriteStoreMetricValue)
+    metrics.newGauge("estimate-num-keys", () => readWriteStoreMetricValue.toString, true)
 
     assert(registry.getGroup("org.apache.samza.storage.kv.KeyValueStoreMetrics").
       get("dbstore-estimate-num-keys").asInstanceOf[Gauge[String]].getValue.eq("10"))

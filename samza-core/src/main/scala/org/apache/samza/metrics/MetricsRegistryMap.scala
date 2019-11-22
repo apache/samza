@@ -19,6 +19,8 @@
 
 package org.apache.samza.metrics
 
+import java.lang
+
 import org.apache.samza.util.Logging
 import java.util.concurrent.ConcurrentHashMap
 
@@ -51,10 +53,20 @@ class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with 
 
   def newGauge[T](group: String, gauge: Gauge[T]) = {
     debug("Adding new gauge %s %s %s." format (group, gauge.getName, gauge))
-    if (putAndGetGroup(group).containsKey(gauge.getName)) {
-      info("Updating existing gauge %s %s %s" format (group, gauge.getName, gauge))
+    putAndGetGroup(group).putIfAbsent(gauge.getName, gauge)
+    val realGauge = metrics.get(group).get(gauge.getName).asInstanceOf[Gauge[T]]
+    listeners.foreach(_.onGauge(group, realGauge))
+    realGauge
+  }
+
+  def newGauge[T](group: String, gauge: Gauge[T], overrideExistingGauge: lang.Boolean) = {
+    if (overrideExistingGauge) {
+      debug("Updating existing gauge %s %s %s" format (group, gauge.getName, gauge))
+      putAndGetGroup(group).put(gauge.getName, gauge)
+    } else {
+      debug("Adding new gauge %s %s %s." format (group, gauge.getName, gauge))
+      putAndGetGroup(group).putIfAbsent(gauge.getName, gauge)
     }
-    putAndGetGroup(group).put(gauge.getName, gauge)
     val realGauge = metrics.get(group).get(gauge.getName).asInstanceOf[Gauge[T]]
     listeners.foreach(_.onGauge(group, realGauge))
     realGauge
