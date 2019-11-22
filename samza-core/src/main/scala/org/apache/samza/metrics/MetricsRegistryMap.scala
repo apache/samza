@@ -52,11 +52,7 @@ class MetricsRegistryMap(val name: String) extends ReadableMetricsRegistry with 
   }
 
   def newGauge[T](group: String, gauge: Gauge[T]) = {
-    debug("Adding new gauge %s %s %s." format (group, gauge.getName, gauge))
-    putAndGetGroup(group).putIfAbsent(gauge.getName, gauge)
-    val realGauge = metrics.get(group).get(gauge.getName).asInstanceOf[Gauge[T]]
-    listeners.foreach(_.onGauge(group, realGauge))
-    realGauge
+    newGauge(group, gauge, false)
   }
 
   def newGauge[T](group: String, gauge: Gauge[T], overrideExistingGauge: lang.Boolean) = {
