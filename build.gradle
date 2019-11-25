@@ -89,6 +89,7 @@ rat {
     'samza-test/state/**',
     'README.md',
     'RELEASE.md',
+    'samza-core/src/test/resources/classloader/samza-framework-api-class-list.txt',
     'samza-test/src/main/resources/**',
     'samza-hdfs/src/main/resources/**',
     'samza-hdfs/src/test/resources/**',
