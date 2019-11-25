@@ -44,5 +44,5 @@ public class DependencyIsolationUtils {
    * Name of the file which contains the class names (or globs) which should be loaded from the framework API
    * classloader.
    */
-  public static final String FRAMEWORK_API_CLASS_LIST_FILE_NAME = "samza-framework-api-class-list.txt";
+  public static final String FRAMEWORK_API_CLASS_LIST_FILE_NAME = "samza-framework-api-classes.txt";
 }

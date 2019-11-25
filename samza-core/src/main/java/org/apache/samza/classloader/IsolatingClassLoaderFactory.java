@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +58,7 @@ public class IsolatingClassLoaderFactory {
    * Build a classloader which will isolate Samza framework code from application code. Samza framework classes and
    * application-specific classes will be loaded using a different classloaders. This will enable dependencies of each
    * category of classes to also be loaded separately, so that runtime dependency conflicts do not happen.
+   * Each call to this method will build a different instance of a classloader.
    *
    * Samza framework API classes need to be specified in a file called
    * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} which is in the lib directory which is in the
@@ -172,6 +174,7 @@ public class IsolatingClassLoaderFactory {
 
   /**
    * Build the {@link ClassLoader} which can load Samza framework core classes.
+   * This may also fall back to loading application classes.
    *
    * This sets up two links: One link between the infrastructure classloader and the API and another link between the
    * infrastructure classloader and the application classloader (see {@link #buildClassLoader()}.
@@ -225,6 +228,10 @@ public class IsolatingClassLoaderFactory {
   }
 
   /**
+   * Gets the globs for matching against classes to load from the framework API classloader. This will read the
+   * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} file in {@code directoryWithClassList} to get
+   * the globs.
+   *
    * @param directoryWithClassList Directory in which
    * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} lives
    * @return {@link List} of globs for matching against classes to load from the framework API classloader
@@ -235,7 +242,10 @@ public class IsolatingClassLoaderFactory {
         new File(directoryWithClassList, DependencyIsolationUtils.FRAMEWORK_API_CLASS_LIST_FILE_NAME);
     validateCanAccess(parentPreferredFile);
     try {
-      return Files.readAllLines(Paths.get(parentPreferredFile.toURI()), StandardCharsets.UTF_8);
+      return Files.readAllLines(Paths.get(parentPreferredFile.toURI()), StandardCharsets.UTF_8)
+          .stream()
+          .filter(StringUtils::isNotBlank)
+          .collect(Collectors.toList());
     } catch (IOException e) {
       throw new SamzaException("Error while reading samza-api class list", e);
     }
@@ -259,6 +269,7 @@ public class IsolatingClassLoaderFactory {
         .map(IsolatingClassLoaderFactory::fileURL)
         .toArray(URL[]::new);
     LOG.info("Found {} items to load into classpath from {}", urls.length, jarsLocation);
+    Stream.of(urls).forEach(url -> LOG.debug("Found {} from {}", url, jarsLocation));
     return urls;
   }
 
