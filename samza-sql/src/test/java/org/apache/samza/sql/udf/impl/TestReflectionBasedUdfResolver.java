@@ -21,9 +21,6 @@ package org.apache.samza.sql.udf.impl;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
@@ -48,7 +45,7 @@ public class TestReflectionBasedUdfResolver {
 
   @Test
   public void testUDfResolverShouldReturnAllUDFInClassPath() throws NoSuchMethodException {
-    Config config = new MapConfig(ImmutableMap.of("samza.sql.udf.resolver.package.prefix", "org.apache.samza.sql.udf.impl"));
+    Config config = new MapConfig(ImmutableMap.of("samza.sql.udf.resolver.package.filter", "org.apache.samza.sql.udf.impl"));
     ReflectionBasedUdfResolver reflectionBasedUdfResolver = new ReflectionBasedUdfResolver(config);
     Collection<UdfMetadata> udfMetadataList = reflectionBasedUdfResolver.getUdfs();
 
