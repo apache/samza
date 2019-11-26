@@ -426,7 +426,6 @@ public class ClusterBasedJobCoordinator {
    */
   @VisibleForTesting
   static void runWithClassLoader(ClassLoader classLoader, String[] args) {
-
     // need to use the isolated classloader to load ClusterBasedJobCoordinator and then run using that new class
     Class<?> clusterBasedJobCoordinatorClass;
     try {
@@ -456,7 +455,6 @@ public class ClusterBasedJobCoordinator {
    * {@link ClusterBasedJobCoordinator#runClusterBasedJobCoordinator(String[])}
    * @param args arguments to pass to {@link ClusterBasedJobCoordinator#runClusterBasedJobCoordinator(String[])}
    */
-  @VisibleForTesting
   private static void executeRunClusterBasedJobCoordinatorForClass(Class<?> clusterBasedJobCoordinatorClass,
       String[] args) {
     Method runClusterBasedJobCoordinatorMethod;

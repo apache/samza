@@ -20,7 +20,6 @@
 package org.apache.samza.clustermanager;
 
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,29 +43,29 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 import org.mockito.exceptions.base.MockitoException;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.powermock.api.mockito.PowerMockito.mock;
+import static org.powermock.api.mockito.PowerMockito.verifyPrivate;
+
 
 /**
  * Tests for {@link ClusterBasedJobCoordinator}
  */
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(CoordinatorStreamUtil.class)
+@PrepareForTest({CoordinatorStreamUtil.class, ClusterBasedJobCoordinator.class})
 public class TestClusterBasedJobCoordinator {
 
   Map<String, String> configMap;
@@ -170,38 +169,23 @@ public class TestClusterBasedJobCoordinator {
 
   @Test
   public void testRunWithClassLoader() throws Exception {
-      // save the context classloader to make sure that it gets set properly once the test is finished
+    // partially mock ClusterBasedJobCoordinator (mock runClusterBasedJobCoordinator method only)
+    PowerMockito.spy(ClusterBasedJobCoordinator.class);
+    // save the context classloader to make sure that it gets set properly once the test is finished
     ClassLoader previousContextClassLoader = Thread.currentThread().getContextClassLoader();
     ClassLoader classLoader = mock(ClassLoader.class);
-    String[] args = mock(String[].class);
-    Class<?> clusterBasedJobCoordinatorClass = mock(Class.class);
-    Method runClusterBasedJobCoordinatorMethod = mock(Method.class);
-    doReturn(clusterBasedJobCoordinatorClass).when(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
+    String[] args = new String[]{"arg0", "arg1"};
+    doReturn(ClusterBasedJobCoordinator.class).when(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
 
-    String runClusterBasedJobCoordinatorMethodName = "runClusterBasedJobCoordinator";
-    Class<?>[] argsClasses = new Class<?>[]{String[].class};
-    String missingMethodMessage = String.format(
-        "%s method seems to have changed. Make sure that the reflection call to that method in %s is updated to call "
-            + "the correct method", runClusterBasedJobCoordinatorMethodName,
-        ClusterBasedJobCoordinator.class.getName());
-    /*
-     * The arguments to getDeclaredMethod should be the same in the next two lines.
-     * Since the Class instance is being mocked, that mock alone will not help to make sure that the method being called
-     * by reflection still actually exists.
-     * The first line verifies that the expected runClusterBasedJobCoordinator method called by reflection in
-     * ClusterBasedJobCoordinator actually still exists. The compiler can't help us catch if the method changed. If this
-     * line fails, then make sure that the reflection usage in ClusterBasedJobCoordinator is correct.
-     */
-    assertNotNull(missingMethodMessage,
-        ClusterBasedJobCoordinator.class.getDeclaredMethod(runClusterBasedJobCoordinatorMethodName, argsClasses));
-    doReturn(runClusterBasedJobCoordinatorMethod).when(clusterBasedJobCoordinatorClass)
-        .getDeclaredMethod(runClusterBasedJobCoordinatorMethodName, argsClasses);
+    // stub the private static method which is called by reflection
+    PowerMockito.doAnswer(invocation -> {
+        // make sure the only calls to this method has the expected arguments
+        assertArrayEquals(args, invocation.getArgumentAt(0, String[].class));
+        // checks that the context classloader is set correctly
+        assertEquals(classLoader, Thread.currentThread().getContextClassLoader());
+        return null;
+      }).when(ClusterBasedJobCoordinator.class, "runClusterBasedJobCoordinator", any());
 
-    doAnswer(invocation -> {
-      // checks that the context classloader is set correctly
-      assertEquals(classLoader, Thread.currentThread().getContextClassLoader());
-      return null;
-    });
     try {
       ClusterBasedJobCoordinator.runWithClassLoader(classLoader, args);
       assertEquals(previousContextClassLoader, Thread.currentThread().getContextClassLoader());
@@ -209,7 +193,9 @@ public class TestClusterBasedJobCoordinator {
       // reset it explicitly just in case runWithClassLoader throws an exception
       Thread.currentThread().setContextClassLoader(previousContextClassLoader);
     }
-    verify(runClusterBasedJobCoordinatorMethod).setAccessible(true);
-    verify(runClusterBasedJobCoordinatorMethod).invoke(null, new Object[]{args});
+    // make sure that the classloader got used
+    verify(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
+    // make sure runClusterBasedJobCoordinator only got called once
+    verifyPrivate(ClusterBasedJobCoordinator.class).invoke("runClusterBasedJobCoordinator", new Object[]{aryEq(args)});
   }
 }
