@@ -37,6 +37,13 @@ Validate Samza using all our supported build matrix.
     ./bin/check-all.sh
 ```
 
+Run integration tests for YARN and standalone
+
+```bash
+    ./bin/integration-tests.sh . yarn-integration-tests
+    ./bin/integration-tests.sh . standalone-integration-tests
+```
+
 To release to a local Maven repository:
 
 ```bash
@@ -97,7 +104,7 @@ Upload the build artifacts to your Apache home directory:
     bye
    ```
 
-Make a signed git tag for the release candidate:
+Make a signed git tag for the release candidate (you may need to use -u to specify key id):
 
 ```bash
     git tag -s release-$VERSION-rc0 -m "Apache Samza $VERSION release candidate 0"
