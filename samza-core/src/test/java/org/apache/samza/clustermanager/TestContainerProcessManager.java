@@ -900,6 +900,4 @@ public class TestContainerProcessManager {
     return new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(), clusterResourceManager, allocator,
          new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false));
   }
-
-
 }

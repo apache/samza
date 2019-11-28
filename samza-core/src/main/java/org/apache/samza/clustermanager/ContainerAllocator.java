@@ -110,7 +110,8 @@ public class ContainerAllocator implements Runnable {
    */
   protected final ResourceRequestState resourceRequestState;
   /**
-   * Tracks the default expiration of a request for resources.
+   * Tracks the configured expiration of a resource request defaults to {@code ClusterManagerConfig#CLUSTER_MANAGER_REQUEST_TIMEOUT_MS}
+   * is specified or {@code ClusterManagerConfig#DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS} otherwise
    */
   private final int requestExpiryTimeout;
 
@@ -174,7 +175,7 @@ public class ContainerAllocator implements Runnable {
    * When host-affinity is enabled, all allocated resources are buffered by the hostName as key
    *
    * If the requested host is not available, the thread checks to see if the request has expired. If it has expired
-   * please refer to @code containerManager#handleContainerLaunch for constraints to handle expired requests
+   * please refer to {@code containerManager#handleContainerLaunch} for constraints to handle expired requests
    *
    * When host-affinity is enabled and a {@code StandbyContainerManager} is present, the allocator transfers the request
    * to it for checking StandByConstraints before launcing a processor
@@ -189,15 +190,18 @@ public class ContainerAllocator implements Runnable {
       LOG.info("Handling assignment request for Processor ID: {} on host: {}.", processorId, preferredHost);
       if (hasAllocatedResource(preferredHost)) {
 
-        LOG.info("Found an available container for Processor ID: {} on the host: {}", processorId, preferredHost);
-
         // Needs to be only updated when host affinity is enabled
         if (hostAffinityEnabled) {
           state.matchedResourceRequests.incrementAndGet();
         }
 
-        containerManager.handleContainerLaunch(request, preferredHost, peekAllocatedResource(preferredHost),
-            resourceRequestState, this);
+        boolean waitForNextAction =
+            containerManager.handleContainerLaunch(request, preferredHost, peekAllocatedResource(preferredHost),
+                resourceRequestState, this);
+
+        if (waitForNextAction) {
+          break;
+        }
 
       } else {
 
@@ -386,7 +390,6 @@ public class ContainerAllocator implements Runnable {
    * @param samzaResource returned by the ContainerManager
    */
   public final void addResource(SamzaResource samzaResource) {
-    //resourceRequestState.addResource(samzaResource, containerManager.isResourceRequestedForControlAction(samzaResource));
     resourceRequestState.addResource(samzaResource);
   }
 
@@ -407,8 +410,7 @@ public class ContainerAllocator implements Runnable {
 
 
   /**
-   * Checks if a request has expired. If this request is due to a control action, then expiry timeout can be overridden
-   * otherwise defaults to
+   * Checks if a request has expired.
    *
    * @param request the request to check
    * @return true if request has expired
@@ -418,19 +420,19 @@ public class ContainerAllocator implements Runnable {
     boolean requestExpired =  currTime - request.getRequestTimestamp().toEpochMilli() > getRequestTimeout(request);
     if (requestExpired) {
       LOG.info("Request for Processor ID: {} on host: {} with creation time: {} has expired at current time: {} after timeout: {} ms.",
-          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestamp(), currTime, requestExpiryTimeout);
+          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestamp(), currTime, getRequestTimeout(request));
     }
     return requestExpired;
   }
 
   /**
-   * Control actions like move, restarts can optionally override request expiry timeout. Otherwise it defaults to
-   * { @code requestExpiryTimeout }
+   * Determines the request expiry timeout. Container placement actions like move, restarts can optionally override
+   * request expiry timeout. Otherwise it defaults to { @code requestExpiryTimeout }
    */
-  private Long getRequestTimeout(SamzaResourceRequest request) {
-    Optional<Long> controlActionRequestExpirytimeout = containerManager.getActionExpiryTimeout(request.getProcessorId());
+  private long getRequestTimeout(SamzaResourceRequest request) {
+    Optional<Duration> controlActionRequestExpirytimeout = containerManager.getActionExpiryTimeout(request.getProcessorId());
     Long changedRequestExpiryTimeout =
-        controlActionRequestExpirytimeout.isPresent() ? controlActionRequestExpirytimeout.get()
+        controlActionRequestExpirytimeout.isPresent() ? controlActionRequestExpirytimeout.get().toMillis()
             : new Long(requestExpiryTimeout);
     return changedRequestExpiryTimeout;
   }

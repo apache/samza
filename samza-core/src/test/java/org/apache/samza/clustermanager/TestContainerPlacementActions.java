@@ -25,13 +25,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.samza.clustermanager.container.placements.ContainerPlacementStatus;
+import org.apache.samza.clustermanager.container.placements.ContainerPlacementMetadata;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
+import org.apache.samza.container.placements.ContainerPlacementMessage;
+import org.apache.samza.container.placements.ContainerPlacementRequestMessage;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.JobModelManagerTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
@@ -117,11 +120,12 @@ public class TestContainerPlacementActions {
 
     ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
     ContainerManager containerManager = spy(new ContainerManager(state, clusterResourceManager, true, false));
     MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity =
         new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     ContainerProcessManager cpm =
-        new ContainerProcessManager(new ClusterManagerConfig(new MapConfig(conf)), state, new MetricsRegistryMap(),
+        new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
             clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
 
     doAnswer(new Answer<Void>() {
@@ -171,16 +175,17 @@ public class TestContainerPlacementActions {
     assertEquals(state.preferredHostRequests.get(), 2);
     assertEquals(state.anyHostRequests.get(), 0);
 
-    // Take a control action to move a container with container id 0
-    ContainerPlacementStatus actionStatus =
-        containerManager.registerContainerPlacementAction("0", "host-3", allocatorWithHostAffinity, Optional.empty());
+    // Initiate container placement action to move a container with container id 0
+    ContainerPlacementRequestMessage requestMessage = new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3");
+    ContainerPlacementMetadata metadata =
+        containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
     // Wait for the ControlAction to complete
     if (!allocatorWithHostAffinity.awaitContainersStart(1, 3, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
 
-    while (actionStatus.status != ContainerPlacementStatus.StatusCode.SUCCEEDED) {
+    while (metadata.getActionStatus() != ContainerPlacementMessage.StatusCode.SUCCEEDED) {
       Thread.sleep(100);
     }
 
@@ -189,7 +194,7 @@ public class TestContainerPlacementActions {
     assertEquals(state.runningProcessors.get("0").getHost(), "host-3");
     assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
     assertEquals(state.anyHostRequests.get(), 0);
-    assertEquals(actionStatus.status, ContainerPlacementStatus.StatusCode.SUCCEEDED);
+    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
   }
 
   @Test(timeout = 10000)
@@ -250,11 +255,17 @@ public class TestContainerPlacementActions {
     assertEquals(state.preferredHostRequests.get(), 2);
     assertEquals(state.anyHostRequests.get(), 0);
 
-    // Take a control action to move a container with container id 0
-    ContainerPlacementStatus actionStatus = containerManager.registerContainerPlacementAction("0", "host-3", allocatorWithHostAffinity,
-        Optional.of(Duration.ofMillis(1).toMillis()));
+    // Initiate container placement action to move a container with container id 0
+    ContainerPlacementRequestMessage requestMessage =
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3", Duration.ofMillis(10).toMillis());
+    ContainerPlacementMetadata metadata =
+        containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
-    assertEquals(actionStatus.status, ContainerPlacementStatus.StatusCode.IN_PROGRESS);
+    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.IN_PROGRESS);
+
+    while (metadata.getActionStatus() != ContainerPlacementMessage.StatusCode.FAILED) {
+      Thread.sleep(100);
+    }
 
     assertEquals(state.preferredHostRequests.get(), 3);
     assertEquals(state.runningProcessors.size(), 2);
@@ -334,12 +345,14 @@ public class TestContainerPlacementActions {
     assertEquals(state.preferredHostRequests.get(), 2);
     assertEquals(state.anyHostRequests.get(), 0);
 
-    // Take a control action to move a container with container id 0
-    ContainerPlacementStatus actionStatus =
-        containerManager.registerContainerPlacementAction("0", "host-3", allocatorWithHostAffinity, Optional.empty());
+    // Take a container placement action to move a container with container id 0
+    ContainerPlacementRequestMessage requestMessage =
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "0", "host-3");
+    ContainerPlacementMetadata metadata =
+        containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
     // Control action should be in progress
-    assertEquals(actionStatus.status, ContainerPlacementStatus.StatusCode.IN_PROGRESS);
+    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.IN_PROGRESS);
 
     // Wait for the ControlAction to complete
     if (!allocatorWithHostAffinity.awaitContainersStart(1, 3, TimeUnit.SECONDS)) {
@@ -357,7 +370,7 @@ public class TestContainerPlacementActions {
     assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
     assertEquals(state.anyHostRequests.get(), 0);
     // Control Action should be failed in this case
-    assertEquals(actionStatus.status, ContainerPlacementStatus.StatusCode.FAILED);
+    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.FAILED);
   }
 
   @Test(timeout = 10000)
@@ -432,19 +445,21 @@ public class TestContainerPlacementActions {
     String previousHostOfContainer1 = state.runningProcessors.get("0").getHost();
     String previousHostOfContainer2 = state.runningProcessors.get("1").getHost();
 
-    // Take a control action to move a container with container id 0
-    ContainerPlacementStatus actionStatus =
-        containerManager.registerContainerPlacementAction("0", "host-3", allocatorWithoutHostAffinity, Optional.empty());
+    // Initiate container placement action to move a container with container id 0
+    ContainerPlacementRequestMessage requestMessage =
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "0", "host-3");
+    ContainerPlacementMetadata metadata =
+        containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithoutHostAffinity);
 
-    // Control action should be in progress
-    assertEquals(actionStatus.status, ContainerPlacementStatus.StatusCode.IN_PROGRESS);
+    // Initiated Control action should be in progress
+    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.IN_PROGRESS);
 
     // Wait for the ControlAction to complete and spawn an async request
     if (!allocatorWithoutHostAffinity.awaitContainersStart(1, 3, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
     }
 
-    while (actionStatus.status != ContainerPlacementStatus.StatusCode.SUCCEEDED) {
+    while (metadata.getActionStatus() != ContainerPlacementMessage.StatusCode.SUCCEEDED) {
       Thread.sleep(100);
     }
 
@@ -458,17 +473,16 @@ public class TestContainerPlacementActions {
     assertEquals(previousHostOfContainer2, state.runningProcessors.get("1").getHost());
     assertEquals(3, state.anyHostRequests.get());
     // Action should success
-    assertEquals(ContainerPlacementStatus.StatusCode.SUCCEEDED, actionStatus.status);
+    assertEquals(ContainerPlacementMessage.StatusCode.SUCCEEDED, metadata.getActionStatus());
   }
 
-  @Test
+  @Test(expected = NullPointerException.class)
   public void testBadControlRequestRejected() throws Exception {
-
     SamzaApplicationState state =
         new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
     ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ContainerManager containerManager = new ContainerManager(state, clusterResourceManager, true, false);
+    ContainerManager containerManager = spy(new ContainerManager(state, clusterResourceManager, true, false));
     MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity =
         new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     ContainerProcessManager cpm = new ContainerProcessManager(
@@ -499,13 +513,15 @@ public class TestContainerPlacementActions {
 
     assertBadRequests(null, "host2", containerManager, allocatorWithHostAffinity);
     assertBadRequests("0", null, containerManager, allocatorWithHostAffinity);
-    assertBadRequests("2", "null", containerManager, allocatorWithHostAffinity);
+    assertBadRequests("2", "host8", containerManager, allocatorWithHostAffinity);
   }
 
   private void assertBadRequests(String processorId, String destinationHost, ContainerManager containerManager,
       ContainerAllocator allocator) {
-    ContainerPlacementStatus status =
-        containerManager.registerContainerPlacementAction(processorId, destinationHost, allocator, Optional.empty());
-    assertEquals(ContainerPlacementStatus.StatusCode.BAD_REQUEST, status.status);
+    ContainerPlacementRequestMessage requestMessage =
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-Attemp-001", processorId, destinationHost);
+    ContainerPlacementMetadata metadata =
+        containerManager.registerContainerPlacementActionForTest(requestMessage, allocator);
+    assertNull(metadata);
   }
 }
