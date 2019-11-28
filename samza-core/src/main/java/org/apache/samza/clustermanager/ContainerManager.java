@@ -62,8 +62,6 @@ public class ContainerManager {
   /**
    * Map maintaining active container placement action meta data indexed by container's processorId eg 0, 1, 2
    * Key is chosen to be processorId since at a time only one placement action can be in progress on a container.
-   * Furthermore, at any time this map only contains metadata related to active actions, completed (failed or succeed)
-   * actions are removed from this map
    */
   private final ConcurrentHashMap<String, ContainerPlacementMetadata> actions;
 
