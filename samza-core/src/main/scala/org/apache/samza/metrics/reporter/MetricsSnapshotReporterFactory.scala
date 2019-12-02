@@ -19,7 +19,7 @@
 
 package org.apache.samza.metrics.reporter
 
-import org.apache.samza.util.{Logging, StreamUtil, Util}
+import org.apache.samza.util.{Logging, ReflectionUtil, StreamUtil, Util}
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{Config, JobConfig, MetricsConfig, SerializerConfig, StreamConfig, SystemConfig}
 import org.apache.samza.metrics.MetricsReporter
@@ -53,7 +53,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Trying to fetch system factory for system %s, which isn't defined in config." format systemName))
 
-    val systemFactory = Util.getObj(systemFactoryClassName, classOf[SystemFactory])
+    val systemFactory = ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory])
 
     info("Got system factory %s." format systemFactory)
 
@@ -71,7 +71,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val serde = if (serdeName != null) {
       JavaOptionals.toRichOptional(serializerConfig.getSerdeFactoryClass(serdeName)).toOption match {
         case Some(serdeClassName) =>
-          Util.getObj(serdeClassName, classOf[SerdeFactory[MetricsSnapshot]]).getSerde(serdeName, config)
+          ReflectionUtil.getObj(serdeClassName, classOf[SerdeFactory[MetricsSnapshot]]).getSerde(serdeName, config)
         case _ => null
       }
     } else {

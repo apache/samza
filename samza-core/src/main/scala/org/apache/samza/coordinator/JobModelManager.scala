@@ -47,7 +47,7 @@ import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{Logging, ReflectionUtil, Util}
+import org.apache.samza.util.{ConfigUtil, Logging, ReflectionUtil, Util}
 
 import scala.collection.JavaConverters
 import scala.collection.JavaConversions._
@@ -274,7 +274,7 @@ object JobModelManager extends Logging {
           filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
             .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
             .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
-          foldLeft(config)(Util.applyRewriter(_, _))
+          foldLeft(config)(ConfigUtil.applyRewriter(_, _))
         case _ => config
       }
     }
