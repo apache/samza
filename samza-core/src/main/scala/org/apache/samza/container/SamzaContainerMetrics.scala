@@ -46,7 +46,7 @@ class SamzaContainerMetrics(
   val diskQuotaBytes = newGauge("disk-quota-bytes", Long.MaxValue)
   val executorWorkFactor = newGauge("executor-work-factor", 1.0)
   val physicalMemoryMb = newGauge[Double]("physical-memory-mb", 0.0F)
-  val containerStarted = newCounter("container-started")
+  val containerStarted = newGauge[Long]("container-started", 0L)
 
   val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
 
