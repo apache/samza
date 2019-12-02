@@ -19,16 +19,18 @@
 
 package org.apache.samza.util;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.MapConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class ConfigUtil {
+  private static final Logger LOG = LoggerFactory.getLogger(ConfigUtil.class);
+
   /**
    * Re-writes configuration using a ConfigRewriter, if one is defined. If
    * there is no ConfigRewriter defined for the job, then this method is a
@@ -37,28 +39,32 @@ public class ConfigUtil {
    * @param config The config to re-write
    * @return rewrited configs
    */
-  static public Config rewriteConfig(Config config) {
-    try {
-      final String rewriters = config.get(JobConfig.CONFIG_REWRITERS, "");
-      if (!rewriters.isEmpty()) {
-        Map<String, String> resultConfig = new HashMap<>(config);
-        for (String rewriter : rewriters.split(",")) {
-          String rewriterClassCfg = String.format(JobConfig.CONFIG_REWRITER_CLASS, rewriter);
-          String rewriterClass = config.get(rewriterClassCfg, "");
-          if (rewriterClass.isEmpty()) {
-            throw new SamzaException(
-                "Unable to find class config for config rewriter: " + rewriterClassCfg);
-          }
-          ConfigRewriter configRewriter = (ConfigRewriter) Class.forName(rewriterClass).newInstance();
-          Config rewritedConfig = configRewriter.rewrite(rewriter, config);
-          resultConfig.putAll(rewritedConfig);
-        }
-        return new MapConfig(resultConfig);
-      } else {
-        return config;
+  public static Config rewriteConfig(Config config) {
+    Optional<String> configRewriterNamesOptional = new JobConfig(config).getConfigRewriters();
+    if (configRewriterNamesOptional.isPresent()) {
+      String[] configRewriterNames = configRewriterNamesOptional.get().split(",");
+      Config rewrittenConfig = config;
+      for (String configRewriterName : configRewriterNames) {
+        rewrittenConfig = applyRewriter(rewrittenConfig, configRewriterName);
       }
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+      return rewrittenConfig;
+    } else {
+      return config;
     }
+  }
+
+  /**
+   * Re-writes configuration using a ConfigRewriter, defined with the given rewriterName in config.
+   * @param config the config to re-write
+   * @param rewriterName the name of the rewriter to apply
+   * @return the rewritten config
+   */
+  public static Config applyRewriter(Config config, String rewriterName) {
+    String rewriterClassName = new JobConfig(config).getConfigRewriterClass(rewriterName)
+        .orElseThrow(() -> new SamzaException(
+            String.format("Unable to find class config for config rewriter %s.", rewriterName)));
+    ConfigRewriter rewriter = ReflectionUtil.getObj(rewriterClassName, ConfigRewriter.class);
+    LOG.info("Re-writing config with {}", rewriter);
+    return rewriter.rewrite(rewriterName, config);
   }
 }

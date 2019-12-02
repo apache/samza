@@ -29,7 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 
 /**
  * Config helper methods related to systems.
@@ -117,7 +117,7 @@ public class SystemConfig extends MapConfig {
       systemName -> {
         String systemFactoryClassName = getSystemFactory(systemName).orElseThrow(() -> new SamzaException(
             String.format("A stream uses system %s, which is missing from the configuration.", systemName)));
-        return Util.getObj(systemFactoryClassName, SystemFactory.class);
+        return ReflectionUtil.getObj(systemFactoryClassName, SystemFactory.class);
       }));
 
     return systemFactories;

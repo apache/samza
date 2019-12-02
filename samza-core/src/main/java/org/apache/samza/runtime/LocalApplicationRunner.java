@@ -64,7 +64,6 @@ import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
-import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.slf4j.Logger;
@@ -384,7 +383,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
    */
   private MetadataStore getMetadataStoreForRunID() {
     String metadataStoreFactoryClass = appDesc.getConfig().getOrDefault(METADATA_STORE_FACTORY_CONFIG, DEFAULT_METADATA_STORE_FACTORY);
-    MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
+    MetadataStoreFactory metadataStoreFactory =
+        ReflectionUtil.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
     return metadataStoreFactory.getMetadataStore(RUN_ID_METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
   }
 
