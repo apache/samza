@@ -19,6 +19,7 @@
 package org.apache.samza.container.placements;
 
 import com.google.common.base.Preconditions;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -28,11 +29,11 @@ import java.util.UUID;
  */
 public class ContainerPlacementResponseMessage extends ContainerPlacementMessage {
   // Returned status of the request
-  private String responseMessage;
+  private final String responseMessage;
 
   public ContainerPlacementResponseMessage(UUID uuid, String applicationId, String processorId, String destinationHost,
-      Long requestExpiry, StatusCode statusCode, String responseMessage) {
-    super(uuid, applicationId, processorId, destinationHost, requestExpiry, statusCode);
+      Duration requestExpiryTimeout, StatusCode statusCode, String responseMessage) {
+    super(uuid, applicationId, processorId, destinationHost, requestExpiryTimeout, statusCode);
     Preconditions.checkNotNull(responseMessage);
     this.responseMessage = responseMessage;
   }
@@ -45,7 +46,7 @@ public class ContainerPlacementResponseMessage extends ContainerPlacementMessage
   public static ContainerPlacementResponseMessage fromContainerPlacementRequestMessage(
       ContainerPlacementRequestMessage requestMessage, StatusCode statusCode, String responseMessage) {
     return new ContainerPlacementResponseMessage(requestMessage.getUuid(), requestMessage.getApplicationId(), requestMessage.getProcessorId(),
-        requestMessage.getDestinationHost(), requestMessage.getRequestExpiry(), statusCode, responseMessage);
+        requestMessage.getDestinationHost(), requestMessage.getRequestExpiryTimeout().get(), statusCode, responseMessage);
   }
 
   public String getResponseMessage() {
@@ -56,7 +57,7 @@ public class ContainerPlacementResponseMessage extends ContainerPlacementMessage
   public String toString() {
     return "ContainerPlacementResponseMessage{" + "responseMessage='" + responseMessage + '\'' + ", uuid=" + uuid
         + ", applicationId='" + applicationId + '\'' + ", processorId='" + processorId + '\'' + ", destinationHost='"
-        + destinationHost + '\'' + ", requestExpiry=" + requestExpiry + ", statusCode=" + statusCode + "} "
+        + destinationHost + '\'' + ", requestExpiryTimeout=" + requestExpiryTimeout + ", statusCode=" + statusCode + "} "
         + super.toString();
   }
 

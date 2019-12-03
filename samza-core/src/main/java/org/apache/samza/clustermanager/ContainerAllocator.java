@@ -111,9 +111,9 @@ public class ContainerAllocator implements Runnable {
   protected final ResourceRequestState resourceRequestState;
   /**
    * Tracks the configured expiration of a resource request defaults to {@code ClusterManagerConfig#CLUSTER_MANAGER_REQUEST_TIMEOUT_MS}
-   * is specified or {@code ClusterManagerConfig#DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS} otherwise
+   * if specified or {@code ClusterManagerConfig#DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS} otherwise
    */
-  private final int requestExpiryTimeout;
+  private final int configuredRequestExpiryTimeout;
 
   private final ContainerManager containerManager;
 
@@ -133,7 +133,7 @@ public class ContainerAllocator implements Runnable {
     this.config = config;
     this.hostAffinityEnabled = hostAffinityEnabled;
     this.containerManager = containerManager;
-    this.requestExpiryTimeout = clusterManagerConfig.getContainerRequestTimeout();
+    this.configuredRequestExpiryTimeout = clusterManagerConfig.getContainerRequestTimeout();
   }
 
   /**
@@ -171,14 +171,29 @@ public class ContainerAllocator implements Runnable {
    * and tries to allocate any unsatisfied request that is still in the request queue {@link ResourceRequestState})
    * with allocated resources.
    *
-   * When host-affinity is disabled, all allocated resources are buffered by the key "ANY_HOST".
+   * When host-affinity is disabled, all allocated resources are buffered by the key "ANY_HOST"
    * When host-affinity is enabled, all allocated resources are buffered by the hostName as key
    *
    * If the requested host is not available, the thread checks to see if the request has expired. If it has expired
-   * please refer to {@code containerManager#handleContainerLaunch} for constraints to handle expired requests
+   * then following cases are possible
+   *
+   * Case 1. If this expired request is due to a container placement action mark the request as failed and return
+   * Case 2: Otherwise for a normal resource request following cases are possible
+   *    Case 2.1  If StandbyContainer is present refer to {@code StandbyContainerManager#handleExpiredResourceRequest}
+   *    Case 2.2: host-affinity is enabled, allocator thread looks for allocated resources on ANY_HOST and issues a
+   *              container start if available, otherwise issue an ANY_HOST request
+   *    Case 2.2: host-affinity is disabled, allocator thread does not handle expired requests, it waits for cluster
+   *              manager to return resources on ANY_HOST
+   *         TODO: SAMZA-2330 Handle expired request for host affinity disabled case
+   *
+   * If the requested host is available then following cases are possible
+   * Case 1. If the container launch request is due to an existing container placement action, issue a stop on active
+   *         container & wait for the active container to be stopped before issuing a start.
+   * Case 2. If StandbyContainer is present refer to {@code StandbyContainerManager#checkStandbyConstraintsAndRunStreamProcessor}
+   * Case 3. Otherwise just invoke a container start on the allocated resource for the pending request
    *
    * When host-affinity is enabled and a {@code StandbyContainerManager} is present, the allocator transfers the request
-   * to it for checking StandByConstraints before launcing a processor
+   * to it for checking StandByConstraints before launching a processor
    */
   void assignResourceRequests() {
     while (hasReadyPendingRequest()) {
@@ -190,16 +205,24 @@ public class ContainerAllocator implements Runnable {
       LOG.info("Handling assignment request for Processor ID: {} on host: {}.", processorId, preferredHost);
       if (hasAllocatedResource(preferredHost)) {
 
+        // Found allocated container on preferredHost
+        LOG.info("Found an available container for Processor ID: {} on the host: {}", processorId, preferredHost);
+
         // Needs to be only updated when host affinity is enabled
         if (hostAffinityEnabled) {
           state.matchedResourceRequests.incrementAndGet();
         }
 
-        boolean waitForNextAction =
+        boolean containerLaunchComplete =
             containerManager.handleContainerLaunch(request, preferredHost, peekAllocatedResource(preferredHost),
                 resourceRequestState, this);
 
-        if (waitForNextAction) {
+        /**
+         * Some Container launch requests are due to Container Placement actions like move, restarts. Under those
+         * circumstances a container launch needs to wait for the previous container incarnation to stop. In this scenario
+         * the allocator thread needs to sleep and recheck the stop again
+         */
+        if (!containerLaunchComplete) {
           break;
         }
 
@@ -417,7 +440,7 @@ public class ContainerAllocator implements Runnable {
    */
   private boolean isRequestExpired(SamzaResourceRequest request) {
     long currTime = Instant.now().toEpochMilli();
-    boolean requestExpired =  currTime - request.getRequestTimestamp().toEpochMilli() > getRequestTimeout(request);
+    boolean requestExpired =  currTime - request.getRequestTimestamp().toEpochMilli() > getRequestTimeout(request).toMillis();
     if (requestExpired) {
       LOG.info("Request for Processor ID: {} on host: {} with creation time: {} has expired at current time: {} after timeout: {} ms.",
           request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestamp(), currTime, getRequestTimeout(request));
@@ -427,14 +450,12 @@ public class ContainerAllocator implements Runnable {
 
   /**
    * Determines the request expiry timeout. Container placement actions like move, restarts can optionally override
-   * request expiry timeout. Otherwise it defaults to { @code requestExpiryTimeout }
+   * request expiry timeout. Otherwise it defaults to { @code configuredRequestExpiryTimeout }
    */
-  private long getRequestTimeout(SamzaResourceRequest request) {
-    Optional<Duration> controlActionRequestExpirytimeout = containerManager.getActionExpiryTimeout(request.getProcessorId());
-    Long changedRequestExpiryTimeout =
-        controlActionRequestExpirytimeout.isPresent() ? controlActionRequestExpirytimeout.get().toMillis()
-            : new Long(requestExpiryTimeout);
-    return changedRequestExpiryTimeout;
+  private Duration getRequestTimeout(SamzaResourceRequest request) {
+    Optional<Duration> controlActionRequestExpiryTimeout = containerManager.getActionExpiryTimeout(request);
+    return controlActionRequestExpiryTimeout.isPresent() ? controlActionRequestExpiryTimeout.get()
+        : Duration.ofMillis(configuredRequestExpiryTimeout);
   }
 
   private void updateExpiryMetrics(SamzaResourceRequest request) {

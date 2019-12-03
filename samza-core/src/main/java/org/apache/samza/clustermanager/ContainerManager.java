@@ -98,32 +98,32 @@ public class ContainerManager {
    * @param resourceRequestState state of request in {@link ContainerAllocator}
    * @param allocator to request resources from @{@link ClusterResourceManager}
    *
-   * @return true if the allocator thread supposed to sleep for sometime before checking the stop of active container
-   *         for an undergoing container placement action, false otherwise
+   * @return true if the container launch is complete, false if the container launch is in progress. A container launch
+   *         might be in progress when it is waiting for the previous container incarnation to stop in case of container
+   *         placement actions
    */
   boolean handleContainerLaunch(SamzaResourceRequest request, String preferredHost, SamzaResource allocatedResource,
       ResourceRequestState resourceRequestState, ContainerAllocator allocator) {
-
+    LOG.info("Found an available container for Processor ID: {} on the host: {}", request.getProcessorId(), preferredHost);
     if (hasActiveContainerPlacementAction(request.getProcessorId())) {
       String processorId = request.getProcessorId();
       ContainerPlacementMetadata actionMetaData = getPlacementActionMetadata(processorId).get();
-      if (samzaApplicationState.runningProcessors.containsKey(processorId)
-          && actionMetaData.getContainerStatus() == ContainerPlacementMetadata.ContainerStatus.RUNNING) {
+      ContainerPlacementMetadata.ContainerStatus actionStatus = actionMetaData.getContainerStatus();
+      if (samzaApplicationState.runningProcessors.containsKey(processorId) && actionStatus == ContainerPlacementMetadata.ContainerStatus.RUNNING) {
         LOG.info("Requesting running container to shutdown due to existing container placement action {}",
             actionMetaData);
         actionMetaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS);
         clusterResourceManager.stopStreamProcessor(samzaApplicationState.runningProcessors.get(processorId));
-        return true;
-      } else if (actionMetaData.getContainerStatus() == ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS) {
-        LOG.info("Waiting for running container to shutdown due to existing container placement action {}", actionMetaData);
-        return true;
-      } else if (actionMetaData.getContainerStatus() == ContainerPlacementMetadata.ContainerStatus.STOPPED) {
-        allocator.runStreamProcessor(request, preferredHost);
         return false;
+      } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS) {
+        LOG.info("Waiting for running container to shutdown due to existing container placement action {}", actionMetaData);
+        return false;
+      } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOPPED) {
+        allocator.runStreamProcessor(request, preferredHost);
+        return true;
       }
     }
 
-    LOG.info("Found an available container for Processor ID: {} on the host: {}", request.getProcessorId(), preferredHost);
     if (this.standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
           .checkStandbyConstraintsAndRunStreamProcessor(request, preferredHost, allocatedResource, allocator,
@@ -131,7 +131,7 @@ public class ContainerManager {
     } else {
       allocator.runStreamProcessor(request, preferredHost);
     }
-    return false;
+    return true;
   }
 
   /**
@@ -140,7 +140,7 @@ public class ContainerManager {
    *
    * Case 1. When standby is enabled, refer to {@link StandbyContainerManager#handleContainerStop} to check constraints.
    * Case 2. When standby is disabled there are two cases according to host-affinity being enabled
-   *    Case 1.1. When host-affinity is enabled resources are requested on host where container was last seen
+   *    Case 2.1. When host-affinity is enabled resources are requested on host where container was last seen
    *    Case 2.2. When host-affinity is disabled resources are requested for ANY_HOST
    *
    * @param processorId logical id of the container eg 1,2,3
@@ -184,7 +184,7 @@ public class ContainerManager {
       ContainerPlacementMetadata metaData = getPlacementActionMetadata(processorId).get();
       // Issue a request to start the container on source host
       String sourceHost = hostAffinityEnabled ? metaData.getSourceHost() : ResourceRequestState.ANY_HOST;
-      handleControlActionFailure(processorId, metaData,
+      markContainerPlacementActionFailed(metaData,
           String.format("failed to start container on destination host %s, attempting to start on source host %s",
               preferredHost, sourceHost));
       containerAllocator.requestResource(processorId, sourceHost);
@@ -219,9 +219,12 @@ public class ContainerManager {
    * Handles an expired resource request for both active and standby containers.
    *
    * Case 1. If this expired request is due to a container placement action mark the request as failed and return
-   * Case 2. Otherwise, expired request are only handled for host affinity enabled jobs. Since a preferred host cannot be
-   *         obtained this method checks the availability of surplus ANY_HOST resources and launches the container if available.
-   *         Otherwise issues an ANY_HOST request.
+   * Case 2: Otherwise for a normal resource request following cases are possible
+   *    Case 2.1  If StandbyContainer is present refer to {@code StandbyContainerManager#handleExpiredResourceRequest}
+   *    Case 2.2: host-affinity is enabled, allocator thread looks for allocated resources on ANY_HOST and issues a
+   *              container start if available, otherwise issue an ANY_HOST request
+   *    Case 2.2: host-affinity is disabled, allocator thread does not handle expired requests, it waits for cluster
+   *              manager to return resources on ANY_HOST
    *
    * @param processorId logical id of the container
    * @param preferredHost host on which container is requested to be deployed
@@ -234,19 +237,22 @@ public class ContainerManager {
       SamzaResourceRequest request, ContainerAllocator allocator, ResourceRequestState resourceRequestState) {
     boolean resourceAvailableOnAnyHost = allocator.hasAllocatedResource(ResourceRequestState.ANY_HOST);
 
+
+    // Case 1. Container placement actions can be taken in either cases of host affinity being set, in both cases
+    // mark the control action failed
     if (hasActiveContainerPlacementAction(processorId)) {
       resourceRequestState.cancelResourceRequest(request);
-      handleControlActionFailure(processorId, getPlacementActionMetadata(processorId).get(),
+      markContainerPlacementActionFailed(getPlacementActionMetadata(processorId).get(),
           "failed the Control action because request for resources to ClusterManager expired");
       return;
     }
 
-    // Host affinity disabled wait for Resource manager to return resources
+    // Case 2. When host affinity is disabled wait for cluster resource manager return resources
     if (!hostAffinityEnabled) {
       return;
     }
 
-    // Handle expired requests for host affinity enabled case
+    // Case 2. When host affinity is enabled handle the expired requests
     if (standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
           .handleExpiredResourceRequest(processorId, request,
@@ -290,22 +296,17 @@ public class ContainerManager {
     }
 
     SamzaResource currentResource = samzaApplicationState.runningProcessors.get(processorId);
-    LOG.info("Processor ID: {} matched a active container with deployment ID: {} running on host: {}", processorId,
+    LOG.info("Processor ID: {} matched an active container with deployment ID: {} running on host: {}", processorId,
         currentResource.getContainerId(), currentResource.getHost());
 
-    if (destinationHost.equals(ANY_HOST) || !hostAffinityEnabled) {
+    if (!hostAffinityEnabled) {
       LOG.info("Changing the requested host to {} because either it is requested or host affinity is disabled",
           ResourceRequestState.ANY_HOST);
       destinationHost = ANY_HOST;
     }
 
     SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequest(processorId, destinationHost);
-    Optional<Duration> requestExpiry =
-        requestMessage.getRequestExpiry() != null ? Optional.of(Duration.ofMillis(requestMessage.getRequestExpiry())) : Optional.empty();
-    ContainerPlacementMetadata actionMetaData =
-        new ContainerPlacementMetadata(requestMessage.getUuid(), processorId, currentResource.getContainerId(),
-            currentResource.getHost(), destinationHost, requestExpiry);
-
+    ContainerPlacementMetadata actionMetaData = new ContainerPlacementMetadata(requestMessage, currentResource.getHost());
     // Record the resource request for monitoring
     actionMetaData.setActionStatus(ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Preferred Resources requested");
     actionMetaData.recordResourceRequest(resourceRequest);
@@ -315,8 +316,13 @@ public class ContainerManager {
         actionMetaData);
   }
 
+  /**
+   * This method is only used for Testing the Container Placement actions to get a hold of {@link ContainerPlacementMetadata}
+   * for assertions. Not intended to be used in src
+   */
   @VisibleForTesting
-  ContainerPlacementMetadata registerContainerPlacementActionForTest(ContainerPlacementRequestMessage requestMessage, ContainerAllocator containerAllocator) {
+  ContainerPlacementMetadata registerContainerPlacementActionForTest(ContainerPlacementRequestMessage requestMessage,
+      ContainerAllocator containerAllocator) {
     registerContainerPlacementAction(requestMessage, containerAllocator);
     if (hasActiveContainerPlacementAction(requestMessage.getProcessorId())) {
       return getPlacementActionMetadata(requestMessage.getProcessorId()).get();
@@ -324,12 +330,17 @@ public class ContainerManager {
     return null;
   }
 
-  public Optional<Duration> getActionExpiryTimeout(String processorId) {
-    return hasActiveContainerPlacementAction(processorId) ?
-        getPlacementActionMetadata(processorId).get().getRequestActionExpiryTimeout() : Optional.empty();
+  public Optional<Duration> getActionExpiryTimeout(SamzaResourceRequest resourceRequest) {
+    for (ContainerPlacementMetadata actionMetadata : actions.values()) {
+      if (actionMetadata.containsResourceRequest(resourceRequest)
+          && actionMetadata.getActionStatus() == ContainerPlacementMessage.StatusCode.IN_PROGRESS) {
+        return actionMetadata.getRequestActionExpiryTimeout();
+      }
+    }
+    return Optional.empty();
   }
 
-  private void handleControlActionFailure(String processorId, ContainerPlacementMetadata metaData, String failureMessage) {
+  private void markContainerPlacementActionFailed(ContainerPlacementMetadata metaData, String failureMessage) {
     metaData.setActionStatus(ContainerPlacementMessage.StatusCode.FAILED, failureMessage);
     LOG.info("Container Placement action failed with metadata {}", metaData);
   }
@@ -340,10 +351,14 @@ public class ContainerManager {
   private Boolean hasActiveContainerPlacementAction(String processorId) {
     Optional<ContainerPlacementMetadata> metadata = getPlacementActionMetadata(processorId);
     if (metadata.isPresent()) {
-      ContainerPlacementMessage.StatusCode actionStatus = metadata.get().getActionStatus();
-      return (actionStatus == ContainerPlacementMessage.StatusCode.CREATED) ||
-          (actionStatus == ContainerPlacementMessage.StatusCode.ACCEPTED) ||
-          (actionStatus == ContainerPlacementMessage.StatusCode.IN_PROGRESS);
+      switch (metadata.get().getActionStatus()) {
+        case ACCEPTED:
+        case CREATED:
+        case IN_PROGRESS:
+          return true;
+        default:
+          return false;
+      }
     }
     return false;
   }

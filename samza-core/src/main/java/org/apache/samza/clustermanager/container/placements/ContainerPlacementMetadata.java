@@ -25,34 +25,26 @@ import java.util.Set;
 import java.util.UUID;
 import org.apache.samza.clustermanager.SamzaResourceRequest;
 import org.apache.samza.container.placements.ContainerPlacementMessage;
+import org.apache.samza.container.placements.ContainerPlacementRequestMessage;
+
 
 /**
  * Maintains the state for any control action like move or restart container issued externally, this action metadata
  * is accessed by multiple threads i.e the ContainerAllocator thread and the thread running the {@link org.apache.samza.clustermanager.ClusterResourceManager.Callback}
- * i.e ContainerProcessManager.
- *
- * Each ContainerPlacement action issues a resource request first
- * Callback thread uses this notify the active container has stopped
+ * i.e ContainerProcessManager. Allocator thread issues a stop on active container and waits for {@code containerStatus}
+ * to be changed by the {@link org.apache.samza.clustermanager.ClusterResourceManager.Callback} thread.
  *
  * This class is thread safe
  */
 public class ContainerPlacementMetadata {
-
   /**
    * State to track container failover
    */
   public enum ContainerStatus { RUNNING, STOP_IN_PROGRESS, STOPPED }
-
-  // Unique UUID attached to a request, prevents taking the same action twice
-  private final UUID uuid;
-  // Logical container id 0,1,2,3,
-  private final String processorId;
-  // Last known deployment id of the container
-  private final String containerId;
+  // Container Placement request message
+  private final ContainerPlacementRequestMessage requestMessage;
+  // Host where the container is actively running
   private final String sourceHost;
-  private final String destinationHost;
-  // Optional Expiry timeout for resource request to the cluster manager
-  private final Optional<Duration> requestExpiryTimeout;
   // Resource requests issued during this failover
   private final Set<SamzaResourceRequest> resourceRequests;
   // State of the control action
@@ -62,22 +54,21 @@ public class ContainerPlacementMetadata {
   // Represents information on current status of action
   private String responseMessage;
 
-  public ContainerPlacementMetadata(UUID uuid, String processorId, String containerId, String sourceHost, String destinationHost,
-      Optional<Duration> requestExiryTimeout) {
-    this.uuid = uuid;
-    this.containerId = containerId;
-    this.processorId = processorId;
+  public ContainerPlacementMetadata(ContainerPlacementRequestMessage requestMessage, String sourceHost) {
+    this.requestMessage = requestMessage;
     this.sourceHost = sourceHost;
-    this.destinationHost = destinationHost;
     this.resourceRequests = new HashSet<>();
     this.containerStatus = ContainerStatus.RUNNING;
-    this.requestExpiryTimeout = requestExiryTimeout;
     this.actionStatus = ContainerPlacementMessage.StatusCode.ACCEPTED;
   }
 
   // Add the samzaResourceRequest to the list of resource requests associated with this failover
   public synchronized void recordResourceRequest(SamzaResourceRequest samzaResourceRequest) {
     this.resourceRequests.add(samzaResourceRequest);
+  }
+
+  public synchronized boolean containsResourceRequest(SamzaResourceRequest samzaResourceRequest) {
+    return resourceRequests.contains(samzaResourceRequest);
   }
 
   public synchronized void setActionStatus(ContainerPlacementMessage.StatusCode statusCode, String responseMessage) {
@@ -106,17 +97,17 @@ public class ContainerPlacementMetadata {
   }
 
   public Optional<Duration> getRequestActionExpiryTimeout() {
-    return requestExpiryTimeout;
+    return requestMessage.getRequestExpiryTimeout();
   }
 
   public UUID getUuid() {
-    return uuid;
+    return requestMessage.getUuid();
   }
 
   @Override
   public String toString() {
-    return "ContainerPlacementMetaData{" + "processorId='" + processorId + '\'' + ", containerId='" + containerId + '\''
-        + ", sourceHost='" + sourceHost + '\'' + ", destinationHost='" + destinationHost + '\'' + ", actionStatus="
-        + actionStatus + ", resourceRequests=" + resourceRequests + '}';
+    return "ContainerPlacementMetadata{" + "requestMessage=" + requestMessage + ", sourceHost='" + sourceHost + '\''
+        + ", resourceRequests=" + resourceRequests + ", actionStatus=" + actionStatus + ", containerStatus="
+        + containerStatus + ", responseMessage='" + responseMessage + '\'' + '}';
   }
 }

@@ -257,7 +257,7 @@ public class TestContainerPlacementActions {
 
     // Initiate container placement action to move a container with container id 0
     ContainerPlacementRequestMessage requestMessage =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3", Duration.ofMillis(10).toMillis());
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3", Duration.ofMillis(10));
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 

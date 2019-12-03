@@ -19,7 +19,9 @@
 package org.apache.samza.container.placements;
 
 import com.google.common.base.Preconditions;
+import java.time.Duration;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -75,13 +77,13 @@ public abstract class ContainerPlacementMessage {
   protected final String processorId;
   // Destination host where container is desired to be moved
   protected final String destinationHost;
-  // Optional request expiry which acts as a timeout for any resource request to
-  protected final Long requestExpiry;
+  // Optional request expiry which acts as a timeout for any resource request to cluster manager
+  protected final Optional<Duration> requestExpiryTimeout;
   // Status of the current request
   protected final StatusCode statusCode;
 
   protected ContainerPlacementMessage(UUID uuid, String applicationId, String processorId, String destinationHost,
-      Long requestExpiry, StatusCode statusCode) {
+      Duration requestExpiryTimeout, StatusCode statusCode) {
     Preconditions.checkNotNull(uuid, "uuid cannot be null");
     Preconditions.checkNotNull(applicationId, "applicationId cannot be null");
     Preconditions.checkNotNull(processorId, "processorId cannot be null");
@@ -91,7 +93,7 @@ public abstract class ContainerPlacementMessage {
     this.applicationId = applicationId;
     this.processorId = processorId;
     this.destinationHost = destinationHost;
-    this.requestExpiry = requestExpiry;
+    this.requestExpiryTimeout = Optional.ofNullable(requestExpiryTimeout);
     this.statusCode = statusCode;
   }
 
@@ -116,8 +118,8 @@ public abstract class ContainerPlacementMessage {
     return statusCode;
   }
 
-  public Long getRequestExpiry() {
-    return requestExpiry;
+  public Optional<Duration> getRequestExpiryTimeout() {
+    return requestExpiryTimeout;
   }
 
   public UUID getUuid() {
