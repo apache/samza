@@ -491,8 +491,6 @@ public class StreamProcessor {
                 state = State.STOPPING;
                 jobCoordinator.stop();
               } else {
-                Preconditions.checkState(containerExecutorService.isShutdown(),
-                    "Executor service did not shutdown cleanly.");
                 containerExecutorService = createExecutorService();
               }
             } else {

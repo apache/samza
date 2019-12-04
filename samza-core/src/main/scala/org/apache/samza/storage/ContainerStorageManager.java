@@ -938,6 +938,12 @@ public class ContainerStorageManager {
         LOG.info("Starting stores in task instance {}", this.taskName.getTaskName());
         taskRestoreManager.restore();
       } catch (InterruptedException e) {
+        /*
+         * The container thread is the only external source to trigger an interrupt to the restoration thread and thus
+         * it is okay to swallow this exception and not propagate it upstream. If the container is interrupted during
+         * the store restoration, ContainerStorageManager signals the restore workers to abandon restoration and then
+         * finally propagates the exception upstream to trigger container shutdown.
+         */
         LOG.warn("Received an interrupt during store restoration for task: {}.", this.taskName.getTaskName());
       } finally {
         // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
