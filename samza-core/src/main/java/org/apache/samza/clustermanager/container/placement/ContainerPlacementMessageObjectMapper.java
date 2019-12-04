@@ -19,6 +19,7 @@
 package org.apache.samza.clustermanager.container.placement;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -71,11 +72,13 @@ public class ContainerPlacementMessageObjectMapper {
         containerPlacementMessageMap.put("responseMessage",
             ((ContainerPlacementResponseMessage) value).getResponseMessage());
       }
+      if (value.getRequestExpiry() != null) {
+        containerPlacementMessageMap.put("requestExpiry", value.getRequestExpiry().toMillis());
+      }
       containerPlacementMessageMap.put("uuid", value.getUuid().toString());
       containerPlacementMessageMap.put("applicationId", value.getApplicationId());
       containerPlacementMessageMap.put("processorId", value.getProcessorId());
       containerPlacementMessageMap.put("destinationHost", value.getDestinationHost());
-      containerPlacementMessageMap.put("requestExpiry", value.getRequestExpiry());
       containerPlacementMessageMap.put("statusCode", value.getStatusCode().name());
       jsonGenerator.writeObject(containerPlacementMessageMap);
     }
@@ -91,7 +94,8 @@ public class ContainerPlacementMessageObjectMapper {
       String applicationId = node.get("applicationId").getTextValue();
       String processorId = node.get("processorId").getTextValue();
       String destinationHost = node.get("destinationHost").getTextValue();
-      Long requestExpiry = node.get("requestExpiry").isNull() ? null : node.get("requestExpiry").getLongValue();
+      Duration requestExpiry =
+          node.get("requestExpiry") == null ? null : Duration.ofMillis(node.get("requestExpiry").getLongValue());
       ContainerPlacementMessage.StatusCode statusCode = null;
       UUID uuid = UUID.fromString(node.get("uuid").getTextValue());
       for (ContainerPlacementMessage.StatusCode code : ContainerPlacementMessage.StatusCode.values()) {

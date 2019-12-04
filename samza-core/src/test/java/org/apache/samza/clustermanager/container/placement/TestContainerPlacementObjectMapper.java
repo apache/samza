@@ -39,7 +39,7 @@ public class TestContainerPlacementObjectMapper {
         new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST"));
     testContainerPlacementRequestMessage(
         new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST",
-            Duration.ofSeconds(10).toMillis()));
+            Duration.ofSeconds(10)));
   }
 
   @Test
@@ -48,7 +48,7 @@ public class TestContainerPlacementObjectMapper {
         Integer.toString(new Random().nextInt(5)), "ANY_HOST", ContainerPlacementMessage.StatusCode.BAD_REQUEST,
         "Request ignored redundant"));
     testContainerPlacementResponseMessage(new ContainerPlacementResponseMessage(UUID.randomUUID(), "app-attempt-001",
-        Integer.toString(new Random().nextInt(5)), "ANY_HOST", Duration.ofSeconds(10).toMillis(),
+        Integer.toString(new Random().nextInt(5)), "ANY_HOST", Duration.ofSeconds(10),
         ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Request is in progress"));
   }
 

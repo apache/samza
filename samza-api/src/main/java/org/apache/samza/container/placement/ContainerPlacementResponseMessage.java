@@ -19,6 +19,7 @@
 package org.apache.samza.container.placement;
 
 import com.google.common.base.Preconditions;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -30,7 +31,7 @@ public class ContainerPlacementResponseMessage extends ContainerPlacementMessage
   private String responseMessage;
 
   public ContainerPlacementResponseMessage(UUID uuid, String applicationId, String processorId, String destinationHost,
-      Long requestExpiry, StatusCode statusCode, String responseMessage) {
+      Duration requestExpiry, StatusCode statusCode, String responseMessage) {
     super(uuid, applicationId, processorId, destinationHost, requestExpiry, statusCode);
     Preconditions.checkNotNull(responseMessage);
     this.responseMessage = responseMessage;
@@ -41,7 +42,7 @@ public class ContainerPlacementResponseMessage extends ContainerPlacementMessage
     this(uuid, applicationId, processorId, destinationHost, null, statusCode, responseMessage);
   }
 
-  public static ContainerPlacementResponseMessage fromContainerPlacementRequestMessage(
+  static ContainerPlacementResponseMessage fromContainerPlacementRequestMessage(
       ContainerPlacementRequestMessage requestMessage, StatusCode statusCode, String responseMessage) {
     return new ContainerPlacementResponseMessage(requestMessage.getUuid(), requestMessage.getApplicationId(), requestMessage.getProcessorId(),
         requestMessage.getDestinationHost(), requestMessage.getRequestExpiry(), statusCode, responseMessage);

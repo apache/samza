@@ -19,6 +19,7 @@
 package org.apache.samza.container.placement;
 
 import com.google.common.base.Preconditions;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -74,13 +75,13 @@ public abstract class ContainerPlacementMessage {
   protected final String processorId;
   // Destination host where container is desired to be moved
   protected final String destinationHost;
-  // Optional request expiry which acts as a timeout for any resource request to
-  protected final Long requestExpiry;
+  // Optional request expiry which acts as a timeout for any resource request to cluster resource manager
+  protected final Duration requestExpiry;
   // Status of the current request
   protected final StatusCode statusCode;
 
   protected ContainerPlacementMessage(UUID uuid, String applicationId, String processorId, String destinationHost,
-      Long requestExpiry, StatusCode statusCode) {
+      Duration requestExpiry, StatusCode statusCode) {
     Preconditions.checkNotNull(uuid, "uuid cannot be null");
     Preconditions.checkNotNull(applicationId, "applicationId cannot be null");
     Preconditions.checkNotNull(processorId, "processorId cannot be null");
@@ -115,7 +116,7 @@ public abstract class ContainerPlacementMessage {
     return statusCode;
   }
 
-  public Long getRequestExpiry() {
+  public Duration getRequestExpiry() {
     return requestExpiry;
   }
 

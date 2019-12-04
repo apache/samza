@@ -18,6 +18,7 @@
  */
 package org.apache.samza.container.placement;
 
+import java.time.Duration;
 import java.util.UUID;
 
 
@@ -26,7 +27,7 @@ import java.util.UUID;
  */
 public class ContainerPlacementRequestMessage extends ContainerPlacementMessage {
 
-  public ContainerPlacementRequestMessage(UUID uuid, String applicationId, String processorId, String destinationHost, Long requestExpiry) {
+  public ContainerPlacementRequestMessage(UUID uuid, String applicationId, String processorId, String destinationHost, Duration requestExpiry) {
     super(uuid, applicationId, processorId, destinationHost, requestExpiry, StatusCode.CREATED);
   }
 
