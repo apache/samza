@@ -169,7 +169,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
 
     // Instantiate Container Placement Handler
-    this.containerPlacementHandler = new ContainerPlacementHandler(metadataStore, this, clusterManagerConfig.getClusterManagerContainerPlacementHandlerSleepMs());
+    this.containerPlacementHandler = new ContainerPlacementHandler(metadataStore, this);
     this.containerPlacementHandlerThread = new Thread(containerPlacementHandler, "ContainerPlacementHandler Thread");
 
     LOG.info("Finished container process manager initialization.");
@@ -196,13 +196,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         () -> new ContainerAllocator(this.clusterResourceManager, clusterManagerConfig, state,
             hostAffinityEnabled, this.containerManager));
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
-    this.containerPlacementHandler = new ContainerPlacementHandler(metadataStore, this, clusterManagerConfig.getClusterManagerContainerPlacementHandlerSleepMs());
+    this.containerPlacementHandler = new ContainerPlacementHandler(metadataStore, this);
     this.containerPlacementHandlerThread = new Thread(containerPlacementHandler, "Container Placement Handler Thread");
     LOG.info("Finished container process manager initialization");
   }
 
   public boolean shouldShutdown() {
-    LOG.debug(
+    LOG.info(
         "ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}, Is the ContainerPlacementHandler thread alive: {}",
         state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no",
         allocatorThread.isAlive() ? "yes" : "no", containerPlacementHandlerThread.isAlive() ? "yes" : "no");

@@ -56,7 +56,7 @@ public class TestContainerPlacementHandler {
     CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
     coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
     coordinatorStreamStore.init();
-    containerPlacementHandler = new ContainerPlacementHandler(coordinatorStreamStore, manager, 5000);
+    containerPlacementHandler = new ContainerPlacementHandler(coordinatorStreamStore, manager);
   }
 
   @After

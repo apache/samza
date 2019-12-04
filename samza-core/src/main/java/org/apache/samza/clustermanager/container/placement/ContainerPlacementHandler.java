@@ -49,6 +49,7 @@ import org.slf4j.LoggerFactory;
 public class ContainerPlacementHandler implements Runnable {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContainerPlacementHandler.class);
+  private static final int DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS = 5000;
 
   private static final Integer VERSION = 1;
   public static final String REQUEST_STORE_NAMESPACE = "samza-request-place-container-v" + VERSION;
@@ -61,8 +62,7 @@ public class ContainerPlacementHandler implements Runnable {
    * {@link org.apache.samza.clustermanager.ContainerManager} to avoid cyclic dependency between
    * {@link org.apache.samza.clustermanager.ContainerManager} and {@link org.apache.samza.clustermanager.ContainerAllocator}
    */
-  private final Optional<ContainerProcessManager> containerProcessManager;
-  private final Optional<Integer> containerPlacementHandlerSleepMs;
+  private final ContainerProcessManager containerProcessManager;
 
   private final ObjectMapper objectMapper = ContainerPlacementMessageObjectMapper.getObjectMapper();
 
@@ -71,41 +71,28 @@ public class ContainerPlacementHandler implements Runnable {
    */
   private volatile boolean isRunning;
 
-  private ContainerPlacementHandler(MetadataStore metadataStore, Optional<ContainerProcessManager> manager,
-      Optional<Integer> containerPlacementHandlerSleepMs) {
+  public ContainerPlacementHandler(MetadataStore metadataStore, ContainerProcessManager manager) {
     Preconditions.checkNotNull(metadataStore, "MetadataStore cannot be null");
-    if (manager.isPresent()) {
-      Preconditions.checkNotNull(manager.get(), "ContainerProcessManager cannot be null");
-      Preconditions.checkState(containerPlacementHandlerSleepMs.isPresent());
-    }
+    Preconditions.checkNotNull(manager, "ContainerProcessManager cannot be null");
     this.containerProcessManager = manager;
     this.requestStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, REQUEST_STORE_NAMESPACE);
     this.responseStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, RESPONSE_STORE_NAMESPACE);
     this.requestStore.init();
     this.responseStore.init();
-    this.containerPlacementHandlerSleepMs = containerPlacementHandlerSleepMs;
     this.isRunning = true;
-  }
-
-  public ContainerPlacementHandler(MetadataStore metadataStore) {
-    this(metadataStore, Optional.empty(), Optional.empty());
-  }
-
-  public ContainerPlacementHandler(MetadataStore metadataStore, ContainerProcessManager manager, Integer containerPlacementHandlerSleepMs) {
-    this(metadataStore, Optional.of(manager), Optional.of(containerPlacementHandlerSleepMs));
   }
 
   @Override
   public void run() {
-    while (isRunning && containerProcessManager.isPresent()) {
+    while (isRunning) {
       try {
         for (ContainerPlacementRequestMessage message : readAllContainerPlacementRequestMessages()) {
           // We do not need to dispatch ContainerPlacementResponseMessage because they are written from JobCoordinator
           // in response to a Container Placement Action
           LOG.info("Received a container placement message {}", message);
-          containerProcessManager.get().registerContainerPlacementAction(message);
+          containerProcessManager.registerContainerPlacementAction(message);
         }
-        Thread.sleep(containerPlacementHandlerSleepMs.get());
+        Thread.sleep(DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS);
       } catch (InterruptedException e) {
         LOG.warn("Got InterruptedException in ContainerPlacementHandler thread.", e);
         Thread.currentThread().interrupt();
@@ -134,11 +121,11 @@ public class ContainerPlacementHandler implements Runnable {
   }
 
   /**
-   * Writes a {@link ContainerPlacementResponseMessage} to the underlying metastore. This method should be used by external controllers
-   * to issue a request to JobCoordinator
+   * Writes a {@link ContainerPlacementResponseMessage} to the underlying metastore. This method should be used by Job Coordinator
+   * only to write responses to Container Placement Action
    * @param message
    */
-  public void writeContainerPlacementResponseMessage(ContainerPlacementResponseMessage message) {
+  void writeContainerPlacementResponseMessage(ContainerPlacementResponseMessage message) {
     Preconditions.checkState(isRunning, "Underlying metadata store not available");
     Preconditions.checkNotNull(message);
     try {
