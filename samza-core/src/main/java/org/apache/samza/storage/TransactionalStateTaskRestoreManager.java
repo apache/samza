@@ -214,15 +214,18 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           return;
         }
 
-        // persistent but non-logged stores are always deleted
-        if (storageEngine.getStoreProperties().isPersistedToDisk() &&
-            !storageEngine.getStoreProperties().isLoggedStore()) {
-          File currentDir = storageManagerUtil.getTaskStoreDir(
-              nonLoggedStoreBaseDirectory, storeName, taskName, taskMode);
-          LOG.info("Marking current directory: {} for store: {} in task: {} for deletion since it is not a logged store.",
-              currentDir, storeName, taskName);
-          storeDirsToDelete.put(storeName, currentDir);
-          // persistent but non-logged stores should not have checkpoint dirs
+        // persistent but non-logged stores are always deleted unless retain.on.container.start config is set
+        if (storageEngine.getStoreProperties().isPersistedToDisk() && !storageEngine.getStoreProperties().isLoggedStore()) {
+          File currentDir = storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskName, taskMode);
+
+          if (!new StorageConfig(config).getRetainNonloggedStoreDirsOnStart(storeName)) {
+            LOG.info("Marking current directory: {} for store: {} in task: {} for deletion since it is not a logged store.",
+                currentDir, storeName, taskName);
+            storeDirsToDelete.put(storeName, currentDir);
+            // persistent but non-logged stores should not have checkpoint dirs
+          } else {
+            LOG.info("Retaining current directory: {} for store: {} in task: {}", currentDir, storeName, taskName);
+          }
           return;
         }
 
@@ -242,17 +245,6 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           checkpointedOffset = checkpointedChangelogOffset.getOffset();
           timeSinceLastCheckpointInMs = System.currentTimeMillis() -
               checkpointedChangelogOffset.getCheckpointId().getMillis();
-        }
-      
-        // if the clean.store.start config is set, delete the currentDir, restore from oldest offset to checkpointed
-        if (storageEngine.getStoreProperties().isPersistedToDisk() && new StorageConfig(
-          config).getCleanLoggedStoreDirsOnStart(storeName)) {
-          File currentDir = storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskName, taskMode);
-          LOG.info("Marking current directory: {} for store: {} in task: {}.", currentDir, storeName, taskName);
-          storeDirsToDelete.put(storeName, currentDir);
-          LOG.info("Marking restore offsets for store: {} in task: {} to {}, {} ", storeName, taskName, oldestOffset, checkpointedOffset);
-          storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, checkpointedOffset));
-          return;
         }
 
         // if the clean.store.start config is set, delete the currentDir, restore from oldest offset to checkpointed
