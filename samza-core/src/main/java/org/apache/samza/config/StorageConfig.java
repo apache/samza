@@ -270,6 +270,11 @@ public class StorageConfig extends MapConfig {
     return getBoolean(String.format(CLEAN_LOGGED_STOREDIRS_ON_START, storeName), false);
   }
 
+  /**
+   * Helper method to get if nonlogged store dirs should not be deleted on container start.
+   * @param storeName
+   * @return
+   */
   public boolean getRetainNonloggedStoreDirsOnStart(String storeName) {
     return getBoolean(String.format(RETAIN_NONLOGGED_STOREDIRS_ON_START, storeName), false);
   }
