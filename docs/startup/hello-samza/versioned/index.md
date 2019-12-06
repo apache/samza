@@ -75,7 +75,7 @@ deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.P
 The job will consume a feed of real-time edits from Wikipedia, and produce them to a Kafka topic called "wikipedia-raw". Give the job a minute to startup, and then tail the Kafka topic:
 
 {% highlight bash %}
-deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-raw
+deploy/kafka/bin/kafka-console-consumer.sh  --bootstrap-server localhost:9092 --topic wikipedia-raw
 {% endhighlight %}
 
 Pretty neat, right? Now, check out the YARN UI again ([http://localhost:8088](http://localhost:8088)). This time around, you'll see your Samza job is running!
@@ -94,13 +94,13 @@ deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.P
 The first job (wikipedia-parser) parses the messages in wikipedia-raw, and extracts information about the size of the edit, who made the change, etc. You can take a look at its output with:
 
 {% highlight bash %}
-deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-edits
+deploy/kafka/bin/kafka-console-consumer.sh  --bootstrap-server localhost:9092 --topic wikipedia-edits
 {% endhighlight %}
 
 The last job (wikipedia-stats) reads messages from the wikipedia-edits topic, and calculates counts, every ten seconds, for all edits that were made during that window. It outputs these counts to the wikipedia-stats topic.
 
 {% highlight bash %}
-deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-stats
+deploy/kafka/bin/kafka-console-consumer.sh  --bootstrap-server localhost:9092 --topic wikipedia-stats
 {% endhighlight %}
 
 The messages in the stats topic look like this:
