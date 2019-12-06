@@ -19,17 +19,20 @@
 
 package org.apache.samza.config;
 
-import java.util.Map;
-
 
 /**
- * Build a {@link org.apache.samza.config.Config}
+ * The primary means of fetching job config on Application Master given
+ * {@link org.apache.samza.config.Config} provided during job submission.
+ *
+ * <p>
+ * Implementation Notes: implementation of {@link ConfigLoader} must have a public default constructor
+ * #ConfigLoader(Config)
  */
 public interface ConfigLoader {
   /**
    * Build a specific Config.
-   * @param properties Map containing necessary information for this loader to get config.
+   *
    * @return Newly constructed Config.
    */
-  Config getConfig(Map<String, String> properties);
+  Config getConfig();
 }
