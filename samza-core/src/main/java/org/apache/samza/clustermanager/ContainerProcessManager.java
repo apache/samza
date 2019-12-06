@@ -80,7 +80,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final boolean hostAffinityEnabled;
 
   /**
-   * State variables tracking containers allocated, freed, running, released.T
+   * State variables tracking containers allocated, freed, running, released.
    */
   private final SamzaApplicationState state;
 

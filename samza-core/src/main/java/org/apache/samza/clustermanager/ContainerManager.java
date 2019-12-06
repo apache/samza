@@ -68,7 +68,7 @@ public class ContainerManager {
   private final Optional<StandbyContainerManager> standbyContainerManager;
 
   public ContainerManager(SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager,
-      Boolean hostAffinityEnabled, Boolean standByEnabled) {
+      boolean hostAffinityEnabled, boolean standByEnabled) {
     this.samzaApplicationState = samzaApplicationState;
     this.clusterResourceManager = clusterResourceManager;
     this.actions = new ConcurrentHashMap<>();
@@ -233,7 +233,7 @@ public class ContainerManager {
    * @param resourceRequestState state of request in {@link ContainerAllocator}
    */
   @VisibleForTesting
-  void handleExpiredRequestForControlActionOrHostAffinityEnabled(String processorId, String preferredHost,
+  void handleExpiredRequest(String processorId, String preferredHost,
       SamzaResourceRequest request, ContainerAllocator allocator, ResourceRequestState resourceRequestState) {
     boolean resourceAvailableOnAnyHost = allocator.hasAllocatedResource(ResourceRequestState.ANY_HOST);
 
@@ -348,7 +348,7 @@ public class ContainerManager {
   /**
    * A ContainerPlacementAction is only active if it is either CREATED, ACCEPTED or IN_PROGRESS
    */
-  private Boolean hasActiveContainerPlacementAction(String processorId) {
+  private boolean hasActiveContainerPlacementAction(String processorId) {
     Optional<ContainerPlacementMetadata> metadata = getPlacementActionMetadata(processorId);
     if (metadata.isPresent()) {
       switch (metadata.get().getActionStatus()) {
@@ -367,7 +367,7 @@ public class ContainerManager {
    * Check if a activeContainerResource has control-action-metadata associated with it
    */
   private Optional<ContainerPlacementMetadata> getPlacementActionMetadata(String processorId) {
-    return this.actions.containsKey(processorId) ? Optional.of(this.actions.get(processorId)) : Optional.empty();
+    return Optional.ofNullable(this.actions.get(processorId));
   }
 
   /**

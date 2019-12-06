@@ -233,7 +233,7 @@ public class ContainerAllocator implements Runnable {
 
         if (isRequestExpired(request)) {
           updateExpiryMetrics(request);
-          containerManager.handleExpiredRequestForControlActionOrHostAffinityEnabled(processorId, preferredHost, request, this, resourceRequestState);
+          containerManager.handleExpiredRequest(processorId, preferredHost, request, this, resourceRequestState);
         } else {
           LOG.info("Request for Processor ID: {} on preferred host {} has not expired yet."
                   + "Request creation time: {}. Current Time: {}. Request timeout: {} ms", processorId, preferredHost,
@@ -454,8 +454,7 @@ public class ContainerAllocator implements Runnable {
    */
   private Duration getRequestTimeout(SamzaResourceRequest request) {
     Optional<Duration> controlActionRequestExpiryTimeout = containerManager.getActionExpiryTimeout(request);
-    return controlActionRequestExpiryTimeout.isPresent() ? controlActionRequestExpiryTimeout.get()
-        : Duration.ofMillis(configuredRequestExpiryTimeout);
+    return controlActionRequestExpiryTimeout.orElse(Duration.ofMillis(configuredRequestExpiryTimeout));
   }
 
   private void updateExpiryMetrics(SamzaResourceRequest request) {

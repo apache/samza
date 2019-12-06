@@ -104,6 +104,10 @@ public class ContainerPlacementMetadata {
     return requestMessage.getUuid();
   }
 
+  public String getDestinationHost() {
+    return requestMessage.getDestinationHost();
+  }
+
   @Override
   public String toString() {
     return "ContainerPlacementMetadata{" + "requestMessage=" + requestMessage + ", sourceHost='" + sourceHost + '\''

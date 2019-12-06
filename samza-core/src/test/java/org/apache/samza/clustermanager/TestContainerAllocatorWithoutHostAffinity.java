@@ -284,7 +284,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
         .forEach(resourceRequest -> assertEquals(resourceRequest.getPreferredHost(), ResourceRequestState.ANY_HOST));
     assertTrue(state.anyHostRequests.get() == containersToHostMapping.size());
     // Expiry currently should not be invoked for host affinity enabled cases only
-    verify(spyContainerManager, never()).handleExpiredRequestForControlActionOrHostAffinityEnabled(anyString(), anyString(),
+    verify(spyContainerManager, never()).handleExpiredRequest(anyString(), anyString(),
         any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
     // Only updated when host affinity is enabled
     assertTrue(state.matchedResourceRequests.get() == 0);
