@@ -31,10 +31,9 @@ excerpt_separator: <!--more-->
 
 <!--more-->
 
+**IMPORTANT NOTE**: We may introduce a **backward incompatible changes regarding samza job submission** in the future 1.4 release. Details can be found on [SEP-23: Simplify Job Runner](https://cwiki.apache.org/confluence/display/SAMZA/SEP-23%3A+Simplify+Job+Runner)
 
 We’re thrilled to announce the release of Apache Samza 1.3.0.
-
-**IMPORTANT NOTE**: We may introduce a **backward incompatible changes regarding samza job submission** in the future 1.4 release. Details can be found on [SEP-23: Simplify Job Runner](https://cwiki.apache.org/confluence/display/SAMZA/SEP-23%3A+Simplify+Job+Runner)
 
 Today Samza forms the backbone of hundreds of real-time production applications across a multitude of companies, such as LinkedIn, VMWare, Slack, Redfin among many others. Samza provides leading support for large-scale stateful stream processing with:
 
