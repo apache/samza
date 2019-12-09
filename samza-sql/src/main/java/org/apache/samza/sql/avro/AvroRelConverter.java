@@ -125,18 +125,11 @@ public class AvroRelConverter implements SamzaRelConverter {
         .collect(Collectors.toList()));
   }
 
-  private static SamzaSqlRelRecord convertToRelRecord(IndexedRecord avroRecord) {
+  private static SamzaSqlRelRecord convertToRelRecord(IndexedRecord avroRecord, Schema schema) {
     List<Object> fieldValues = new ArrayList<>();
     List<String> fieldNames = new ArrayList<>();
     if (avroRecord != null) {
-      fieldNames.addAll(
-          avroRecord.getSchema().getFields().stream().map(Schema.Field::name).collect(Collectors.toList()));
-      fieldValues.addAll(avroRecord.getSchema()
-          .getFields()
-          .stream()
-          .map(f -> convertToJavaObject(avroRecord.get(avroRecord.getSchema().getField(f.name()).pos()),
-              getNonNullUnionSchema(avroRecord.getSchema().getField(f.name()).schema())))
-          .collect(Collectors.toList()));
+      fetchFieldNamesAndValuesFromIndexedRecord(avroRecord, fieldNames, fieldValues, schema);
     } else {
       String msg = "Avro Record is null";
       LOG.error(msg);
@@ -231,7 +224,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     }
     switch (schema.getType()) {
       case RECORD:
-        return convertToRelRecord((IndexedRecord) avroObj);
+        return convertToRelRecord((IndexedRecord) avroObj, schema);
       case ARRAY: {
         ArrayList<Object> retVal = new ArrayList<>();
         List<Object> avroArray;
