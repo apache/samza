@@ -19,10 +19,12 @@
 
 package org.apache.samza.config.loaders;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigLoader;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.junit.Test;
 
@@ -33,10 +35,23 @@ public class TestPropertiesConfigLoader {
   @Test
   public void testCanReadPropertiesConfigFiles() {
     ConfigLoader loader = new PropertiesConfigLoader(
-        new MapConfig(Collections.singletonMap("config.path", getClass().getResource("/test.properties").getPath())));
+        new MapConfig(Collections.singletonMap(PropertiesConfigLoader.PATH, getClass().getResource("/test.properties").getPath())));
 
     Config config = loader.getConfig();
     assertEquals("bar", config.get("foo"));
+  }
+
+  @Test
+  public void testOverrideLoaderValueWithProvidedOverrides() {
+    String jobName = "overridden-job-name";
+    ConfigLoader loader = new PropertiesConfigLoader(
+        new MapConfig(ImmutableMap.of(
+            JobConfig.JOB_NAME, jobName,
+            PropertiesConfigLoader.PATH, getClass().getResource("/test.properties").getPath())));
+
+    Config config = loader.getConfig();
+    assertEquals("bar", config.get("foo"));
+    assertEquals(jobName, config.get(JobConfig.JOB_NAME));
   }
 
   @Test

@@ -19,6 +19,7 @@
 
 package org.apache.samza.config.loaders;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,13 +36,16 @@ public class PropertiesConfigLoader implements ConfigLoader {
   private static final Logger LOG = LoggerFactory.getLogger(PropertiesConfigLoader.class);
   private final Config config;
 
+  @VisibleForTesting
+  static final String PATH = "job.config.loader.properties.path";
+
   public PropertiesConfigLoader(Config config) {
     this.config = config;
   }
 
   @Override
   public Config getConfig() {
-    String path = config.get("config.path");
+    String path = config.get(PATH);
     if (path == null) {
       throw new SamzaException("path is required to read config from properties file");
     }
@@ -53,9 +57,10 @@ public class PropertiesConfigLoader implements ConfigLoader {
       props.load(in);
       in.close();
 
-      LOG.debug("got config {} from config {}", props, path);
+      LOG.debug("got config {} from config {} with overrides {}", props, path, config);
 
-      return new MapConfig(props);
+      // Override loaded config values with provided overrides.
+      return new MapConfig(new MapConfig(props), config);
     } catch (IOException e) {
       throw new SamzaException("Failed to read from");
     }
