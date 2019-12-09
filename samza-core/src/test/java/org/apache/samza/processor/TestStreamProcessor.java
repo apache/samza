@@ -485,7 +485,6 @@ public class TestStreamProcessor {
     assertEquals(State.IN_REBALANCE, streamProcessor.state);
     assertNotEquals(mockExecutorService, streamProcessor.containerExecutorService);
     Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
-    Mockito.verify(mockExecutorService, Mockito.times(1)).isShutdown();
   }
 
   @Test
@@ -502,7 +501,6 @@ public class TestStreamProcessor {
     assertEquals(State.STOPPING, streamProcessor.state);
     assertEquals(mockExecutorService, streamProcessor.containerExecutorService);
     Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
-    Mockito.verify(mockExecutorService, Mockito.times(0)).isShutdown();
     Mockito.verify(mockJobCoordinator, Mockito.times(1)).stop();
   }
 
