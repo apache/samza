@@ -47,7 +47,7 @@ public class PropertiesConfigLoader implements ConfigLoader {
   public Config getConfig() {
     String path = config.get(PATH);
     if (path == null) {
-      throw new SamzaException("path is required to read config from properties file");
+      throw new SamzaException(PATH + " is required to read config from properties file");
     }
 
     try {
@@ -57,7 +57,7 @@ public class PropertiesConfigLoader implements ConfigLoader {
       props.load(in);
       in.close();
 
-      LOG.debug("got config {} from config {} with overrides {}", props, path, config);
+      LOG.debug("got config {} from path {} with overrides {}", props, path, config);
 
       // Override loaded config values with provided overrides.
       return new MapConfig(new MapConfig(props), config);
