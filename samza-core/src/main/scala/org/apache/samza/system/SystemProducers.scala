@@ -35,16 +35,29 @@ class SystemProducers(
    */
   dropSerializationError: Boolean = false) extends Logging {
 
+  /**
+    * Denotes if the SystemConsumers have started. The flag is useful in the event of shutting down since interrupt
+    * on Samza Container will shutdown components and container currently doesn't track what components have started
+    * successfully.
+    */
+  private var started = false
+
   def start {
     debug("Starting producers.")
 
     producers.values.foreach(_.start)
+    started = true
   }
 
   def stop {
-    debug("Stopping producers.")
+    if (started) {
+      debug("Stopping producers.")
 
-    producers.values.foreach(_.stop)
+      producers.values.foreach(_.stop)
+      started = false
+    } else {
+      debug("Ignoring the producers stop request since it never started.")
+    }
   }
 
   def register(source: String) {
