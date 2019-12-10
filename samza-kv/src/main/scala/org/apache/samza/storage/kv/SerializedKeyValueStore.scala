@@ -136,7 +136,9 @@ class SerializedKeyValueStore[K, V](
     null
   } else {
     val bytes = serde.toBytes(t)
-    metrics.bytesSerialized.inc(bytes.size)
+    if (bytes != null) {
+      metrics.bytesSerialized.inc(bytes.size)
+    }
     bytes
   }
 
