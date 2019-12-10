@@ -138,6 +138,13 @@ class SystemConsumers (
   private val emptySystemStreamPartitionsBySystem = new HashMap[String, Set[SystemStreamPartition]]()
 
   /**
+    * Denotes if the SystemConsumers have started. The flag is useful in the event of shutting down since interrupt
+    * on Samza Container will shutdown components and container currently doesn't track what components have started
+    * successfully.
+    */
+  private var started = false
+
+  /**
    * Default timeout to noNewMessagesTimeout. Every time SystemConsumers
    * receives incoming messages, it sets timeout to 0. Every time
    * SystemConsumers receives no new incoming messages from the MessageChooser,
@@ -185,15 +192,23 @@ class SystemConsumers (
 
     chooser.start
 
+    started = true
+
     refresh
   }
 
   def stop {
-    debug("Stopping consumers.")
+    if (started) {
+      debug("Stopping consumers.")
 
-    consumers.values.foreach(_.stop)
+      consumers.values.foreach(_.stop)
 
-    chooser.stop
+      chooser.stop
+
+      started = false
+    } else {
+      debug("Ignoring the consumers stop request since it never started.")
+    }
   }
 
 
