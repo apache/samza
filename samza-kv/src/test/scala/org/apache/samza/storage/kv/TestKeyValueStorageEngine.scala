@@ -201,13 +201,13 @@ class TestKeyValueStorageEngine {
     try {
       val restoreFuture = executorService.submit(restore)
       restoreFuture.get()
+      fail("Expected execution exception during restoration")
     } catch {
       case e: ExecutionException => {
         assertTrue(e.getCause.isInstanceOf[InterruptedException])
         // Make sure we don't restore any more records and bail out
         assertEquals(2, metrics.restoredMessagesGauge.getValue)
       }
-      case _: Throwable => fail("Expected execution exception during restoration")
     }
   }
 
