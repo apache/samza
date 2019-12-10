@@ -117,7 +117,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   }
 
   @Override
-  public void restore() {
+  public void restore() throws InterruptedException {
     Map<String, RestoreOffsets> storesToRestore = storeActions.storesToRestore;
 
     for (Map.Entry<String, RestoreOffsets> entry : storesToRestore.entrySet()) {

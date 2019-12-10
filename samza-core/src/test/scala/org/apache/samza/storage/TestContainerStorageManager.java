@@ -101,7 +101,7 @@ public class TestContainerStorageManager {
    * Method to create a containerStorageManager with mocked dependencies
    */
   @Before
-  public void setUp() {
+  public void setUp() throws InterruptedException {
     taskRestoreMetricGauges = new HashMap<>();
     this.tasks = new HashMap<>();
     this.taskInstanceMetrics = new HashMap<>();
@@ -243,7 +243,7 @@ public class TestContainerStorageManager {
   }
 
   @Test
-  public void testParallelismAndMetrics() {
+  public void testParallelismAndMetrics() throws InterruptedException {
     this.containerStorageManager.start();
     this.containerStorageManager.shutdown();
 
