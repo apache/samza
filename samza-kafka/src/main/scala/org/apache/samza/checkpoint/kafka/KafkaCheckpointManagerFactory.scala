@@ -26,7 +26,7 @@ import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.{StreamSpec, SystemFactory}
 import org.apache.samza.system.kafka.KafkaStreamSpec
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{KafkaUtil, Logging, Util, _}
+import org.apache.samza.util.{KafkaUtil, Logging, _}
 
 class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Logging {
 
@@ -45,7 +45,7 @@ class KafkaCheckpointManagerFactory extends CheckpointManagerFactory with Loggin
       .toOption
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format checkpointSystemName))
 
-    val checkpointSystemFactory = Util.getObj(checkpointSystemFactoryName, classOf[SystemFactory])
+    val checkpointSystemFactory = ReflectionUtil.getObj(checkpointSystemFactoryName, classOf[SystemFactory])
     val checkpointTopic = KafkaUtil.getCheckpointTopic(jobName, jobId, config)
 
     info(s"Creating a KafkaCheckpointManager to consume from $checkpointTopic")

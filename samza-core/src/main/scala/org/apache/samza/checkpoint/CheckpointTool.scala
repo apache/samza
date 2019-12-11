@@ -32,7 +32,7 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.job.JobRunner.info
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{CommandLine, CoordinatorStreamUtil, Logging, ReflectionUtil, Util}
+import org.apache.samza.util.{CommandLine, ConfigUtil, CoordinatorStreamUtil, Logging, ReflectionUtil, Util}
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 
@@ -138,7 +138,7 @@ object CheckpointTool {
     val options = cmdline.parser.parse(args: _*)
     val userConfig = cmdline.loadConfig(options)
     val jobConfig = JobPlanner.generateSingleJobConfig(userConfig)
-    val rewrittenConfig = Util.rewriteConfig(jobConfig)
+    val rewrittenConfig = ConfigUtil.rewriteConfig(jobConfig)
     info(s"Using the rewritten config: $rewrittenConfig")
     val tool = CheckpointTool(rewrittenConfig, cmdline.newOffsets)
     tool.run()

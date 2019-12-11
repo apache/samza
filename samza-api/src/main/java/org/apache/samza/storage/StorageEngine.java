@@ -43,11 +43,15 @@ public interface StorageEngine {
    * provided in one {@link java.util.Iterator} and not deserialized for
    * efficiency, allowing the implementation to optimize replay, if possible.
    *
+   * The implementers are expected to handle interrupt signals to the restoration thread and rethrow the exception to
+   * upstream so that {@code TaskRestoreManager} can accordingly notify the container.
+   *
    * @param envelopes
    *          An iterator of envelopes that the storage engine can read from to
    *          restore its state on startup.
+   * @throws InterruptedException when received interrupts during restoration
    */
-  void restore(ChangelogSSPIterator envelopes);
+  void restore(ChangelogSSPIterator envelopes) throws InterruptedException;
 
   /**
    * Flush any cached messages
