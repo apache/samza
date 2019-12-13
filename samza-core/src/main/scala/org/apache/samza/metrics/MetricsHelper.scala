@@ -51,10 +51,10 @@ trait MetricsHelper {
     })
   }
 
-  def newGauge[T](name: String, value: () => T, overwrite : Boolean) = {
+  def newGauge[T](name: String, value: () => T, overrideExistingGauge : Boolean) = {
     metricGroup.newGauge(name, new ValueFunction[T] {
       override def getValue = value()
-    }, overwrite)
+    }, overrideExistingGauge)
   }
 
   /**
