@@ -47,6 +47,15 @@ public class JobConfig extends MapConfig {
   public static final String CONFIG_REWRITERS = "job.config.rewriters";
   public static final String CONFIG_REWRITER_CLASS = "job.config.rewriter.%s.class";
 
+  /**
+   * job.config.loader.factory specifies {@link ConfigLoaderFactory} to get {@link ConfigLoader}
+   */
+  public static final String CONFIG_LOADER_FACTORY = "job.config.loader.factory";
+  /**
+   * job.config.loader.properties prefix wraps properties needed for {@link ConfigLoader} to loader config.
+   */
+  public static final String CONFIG_LOADER_PROPERTIES_PREFIX = "job.config.loader.properties.";
+
   public static final String JOB_NAME = "job.name";
   public static final String JOB_ID = "job.id";
   static final String DEFAULT_JOB_ID = "1";
@@ -125,6 +134,16 @@ public class JobConfig extends MapConfig {
   public static final String CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata"; // Filename: <containerID>.metadata
   public static final String CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY = "samza.log.dir";
 
+
+  // Auto-sizing related configs tthat ake precedence over respective sizing confings job.container.count, etc,
+  // *only* when job.autosizing.enabled is true. Otherwise current behavior is maintained.
+  public static final String JOB_AUTOSIZING_ENABLED = "job.autosizing.enabled";
+  public static final String JOB_AUTOSIZING_CONTAINER_COUNT = "job.autosizing.container.count";
+  public static final String JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE = "job.autosizing.container.thread.pool.size";
+  public static final String JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB = "job.autosizing.container.maxheap.mb";
+  public static final String JOB_AUTOSIZING_CONTAINER_MEMORY_MB = "job.autosizing.container.memory.mb";
+  public static final String JOB_AUTOSIZING_CONTAINER_MAX_CORES = "job.autosizing.container.cpu.cores";
+
   public static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
   public static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
 
@@ -161,8 +180,12 @@ public class JobConfig extends MapConfig {
   }
 
   public int getContainerCount() {
+    Optional<String> autoscalingContainerCountValue = Optional.ofNullable(get(JOB_AUTOSIZING_CONTAINER_COUNT));
     Optional<String> jobContainerCountValue = Optional.ofNullable(get(JOB_CONTAINER_COUNT));
-    if (jobContainerCountValue.isPresent()) {
+
+    if (getAutosizingEnabled() && autoscalingContainerCountValue.isPresent()) {
+      return Integer.parseInt(autoscalingContainerCountValue.get());
+    } else if (jobContainerCountValue.isPresent()) {
       return Integer.parseInt(jobContainerCountValue.get());
     } else {
       // To maintain backwards compatibility, honor yarn.container.count for now.
@@ -195,20 +218,20 @@ public class JobConfig extends MapConfig {
   public Map<String, Pattern> getMonitorRegexPatternMap(String rewritersList) {
     Map<String, Pattern> inputRegexesToMonitor = new HashMap<>();
     Stream.of(rewritersList.split(",")).forEach(rewriterName -> {
-        Optional<String> rewriterSystem = getRegexResolvedSystem(rewriterName);
-        Optional<String> rewriterRegex = getRegexResolvedStreams(rewriterName);
-        if (rewriterSystem.isPresent() && rewriterRegex.isPresent()) {
-          Pattern newPatternForSystem;
-          Pattern existingPatternForSystem = inputRegexesToMonitor.get(rewriterSystem.get());
-          if (existingPatternForSystem == null) {
-            newPatternForSystem = Pattern.compile(rewriterRegex.get());
-          } else {
-            newPatternForSystem =
-                Pattern.compile(String.join("|", existingPatternForSystem.pattern(), rewriterRegex.get()));
-          }
-          inputRegexesToMonitor.put(rewriterSystem.get(), newPatternForSystem);
+      Optional<String> rewriterSystem = getRegexResolvedSystem(rewriterName);
+      Optional<String> rewriterRegex = getRegexResolvedStreams(rewriterName);
+      if (rewriterSystem.isPresent() && rewriterRegex.isPresent()) {
+        Pattern newPatternForSystem;
+        Pattern existingPatternForSystem = inputRegexesToMonitor.get(rewriterSystem.get());
+        if (existingPatternForSystem == null) {
+          newPatternForSystem = Pattern.compile(rewriterRegex.get());
+        } else {
+          newPatternForSystem =
+              Pattern.compile(String.join("|", existingPatternForSystem.pattern(), rewriterRegex.get()));
         }
-      });
+        inputRegexesToMonitor.put(rewriterSystem.get(), newPatternForSystem);
+      }
+    });
     return inputRegexesToMonitor;
   }
 
@@ -282,7 +305,13 @@ public class JobConfig extends MapConfig {
   }
 
   public int getThreadPoolSize() {
-    return getInt(JOB_CONTAINER_THREAD_POOL_SIZE, 0);
+    Optional<String> autoscalingContainerThreadPoolSize = Optional.ofNullable(get(
+        JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE));
+    if (getAutosizingEnabled() && autoscalingContainerThreadPoolSize.isPresent()) {
+      return Integer.parseInt(autoscalingContainerThreadPoolSize.get());
+    } else {
+      return getInt(JOB_CONTAINER_THREAD_POOL_SIZE, 0);
+    }
   }
 
   public int getDebounceTimeMs() {
@@ -303,6 +332,23 @@ public class JobConfig extends MapConfig {
 
   public boolean getDiagnosticsEnabled() {
     return getBoolean(JOB_DIAGNOSTICS_ENABLED, false);
+  }
+
+  public boolean getAutosizingEnabled() {
+    return getBoolean(JOB_AUTOSIZING_ENABLED, false);
+  }
+
+  public boolean isAutosizingConfig(String configParam) {
+    switch (configParam) {
+      case JOB_AUTOSIZING_CONTAINER_COUNT:
+      case JOB_AUTOSIZING_CONTAINER_MAX_CORES:
+      case JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB:
+      case JOB_AUTOSIZING_CONTAINER_MEMORY_MB:
+      case JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE:
+        return true;
+      default:
+        return false;
+    }
   }
 
   public boolean getJMXEnabled() {
