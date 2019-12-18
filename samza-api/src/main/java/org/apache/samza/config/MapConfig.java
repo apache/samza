@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 /**
@@ -39,6 +40,17 @@ public class MapConfig extends Config {
 
   public MapConfig(Map<String, String> map) {
     this(Collections.singletonList(map));
+  }
+
+  /**
+   * Build a {@link MapConfig} from {@link Properties}
+   *
+   * @param properties to build MapConfig
+   */
+  public MapConfig(Properties properties) {
+    this.map = new HashMap<>();
+    // Per Properties JavaDoc, all its keys and values are of type String
+    properties.forEach((key, value) -> this.map.put(key.toString(), value.toString()));
   }
 
   public MapConfig(List<Map<String, String>> maps) {
