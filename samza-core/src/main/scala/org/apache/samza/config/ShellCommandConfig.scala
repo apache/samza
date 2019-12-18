@@ -26,6 +26,11 @@ object ShellCommandConfig {
   val ENV_COORDINATOR_SYSTEM_CONFIG = "SAMZA_COORDINATOR_SYSTEM_CONFIG"
 
   /**
+   * This enviorment variable is used to pass configs provided during job submission.
+   */
+  val ENV_SUBMISSION_CONFIG = "SAMZA_SUBMISSION_CONFIG"
+
+  /**
    * The ID for a container. This is a string representation that is unique to the runtime environment.
    */
   val ENV_CONTAINER_ID = "SAMZA_CONTAINER_ID"
@@ -46,8 +51,8 @@ object ShellCommandConfig {
   val ENV_JAVA_HOME = "JAVA_HOME"
 
   /**
-    * The ID assigned to the container by the execution environment (eg: YARN Container Id)
-    */
+   * The ID assigned to the container by the execution environment (eg: YARN Container Id)
+   */
   val ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID"
 
   /**
