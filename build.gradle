@@ -211,10 +211,12 @@ project(":samza-azure_$scalaSuffix") {
   apply plugin: 'checkstyle'
 
   dependencies {
+    compile "com.azure:azure-storage-blob:12.0.1"
     compile "com.microsoft.azure:azure-storage:5.3.1"
     compile "com.microsoft.azure:azure-eventhubs:1.0.1"
     compile "com.fasterxml.jackson.core:jackson-core:2.8.8"
     compile "io.dropwizard.metrics:metrics-core:3.1.2"
+    compile "org.apache.avro:avro:$avroVersion"
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
     compile "org.slf4j:slf4j-api:$slf4jVersion"
