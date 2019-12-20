@@ -52,17 +52,17 @@ public class ContainerHeartbeatMonitor {
     }
     LOG.info("Starting ContainerHeartbeatMonitor");
     scheduler.scheduleAtFixedRate(() -> {
-      ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
-      if (!response.isAlive()) {
-        scheduler.schedule(() -> {
-          // On timeout of container shutting down, force exit.
-          LOG.error("Graceful shutdown timeout expired. Force exiting.");
-          ThreadUtil.logThreadDump("Thread dump at heartbeat monitor shutdown timeout.");
-          System.exit(1);
-        }, SHUTDOWN_TIMOUT_MS, TimeUnit.MILLISECONDS);
-        onContainerExpired.run();
-      }
-    }, 0, SCHEDULE_MS, TimeUnit.MILLISECONDS);
+        ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
+        if (!response.isAlive()) {
+          scheduler.schedule(() -> {
+              // On timeout of container shutting down, force exit.
+              LOG.error("Graceful shutdown timeout expired. Force exiting.");
+              ThreadUtil.logThreadDump("Thread dump at heartbeat monitor shutdown timeout.");
+              System.exit(1);
+            }, SHUTDOWN_TIMOUT_MS, TimeUnit.MILLISECONDS);
+          onContainerExpired.run();
+        }
+      }, 0, SCHEDULE_MS, TimeUnit.MILLISECONDS);
     started = true;
   }
 

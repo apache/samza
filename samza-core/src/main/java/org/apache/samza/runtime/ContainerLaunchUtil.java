@@ -187,14 +187,14 @@ public class ContainerLaunchUtil {
     if (executionEnvContainerId != null) {
       log.info("Got execution environment container id: {}", executionEnvContainerId);
       return new ContainerHeartbeatMonitor(() -> {
-        try {
-          container.shutdown();
-          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
-        } catch (Exception e) {
-          log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
-          System.exit(1);
-        }
-      }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+          try {
+            container.shutdown();
+            containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+          } catch (Exception e) {
+            log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
+            System.exit(1);
+          }
+        }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
     } else {
       log.warn("Execution environment container id not set. Container heartbeat monitor will not be created");
       return null;
