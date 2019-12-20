@@ -58,8 +58,6 @@ import scala.Option;
 public class ContainerLaunchUtil {
   private static final Logger log = LoggerFactory.getLogger(ContainerLaunchUtil.class);
 
-  private static volatile Throwable containerRunnerException = null;
-
   /**
    * This method launches a Samza container in a managed cluster and is invoked by BeamContainerRunner.
    * Any change here needs to take Beam into account.
@@ -138,13 +136,17 @@ public class ContainerLaunchUtil {
       }
 
       container.run();
+
       if (heartbeatMonitor != null) {
         heartbeatMonitor.stop();
+        if (heartbeatMonitor.isHeartbeatExpired()) {
+          log.error("Container stopped with Exception. Exiting process now",
+              new SamzaException("Container shutdown because heartbeat between the Container and the JobCoordinator timed out"));
+          System.exit(1);
+        }
       }
-
-      containerRunnerException = listener.getContainerException();
-      if (containerRunnerException != null) {
-        log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
+      if (listener.getContainerException() != null) {
+        log.error("Container stopped with Exception. Exiting process now.", listener.getContainerException());
         System.exit(1);
       }
     } finally {
@@ -184,7 +186,6 @@ public class ContainerLaunchUtil {
       return new ContainerHeartbeatMonitor(() -> {
           try {
             container.shutdown();
-            containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
           } catch (Exception e) {
             log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
             System.exit(1);

@@ -39,6 +39,7 @@ public class ContainerHeartbeatMonitor {
   private final Runnable onContainerExpired;
   private final ContainerHeartbeatClient containerHeartbeatClient;
   private boolean started = false;
+  private boolean heartbeatExpired = false;
 
   public ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient) {
     this.onContainerExpired = onContainerExpired;
@@ -54,6 +55,7 @@ public class ContainerHeartbeatMonitor {
     scheduler.scheduleAtFixedRate(() -> {
         ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
         if (!response.isAlive()) {
+          heartbeatExpired = true;
           scheduler.schedule(() -> {
               // On timeout of container shutting down, force exit.
               LOG.error("Graceful shutdown timeout expired. Force exiting.");
@@ -71,6 +73,10 @@ public class ContainerHeartbeatMonitor {
       LOG.info("Stopping ContainerHeartbeatMonitor");
       scheduler.shutdown();
     }
+  }
+
+  public boolean isHeartbeatExpired() {
+    return heartbeatExpired;
   }
 
   private static class HeartbeatThreadFactory implements ThreadFactory {
