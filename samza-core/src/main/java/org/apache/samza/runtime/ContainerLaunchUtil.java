@@ -142,7 +142,12 @@ public class ContainerLaunchUtil {
         heartbeatMonitor.stop();
       }
 
-      containerRunnerException = listener.getContainerException();
+      // Check to see if the HeartbeatMonitor has set an exception before
+      // overriding the value with what the listener returns
+      if (containerRunnerException == null) {
+        containerRunnerException = listener.getContainerException();
+      }
+
       if (containerRunnerException != null) {
         log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
         System.exit(1);
