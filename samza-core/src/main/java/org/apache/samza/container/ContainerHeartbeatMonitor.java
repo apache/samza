@@ -39,7 +39,7 @@ public class ContainerHeartbeatMonitor {
   private final Runnable onContainerExpired;
   private final ContainerHeartbeatClient containerHeartbeatClient;
   private boolean started = false;
-  private boolean heartbeatExpired = false;
+  private static volatile boolean heartbeatExpired = false;
 
   public ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient) {
     this.onContainerExpired = onContainerExpired;
