@@ -253,11 +253,6 @@ public class AzureBlobOutputStream extends OutputStream {
     byteArrayOutputStream.get().reset();
     totalUploadedBlockSize += localByte.length;
 
-
-    CompletableFuture<Void> futureNew = new CompletableFuture<>();
-
-    futureNew
-
     CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
       // call async stageblock and add to future
       @Override
