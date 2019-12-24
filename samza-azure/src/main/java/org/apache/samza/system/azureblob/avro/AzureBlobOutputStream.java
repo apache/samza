@@ -291,7 +291,9 @@ public class AzureBlobOutputStream extends OutputStream {
     future.handle((aVoid, throwable) -> {
         if (throwable == null) {
           LOG.info("Upload block for blob: {} with blockid: {} finished.", blobAsyncClient.getBlobUrl().toString(), blockId);
-          pendingUpload.remove(future);
+          if (pendingUpload.contains(future)) {
+            pendingUpload.remove(future);
+          }
           return aVoid;
         } else {
           throw new RuntimeException("Blob upload failed for blob " + blobAsyncClient.getBlobUrl().toString()

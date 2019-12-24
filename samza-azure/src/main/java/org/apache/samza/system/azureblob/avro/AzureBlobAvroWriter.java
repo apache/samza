@@ -219,7 +219,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
       Executor blobThreadPool, int maxBlockFlushThresholdSize, int flushTimeoutMs, String blobURLPrefix,
       DataFileWriter<IndexedRecord> dataFileWriter,
       AzureBlobOutputStream azureBlobOutputStream, BlockBlobAsyncClient blockBlobAsyncClient,
-      long maxBlobSize, long maxRecordsPerBlob) {
+      long maxBlobSize, long maxRecordsPerBlob, Compression compression) {
     if (dataFileWriter == null || azureBlobOutputStream == null || blockBlobAsyncClient == null) {
       this.currentBlobWriterComponents = null;
     } else {
@@ -232,7 +232,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     this.metrics = metrics;
     this.maxBlockFlushThresholdSize = maxBlockFlushThresholdSize;
     this.flushTimeoutMs = flushTimeoutMs;
-    this.compression = new GzipCompression();
+    this.compression = compression;
     this.containerAsyncClient = containerAsyncClient;
     this.useRandomStringInBlobName = false;
     this.maxBlobSize = maxBlobSize;
