@@ -35,10 +35,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -88,15 +86,8 @@ public class AzureBlobOutputStream extends OutputStream {
 
   public AzureBlobOutputStream(BlockBlobAsyncClient blobAsyncClient, Executor blobThreadPool, AzureBlobWriterMetrics metrics,
       long flushTimeoutMs, int maxBlockFlushThresholdSize, Compression compression) {
-    byteArrayOutputStream = Optional.of(new ByteArrayOutputStream(maxBlockFlushThresholdSize));
-    this.blobAsyncClient = blobAsyncClient;
-    blockList = new ArrayList<>();
-    blockNum = 0;
-    this.blobThreadPool = blobThreadPool;
-    this.flushTimeoutMs = flushTimeoutMs;
-    this.maxBlockFlushThresholdSize = maxBlockFlushThresholdSize;
-    this.metrics = metrics;
-    this.compression = compression;
+    this(blobAsyncClient, blobThreadPool, metrics, flushTimeoutMs, maxBlockFlushThresholdSize,
+        new ByteArrayOutputStream(maxBlockFlushThresholdSize), compression);
   }
 
   /**
@@ -159,8 +150,8 @@ public class AzureBlobOutputStream extends OutputStream {
    */
   @Override
   public synchronized void close() {
-
     if (isClosed) {
+      LOG.info("{}: already closed", blobAsyncClient.getBlobUrl().toString());
       return;
     }
 
@@ -182,13 +173,9 @@ public class AzureBlobOutputStream extends OutputStream {
       metrics.updateAzureCommitMetrics();
       Map<String, String> blobMetadata = Collections.singletonMap(BLOB_RAW_SIZE_BYTES_METADATA, Long.toString(totalUploadedBlockSize));
       blobAsyncClient.commitBlockListWithResponse(blockList, null, blobMetadata, null, null).block();
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+    } catch (Exception e) {
       String msg = String.format("Close blob %s failed with exception. Total pending sends %d",
           blobAsyncClient.getBlobUrl().toString(), pendingUpload.size());
-      throw new RuntimeException(msg, e);
-    } catch (Exception e) {
-      String msg = String.format("Close blob %s failed with exception. Resetting the system producer. %s",
-          blobAsyncClient.getBlobUrl().toString(), e.getLocalizedMessage());
       throw new RuntimeException(msg, e);
     } finally {
       blockList.clear();
@@ -226,7 +213,7 @@ public class AzureBlobOutputStream extends OutputStream {
 
   @VisibleForTesting
   AzureBlobOutputStream(BlockBlobAsyncClient blobAsyncClient, Executor blobThreadPool, AzureBlobWriterMetrics metrics,
-      int flushTimeoutMs, int maxBlockFlushThresholdSize,
+      long flushTimeoutMs, int maxBlockFlushThresholdSize,
       ByteArrayOutputStream byteArrayOutputStream, Compression compression) {
     this.byteArrayOutputStream = Optional.of(byteArrayOutputStream);
     this.blobAsyncClient = blobAsyncClient;
@@ -257,6 +244,8 @@ public class AzureBlobOutputStream extends OutputStream {
     }
     LOG.info("Blob: {} uploadBlock. Size:{}", blobAsyncClient.getBlobUrl().toString(), size);
 
+    // Azure sdk requires block Id to be encoded and all blockIds of a blob to be of the same length
+    // also, a block blob can have upto 50,000 blocks, hence using a 5 digit block id.
     String blockId = String.format("%05d", blockNum);
     String blockIdEncoded = Base64.getEncoder().encodeToString(blockId.getBytes());
     blockList.add(blockIdEncoded);
@@ -264,29 +253,34 @@ public class AzureBlobOutputStream extends OutputStream {
     byteArrayOutputStream.get().reset();
     totalUploadedBlockSize += localByte.length;
 
+
+    CompletableFuture<Void> futureNew = new CompletableFuture<>();
+
+    futureNew
+
     CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
       // call async stageblock and add to future
       @Override
       public void run() {
-        int retryCount = 0;
+        int attemptCount = 0;
         byte[] compressedLocalByte = compression.compress(localByte);
         int blockSize = compressedLocalByte.length;
 
-        while (retryCount < MAX_ATTEMPT) {
+        while (attemptCount < MAX_ATTEMPT) {
           try {
             ByteBuffer outputStream = ByteBuffer.wrap(compressedLocalByte, 0, blockSize);
             metrics.updateCompressByteMetrics(blockSize);
             LOG.info("{} Upload block start for blob: {} for block size:{}.", blobAsyncClient.getBlobUrl().toString(), blockId, blockSize);
-            // StageBlock generates exception on Failure.
             metrics.updateAzureUploadMetrics();
+            // StageBlock generates exception on Failure.
             blobAsyncClient.stageBlock(blockIdEncoded, Flux.just(outputStream), blockSize).block();
             break;
           } catch (Exception e) {
-            retryCount += 1;
+            attemptCount += 1;
             String msg = "Upload block for blob: " + blobAsyncClient.getBlobUrl().toString()
-                + " failed for blockid: " + blockId + " due to exception. RetryCount: " + retryCount;
+                + " failed for blockid: " + blockId + " due to exception. RetryCount: " + attemptCount;
             LOG.error(msg, e);
-            if (retryCount == MAX_ATTEMPT) {
+            if (attemptCount == MAX_ATTEMPT) {
               throw new RuntimeException("Exceeded number of retries. Max attempts is: " + MAX_ATTEMPT, e);
             }
           }
@@ -294,7 +288,11 @@ public class AzureBlobOutputStream extends OutputStream {
       }
     }, blobThreadPool);
 
-    pendingUpload.add(future);
+    if (future.isDone()) {
+      LOG.info("Upload block for blob: {} with blockid: {} finished.", blobAsyncClient.getBlobUrl().toString(), blockId);
+    } else {
+      pendingUpload.add(future);
+    }
     future.handle((aVoid, throwable) -> {
         if (throwable == null) {
           LOG.info("Upload block for blob: {} with blockid: {} finished.", blobAsyncClient.getBlobUrl().toString(), blockId);

@@ -35,7 +35,7 @@ public class AzureBlobConfig extends MapConfig {
 
   // system Level Properties.
   // fully qualified class name of the AzureBlobWriter impl for the producer system
-  public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME = "systems.%s.producer.azureblob.writer.factory.class";
+  public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME = SYSTEM_AZUREBLOB_PREFIX + "writer.factory.class";
   public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME_DEFAULT = "org.apache.samza.system.azureblob.avro.AzureBlobAvroWriterFactory";
 
   // Azure Storage Account name under which the Azure container representing this system is.
@@ -73,7 +73,7 @@ public class AzureBlobConfig extends MapConfig {
 
   // number of threads to asynchronously upload blocks
   public static final String SYSTEM_THREAD_POOL_COUNT = SYSTEM_AZUREBLOB_PREFIX + "threadPoolCount";
-  private static final int SYSTEM_THREAD_POOL_COUNT_DEFAULT = 2;
+  private static final int SYSTEM_THREAD_POOL_COUNT_DEFAULT = 1;
 
   // size of the queue to hold blocks ready to be uploaded by asynchronous threads.
   // If all threads are busy uploading then blocks are queued and if queue is full then main thread will start uploading
@@ -91,9 +91,8 @@ public class AzureBlobConfig extends MapConfig {
 
   // if true, a random string of 8 chars is suffixed to the blob name to prevent name collision
   // when more than one Samza tasks are writing to the same SSP.
-  // It is advisable to set this to true
   public static final String SYSTEM_SUFFIX_RANDOM_STRING_TO_BLOB_NAME = SYSTEM_AZUREBLOB_PREFIX + "suffixRandomStringToBlobName";
-  private static final boolean SYSTEM_SUFFIX_RANDOM_STRING_TO_BLOB_NAME_DEFAULT = false;
+  private static final boolean SYSTEM_SUFFIX_RANDOM_STRING_TO_BLOB_NAME_DEFAULT = true;
 
   public AzureBlobConfig(Config config) {
     super(config);
@@ -147,8 +146,8 @@ public class AzureBlobConfig extends MapConfig {
     return getInt(String.format(SYSTEM_THREAD_POOL_COUNT, systemName), SYSTEM_THREAD_POOL_COUNT_DEFAULT);
   }
 
-  public int getBlockingQueueSizeOrDefault(String systemName, int defaultQueueSize) {
-    return getInt(String.format(SYSTEM_BLOCKING_QUEUE_SIZE, systemName), defaultQueueSize);
+  public int getBlockingQueueSize(String systemName) {
+    return getInt(String.format(SYSTEM_BLOCKING_QUEUE_SIZE, systemName), 2 * getAzureBlobThreadPoolCount(systemName));
   }
 
   public long getFlushTimeoutMs(String systemName) {

@@ -53,8 +53,14 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.mockito.Matchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 @RunWith(PowerMockRunner.class)
@@ -190,7 +196,6 @@ public class TestAzureBlobAvroWriter {
   public void testClose() throws Exception {
     azureBlobAvroWriter.close();
     verify(mockDataFileWriter).close();
-    verify(mockAzureBlobOutputStream).close();
   }
 
   @Test(expected = SamzaException.class)
@@ -199,10 +204,12 @@ public class TestAzureBlobAvroWriter {
 
     azureBlobAvroWriter.flush();
     azureBlobAvroWriter.close();
+    verify(mockAzureBlobOutputStream).close();
   }
 
   @Test(expected = RuntimeException.class)
   public void testCloseWhenOutputStreamFails() throws Exception {
+    doThrow(new IOException("DataFileWriter failed")).when(mockDataFileWriter).close();
     doThrow(new RuntimeException("failed")).when(mockAzureBlobOutputStream).close();
 
     azureBlobAvroWriter.close();
@@ -293,7 +300,6 @@ public class TestAzureBlobAvroWriter {
     AzureBlobOutputStream mockAzureBlobOutputStream2 = mock(AzureBlobOutputStream.class);
 
     when(mockAzureBlobOutputStream.getSize()).thenReturn((long) 1);
-    when(mockAzureBlobOutputStream.getSize()).thenReturn((long) 1);
     BlobAsyncClient mockBlobAsyncClient = mock(BlobAsyncClient.class);
     doReturn(mockBlobAsyncClient).when(mockContainerClient).getBlobAsyncClient(anyString());
     doReturn(mockBlockBlobAsyncClient).when(mockBlobAsyncClient).getBlockBlobAsyncClient();
@@ -305,8 +311,6 @@ public class TestAzureBlobAvroWriter {
     // first OME creates the first blob and 11th OME creates the second blob.
 
     azureBlobAvroWriter.close();
-    verify(mockAzureBlobOutputStream).close();
-    verify(mockAzureBlobOutputStream2).close();
     verify(mockDataFileWriter).close();
     verify(mockDataFileWriter2).close();
   }
@@ -382,7 +386,6 @@ public class TestAzureBlobAvroWriter {
     verify(mockDataFileWriter, times(10)).appendEncoded(ByteBuffer.wrap(encodeRecord((IndexedRecord) ome2.getMessage())));
     verify(mockDataFileWriter, times(2)).flush();
     verify(mockDataFileWriter).close();
-    verify(mockAzureBlobOutputStream).close();
   }
 
   private byte[] encodeRecord(IndexedRecord record) throws Exception {

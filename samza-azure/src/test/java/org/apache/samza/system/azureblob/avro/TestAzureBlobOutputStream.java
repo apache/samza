@@ -21,6 +21,7 @@ package org.apache.samza.system.azureblob.avro;
 
 import com.azure.core.http.rest.SimpleResponse;
 import com.azure.core.implementation.util.FluxUtil;
+import java.util.Arrays;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
@@ -232,10 +233,7 @@ public class TestAzureBlobOutputStream {
 
     PowerMockito.doAnswer(invocation -> {
         ArrayList<String> blockListArg = (ArrayList<String>) invocation.getArguments()[0];
-        String blockIdArg = (String) blockListArg.toArray()[0];
-        String blockIdArg1 = (String) blockListArg.toArray()[1];
-        Assert.assertEquals(blockIdEncoded, blockIdArg);
-        Assert.assertEquals(blockIdEncoded1, blockIdArg1);
+        Assert.assertEquals(Arrays.asList(blockIdEncoded, blockIdEncoded1), blockListArg);
         Map<String, String> blobMetadata = (Map<String, String>) invocation.getArguments()[2];
         Assert.assertEquals(blobMetadata.get(AzureBlobOutputStream.BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(2 * THRESHOLD));
         return Mono.just(new SimpleResponse(null, 200, null, null));

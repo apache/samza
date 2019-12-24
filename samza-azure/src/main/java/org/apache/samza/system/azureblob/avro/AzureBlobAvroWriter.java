@@ -157,9 +157,11 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     if (ome.getMessage() instanceof IndexedRecord) {
       optionalIndexedRecord = Optional.of((IndexedRecord) ome.getMessage());
       encodedRecord = encodeRecord((IndexedRecord) ome.getMessage());
-    } else {
+    } else if (ome.getMessage() instanceof byte[]) {
       optionalIndexedRecord = Optional.empty();
       encodedRecord = (byte[]) ome.getMessage();
+    } else {
+      throw new IllegalArgumentException("AzureBlobAvroWriter only supports IndexedRecord and byte[].");
     }
 
     synchronized (currentDataFileWriterLock) {
@@ -270,11 +272,12 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
       LOG.info("Closing the blob: {}", blockBlobAsyncClient.getBlobUrl().toString());
       // dataFileWriter.close calls close of the azureBlobOutputStream associated with it.
       dataFileWriter.close();
-    } finally {
+    } catch (Exception e) {
       // ensure that close is called even if dataFileWriter.close fails.
       // This is to avoid loss of all the blocks uploaded for the blob
       // as commitBlockList happens in close of azureBlobOutputStream.
       azureBlobOutputStream.close();
+      throw e;
     }
   }
 

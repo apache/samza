@@ -120,7 +120,7 @@ public class AzureBlobSystemProducer implements SystemProducer {
   private final AzureBlobConfig config;
 
   // Map of writers indexed first by sourceName and then by (streamName, partitionName) or just streamName if partition key does not exist.
-  private Map<String, Map<String, AzureBlobWriter>> writerMap;
+  private final Map<String, Map<String, AzureBlobWriter>> writerMap;
   private final AzureBlobWriterFactory writerFactory;
 
   private final int blockFlushThresholdSize;
@@ -156,7 +156,7 @@ public class AzureBlobSystemProducer implements SystemProducer {
     this.closeTimeout = this.config.getCloseTimeoutMs(this.systemName);
     this.blockFlushThresholdSize = this.config.getMaxFlushThresholdSize(this.systemName);
     int asyncBlobThreadPoolCount = this.config.getAzureBlobThreadPoolCount(this.systemName);
-    int blockingQueueSize = this.config.getBlockingQueueSizeOrDefault(this.systemName, asyncBlobThreadPoolCount * 2);
+    int blockingQueueSize = this.config.getBlockingQueueSize(this.systemName);
 
     LOG.info("SystemName: {} block flush size:{}", systemName, this.blockFlushThresholdSize);
     LOG.info("SystemName: {} thread count:{}", systemName, asyncBlobThreadPoolCount);
@@ -362,11 +362,11 @@ public class AzureBlobSystemProducer implements SystemProducer {
       boolean isPremiumAccount = SkuName.PREMIUM_LRS == accountType;
       if (isPremiumAccount && flushThresholdSize > PREMIUM_MAX_BLOCK_SIZE) { // 100 MB
         throw new SystemProducerException("Azure storage account with name: " + accountName
-            + " is a premium account and can only handle upto 100MB threshold size. Given flush threshold size is "
+            + " is a premium account and can only handle upto " +  PREMIUM_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
             + flushThresholdSize);
       } else if (!isPremiumAccount && flushThresholdSize > STANDARD_MAX_BLOCK_SIZE) { // STANDARD account
         throw new SystemProducerException("Azure storage account with name: " + accountName
-            + " is a standard account and can only handle upto 4MB threshold size. Given flush threshold size is "
+            + " is a standard account and can only handle upto " + STANDARD_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
             + flushThresholdSize);
       }
 
@@ -493,7 +493,7 @@ public class AzureBlobSystemProducer implements SystemProducer {
     try {
       return writerFactory.getWriterInstance(containerAsyncClient, blobURL, asyncBlobThreadPool, writerMetrics,
           blockFlushThresholdSize, flushTimeoutMs,
-          new CompressionFactory().getCompression(config.getCompressionType(systemName)),
+          CompressionFactory.getInstance().getCompression(config.getCompressionType(systemName)),
           config.getSuffixRandomStringToBlobName(systemName),
           config.getMaxBlobSize(systemName),
           config.getMaxMessagesPerBlob(systemName));
