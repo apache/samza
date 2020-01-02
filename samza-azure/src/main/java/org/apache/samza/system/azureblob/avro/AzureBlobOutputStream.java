@@ -21,6 +21,7 @@ package org.apache.samza.system.azureblob.avro;
 
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.samza.AzureException;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
 import java.io.ByteArrayOutputStream;
@@ -176,7 +177,7 @@ public class AzureBlobOutputStream extends OutputStream {
     } catch (Exception e) {
       String msg = String.format("Close blob %s failed with exception. Total pending sends %d",
           blobAsyncClient.getBlobUrl().toString(), pendingUpload.size());
-      throw new RuntimeException(msg, e);
+      throw new AzureException(msg, e);
     } finally {
       blockList.clear();
       pendingUpload.stream().forEach(future -> future.cancel(true));
@@ -276,7 +277,7 @@ public class AzureBlobOutputStream extends OutputStream {
                 + " failed for blockid: " + blockId + " due to exception. RetryCount: " + attemptCount;
             LOG.error(msg, e);
             if (attemptCount == MAX_ATTEMPT) {
-              throw new RuntimeException("Exceeded number of retries. Max attempts is: " + MAX_ATTEMPT, e);
+              throw new AzureException("Exceeded number of retries. Max attempts is: " + MAX_ATTEMPT, e);
             }
           }
         }
@@ -296,14 +297,14 @@ public class AzureBlobOutputStream extends OutputStream {
           }
           return aVoid;
         } else {
-          throw new RuntimeException("Blob upload failed for blob " + blobAsyncClient.getBlobUrl().toString()
+          throw new AzureException("Blob upload failed for blob " + blobAsyncClient.getBlobUrl().toString()
               + " and block with id: " + blockId, throwable);
         }
       });
 
     blockNum += 1;
     if (blockNum >= MAX_BLOCKS_IN_AZURE_BLOB) {
-      throw new RuntimeException("Azure blob only supports 50000 blocks in a blob. Current number of blocks is " + blockNum);
+      throw new AzureException("Azure blob only supports 50000 blocks in a blob. Current number of blocks is " + blockNum);
     }
   }
 }

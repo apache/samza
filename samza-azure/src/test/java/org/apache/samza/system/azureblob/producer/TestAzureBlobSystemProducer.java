@@ -107,7 +107,6 @@ public class TestAzureBlobSystemProducer {
     verify(systemProducer).setupAzureContainer(ACCOUNT_NAME, ACCOUNT_KEY);
   }
 
-  @Test(expected = SystemProducerException.class)
   public void testMultipleStart() {
     systemProducer.start();
     systemProducer.start();
@@ -137,11 +136,6 @@ public class TestAzureBlobSystemProducer {
 
     verify(mockAzureWriter).flush(); // called during flush IN STOP
     verify(mockAzureWriter).close(); // called during flush in STOP
-  }
-
-  @Test(expected = SystemProducerException.class)
-  public void testStopBeforeStart() {
-    systemProducer.stop();
   }
 
   @Test(expected = SystemProducerException.class)

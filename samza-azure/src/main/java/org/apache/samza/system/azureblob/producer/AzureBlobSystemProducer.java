@@ -180,7 +180,8 @@ public class AzureBlobSystemProducer implements SystemProducer {
   @Override
   public synchronized void start() {
     if (isStarted) {
-      throw new SystemProducerException("Attempting to start an already started producer.");
+      LOG.warn("Attempting to start an already started producer.");
+      return;
     }
 
     String accountName = config.getAzureAccountName(systemName);
@@ -199,11 +200,13 @@ public class AzureBlobSystemProducer implements SystemProducer {
   @Override
   public synchronized void stop() {
     if (!isStarted) {
-      throw new SystemProducerException("Attempting to stop a producer that was not started.");
+      LOG.warn("Attempting to stop a producer that was not started.");
+      return;
     }
 
     if (isStopped) {
-      throw new SystemProducerException("Attempting to stop an already stopped producer.");
+      LOG.warn("Attempting to stop an already stopped producer.");
+      return;
     }
 
     try {
@@ -277,6 +280,11 @@ public class AzureBlobSystemProducer implements SystemProducer {
     if (!isStarted) {
       throw new SystemProducerException("Trying to send before producer has started.");
     }
+
+    if (isStopped) {
+      throw new SystemProducerException("Sending after producer has been stopped.");
+    }
+
     ReadWriteLock lock = sourceSendFlushLockMap.get(source);
     if (lock == null) {
       throw new SystemProducerException("Attempting to send to source: " + source + " but it was not registered");
@@ -307,6 +315,11 @@ public class AzureBlobSystemProducer implements SystemProducer {
     if (!isStarted) {
       throw new SystemProducerException("Trying to flush before producer has started.");
     }
+
+    if (isStopped) {
+      throw new SystemProducerException("Flushing after producer has been stopped.");
+    }
+
     ReadWriteLock lock = sourceSendFlushLockMap.get(source);
     if (lock == null) {
       throw new SystemProducerException("Attempting to flush source: " + source + " but it was not registered");

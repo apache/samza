@@ -24,7 +24,6 @@ import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.samza.system.azureblob.compression.Compression;
-import org.apache.samza.system.azureblob.compression.GzipCompression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriter;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
 import java.io.ByteArrayOutputStream;

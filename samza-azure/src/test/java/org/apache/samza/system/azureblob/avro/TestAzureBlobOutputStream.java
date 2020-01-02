@@ -66,9 +66,9 @@ public class TestAzureBlobOutputStream {
   private static final int THRESHOLD = 100;
   private BlockBlobAsyncClient mockBlobAsyncClient;
   private AzureBlobOutputStream azureBlobOutputStream;
-  private static String randomString = "roZzozzLiR7GCEjcB0UsRUNgBAip8cSLGXQSo3RQvbIDoxOaaRs4hrec2s5rMPWgTPRY4UnE959worEtyhRjwUFnRnVuNFZ554yuPQCbI69qFkQX7MmrB4blmpSnFeGjWKjFjIRLFNVSsQBYMkr5jT4T83uVtuGumsjACVrpcilihdd194H8Y71rQcrXZoTQtw5OvmPicbwptawpHoRNzHihyaDVYgAs0dQbvVEu1gitKpamzYdMLFtc5h8PFZSVEB";
-  private static byte[] bytes = randomString.substring(0, THRESHOLD).getBytes();
-  private static byte[] compressedBytes = randomString.substring(0, THRESHOLD / 2).getBytes();
+  private static final String RANDOM_STRING = "roZzozzLiR7GCEjcB0UsRUNgBAip8cSLGXQSo3RQvbIDoxOaaRs4hrec2s5rMPWgTPRY4UnE959worEtyhRjwUFnRnVuNFZ554yuPQCbI69qFkQX7MmrB4blmpSnFeGjWKjFjIRLFNVSsQBYMkr5jT4T83uVtuGumsjACVrpcilihdd194H8Y71rQcrXZoTQtw5OvmPicbwptawpHoRNzHihyaDVYgAs0dQbvVEu1gitKpamzYdMLFtc5h8PFZSVEB";
+  private static final byte[] BYTES = RANDOM_STRING.substring(0, THRESHOLD).getBytes();
+  private static final byte[] COMPRESSED_BYTES = RANDOM_STRING.substring(0, THRESHOLD / 2).getBytes();
   private AzureBlobWriterMetrics mockMetrics;
   private Compression mockCompression;
 
@@ -91,7 +91,7 @@ public class TestAzureBlobOutputStream {
     mockMetrics = mock(AzureBlobWriterMetrics.class);
 
     mockCompression = mock(Compression.class);
-    doReturn(compressedBytes).when(mockCompression).compress(bytes);
+    doReturn(COMPRESSED_BYTES).when(mockCompression).compress(BYTES);
 
     azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
         60000, THRESHOLD, mockByteArrayOutputStream, mockCompression));
@@ -108,14 +108,15 @@ public class TestAzureBlobOutputStream {
 
   @Test
   public void testWriteLargerThanThreshold() {
-    byte[] largeRecord = randomString.substring(0, 2 * THRESHOLD).getBytes();
-    byte[] largeRecordFirstHalf = randomString.substring(0, THRESHOLD).getBytes();
-    byte[] largeRecordSecondHalf = randomString.substring(THRESHOLD, 2 * THRESHOLD).getBytes();
+    byte[] largeRecord = RANDOM_STRING.substring(0, 2 * THRESHOLD).getBytes();
+    byte[] largeRecordFirstHalf = RANDOM_STRING.substring(0, THRESHOLD).getBytes();
+    byte[] largeRecordSecondHalf = RANDOM_STRING.substring(THRESHOLD, 2 * THRESHOLD).getBytes();
 
-    byte[] compressB = randomString.substring(0, THRESHOLD / 2).getBytes();
+    byte[] compressB1 = RANDOM_STRING.substring(0, THRESHOLD / 2).getBytes();
+    byte[] compressB2 = RANDOM_STRING.substring(THRESHOLD / 2, THRESHOLD).getBytes();
 
-    doReturn(compressB).when(mockCompression).compress(largeRecordFirstHalf);
-    doReturn(compressB).when(mockCompression).compress(largeRecordSecondHalf);
+    doReturn(compressB1).when(mockCompression).compress(largeRecordFirstHalf);
+    doReturn(compressB2).when(mockCompression).compress(largeRecordSecondHalf);
 
     azureBlobOutputStream.write(largeRecord, 0, 2 * THRESHOLD);
     // azureBlobOutputStream.close waits on the CompletableFuture which does the actual stageBlock in uploadBlockAsync
@@ -125,11 +126,10 @@ public class TestAzureBlobOutputStream {
     verify(mockCompression).compress(largeRecordFirstHalf);
     verify(mockCompression).compress(largeRecordSecondHalf);
     ArgumentCaptor<Flux> argument = ArgumentCaptor.forClass(Flux.class);
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((long) compressB.length));
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(1)), argument.capture(), eq((long) compressB.length));
-    argument.getAllValues().forEach(flux -> {
-        Assert.assertEquals(ByteBuffer.wrap(compressB), flux.blockFirst());
-      });
+    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((long) compressB1.length));
+    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(1)), argument.capture(), eq((long) compressB2.length));
+    Assert.assertEquals(ByteBuffer.wrap(compressB1), argument.getAllValues().get(0).blockFirst());
+    Assert.assertEquals(ByteBuffer.wrap(compressB2), argument.getAllValues().get(1).blockFirst());
     verify(mockMetrics).updateWriteByteMetrics(2 * THRESHOLD);
     verify(mockMetrics, times(2)).updateAzureUploadMetrics();
   }
@@ -175,15 +175,15 @@ public class TestAzureBlobOutputStream {
 
   @Test
   public void testWriteThresholdCrossed() throws Exception {
-    azureBlobOutputStream.write(bytes, 0, THRESHOLD / 2);
-    azureBlobOutputStream.write(bytes, THRESHOLD / 2, THRESHOLD / 2);
+    azureBlobOutputStream.write(BYTES, 0, THRESHOLD / 2);
+    azureBlobOutputStream.write(BYTES, THRESHOLD / 2, THRESHOLD / 2);
     // azureBlobOutputStream.close waits on the CompletableFuture which does the actual stageBlock in uploadBlockAsync
     azureBlobOutputStream.close();
 
-    verify(mockCompression).compress(bytes);
+    verify(mockCompression).compress(BYTES);
     ArgumentCaptor<Flux> argument = ArgumentCaptor.forClass(Flux.class);
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((long) compressedBytes.length)); // since size of byte[] written is less than threshold
-    Assert.assertEquals(ByteBuffer.wrap(compressedBytes), ((Flux) argument.getValue()).blockFirst());
+    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((long) COMPRESSED_BYTES.length)); // since size of byte[] written is less than threshold
+    Assert.assertEquals(ByteBuffer.wrap(COMPRESSED_BYTES), ((Flux) argument.getValue()).blockFirst());
     verify(mockMetrics, times(2)).updateWriteByteMetrics(THRESHOLD / 2);
     verify(mockMetrics, times(1)).updateAzureUploadMetrics();
   }
@@ -200,7 +200,7 @@ public class TestAzureBlobOutputStream {
 
   @Test
   public void testClose() {
-    azureBlobOutputStream.write(bytes, 0, THRESHOLD);
+    azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
     int blockNum = 0;
     String blockId = String.format("%05d", blockNum);
     String blockIdEncoded = Base64.getEncoder().encodeToString(blockId.getBytes());
@@ -220,8 +220,8 @@ public class TestAzureBlobOutputStream {
 
   @Test
   public void testCloseMultipleBlocks() {
-    azureBlobOutputStream.write(bytes, 0, THRESHOLD);
-    azureBlobOutputStream.write(bytes, 0, THRESHOLD);
+    azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
+    azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
 
     int blockNum = 0;
     String blockId = String.format("%05d", blockNum);
@@ -255,14 +255,14 @@ public class TestAzureBlobOutputStream {
 
   @Test
   public void testMultipleClose() {
-    azureBlobOutputStream.write(bytes, 0, THRESHOLD);
+    azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
     azureBlobOutputStream.close();
     azureBlobOutputStream.close();
   }
 
   @Test
   public void testFlush() throws Exception {
-    azureBlobOutputStream.write(bytes);
+    azureBlobOutputStream.write(BYTES);
     azureBlobOutputStream.flush();
     // azureBlobOutputStream.close waits on the CompletableFuture which does the actual stageBlock in uploadBlockAsync
     azureBlobOutputStream.close();
@@ -271,16 +271,16 @@ public class TestAzureBlobOutputStream {
     String blockId = String.format("%05d", blockNum);
     String blockIdEncoded = Base64.getEncoder().encodeToString(blockId.getBytes());
 
-    verify(mockCompression).compress(bytes);
+    verify(mockCompression).compress(BYTES);
     ArgumentCaptor<Flux> argument = ArgumentCaptor.forClass(Flux.class);
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded), argument.capture(), eq((long) compressedBytes.length)); // since size of byte[] written is less than threshold
-    Assert.assertEquals(ByteBuffer.wrap(compressedBytes), ((Flux) argument.getValue()).blockFirst());
+    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded), argument.capture(), eq((long) COMPRESSED_BYTES.length)); // since size of byte[] written is less than threshold
+    Assert.assertEquals(ByteBuffer.wrap(COMPRESSED_BYTES), ((Flux) argument.getValue()).blockFirst());
     verify(mockMetrics).updateAzureUploadMetrics();
   }
 
   @Test (expected = RuntimeException.class)
   public void testFlushFailed() throws IOException {
-    azureBlobOutputStream.write(bytes);
+    azureBlobOutputStream.write(BYTES);
     when(mockBlobAsyncClient.stageBlock(anyString(), any(), anyLong()))
            .thenReturn(Mono.error(new Exception("Test Failed")));
 
@@ -305,7 +305,7 @@ public class TestAzureBlobOutputStream {
 
   @Test
   public void testCloseAfterReleaseBuffer() throws Exception {
-    azureBlobOutputStream.write(bytes, 0, 100);
+    azureBlobOutputStream.write(BYTES, 0, 100);
     azureBlobOutputStream.releaseBuffer();
     azureBlobOutputStream.close();
     // mockByteArrayOutputStream.close called only once during releaseBuffer and not during azureBlobOutputStream.close
@@ -324,18 +324,18 @@ public class TestAzureBlobOutputStream {
   @Test
   public void testGetSize() throws Exception {
     Assert.assertEquals(0, azureBlobOutputStream.getSize());
-    azureBlobOutputStream.write(bytes, 0, bytes.length);
-    Assert.assertEquals(bytes.length, azureBlobOutputStream.getSize());
+    azureBlobOutputStream.write(BYTES, 0, BYTES.length);
+    Assert.assertEquals(BYTES.length, azureBlobOutputStream.getSize());
   }
 
   @Test
   public void testGetSizeAfterFlush() throws Exception {
-    azureBlobOutputStream.write(bytes, 0, bytes.length);
-    Assert.assertEquals(bytes.length, azureBlobOutputStream.getSize());
+    azureBlobOutputStream.write(BYTES, 0, BYTES.length);
+    Assert.assertEquals(BYTES.length, azureBlobOutputStream.getSize());
     azureBlobOutputStream.flush();
-    Assert.assertEquals(bytes.length, azureBlobOutputStream.getSize());
-    azureBlobOutputStream.write(bytes, 0, bytes.length - 10);
-    Assert.assertEquals(bytes.length + bytes.length - 10, azureBlobOutputStream.getSize());
+    Assert.assertEquals(BYTES.length, azureBlobOutputStream.getSize());
+    azureBlobOutputStream.write(BYTES, 0, BYTES.length - 10);
+    Assert.assertEquals(BYTES.length + BYTES.length - 10, azureBlobOutputStream.getSize());
   }
 
   private String blockIdEncoded(int blockNum) {
