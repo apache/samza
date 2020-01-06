@@ -96,7 +96,7 @@ If there is no [JIRA](https://issues.apache.org/jira/browse/SAMZA) ticket for yo
 * Create a new branch in your repository and push your changes to that branch
   * Make sure you have observed the recommendations in the [coding guide](/contribute/coding-guide.html) and [testing](/contribute/tests.html)
 * [Open a Pull Request](https://help.github.com/articles/about-pull-requests/) against the “master” branch of apache/samza
-  * Make sure that the Pull Request title is of the format "SAMZA-&lt;JiraNumber&gt; : &lt;JiraTitle&gt;"
+  * Make sure that the Pull Request title and description follows the guidelines in [SEP-25](https://cwiki.apache.org/confluence/display/SAMZA/SEP-25%3A+PR+Title+And+Description+Guidelines)
   * Make sure that your patch cleanly applies against the master branch. If not, rebase before creating the Pull Request
   * Optional: add a reviewer by @ the username
 * [Ping us](mailto:dev@samza.apache.org) if we don’t follow up on your JIRA in a timely fashion.  
