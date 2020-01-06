@@ -26,7 +26,7 @@ import org.apache.samza.config.ConfigLoader;
 import org.apache.samza.config.MapConfig;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 
 public class TestPropertiesConfigLoader {
@@ -39,14 +39,9 @@ public class TestPropertiesConfigLoader {
     assertEquals("bar", config.get("foo"));
   }
 
-  @Test
+  @Test(expected = SamzaException.class)
   public void testCanNotReadWithoutPath() {
-    try {
-      ConfigLoader loader = new PropertiesConfigLoaderFactory().getLoader(new MapConfig());
-      loader.getConfig();
-      fail("should have gotten a samza exception");
-    } catch (SamzaException e) {
-      // Do nothing
-    }
+    ConfigLoader loader = new PropertiesConfigLoaderFactory().getLoader(new MapConfig());
+    loader.getConfig();
   }
 }

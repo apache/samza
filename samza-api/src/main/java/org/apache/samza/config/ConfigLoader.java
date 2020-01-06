@@ -20,7 +20,7 @@
 package org.apache.samza.config;
 
 /**
- * The primary means of fetching {@link org.apache.samza.config.Config} on Application Master during start up.
+ * The primary means of fetching full job {@link org.apache.samza.config.Config} on cluster based job coordinator during start up.
  */
 public interface ConfigLoader {
   Config getConfig();

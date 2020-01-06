@@ -25,6 +25,10 @@ import org.apache.samza.config.ConfigLoader;
 import org.apache.samza.config.ConfigLoaderFactory;
 
 
+/**
+ * ConfigLoaderFactory which initialize {@link PropertiesConfigLoader} with properties file path specified in
+ * job.config.loader.properties.path.
+ */
 public class PropertiesConfigLoaderFactory implements ConfigLoaderFactory {
   private static final String KEY = "path";
 

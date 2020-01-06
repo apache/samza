@@ -42,17 +42,6 @@ public class MapConfig extends Config {
     this(Collections.singletonList(map));
   }
 
-  /**
-   * Build a {@link MapConfig} from {@link Properties}
-   *
-   * @param properties to build MapConfig
-   */
-  public MapConfig(Properties properties) {
-    this.map = new HashMap<>();
-    // Per Properties JavaDoc, all its keys and values are of type String
-    properties.forEach((key, value) -> this.map.put(key.toString(), value.toString()));
-  }
-
   public MapConfig(List<Map<String, String>> maps) {
     this.map = new HashMap<>();
     for (Map<String, String> m: maps) {

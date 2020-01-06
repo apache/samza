@@ -22,6 +22,8 @@ package org.apache.samza.config.loaders;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -33,6 +35,9 @@ import org.slf4j.LoggerFactory;
 import static java.util.Objects.requireNonNull;
 
 
+/**
+ * ConfigLoader to load full job configs from a local properties file given its path.
+ */
 public class PropertiesConfigLoader implements ConfigLoader {
   private static final Logger LOG = LoggerFactory.getLogger(PropertiesConfigLoader.class);
 
@@ -51,11 +56,15 @@ public class PropertiesConfigLoader implements ConfigLoader {
       props.load(in);
       in.close();
 
-      LOG.debug("got config {} from config {}", props, path);
+      LOG.debug("got config {} from path {}", props, path);
 
-      return new MapConfig(props);
+      Map<String, String> config = new HashMap<>(props.size());
+      // Per Properties JavaDoc, all its keys and values are of type String
+      props.forEach((key, value) -> config.put(key.toString(), value.toString()));
+
+      return new MapConfig(config);
     } catch (IOException e) {
-      throw new SamzaException("Failed to read from");
+      throw new SamzaException("Failed to read from " + path);
     }
   }
 }
