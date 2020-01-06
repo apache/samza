@@ -108,6 +108,8 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
   private final long maxRecordsPerBlob;
   private final boolean useRandomStringInBlobName;
   private final Object currentDataFileWriterLock = new Object();
+  // when either maxRecordsPerBlob or maxBlobSize is exceeded then a new blob is created
+  // with the same blobURLPrefix and blobNumber is suffixed to the blobURL to differentiate between the blobs
   private volatile long blobNumber = 0;
   private volatile long recordsInCurrentBlob = 0;
 

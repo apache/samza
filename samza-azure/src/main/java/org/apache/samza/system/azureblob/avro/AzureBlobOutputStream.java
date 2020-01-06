@@ -277,24 +277,19 @@ public class AzureBlobOutputStream extends OutputStream {
                 + " failed for blockid: " + blockId + " due to exception. RetryCount: " + attemptCount;
             LOG.error(msg, e);
             if (attemptCount == MAX_ATTEMPT) {
-              throw new AzureException("Exceeded number of retries. Max attempts is: " + MAX_ATTEMPT, e);
+              throw new AzureException("Exceeded number of attempts. Max attempts is: " + MAX_ATTEMPT, e);
             }
           }
         }
       }
     }, blobThreadPool);
 
-    if (future.isDone()) {
-      LOG.info("Upload block for blob: {} with blockid: {} finished.", blobAsyncClient.getBlobUrl().toString(), blockId);
-    } else {
-      pendingUpload.add(future);
-    }
+    pendingUpload.add(future);
+
     future.handle((aVoid, throwable) -> {
         if (throwable == null) {
           LOG.info("Upload block for blob: {} with blockid: {} finished.", blobAsyncClient.getBlobUrl().toString(), blockId);
-          if (pendingUpload.contains(future)) {
-            pendingUpload.remove(future);
-          }
+          pendingUpload.remove(future);
           return aVoid;
         } else {
           throw new AzureException("Blob upload failed for blob " + blobAsyncClient.getBlobUrl().toString()

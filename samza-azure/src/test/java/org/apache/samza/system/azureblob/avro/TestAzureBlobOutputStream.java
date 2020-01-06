@@ -125,11 +125,12 @@ public class TestAzureBlobOutputStream {
     // invoked 2 times for the data which is 2*threshold
     verify(mockCompression).compress(largeRecordFirstHalf);
     verify(mockCompression).compress(largeRecordSecondHalf);
-    ArgumentCaptor<Flux> argument = ArgumentCaptor.forClass(Flux.class);
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((long) compressB1.length));
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(1)), argument.capture(), eq((long) compressB2.length));
-    Assert.assertEquals(ByteBuffer.wrap(compressB1), argument.getAllValues().get(0).blockFirst());
-    Assert.assertEquals(ByteBuffer.wrap(compressB2), argument.getAllValues().get(1).blockFirst());
+    ArgumentCaptor<Flux> argument0 = ArgumentCaptor.forClass(Flux.class);
+    ArgumentCaptor<Flux> argument1 = ArgumentCaptor.forClass(Flux.class);
+    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument0.capture(), eq((long) compressB1.length));
+    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(1)), argument1.capture(), eq((long) compressB2.length));
+    Assert.assertEquals(ByteBuffer.wrap(compressB1), argument0.getAllValues().get(0).blockFirst());
+    Assert.assertEquals(ByteBuffer.wrap(compressB2), argument1.getAllValues().get(0).blockFirst());
     verify(mockMetrics).updateWriteByteMetrics(2 * THRESHOLD);
     verify(mockMetrics, times(2)).updateAzureUploadMetrics();
   }

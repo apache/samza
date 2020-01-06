@@ -25,14 +25,11 @@ package org.apache.samza.system.azureblob.compression;
  * based on the {@link org.apache.samza.system.azureblob.compression.CompressionType}.
  */
 public class CompressionFactory {
-  private static CompressionFactory compressionFactoryInstance = null;
+  private final static CompressionFactory COMPRESSION_FACTORY_INSTANCE = new CompressionFactory();
   private CompressionFactory() {}
 
   public static CompressionFactory getInstance() {
-    if (compressionFactoryInstance == null) {
-      compressionFactoryInstance = new CompressionFactory();
-    }
-    return compressionFactoryInstance;
+    return COMPRESSION_FACTORY_INSTANCE;
   }
 
   public Compression getCompression(CompressionType compressionType) {
