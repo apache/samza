@@ -358,4 +358,11 @@ public class JobConfig extends MapConfig {
     return get(COORDINATOR_STREAM_FACTORY, DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY);
   }
 
+  /**
+   * Get config loader factory according to the configs
+   * @return full qualified name of {@link ConfigLoaderFactory}
+   */
+  public String getConfigLoaderFactory() {
+    return get(CONFIG_LOADER_FACTORY);
+  }
 }
