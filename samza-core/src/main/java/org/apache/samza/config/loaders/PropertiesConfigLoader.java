@@ -43,6 +43,11 @@ public class PropertiesConfigLoader implements ConfigLoader {
 
   private final String path;
 
+  /**
+   * @param path Absolute or relative file path where the properties file locates. For example,
+   *             in <a href="https://samza.apache.org/startup/hello-samza/1.0.0/">Hello Samza</a>,
+   *             it will be set to /__package/config/wikipedia-feed.properties
+   */
   public PropertiesConfigLoader(String path) {
     this.path = requireNonNull(path);
   }
