@@ -20,13 +20,13 @@
 package org.apache.samza.config;
 
 /**
- * The factory for an {@link ConfigLoader} instance to loader job config.
+ * The factory for an {@link ConfigLoader} instance to load full job config.
  */
 public interface ConfigLoaderFactory {
   /**
    * Get an instance of {@link ConfigLoader}
    *
-   * @param config start up config which specifies properties needed for the loader to load config.
+   * @param config start up config which specifies properties needed for the loader to load full job config.
    * @return a config loader instance.
    */
   ConfigLoader getLoader(Config config);

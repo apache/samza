@@ -30,11 +30,11 @@ import org.apache.samza.config.ConfigLoaderFactory;
  * job.config.loader.properties.path.
  */
 public class PropertiesConfigLoaderFactory implements ConfigLoaderFactory {
-  private static final String KEY = "path";
+  private static final String PATH_KEY = "path";
 
   @Override
   public ConfigLoader getLoader(Config config) {
-    String path = config.get(KEY);
+    String path = config.get(PATH_KEY);
 
     if (path == null) {
       throw new SamzaException("path is required to read config from properties file");
