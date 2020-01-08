@@ -26,7 +26,7 @@ object ShellCommandConfig {
   val ENV_COORDINATOR_SYSTEM_CONFIG = "SAMZA_COORDINATOR_SYSTEM_CONFIG"
 
   /**
-   * This enviorment variable is used to pass a JSON serialized map of configs provided during job submission.
+   * This environment variable is used to pass a JSON serialized map of configs provided during job submission.
    */
   val ENV_SUBMISSION_CONFIG = "SAMZA_SUBMISSION_CONFIG"
 

@@ -362,7 +362,7 @@ public class JobConfig extends MapConfig {
    * Get config loader factory according to the configs
    * @return full qualified name of {@link ConfigLoaderFactory}
    */
-  public String getConfigLoaderFactory() {
-    return get(CONFIG_LOADER_FACTORY);
+  public Optional<String> getConfigLoaderFactory() {
+    return Optional.ofNullable(get(CONFIG_LOADER_FACTORY));
   }
 }
