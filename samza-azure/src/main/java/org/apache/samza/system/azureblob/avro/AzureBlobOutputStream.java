@@ -274,7 +274,7 @@ public class AzureBlobOutputStream extends OutputStream {
           } catch (Exception e) {
             attemptCount += 1;
             String msg = "Upload block for blob: " + blobAsyncClient.getBlobUrl().toString()
-                + " failed for blockid: " + blockId + " due to exception. RetryCount: " + attemptCount;
+                + " failed for blockid: " + blockId + " due to exception. AttemptCount: " + attemptCount;
             LOG.error(msg, e);
             if (attemptCount == MAX_ATTEMPT) {
               throw new AzureException("Exceeded number of attempts. Max attempts is: " + MAX_ATTEMPT, e);

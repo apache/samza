@@ -77,8 +77,8 @@ import org.slf4j.LoggerFactory;
 public class AzureBlobAvroWriter implements AzureBlobWriter {
   private static final Logger LOG = LoggerFactory.getLogger(AzureBlobAvroWriter.class);
   private static final String PUBLISHED_FILE_NAME_DATE_FORMAT = "yyyy/MM/dd/HH/mm-ss";
-  private static final String BLOB_NAME_AVRO = "%s/%s-%s.avro%s";
-  private static final String BLOB_NAME_RANDOM_STRING_AVRO = "%s/%s-%s-%s.avro%s";
+  private static final String BLOB_NAME_AVRO = "%s/%s.avro%s";
+  private static final String BLOB_NAME_RANDOM_STRING_AVRO = "%s/%s-%s.avro%s";
   private static final SimpleDateFormat UTC_FORMATTER = buildUTCFormatter();
 
   // Avro's DataFileWriter has internal buffers and also adds metadata.
@@ -108,9 +108,6 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
   private final long maxRecordsPerBlob;
   private final boolean useRandomStringInBlobName;
   private final Object currentDataFileWriterLock = new Object();
-  // when either maxRecordsPerBlob or maxBlobSize is exceeded then a new blob is created
-  // with the same blobURLPrefix and blobNumber is suffixed to the blobURL to differentiate between the blobs
-  private volatile long blobNumber = 0;
   private volatile long recordsInCurrentBlob = 0;
 
   public AzureBlobAvroWriter(BlobContainerAsyncClient containerAsyncClient, String blobURLPrefix,
@@ -220,7 +217,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
       Executor blobThreadPool, int maxBlockFlushThresholdSize, int flushTimeoutMs, String blobURLPrefix,
       DataFileWriter<IndexedRecord> dataFileWriter,
       AzureBlobOutputStream azureBlobOutputStream, BlockBlobAsyncClient blockBlobAsyncClient,
-      long maxBlobSize, long maxRecordsPerBlob, Compression compression) {
+      long maxBlobSize, long maxRecordsPerBlob, Compression compression, boolean useRandomStringInBlobName) {
     if (dataFileWriter == null || azureBlobOutputStream == null || blockBlobAsyncClient == null) {
       this.currentBlobWriterComponents = null;
     } else {
@@ -235,7 +232,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     this.flushTimeoutMs = flushTimeoutMs;
     this.compression = compression;
     this.containerAsyncClient = containerAsyncClient;
-    this.useRandomStringInBlobName = false;
+    this.useRandomStringInBlobName = useRandomStringInBlobName;
     this.maxBlobSize = maxBlobSize;
     this.maxRecordsPerBlob = maxRecordsPerBlob;
   }
@@ -311,15 +308,14 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     String blobURL;
     if (useRandomStringInBlobName) {
       blobURL = String.format(BLOB_NAME_RANDOM_STRING_AVRO, blobURLPrefix,
-          UTC_FORMATTER.format(System.currentTimeMillis()), blobNumber, UUID.randomUUID().toString().substring(0, 8),
+          UTC_FORMATTER.format(System.currentTimeMillis()), UUID.randomUUID().toString().substring(0, 8),
           compression.getFileExtension());
     } else {
       blobURL = String.format(BLOB_NAME_AVRO, blobURLPrefix,
-          UTC_FORMATTER.format(System.currentTimeMillis()), blobNumber, compression.getFileExtension());
+          UTC_FORMATTER.format(System.currentTimeMillis()), compression.getFileExtension());
     }
     LOG.info("Creating new blob: {}", blobURL);
     BlockBlobAsyncClient blockBlobAsyncClient = containerAsyncClient.getBlobAsyncClient(blobURL).getBlockBlobAsyncClient();
-    blobNumber++;
 
     DataFileWriter<IndexedRecord> dataFileWriter = new DataFileWriter<>(datumWriter);
     AzureBlobOutputStream azureBlobOutputStream = new AzureBlobOutputStream(blockBlobAsyncClient, blobThreadPool, metrics,
