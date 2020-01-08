@@ -27,19 +27,21 @@ import java.util.UUID;
  */
 public class ContainerPlacementRequestMessage extends ContainerPlacementMessage {
 
-  public ContainerPlacementRequestMessage(UUID uuid, String applicationId, String processorId, String destinationHost, Duration requestExpiry) {
-    super(uuid, applicationId, processorId, destinationHost, requestExpiry, StatusCode.CREATED);
+  public ContainerPlacementRequestMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
+      Duration requestExpiry, long timestamp) {
+    super(uuid, deploymentId, processorId, destinationHost, requestExpiry, StatusCode.CREATED, timestamp);
   }
 
-  public ContainerPlacementRequestMessage(UUID uuid, String applicationId, String processorId, String destinationHost) {
-    super(uuid, applicationId, processorId, destinationHost, StatusCode.CREATED);
+  public ContainerPlacementRequestMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
+      long timestamp) {
+    super(uuid, deploymentId, processorId, destinationHost, StatusCode.CREATED, timestamp);
   }
 
   @Override
   public String toString() {
-    return "ContainerPlacementRequestMessage{" + "uuid=" + uuid + ", applicationId='" + applicationId + '\''
+    return "ContainerPlacementRequestMessage{" + "uuid=" + uuid + ", deploymentId='" + deploymentId + '\''
         + ", processorId='" + processorId + '\'' + ", destinationHost='" + destinationHost + '\'' + ", requestExpiry="
-        + requestExpiry + ", statusCode=" + statusCode + "} " + super.toString();
+        + requestExpiry + ", statusCode=" + statusCode + ", timestamp=" + timestamp + "} ";
   }
 
   @Override

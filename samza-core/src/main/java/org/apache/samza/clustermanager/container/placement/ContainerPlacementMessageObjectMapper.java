@@ -76,10 +76,11 @@ public class ContainerPlacementMessageObjectMapper {
         containerPlacementMessageMap.put("requestExpiry", value.getRequestExpiry().toMillis());
       }
       containerPlacementMessageMap.put("uuid", value.getUuid().toString());
-      containerPlacementMessageMap.put("applicationId", value.getApplicationId());
+      containerPlacementMessageMap.put("deploymentId", value.getDeploymentId());
       containerPlacementMessageMap.put("processorId", value.getProcessorId());
       containerPlacementMessageMap.put("destinationHost", value.getDestinationHost());
       containerPlacementMessageMap.put("statusCode", value.getStatusCode().name());
+      containerPlacementMessageMap.put("timestamp", value.getTimestamp());
       jsonGenerator.writeObject(containerPlacementMessageMap);
     }
   }
@@ -91,9 +92,10 @@ public class ContainerPlacementMessageObjectMapper {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
       String subType = node.get("subType").getTextValue();
-      String applicationId = node.get("applicationId").getTextValue();
+      String deploymentId = node.get("deploymentId").getTextValue();
       String processorId = node.get("processorId").getTextValue();
       String destinationHost = node.get("destinationHost").getTextValue();
+      long timestamp = node.get("timestamp").getLongValue();
       Duration requestExpiry =
           node.get("requestExpiry") == null ? null : Duration.ofMillis(node.get("requestExpiry").getLongValue());
       ContainerPlacementMessage.StatusCode statusCode = null;
@@ -105,11 +107,11 @@ public class ContainerPlacementMessageObjectMapper {
       }
       ContainerPlacementMessage message = null;
       if (subType.equals(ContainerPlacementRequestMessage.class.getName())) {
-        message = new ContainerPlacementRequestMessage(uuid, applicationId, processorId, destinationHost, requestExpiry);
+        message = new ContainerPlacementRequestMessage(uuid, deploymentId, processorId, destinationHost, requestExpiry, timestamp);
       } else if (subType.equals(ContainerPlacementResponseMessage.class.getName())) {
         String responseMessage = node.get("responseMessage").getTextValue();
-        message = new ContainerPlacementResponseMessage(uuid, applicationId, processorId, destinationHost, requestExpiry,
-            statusCode, responseMessage);
+        message = new ContainerPlacementResponseMessage(uuid, deploymentId, processorId, destinationHost, requestExpiry,
+            statusCode, responseMessage, timestamp);
       }
       return message;
     }

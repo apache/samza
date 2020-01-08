@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
-import org.apache.samza.clustermanager.ContainerProcessManager;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
@@ -38,58 +37,51 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import static org.mockito.Mockito.*;
-
-
 @RunWith(MockitoJUnitRunner.class)
-public class TestContainerPlacementHandler {
+public class TestContainerPlacementUtil {
   private static final Config CONFIG =
       new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", "test-kafka"));
   private CoordinatorStreamStore coordinatorStreamStore;
 
-  private ContainerPlacementHandler containerPlacementHandler;
+  private ContainerPlacementUtil containerPlacementUtil;
 
   @Before
   public void setup() {
-    ContainerProcessManager manager = mock(ContainerProcessManager.class);
-    doNothing().when(manager).registerContainerPlacementAction(any());
     CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
     coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
     coordinatorStreamStore.init();
-    containerPlacementHandler = new ContainerPlacementHandler(coordinatorStreamStore, manager);
+    containerPlacementUtil = new ContainerPlacementUtil(coordinatorStreamStore);
+    containerPlacementUtil.start();
   }
 
   @After
   public void teardown() {
-    containerPlacementHandler.stop();
+    containerPlacementUtil.stop();
     coordinatorStreamStore.close();
   }
 
   @Test
   public void testDefaultMetadataStore() {
-    Assert.assertNotNull(containerPlacementHandler);
+    Assert.assertNotNull(containerPlacementUtil);
     Assert.assertEquals(NamespaceAwareCoordinatorStreamStore.class,
-        containerPlacementHandler.getRequestStore().getClass());
-    Assert.assertEquals(NamespaceAwareCoordinatorStreamStore.class,
-        containerPlacementHandler.getResponseStore().getClass());
+        containerPlacementUtil.getContainerPlacementStore().getClass());
   }
 
   @Test
   public void testReadWriteContainerPlacementRequestMessages() {
     ContainerPlacementRequestMessage messageWrittenToMetastore =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST");
-    containerPlacementHandler.writeContainerPlacementRequestMessage(messageWrittenToMetastore);
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST",
+            System.currentTimeMillis());
+    containerPlacementUtil.writeContainerPlacementRequestMessage(messageWrittenToMetastore);
     Optional<ContainerPlacementRequestMessage> messageReadFromMetastore =
-        containerPlacementHandler.readContainerPlacementRequestMessage(messageWrittenToMetastore.getProcessorId());
+        containerPlacementUtil.readContainerPlacementRequestMessage(messageWrittenToMetastore.getUuid());
     Assert.assertTrue(messageReadFromMetastore.isPresent());
     Assert.assertEquals(messageWrittenToMetastore, messageReadFromMetastore.get());
     // Check for non existent key
     Optional<ContainerPlacementRequestMessage> readNull =
-        containerPlacementHandler.readContainerPlacementRequestMessage("vague");
+        containerPlacementUtil.readContainerPlacementRequestMessage(UUID.randomUUID());
     Assert.assertTrue(!readNull.isPresent());
-    // No new messages should be added to the Response Store
-    Assert.assertTrue(containerPlacementHandler.getResponseStore().all().size() == 0);
-    Assert.assertEquals(1, containerPlacementHandler.readAllContainerPlacementRequestMessages().size());
+    Assert.assertEquals(1, containerPlacementUtil.readAllContainerPlacementRequestMessages().size());
   }
 
   @Test
@@ -97,65 +89,61 @@ public class TestContainerPlacementHandler {
     ContainerPlacementResponseMessage messageWrittenToMetastore =
         new ContainerPlacementResponseMessage(UUID.randomUUID(), "app-attempt-001",
             Integer.toString(new Random().nextInt(5)), "ANY_HOST", ContainerPlacementMessage.StatusCode.BAD_REQUEST,
-            "Request ignored redundant");
+            "Request ignored redundant", System.currentTimeMillis());
 
-    containerPlacementHandler.writeContainerPlacementResponseMessage(messageWrittenToMetastore);
+    containerPlacementUtil.writeContainerPlacementResponseMessage(messageWrittenToMetastore);
     Optional<ContainerPlacementResponseMessage> messageReadFromMetastore =
-        containerPlacementHandler.readContainerPlacementResponseMessage(messageWrittenToMetastore.getProcessorId());
+        containerPlacementUtil.readContainerPlacementResponseMessage(messageWrittenToMetastore.getUuid());
     Assert.assertTrue(messageReadFromMetastore.isPresent());
     Assert.assertEquals(messageWrittenToMetastore, messageReadFromMetastore.get());
 
     // Request store must not contain anything
     Optional<ContainerPlacementRequestMessage> readNull =
-        containerPlacementHandler.readContainerPlacementRequestMessage(messageWrittenToMetastore.getProcessorId());
+        containerPlacementUtil.readContainerPlacementRequestMessage(messageWrittenToMetastore.getUuid());
     Assert.assertTrue(!readNull.isPresent());
-    // No new messages should be added to the Response Store
-    Assert.assertTrue(containerPlacementHandler.getRequestStore().all().size() == 0);
+    Assert.assertTrue(containerPlacementUtil.getContainerPlacementStore().all().size() == 1);
   }
 
   @Test
   public void testContainerPlacementMessageDeletion() {
     ContainerPlacementRequestMessage requestMessage1 =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST");
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST",
+            System.currentTimeMillis());
     ContainerPlacementRequestMessage requestMessage2 =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "1", "host2");
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "1", "host2",
+            System.currentTimeMillis());
 
-    containerPlacementHandler.writeContainerPlacementRequestMessage(requestMessage1);
-    containerPlacementHandler.writeContainerPlacementRequestMessage(requestMessage2);
+    containerPlacementUtil.writeContainerPlacementRequestMessage(requestMessage1);
+    containerPlacementUtil.writeContainerPlacementRequestMessage(requestMessage2);
 
     ContainerPlacementResponseMessage responseMessage1 =
         new ContainerPlacementResponseMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST",
-            ContainerPlacementMessage.StatusCode.BAD_REQUEST, "Request ignored redundant");
+            ContainerPlacementMessage.StatusCode.BAD_REQUEST, "Request ignored redundant", System.currentTimeMillis());
     ContainerPlacementResponseMessage responseMessage2 =
         new ContainerPlacementResponseMessage(UUID.randomUUID(), "app-attempt-001", "1", "ANY_HOST",
-            ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Requested resources");
+            ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Requested resources", System.currentTimeMillis());
 
-    containerPlacementHandler.writeContainerPlacementResponseMessage(responseMessage1);
-    containerPlacementHandler.writeContainerPlacementResponseMessage(responseMessage2);
+    containerPlacementUtil.writeContainerPlacementResponseMessage(responseMessage1);
+    containerPlacementUtil.writeContainerPlacementResponseMessage(responseMessage2);
 
-    Assert.assertEquals(2, containerPlacementHandler.getRequestStore().all().size());
-    Assert.assertEquals(2, containerPlacementHandler.getResponseStore().all().size());
+    Assert.assertEquals(4, containerPlacementUtil.getContainerPlacementStore().all().size());
 
-    containerPlacementHandler.deleteContainerPlacementResponseMessage(responseMessage1.getProcessorId());
+    containerPlacementUtil.deleteContainerPlacementResponseMessage(responseMessage1.getUuid());
 
-    Assert.assertEquals(2, containerPlacementHandler.getRequestStore().all().size());
-    Assert.assertEquals(1, containerPlacementHandler.getResponseStore().all().size());
+    Assert.assertEquals(3, containerPlacementUtil.getContainerPlacementStore().all().size());
 
-    containerPlacementHandler.deleteContainerPlacementRequestMessage(requestMessage1.getProcessorId());
+    containerPlacementUtil.deleteContainerPlacementRequestMessage(requestMessage1.getUuid());
 
-    Assert.assertEquals(1, containerPlacementHandler.getRequestStore().all().size());
-    Assert.assertEquals(1, containerPlacementHandler.getResponseStore().all().size());
+    Assert.assertEquals(2, containerPlacementUtil.getContainerPlacementStore().all().size());
 
-    Assert.assertEquals(
-        containerPlacementHandler.readContainerPlacementRequestMessage(requestMessage2.getProcessorId()).get(),
+    Assert.assertEquals(containerPlacementUtil.readContainerPlacementRequestMessage(requestMessage2.getUuid()).get(),
         requestMessage2);
-    Assert.assertEquals(
-        containerPlacementHandler.readContainerPlacementResponseMessage(responseMessage2.getProcessorId()).get(),
+    Assert.assertEquals(containerPlacementUtil.readContainerPlacementResponseMessage(responseMessage2.getUuid()).get(),
         responseMessage2);
 
-    containerPlacementHandler.deleteAllContainerPlacementMessages();
+    containerPlacementUtil.deleteAllContainerPlacementMessages();
 
-    Assert.assertEquals(0, containerPlacementHandler.readAllContainerPlacementRequestMessages().size());
-    Assert.assertEquals(0, containerPlacementHandler.getResponseStore().all().size());
+    Assert.assertEquals(0, containerPlacementUtil.readAllContainerPlacementRequestMessages().size());
+    Assert.assertEquals(0, containerPlacementUtil.getContainerPlacementStore().all().size());
   }
 }

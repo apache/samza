@@ -36,20 +36,20 @@ public class TestContainerPlacementObjectMapper {
   @Test
   public void testIncomingContainerMessageSerDe() throws IOException {
     testContainerPlacementRequestMessage(
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST"));
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST", System.currentTimeMillis()));
     testContainerPlacementRequestMessage(
         new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST",
-            Duration.ofSeconds(10)));
+            Duration.ofSeconds(10), System.currentTimeMillis()));
   }
 
   @Test
   public void testOutgoingContainerMessageSerDe() throws IOException {
     testContainerPlacementResponseMessage(new ContainerPlacementResponseMessage(UUID.randomUUID(), "app-attempt-001",
         Integer.toString(new Random().nextInt(5)), "ANY_HOST", ContainerPlacementMessage.StatusCode.BAD_REQUEST,
-        "Request ignored redundant"));
+        "Request ignored redundant", System.currentTimeMillis()));
     testContainerPlacementResponseMessage(new ContainerPlacementResponseMessage(UUID.randomUUID(), "app-attempt-001",
         Integer.toString(new Random().nextInt(5)), "ANY_HOST", Duration.ofSeconds(10),
-        ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Request is in progress"));
+        ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Request is in progress", System.currentTimeMillis()));
   }
 
   private void testContainerPlacementRequestMessage(ContainerPlacementRequestMessage requestMessage)

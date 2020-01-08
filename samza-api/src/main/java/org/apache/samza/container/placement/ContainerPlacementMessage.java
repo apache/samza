@@ -70,7 +70,7 @@ public abstract class ContainerPlacementMessage {
    * Unique identifier for a deployment so messages can be invalidated across a job restarts
    * for ex yarn bases cluster manager should set this to app attempt id
    */
-  protected final String applicationId;
+  protected final String deploymentId;
   // Logical container Id 0, 1, 2
   protected final String processorId;
   // Destination host where container is desired to be moved
@@ -79,29 +79,32 @@ public abstract class ContainerPlacementMessage {
   protected final Duration requestExpiry;
   // Status of the current request
   protected final StatusCode statusCode;
+  // Timestamp of the message
+  protected final long timestamp;
 
-  protected ContainerPlacementMessage(UUID uuid, String applicationId, String processorId, String destinationHost,
-      Duration requestExpiry, StatusCode statusCode) {
+  protected ContainerPlacementMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
+      Duration requestExpiry, StatusCode statusCode, long timestamp) {
     Preconditions.checkNotNull(uuid, "uuid cannot be null");
-    Preconditions.checkNotNull(applicationId, "applicationId cannot be null");
+    Preconditions.checkNotNull(deploymentId, "deploymentId cannot be null");
     Preconditions.checkNotNull(processorId, "processorId cannot be null");
     Preconditions.checkNotNull(destinationHost, "destinationHost cannot be null");
     Preconditions.checkNotNull(statusCode, "statusCode cannot be null");
     this.uuid = uuid;
-    this.applicationId = applicationId;
+    this.deploymentId = deploymentId;
     this.processorId = processorId;
     this.destinationHost = destinationHost;
     this.requestExpiry = requestExpiry;
     this.statusCode = statusCode;
+    this.timestamp = timestamp;
   }
 
-  protected ContainerPlacementMessage(UUID uuid, String applicationId, String processorId, String destinationHost,
-      StatusCode statusCode) {
-    this(uuid, applicationId, processorId, destinationHost, null, statusCode);
+  protected ContainerPlacementMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
+      StatusCode statusCode, long timestamp) {
+    this(uuid, deploymentId, processorId, destinationHost, null, statusCode, timestamp);
   }
 
-  public String getApplicationId() {
-    return applicationId;
+  public String getDeploymentId() {
+    return deploymentId;
   }
 
   public String getProcessorId() {
@@ -124,6 +127,10 @@ public abstract class ContainerPlacementMessage {
     return uuid;
   }
 
+  public long getTimestamp() {
+    return timestamp;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -132,14 +139,14 @@ public abstract class ContainerPlacementMessage {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    ContainerPlacementMessage that = (ContainerPlacementMessage) o;
-    return uuid.equals(that.uuid) && getApplicationId().equals(that.getApplicationId()) && getProcessorId().equals(
-        that.getProcessorId()) && getDestinationHost().equals(that.getDestinationHost())
-        && getStatusCode() == that.getStatusCode();
+    ContainerPlacementMessage message = (ContainerPlacementMessage) o;
+    return getUuid().equals(message.getUuid()) && getDeploymentId().equals(message.getDeploymentId())
+        && getProcessorId().equals(message.getProcessorId()) && getDestinationHost().equals(
+        message.getDestinationHost());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(uuid, getApplicationId(), getProcessorId(), getDestinationHost(), getStatusCode());
+    return Objects.hash(getUuid(), getDeploymentId(), getProcessorId(), getDestinationHost());
   }
 }

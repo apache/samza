@@ -24,28 +24,28 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Encapsulates the response sent from the JobCoordinator for a container placement action
+ * Encapsulates the value for the response sent from the JobCoordinator for a container placement action
  */
 public class ContainerPlacementResponseMessage extends ContainerPlacementMessage {
   // Returned status of the request
   private String responseMessage;
 
-  public ContainerPlacementResponseMessage(UUID uuid, String applicationId, String processorId, String destinationHost,
-      Duration requestExpiry, StatusCode statusCode, String responseMessage) {
-    super(uuid, applicationId, processorId, destinationHost, requestExpiry, statusCode);
+  public ContainerPlacementResponseMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
+      Duration requestExpiry, StatusCode statusCode, String responseMessage, long timestamp) {
+    super(uuid, deploymentId, processorId, destinationHost, requestExpiry, statusCode, timestamp);
     Preconditions.checkNotNull(responseMessage);
     this.responseMessage = responseMessage;
   }
 
-  public ContainerPlacementResponseMessage(UUID uuid, String applicationId, String processorId, String destinationHost,
-      StatusCode statusCode, String responseMessage) {
-    this(uuid, applicationId, processorId, destinationHost, null, statusCode, responseMessage);
+  public ContainerPlacementResponseMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
+      StatusCode statusCode, String responseMessage, long timestamp) {
+    this(uuid, deploymentId, processorId, destinationHost, null, statusCode, responseMessage, timestamp);
   }
 
   static ContainerPlacementResponseMessage fromContainerPlacementRequestMessage(
-      ContainerPlacementRequestMessage requestMessage, StatusCode statusCode, String responseMessage) {
-    return new ContainerPlacementResponseMessage(requestMessage.getUuid(), requestMessage.getApplicationId(), requestMessage.getProcessorId(),
-        requestMessage.getDestinationHost(), requestMessage.getRequestExpiry(), statusCode, responseMessage);
+      ContainerPlacementRequestMessage requestMessage, StatusCode statusCode, String responseMessage, long timestamp) {
+    return new ContainerPlacementResponseMessage(requestMessage.getUuid(), requestMessage.getDeploymentId(), requestMessage.getProcessorId(),
+        requestMessage.getDestinationHost(), requestMessage.getRequestExpiry(), statusCode, responseMessage, timestamp);
   }
 
   public String getResponseMessage() {
@@ -55,9 +55,9 @@ public class ContainerPlacementResponseMessage extends ContainerPlacementMessage
   @Override
   public String toString() {
     return "ContainerPlacementResponseMessage{" + "responseMessage='" + responseMessage + '\'' + ", uuid=" + uuid
-        + ", applicationId='" + applicationId + '\'' + ", processorId='" + processorId + '\'' + ", destinationHost='"
-        + destinationHost + '\'' + ", requestExpiry=" + requestExpiry + ", statusCode=" + statusCode + "} "
-        + super.toString();
+        + ", deploymentId='" + deploymentId + '\'' + ", processorId='" + processorId + '\'' + ", destinationHost='"
+        + destinationHost + '\'' + ", requestExpiry=" + requestExpiry + ", statusCode=" + statusCode + ", timestamp="
+        + timestamp + "} ";
   }
 
   @Override

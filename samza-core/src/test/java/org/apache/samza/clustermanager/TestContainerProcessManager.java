@@ -34,10 +34,8 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.JobModelManagerTestUtil;
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
@@ -79,8 +77,6 @@ public class TestContainerProcessManager {
       put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
       put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
       put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
-      put("job.name", "test-job");
-      put("job.coordinator.system", "test-kafka");
     }
   };
   private Config config = new MapConfig(configVals);
@@ -170,8 +166,7 @@ public class TestContainerProcessManager {
         new MetricsRegistryMap(),
         clusterResourceManager,
         Optional.empty(),
-        containerManager,
-        getMetaStore()
+        containerManager
     );
 
     allocator =
@@ -640,7 +635,7 @@ public class TestContainerProcessManager {
 
     ContainerProcessManager manager =
         new ContainerProcessManager(new ClusterManagerConfig(config), state, new MetricsRegistryMap(), clusterResourceManager,
-            Optional.of(allocator), containerManager, getMetaStore());
+            Optional.of(allocator), containerManager);
 
     manager.start();
     SamzaResource resource = new SamzaResource(1, 1024, "host1", "resource-1");
@@ -892,15 +887,7 @@ public class TestContainerProcessManager {
 
   private ContainerProcessManager buildContainerProcessManager(ClusterManagerConfig clusterManagerConfig, SamzaApplicationState state,
       ClusterResourceManager clusterResourceManager, Optional<ContainerAllocator> allocator) {
-
     return new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(), clusterResourceManager, allocator,
-         new ContainerManager(state, clusterResourceManager, false), getMetaStore());
-  }
-
-  private MetadataStore getMetaStore() {
-    CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(getConfig());
-    MetadataStore store = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
-    store.init();
-    return store;
+         new ContainerManager(state, clusterResourceManager, false));
   }
 }

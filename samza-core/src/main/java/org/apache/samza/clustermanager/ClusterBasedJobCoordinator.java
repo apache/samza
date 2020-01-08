@@ -27,6 +27,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import org.apache.samza.SamzaException;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementHandler;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementUtil;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -148,6 +150,13 @@ public class ClusterBasedJobCoordinator {
   private final Optional<StreamRegexMonitor> inputStreamRegexMonitor;
 
   /**
+   * ContainerPlacement control messages dispatcher and util
+   */
+  private final ContainerPlacementUtil containerPlacementUtil;
+  private final ContainerPlacementHandler containerPlacementHandler;
+  private Thread containerPlacementHandlerThread;
+
+  /**
    * Metrics to track stats around container failures, needed containers etc.
    */
   private final MetricsRegistryMap metrics;
@@ -200,6 +209,12 @@ public class ClusterBasedJobCoordinator {
 
     // build a container process Manager
     containerProcessManager = createContainerProcessManager();
+
+    // build utils related to container placements
+    containerPlacementUtil = new ContainerPlacementUtil(coordinatorStreamStore);
+    containerPlacementHandler = new ContainerPlacementHandler(containerPlacementUtil, containerProcessManager);
+    this.containerPlacementHandlerThread =
+        new Thread(containerPlacementHandler, "Samza-" + ContainerPlacementHandler.class.getSimpleName());
   }
 
   /**
@@ -261,9 +276,14 @@ public class ClusterBasedJobCoordinator {
       partitionMonitor.ifPresent(StreamPartitionCountMonitor::start);
       inputStreamRegexMonitor.ifPresent(StreamRegexMonitor::start);
 
+      // ContainerPlacementHandler thread has to start after the cpm is started
+      LOG.info("Starting the container placement handler thread");
+      containerPlacementHandlerThread.start();
+
       boolean isInterrupted = false;
 
-      while (!containerProcessManager.shouldShutdown() && !checkAndThrowException() && !isInterrupted) {
+      while (!containerProcessManager.shouldShutdown() && !checkAndThrowException() && !isInterrupted
+          && checkContainerPlacementHandlerThreadIsAlive()) {
         try {
           Thread.sleep(jobCoordinatorSleepInterval);
         } catch (InterruptedException e) {
@@ -287,15 +307,23 @@ public class ClusterBasedJobCoordinator {
     return false;
   }
 
+  private boolean checkContainerPlacementHandlerThreadIsAlive() {
+    if (containerPlacementHandlerThread.isAlive()) {
+      return true;
+    }
+    LOG.info("{} thread is dead issuing a shutdown", containerPlacementHandlerThread.getName());
+    return false;
+  }
+
   /**
    * Stops all components of the JobCoordinator.
    */
   private void onShutDown() {
-
     try {
       partitionMonitor.ifPresent(StreamPartitionCountMonitor::stop);
       inputStreamRegexMonitor.ifPresent(StreamRegexMonitor::stop);
       systemAdmins.stop();
+      shutDownContainerPlacementHandlerAndUtils();
       containerProcessManager.stop();
       coordinatorStreamStore.close();
     } catch (Throwable e) {
@@ -310,6 +338,19 @@ public class ClusterBasedJobCoordinator {
       } catch (Throwable e) {
         LOG.error("Exception while stopping jmx server", e);
       }
+    }
+  }
+
+  private void shutDownContainerPlacementHandlerAndUtils() {
+    // Shutdown container placement handler
+    containerPlacementHandler.stop();
+    try {
+      containerPlacementHandlerThread.join();
+      LOG.info("Stopped container placement handler thread");
+      containerPlacementUtil.stop();
+    } catch (InterruptedException ie) {
+      LOG.error("Container Placement handler thread join threw an interrupted exception", ie);
+      Thread.currentThread().interrupt();
     }
   }
 
@@ -399,7 +440,7 @@ public class ClusterBasedJobCoordinator {
 
   @VisibleForTesting
   ContainerProcessManager createContainerProcessManager() {
-    return new ContainerProcessManager(config, state, metrics, coordinatorStreamStore);
+    return new ContainerProcessManager(config, state, metrics);
   }
 
   /**
