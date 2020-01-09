@@ -24,6 +24,12 @@ package org.apache.samza.config;
  */
 public interface ConfigLoaderFactory {
   /**
+   * job.config.loader.properties prefix wraps properties needed for {@link ConfigLoader} to loader config.
+   * e.g. PropertiesConfigLoaderFactory will read job.config.loader.properties.path to locate the config file location
+   */
+  String CONFIG_LOADER_PROPERTIES_PREFIX = "job.config.loader.properties.";
+
+  /**
    * Get an instance of {@link ConfigLoader}
    *
    * @param config start up config which specifies properties needed for the loader to load full job config.
