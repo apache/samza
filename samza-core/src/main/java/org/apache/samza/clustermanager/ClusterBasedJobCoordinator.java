@@ -278,6 +278,7 @@ public class ClusterBasedJobCoordinator {
 
       // ContainerPlacementHandler thread has to start after the cpm is started
       LOG.info("Starting the container placement handler thread");
+      containerPlacementUtil.start();
       containerPlacementHandlerThread.start();
 
       boolean isInterrupted = false;

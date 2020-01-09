@@ -81,6 +81,8 @@ public class TestContainerPlacementUtil {
     Optional<ContainerPlacementRequestMessage> readNull =
         containerPlacementUtil.readContainerPlacementRequestMessage(UUID.randomUUID());
     Assert.assertTrue(!readNull.isPresent());
+    // No response messages should exist
+    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementResponseMessage(messageWrittenToMetastore.getUuid()).isPresent());
     Assert.assertEquals(1, containerPlacementUtil.readAllContainerPlacementRequestMessages().size());
   }
 
@@ -101,6 +103,8 @@ public class TestContainerPlacementUtil {
     Optional<ContainerPlacementRequestMessage> readNull =
         containerPlacementUtil.readContainerPlacementRequestMessage(messageWrittenToMetastore.getUuid());
     Assert.assertTrue(!readNull.isPresent());
+    // No request messages should exist
+    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementRequestMessage(messageWrittenToMetastore.getUuid()).isPresent());
     Assert.assertTrue(containerPlacementUtil.getContainerPlacementStore().all().size() == 1);
   }
 
