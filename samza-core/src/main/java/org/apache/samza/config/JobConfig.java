@@ -51,12 +51,6 @@ public class JobConfig extends MapConfig {
    * job.config.loader.factory specifies {@link ConfigLoaderFactory} to get {@link ConfigLoader}
    */
   public static final String CONFIG_LOADER_FACTORY = "job.config.loader.factory";
-  /**
-   * job.config.loader.properties prefix wraps properties needed for {@link ConfigLoader} to loader config.
-   * e.g. {@link org.apache.samza.config.loaders.PropertiesConfigLoaderFactory}
-   * will read job.config.loader.properties.path to locate the config file location
-   */
-  public static final String CONFIG_LOADER_PROPERTIES_PREFIX = "job.config.loader.properties.";
 
   public static final String JOB_NAME = "job.name";
   public static final String JOB_ID = "job.id";
