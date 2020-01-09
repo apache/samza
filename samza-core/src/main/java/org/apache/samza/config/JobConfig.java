@@ -47,6 +47,11 @@ public class JobConfig extends MapConfig {
   public static final String CONFIG_REWRITERS = "job.config.rewriters";
   public static final String CONFIG_REWRITER_CLASS = "job.config.rewriter.%s.class";
 
+  /**
+   * job.config.loader.factory specifies {@link ConfigLoaderFactory} to get {@link ConfigLoader}
+   */
+  public static final String CONFIG_LOADER_FACTORY = "job.config.loader.factory";
+
   public static final String JOB_NAME = "job.name";
   public static final String JOB_ID = "job.id";
   static final String DEFAULT_JOB_ID = "1";
@@ -348,4 +353,11 @@ public class JobConfig extends MapConfig {
     return get(COORDINATOR_STREAM_FACTORY, DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY);
   }
 
+  /**
+   * Get config loader factory according to the configs
+   * @return full qualified name of {@link ConfigLoaderFactory}
+   */
+  public Optional<String> getConfigLoaderFactory() {
+    return Optional.ofNullable(get(CONFIG_LOADER_FACTORY));
+  }
 }
