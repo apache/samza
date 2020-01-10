@@ -22,8 +22,6 @@ package org.apache.samza.runtime;
 import java.time.Duration;
 import java.util.List;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.descriptors.ApplicationDescriptor;
-import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.Config;
@@ -47,8 +45,8 @@ public class RemoteApplicationRunner implements ApplicationRunner {
   private static final Logger LOG = LoggerFactory.getLogger(RemoteApplicationRunner.class);
   private static final long DEFAULT_SLEEP_DURATION_MS = 2000;
 
-  private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
-  private final RemoteJobPlanner planner;
+  private final SamzaApplication app;
+  private final Config config;
 
   /**
    * Constructors a {@link RemoteApplicationRunner} to run the {@code app} with the {@code config}.
@@ -57,13 +55,21 @@ public class RemoteApplicationRunner implements ApplicationRunner {
    * @param config configuration for the application
    */
   public RemoteApplicationRunner(SamzaApplication app, Config config) {
-    this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
-    this.planner = new RemoteJobPlanner(appDesc);
+    this.app = app;
+    this.config = config;
   }
 
   @Override
   public void run(ExternalContext externalContext) {
+    if (new JobConfig(this.config).getConfigLoaderFactory().isPresent()) {
+      JobRunner runner = new JobRunner(config);
+      runner.submit();
+      return;
+    }
+
+    // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
     try {
+      JobPlanner planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(app, config));
       List<JobConfig> jobConfigs = planner.prepareJobs();
       if (jobConfigs.isEmpty()) {
         throw new SamzaException("No jobs to run.");
@@ -85,7 +91,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
     // since currently we only support single actual remote job, we can get its status without
     // building the execution plan.
     try {
-      JobConfig jc = new JobConfig(JobPlanner.generateSingleJobConfig(appDesc.getConfig()));
+      JobConfig jc = new JobConfig(JobPlanner.generateSingleJobConfig(config));
       LOG.info("Killing job {}", jc.getName());
       JobRunner runner = new JobRunner(jc);
       runner.kill();
@@ -99,7 +105,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
     // since currently we only support single actual remote job, we can get its status without
     // building the execution plan
     try {
-      JobConfig jc = new JobConfig(JobPlanner.generateSingleJobConfig(appDesc.getConfig()));
+      JobConfig jc = new JobConfig(JobPlanner.generateSingleJobConfig(config));
       return getApplicationStatus(jc);
     } catch (Throwable t) {
       throw new SamzaException("Failed to get status for application", t);
@@ -113,7 +119,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
 
   @Override
   public boolean waitForFinish(Duration timeout) {
-    JobConfig jobConfig = new JobConfig(JobPlanner.generateSingleJobConfig(appDesc.getConfig()));
+    JobConfig jobConfig = new JobConfig(JobPlanner.generateSingleJobConfig(config));
     boolean finished = true;
     long timeoutInMs = timeout.toMillis();
     long startTimeInMs = System.currentTimeMillis();
