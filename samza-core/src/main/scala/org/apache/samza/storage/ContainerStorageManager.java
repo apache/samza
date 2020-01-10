@@ -526,51 +526,56 @@ public class ContainerStorageManager {
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
 
     Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessors = new HashMap<>();
-    getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
+    containerModel.getTasks().forEach((taskName, taskModel) -> {
         sideInputStoresToProcessors.put(taskName, new HashMap<>());
+        TaskMode taskMode = taskModel.getTaskMode();
+
         for (String storeName : sideInputSystemStreams.keySet()) {
+
+          SideInputsProcessor sideInputsProcessor;
           Optional<String> sideInputsProcessorSerializedInstance =
               config.getSideInputsProcessorSerializedInstance(storeName);
+
           if (sideInputsProcessorSerializedInstance.isPresent()) {
-            sideInputStoresToProcessors.get(taskName)
-                .put(storeName, SerdeUtils.deserialize("Side Inputs Processor",
-                    sideInputsProcessorSerializedInstance.get()));
-          } else {
-            String sideInputsProcessorFactoryClassName = config.getSideInputsProcessorFactory(storeName)
-                .orElseThrow(() -> new SamzaException(
-                    String.format("Could not find sideInputs processor factory for store: %s", storeName)));
+
+            sideInputsProcessor = SerdeUtils.deserialize("Side Inputs Processor", sideInputsProcessorSerializedInstance.get());
+            LOG.info("Using serialized side-inputs-processor for store: {}, task: {}", storeName, taskName);
+
+          } else if (config.getSideInputsProcessorFactory(storeName).isPresent()) {
+            String sideInputsProcessorFactoryClassName = config.getSideInputsProcessorFactory(storeName).get();
             SideInputsProcessorFactory sideInputsProcessorFactory =
                 ReflectionUtil.getObj(sideInputsProcessorFactoryClassName, SideInputsProcessorFactory.class);
-            SideInputsProcessor sideInputsProcessor =
-                sideInputsProcessorFactory.getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry());
-            sideInputStoresToProcessors.get(taskName).put(storeName, sideInputsProcessor);
-          }
-        }
-      });
+            sideInputsProcessor = sideInputsProcessorFactory.getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry());
+            LOG.info("Using side-inputs-processor from factory: {} for store: {}, task: {}", config.getSideInputsProcessorFactory(storeName).get(), storeName, taskName);
 
-    // creating identity sideInputProcessor for stores of standbyTasks
-    getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
-        sideInputStoresToProcessors.put(taskName, new HashMap<>());
-        for (String storeName : sideInputSystemStreams.keySet()) {
+          } else {
+            // if this is a active-task with a side-input store but no sideinput-processor-factory defined in config, we rely on upstream validations to fail the deploy
 
-          // have to use the right serde because the sideInput stores are created
-          Serde keySerde = serdes.get(config.getStorageKeySerde(storeName)
-              .orElseThrow(() -> new SamzaException("Could not find storage key serde for store: " + storeName)));
-          Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName)
-              .orElseThrow(() -> new SamzaException("Could not find storage msg serde for store: " + storeName)));
-          sideInputStoresToProcessors.get(taskName).put(storeName, new SideInputsProcessor() {
-            @Override
-            public Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store) {
-              // Ignore message if the key is null
-              if (message.getKey() == null) {
-                return ImmutableList.of();
-              } else {
-                // Skip serde if the message is null
-                return ImmutableList.of(new Entry<>(keySerde.fromBytes((byte[]) message.getKey()),
-                    message.getMessage() == null ? null : msgSerde.fromBytes((byte[]) message.getMessage())));
+            // if this is a standby-task and the store is a non-side-input changelog store
+            // we creating identity sideInputProcessor for stores of standbyTasks
+            // have to use the right serde because the sideInput stores are created
+
+            Serde keySerde = serdes.get(config.getStorageKeySerde(storeName)
+                .orElseThrow(() -> new SamzaException("Could not find storage key serde for store: " + storeName)));
+            Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName)
+                .orElseThrow(() -> new SamzaException("Could not find storage msg serde for store: " + storeName)));
+            sideInputsProcessor = new SideInputsProcessor() {
+              @Override
+              public Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store) {
+                // Ignore message if the key is null
+                if (message.getKey() == null) {
+                  return ImmutableList.of();
+                } else {
+                  // Skip serde if the message is null
+                  return ImmutableList.of(new Entry<>(keySerde.fromBytes((byte[]) message.getKey()),
+                      message.getMessage() == null ? null : msgSerde.fromBytes((byte[]) message.getMessage())));
+                }
               }
-            }
-          });
+            };
+            LOG.info("Using identity side-inputs-processor for store: {}, task: {}", storeName, taskName);
+          }
+
+          sideInputStoresToProcessors.get(taskName).put(storeName, sideInputsProcessor);
         }
       });
 
@@ -627,7 +632,7 @@ public class ContainerStorageManager {
     return this.sideInputStorageManagers.values().stream().collect(Collectors.toSet());
   }
 
-  public void start() throws SamzaException {
+  public void start() throws SamzaException, InterruptedException {
     Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets = new HashMap<>();
     if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
       getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
@@ -652,7 +657,8 @@ public class ContainerStorageManager {
   }
 
   // Restoration of all stores, in parallel across tasks
-  private void restoreStores(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets) {
+  private void restoreStores(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets)
+      throws InterruptedException {
     LOG.info("Store Restore started");
 
     // initialize each TaskStorageManager
@@ -660,7 +666,7 @@ public class ContainerStorageManager {
        taskStorageManager.init(checkpointedChangelogSSPOffsets));
 
     // Start each store consumer once
-    this.storeConsumers.values().stream().distinct().forEach(systemConsumer -> systemConsumer.start());
+    this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);
 
     // Create a thread pool for parallel restores (and stopping of persistent stores)
     ExecutorService executorService = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
@@ -679,6 +685,11 @@ public class ContainerStorageManager {
     for (Future future : taskRestoreFutures) {
       try {
         future.get();
+      } catch (InterruptedException e) {
+        LOG.warn("Received an interrupt during store restoration. Issuing interrupts to the store restoration workers to exit "
+            + "prematurely without restoring full state.");
+        executorService.shutdownNow();
+        throw e;
       } catch (Exception e) {
         LOG.error("Exception when restoring ", e);
         throw new SamzaException("Exception when restoring ", e);
@@ -688,7 +699,7 @@ public class ContainerStorageManager {
     executorService.shutdown();
 
     // Stop each store consumer once
-    this.storeConsumers.values().stream().distinct().forEach(systemConsumer -> systemConsumer.stop());
+    this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::stop);
 
     // Now re-create persistent stores in read-write mode, leave non-persistent stores as-is
     recreatePersistentTaskStoresInReadWriteMode(this.containerModel, jobContext, containerContext,
@@ -786,6 +797,14 @@ public class ContainerStorageManager {
       }
 
     } catch (InterruptedException e) {
+      LOG.warn("Received an interrupt during side inputs store restoration."
+          + " Exiting prematurely without completing store restore.");
+      /*
+       * We want to stop side input restoration and rethrow the exception upstream. Container should handle the
+       * interrupt exception and shutdown the components and cleaning up the resource. We don't want to clean up the
+       * resources prematurely here.
+       */
+      shouldShutdown = true; // todo: should we cancel the flush future right away or wait for container to handle it as part of shutdown sequence?
       throw new SamzaException("Side inputs read was interrupted", e);
     }
 
@@ -915,22 +934,32 @@ public class ContainerStorageManager {
     @Override
     public Void call() {
       long startTime = System.currentTimeMillis();
-      LOG.info("Starting stores in task instance {}", this.taskName.getTaskName());
-      taskRestoreManager.restore();
+      try {
+        LOG.info("Starting stores in task instance {}", this.taskName.getTaskName());
+        taskRestoreManager.restore();
+      } catch (InterruptedException e) {
+        /*
+         * The container thread is the only external source to trigger an interrupt to the restoration thread and thus
+         * it is okay to swallow this exception and not propagate it upstream. If the container is interrupted during
+         * the store restoration, ContainerStorageManager signals the restore workers to abandon restoration and then
+         * finally propagates the exception upstream to trigger container shutdown.
+         */
+        LOG.warn("Received an interrupt during store restoration for task: {}.", this.taskName.getTaskName());
+      } finally {
+        // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
+        // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
+        taskRestoreManager.stopPersistentStores();
+        long timeToRestore = System.currentTimeMillis() - startTime;
 
-      // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
-      // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
-      taskRestoreManager.stopPersistentStores();
+        if (this.samzaContainerMetrics != null) {
+          Gauge taskGauge = this.samzaContainerMetrics.taskStoreRestorationMetrics().getOrDefault(this.taskName, null);
 
-      long timeToRestore = System.currentTimeMillis() - startTime;
-
-      if (this.samzaContainerMetrics != null) {
-        Gauge taskGauge = this.samzaContainerMetrics.taskStoreRestorationMetrics().getOrDefault(this.taskName, null);
-
-        if (taskGauge != null) {
-          taskGauge.set(timeToRestore);
+          if (taskGauge != null) {
+            taskGauge.set(timeToRestore);
+          }
         }
       }
+
       return null;
     }
   }

@@ -17,28 +17,29 @@
  * under the License.
  */
 
-package org.apache.samza.util
+package org.apache.samza.config.loaders;
 
-import org.junit.Assert._
-import org.junit.Test
-import org.apache.samza.config.MapConfig
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigLoader;
+import org.apache.samza.config.ConfigLoaderFactory;
 
-class TestUtil {
-  @Test
-  def testGetLocalHost(): Unit = {
-    assertNotNull(Util.getLocalHost)
-  }
 
-  @Test
-  def testGetObjExistingClass() {
-    val obj = Util.getObj("org.apache.samza.config.MapConfig", classOf[MapConfig])
-    assertNotNull(obj)
-    assertEquals(classOf[MapConfig], obj.getClass())
-  }
+/**
+ * ConfigLoaderFactory which initialize {@link PropertiesConfigLoader} with properties file path specified in
+ * job.config.loader.properties.path.
+ */
+public class PropertiesConfigLoaderFactory implements ConfigLoaderFactory {
+  private static final String PATH_KEY = "path";
 
-  @Test(expected = classOf[ClassNotFoundException])
-  def testGetObjNonexistentClass() {
-    Util.getObj("this.class.does.NotExist", classOf[Object])
-    assert(false, "This should not get hit.")
+  @Override
+  public ConfigLoader getLoader(Config config) {
+    String path = config.get(PATH_KEY);
+
+    if (path == null) {
+      throw new SamzaException("path is required to read config from properties file");
+    }
+
+    return new PropertiesConfigLoader(path);
   }
 }

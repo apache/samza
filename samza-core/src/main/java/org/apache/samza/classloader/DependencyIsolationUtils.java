@@ -25,16 +25,24 @@ public class DependencyIsolationUtils {
    * TODO make this configurable or taken from an environment variable
    */
   public static final String FRAMEWORK_API_DIRECTORY = "__samzaFrameworkApi";
+
   /**
    * Directory inside the home directory of the cluster-based job coordinator in which the framework infrastructure
    * artifacts are placed, for usage in dependency isolation for the cluster-based job coordinator.
    * TODO make this configurable or taken from an environment variable
    */
   public static final String FRAMEWORK_INFRASTRUCTURE_DIRECTORY = "__samzaFrameworkInfrastructure";
+
   /**
    * Directory inside the home directory of the cluster-based job coordinator in which the application artifacts are
    * placed, for usage in dependency isolation for the cluster-based job coordinator.
    * TODO make this configurable or taken from an environment variable
    */
   public static final String APPLICATION_DIRECTORY = "__package";
+
+  /**
+   * Name of the file which contains the class names (or globs) which should be loaded from the framework API
+   * classloader.
+   */
+  public static final String FRAMEWORK_API_CLASS_LIST_FILE_NAME = "samza-framework-api-classes.txt";
 }

@@ -35,8 +35,17 @@ public interface TaskRestoreManager {
 
   /**
    * Restore state from checkpoints, state snapshots and changelog.
+   * Currently, store restoration happens on a separate thread pool within {@code ContainerStorageManager}. In case of
+   * interrupt/shutdown signals from {@code SamzaContainer}, {@code ContainerStorageManager} may interrupt the restore
+   * thread.
+   *
+   * Note: Typically, interrupt signals don't bubble up as {@link InterruptedException} unless the restore thread is
+   * waiting on IO/network. In case of busy looping, implementors are expected to check the interrupt status of the
+   * thread periodically and shutdown gracefully before throwing {@link InterruptedException} upstream.
+   * {@code SamzaContainer} will not wait for clean up and the interrupt signal is the best effort by the container
+   * to notify that its shutting down.
    */
-  void restore();
+  void restore() throws InterruptedException;
 
   /**
    * Stop all persistent stores after restoring.

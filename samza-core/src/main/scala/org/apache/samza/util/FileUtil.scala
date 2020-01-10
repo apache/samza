@@ -25,8 +25,6 @@ import java.io._
 import java.nio.file._
 import java.util.zip.CRC32
 
-import org.apache.samza.util.Util.info
-
 class FileUtil extends Logging {
   /**
     * Writes checksum & data to a file

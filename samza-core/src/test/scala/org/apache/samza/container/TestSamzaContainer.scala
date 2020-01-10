@@ -35,6 +35,8 @@ import org.junit.Assert._
 import org.junit.{Before, Test}
 import org.mockito.Matchers.{any, notNull}
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.mockito.{Mock, Mockito, MockitoAnnotations}
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
@@ -137,6 +139,46 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     verify(this.samzaContainerListener).afterStop()
     verify(this.samzaContainerListener, never()).afterFailure(any())
     verify(this.runLoop).run()
+  }
+
+  @Test
+  def testInterruptDuringStoreRestorationShutdownContainer(): Unit = {
+    when(this.containerStorageManager.start())
+      .thenAnswer(new Answer[Void] {
+        override def answer(mock: InvocationOnMock): Void = {
+        Thread.sleep(1000)
+        throw new InterruptedException("Injecting interrupt into container storage manager")
+      }
+      })
+
+    this.samzaContainer.run
+
+    assertEquals(SamzaContainerStatus.STOPPED, this.samzaContainer.getStatus())
+    verify(this.samzaContainerListener).beforeStart()
+    verify(this.samzaContainerListener).afterStop()
+    verify(this.samzaContainerListener, never()).afterFailure(any())
+    verify(this.runLoop, times(0)).run()
+  }
+
+  @Test
+  def testInterruptDuringStoreRestorationWithErrorsDuringContainerShutdown(): Unit = {
+    when(this.containerStorageManager.start())
+      .thenAnswer(new Answer[Void] {
+        override def answer(mock: InvocationOnMock): Void = {
+          Thread.sleep(1000)
+          throw new InterruptedException("Injecting interrupt into container storage manager")
+        }
+      })
+
+    when(this.taskInstance.shutdownTask).thenThrow(new RuntimeException("Trigger a shutdown, please."))
+
+    this.samzaContainer.run
+
+    assertEquals(SamzaContainerStatus.FAILED, this.samzaContainer.getStatus())
+    verify(this.samzaContainerListener).beforeStart()
+    verify(this.samzaContainerListener).afterFailure(any())
+    verify(this.samzaContainerListener, never()).afterStop()
+    verify(this.runLoop, times(0)).run()
   }
 
   @Test

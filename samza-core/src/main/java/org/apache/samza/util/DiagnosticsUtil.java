@@ -30,6 +30,7 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.diagnostics.DiagnosticsManager;
@@ -42,6 +43,9 @@ import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.runtime.LocalContainerRunner;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
+import org.apache.samza.system.StreamSpec;
+import org.apache.samza.system.SystemAdmin;
+import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
@@ -52,6 +56,7 @@ import scala.Option;
 
 public class DiagnosticsUtil {
   private static final Logger log = LoggerFactory.getLogger(DiagnosticsUtil.class);
+  private static final String DIAGNOSTICS_STREAM_ID = "samza-diagnostics-stream-id";
 
   // Write a file in the samza.log.dir named {exec-env-container-id}.metadata that contains
   // metadata about the container such as containerId, jobName, jobId, hostname, timestamp, version info, and others.
@@ -127,7 +132,7 @@ public class DiagnosticsUtil {
       }
 
       // Create a systemProducer for giving to diagnostic-reporter and diagnosticsManager
-      SystemFactory systemFactory = Util.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
+      SystemFactory systemFactory = ReflectionUtil.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
       SystemProducer systemProducer =
           systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
       DiagnosticsManager diagnosticsManager =
@@ -147,5 +152,35 @@ public class DiagnosticsUtil {
     }
 
     return diagnosticsManagerReporterPair;
+  }
+
+  public static void createDiagnosticsStream(Config config) {
+    if (!new JobConfig(config).getDiagnosticsEnabled()) {
+      return;
+    }
+    // if diagnostics is enabled, create diagnostics stream if it doesnt exist
+
+    SystemAdmins systemAdmins = new SystemAdmins(config);
+    String diagnosticsSystemStreamName = new MetricsConfig(config)
+        .getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)
+        .orElseThrow(() -> new ConfigException("Missing required config: " +
+            String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM,
+                MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)));
+
+    SystemStream diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(diagnosticsSystemStreamName);
+    SystemAdmin diagnosticsSysAdmin = systemAdmins.getSystemAdmin(diagnosticsSystemStream.getSystem());
+    StreamSpec diagnosticsStreamSpec = new StreamSpec(DIAGNOSTICS_STREAM_ID, diagnosticsSystemStream.getStream(),
+        diagnosticsSystemStream.getSystem(), new StreamConfig(config).getStreamProperties(DIAGNOSTICS_STREAM_ID));
+
+    log.info("Creating diagnostics stream {}", diagnosticsSystemStream.getStream());
+    diagnosticsSysAdmin.start();
+
+    if (diagnosticsSysAdmin.createStream(diagnosticsStreamSpec)) {
+      log.info("Created diagnostics stream {}", diagnosticsSystemStream.getStream());
+    } else {
+      log.info("Diagnostics stream {} already exists", diagnosticsSystemStream.getStream());
+    }
+
+    diagnosticsSysAdmin.stop();
   }
 }

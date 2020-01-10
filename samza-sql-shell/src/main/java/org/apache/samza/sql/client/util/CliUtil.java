@@ -46,7 +46,7 @@ public class CliUtil {
 
   /**
    * Trims: leading spaces; trailing spaces and ";"s
-   * @param command: input String to trim
+   * @param command input String to trim
    * @return trimmed String
    */
   public static String trimCommand(String command) {
@@ -68,8 +68,8 @@ public class CliUtil {
 
   /**
    * Prints to input {@link PrintWriter} the usage string of the input {@link CliCommand}
-   * @param command: command to get its usage string
-   * @param writer: where to print usage
+   * @param command command to get its usage string
+   * @param writer where to print usage
    */
   public static void printCommandUsage(CliCommand command, PrintWriter writer) {
     writer.println(command.getCommandType().getUsage());
