@@ -111,4 +111,24 @@ public class TestYarnJob {
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
+
+  @Test
+  public void testBuildJobSubmissionEnvironment() throws IOException {
+    Config config = new MapConfig(new ImmutableMap.Builder<String, String>()
+        .put(JobConfig.JOB_NAME, "jobName")
+        .put(JobConfig.JOB_ID, "jobId")
+        .put(JobConfig.CONFIG_LOADER_FACTORY, "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory")
+        .put(YarnConfig.AM_JVM_OPTIONS, "")
+        .put(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true")
+        .build());
+    String expectedSubmissionConfig = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
+        .writeValueAsString(config));
+    Map<String, String> expected = ImmutableMap.of(
+        ShellCommandConfig.ENV_SUBMISSION_CONFIG(), expectedSubmissionConfig,
+        ShellCommandConfig.ENV_JAVA_OPTS(), "",
+        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED(), "true",
+        ShellCommandConfig.ENV_APPLICATION_LIB_DIR(), "./__package/lib");
+    assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
+        YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
+  }
 }

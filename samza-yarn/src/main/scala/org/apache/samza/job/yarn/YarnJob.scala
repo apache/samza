@@ -173,10 +173,16 @@ object YarnJob extends Logging {
   @VisibleForTesting
   private[yarn] def buildEnvironment(config: Config, yarnConfig: YarnConfig,
     jobConfig: JobConfig): Map[String, String] = {
-    val coordinatorSystemConfig = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
     val envMapBuilder = Map.newBuilder[String, String]
-    envMapBuilder += ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG ->
-      Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(coordinatorSystemConfig))
+    if (jobConfig.getConfigLoaderFactory.isPresent) {
+      envMapBuilder += ShellCommandConfig.ENV_SUBMISSION_CONFIG ->
+        Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(config))
+    } else {
+      // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
+      val coordinatorSystemConfig = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
+      envMapBuilder += ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG ->
+        Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(coordinatorSystemConfig))
+    }
     envMapBuilder += ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(yarnConfig.getAmOpts)
     val clusterBasedJobCoordinatorDependencyIsolationEnabled =
       jobConfig.getClusterBasedJobCoordinatorDependencyIsolationEnabled
