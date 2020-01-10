@@ -21,7 +21,6 @@ package org.apache.samza.container.placement;
 import java.time.Duration;
 import java.util.UUID;
 
-
 /**
  * Encapsulates the request sent from the external controller to the JobCoordinator to take a container placement action
  */
@@ -39,9 +38,16 @@ public class ContainerPlacementRequestMessage extends ContainerPlacementMessage 
 
   @Override
   public String toString() {
-    return "ContainerPlacementRequestMessage{" + "uuid=" + uuid + ", deploymentId='" + deploymentId + '\''
-        + ", processorId='" + processorId + '\'' + ", destinationHost='" + destinationHost + '\'' + ", requestExpiry="
-        + requestExpiry + ", statusCode=" + statusCode + ", timestamp=" + timestamp + "} ";
+    final StringBuilder sb = new StringBuilder("ContainerPlacementRequestMessage{");
+    sb.append(" UUID: ").append(uuid);
+    sb.append(", Processor ID: ").append(processorId);
+    sb.append(", deploymentId='").append(deploymentId).append('\'');
+    sb.append(", destinationHost='").append(destinationHost).append('\'');
+    sb.append(", requestExpiry=").append(requestExpiry);
+    sb.append(", statusCode=").append(statusCode);
+    sb.append(", timestamp=").append(timestamp);
+    sb.append('}');
+    return sb.toString();
   }
 
   @Override

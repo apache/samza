@@ -66,9 +66,9 @@ public class ContainerPlacementMessageObjectMapper {
         throws IOException {
       Map<String, Object> containerPlacementMessageMap = new HashMap<String, Object>();
       if (value instanceof ContainerPlacementRequestMessage) {
-        containerPlacementMessageMap.put("subType", ContainerPlacementRequestMessage.class.getName());
+        containerPlacementMessageMap.put("subType", ContainerPlacementRequestMessage.class.getSimpleName());
       } else if (value instanceof ContainerPlacementResponseMessage) {
-        containerPlacementMessageMap.put("subType", ContainerPlacementResponseMessage.class.getName());
+        containerPlacementMessageMap.put("subType", ContainerPlacementResponseMessage.class.getSimpleName());
         containerPlacementMessageMap.put("responseMessage",
             ((ContainerPlacementResponseMessage) value).getResponseMessage());
       }
@@ -106,9 +106,9 @@ public class ContainerPlacementMessageObjectMapper {
         }
       }
       ContainerPlacementMessage message = null;
-      if (subType.equals(ContainerPlacementRequestMessage.class.getName())) {
+      if (subType.equals(ContainerPlacementRequestMessage.class.getSimpleName())) {
         message = new ContainerPlacementRequestMessage(uuid, deploymentId, processorId, destinationHost, requestExpiry, timestamp);
-      } else if (subType.equals(ContainerPlacementResponseMessage.class.getName())) {
+      } else if (subType.equals(ContainerPlacementResponseMessage.class.getSimpleName())) {
         String responseMessage = node.get("responseMessage").getTextValue();
         message = new ContainerPlacementResponseMessage(uuid, deploymentId, processorId, destinationHost, requestExpiry,
             statusCode, responseMessage, timestamp);

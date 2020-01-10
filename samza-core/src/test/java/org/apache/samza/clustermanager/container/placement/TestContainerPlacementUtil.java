@@ -19,6 +19,7 @@
 package org.apache.samza.clustermanager.container.placement;
 
 import com.google.common.collect.ImmutableMap;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -36,6 +37,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.runners.MockitoJUnitRunner;
+
 
 @RunWith(MockitoJUnitRunner.class)
 public class TestContainerPlacementUtil {
@@ -69,20 +71,20 @@ public class TestContainerPlacementUtil {
 
   @Test
   public void testReadWriteContainerPlacementRequestMessages() {
-    ContainerPlacementRequestMessage messageWrittenToMetastore =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST",
-            System.currentTimeMillis());
-    containerPlacementUtil.writeContainerPlacementRequestMessage(messageWrittenToMetastore);
+    Long timestamp = System.currentTimeMillis();
+    UUID uuid = containerPlacementUtil.writeContainerPlacementRequestMessage("app-attempt-001", "4", "ANY_HOST", null,
+        timestamp);
     Optional<ContainerPlacementRequestMessage> messageReadFromMetastore =
-        containerPlacementUtil.readContainerPlacementRequestMessage(messageWrittenToMetastore.getUuid());
+        containerPlacementUtil.readContainerPlacementRequestMessage(uuid);
     Assert.assertTrue(messageReadFromMetastore.isPresent());
-    Assert.assertEquals(messageWrittenToMetastore, messageReadFromMetastore.get());
+    assertContainerPlacementRequestMessage(uuid, "app-attempt-001", "4", "ANY_HOST", null, timestamp,
+        messageReadFromMetastore.get());
     // Check for non existent key
     Optional<ContainerPlacementRequestMessage> readNull =
         containerPlacementUtil.readContainerPlacementRequestMessage(UUID.randomUUID());
     Assert.assertTrue(!readNull.isPresent());
     // No response messages should exist
-    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementResponseMessage(messageWrittenToMetastore.getUuid()).isPresent());
+    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementResponseMessage(uuid).isPresent());
     Assert.assertEquals(1, containerPlacementUtil.readAllContainerPlacementRequestMessages().size());
   }
 
@@ -104,50 +106,72 @@ public class TestContainerPlacementUtil {
         containerPlacementUtil.readContainerPlacementRequestMessage(messageWrittenToMetastore.getUuid());
     Assert.assertTrue(!readNull.isPresent());
     // No request messages should exist
-    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementRequestMessage(messageWrittenToMetastore.getUuid()).isPresent());
+    Assert.assertTrue(
+        !containerPlacementUtil.readContainerPlacementRequestMessage(messageWrittenToMetastore.getUuid()).isPresent());
     Assert.assertTrue(containerPlacementUtil.getContainerPlacementStore().all().size() == 1);
   }
 
   @Test
   public void testContainerPlacementMessageDeletion() {
-    ContainerPlacementRequestMessage requestMessage1 =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST",
-            System.currentTimeMillis());
-    ContainerPlacementRequestMessage requestMessage2 =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "1", "host2",
-            System.currentTimeMillis());
-
-    containerPlacementUtil.writeContainerPlacementRequestMessage(requestMessage1);
-    containerPlacementUtil.writeContainerPlacementRequestMessage(requestMessage2);
+    Long timestamp = System.currentTimeMillis();
+    UUID requestMessage1UUID =
+        containerPlacementUtil.writeContainerPlacementRequestMessage("app-attempt-001", "4", "ANY_HOST", null,
+            timestamp);
+    UUID requestMessage2UUID =
+        containerPlacementUtil.writeContainerPlacementRequestMessage("app-attempt-001", "1", "host2",
+            Duration.ofMillis(100), timestamp);
 
     ContainerPlacementResponseMessage responseMessage1 =
-        new ContainerPlacementResponseMessage(UUID.randomUUID(), "app-attempt-001", "4", "ANY_HOST",
+        new ContainerPlacementResponseMessage(requestMessage1UUID, "app-attempt-001", "4", "ANY_HOST",
             ContainerPlacementMessage.StatusCode.BAD_REQUEST, "Request ignored redundant", System.currentTimeMillis());
     ContainerPlacementResponseMessage responseMessage2 =
-        new ContainerPlacementResponseMessage(UUID.randomUUID(), "app-attempt-001", "1", "ANY_HOST",
+        new ContainerPlacementResponseMessage(requestMessage2UUID, "app-attempt-001", "1", "ANY_HOST",
             ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Requested resources", System.currentTimeMillis());
 
     containerPlacementUtil.writeContainerPlacementResponseMessage(responseMessage1);
     containerPlacementUtil.writeContainerPlacementResponseMessage(responseMessage2);
 
+    Assert.assertTrue(containerPlacementUtil.readContainerPlacementRequestMessage(requestMessage1UUID).isPresent());
+    Assert.assertTrue(containerPlacementUtil.readContainerPlacementResponseMessage(requestMessage2UUID).isPresent());
     Assert.assertEquals(4, containerPlacementUtil.getContainerPlacementStore().all().size());
 
-    containerPlacementUtil.deleteContainerPlacementResponseMessage(responseMessage1.getUuid());
+    containerPlacementUtil.deleteContainerPlacementResponseMessage(requestMessage1UUID);
 
     Assert.assertEquals(3, containerPlacementUtil.getContainerPlacementStore().all().size());
+    Assert.assertTrue(containerPlacementUtil.readContainerPlacementRequestMessage(requestMessage1UUID).isPresent());
 
-    containerPlacementUtil.deleteContainerPlacementRequestMessage(requestMessage1.getUuid());
+    containerPlacementUtil.deleteContainerPlacementRequestMessage(requestMessage1UUID);
 
     Assert.assertEquals(2, containerPlacementUtil.getContainerPlacementStore().all().size());
+    assertContainerPlacementRequestMessage(requestMessage2UUID, "app-attempt-001", "1", "host2", Duration.ofMillis(100),
+        timestamp, containerPlacementUtil.readContainerPlacementRequestMessage(requestMessage2UUID).get());
 
-    Assert.assertEquals(containerPlacementUtil.readContainerPlacementRequestMessage(requestMessage2.getUuid()).get(),
-        requestMessage2);
-    Assert.assertEquals(containerPlacementUtil.readContainerPlacementResponseMessage(responseMessage2.getUuid()).get(),
+    Assert.assertEquals(containerPlacementUtil.readContainerPlacementResponseMessage(requestMessage2UUID).get(),
         responseMessage2);
+    // requestMessage1 & associated responseMessage1 should not be present
+    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementRequestMessage(requestMessage1UUID).isPresent());
+    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementResponseMessage(requestMessage1UUID).isPresent());
+
+    requestMessage1UUID =
+        containerPlacementUtil.writeContainerPlacementRequestMessage("app-attempt-001", "4", "ANY_HOST", null,
+            System.currentTimeMillis());
+    containerPlacementUtil.writeContainerPlacementResponseMessage(responseMessage1);
+    containerPlacementUtil.deleteAllContainerPlacementMessages(requestMessage1UUID);
+    // requestMessage1 & associated responseMessage1 should not be present
+    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementRequestMessage(requestMessage1UUID).isPresent());
+    Assert.assertTrue(!containerPlacementUtil.readContainerPlacementResponseMessage(requestMessage1UUID).isPresent());
 
     containerPlacementUtil.deleteAllContainerPlacementMessages();
-
     Assert.assertEquals(0, containerPlacementUtil.readAllContainerPlacementRequestMessages().size());
-    Assert.assertEquals(0, containerPlacementUtil.getContainerPlacementStore().all().size());
+  }
+
+  public void assertContainerPlacementRequestMessage(UUID uuid, String deploymentId, String processorId,
+      String destinationHost, Duration requestExpiry, long timestamp, ContainerPlacementRequestMessage other) {
+    Assert.assertEquals(other.getUuid(), uuid);
+    Assert.assertEquals(other.getDeploymentId(), deploymentId);
+    Assert.assertEquals(other.getProcessorId(), processorId);
+    Assert.assertEquals(other.getDestinationHost(), destinationHost);
+    Assert.assertEquals(other.getRequestExpiry(), requestExpiry);
+    Assert.assertEquals(other.getTimestamp(), timestamp);
   }
 }

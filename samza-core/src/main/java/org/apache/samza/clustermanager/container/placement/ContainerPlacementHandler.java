@@ -78,7 +78,7 @@ public class ContainerPlacementHandler implements Runnable {
     if (isRunning) {
       isRunning = false;
     } else {
-      LOG.warn("ContainerPlacementHandler metastore already stopped");
+      LOG.warn("ContainerPlacementHandler already stopped");
     }
   }
 }

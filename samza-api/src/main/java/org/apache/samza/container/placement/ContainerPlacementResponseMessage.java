@@ -54,10 +54,17 @@ public class ContainerPlacementResponseMessage extends ContainerPlacementMessage
 
   @Override
   public String toString() {
-    return "ContainerPlacementResponseMessage{" + "responseMessage='" + responseMessage + '\'' + ", uuid=" + uuid
-        + ", deploymentId='" + deploymentId + '\'' + ", processorId='" + processorId + '\'' + ", destinationHost='"
-        + destinationHost + '\'' + ", requestExpiry=" + requestExpiry + ", statusCode=" + statusCode + ", timestamp="
-        + timestamp + "} ";
+    final StringBuilder sb = new StringBuilder("ContainerPlacementResponseMessage{");
+    sb.append(" UUID: ").append(uuid);
+    sb.append(", Processor ID: ").append(processorId);
+    sb.append(", deploymentId='").append(deploymentId).append('\'');
+    sb.append(", destinationHost='").append(destinationHost).append('\'');
+    sb.append(", requestExpiry=").append(requestExpiry);
+    sb.append(", statusCode=").append(statusCode);
+    sb.append(", timestamp=").append(timestamp);
+    sb.append(", responseMessage='").append(responseMessage).append('\'');
+    sb.append('}');
+    return sb.toString();
   }
 
   @Override

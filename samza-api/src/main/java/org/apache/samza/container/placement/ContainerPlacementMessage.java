@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Encapsulates the request or response payload information between the ContainerPlacementHandler service and external
+ * Encapsulates the request or response payload information between the ContainerPlacementService and external
  * controllers issuing placement actions
  */
 public abstract class ContainerPlacementMessage {
@@ -62,8 +62,7 @@ public abstract class ContainerPlacementMessage {
   }
 
   /**
-   * UUID attached to a message which helps in identifying duplicate request messages written to metastore and not
-   * retake actions even if metastore is eventually consistent
+   * Unique identifier of a request or response message. Helps in identifying duplicate request messages.
    */
   protected final UUID uuid;
   /**
@@ -79,7 +78,7 @@ public abstract class ContainerPlacementMessage {
   protected final Duration requestExpiry;
   // Status of the current request
   protected final StatusCode statusCode;
-  // Timestamp of the message
+  // Timestamp of the request or response message
   protected final long timestamp;
 
   protected ContainerPlacementMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
@@ -89,6 +88,7 @@ public abstract class ContainerPlacementMessage {
     Preconditions.checkNotNull(processorId, "processorId cannot be null");
     Preconditions.checkNotNull(destinationHost, "destinationHost cannot be null");
     Preconditions.checkNotNull(statusCode, "statusCode cannot be null");
+    Preconditions.checkNotNull(timestamp, "Timestamp of the message cannot be null");
     this.uuid = uuid;
     this.deploymentId = deploymentId;
     this.processorId = processorId;

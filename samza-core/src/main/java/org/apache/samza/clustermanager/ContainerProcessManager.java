@@ -190,7 +190,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   }
 
   public boolean shouldShutdown() {
-    LOG.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
+    LOG.info("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
       state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
 
     if (exceptionOccurred != null) {

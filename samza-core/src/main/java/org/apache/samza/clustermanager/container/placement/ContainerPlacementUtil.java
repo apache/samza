@@ -21,6 +21,7 @@ package org.apache.samza.clustermanager.container.placement;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -100,11 +101,25 @@ public class ContainerPlacementUtil {
   /**
    * Writes a {@link ContainerPlacementRequestMessage} to the underlying metastore. This method should be used by external controllers
    * to issue a request to JobCoordinator
-   * @param message container placement request
+   *
+   * @param deploymentId identifier of the deployment
+   * @param processorId logical id of the samza container 0,1,2
+   * @param destinationHost host where the container is desired to move
+   * @param requestExpiry optional per request expiry timeout for requests to cluster manager
+   * @param timestamp timestamp of the request
+   * @return uuid generated for the request
    */
-  public void writeContainerPlacementRequestMessage(ContainerPlacementRequestMessage message) {
+  public UUID writeContainerPlacementRequestMessage(String deploymentId, String processorId, String destinationHost,
+      Duration requestExpiry, long timestamp) {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
-    Preconditions.checkNotNull(message);
+    Preconditions.checkNotNull(deploymentId, "deploymentId should not be null");
+    Preconditions.checkNotNull(processorId, "processorId not be null");
+    Preconditions.checkNotNull(destinationHost, "destinationHost should not be null");
+    Preconditions.checkNotNull(timestamp, "timestamp should not be null");
+    UUID uuid = UUID.randomUUID();
+    ContainerPlacementRequestMessage message =
+        new ContainerPlacementRequestMessage(uuid, deploymentId, processorId, destinationHost, requestExpiry,
+            timestamp);
     try {
       containerPlacementMessageStore.put(toContainerPlacementMessageKey(message.getUuid(), message.getClass()),
           objectMapper.writeValueAsBytes(message));
@@ -112,6 +127,7 @@ public class ContainerPlacementUtil {
       throw new SamzaException(
           String.format("ContainerPlacementRequestMessage might have been not written to metastore %s", message), ex);
     }
+    return uuid;
   }
 
   /**
@@ -134,7 +150,7 @@ public class ContainerPlacementUtil {
   /**
    * Reads a {@link ContainerPlacementRequestMessage} from the underlying metastore
    * @param uuid uuid of the request
-   * @return ContainerPlacementRequestMessage is its present
+   * @return ContainerPlacementRequestMessage if present
    */
   public Optional<ContainerPlacementRequestMessage> readContainerPlacementRequestMessage(UUID uuid) {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
@@ -148,9 +164,6 @@ public class ContainerPlacementUtil {
             (ContainerPlacementRequestMessage) objectMapper.readValue(messageBytes, ContainerPlacementMessage.class);
         return Optional.of(requestMessage);
       } catch (IOException e) {
-        /**
-         * TODO: Check if you wanna ignore corrupted or bad message?
-         */
         throw new SamzaException(
             String.format("Error reading the ContainerPlacementResponseMessage for uuid {}", uuid), e);
       }
@@ -161,7 +174,7 @@ public class ContainerPlacementUtil {
   /**
    * Reads a {@link ContainerPlacementResponseMessage} from the underlying metastore
    * @param uuid uuid of the response message
-   * @return ContainerPlacementResponseMessage is its present
+   * @return ContainerPlacementResponseMessage if present
    */
   public Optional<ContainerPlacementResponseMessage> readContainerPlacementResponseMessage(UUID uuid) {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
@@ -203,6 +216,16 @@ public class ContainerPlacementUtil {
   }
 
   /**
+   * Deletes both {@link ContainerPlacementRequestMessage} and {@link ContainerPlacementResponseMessage} identified by
+   * uuid
+   * @param uuid uuid of request and response message
+   */
+  public void deleteAllContainerPlacementMessages(UUID uuid) {
+    deleteContainerPlacementRequestMessage(uuid);
+    deleteContainerPlacementResponseMessage(uuid);
+  }
+
+  /**
    * Deletes all {@link ContainerPlacementMessage}
    */
   public void deleteAllContainerPlacementMessages() {
@@ -213,7 +236,7 @@ public class ContainerPlacementUtil {
     }
   }
 
-  public static String toContainerPlacementMessageKey(UUID uuid, Class<?> messageType) {
+  static String toContainerPlacementMessageKey(UUID uuid, Class<?> messageType) {
     Preconditions.checkNotNull(uuid, "UUID should not be null");
     Preconditions.checkNotNull(messageType, "messageType should not be null");
     Preconditions.checkArgument(

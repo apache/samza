@@ -150,11 +150,11 @@ public class ClusterBasedJobCoordinator {
   private final Optional<StreamRegexMonitor> inputStreamRegexMonitor;
 
   /**
-   * ContainerPlacement control messages dispatcher and util
+   * Container placement action dispatcher and util
    */
   private final ContainerPlacementUtil containerPlacementUtil;
   private final ContainerPlacementHandler containerPlacementHandler;
-  private Thread containerPlacementHandlerThread;
+  private final Thread containerPlacementHandlerThread;
 
   /**
    * Metrics to track stats around container failures, needed containers etc.
