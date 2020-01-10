@@ -110,8 +110,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @param config configuration for the application
    * @param metadataStoreFactory the instance of {@link MetadataStoreFactory} to read and write to coordinator stream.
    */
-  @VisibleForTesting
-  LocalApplicationRunner(SamzaApplication app, Config config, MetadataStoreFactory metadataStoreFactory) {
+  public LocalApplicationRunner(SamzaApplication app, Config config, MetadataStoreFactory metadataStoreFactory) {
     this(ApplicationDescriptorUtil.getAppDescriptor(app, config), getCoordinationUtils(config), metadataStoreFactory);
   }
 
