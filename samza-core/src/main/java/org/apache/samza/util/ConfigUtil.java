@@ -19,11 +19,14 @@
 
 package org.apache.samza.util;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,5 +69,23 @@ public class ConfigUtil {
     ConfigRewriter rewriter = ReflectionUtil.getObj(rewriterClassName, ConfigRewriter.class);
     LOG.info("Re-writing config with {}", rewriter);
     return rewriter.rewrite(rewriterName, config);
+  }
+
+  /**
+   * Overrides original config with overridden values.
+   *
+   * @param original config to be overridden.
+   * @param overrides overridden values.
+   * @return the overridden config.
+   */
+  @SafeVarargs
+  public static Config override(Config original, Map<String, String>... overrides) {
+    Map<String, String> map = new HashMap<>(original);
+
+    for (Map<String, String> override : overrides) {
+      map.putAll(override);
+    }
+
+    return new MapConfig(map);
   }
 }

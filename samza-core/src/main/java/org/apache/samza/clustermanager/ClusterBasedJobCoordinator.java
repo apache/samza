@@ -23,15 +23,22 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationUtil;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
+import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
+import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.classloader.IsolatingClassLoaderFactory;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigLoader;
+import org.apache.samza.config.ConfigLoaderFactory;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -47,6 +54,7 @@ import org.apache.samza.coordinator.StreamRegexMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
+import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.JobModelUtil;
@@ -59,8 +67,10 @@ import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.DiagnosticsUtil;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -178,9 +188,30 @@ public class ClusterBasedJobCoordinator {
   public ClusterBasedJobCoordinator(Config coordinatorSystemConfig) {
     metrics = new MetricsRegistryMap();
 
-    coordinatorStreamStore = new CoordinatorStreamStore(coordinatorSystemConfig, metrics);
-    coordinatorStreamStore.init();
-    config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
+    JobConfig jobConfig = new JobConfig(coordinatorSystemConfig);
+
+    if (jobConfig.getConfigLoaderFactory().isPresent()) {
+      ConfigLoaderFactory factory = ReflectionUtil.getObj(jobConfig.getConfigLoaderFactory().get(), ConfigLoaderFactory.class);
+      ConfigLoader loader = factory.getLoader(coordinatorSystemConfig.subset(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX));
+      Config originalConfig = ConfigUtil.rewriteConfig(loader.getConfig());
+
+      ApplicationDescriptorImpl<? extends ApplicationDescriptor>
+          appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig);
+      RemoteJobPlanner planner = new RemoteJobPlanner(appDesc);
+      List<JobConfig> jobConfigs = planner.prepareJobs();
+
+      config = ConfigUtil.override(jobConfigs.get(0), CoordinatorStreamUtil.buildCoordinatorStreamConfig(jobConfigs.get(0)));
+
+      coordinatorStreamStore = new CoordinatorStreamStore(config, metrics);
+      coordinatorStreamStore.init();
+      CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
+      DiagnosticsUtil.createDiagnosticsStream(config);
+    } else {
+      // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
+      coordinatorStreamStore = new CoordinatorStreamStore(coordinatorSystemConfig, metrics);
+      coordinatorStreamStore.init();
+      config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
+    }
 
     // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE));
@@ -386,8 +417,7 @@ public class ClusterBasedJobCoordinator {
   @VisibleForTesting
   SamzaApplicationState.SamzaAppStatus getAppStatus() {
     // make sure to only return a unmodifiable copy of the status variable
-    final SamzaApplicationState.SamzaAppStatus copy = state.status;
-    return copy;
+    return state.status;
   }
 
   @VisibleForTesting
@@ -480,20 +510,41 @@ public class ClusterBasedJobCoordinator {
    * {@link #main(String[])} so that it can be executed directly or from a separate classloader.
    */
   private static void runClusterBasedJobCoordinator(String[] args) {
-    Config coordinatorSystemConfig;
     final String coordinatorSystemEnv = System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG());
-    try {
-      //Read and parse the coordinator system config.
-      LOG.info("Parsing coordinator system config {}", coordinatorSystemEnv);
-      coordinatorSystemConfig =
-          new MapConfig(SamzaObjectMapper.getObjectMapper().readValue(coordinatorSystemEnv, Config.class));
-      LOG.info("Using the coordinator system config: {}.", coordinatorSystemConfig);
-    } catch (IOException e) {
-      LOG.error("Exception while reading coordinator stream config", e);
-      throw new SamzaException(e);
+    final String submissionEnv = System.getenv(ShellCommandConfig.ENV_SUBMISSION_CONFIG());
+
+    if (submissionEnv != null) {
+      Config submissionConfig;
+      try {
+        //Read and parse the coordinator system config.
+        LOG.info("Parsing submission config {}", submissionEnv);
+        submissionConfig =
+            new MapConfig(SamzaObjectMapper.getObjectMapper().readValue(submissionEnv, Config.class));
+        LOG.info("Using the submission config: {}.", submissionEnv);
+      } catch (IOException e) {
+        LOG.error("Exception while reading submission config", e);
+        throw new SamzaException(e);
+      }
+
+      ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(submissionConfig);
+      jc.run();
+      LOG.info("Finished running ClusterBasedJobCoordinator");
+    } else {
+      // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
+      Config coordinatorSystemConfig;
+      try {
+        //Read and parse the coordinator system config.
+        LOG.info("Parsing coordinator system config {}", coordinatorSystemEnv);
+        coordinatorSystemConfig =
+            new MapConfig(SamzaObjectMapper.getObjectMapper().readValue(coordinatorSystemEnv, Config.class));
+        LOG.info("Using the coordinator system config: {}.", coordinatorSystemConfig);
+      } catch (IOException e) {
+        LOG.error("Exception while reading coordinator stream config", e);
+        throw new SamzaException(e);
+      }
+      ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(coordinatorSystemConfig);
+      jc.run();
+      LOG.info("Finished running ClusterBasedJobCoordinator");
     }
-    ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(coordinatorSystemConfig);
-    jc.run();
-    LOG.info("Finished running ClusterBasedJobCoordinator");
   }
 }
