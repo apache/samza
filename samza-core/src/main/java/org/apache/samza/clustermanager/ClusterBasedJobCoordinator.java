@@ -201,10 +201,8 @@ public class ClusterBasedJobCoordinator {
         throw new SamzaException("Only support single remote job is supported.");
       }
 
-      // Merge with default coordinator stream config
-      config = ConfigUtil.override(jobConfigs.get(0), CoordinatorStreamUtil.buildCoordinatorStreamConfig(jobConfigs.get(0)));
-
-      coordinatorStreamStore = new CoordinatorStreamStore(config, metrics);
+      config = jobConfigs.get(0);
+      coordinatorStreamStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config), metrics);
       coordinatorStreamStore.init();
       CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
       DiagnosticsUtil.createDiagnosticsStream(config);
@@ -522,7 +520,7 @@ public class ClusterBasedJobCoordinator {
         LOG.info("Parsing submission config {}", submissionEnv);
         submissionConfig =
             new MapConfig(SamzaObjectMapper.getObjectMapper().readValue(submissionEnv, Config.class));
-        LOG.info("Using the submission config: {}.", submissionEnv);
+        LOG.info("Using the submission config: {}.", submissionConfig);
       } catch (IOException e) {
         LOG.error("Exception while reading submission config", e);
         throw new SamzaException(e);
