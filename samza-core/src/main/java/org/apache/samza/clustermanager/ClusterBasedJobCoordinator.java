@@ -191,15 +191,20 @@ public class ClusterBasedJobCoordinator {
     JobConfig jobConfig = new JobConfig(coordinatorSystemConfig);
 
     if (jobConfig.getConfigLoaderFactory().isPresent()) {
-      ConfigLoaderFactory factory = ReflectionUtil.getObj(jobConfig.getConfigLoaderFactory().get(), ConfigLoaderFactory.class);
-      ConfigLoader loader = factory.getLoader(coordinatorSystemConfig.subset(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX));
-      Config originalConfig = ConfigUtil.rewriteConfig(loader.getConfig());
+      // load full job config with ConfigLoader
+      Config originalConfig = ConfigUtil.loadConfig(coordinatorSystemConfig);
 
+      // Execute planning
       ApplicationDescriptorImpl<? extends ApplicationDescriptor>
           appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig);
       RemoteJobPlanner planner = new RemoteJobPlanner(appDesc);
       List<JobConfig> jobConfigs = planner.prepareJobs();
 
+      if (jobConfigs.size() != 1) {
+        throw new SamzaException("Only support single remote job is supported.");
+      }
+
+      // Merge with default coordinator stream config
       config = ConfigUtil.override(jobConfigs.get(0), CoordinatorStreamUtil.buildCoordinatorStreamConfig(jobConfigs.get(0)));
 
       coordinatorStreamStore = new CoordinatorStreamStore(config, metrics);

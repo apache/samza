@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigLoader;
+import org.apache.samza.config.ConfigLoaderFactory;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -69,6 +71,25 @@ public class ConfigUtil {
     ConfigRewriter rewriter = ReflectionUtil.getObj(rewriterClassName, ConfigRewriter.class);
     LOG.info("Re-writing config with {}", rewriter);
     return rewriter.rewrite(rewriterName, config);
+  }
+
+  /**
+   * Load full job config with {@link ConfigLoaderFactory} when present.
+   *
+   * @param original config
+   * @return full job config
+   */
+  public static Config loadConfig(Config original) {
+    JobConfig jobConfig = new JobConfig(original);
+    Config fullConfig = original;
+
+    if (jobConfig.getConfigLoaderFactory().isPresent()) {
+      ConfigLoaderFactory factory = ReflectionUtil.getObj(jobConfig.getConfigLoaderFactory().get(), ConfigLoaderFactory.class);
+      ConfigLoader loader = factory.getLoader(original.subset(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX));
+      fullConfig = ConfigUtil.rewriteConfig(loader.getConfig());
+    }
+
+    return fullConfig;
   }
 
   /**
