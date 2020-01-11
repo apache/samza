@@ -153,7 +153,7 @@ public class ContainerManager {
   void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus,
       Duration preferredHostRetryDelay, ContainerAllocator containerAllocator) {
     if (hasActiveContainerPlacementAction(processorId)) {
-      LOG.info("Setting the for container state with processorId {} to be stopped because of existing container placement action", processorId);
+      LOG.info("Setting the container state with processorId {} to be stopped because of existing container placement action", processorId);
       getPlacementActionMetadata(processorId).get().setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOPPED);
     } else if (standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
@@ -248,6 +248,7 @@ public class ContainerManager {
     }
 
     // Case 2. When host affinity is disabled wait for cluster resource manager return resources
+    // TODO: SAMZA-2330: Handle expired request for host affinity disabled case by retying request for getting ANY_HOST
     if (!hostAffinityEnabled) {
       return;
     }

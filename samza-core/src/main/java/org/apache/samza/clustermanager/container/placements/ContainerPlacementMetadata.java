@@ -110,8 +110,14 @@ public class ContainerPlacementMetadata {
 
   @Override
   public String toString() {
-    return "ContainerPlacementMetadata{" + "requestMessage=" + requestMessage + ", sourceHost='" + sourceHost + '\''
-        + ", resourceRequests=" + resourceRequests + ", actionStatus=" + actionStatus + ", containerStatus="
-        + containerStatus + ", responseMessage='" + responseMessage + '\'' + '}';
+    final StringBuilder sb = new StringBuilder("ContainerPlacementMetadata{");
+    sb.append("Request= ").append(requestMessage);
+    sb.append(", sourceHost='").append(sourceHost).append('\'');
+    sb.append(", resourceRequests=").append(resourceRequests);
+    sb.append(", actionStatus=").append(actionStatus);
+    sb.append(", containerStatus=").append(containerStatus);
+    sb.append(", responseMessage='").append(responseMessage).append('\'');
+    sb.append('}');
+    return sb.toString();
   }
 }
