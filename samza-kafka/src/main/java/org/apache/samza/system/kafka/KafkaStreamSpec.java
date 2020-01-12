@@ -73,7 +73,7 @@ public class KafkaStreamSpec extends StreamSpec {
    * @param originalConfig  The original config to filter
    * @return                The filtered config
    */
-  private static Map<String, String> filterUnsupportedProperties(Map<String, String> originalConfig) {
+  static Map<String, String> filterUnsupportedProperties(Map<String, String> originalConfig) {
     Map<String, String> filteredConfig = new HashMap<>();
     for (Map.Entry<String, String> entry: originalConfig.entrySet()) {
       // Kafka requires replication factor, but not as a property, so we have to filter it out.
