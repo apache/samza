@@ -23,7 +23,6 @@ include \
   'samza-shell'
 
 def scalaModules = [
-        'samza-autoscaling',
         'samza-aws',
         'samza-azure',
         'samza-core',
