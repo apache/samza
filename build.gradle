@@ -263,46 +263,6 @@ project(":samza-aws_$scalaSuffix") {
   }
 }
 
-
-project(":samza-autoscaling_$scalaSuffix") {
-  apply plugin: 'scala'
-  apply plugin: 'checkstyle'
-
-  // Force scala joint compilation
-  sourceSets.main.scala.srcDir "src/main/java"
-  sourceSets.test.scala.srcDir "src/test/java"
-
-  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
-  // tasks.compileTestJava.enabled = false
-  sourceSets.main.java.srcDirs = []
-  sourceSets.test.java.srcDirs = []
-
-  dependencies {
-    compile project(':samza-api')
-    compile project(":samza-core_$scalaSuffix")
-    compile "org.scala-lang:scala-library:$scalaVersion"
-    compile "org.slf4j:slf4j-api:$slf4jVersion"
-    compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
-    compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
-    compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
-    compile("org.apache.hadoop:hadoop-yarn-client:$yarnVersion") {
-      exclude module: 'servlet-api'
-    }
-    compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
-      exclude module: 'servlet-api'
-    }
-    compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
-    testCompile "junit:junit:$junitVersion"
-    testCompile "org.mockito:mockito-core:$mockitoVersion"
-    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
-}
-
 project(":samza-elasticsearch_$scalaSuffix") {
   apply plugin: 'java'
 
