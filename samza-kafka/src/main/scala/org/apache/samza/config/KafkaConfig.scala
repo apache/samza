@@ -316,16 +316,18 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     val filteredConfigs = config.subset(KafkaConfig.CHANGELOG_STREAM_KAFKA_SETTINGS format name, true)
     val kafkaChangeLogProperties = new Properties
 
-    val appConfig = new ApplicationConfig(config)
     // SAMZA-1600: do not use the combination of "compact,delete" as cleanup policy until we pick up Kafka broker 0.11.0.57,
     // 1.0.2, or 1.1.0 (see KAFKA-6568)
 
     // Adjust changelog topic setting, when TTL is set on a RocksDB store
     //  - Disable log compaction on Kafka changelog topic
     //  - Set topic TTL to be the same as RocksDB TTL
-    Option(config.get("stores.%s.rocksdb.ttl.ms" format name)) match {
+    val storeTTLkey = "stores.%s.rocksdb.ttl.ms" format name
+    Option(config.get(storeTTLkey)) match {
       case Some(rocksDbTtl) =>
-        if (!config.containsKey("stores.%s.changelog.kafka.cleanup.policy" format name)) {
+        if (config.getInt(storeTTLkey, 0) < 0) {
+          kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+        } else if (!config.containsKey("stores.%s.changelog.kafka.cleanup.policy" format name)) {
           kafkaChangeLogProperties.setProperty("cleanup.policy", "delete")
           if (!config.containsKey("stores.%s.changelog.kafka.retention.ms" format name)) {
             kafkaChangeLogProperties.setProperty("retention.ms", String.valueOf(rocksDbTtl))

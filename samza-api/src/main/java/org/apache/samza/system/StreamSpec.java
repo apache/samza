@@ -19,6 +19,8 @@
 
 package org.apache.samza.system;
 
+import com.google.common.base.Joiner;
+
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
@@ -269,6 +271,6 @@ public class StreamSpec implements Serializable {
 
   @Override
   public String toString() {
-    return String.format("StreamSpec: id=%s, systemName=%s, pName=%s, partCount=%d.", id, systemName, physicalName, partitionCount);
+    return String.format("StreamSpec: id=%s, systemName=%s, pName=%s, partCount=%d, config=%s.", id, systemName, physicalName, partitionCount, Joiner.on(",").withKeyValueSeparator("=").join(config));
   }
 }
