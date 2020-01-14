@@ -67,7 +67,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
       return;
     }
 
-    // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
+    // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
     try {
       JobPlanner planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(app, config));
       List<JobConfig> jobConfigs = planner.prepareJobs();
