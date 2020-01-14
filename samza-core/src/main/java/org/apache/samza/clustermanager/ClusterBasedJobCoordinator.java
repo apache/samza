@@ -179,17 +179,17 @@ public class ClusterBasedJobCoordinator {
    * Creates a new ClusterBasedJobCoordinator instance from a config. Invoke run() to actually
    * run the jobcoordinator.
    *
-   * @param coordinatorSystemConfig the coordinator stream config that can be used to read the
-   *                                {@link org.apache.samza.job.model.JobModel} from.
+   * @param jobCoordinatorConfig job coordinator config that either contains coordinator stream properties
+   *                             or config loader properties to load full job config.
    */
-  public ClusterBasedJobCoordinator(Config coordinatorSystemConfig) {
+  public ClusterBasedJobCoordinator(Config jobCoordinatorConfig) {
     metrics = new MetricsRegistryMap();
 
-    JobConfig jobConfig = new JobConfig(coordinatorSystemConfig);
+    JobConfig jobConfig = new JobConfig(jobCoordinatorConfig);
 
     if (jobConfig.getConfigLoaderFactory().isPresent()) {
       // load full job config with ConfigLoader
-      Config originalConfig = ConfigUtil.loadConfig(coordinatorSystemConfig);
+      Config originalConfig = ConfigUtil.loadConfig(jobCoordinatorConfig);
 
       // Execute planning
       ApplicationDescriptorImpl<? extends ApplicationDescriptor>
@@ -208,7 +208,7 @@ public class ClusterBasedJobCoordinator {
       DiagnosticsUtil.createDiagnosticsStream(config);
     } else {
       // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
-      coordinatorStreamStore = new CoordinatorStreamStore(coordinatorSystemConfig, metrics);
+      coordinatorStreamStore = new CoordinatorStreamStore(jobCoordinatorConfig, metrics);
       coordinatorStreamStore.init();
       config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
     }
