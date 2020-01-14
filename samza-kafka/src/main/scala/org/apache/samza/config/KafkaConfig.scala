@@ -325,8 +325,9 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     val storeTTLkey = "stores.%s.rocksdb.ttl.ms" format name
     Option(config.get(storeTTLkey)) match {
       case Some(rocksDbTtl) =>
-        if (config.getInt(storeTTLkey, 0) < 0) {
+        if (!rocksDbTtl.isEmpty && rocksDbTtl.toInt < 0) {
           kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
+          kafkaChangeLogProperties.setProperty("max.message.bytes", getChangelogStreamMaxMessageByte(name))
         } else if (!config.containsKey("stores.%s.changelog.kafka.cleanup.policy" format name)) {
           kafkaChangeLogProperties.setProperty("cleanup.policy", "delete")
           if (!config.containsKey("stores.%s.changelog.kafka.retention.ms" format name)) {

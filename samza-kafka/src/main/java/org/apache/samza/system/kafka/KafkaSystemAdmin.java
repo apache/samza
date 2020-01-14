@@ -541,8 +541,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
           new KafkaStreamSpec(spec.getId(), spec.getPhysicalName(), systemName, 1, coordinatorStreamReplicationFactor,
               coordinatorStreamProperties);
     } else if (spec.isCheckpointStream()) {
-      kafkaSpec = KafkaStreamSpec.fromSpec(spec)
-                                 .copyWithReplicationFactor(Integer.parseInt(new KafkaConfig(config).getCheckpointReplicationFactor().get()));
+      Properties checkpointTopicProperties = new Properties();
+      checkpointTopicProperties.putAll(spec.getConfig());
+      kafkaSpec = KafkaStreamSpec.fromSpec(StreamSpec.createCheckpointStreamSpec(spec.getPhysicalName(), spec.getSystemName()))
+              .copyWithReplicationFactor(Integer.parseInt(new KafkaConfig(config).getCheckpointReplicationFactor().get()))
+              .copyWithProperties(checkpointTopicProperties);
     } else if (intermediateStreamProperties.containsKey(spec.getId())) {
       kafkaSpec = KafkaStreamSpec.fromSpec(spec);
       Properties properties = kafkaSpec.getProperties();

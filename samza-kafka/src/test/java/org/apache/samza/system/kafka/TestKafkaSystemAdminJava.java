@@ -118,7 +118,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   public void testToKafkaSpecForCheckpointStreamShouldReturnTheCorrectStreamSpecByPreservingTheConfig() {
     String topicName = "testStream";
     String streamId = "samza-internal-checkpoint-stream-id";
-    int partitionCount = 2;
+    int partitionCount = 1;
     Map<String, String> map = new HashMap<>();
     map.put("cleanup.policy", "compact");
     map.put("replication.factor", "3");

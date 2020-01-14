@@ -100,6 +100,7 @@ class TestKafkaConfig {
     val kafkaProperties = kafkaConfig.getChangelogKafkaProperties("test1")
     assertEquals("compact", kafkaProperties.getProperty("cleanup.policy"))
     assertEquals("536870912", kafkaProperties.getProperty("segment.bytes"))
+    assertEquals("1000012", kafkaProperties.getProperty("max.message.bytes"))
     assertEquals("86400000", kafkaProperties.getProperty("delete.retention.ms"))
   }
 
