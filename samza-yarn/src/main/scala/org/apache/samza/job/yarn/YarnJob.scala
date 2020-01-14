@@ -178,7 +178,7 @@ object YarnJob extends Logging {
       envMapBuilder += ShellCommandConfig.ENV_SUBMISSION_CONFIG ->
         Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(config))
     } else {
-      // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
+      // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
       val coordinatorSystemConfig = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
       envMapBuilder += ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG ->
         Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(coordinatorSystemConfig))
