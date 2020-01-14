@@ -207,7 +207,7 @@ public class ClusterBasedJobCoordinator {
       CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
       DiagnosticsUtil.createDiagnosticsStream(config);
     } else {
-      // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
+      // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
       coordinatorStreamStore = new CoordinatorStreamStore(coordinatorSystemConfig, metrics);
       coordinatorStreamStore.init();
       config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
