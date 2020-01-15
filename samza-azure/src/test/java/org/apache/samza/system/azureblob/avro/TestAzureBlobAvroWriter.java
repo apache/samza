@@ -52,6 +52,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Matchers;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -235,6 +236,7 @@ public class TestAzureBlobAvroWriter {
   @Test
   public void testMaxBlobSizeExceeded() throws Exception {
     String blobUrlPrefix = "test";
+    String blobNameRegex = "test/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9]{2}/[0-9]{2}-[0-9]{2}-.{8}.avro.gz";
     long maxBlobSize = 1000;
     AzureBlobWriterMetrics mockMetrics = mock(AzureBlobWriterMetrics.class);
     BlobContainerAsyncClient mockContainerClient = PowerMockito.mock(BlobContainerAsyncClient.class);
@@ -246,7 +248,7 @@ public class TestAzureBlobAvroWriter {
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter1);
 
     BlobAsyncClient mockBlobAsyncClient1 = mock(BlobAsyncClient.class);
-    doReturn(mockBlobAsyncClient1).when(mockContainerClient).getBlobAsyncClient(anyString());
+    doReturn(mockBlobAsyncClient1).when(mockContainerClient).getBlobAsyncClient(Matchers.matches(blobNameRegex));
     BlockBlobAsyncClient mockBlockBlobAsyncClient1 = mock(BlockBlobAsyncClient.class);
     doReturn(mockBlockBlobAsyncClient1).when(mockBlobAsyncClient1).getBlockBlobAsyncClient();
 
@@ -264,7 +266,7 @@ public class TestAzureBlobAvroWriter {
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter2);
 
     BlobAsyncClient mockBlobAsyncClient2 = mock(BlobAsyncClient.class);
-    doReturn(mockBlobAsyncClient2).when(mockContainerClient).getBlobAsyncClient(anyString());
+    doReturn(mockBlobAsyncClient2).when(mockContainerClient).getBlobAsyncClient(Matchers.matches(blobNameRegex));
     BlockBlobAsyncClient mockBlockBlobAsyncClient2 = mock(BlockBlobAsyncClient.class);
     doReturn(mockBlockBlobAsyncClient2).when(mockBlobAsyncClient2).getBlockBlobAsyncClient();
 
@@ -295,6 +297,7 @@ public class TestAzureBlobAvroWriter {
   @Test
   public void testRecordLimitExceeded() throws Exception {
     String blobUrlPrefix = "test";
+    String blobNameRegex = "test/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9]{2}/[0-9]{2}-[0-9]{2}-.{8}.avro.gz";
     AzureBlobWriterMetrics mockMetrics = mock(AzureBlobWriterMetrics.class);
     long maxBlobSize = AzureBlobAvroWriter.DATAFILEWRITER_OVERHEAD + 1000;
     long maxRecordsPerBlob = 10;
@@ -307,7 +310,7 @@ public class TestAzureBlobAvroWriter {
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter1);
 
     BlobAsyncClient mockBlobAsyncClient1 = mock(BlobAsyncClient.class);
-    doReturn(mockBlobAsyncClient1).when(mockContainerClient).getBlobAsyncClient(anyString());
+    doReturn(mockBlobAsyncClient1).when(mockContainerClient).getBlobAsyncClient(Matchers.matches(blobNameRegex));
     BlockBlobAsyncClient mockBlockBlobAsyncClient1 = mock(BlockBlobAsyncClient.class);
     doReturn(mockBlockBlobAsyncClient1).when(mockBlobAsyncClient1).getBlockBlobAsyncClient();
 
@@ -328,7 +331,7 @@ public class TestAzureBlobAvroWriter {
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter2);
 
     BlobAsyncClient mockBlobAsyncClient2 = mock(BlobAsyncClient.class);
-    doReturn(mockBlobAsyncClient2).when(mockContainerClient).getBlobAsyncClient(anyString());
+    doReturn(mockBlobAsyncClient2).when(mockContainerClient).getBlobAsyncClient(Matchers.matches(blobNameRegex));
     BlockBlobAsyncClient mockBlockBlobAsyncClient2 = mock(BlockBlobAsyncClient.class);
     doReturn(mockBlockBlobAsyncClient2).when(mockBlobAsyncClient2).getBlockBlobAsyncClient();
 
