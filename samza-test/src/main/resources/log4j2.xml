@@ -10,7 +10,7 @@
   OF ANY KIND, either express or implied. See the License for the specific
   language governing permissions and limitations under the License. -->
 
-<Configuration>
+<Configuration strict="true">
   <Appenders>
     <Console name="STDOUT" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] [%X{REQUEST_UUID}] %c{1} [%p] %m%n"/>
