@@ -19,15 +19,22 @@
 
 package org.apache.samza.system.kafka;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.kafka.clients.admin.DescribeConfigsResult;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.samza.Partition;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -60,6 +67,38 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   private static final Partition TEST_PARTITION = new Partition(TEST_PARTITION_ID);
   private static final SystemStreamPartition TEST_SYSTEM_STREAM_PARTITION = new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, TEST_PARTITION);
   private static final String TEST_OFFSET = "10";
+
+  @Test
+  public void testCreateStreamShouldCoordinatorStreamWithCorrectTopicProperties() throws Exception {
+    String coordinatorTopicName = String.format("topic-name-%s", RandomStringUtils.randomAlphabetic(5));
+    StreamSpec coordinatorStreamSpec = KafkaStreamSpec.createCoordinatorStreamSpec(coordinatorTopicName, SYSTEM());
+
+    boolean hasCreatedStream = systemAdmin().createStream(coordinatorStreamSpec);
+
+    assertTrue(hasCreatedStream);
+
+    Map<String, String> coordinatorTopicProperties = getTopicConfigFromKafkaBroker(coordinatorTopicName);
+
+    assertEquals("compact", coordinatorTopicProperties.get(TopicConfig.CLEANUP_POLICY_CONFIG));
+    assertEquals("26214400", coordinatorTopicProperties.get(TopicConfig.SEGMENT_BYTES_CONFIG));
+    assertEquals("86400000", coordinatorTopicProperties.get(TopicConfig.DELETE_RETENTION_MS_CONFIG));
+  }
+
+  private static Map<String, String> getTopicConfigFromKafkaBroker(String topicName) throws Exception {
+    List<ConfigResource> configResourceList = ImmutableList.of(
+        new ConfigResource(ConfigResource.Type.TOPIC, topicName));
+    Map<ConfigResource, org.apache.kafka.clients.admin.Config> configResourceConfigMap =
+        adminClient().describeConfigs(configResourceList).all().get();
+    Map<String, String> kafkaTopicConfig = new HashMap<>();
+
+    configResourceConfigMap.values().forEach(configEntry -> {
+      configEntry.entries().forEach(config -> {
+          kafkaTopicConfig.put(config.name(), config.value());
+      });
+    });
+
+    return kafkaTopicConfig;
+  }
 
   @Test
   public void testGetOffsetsAfter() {
