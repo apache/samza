@@ -322,8 +322,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     // Adjust changelog topic setting, when TTL is set on a RocksDB store
     //  - Disable log compaction on Kafka changelog topic
     //  - Set topic TTL to be the same as RocksDB TTL
-    val storeTTLkey = "stores.%s.rocksdb.ttl.ms" format name
-    Option(config.get(storeTTLkey)) match {
+    Option(config.get("stores.%s.rocksdb.ttl.ms" format name)) match {
       case Some(rocksDbTtl) =>
         if (!rocksDbTtl.isEmpty && rocksDbTtl.toInt < 0) {
           kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
