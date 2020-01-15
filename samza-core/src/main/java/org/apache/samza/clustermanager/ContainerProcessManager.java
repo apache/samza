@@ -564,8 +564,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   }
 
   /**
-   * Registers a ContainerPlacement action, this method is invoked by ContainerPlacementHandler. {@link ContainerProcessManager}
-   * needs to intercept container placement actions between ContainerPlacementHandler and {@link ContainerManager} to avoid
+   * Registers a ContainerPlacement action, this method is invoked by ContainerPlacementRequestAllocator. {@link ContainerProcessManager}
+   * needs to intercept container placement actions between ContainerPlacementRequestAllocator and {@link ContainerManager} to avoid
    * cyclic dependency between {@link ContainerManager} and {@link ContainerAllocator} on each other
    *
    * @param requestMessage request containing details of the desited container placement action

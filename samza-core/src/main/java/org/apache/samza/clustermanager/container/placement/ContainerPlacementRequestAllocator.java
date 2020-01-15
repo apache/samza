@@ -33,14 +33,14 @@ public class ContainerPlacementRequestAllocator implements Runnable {
   private static final int DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS = 5000;
 
   /**
-   * {@link ContainerProcessManager} needs to intercept container placement actions between ContainerPlacementHandler and
+   * {@link ContainerProcessManager} needs to intercept container placement actions between ContainerPlacementRequestAllocator and
    * {@link org.apache.samza.clustermanager.ContainerManager} to avoid cyclic dependency between
    * {@link org.apache.samza.clustermanager.ContainerManager} and {@link org.apache.samza.clustermanager.ContainerAllocator}
    */
   private final ContainerProcessManager containerProcessManager;
   private final ContainerPlacementMetadataStore containerPlacementMetadataStore;
   /**
-   * State that controls the lifecycle of the ContainerPlacementHandler thread
+   * State that controls the lifecycle of the ContainerPlacementRequestAllocator thread
    */
   private volatile boolean isRunning;
 
@@ -64,11 +64,12 @@ public class ContainerPlacementRequestAllocator implements Runnable {
         }
         Thread.sleep(DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS);
       } catch (InterruptedException e) {
-        LOG.warn("Got InterruptedException in ContainerPlacementHandler thread.", e);
+        LOG.warn("Got InterruptedException in ContainerPlacementRequestAllocator thread.", e);
         Thread.currentThread().interrupt();
       } catch (Exception e) {
         LOG.error(
-            "Got unknown Exception while registering ContainerPlacement actions in ContainerPlacementHandler thread.", e);
+            "Got unknown Exception while reading ContainerPlacementRequestMessage in ContainerPlacementRequestAllocator thread",
+            e);
       }
     }
   }
@@ -77,7 +78,7 @@ public class ContainerPlacementRequestAllocator implements Runnable {
     if (isRunning) {
       isRunning = false;
     } else {
-      LOG.warn("ContainerPlacementHandler already stopped");
+      LOG.warn("ContainerPlacementRequestAllocator already stopped");
     }
   }
 }
