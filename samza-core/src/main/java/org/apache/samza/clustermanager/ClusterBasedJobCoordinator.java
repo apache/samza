@@ -204,6 +204,8 @@ public class ClusterBasedJobCoordinator {
       config = jobConfigs.get(0);
       coordinatorStreamStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config), metrics);
       coordinatorStreamStore.init();
+
+      // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
       CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
       DiagnosticsUtil.createDiagnosticsStream(config);
     } else {

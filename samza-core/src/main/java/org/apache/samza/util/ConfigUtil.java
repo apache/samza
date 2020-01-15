@@ -87,7 +87,7 @@ public class ConfigUtil {
       ConfigLoaderFactory factory = ReflectionUtil.getObj(jobConfig.getConfigLoaderFactory().get(), ConfigLoaderFactory.class);
       ConfigLoader loader = factory.getLoader(original.subset(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX));
       // overrides config loaded with original config, which may contain overridden values.
-      fullConfig = override(ConfigUtil.rewriteConfig(loader.getConfig()), original);
+      fullConfig = ConfigUtil.rewriteConfig(override(loader.getConfig(), original));
     }
 
     return fullConfig;
