@@ -29,7 +29,8 @@ import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 public class TestContainerPlacementObjectMapper {
 

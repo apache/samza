@@ -54,8 +54,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
   private final JobModelManager jobModelManager = JobModelManagerTestUtil.getJobModelManager(config, 1,
       new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class)));
 
-  private final SamzaApplicationState state =
-      new SamzaApplicationState(jobModelManager);
+  private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
   private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, state);
 
   private ContainerAllocator containerAllocator;

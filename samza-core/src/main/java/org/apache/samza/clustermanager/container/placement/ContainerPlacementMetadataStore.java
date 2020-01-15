@@ -47,9 +47,9 @@ import org.slf4j.LoggerFactory;
  * Key is combination of {@link UUID} and message type (either {@link ContainerPlacementRequestMessage} or {@link ContainerPlacementResponseMessage})
  * and the value is the actual request or response message
  */
-public class ContainerPlacementUtil {
+public class ContainerPlacementMetadataStore {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ContainerPlacementUtil.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ContainerPlacementMetadataStore.class);
 
   private static final Integer VERSION = 1;
   public static final String CONTAINER_PLACEMENT_STORE_NAMESPACE = "samza-place-container-v" + VERSION;
@@ -59,7 +59,7 @@ public class ContainerPlacementUtil {
 
   private boolean stopped = true;
 
-  public ContainerPlacementUtil(MetadataStore containerPlacementMessageStore) {
+  public ContainerPlacementMetadataStore(MetadataStore containerPlacementMessageStore) {
     Preconditions.checkNotNull(containerPlacementMessageStore, "MetadataStore cannot be null");
     this.containerPlacementMessageStore =
         new NamespaceAwareCoordinatorStreamStore(containerPlacementMessageStore, CONTAINER_PLACEMENT_STORE_NAMESPACE);
@@ -92,7 +92,7 @@ public class ContainerPlacementUtil {
   }
 
   /**
-   * Checks if ContainerPlacementUtil is running
+   * Checks if ContainerPlacementMetadataStore is running
    */
   public boolean isRunning() {
     return !stopped;
@@ -112,10 +112,6 @@ public class ContainerPlacementUtil {
   public UUID writeContainerPlacementRequestMessage(String deploymentId, String processorId, String destinationHost,
       Duration requestExpiry, long timestamp) {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
-    Preconditions.checkNotNull(deploymentId, "deploymentId should not be null");
-    Preconditions.checkNotNull(processorId, "processorId not be null");
-    Preconditions.checkNotNull(destinationHost, "destinationHost should not be null");
-    Preconditions.checkNotNull(timestamp, "timestamp should not be null");
     UUID uuid = UUID.randomUUID();
     ContainerPlacementRequestMessage message =
         new ContainerPlacementRequestMessage(uuid, deploymentId, processorId, destinationHost, requestExpiry,
@@ -243,9 +239,9 @@ public class ContainerPlacementUtil {
         messageType == ContainerPlacementRequestMessage.class || messageType == ContainerPlacementResponseMessage.class,
         "messageType should be either ContainerPlacementRequestMessage or ContainerPlacementResponseMessage");
     if (messageType == ContainerPlacementRequestMessage.class) {
-      return uuid.toString() + "." + ContainerPlacementRequestMessage.class.getName();
+      return uuid.toString() + "." + ContainerPlacementRequestMessage.class.getSimpleName();
     }
-    return uuid.toString() + "." + ContainerPlacementResponseMessage.class.getName();
+    return uuid.toString() + "." + ContainerPlacementResponseMessage.class.getSimpleName();
   }
 
   @VisibleForTesting

@@ -67,7 +67,7 @@ public abstract class ContainerPlacementMessage {
   protected final UUID uuid;
   /**
    * Unique identifier for a deployment so messages can be invalidated across a job restarts
-   * for ex yarn bases cluster manager should set this to app attempt id
+   * for ex yarn bases cluster manager can be set to app attempt id
    */
   protected final String deploymentId;
   // Logical container Id 0, 1, 2

@@ -25,11 +25,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stateless handler that dispatches {@link ContainerPlacementRequestMessage} read from Metadata store to Job Coordinator
+ * Stateless handler that periodically dispatches {@link ContainerPlacementRequestMessage} read from Metadata store to Job Coordinator
  */
-public class ContainerPlacementHandler implements Runnable {
+public class ContainerPlacementRequestAllocator implements Runnable {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ContainerPlacementHandler.class);
+  private static final Logger LOG = LoggerFactory.getLogger(ContainerPlacementRequestAllocator.class);
   private static final int DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS = 5000;
 
   /**
@@ -38,25 +38,25 @@ public class ContainerPlacementHandler implements Runnable {
    * {@link org.apache.samza.clustermanager.ContainerManager} and {@link org.apache.samza.clustermanager.ContainerAllocator}
    */
   private final ContainerProcessManager containerProcessManager;
-  private final ContainerPlacementUtil containerPlacementUtil;
+  private final ContainerPlacementMetadataStore containerPlacementMetadataStore;
   /**
    * State that controls the lifecycle of the ContainerPlacementHandler thread
    */
   private volatile boolean isRunning;
 
-  public ContainerPlacementHandler(ContainerPlacementUtil containerPlacementUtil, ContainerProcessManager manager) {
-    Preconditions.checkNotNull(containerPlacementUtil, "ContainerPlacementUtil cannot be null");
+  public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager) {
+    Preconditions.checkNotNull(containerPlacementMetadataStore, "containerPlacementMetadataStore cannot be null");
     Preconditions.checkNotNull(manager, "ContainerProcessManager cannot be null");
     this.containerProcessManager = manager;
-    this.containerPlacementUtil = containerPlacementUtil;
+    this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     this.isRunning = true;
   }
 
   @Override
   public void run() {
-    while (isRunning && containerPlacementUtil.isRunning()) {
+    while (isRunning && containerPlacementMetadataStore.isRunning()) {
       try {
-        for (ContainerPlacementRequestMessage message : containerPlacementUtil.readAllContainerPlacementRequestMessages()) {
+        for (ContainerPlacementRequestMessage message : containerPlacementMetadataStore.readAllContainerPlacementRequestMessages()) {
           // We do not need to dispatch ContainerPlacementResponseMessage because they are written from JobCoordinator
           // in response to a Container Placement Action
           LOG.info("Received a container placement message {}", message);
@@ -68,8 +68,7 @@ public class ContainerPlacementHandler implements Runnable {
         Thread.currentThread().interrupt();
       } catch (Exception e) {
         LOG.error(
-            "Got unknown Exception while registering ContainerPlacement actions in ContainerPlacementHandler thread.",
-            e);
+            "Got unknown Exception while registering ContainerPlacement actions in ContainerPlacementHandler thread.", e);
       }
     }
   }
