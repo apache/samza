@@ -62,7 +62,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
   @Override
   public void run(ExternalContext externalContext) {
     if (new JobConfig(config).getConfigLoaderFactory().isPresent()) {
-      JobRunner runner = new JobRunner(config);
+      JobRunner runner = new JobRunner(JobPlanner.generateSingleJobConfig(config));
       runner.submit();
       return;
     }
