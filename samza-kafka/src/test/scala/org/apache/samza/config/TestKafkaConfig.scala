@@ -22,14 +22,14 @@ package org.apache.samza.config
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
-import org.apache.samza.config.factories.PropertiesConfigFactory
 import org.junit.Assert._
+import org.junit.After
+import org.junit.Before
 import org.junit.Test
 
 import scala.collection.JavaConverters._
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.clients.producer.ProducerConfig
-import org.junit.Before
 
 class TestKafkaConfig {
 
@@ -47,6 +47,10 @@ class TestKafkaConfig {
     props.setProperty(JobConfig.JOB_NAME, "jobName")
   }
 
+  @After
+  def clearUpProperties(): Unit = {
+    props.clear()
+  }
 
   @Test
   def testStreamLevelFetchSizeOverride() {
@@ -79,6 +83,44 @@ class TestKafkaConfig {
     val mapConfig4 = new MapConfig(props.asScala.asJava)
     val kafkaConfig4 = new KafkaConfig(mapConfig4)
     assertEquals("65536", kafkaConfig4.getConsumerFetchThresholdBytes("kafka").get)
+  }
+
+  @Test
+  def testChangeLogPropertiesShouldReturnCorrectTopicConfigurationForInfiniteTTLStores(): Unit = {
+    val props = new Properties
+    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + "bootstrap.servers", "localhost:9092")
+    props.setProperty("systems." + SYSTEM_NAME + ".consumer.zookeeper.connect", "localhost:2181/")
+    props.setProperty(JobConfig.JOB_NAME, "jobName")
+
+    props.setProperty("stores.test1.changelog", "kafka.mychangelog1")
+    props.setProperty("stores.test1.rocksdb.ttl.ms", "-1")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    val kafkaProperties = kafkaConfig.getChangelogKafkaProperties("test1")
+    assertEquals("compact", kafkaProperties.getProperty("cleanup.policy"))
+    assertEquals("536870912", kafkaProperties.getProperty("segment.bytes"))
+    assertEquals("1000012", kafkaProperties.getProperty("max.message.bytes"))
+    assertEquals("86400000", kafkaProperties.getProperty("delete.retention.ms"))
+  }
+
+  @Test
+  def testChangeLogPropertiesShouldReturnCorrectTopicConfigurationForStoresWithEmptyRocksDBTTL(): Unit = {
+    val props = new Properties
+    props.setProperty(KAFKA_PRODUCER_PROPERTY_PREFIX + "bootstrap.servers", "localhost:9092")
+    props.setProperty("systems." + SYSTEM_NAME + ".consumer.zookeeper.connect", "localhost:2181/")
+    props.setProperty(JobConfig.JOB_NAME, "jobName")
+
+    props.setProperty("stores.test1.changelog", "kafka.mychangelog1")
+
+    val mapConfig = new MapConfig(props.asScala.asJava)
+    val kafkaConfig = new KafkaConfig(mapConfig)
+    val kafkaProperties = kafkaConfig.getChangelogKafkaProperties("test1")
+    assertEquals("compact", kafkaProperties.getProperty("cleanup.policy"))
+    assertEquals("536870912", kafkaProperties.getProperty("segment.bytes"))
+    assertEquals("86400000", kafkaProperties.getProperty("delete.retention.ms"))
+    assertEquals("1000012", kafkaProperties.getProperty("max.message.bytes"))
+
   }
 
   @Test
