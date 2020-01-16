@@ -57,6 +57,7 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.JobModelUtil;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
@@ -102,7 +103,6 @@ public class ClusterBasedJobCoordinator {
   private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
 
   private final Config config;
-  private final ClusterManagerConfig clusterManagerConfig;
 
   /**
    * State to track container failures, host-processor mappings
@@ -161,7 +161,7 @@ public class ClusterBasedJobCoordinator {
    * Metrics to track stats around container failures, needed containers etc.
    */
   private final MetricsRegistryMap metrics;
-  private final CoordinatorStreamStore coordinatorStreamStore;
+  private final MetadataStore metadataStore;
 
   private final SystemAdmins systemAdmins;
 
@@ -176,66 +176,39 @@ public class ClusterBasedJobCoordinator {
   volatile private Exception coordinatorException = null;
 
   /**
-   * Creates a new ClusterBasedJobCoordinator instance from a config. Invoke run() to actually
-   * run the jobcoordinator.
+   * Creates a new ClusterBasedJobCoordinator instance.
+   * Invoke run() to actually run the job coordinator.
    *
-   * @param jobCoordinatorConfig job coordinator config that either contains coordinator stream properties
-   *                             or config loader properties to load full job config.
+   * @param metrics the registry for reporting metrics.
+   * @param metadataStore metadata store to hold metadata.
+   * @param fullJobConfig full job config.
    */
-  public ClusterBasedJobCoordinator(Config jobCoordinatorConfig) {
-    metrics = new MetricsRegistryMap();
-
-    JobConfig jobConfig = new JobConfig(jobCoordinatorConfig);
-
-    if (jobConfig.getConfigLoaderFactory().isPresent()) {
-      // load full job config with ConfigLoader
-      Config originalConfig = ConfigUtil.loadConfig(jobCoordinatorConfig);
-
-      // Execute planning
-      ApplicationDescriptorImpl<? extends ApplicationDescriptor>
-          appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig);
-      RemoteJobPlanner planner = new RemoteJobPlanner(appDesc);
-      List<JobConfig> jobConfigs = planner.prepareJobs();
-
-      if (jobConfigs.size() != 1) {
-        throw new SamzaException("Only support single remote job is supported.");
-      }
-
-      config = jobConfigs.get(0);
-      coordinatorStreamStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config), metrics);
-      coordinatorStreamStore.init();
-
-      // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
-      CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
-      DiagnosticsUtil.createDiagnosticsStream(config);
-    } else {
-      // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
-      coordinatorStreamStore = new CoordinatorStreamStore(jobCoordinatorConfig, metrics);
-      coordinatorStreamStore.init();
-      config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
-    }
-
+  private ClusterBasedJobCoordinator(MetricsRegistryMap metrics, MetadataStore metadataStore, Config fullJobConfig) {
+    this.metrics = metrics;
+    this.metadataStore = metadataStore;
+    this.metadataStore.init();
+    this.config = fullJobConfig;
     // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
-    changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE));
-    jobModelManager =
-        JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metrics);
+    this.changelogStreamManager = new ChangelogStreamManager(
+        new NamespaceAwareCoordinatorStreamStore(metadataStore, SetChangelogMapping.TYPE));
+    this.jobModelManager =
+        JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(), metadataStore, metrics);
 
-    hasDurableStores = new StorageConfig(config).hasDurableStores();
-    state = new SamzaApplicationState(jobModelManager);
+    this.hasDurableStores = new StorageConfig(config).hasDurableStores();
+    this.state = new SamzaApplicationState(jobModelManager);
     // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
-    systemAdmins = new SystemAdmins(config);
-    partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
+    this.systemAdmins = new SystemAdmins(config);
+    this.partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
 
     Set<SystemStream> inputSystemStreams = JobModelUtil.getSystemStreams(jobModelManager.jobModel());
-    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
+    this.inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
 
-    clusterManagerConfig = new ClusterManagerConfig(config);
-    isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
-
-    jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+    this.isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
+    this.jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 
     // build a container process Manager
-    containerProcessManager = createContainerProcessManager();
+    this.containerProcessManager = createContainerProcessManager();
   }
 
   /**
@@ -333,7 +306,7 @@ public class ClusterBasedJobCoordinator {
       inputStreamRegexMonitor.ifPresent(StreamRegexMonitor::stop);
       systemAdmins.stop();
       containerProcessManager.stop();
-      coordinatorStreamStore.close();
+      metadataStore.close();
     } catch (Throwable e) {
       LOG.error("Exception while stopping cluster based job coordinator", e);
     }
@@ -429,7 +402,7 @@ public class ClusterBasedJobCoordinator {
 
   @VisibleForTesting
   StartpointManager createStartpointManager() {
-    return new StartpointManager(coordinatorStreamStore);
+    return new StartpointManager(metadataStore);
   }
 
   @VisibleForTesting
@@ -528,7 +501,7 @@ public class ClusterBasedJobCoordinator {
         throw new SamzaException(e);
       }
 
-      ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(submissionConfig);
+      ClusterBasedJobCoordinator jc = createFromConfigLoader(submissionConfig);
       jc.run();
       LOG.info("Finished running ClusterBasedJobCoordinator");
     } else {
@@ -544,9 +517,69 @@ public class ClusterBasedJobCoordinator {
         LOG.error("Exception while reading coordinator stream config", e);
         throw new SamzaException(e);
       }
-      ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(coordinatorSystemConfig);
+      ClusterBasedJobCoordinator jc = createFromMetadataStore(coordinatorSystemConfig);
       jc.run();
       LOG.info("Finished running ClusterBasedJobCoordinator");
     }
+  }
+
+  /**
+   * Initialize {@link ClusterBasedJobCoordinator} with coordinator stream config, full job config will be fetched from
+   * coordinator stream.
+   *
+   * @param metadataStoreConfig to initialize {@link MetadataStore}
+   * @return {@link ClusterBasedJobCoordinator}
+   */
+  // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
+  public static ClusterBasedJobCoordinator createFromMetadataStore(Config metadataStoreConfig) {
+    MetricsRegistryMap metrics = new MetricsRegistryMap();
+
+    CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(metadataStoreConfig, metrics);
+    coordinatorStreamStore.init();
+    Config config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
+
+    return new ClusterBasedJobCoordinator(metrics, coordinatorStreamStore, config);
+  }
+
+  /**
+   * Initialize {@link ClusterBasedJobCoordinator} with submission config, full job config will be fetched using
+   * specified {@link org.apache.samza.config.ConfigLoaderFactory}
+   *
+   * @param submissionConfig specifies {@link org.apache.samza.config.ConfigLoaderFactory}
+   * @return {@link ClusterBasedJobCoordinator}
+   */
+  public static ClusterBasedJobCoordinator createFromConfigLoader(Config submissionConfig) {
+    JobConfig jobConfig = new JobConfig(submissionConfig);
+
+    if (!jobConfig.getConfigLoaderFactory().isPresent()) {
+      throw new SamzaException(JobConfig.CONFIG_LOADER_FACTORY + " is required to initialize job coordinator from config loader");
+    }
+
+    MetricsRegistryMap metrics = new MetricsRegistryMap();
+    // load full job config with ConfigLoader
+    Config config = prepareJob(ConfigUtil.loadConfig(submissionConfig));
+
+    // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
+    CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
+    DiagnosticsUtil.createDiagnosticsStream(config);
+
+    return new ClusterBasedJobCoordinator(
+        metrics,
+        new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config), metrics),
+        config);
+  }
+
+  private static Config prepareJob(Config config) {
+    // Execute planning
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor>
+        appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
+    RemoteJobPlanner planner = new RemoteJobPlanner(appDesc);
+    List<JobConfig> jobConfigs = planner.prepareJobs();
+
+    if (jobConfigs.size() != 1) {
+      throw new SamzaException("Only support single remote job is supported.");
+    }
+
+    return jobConfigs.get(0);
   }
 }

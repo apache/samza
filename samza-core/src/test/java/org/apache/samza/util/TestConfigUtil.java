@@ -27,6 +27,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -159,6 +160,31 @@ public class TestConfigUtil {
             "not_a_class");
     Config expectedConfig = new MapConfig(ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, NEW_CONFIG_KEY, CONFIG_VALUE));
     assertEquals(expectedConfig, ConfigUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
+  }
+
+  @Test
+  public void testLoadConfigWithoutLoader() {
+    Map<String, String> config = new HashMap<>();
+    config.put(JobConfig.JOB_NAME, "new-test-job");
+
+    Config actual = ConfigUtil.loadConfig(new MapConfig(config));
+
+    assertEquals(config.size(), actual.size());
+    assertEquals("new-test-job", actual.get(JobConfig.JOB_NAME));
+  }
+
+  @Test
+  public void testLoadConfigWithLoader() {
+    Map<String, String> config = new HashMap<>();
+    config.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getCanonicalName());
+    config.put(JobConfig.JOB_NAME, "new-test-job");
+    config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path", getClass().getResource("/test.properties").getPath());
+
+    Config actual = ConfigUtil.loadConfig(new MapConfig(config));
+
+    assertEquals("org.apache.samza.job.MockJobFactory", actual.get("job.factory.class"));
+    assertEquals("new-test-job", actual.get("job.name"));
+    assertEquals("bar", actual.get("foo"));
   }
 
   /**

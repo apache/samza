@@ -25,10 +25,14 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.MockStreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -59,6 +63,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.verifyPrivate;
+import static org.powermock.api.mockito.PowerMockito.verifyNew;
 
 
 /**
@@ -68,7 +73,7 @@ import static org.powermock.api.mockito.PowerMockito.verifyPrivate;
 @PrepareForTest({CoordinatorStreamUtil.class, ClusterBasedJobCoordinator.class})
 public class TestClusterBasedJobCoordinator {
 
-  Map<String, String> configMap;
+  private Map<String, String> configMap;
 
   @Before
   public void setUp() {
@@ -106,7 +111,7 @@ public class TestClusterBasedJobCoordinator {
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
-    ClusterBasedJobCoordinator clusterCoordinator = new ClusterBasedJobCoordinator(config);
+    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinator.createFromMetadataStore(config);
 
     // change the input system stream metadata
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(1)), new ArrayList<>());
@@ -126,7 +131,7 @@ public class TestClusterBasedJobCoordinator {
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
-    ClusterBasedJobCoordinator clusterCoordinator = new ClusterBasedJobCoordinator(config);
+    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinator.createFromMetadataStore(config);
 
     // change the input system stream metadata
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(1)), new ArrayList<>());
@@ -144,7 +149,7 @@ public class TestClusterBasedJobCoordinator {
     Config config = new MapConfig(configMap);
     MockitoException stopException = new MockitoException("Stop");
 
-    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(new ClusterBasedJobCoordinator(config));
+    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(ClusterBasedJobCoordinator.createFromMetadataStore(config));
     ContainerProcessManager mockContainerProcessManager = mock(ContainerProcessManager.class);
     doReturn(true).when(mockContainerProcessManager).shouldShutdown();
     StartpointManager mockStartpointManager = mock(StartpointManager.class);
@@ -197,5 +202,31 @@ public class TestClusterBasedJobCoordinator {
     verify(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
     // make sure runClusterBasedJobCoordinator only got called once
     verifyPrivate(ClusterBasedJobCoordinator.class).invoke("runClusterBasedJobCoordinator", new Object[]{aryEq(args)});
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testCreateFromConfigLoaderWithoutConfigLoaderFactory() {
+    ClusterBasedJobCoordinator.createFromConfigLoader(new MapConfig());
+  }
+
+  @Test
+  public void testCreateFromConfigLoader() throws Exception {
+    // partially mock ClusterBasedJobCoordinator (mock prepareJob method only)
+    PowerMockito.spy(ClusterBasedJobCoordinator.class);
+
+    Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.APP_CLASS, MockStreamApplication.class.getCanonicalName());
+    config.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getCanonicalName());
+    config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path",getClass().getResource("/test.properties").getPath());
+
+    PowerMockito.doAnswer(invocation -> invocation.getArgumentAt(0, Config.class))
+        .when(ClusterBasedJobCoordinator.class, "prepareJob", any());
+    PowerMockito.whenNew(ClusterBasedJobCoordinator.class).withAnyArguments().thenReturn(mock(ClusterBasedJobCoordinator.class));
+    PowerMockito.whenNew(CoordinatorStreamStore.class).withAnyArguments().thenReturn(mock(CoordinatorStreamStore.class));
+
+    ClusterBasedJobCoordinator.createFromConfigLoader(new MapConfig(config));
+
+    verifyPrivate(ClusterBasedJobCoordinator.class).invoke("prepareJob", any());
+    verifyNew(ClusterBasedJobCoordinator.class).withArguments(any(), any(), any());
   }
 }
