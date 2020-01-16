@@ -217,7 +217,8 @@ public class TestClusterBasedJobCoordinator {
     Map<String, String> config = new HashMap<>();
     config.put(ApplicationConfig.APP_CLASS, MockStreamApplication.class.getCanonicalName());
     config.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getCanonicalName());
-    config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path",getClass().getResource("/test.properties").getPath());
+    config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path",
+        getClass().getResource("/test.properties").getPath());
 
     PowerMockito.doAnswer(invocation -> invocation.getArgumentAt(0, Config.class))
         .when(ClusterBasedJobCoordinator.class, "prepareJob", any());
