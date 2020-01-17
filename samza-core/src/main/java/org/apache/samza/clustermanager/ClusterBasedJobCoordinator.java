@@ -559,7 +559,19 @@ public class ClusterBasedJobCoordinator {
 
     MetricsRegistryMap metrics = new MetricsRegistryMap();
     // load full job config with ConfigLoader
-    Config config = prepareJob(ConfigUtil.loadConfig(submissionConfig));
+    Config originalConfig = ConfigUtil.loadConfig(submissionConfig);
+
+    // Execute planning
+    ApplicationDescriptorImpl<? extends ApplicationDescriptor>
+        appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig);
+    RemoteJobPlanner planner = new RemoteJobPlanner(appDesc);
+    List<JobConfig> jobConfigs = planner.prepareJobs();
+
+    if (jobConfigs.size() != 1) {
+      throw new SamzaException("Only support single remote job is supported.");
+    }
+
+    Config config = jobConfigs.get(0);
 
     // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
     CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
@@ -571,19 +583,5 @@ public class ClusterBasedJobCoordinator {
         metrics,
         metadataStore,
         config);
-  }
-
-  private static Config prepareJob(Config config) {
-    // Execute planning
-    ApplicationDescriptorImpl<? extends ApplicationDescriptor>
-        appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
-    RemoteJobPlanner planner = new RemoteJobPlanner(appDesc);
-    List<JobConfig> jobConfigs = planner.prepareJobs();
-
-    if (jobConfigs.size() != 1) {
-      throw new SamzaException("Only support single remote job is supported.");
-    }
-
-    return jobConfigs.get(0);
   }
 }
