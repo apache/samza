@@ -324,7 +324,7 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     //  - Set topic TTL to be the same as RocksDB TTL
     Option(config.get("stores.%s.rocksdb.ttl.ms" format name)) match {
       case Some(rocksDbTtl) =>
-        if (!rocksDbTtl.isEmpty && rocksDbTtl.toInt < 0) {
+        if (!rocksDbTtl.isEmpty && rocksDbTtl.toLong < 0) {
           kafkaChangeLogProperties.setProperty("cleanup.policy", "compact")
           kafkaChangeLogProperties.setProperty("max.message.bytes", getChangelogStreamMaxMessageByte(name))
         } else if (!config.containsKey("stores.%s.changelog.kafka.cleanup.policy" format name)) {
