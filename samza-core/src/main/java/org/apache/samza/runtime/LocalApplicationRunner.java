@@ -62,6 +62,7 @@ import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
@@ -111,25 +112,33 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @param metadataStoreFactory the instance of {@link MetadataStoreFactory} to read and write to coordinator stream.
    */
   public LocalApplicationRunner(SamzaApplication app, Config config, MetadataStoreFactory metadataStoreFactory) {
-    this(ApplicationDescriptorUtil.getAppDescriptor(app, config), getCoordinationUtils(config), metadataStoreFactory);
+    this(app, config, getCoordinationUtils(config), metadataStoreFactory);
   }
 
   /**
    * Constructor only used in unit test to allow injection of {@link LocalJobPlanner}
    */
   @VisibleForTesting
-  LocalApplicationRunner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, Optional<CoordinationUtils> coordinationUtils) {
-    this(appDesc, coordinationUtils, getDefaultCoordinatorStreamStoreFactory(new JobConfig(appDesc.getConfig())));
+  LocalApplicationRunner(SamzaApplication app, Config config, Optional<CoordinationUtils> coordinationUtils) {
+    this(app, config, coordinationUtils, getDefaultCoordinatorStreamStoreFactory(new JobConfig(config)));
   }
 
   private LocalApplicationRunner(
-      ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
+      SamzaApplication app,
+      Config config,
       Optional<CoordinationUtils> coordinationUtils,
       MetadataStoreFactory metadataStoreFactory) {
-    this.appDesc = appDesc;
+    this.appDesc = getApplicationDescriptor(app, config);
     this.isAppModeBatch = isAppModeBatch(appDesc.getConfig());
     this.coordinationUtils = coordinationUtils;
     this.metadataStoreFactory = Optional.ofNullable(metadataStoreFactory);
+  }
+
+  @VisibleForTesting
+  static ApplicationDescriptorImpl<? extends ApplicationDescriptor> getApplicationDescriptor(SamzaApplication app, Config config) {
+    return new JobConfig(config).getConfigLoaderFactory().isPresent()
+        ? ApplicationDescriptorUtil.getAppDescriptor(app, ConfigUtil.loadConfig(config))
+        : ApplicationDescriptorUtil.getAppDescriptor(app, config);
   }
 
   @VisibleForTesting
