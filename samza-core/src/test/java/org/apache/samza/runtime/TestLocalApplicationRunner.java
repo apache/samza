@@ -20,7 +20,6 @@
 package org.apache.samza.runtime;
 
 import com.google.common.collect.ImmutableMap;
-import com.sun.glass.ui.Application;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,7 +57,6 @@ import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.task.IdentityStreamTask;
 import org.apache.samza.util.ConfigUtil;
-import org.apache.samza.util.TestConfigUtil;
 import org.apache.samza.zk.ZkMetadataStore;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.junit.Before;
