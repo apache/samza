@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
@@ -488,7 +489,7 @@ public class ClusterBasedJobCoordinator {
     final String coordinatorSystemEnv = System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG());
     final String submissionEnv = System.getenv(ShellCommandConfig.ENV_SUBMISSION_CONFIG());
 
-    if (submissionEnv != null) {
+    if (!StringUtils.isBlank(submissionEnv)) {
       Config submissionConfig;
       try {
         //Read and parse the coordinator system config.
