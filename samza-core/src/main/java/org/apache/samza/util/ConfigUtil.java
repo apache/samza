@@ -19,11 +19,17 @@
 
 package org.apache.samza.util;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.ConfigLoader;
+import org.apache.samza.config.ConfigLoaderFactory;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,5 +72,42 @@ public class ConfigUtil {
     ConfigRewriter rewriter = ReflectionUtil.getObj(rewriterClassName, ConfigRewriter.class);
     LOG.info("Re-writing config with {}", rewriter);
     return rewriter.rewrite(rewriterName, config);
+  }
+
+  /**
+   * Load full job config with {@link ConfigLoaderFactory} when present.
+   *
+   * @param original config
+   * @return full job config
+   */
+  public static Config loadConfig(Config original) {
+    JobConfig jobConfig = new JobConfig(original);
+
+    if (!jobConfig.getConfigLoaderFactory().isPresent()) {
+      throw new ConfigException("Missing key " + JobConfig.CONFIG_LOADER_FACTORY + ".");
+    }
+
+    ConfigLoaderFactory factory = ReflectionUtil.getObj(jobConfig.getConfigLoaderFactory().get(), ConfigLoaderFactory.class);
+    ConfigLoader loader = factory.getLoader(original.subset(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX));
+    // overrides config loaded with original config, which may contain overridden values.
+    return rewriteConfig(override(loader.getConfig(), original));
+  }
+
+  /**
+   * Overrides original config with overridden values.
+   *
+   * @param original config to be overridden.
+   * @param overrides overridden values.
+   * @return the overridden config.
+   */
+  @SafeVarargs
+  private static Config override(Config original, Map<String, String>... overrides) {
+    Map<String, String> map = new HashMap<>(original);
+
+    for (Map<String, String> override : overrides) {
+      map.putAll(override);
+    }
+
+    return new MapConfig(map);
   }
 }
