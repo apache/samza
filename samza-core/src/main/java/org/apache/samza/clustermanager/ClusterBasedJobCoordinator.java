@@ -187,7 +187,6 @@ public class ClusterBasedJobCoordinator {
   private ClusterBasedJobCoordinator(MetricsRegistryMap metrics, MetadataStore metadataStore, Config fullJobConfig) {
     this.metrics = metrics;
     this.metadataStore = metadataStore;
-    this.metadataStore.init();
     this.config = fullJobConfig;
     // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
     this.changelogStreamManager = new ChangelogStreamManager(
@@ -532,7 +531,8 @@ public class ClusterBasedJobCoordinator {
    * @return {@link ClusterBasedJobCoordinator}
    */
   // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
-  public static ClusterBasedJobCoordinator createFromMetadataStore(Config metadataStoreConfig) {
+  @VisibleForTesting
+  static ClusterBasedJobCoordinator createFromMetadataStore(Config metadataStoreConfig) {
     MetricsRegistryMap metrics = new MetricsRegistryMap();
 
     CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(metadataStoreConfig, metrics);
@@ -549,7 +549,8 @@ public class ClusterBasedJobCoordinator {
    * @param submissionConfig specifies {@link org.apache.samza.config.ConfigLoaderFactory}
    * @return {@link ClusterBasedJobCoordinator}
    */
-  public static ClusterBasedJobCoordinator createFromConfigLoader(Config submissionConfig) {
+  @VisibleForTesting
+  static ClusterBasedJobCoordinator createFromConfigLoader(Config submissionConfig) {
     JobConfig jobConfig = new JobConfig(submissionConfig);
 
     if (!jobConfig.getConfigLoaderFactory().isPresent()) {
@@ -563,10 +564,12 @@ public class ClusterBasedJobCoordinator {
     // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
     CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
     DiagnosticsUtil.createDiagnosticsStream(config);
+    MetadataStore metadataStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config), metrics);
+    metadataStore.init();
 
     return new ClusterBasedJobCoordinator(
         metrics,
-        new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config), metrics),
+        metadataStore,
         config);
   }
 

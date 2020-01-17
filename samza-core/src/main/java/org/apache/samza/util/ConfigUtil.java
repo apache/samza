@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ConfigLoader;
 import org.apache.samza.config.ConfigLoaderFactory;
 import org.apache.samza.config.ConfigRewriter;
@@ -81,16 +82,15 @@ public class ConfigUtil {
    */
   public static Config loadConfig(Config original) {
     JobConfig jobConfig = new JobConfig(original);
-    Config fullConfig = original;
 
-    if (jobConfig.getConfigLoaderFactory().isPresent()) {
-      ConfigLoaderFactory factory = ReflectionUtil.getObj(jobConfig.getConfigLoaderFactory().get(), ConfigLoaderFactory.class);
-      ConfigLoader loader = factory.getLoader(original.subset(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX));
-      // overrides config loaded with original config, which may contain overridden values.
-      fullConfig = ConfigUtil.rewriteConfig(override(loader.getConfig(), original));
+    if (!jobConfig.getConfigLoaderFactory().isPresent()) {
+      throw new ConfigException("Missing key " + JobConfig.CONFIG_LOADER_FACTORY + ".");
     }
 
-    return fullConfig;
+    ConfigLoaderFactory factory = ReflectionUtil.getObj(jobConfig.getConfigLoaderFactory().get(), ConfigLoaderFactory.class);
+    ConfigLoader loader = factory.getLoader(original.subset(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX));
+    // overrides config loaded with original config, which may contain overridden values.
+    return rewriteConfig(override(loader.getConfig(), original));
   }
 
   /**
@@ -101,7 +101,7 @@ public class ConfigUtil {
    * @return the overridden config.
    */
   @SafeVarargs
-  public static Config override(Config original, Map<String, String>... overrides) {
+  private static Config override(Config original, Map<String, String>... overrides) {
     Map<String, String> map = new HashMap<>(original);
 
     for (Map<String, String> override : overrides) {
