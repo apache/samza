@@ -36,7 +36,6 @@ import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
-import org.apache.samza.execution.JobPlanner;
 import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -79,8 +78,7 @@ import static org.powermock.api.mockito.PowerMockito.verifyNew;
     CoordinatorStreamUtil.class,
     ClusterBasedJobCoordinator.class,
     CoordinatorStreamStore.class,
-    RemoteJobPlanner.class
-})
+    RemoteJobPlanner.class})
 public class TestClusterBasedJobCoordinator {
 
   private Map<String, String> configMap;
