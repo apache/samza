@@ -98,7 +98,7 @@ object RocksDbKeyValueStore extends Logging {
             rocksDb.getProperty(property)
           } else {
             "0"
-          }, true // overwrite-gauge = true, to accommodate for store-close and re-open (after bulk-load)
+          }
         ))
 
       rocksDb

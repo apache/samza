@@ -65,17 +65,6 @@ public interface MetricsRegistry {
   <T> Gauge<T> newGauge(String group, Gauge<T> value);
 
   /**
-   * Register an existing {@link org.apache.samza.metrics.Gauge}
-   * @param group Group for this Gauge
-   * @param value Initial value for the Gauge
-   * @param <T> Type the Gauge will be wrapping
-   * @param overrideExistingGauge Overwrite any existing gauges present for the same group and gauge
-   * @return Gauge was registered
-   */
-  <T> Gauge<T> newGauge(String group, Gauge<T> value, Boolean overrideExistingGauge);
-
-
-  /**
    * Create and Register a new {@link org.apache.samza.metrics.Timer}
    * @param group Group for this Timer
    * @param name Name of to-be-created Timer
