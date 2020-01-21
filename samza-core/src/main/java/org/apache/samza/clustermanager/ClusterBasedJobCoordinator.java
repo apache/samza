@@ -31,11 +31,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.classloader.IsolatingClassLoaderFactory;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -159,6 +161,14 @@ public class ClusterBasedJobCoordinator {
   private final Optional<StreamRegexMonitor> inputStreamRegexMonitor;
 
   /**
+   * Container placement request dispatcher and metastore reader/writer
+   */
+  private final ContainerPlacementMetadataStore containerPlacementMetadataStore;
+  private final ContainerPlacementRequestAllocator containerPlacementRequestAllocator;
+  // Container Placement thread that reads requests from metastore
+  private final Thread containerPlacementRequestAllocatorThread;
+
+  /**
    * Metrics to track stats around container failures, needed containers etc.
    */
   private final MetricsRegistryMap metrics;
@@ -208,7 +218,13 @@ public class ClusterBasedJobCoordinator {
     this.jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 
     // build a container process Manager
-    this.containerProcessManager = createContainerProcessManager();
+    containerProcessManager = createContainerProcessManager();
+
+    // build utils related to container placements
+    containerPlacementMetadataStore = new ContainerPlacementMetadataStore(metadataStore);
+    containerPlacementRequestAllocator = new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, containerProcessManager);
+    this.containerPlacementRequestAllocatorThread =
+        new Thread(containerPlacementRequestAllocator, "Samza-" + ContainerPlacementRequestAllocator.class.getSimpleName());
   }
 
   /**
@@ -270,9 +286,17 @@ public class ClusterBasedJobCoordinator {
       partitionMonitor.ifPresent(StreamPartitionCountMonitor::start);
       inputStreamRegexMonitor.ifPresent(StreamRegexMonitor::start);
 
+      // containerPlacementRequestAllocator thread has to start after the cpm is started
+      LOG.info("Starting the container placement handler thread");
+      containerPlacementMetadataStore.start();
+      containerPlacementRequestAllocatorThread.start();
+
       boolean isInterrupted = false;
 
-      while (!containerProcessManager.shouldShutdown() && !checkAndThrowException() && !isInterrupted) {
+      while (!containerProcessManager.shouldShutdown()
+          && !checkAndThrowException()
+          && !isInterrupted
+          && checkcontainerPlacementRequestAllocatorThreadIsAlive()) {
         try {
           Thread.sleep(jobCoordinatorSleepInterval);
         } catch (InterruptedException e) {
@@ -296,15 +320,23 @@ public class ClusterBasedJobCoordinator {
     return false;
   }
 
+  private boolean checkcontainerPlacementRequestAllocatorThreadIsAlive() {
+    if (containerPlacementRequestAllocatorThread.isAlive()) {
+      return true;
+    }
+    LOG.info("{} thread is dead issuing a shutdown", containerPlacementRequestAllocatorThread.getName());
+    return false;
+  }
+
   /**
    * Stops all components of the JobCoordinator.
    */
   private void onShutDown() {
-
     try {
       partitionMonitor.ifPresent(StreamPartitionCountMonitor::stop);
       inputStreamRegexMonitor.ifPresent(StreamRegexMonitor::stop);
       systemAdmins.stop();
+      shutDowncontainerPlacementRequestAllocatorAndUtils();
       containerProcessManager.stop();
       metadataStore.close();
     } catch (Throwable e) {
@@ -319,6 +351,19 @@ public class ClusterBasedJobCoordinator {
       } catch (Throwable e) {
         LOG.error("Exception while stopping jmx server", e);
       }
+    }
+  }
+
+  private void shutDowncontainerPlacementRequestAllocatorAndUtils() {
+    // Shutdown container placement handler
+    containerPlacementRequestAllocator.stop();
+    try {
+      containerPlacementRequestAllocatorThread.join();
+      LOG.info("Stopped container placement handler thread");
+      containerPlacementMetadataStore.stop();
+    } catch (InterruptedException ie) {
+      LOG.error("Container Placement handler thread join threw an interrupted exception", ie);
+      Thread.currentThread().interrupt();
     }
   }
 
