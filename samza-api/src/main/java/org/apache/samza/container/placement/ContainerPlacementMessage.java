@@ -83,19 +83,13 @@ public abstract class ContainerPlacementMessage {
 
   protected ContainerPlacementMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
       Duration requestExpiry, StatusCode statusCode, long timestamp) {
-    Preconditions.checkNotNull(uuid, "uuid cannot be null");
-    Preconditions.checkNotNull(deploymentId, "deploymentId cannot be null");
-    Preconditions.checkNotNull(processorId, "processorId cannot be null");
-    Preconditions.checkNotNull(destinationHost, "destinationHost cannot be null");
-    Preconditions.checkNotNull(statusCode, "statusCode cannot be null");
-    Preconditions.checkNotNull(timestamp, "Timestamp of the message cannot be null");
-    this.uuid = uuid;
-    this.deploymentId = deploymentId;
-    this.processorId = processorId;
-    this.destinationHost = destinationHost;
+    this.uuid = Preconditions.checkNotNull(uuid, "uuid cannot be null");
+    this.deploymentId = Preconditions.checkNotNull(deploymentId, "deploymentId cannot be null");
+    this.processorId = Preconditions.checkNotNull(processorId, "processorId cannot be null");
+    this.destinationHost = Preconditions.checkNotNull(destinationHost, "destinationHost cannot be null");
+    this.statusCode = Preconditions.checkNotNull(statusCode, "statusCode cannot be null");
+    this.timestamp = Preconditions.checkNotNull(timestamp, "Timestamp of the message cannot be null");
     this.requestExpiry = requestExpiry;
-    this.statusCode = statusCode;
-    this.timestamp = timestamp;
   }
 
   protected ContainerPlacementMessage(UUID uuid, String deploymentId, String processorId, String destinationHost,
@@ -140,13 +134,15 @@ public abstract class ContainerPlacementMessage {
       return false;
     }
     ContainerPlacementMessage message = (ContainerPlacementMessage) o;
-    return getUuid().equals(message.getUuid()) && getDeploymentId().equals(message.getDeploymentId())
-        && getProcessorId().equals(message.getProcessorId()) && getDestinationHost().equals(
-        message.getDestinationHost());
+    return getTimestamp() == message.getTimestamp() && getUuid().equals(message.getUuid()) && getDeploymentId().equals(
+        message.getDeploymentId()) && getProcessorId().equals(message.getProcessorId()) && getDestinationHost().equals(
+        message.getDestinationHost()) && Objects.equals(getRequestExpiry(), message.getRequestExpiry())
+        && getStatusCode() == message.getStatusCode();
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getUuid(), getDeploymentId(), getProcessorId(), getDestinationHost());
+    return Objects.hash(getUuid(), getDeploymentId(), getProcessorId(), getDestinationHost(), getRequestExpiry(),
+        getStatusCode(), getTimestamp());
   }
 }
