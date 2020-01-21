@@ -44,10 +44,19 @@ import org.codehaus.jackson.map.module.SimpleModule;
  */
 public class ContainerPlacementMessageObjectMapper {
 
+  private static ObjectMapper objectMapper = null;
+
   private ContainerPlacementMessageObjectMapper() {
   }
 
   static ObjectMapper getObjectMapper() {
+    if (objectMapper == null) {
+      objectMapper = createObjectMapper();
+    }
+    return objectMapper;
+  }
+
+  private static ObjectMapper createObjectMapper() {
     ObjectMapper objectMapper = new ObjectMapper();
     SimpleModule module = new SimpleModule("ContainerPlacementModule", new Version(1, 0, 0, ""));
     module.addSerializer(ContainerPlacementMessage.class,
