@@ -61,7 +61,6 @@ public class TestContainerPlacementObjectMapper {
     assertTrue(message instanceof ContainerPlacementRequestMessage);
     ContainerPlacementRequestMessage deserializedRequest = (ContainerPlacementRequestMessage) message;
     assertEquals(requestMessage, deserializedRequest);
-    assertEquals(deserializedRequest.getStatusCode(), ContainerPlacementMessage.StatusCode.CREATED);
   }
 
   private void testContainerPlacementResponseMessage(ContainerPlacementResponseMessage responseMessage)

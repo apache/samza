@@ -68,7 +68,7 @@ public class ContainerPlacementRequestAllocator implements Runnable {
         Thread.currentThread().interrupt();
       } catch (Exception e) {
         LOG.error(
-            "Got unknown Exception while reading ContainerPlacementRequestMessage in ContainerPlacementRequestAllocator thread",
+            "Got an exception while reading ContainerPlacementRequestMessage in ContainerPlacementRequestAllocator thread",
             e);
       }
     }

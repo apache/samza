@@ -227,6 +227,7 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
+
   public int getJobCoordinatorSleepInterval() {
     return getInt(CLUSTER_MANAGER_SLEEP_MS, DEFAULT_CLUSTER_MANAGER_SLEEP_MS);
   }
