@@ -32,7 +32,7 @@ public class CommandHandlerException extends Exception {
 
   /**
    * creates instance given error message
-   * @param message: error message
+   * @param message error message
    */
   public CommandHandlerException(String message) {
     super(message);
@@ -40,8 +40,8 @@ public class CommandHandlerException extends Exception {
 
   /**
    * creates instance given error message and {@link Throwable} cause
-   * @param message: error message
-   * @param cause: throwable cause
+   * @param message error message
+   * @param cause throwable cause
    */
   public CommandHandlerException(String message, Throwable cause) {
     super(message, cause);
@@ -49,7 +49,7 @@ public class CommandHandlerException extends Exception {
 
   /**
    * creates instance given {@link Throwable} cause
-   * @param cause: throwable case
+   * @param cause throwable case
    */
   public CommandHandlerException(Throwable cause) {
     super(cause);

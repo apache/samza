@@ -18,14 +18,15 @@
  */
  ext {
   apacheCommonsCollections4Version = "4.0"
-  avroVersion = "1.7.1"
+  avroVersion = "1.7.7"
   calciteVersion = "1.19.0"
   commonsCliVersion = "1.2"
   commonsCodecVersion = "1.9"
   commonsCollectionVersion = "3.2.1"
   commonsHttpClientVersion = "3.1"
-  commonsLang3Version = "3.4"
   commonsIoVersion = "2.6"
+  commonsLang3Version = "3.4"
+  cytodynamicsVersion = "0.2.0"
   elasticsearchVersion = "2.2.0"
   gsonVersion = "2.8.5"
   guavaVersion = "23.0"

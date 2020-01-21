@@ -21,11 +21,9 @@ package org.apache.samza.diagnostics;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
@@ -36,11 +34,9 @@ import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Tuple2;
-import scala.collection.JavaConverters;
 
 
 /**
@@ -146,24 +142,15 @@ public class DiagnosticsManager {
     resetTime = Instant.now();
 
     try {
-
-      Util.getObj("org.apache.samza.logging.log4j.SimpleDiagnosticsAppender",
-          JavaConverters.collectionAsScalaIterableConverter(
-              Collections.singletonList(new Tuple2<Class<?>, Object>(DiagnosticsManager.class, this)))
-              .asScala()
-              .toSeq());
-
+      ReflectionUtil.getObjWithArgs("org.apache.samza.logging.log4j.SimpleDiagnosticsAppender",
+          Object.class, ReflectionUtil.constructorArgument(this, DiagnosticsManager.class));
       LOG.info("Attached log4j diagnostics appender.");
-    } catch (ClassNotFoundException | InstantiationException | InvocationTargetException e) {
+    } catch (Exception e) {
       try {
-        Util.getObj("org.apache.samza.logging.log4j2.SimpleDiagnosticsAppender",
-            JavaConverters.collectionAsScalaIterableConverter(
-                Collections.singletonList(new Tuple2<Class<?>, Object>(DiagnosticsManager.class, this)))
-                .asScala()
-                .toSeq());
-        LOG.info("Attached log4j diagnostics appender.");
-      } catch (ClassNotFoundException | InstantiationException | InvocationTargetException ex) {
-
+        ReflectionUtil.getObjWithArgs("org.apache.samza.logging.log4j2.SimpleDiagnosticsAppender",
+            Object.class, ReflectionUtil.constructorArgument(this, DiagnosticsManager.class));
+        LOG.info("Attached log4j2 diagnostics appender.");
+      } catch (Exception ex) {
         LOG.warn(
             "Failed to instantiate neither diagnostic appender for sending error information to diagnostics stream.",
             ex);

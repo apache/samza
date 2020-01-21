@@ -31,7 +31,7 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
-import org.apache.samza.container.placements.ContainerPlacementRequestMessage;
+import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
@@ -564,6 +564,17 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
   }
 
+  /**
+   * Registers a ContainerPlacement action, this method is invoked by ContainerPlacementRequestAllocator. {@link ContainerProcessManager}
+   * needs to intercept container placement actions between ContainerPlacementRequestAllocator and {@link ContainerManager} to avoid
+   * cyclic dependency between {@link ContainerManager} and {@link ContainerAllocator} on each other
+   *
+   * @param requestMessage request containing details of the desited container placement action
+   */
+  public void registerContainerPlacementAction(ContainerPlacementRequestMessage requestMessage) {
+    // Call the ContainerManager#registerContainerPlacementAction
+  }
+
   private Duration getRetryDelay(String processorId) {
     return processorFailures.containsKey(processorId)
         ? processorFailures.get(processorId).getLastRetryDelay()
@@ -613,16 +624,5 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus, Duration preferredHostRetryDelay) {
     containerManager.handleContainerStop(processorId, containerId, preferredHost, exitStatus, preferredHostRetryDelay, containerAllocator);
-  }
-
-  /**
-   * Registers a ContainerPlacement action, this method is invoked by ContainerPlacementHandler. {@link ContainerProcessManager}
-   * needs to intercept container placement actions between ContainerPlacementHandler and {@link ContainerManager} to avoid
-   * cyclic dependency between {@link ContainerManager} and {@link ContainerAllocator} on each other
-   *
-   * @param requestMessage request containing details of the desited container placement action
-   */
-  public void registerContainerPlacementAction(ContainerPlacementRequestMessage requestMessage) {
-    containerManager.registerContainerPlacementAction(requestMessage, containerAllocator);
   }
 }

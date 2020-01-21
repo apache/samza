@@ -292,8 +292,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   /**
    *
    * Requests the launch of a StreamProcessor with the specified ID on the resource
-   * @param resource , the SamzaResource on which to launch the StreamProcessor
-   * @param builder, the builder to build the resource launch command from
+   * @param resource the SamzaResource on which to launch the StreamProcessor
+   * @param builder the builder to build the resource launch command from
    *
    * TODO: Support non-builder methods to launch resources. Maybe, refactor into a ContainerLaunchStrategy interface
    */
@@ -498,8 +498,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   }
 
   /**
-   * Callback invoked when there is an error in the Yarn client. This delegates the
-   * callback handling to the {@link ClusterResourceManager.Callback} instance.
+   * Callback invoked when there is an error in the Yarn client. This delegates the callback handling to
+   * the {@link org.apache.samza.clustermanager.ClusterResourceManager.Callback} instance.
    *
    */
   @Override

@@ -42,12 +42,13 @@ import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.job.model.TaskModel
+import org.apache.samza.metadatastore.MetadataStore
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
 import org.apache.samza.system._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{Logging, ReflectionUtil, Util}
+import org.apache.samza.util.{ConfigUtil, Logging, ReflectionUtil, Util}
 
 import scala.collection.JavaConverters
 import scala.collection.JavaConversions._
@@ -79,13 +80,13 @@ object JobModelManager extends Logging {
    * @return the instantiated {@see JobModelManager}.
    */
   def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer],
-            coordinatorStreamStore: CoordinatorStreamStore,
+            metadataStore: MetadataStore,
             metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
 
     // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.
-    val localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE))
-    val taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskModeMapping.TYPE))
-    val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskPartitionMapping.TYPE))
+    val localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE))
+    val taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskModeMapping.TYPE))
+    val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskPartitionMapping.TYPE))
 
     val systemAdmins = new SystemAdmins(config)
     try {
@@ -274,7 +275,7 @@ object JobModelManager extends Logging {
           filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
             .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
             .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
-          foldLeft(config)(Util.applyRewriter(_, _))
+          foldLeft(config)(ConfigUtil.applyRewriter(_, _))
         case _ => config
       }
     }
