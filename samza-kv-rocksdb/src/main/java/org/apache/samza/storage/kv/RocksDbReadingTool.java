@@ -20,11 +20,9 @@
 package org.apache.samza.storage.kv;
 
 import java.util.List;
-
 import joptsimple.ArgumentAcceptingOptionSpec;
 import joptsimple.OptionSet;
-
-import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.util.CommandLine;
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
@@ -73,8 +71,8 @@ public class RocksDbReadingTool extends CommandLine {
   private Logger log = LoggerFactory.getLogger(RocksDbReadingTool.class);
 
   @Override
-  public MapConfig loadConfig(OptionSet options) {
-    MapConfig config = super.loadConfig(options);
+  public Config loadConfig(OptionSet options) {
+    Config config = super.loadConfig(options);
     // get the db name
     if (options.has(dbNameArgument)) {
       dbName = options.valueOf(dbNameArgument);
@@ -138,7 +136,7 @@ public class RocksDbReadingTool extends CommandLine {
   public static void main(String[] args) throws RocksDBException {
     RocksDbReadingTool tool = new RocksDbReadingTool();
     OptionSet options = tool.parser().parse(args);
-    MapConfig config = tool.loadConfig(options);
+    Config config = tool.loadConfig(options);
     String path = tool.getDbPath();
     String dbName = tool.getDbName();
     RocksDbKeyValueReader kvReader = new RocksDbKeyValueReader(dbName, path, config);

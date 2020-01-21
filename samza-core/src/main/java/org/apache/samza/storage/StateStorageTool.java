@@ -21,8 +21,7 @@ package org.apache.samza.storage;
 
 import joptsimple.ArgumentAcceptingOptionSpec;
 import joptsimple.OptionSet;
-
-import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.util.CommandLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +35,8 @@ public class StateStorageTool extends CommandLine {
   private Logger log = LoggerFactory.getLogger(StateStorageTool.class);
 
   @Override
-  public MapConfig loadConfig(OptionSet options) {
-    MapConfig config = super.loadConfig(options);
+  public Config loadConfig(OptionSet options) {
+    Config config = super.loadConfig(options);
     if (options.has(newPathArgu)) {
       newPath = options.valueOf(newPathArgu);
       log.info("new state storage is " + newPath);
@@ -52,7 +51,7 @@ public class StateStorageTool extends CommandLine {
   public static void main(String[] args) {
     StateStorageTool tool = new StateStorageTool();
     OptionSet options = tool.parser().parse(args);
-    MapConfig config = tool.loadConfig(options);
+    Config config = tool.loadConfig(options);
     String path = tool.getPath();
 
     StorageRecovery storageRecovery = new StorageRecovery(config, path);

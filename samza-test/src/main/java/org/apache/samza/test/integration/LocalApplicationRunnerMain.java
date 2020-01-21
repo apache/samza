@@ -42,7 +42,7 @@ public class LocalApplicationRunnerMain {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(LocalApplicationRunnerMain.class);
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     ApplicationRunnerMain.ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerMain.ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
@@ -53,14 +53,14 @@ public class LocalApplicationRunnerMain {
 
     try {
       LOGGER.info("Launching stream application: {} to run.", app);
-      runner.run(buildExternalContext(config).orElse(null));
+      runner.run(buildExternalContext().orElse(null));
       runner.waitForFinish();
     } catch (Exception e) {
       LOGGER.error("Exception occurred when running application: {}.", app, e);
     }
   }
 
-  private static Optional<ExternalContext> buildExternalContext(Config config) {
+  private static Optional<ExternalContext> buildExternalContext() {
     /*
      * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
      * a non-empty ExternalContext. Only config should be used to build the external context. In the future, components

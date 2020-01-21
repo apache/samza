@@ -19,9 +19,16 @@
 
 package org.apache.samza.runtime;
 
+import java.util.Collections;
+import java.util.Map;
+import java.util.stream.Collectors;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.ConfigLoaderFactory;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.util.CommandLine;
 
 
@@ -43,9 +50,32 @@ public class ApplicationRunnerMain {
       String rawOp = options.valueOf(operationOpt);
       return ApplicationRunnerOperation.fromString(rawOp);
     }
+
+    @Override
+    public Config loadConfig(OptionSet options) {
+      // Verify legitimate parameters.
+      if (!options.has(configLoaderPropertiesOpt())) {
+        throw new ConfigException("Missing config loader properties");
+      }
+
+      // Set up the job parameters.
+      Map<String, String> configLoaderFactory = Collections.singletonMap(JobConfig.CONFIG_LOADER_FACTORY, options.valueOf(configLoaderFactoryOpt()));
+      Map<String, String> properties = options.valuesOf(configLoaderPropertiesOpt())
+          .stream()
+          .collect(Collectors.toMap(
+              pair -> ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + pair.key,
+              pair -> pair.value));
+      Map<String, String> overrides = options.valuesOf(configOverrideOpt())
+          .stream()
+          .collect(Collectors.toMap(
+              pair -> pair.key,
+              pair -> pair.value));
+
+      return new MapConfig(configLoaderFactory, properties, overrides);
+    }
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);

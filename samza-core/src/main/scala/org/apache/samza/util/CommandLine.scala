@@ -19,13 +19,13 @@
 
 package org.apache.samza.util
 
-import java.net.URI
-import joptsimple.{OptionParser, OptionSet}
+import joptsimple.{ArgumentAcceptingOptionSpec, OptionParser, OptionSet}
 import joptsimple.util.KeyValuePair
-import org.apache.samza.config.{ConfigFactory, MapConfig}
-import org.apache.samza.config.factories.PropertiesConfigFactory
-import scala.collection.mutable.Buffer
+import org.apache.samza.config.{Config, ConfigLoaderFactory, JobConfig, MapConfig}
+import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory
+
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 /**
  * Defines a basic set of command-line options for Samza tasks. Tools can use this
@@ -33,41 +33,46 @@ import scala.collection.JavaConverters._
  */
 class CommandLine {
   val parser = new OptionParser()
-  val configFactoryOpt =
-    parser.accepts("config-factory", "The config factory to use to read your config file.")
+  val configLoaderFactoryOpt: ArgumentAcceptingOptionSpec[String] =
+    parser.accepts("config-loader-factory", "The config factory to use to read your config file.")
           .withRequiredArg
           .ofType(classOf[java.lang.String])
           .describedAs("com.foo.bar.ClassName")
-          .defaultsTo(classOf[PropertiesConfigFactory].getName)
-  val configPathOpt =
-    parser.accepts("config-path", "URI location to a config file (e.g. file:///some/local/path.properties). " +
+          .defaultsTo(classOf[PropertiesConfigLoaderFactory].getName)
+  val configLoaderPropertiesOpt: ArgumentAcceptingOptionSpec[KeyValuePair] =
+    parser.accepts("config-loader-properties", "URI location to a config file (e.g. file:///some/local/path.properties). " +
                                   "If multiple files are given they are all used with later files overriding any values that appear in earlier files.")
           .withRequiredArg
-          .ofType(classOf[URI])
+          .ofType(classOf[KeyValuePair])
           .describedAs("path")
-  val configOverrideOpt =
+  val configOverrideOpt: ArgumentAcceptingOptionSpec[KeyValuePair] =
     parser.accepts("config", "A configuration value in the form key=value. Command line properties override any configuration values given.")
           .withRequiredArg
           .ofType(classOf[KeyValuePair])
           .describedAs("key=value")
 
-  var configFactory: ConfigFactory = null
+  var configLoaderFactory: ConfigLoaderFactory = _
 
-  def loadConfig(options: OptionSet) = {
+  def loadConfig(options: OptionSet): Config = {
     // Verify legitimate parameters.
-    if (!options.has(configPathOpt)) {
+    if (!options.has(configLoaderPropertiesOpt)) {
       parser.printHelpOn(System.err)
       System.exit(-1)
     }
 
     // Set up the job parameters.
-    val configFactoryClassName = options.valueOf(configFactoryOpt)
-    val configPaths = options.valuesOf(configPathOpt)
-    configFactory = ReflectionUtil.getObj(configFactoryClassName, classOf[ConfigFactory])
-    val configOverrides = options.valuesOf(configOverrideOpt).asScala.map(kv => (kv.key, kv.value)).toMap
+    val configLoaderFactoryClassName = options.valueOf(configLoaderFactoryOpt)
+    val configLoaderProperties = options.valuesOf(configLoaderPropertiesOpt).asScala
+      .map(kv => (ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + kv.key, kv.value))
+      .toMap
+    val configOverrides = options.valuesOf(configOverrideOpt).asScala
+      .map(kv => (kv.key, kv.value))
+      .toMap
+    val original = mutable.HashMap[String, String]()
+    original += JobConfig.CONFIG_LOADER_FACTORY -> configLoaderFactoryClassName
+    original ++= configLoaderProperties
+    original ++= configOverrides
 
-    val configs: Buffer[java.util.Map[String, String]] = configPaths.asScala.map(configFactory.getConfig)
-    configs += configOverrides.asJava
-    new MapConfig(configs.asJava)
+    ConfigUtil.loadConfig(new MapConfig(original.asJava))
   }
 }
