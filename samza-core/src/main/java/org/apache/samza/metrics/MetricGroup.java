@@ -54,7 +54,12 @@ public class MetricGroup {
    * it from another thread.
    */
   public <T> Gauge<T> newGauge(String name, final ValueFunction<T> valueFunc) {
-    return this.newGauge(name, valueFunc);
+    return registry.newGauge(groupName, new Gauge<T>((prefix + name).toLowerCase(), valueFunc.getValue()) {
+      @Override
+      public T getValue() {
+        return valueFunc.getValue();
+      }
+    });
   }
 
   public Timer newTimer(String name) {
