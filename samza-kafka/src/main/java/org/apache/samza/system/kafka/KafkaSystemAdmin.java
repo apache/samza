@@ -464,19 +464,19 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
     final String REPL_FACTOR = "replication.factor";
 
-    KafkaStreamSpec kSpec = toKafkaSpec(streamSpec);
-    String topicName = kSpec.getPhysicalName();
+    KafkaStreamSpec kafkaStreamSpec = toKafkaSpec(streamSpec);
+    String topicName = kafkaStreamSpec.getPhysicalName();
 
     // create topic.
-    NewTopic newTopic = new NewTopic(topicName, kSpec.getPartitionCount(), (short) kSpec.getReplicationFactor());
+    NewTopic newTopic = new NewTopic(topicName, kafkaStreamSpec.getPartitionCount(), (short) kafkaStreamSpec.getReplicationFactor());
 
     // specify the configs
-    Map<String, String> streamConfig = new HashMap<>(streamSpec.getConfig());
+    Map<String, String> streamConfig = new HashMap<>(kafkaStreamSpec.getConfig());
     // HACK - replication.factor is invalid config for AdminClient.createTopics
     if (streamConfig.containsKey(REPL_FACTOR)) {
       String repl = streamConfig.get(REPL_FACTOR);
       LOG.warn("Configuration {}={} for topic={} is invalid. Using kSpec repl factor {}",
-          REPL_FACTOR, repl, kSpec.getPhysicalName(), kSpec.getReplicationFactor());
+          REPL_FACTOR, repl, kafkaStreamSpec.getPhysicalName(), kafkaStreamSpec.getReplicationFactor());
       streamConfig.remove(REPL_FACTOR);
     }
     newTopic.configs(new MapConfig(streamConfig));
@@ -541,8 +541,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
           new KafkaStreamSpec(spec.getId(), spec.getPhysicalName(), systemName, 1, coordinatorStreamReplicationFactor,
               coordinatorStreamProperties);
     } else if (spec.isCheckpointStream()) {
-      kafkaSpec = KafkaStreamSpec.fromSpec(StreamSpec.createCheckpointStreamSpec(spec.getPhysicalName(), systemName))
-              .copyWithReplicationFactor(Integer.parseInt(new KafkaConfig(config).getCheckpointReplicationFactor().get()));
+      Properties checkpointTopicProperties = new Properties();
+      checkpointTopicProperties.putAll(spec.getConfig());
+      kafkaSpec = KafkaStreamSpec.fromSpec(StreamSpec.createCheckpointStreamSpec(spec.getPhysicalName(), spec.getSystemName()))
+              .copyWithReplicationFactor(Integer.parseInt(new KafkaConfig(config).getCheckpointReplicationFactor().get()))
+              .copyWithProperties(checkpointTopicProperties);
     } else if (intermediateStreamProperties.containsKey(spec.getId())) {
       kafkaSpec = KafkaStreamSpec.fromSpec(spec);
       Properties properties = kafkaSpec.getProperties();

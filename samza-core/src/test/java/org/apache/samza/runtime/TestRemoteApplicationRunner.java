@@ -76,8 +76,19 @@ public class TestRemoteApplicationRunner {
   }
 
   @Test
+  public void testRunWithConfigLoaderFactoryPresent() {
+    Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.APP_NAME, "test-app");
+    config.put(JobConfig.CONFIG_LOADER_FACTORY, "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory");
+    config.put(JobConfig.STREAM_JOB_FACTORY_CLASS, MockStreamJobFactory.class.getName());
+    runner = new RemoteApplicationRunner(null, new MapConfig(config));
+
+    runner.run(null);
+  }
+
+  @Test
   public void testGetStatus() {
-    Map m = new HashMap<String, String>();
+    Map<String, String> m = new HashMap<>();
     m.put(JobConfig.JOB_NAME, "jobName");
     m.put(JobConfig.STREAM_JOB_FACTORY_CLASS, MockStreamJobFactory.class.getName());
 
@@ -101,8 +112,8 @@ public class TestRemoteApplicationRunner {
     @Override
     public StreamJob getJob(final Config config) {
 
-      StreamJob streamJob = new StreamJob() {
-        JobConfig c = (JobConfig) config;
+      return new StreamJob() {
+        JobConfig c = new JobConfig(config);
 
         @Override
         public StreamJob submit() {
@@ -137,8 +148,6 @@ public class TestRemoteApplicationRunner {
           }
         }
       };
-
-      return streamJob;
     }
   }
 }

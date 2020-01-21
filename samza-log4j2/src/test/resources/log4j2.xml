@@ -11,7 +11,7 @@
   language governing permissions and limitations under the License. -->
 
 
-<Configuration packages="org.apache.samza.logging.log4j2">
+<Configuration strict="true" packages="org.apache.samza.logging.log4j2">
   <Appenders>
 
     <Console name="STDOUT" target="SYSTEM_OUT">
