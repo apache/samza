@@ -33,8 +33,8 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
-import org.apache.samza.container.placements.ContainerPlacementMessage;
-import org.apache.samza.container.placements.ContainerPlacementRequestMessage;
+import org.apache.samza.container.placement.ContainerPlacementMessage;
+import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.JobModelManagerTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
@@ -176,7 +176,9 @@ public class TestContainerPlacementActions {
     assertEquals(state.anyHostRequests.get(), 0);
 
     // Initiate container placement action to move a container with container id 0
-    ContainerPlacementRequestMessage requestMessage = new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3");
+    ContainerPlacementRequestMessage requestMessage =
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3",
+            System.currentTimeMillis());
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
@@ -257,7 +259,8 @@ public class TestContainerPlacementActions {
 
     // Initiate container placement action to move a container with container id 0
     ContainerPlacementRequestMessage requestMessage =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3", Duration.ofMillis(10));
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3", Duration.ofMillis(10),
+            System.currentTimeMillis());
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
@@ -347,7 +350,8 @@ public class TestContainerPlacementActions {
 
     // Take a container placement action to move a container with container id 0
     ContainerPlacementRequestMessage requestMessage =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "0", "host-3");
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "0", "host-3",
+            System.currentTimeMillis());
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
@@ -447,7 +451,8 @@ public class TestContainerPlacementActions {
 
     // Initiate container placement action to move a container with container id 0
     ContainerPlacementRequestMessage requestMessage =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "0", "host-3");
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "0", "host-3",
+            System.currentTimeMillis());
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithoutHostAffinity);
 
@@ -519,7 +524,8 @@ public class TestContainerPlacementActions {
   private void assertBadRequests(String processorId, String destinationHost, ContainerManager containerManager,
       ContainerAllocator allocator) {
     ContainerPlacementRequestMessage requestMessage =
-        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-Attemp-001", processorId, destinationHost);
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-Attemp-001", processorId, destinationHost,
+            System.currentTimeMillis());
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocator);
     assertNull(metadata);

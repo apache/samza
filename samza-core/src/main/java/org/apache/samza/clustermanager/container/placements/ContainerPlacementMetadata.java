@@ -24,8 +24,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.samza.clustermanager.SamzaResourceRequest;
-import org.apache.samza.container.placements.ContainerPlacementMessage;
-import org.apache.samza.container.placements.ContainerPlacementRequestMessage;
+import org.apache.samza.container.placement.ContainerPlacementMessage;
+import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 
 
 /**
@@ -97,7 +97,7 @@ public class ContainerPlacementMetadata {
   }
 
   public Optional<Duration> getRequestActionExpiryTimeout() {
-    return requestMessage.getRequestExpiryTimeout();
+    return Optional.ofNullable(requestMessage.getRequestExpiry());
   }
 
   public UUID getUuid() {

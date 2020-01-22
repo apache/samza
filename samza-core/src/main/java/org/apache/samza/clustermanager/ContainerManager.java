@@ -25,8 +25,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javafx.util.Pair;
 import org.apache.samza.clustermanager.container.placements.ContainerPlacementMetadata;
-import org.apache.samza.container.placements.ContainerPlacementMessage;
-import org.apache.samza.container.placements.ContainerPlacementRequestMessage;
+import org.apache.samza.container.placement.ContainerPlacementMessage;
+import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
