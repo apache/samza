@@ -62,7 +62,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Recovers the state storage from the changelog streams and store the storages
+ * Recovers the state storage from both the changelog streams and stores
  * in the directory provided by the users. The changelog streams are derived
  * from the job's config file.
  */

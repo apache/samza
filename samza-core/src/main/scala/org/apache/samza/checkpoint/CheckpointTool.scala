@@ -121,11 +121,11 @@ object CheckpointTool {
     override def loadConfig(options: OptionSet): Config = {
       val config = super.loadConfig(options)
       if (options.has(newOffsetsOpt)) {
-        val in = new FileInputStream(options.valueOf(newOffsetsOpt).getPath)
+        val newOffsetsInputStream = new FileInputStream(options.valueOf(newOffsetsOpt).getPath)
         val properties = new Properties()
 
-        properties.load(in)
-        in.close()
+        properties.load(newOffsetsInputStream)
+        newOffsetsInputStream.close()
 
         newOffsets = parseOffsets(properties)
       }
