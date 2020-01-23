@@ -34,6 +34,7 @@
   httpClientVersion = "4.4.1"
   jacksonVersion = "1.9.13"
   jerseyVersion = "2.22.1"
+  jettyVersion = "9.4.20.v20190813"
   jodaTimeVersion = "2.2"
   joptSimpleVersion = "3.2"
   junitVersion = "4.12"
