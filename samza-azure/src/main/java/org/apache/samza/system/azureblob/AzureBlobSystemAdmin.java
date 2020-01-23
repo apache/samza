@@ -19,6 +19,7 @@
 
 package org.apache.samza.system.azureblob;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.system.SystemAdmin;
@@ -35,7 +36,8 @@ public class AzureBlobSystemAdmin implements SystemAdmin {
   }
 
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
-    throw new UnsupportedOperationException("getSystemStreamMetadata not supported for AzureBlobSystemAdmin");
+    return new HashMap<>();
+    //throw new UnsupportedOperationException("getSystemStreamMetadata not supported for AzureBlobSystemAdmin");
   }
 
   public Integer offsetComparator(String offset1, String offset2) {
