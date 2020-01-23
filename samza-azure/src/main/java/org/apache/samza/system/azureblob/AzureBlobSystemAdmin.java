@@ -37,7 +37,6 @@ public class AzureBlobSystemAdmin implements SystemAdmin {
 
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
     return new HashMap<>();
-    //throw new UnsupportedOperationException("getSystemStreamMetadata not supported for AzureBlobSystemAdmin");
   }
 
   public Integer offsetComparator(String offset1, String offset2) {
