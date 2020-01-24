@@ -10,7 +10,7 @@ import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 
 
-public class KafkaUtilJava {
+public class KafkaUtil {
   private static final int CHECKPOINT_LOG_VERSION_NUMBER = 1;
 
   public static String getCheckpointTopic(String jobName, String jobId, Config config) {
