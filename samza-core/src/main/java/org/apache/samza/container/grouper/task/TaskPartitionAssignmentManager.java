@@ -88,6 +88,7 @@ public class TaskPartitionAssignmentManager {
         throw new SamzaException("Exception occurred when writing task to partition assignment.", e);
       }
     }
+    metadataStore.flush();
   }
 
   /**
@@ -120,6 +121,7 @@ public class TaskPartitionAssignmentManager {
       String serializedSSPAsJson = serializeSSPToJson(systemStreamPartition);
       metadataStore.delete(serializedSSPAsJson);
     }
+    metadataStore.flush();
   }
 
   /**

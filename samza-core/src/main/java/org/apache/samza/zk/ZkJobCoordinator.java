@@ -324,6 +324,7 @@ public class ZkJobCoordinator implements JobCoordinator {
           byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
           configStore.put(entry.getKey(), serializedValue);
         }
+        configStore.flush();
 
         // fan out the startpoints
         StartpointManager startpointManager = createStartpointManager();

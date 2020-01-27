@@ -119,6 +119,8 @@ public class TaskAssignmentManager {
       taskModeMappingMetadataStore.put(taskName, taskModeSerde.toBytes(taskMode.toString()));
       taskNameToContainerId.put(taskName, containerId);
     }
+    taskContainerMappingMetadataStore.flush();
+    taskModeMappingMetadataStore.flush();
   }
 
   /**
@@ -132,6 +134,8 @@ public class TaskAssignmentManager {
       taskModeMappingMetadataStore.delete(taskName);
       taskNameToContainerId.remove(taskName);
     }
+    taskContainerMappingMetadataStore.flush();
+    taskModeMappingMetadataStore.flush();
   }
 
   public void close() {
