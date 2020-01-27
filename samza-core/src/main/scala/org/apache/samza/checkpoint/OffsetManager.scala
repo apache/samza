@@ -353,13 +353,16 @@ class OffsetManager(
         }
       }
 
-      // invoke checkpoint listeners
-      checkpoint.getOffsets.asScala.groupBy { case (ssp, _) => ssp.getSystem }.foreach {
-        case (systemName:String, offsets: Map[SystemStreamPartition, String]) => {
-          // Option is empty if there is no checkpointListener for this systemName
-          checkpointListeners.get(systemName).foreach(_.onCheckpoint(offsets.asJava))
+      // invoke checkpoint listeners only for SSPs that are registered with the OffsetManager
+      val registeredSSPs = systemStreamPartitions.getOrElse(taskName, immutable.Set[SystemStreamPartition]())
+      checkpoint.getOffsets.asScala
+        .filterKeys(registeredSSPs.contains)
+        .groupBy { case (ssp, _) => ssp.getSystem }.foreach {
+          case (systemName:String, offsets: Map[SystemStreamPartition, String]) => {
+            // Option is empty if there is no checkpointListener for this systemName
+            checkpointListeners.get(systemName).foreach(_.onCheckpoint(offsets.asJava))
+          }
         }
-      }
     }
 
     // delete corresponding startpoints after checkpoint is supposed to be committed
