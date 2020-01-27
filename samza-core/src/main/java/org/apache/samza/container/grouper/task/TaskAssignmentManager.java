@@ -96,28 +96,32 @@ public class TaskAssignmentManager {
   }
 
   /**
-   * Method to write task container info to {@link MetadataStore}.
-   *
-   * @param taskName    the task name
-   * @param containerId the SamzaContainer ID or {@code null} to delete the mapping
-   * @param taskMode the mode of the task
+   * Method to batch write task container info to {@link MetadataStore}.
+   * @param mappings the task and container mappings: (ContainerId, (TaskName, TaskMode))
    */
-  public void writeTaskContainerMapping(String taskName, String containerId, TaskMode taskMode) {
-    String existingContainerId = taskNameToContainerId.get(taskName);
-    if (existingContainerId != null && !existingContainerId.equals(containerId)) {
-      LOG.info("Task \"{}\" in mode {} moved from container {} to container {}", new Object[]{taskName, taskMode, existingContainerId, containerId});
-    } else {
-      LOG.debug("Task \"{}\" in mode {} assigned to container {}", taskName, taskMode, containerId);
-    }
+  public void writeTaskContainerMappings(Map<String, Map<String, TaskMode>> mappings) {
+    for (String containerId : mappings.keySet()) {
+      Map<String, TaskMode> tasks = mappings.get(containerId);
+      for (String taskName : tasks.keySet()) {
+        TaskMode taskMode = tasks.get(taskName);
+        LOG.info("Storing task: {} and container ID: {} into metadata store", taskName, containerId);
+        String existingContainerId = taskNameToContainerId.get(taskName);
+        if (existingContainerId != null && !existingContainerId.equals(containerId)) {
+          LOG.info("Task \"{}\" in mode {} moved from container {} to container {}", new Object[]{taskName, taskMode, existingContainerId, containerId});
+        } else {
+          LOG.debug("Task \"{}\" in mode {} assigned to container {}", taskName, taskMode, containerId);
+        }
 
-    if (containerId == null) {
-      taskContainerMappingMetadataStore.delete(taskName);
-      taskModeMappingMetadataStore.delete(taskName);
-      taskNameToContainerId.remove(taskName);
-    } else {
-      taskContainerMappingMetadataStore.put(taskName, containerIdSerde.toBytes(containerId));
-      taskModeMappingMetadataStore.put(taskName, taskModeSerde.toBytes(taskMode.toString()));
-      taskNameToContainerId.put(taskName, containerId);
+        if (containerId == null) {
+          taskContainerMappingMetadataStore.delete(taskName);
+          taskModeMappingMetadataStore.delete(taskName);
+          taskNameToContainerId.remove(taskName);
+        } else {
+          taskContainerMappingMetadataStore.put(taskName, containerIdSerde.toBytes(containerId));
+          taskModeMappingMetadataStore.put(taskName, taskModeSerde.toBytes(taskMode.toString()));
+          taskNameToContainerId.put(taskName, containerId);
+        }
+      }
     }
     taskContainerMappingMetadataStore.flush();
     taskModeMappingMetadataStore.flush();

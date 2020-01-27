@@ -66,26 +66,30 @@ public class TaskPartitionAssignmentManager {
   }
 
   /**
-   * Stores the task to partition assignments to the metadata store.
-   * @param partition the system stream partition.
-   * @param taskNames the task names to which the partition is assigned to.
+   * Stores the task names to {@link SystemStreamPartition} assignments to the metadata store.
+   * @param sspToTaskNameMapping the mapped assignments to write to the metadata store. If the task name list is empty,
+   *                             then the entry is deleted from the metadata store.
    */
-  public void writeTaskPartitionAssignment(SystemStreamPartition partition, List<String> taskNames) {
-    // For broadcast streams, a input system stream partition will be mapped to more than one tasks in a
-    // SamzaContainer. Rather than storing taskName to list of SystemStreamPartitions in metadata store, here
-    // systemStreamPartition to list of taskNames is stored. This was done due to 1 MB limit on value size in kafka.
-    String serializedSSPAsJson = serializeSSPToJson(partition);
-    if (taskNames == null || taskNames.isEmpty()) {
-      LOG.info("Deleting the key: {} from the metadata store.", partition);
-      metadataStore.delete(serializedSSPAsJson);
-    } else {
-      try {
-        String taskNamesAsString = taskNamesMapper.writeValueAsString(taskNames);
-        byte[] taskNamesAsBytes = valueSerde.toBytes(taskNamesAsString);
-        LOG.info("Storing the partition: {} and taskNames: {} into the metadata store.", serializedSSPAsJson, taskNames);
-        metadataStore.put(serializedSSPAsJson, taskNamesAsBytes);
-      } catch (Exception e) {
-        throw new SamzaException("Exception occurred when writing task to partition assignment.", e);
+  public void writeTaskPartitionAssignments(Map<SystemStreamPartition, List<String>> sspToTaskNameMapping) {
+    for (SystemStreamPartition partition: sspToTaskNameMapping.keySet()) {
+      List<String> taskNames = sspToTaskNameMapping.get(partition);
+      LOG.info("Storing ssp: {} and task: {} into metadata store", partition, taskNames);
+      // For broadcast streams, a input system stream partition will be mapped to more than one tasks in a
+      // SamzaContainer. Rather than storing taskName to list of SystemStreamPartitions in metadata store, here
+      // systemStreamPartition to list of taskNames is stored. This was done due to 1 MB limit on value size in kafka.
+      String serializedSSPAsJson = serializeSSPToJson(partition);
+      if (taskNames == null || taskNames.isEmpty()) {
+        LOG.info("Deleting the key: {} from the metadata store.", partition);
+        metadataStore.delete(serializedSSPAsJson);
+      } else {
+        try {
+          String taskNamesAsString = taskNamesMapper.writeValueAsString(taskNames);
+          byte[] taskNamesAsBytes = valueSerde.toBytes(taskNamesAsString);
+          LOG.info("Storing the partition: {} and taskNames: {} into the metadata store.", serializedSSPAsJson, taskNames);
+          metadataStore.put(serializedSSPAsJson, taskNamesAsBytes);
+        } catch (Exception e) {
+          throw new SamzaException("Exception occurred when writing task to partition assignment.", e);
+        }
       }
     }
     metadataStore.flush();

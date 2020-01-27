@@ -60,10 +60,13 @@ public class TestTaskAssignmentManager {
   @Test
   public void testTaskAssignmentManager() {
     Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1", "Task2", "2", "Task3", "0", "Task4", "1");
+    Map<String, Map<String, TaskMode>> taskContainerMappings = ImmutableMap.of(
+        "0", ImmutableMap.of("Task0", TaskMode.Active, "Task3", TaskMode.Active),
+        "1", ImmutableMap.of("Task1", TaskMode.Active, "Task4", TaskMode.Active),
+        "2", ImmutableMap.of("Task2", TaskMode.Active)
+    );
 
-    for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
-      taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue(), TaskMode.Active);
-    }
+    taskAssignmentManager.writeTaskContainerMappings(taskContainerMappings);
 
     Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
 
@@ -75,10 +78,12 @@ public class TestTaskAssignmentManager {
   @Test
   public void testDeleteMappings() {
     Map<String, String> expectedMap = ImmutableMap.of("Task0", "0", "Task1", "1");
+    Map<String, Map<String, TaskMode>> taskContainerMappings = ImmutableMap.of(
+        "0", ImmutableMap.of("Task0", TaskMode.Active),
+        "1", ImmutableMap.of("Task1", TaskMode.Active)
+    );
 
-    for (Map.Entry<String, String> entry : expectedMap.entrySet()) {
-      taskAssignmentManager.writeTaskContainerMapping(entry.getKey(), entry.getValue(), TaskMode.Active);
-    }
+    taskAssignmentManager.writeTaskContainerMappings(taskContainerMappings);
 
     Map<String, String> localMap = taskAssignmentManager.readTaskAssignment();
     assertEquals(expectedMap, localMap);
