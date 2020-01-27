@@ -497,7 +497,7 @@ public class TestLocalApplicationRunner {
     verify(coordinationUtils, Mockito.times(0)).getClusterMembership();
     verify(clusterMembership, Mockito.times(0)).getNumberOfProcessors();
     verify(metadataStore, Mockito.times(0)).put(eq(CoordinationConstants.RUNID_STORE_KEY), any(byte[].class));
-    verify(metadataStore, Mockito.times(1)).flush();
+    verify(metadataStore, Mockito.times(0)).flush();
   }
 
   private void prepareTestForRunId() throws Exception {
