@@ -20,7 +20,6 @@ package org.apache.samza.container.grouper.task;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.config.Config;
