@@ -202,8 +202,11 @@ public class ContainerAllocator implements Runnable {
       String preferredHost = hostAffinityEnabled ? request.getPreferredHost() : ResourceRequestState.ANY_HOST;
       Instant requestCreationTime = request.getRequestTimestamp();
 
-      LOG.info("Handling assignment for request {}", request);
+      LOG.info("Handling assignment for Processor ID: {} with request {}", processorId, request);
       if (hasAllocatedResource(preferredHost)) {
+
+        // Found allocated container on preferredHost
+        LOG.info("Found an available container for Processor ID: {} on the host: {}", processorId, preferredHost);
 
         // Needs to be only updated when host affinity is enabled
         if (hostAffinityEnabled) {

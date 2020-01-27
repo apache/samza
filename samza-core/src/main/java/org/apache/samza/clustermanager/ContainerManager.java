@@ -153,7 +153,7 @@ public class ContainerManager {
       Duration preferredHostRetryDelay, ContainerAllocator containerAllocator) {
     if (hasActiveContainerPlacementAction(processorId)) {
       ContainerPlacementMetadata metadata = getPlacementActionMetadata(processorId).get();
-      LOG.info("Setting the container state with processorId {} to be stopped because of existing ContainerPlacement action: {}",
+      LOG.info("Setting the container state with Processor ID: {} to be stopped because of existing ContainerPlacement action: {}",
           processorId, metadata);
       metadata.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOPPED);
     } else if (standbyContainerManager.isPresent()) {
@@ -212,7 +212,7 @@ public class ContainerManager {
       ContainerPlacementMetadata metadata = getPlacementActionMetadata(processorId).get();
       metadata.setActionStatus(ContainerPlacementMessage.StatusCode.SUCCEEDED,
               "Successfully completed the container placement action");
-      LOG.info("Marking the container placement action success {}", metadata);
+      LOG.info("Container placement action succeeded {}", metadata);
     }
   }
 
