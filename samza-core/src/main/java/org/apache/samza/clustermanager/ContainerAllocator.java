@@ -202,11 +202,8 @@ public class ContainerAllocator implements Runnable {
       String preferredHost = hostAffinityEnabled ? request.getPreferredHost() : ResourceRequestState.ANY_HOST;
       Instant requestCreationTime = request.getRequestTimestamp();
 
-      LOG.info("Handling assignment request for Processor ID: {} on host: {}.", processorId, preferredHost);
+      LOG.info("Handling assignment for request {}", request);
       if (hasAllocatedResource(preferredHost)) {
-
-        // Found allocated container on preferredHost
-        LOG.info("Found an available container for Processor ID: {} on the host: {}", processorId, preferredHost);
 
         // Needs to be only updated when host affinity is enabled
         if (hostAffinityEnabled) {
@@ -237,7 +234,7 @@ public class ContainerAllocator implements Runnable {
         } else {
           LOG.info("Request for Processor ID: {} on preferred host {} has not expired yet."
                   + "Request creation time: {}. Current Time: {}. Request timeout: {} ms", processorId, preferredHost,
-              requestCreationTime, System.currentTimeMillis(), getRequestTimeout(request));
+              requestCreationTime, System.currentTimeMillis(), getRequestTimeout(request).toMillis());
           break;
         }
       }
@@ -443,7 +440,7 @@ public class ContainerAllocator implements Runnable {
     boolean requestExpired =  currTime - request.getRequestTimestamp().toEpochMilli() > getRequestTimeout(request).toMillis();
     if (requestExpired) {
       LOG.info("Request for Processor ID: {} on host: {} with creation time: {} has expired at current time: {} after timeout: {} ms.",
-          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestamp(), currTime, getRequestTimeout(request));
+          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestamp(), currTime, getRequestTimeout(request).toMillis());
     }
     return requestExpired;
   }

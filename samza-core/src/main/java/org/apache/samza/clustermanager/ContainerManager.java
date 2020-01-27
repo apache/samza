@@ -23,7 +23,8 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import javafx.util.Pair;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.clustermanager.container.placements.ContainerPlacementMetadata;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
@@ -104,14 +105,12 @@ public class ContainerManager {
    */
   boolean handleContainerLaunch(SamzaResourceRequest request, String preferredHost, SamzaResource allocatedResource,
       ResourceRequestState resourceRequestState, ContainerAllocator allocator) {
-    LOG.info("Found an available container for Processor ID: {} on the host: {}", request.getProcessorId(), preferredHost);
     if (hasActiveContainerPlacementAction(request.getProcessorId())) {
       String processorId = request.getProcessorId();
       ContainerPlacementMetadata actionMetaData = getPlacementActionMetadata(processorId).get();
       ContainerPlacementMetadata.ContainerStatus actionStatus = actionMetaData.getContainerStatus();
       if (samzaApplicationState.runningProcessors.containsKey(processorId) && actionStatus == ContainerPlacementMetadata.ContainerStatus.RUNNING) {
-        LOG.info("Requesting running container to shutdown due to existing container placement action {}",
-            actionMetaData);
+        LOG.info("Requesting running container to shutdown due to existing container placement action {}", actionMetaData);
         actionMetaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS);
         clusterResourceManager.stopStreamProcessor(samzaApplicationState.runningProcessors.get(processorId));
         return false;
@@ -153,8 +152,10 @@ public class ContainerManager {
   void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus,
       Duration preferredHostRetryDelay, ContainerAllocator containerAllocator) {
     if (hasActiveContainerPlacementAction(processorId)) {
-      LOG.info("Setting the container state with processorId {} to be stopped because of existing container placement action", processorId);
-      getPlacementActionMetadata(processorId).get().setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOPPED);
+      ContainerPlacementMetadata metadata = getPlacementActionMetadata(processorId).get();
+      LOG.info("Setting the container state with processorId {} to be stopped because of existing ContainerPlacement action: {}",
+          processorId, metadata);
+      metadata.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOPPED);
     } else if (standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
           .handleContainerStop(processorId, containerId, preferredHost, exitStatus, containerAllocator,
@@ -239,11 +240,11 @@ public class ContainerManager {
 
 
     // Case 1. Container placement actions can be taken in either cases of host affinity being set, in both cases
-    // mark the control action failed
+    // mark the container placement action failed
     if (hasActiveContainerPlacementAction(processorId)) {
       resourceRequestState.cancelResourceRequest(request);
       markContainerPlacementActionFailed(getPlacementActionMetadata(processorId).get(),
-          "failed the Control action because request for resources to ClusterManager expired");
+          "failed the ContainerPlacement action because request for resources to ClusterManager expired");
       return;
     }
 
@@ -284,8 +285,7 @@ public class ContainerManager {
    * @param containerAllocator to request physical resources
    */
   public void registerContainerPlacementAction(ContainerPlacementRequestMessage requestMessage, ContainerAllocator containerAllocator) {
-    LOG.info("Received ControlAction request to move or restart container with processor id {} to host {}",
-        requestMessage.getProcessorId(), requestMessage.getDestinationHost());
+    LOG.info("Received a ContainerPlacement action request: {}", requestMessage);
     String processorId = requestMessage.getProcessorId();
     String destinationHost = requestMessage.getDestinationHost();
     Pair<ContainerPlacementMessage.StatusCode, String> actionStatus =
@@ -297,11 +297,12 @@ public class ContainerManager {
     }
 
     SamzaResource currentResource = samzaApplicationState.runningProcessors.get(processorId);
-    LOG.info("Processor ID: {} matched an active container with deployment ID: {} running on host: {}", processorId,
-        currentResource.getContainerId(), currentResource.getHost());
+    LOG.info(
+        "Processor ID: {} matched an active container with deployment ID: {} is running on host: {} for ContainerPlacement action: {}",
+        processorId, currentResource.getContainerId(), currentResource.getHost(), requestMessage);
 
     if (!hostAffinityEnabled) {
-      LOG.info("Changing the requested host to {} because either it is requested or host affinity is disabled",
+      LOG.info("Changing the requested host for placement action to {} because host affinity is disabled",
           ResourceRequestState.ANY_HOST);
       destinationHost = ANY_HOST;
     }
@@ -313,8 +314,7 @@ public class ContainerManager {
     actionMetaData.recordResourceRequest(resourceRequest);
     actions.put(processorId, actionMetaData);
     containerAllocator.issueResourceRequest(resourceRequest);
-    LOG.info("Container Placement action with metadata {} and issued a request for resources in progress",
-        actionMetaData);
+    LOG.info("Issued resource request for preferred resources for ContainerPlacement action: {}", actionMetaData);
   }
 
   /**
@@ -408,10 +408,10 @@ public class ContainerManager {
 
     if (invalidAction) {
       LOG.info(errorMessage);
-      return new Pair<>(ContainerPlacementMessage.StatusCode.BAD_REQUEST, errorMessage);
+      return new ImmutablePair<>(ContainerPlacementMessage.StatusCode.BAD_REQUEST, errorMessage);
     }
 
-    return new Pair<>(ContainerPlacementMessage.StatusCode.ACCEPTED, "Request is accepted");
+    return new ImmutablePair<>(ContainerPlacementMessage.StatusCode.ACCEPTED, "Request is accepted");
   }
 
 }
