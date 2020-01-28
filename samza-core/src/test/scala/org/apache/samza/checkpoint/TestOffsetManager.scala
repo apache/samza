@@ -388,9 +388,11 @@ class TestOffsetManager {
     val systemName2 = "test-system2"
     val systemStream = new SystemStream(systemName, "test-stream")
     val systemStream2 = new SystemStream(systemName2, "test-stream2")
+    val systemStream3 = new SystemStream(systemName, "test-stream3")
     val partition = new Partition(0)
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val systemStreamPartition2 = new SystemStreamPartition(systemStream2, partition)
+    val unregisteredSystemStreamPartition = new SystemStreamPartition(systemStream3, partition)
     val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val testStreamMetadata2 = new SystemStreamMetadata(systemStream2.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata, systemStream2->testStreamMetadata2)
@@ -420,7 +422,10 @@ class TestOffsetManager {
     offsetManager.start
     // Should get offset 45 back from the checkpoint manager, which is last processed, and system admin should return 46 as starting offset.
     assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition))
-    checkpoint(offsetManager, taskName)
+    val offsetsToCheckpoint = new java.util.HashMap[SystemStreamPartition, String]()
+    offsetsToCheckpoint.putAll(offsetManager.buildCheckpoint(taskName).getOffsets)
+    offsetsToCheckpoint.put(unregisteredSystemStreamPartition, "50")
+    offsetManager.writeCheckpoint(taskName, new Checkpoint(offsetsToCheckpoint))
 
     intercept[IllegalStateException] {
       // StartpointManager should stop after last fan out is removed
@@ -434,6 +439,9 @@ class TestOffsetManager {
     assertEquals("45", consumer.recentCheckpoint.get(systemStreamPartition))
     // make sure only the system with the callbacks gets them
     assertNull(consumer.recentCheckpoint.get(systemStreamPartition2))
+    // even though systemStream and systemStream3 share the same checkpointListener, callback should not execute for
+    // systemStream3 since it is not registered with the OffsetManager
+    assertNull(consumer.recentCheckpoint.get(unregisteredSystemStreamPartition))
 
     offsetManager.update(taskName, systemStreamPartition, "46")
     offsetManager.update(taskName, systemStreamPartition, "47")
