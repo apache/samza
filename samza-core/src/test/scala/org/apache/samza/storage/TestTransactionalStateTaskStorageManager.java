@@ -21,6 +21,8 @@ package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.io.FileFilter;
+import org.apache.commons.io.filefilter.WildcardFileFilter;
 import scala.Option;
 import scala.collection.immutable.Map;
 
@@ -490,6 +492,32 @@ public class TestTransactionalStateTaskStorageManager {
     tsm.writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, offsets);
 
     fail("Should have thrown an exception if no changelog offset found for checkpointed store");
+  }
+
+  @Test
+  public void testRemoveOldCheckpoints() {
+    TaskName taskName = new TaskName("Partition 0");
+    ContainerStorageManager containerStorageManager = mock(ContainerStorageManager.class);
+    Map<String, SystemStream> changelogSystemStreams = mock(Map.class);
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    File loggedStoreBaseDir = mock(File.class);
+    Partition changelogPartition = new Partition(0);
+    TaskMode taskMode = TaskMode.Active;
+    StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
+
+    File mockStoreDir = mock(File.class);
+    String mockStoreDirName = "notDirectory";
+
+    when(loggedStoreBaseDir.listFiles()).thenReturn(new File[] { mockStoreDir });
+    when(mockStoreDir.getName()).thenReturn(mockStoreDirName);
+    when(storageManagerUtil.getTaskStoreDir(eq(loggedStoreBaseDir), eq(mockStoreDirName), eq(taskName), eq(taskMode))).thenReturn(mockStoreDir);
+    // null here can happen if listFiles is called on a non-directory
+    when(mockStoreDir.listFiles(any(FileFilter.class))).thenReturn(null);
+
+    TransactionalStateTaskStorageManager tsm = new TransactionalStateTaskStorageManager(taskName, containerStorageManager,
+        changelogSystemStreams, systemAdmins, loggedStoreBaseDir, changelogPartition, taskMode, storageManagerUtil);
+
+    tsm.removeOldCheckpoints(CheckpointId.create());
   }
 
   private TransactionalStateTaskStorageManager buildTSM(ContainerStorageManager csm, Partition changelogPartition,

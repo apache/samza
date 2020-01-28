@@ -90,11 +90,13 @@ class TransactionalStateTaskStorageManager(
             val fileFilter: FileFilter = new WildcardFileFilter(taskStoreName + "-*")
             val checkpointDirs = storeDir.listFiles(fileFilter)
 
-            checkpointDirs
-              .filter(!_.getName.contains(latestCheckpointId.toString))
-              .foreach(checkpointDir => {
-                FileUtils.deleteDirectory(checkpointDir)
-              })
+            if (checkpointDirs != null) {
+              checkpointDirs
+                .filter(!_.getName.contains(latestCheckpointId.toString))
+                .foreach(checkpointDir => {
+                  FileUtils.deleteDirectory(checkpointDir)
+                })
+            }
           })
       }
     }
