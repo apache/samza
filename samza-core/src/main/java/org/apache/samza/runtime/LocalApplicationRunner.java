@@ -143,6 +143,10 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   @VisibleForTesting
   static MetadataStoreFactory getDefaultCoordinatorStreamStoreFactory(JobConfig jobConfig) {
+    if (jobConfig.getConfigLoaderFactory().isPresent()) {
+      jobConfig = new JobConfig(ConfigUtil.loadConfig(jobConfig));
+    }
+
     String coordinatorSystemName = jobConfig.getCoordinatorSystemNameOrNull();
     JobCoordinatorConfig jobCoordinatorConfig = new JobCoordinatorConfig(jobConfig);
     String jobCoordinatorFactoryClassName = jobCoordinatorConfig.getJobCoordinatorFactoryClassName();
@@ -159,6 +163,10 @@ public class LocalApplicationRunner implements ApplicationRunner {
   }
 
   private static Optional<CoordinationUtils> getCoordinationUtils(Config config) {
+    if (new JobConfig(config).getConfigLoaderFactory().isPresent()) {
+      config = ConfigUtil.loadConfig(config);
+    }
+
     if (!isAppModeBatch(config)) {
       return Optional.empty();
     }
