@@ -22,7 +22,6 @@ package org.apache.samza.storage;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.FileFilter;
-import org.apache.commons.io.filefilter.WildcardFileFilter;
 import scala.Option;
 import scala.collection.immutable.Map;
 
