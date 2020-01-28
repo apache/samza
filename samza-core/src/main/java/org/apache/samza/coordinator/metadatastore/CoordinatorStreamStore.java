@@ -137,13 +137,6 @@ public class CoordinatorStreamStore implements MetadataStore {
   }
 
   @Override
-  public void putAll(Map<String, byte[]> entries) {
-    for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
-      put(entry.getKey(), entry.getValue());
-    }
-  }
-
-  @Override
   public void delete(String namespacedKey) {
     // Since kafka doesn't support individual message deletion, store value as null for a namespacedKey to delete.
     put(namespacedKey, null);

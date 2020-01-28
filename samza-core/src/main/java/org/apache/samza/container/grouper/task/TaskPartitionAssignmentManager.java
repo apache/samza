@@ -73,7 +73,6 @@ public class TaskPartitionAssignmentManager {
   public void writeTaskPartitionAssignments(Map<SystemStreamPartition, List<String>> sspToTaskNameMapping) {
     for (SystemStreamPartition partition: sspToTaskNameMapping.keySet()) {
       List<String> taskNames = sspToTaskNameMapping.get(partition);
-      LOG.info("Storing ssp: {} and task: {} into metadata store", partition, taskNames);
       // For broadcast streams, a input system stream partition will be mapped to more than one tasks in a
       // SamzaContainer. Rather than storing taskName to list of SystemStreamPartitions in metadata store, here
       // systemStreamPartition to list of taskNames is stored. This was done due to 1 MB limit on value size in kafka.
