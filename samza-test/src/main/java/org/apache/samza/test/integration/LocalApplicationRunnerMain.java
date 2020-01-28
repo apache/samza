@@ -53,14 +53,14 @@ public class LocalApplicationRunnerMain {
 
     try {
       LOGGER.info("Launching stream application: {} to run.", app);
-      runner.run(buildExternalContext().orElse(null));
+      runner.run(buildExternalContext(config).orElse(null));
       runner.waitForFinish();
     } catch (Exception e) {
       LOGGER.error("Exception occurred when running application: {}.", app, e);
     }
   }
 
-  private static Optional<ExternalContext> buildExternalContext() {
+  private static Optional<ExternalContext> buildExternalContext(@SuppressWarnings("unused") Config config) {
     /*
      * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
      * a non-empty ExternalContext. Only config should be used to build the external context. In the future, components

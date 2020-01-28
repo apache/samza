@@ -62,7 +62,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Recovers the state storage from both the changelog streams and stores
+ * Recovers the state storage from the changelog streams and stores the state
  * in the directory provided by the users. The changelog streams are derived
  * from the job's config file.
  */
@@ -107,7 +107,7 @@ public class StorageRecovery {
   }
 
   /**
-   * run the setup phase and restore all the task storages
+   * run the setup phase and restore all the task storage
    */
   public void run() {
     setup();
@@ -155,7 +155,6 @@ public class StorageRecovery {
    * Get the changelog streams and the storage factories from the config file
    * and put them into the maps
    */
-  @SuppressWarnings("unchecked")
   private void getChangeLogSystemStreamsAndStorageFactories() {
     StorageConfig config = new StorageConfig(jobConfig);
     List<String> storeNames = config.getStoreNames();
@@ -171,7 +170,11 @@ public class StorageRecovery {
 
       Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
       if (factoryClass.isPresent()) {
-        storageEngineFactories.put(storeName, ReflectionUtil.getObj(factoryClass.get(), StorageEngineFactory.class));
+        @SuppressWarnings("unchecked")
+        StorageEngineFactory<Object, Object> factory =
+            (StorageEngineFactory<Object, Object>) ReflectionUtil.getObj(factoryClass.get(), StorageEngineFactory.class);
+
+        storageEngineFactories.put(storeName, factory);
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }
@@ -191,7 +194,6 @@ public class StorageRecovery {
     maxPartitionNumber = maxPartitionId + 1;
   }
 
-  @SuppressWarnings("unchecked")
   private Map<String, Serde<Object>> getSerdes() {
     Map<String, Serde<Object>> serdeMap = new HashMap<>();
     SerializerConfig serializerConfig = new SerializerConfig(jobConfig);
@@ -201,7 +203,8 @@ public class StorageRecovery {
         .forEach(serdeName -> {
             String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
               .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
-            Serde serde =
+            @SuppressWarnings("unchecked")
+            Serde<Object> serde =
                 ReflectionUtil.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });

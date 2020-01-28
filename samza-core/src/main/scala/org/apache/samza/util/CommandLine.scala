@@ -34,17 +34,17 @@ import scala.collection.mutable
 class CommandLine {
   val parser = new OptionParser()
   val configLoaderFactoryOpt: ArgumentAcceptingOptionSpec[String] =
-    parser.accepts("config-loader-factory", "The config factory to use to read your config file.")
+    parser.accepts("config-loader-factory", "The config loader factory to use to read full job config file.")
           .withRequiredArg
           .ofType(classOf[java.lang.String])
           .describedAs("com.foo.bar.ClassName")
           .defaultsTo(classOf[PropertiesConfigLoaderFactory].getName)
   val configLoaderPropertiesOpt: ArgumentAcceptingOptionSpec[KeyValuePair] =
-    parser.accepts("config-loader-properties", "URI location to a config file (e.g. file:///some/local/path.properties). " +
-                                  "If multiple files are given they are all used with later files overriding any values that appear in earlier files.")
+    parser.accepts("config-loader-properties", "A config loader property in the form key=value. Config loader properties will be passed to " +
+                                               "designated config loader factory to load full job config.")
           .withRequiredArg
           .ofType(classOf[KeyValuePair])
-          .describedAs("path")
+          .describedAs("key=value")
   val configOverrideOpt: ArgumentAcceptingOptionSpec[KeyValuePair] =
     parser.accepts("config", "A configuration value in the form key=value. Command line properties override any configuration values given.")
           .withRequiredArg
