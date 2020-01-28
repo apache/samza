@@ -507,7 +507,7 @@ public class TestTransactionalStateTaskStorageManager {
     File mockStoreDir = mock(File.class);
     String mockStoreDirName = "notDirectory";
 
-    when(loggedStoreBaseDir.listFiles()).thenReturn(new File[] { mockStoreDir });
+    when(loggedStoreBaseDir.listFiles()).thenReturn(new File[] {mockStoreDir});
     when(mockStoreDir.getName()).thenReturn(mockStoreDirName);
     when(storageManagerUtil.getTaskStoreDir(eq(loggedStoreBaseDir), eq(mockStoreDirName), eq(taskName), eq(taskMode))).thenReturn(mockStoreDir);
     // null here can happen if listFiles is called on a non-directory
