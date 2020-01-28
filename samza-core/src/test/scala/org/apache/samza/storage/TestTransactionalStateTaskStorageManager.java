@@ -494,7 +494,7 @@ public class TestTransactionalStateTaskStorageManager {
   }
 
   @Test
-  public void testRemoveOldCheckpoints() {
+  public void testRemoveOldCheckpointsWhenBaseDirContainsRegularFiles() {
     TaskName taskName = new TaskName("Partition 0");
     ContainerStorageManager containerStorageManager = mock(ContainerStorageManager.class);
     Map<String, SystemStream> changelogSystemStreams = mock(Map.class);
