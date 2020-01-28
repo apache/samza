@@ -353,8 +353,10 @@ class OffsetManager(
         }
       }
 
-      // invoke checkpoint listeners only for SSPs that are registered with the OffsetManager
-      val registeredSSPs = systemStreamPartitions.getOrElse(taskName, immutable.Set[SystemStreamPartition]())
+      // Invoke checkpoint listeners only for SSPs that are registered with the OffsetManager. For example,
+      // changelog SSPs are not registered but may be present in the Checkpoint if transactional state checkpointing
+      // is enabled.
+      val registeredSSPs = systemStreamPartitions.getOrElse(taskName, Set[SystemStreamPartition]())
       checkpoint.getOffsets.asScala
         .filterKeys(registeredSSPs.contains)
         .groupBy { case (ssp, _) => ssp.getSystem }.foreach {
