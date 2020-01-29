@@ -54,12 +54,6 @@ class CommandLine {
   var configLoaderFactory: ConfigLoaderFactory = _
 
   def loadConfig(options: OptionSet): Config = {
-    // Verify legitimate parameters.
-    if (!options.has(configLoaderPropertiesOpt)) {
-      parser.printHelpOn(System.err)
-      System.exit(-1)
-    }
-
     // Set up the job parameters.
     val configLoaderFactoryClassName = options.valueOf(configLoaderFactoryOpt)
     val configLoaderProperties = options.valuesOf(configLoaderPropertiesOpt).asScala
