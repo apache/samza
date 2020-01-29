@@ -101,7 +101,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @param config configuration for the application
    */
   public LocalApplicationRunner(SamzaApplication app, Config config) {
-    this(app, config, getDefaultCoordinatorStreamStoreFactory(new JobConfig(config)));
+    this(new LocalApplicationRunnerContext(app, config));
   }
 
   /**
@@ -112,40 +112,36 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @param metadataStoreFactory the instance of {@link MetadataStoreFactory} to read and write to coordinator stream.
    */
   public LocalApplicationRunner(SamzaApplication app, Config config, MetadataStoreFactory metadataStoreFactory) {
-    this(app, config, getCoordinationUtils(config), metadataStoreFactory);
+    this(new LocalApplicationRunnerContext(app, config).setMetadataStoreFactory(metadataStoreFactory));
   }
 
   /**
    * Constructor only used in unit test to allow injection of {@link LocalJobPlanner}
    */
   @VisibleForTesting
-  LocalApplicationRunner(SamzaApplication app, Config config, Optional<CoordinationUtils> coordinationUtils) {
-    this(app, config, coordinationUtils, getDefaultCoordinatorStreamStoreFactory(new JobConfig(config)));
+  LocalApplicationRunner(SamzaApplication app, Config config, CoordinationUtils coordinationUtils) {
+    this(new LocalApplicationRunnerContext(app, config).setCoordinationUtils(coordinationUtils));
   }
 
-  private LocalApplicationRunner(
-      SamzaApplication app,
-      Config config,
-      Optional<CoordinationUtils> coordinationUtils,
-      MetadataStoreFactory metadataStoreFactory) {
-    this.appDesc = getApplicationDescriptor(app, config);
-    this.isAppModeBatch = isAppModeBatch(appDesc.getConfig());
-    this.coordinationUtils = coordinationUtils;
-    this.metadataStoreFactory = Optional.ofNullable(metadataStoreFactory);
-  }
-
-  @VisibleForTesting
-  static ApplicationDescriptorImpl<? extends ApplicationDescriptor> getApplicationDescriptor(SamzaApplication app, Config config) {
-    return new JobConfig(config).getConfigLoaderFactory().isPresent()
-        ? ApplicationDescriptorUtil.getAppDescriptor(app, ConfigUtil.loadConfig(config))
-        : ApplicationDescriptorUtil.getAppDescriptor(app, config);
-  }
-
-  @VisibleForTesting
-  static MetadataStoreFactory getDefaultCoordinatorStreamStoreFactory(JobConfig jobConfig) {
-    if (jobConfig.getConfigLoaderFactory().isPresent()) {
-      jobConfig = new JobConfig(ConfigUtil.loadConfig(jobConfig));
+  private LocalApplicationRunner(LocalApplicationRunnerContext context) {
+    Config config = context.config;
+    if (new JobConfig(context.config).getConfigLoaderFactory().isPresent()) {
+      config = ConfigUtil.loadConfig(config);
     }
+
+    this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(context.app, config);
+    this.isAppModeBatch = isAppModeBatch(config);
+    this.coordinationUtils = context.coordinationUtils.isPresent()
+        ? context.coordinationUtils
+        : getCoordinationUtils(appDesc.getConfig());
+    this.metadataStoreFactory = context.metadataStoreFactory.isPresent()
+        ? context.metadataStoreFactory
+        : getDefaultCoordinatorStreamStoreFactory(config);
+  }
+
+  @VisibleForTesting
+  static Optional<MetadataStoreFactory> getDefaultCoordinatorStreamStoreFactory(Config config) {
+    JobConfig jobConfig = new JobConfig(config);
 
     String coordinatorSystemName = jobConfig.getCoordinatorSystemNameOrNull();
     JobCoordinatorConfig jobCoordinatorConfig = new JobCoordinatorConfig(jobConfig);
@@ -153,23 +149,20 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
     // TODO: Remove restriction to only ZkJobCoordinator after next phase of metadata store abstraction.
     if (StringUtils.isNotBlank(coordinatorSystemName) && ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
-      return new CoordinatorStreamMetadataStoreFactory();
+      return Optional.of(new CoordinatorStreamMetadataStoreFactory());
     }
 
     LOG.warn("{} or {} not configured, or {} is not {}. No default coordinator stream metadata store will be created.",
         JobConfig.JOB_COORDINATOR_SYSTEM, JobConfig.JOB_DEFAULT_SYSTEM,
         JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, ZkJobCoordinatorFactory.class.getName());
-    return null;
+    return Optional.empty();
   }
 
   private static Optional<CoordinationUtils> getCoordinationUtils(Config config) {
-    if (new JobConfig(config).getConfigLoaderFactory().isPresent()) {
-      config = ConfigUtil.loadConfig(config);
-    }
-
     if (!isAppModeBatch(config)) {
       return Optional.empty();
     }
+
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
     CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory()
         .getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, PROCESSOR_ID, config);
@@ -494,6 +487,28 @@ public class LocalApplicationRunner implements ApplicationRunner {
           appStatus = ApplicationStatus.UnsuccessfulFinish;
         }
       }
+    }
+  }
+
+  private final static class LocalApplicationRunnerContext {
+    SamzaApplication app;
+    Config config;
+    Optional<CoordinationUtils> coordinationUtils = Optional.empty();
+    Optional<MetadataStoreFactory> metadataStoreFactory = Optional.empty();
+
+    LocalApplicationRunnerContext(SamzaApplication app, Config config) {
+      this.app = app;
+      this.config = config;
+    }
+
+    LocalApplicationRunnerContext setCoordinationUtils(CoordinationUtils coordinationUtils) {
+      this.coordinationUtils = Optional.of(coordinationUtils);
+      return this;
+    }
+
+    LocalApplicationRunnerContext setMetadataStoreFactory(MetadataStoreFactory metadataStoreFactory) {
+      this.metadataStoreFactory = Optional.of(metadataStoreFactory);
+      return this;
     }
   }
 }

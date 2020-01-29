@@ -37,7 +37,6 @@ import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.coordinator.ClusterMembership;
 import org.apache.samza.coordinator.CoordinationConstants;
@@ -56,7 +55,6 @@ import org.apache.samza.processor.StreamProcessor;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.task.IdentityStreamTask;
-import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.zk.ZkMetadataStore;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.junit.Before;
@@ -68,22 +66,9 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.Matchers.*;
+import static org.mockito.Mockito.*;
 
 
 @RunWith(PowerMockRunner.class)
@@ -435,7 +420,7 @@ public class TestLocalApplicationRunner {
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
-    runner = spy(new LocalApplicationRunner(mockApp, config, Optional.of(coordinationUtils)));
+    runner = spy(new LocalApplicationRunner(mockApp, config, coordinationUtils));
     doReturn(localPlanner).when(runner).getPlanner();
   }
 
@@ -505,7 +490,7 @@ public class TestLocalApplicationRunner {
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
-    runner = spy(new LocalApplicationRunner(mockApp, config, Optional.of(coordinationUtils)));
+    runner = spy(new LocalApplicationRunner(mockApp, config, coordinationUtils));
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
     doReturn(localPlanner).when(runner).getPlanner();
     StreamProcessor sp = mock(StreamProcessor.class);
@@ -521,9 +506,9 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testGetCoordinatorStreamStoreFactoryWithoutJobCoordinatorSystem() {
-    MetadataStoreFactory metadataStoreFactory =
-        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig()));
-    assertNull(metadataStoreFactory);
+    Optional<MetadataStoreFactory> metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new MapConfig());
+    assertFalse(metadataStoreFactory.isPresent());
   }
 
   /**
@@ -532,9 +517,9 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testGetCoordinatorStreamStoreFactoryWithJobCoordinatorSystem() {
-    MetadataStoreFactory metadataStoreFactory =
-        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_COORDINATOR_SYSTEM, "test-system"))));
-    assertNotNull(metadataStoreFactory);
+    Optional<MetadataStoreFactory> metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new MapConfig(ImmutableMap.of(JobConfig.JOB_COORDINATOR_SYSTEM, "test-system")));
+    assertTrue(metadataStoreFactory.isPresent());
   }
 
   /**
@@ -543,9 +528,9 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testGetCoordinatorStreamStoreFactoryWithDefaultSystem() {
-    MetadataStoreFactory metadataStoreFactory =
-        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "test-system"))));
-    assertNotNull(metadataStoreFactory);
+    Optional<MetadataStoreFactory> metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "test-system")));
+    assertFalse(metadataStoreFactory.isPresent());
   }
 
   /**
@@ -558,9 +543,9 @@ public class TestLocalApplicationRunner {
         ImmutableMap.of(
             JobConfig.JOB_DEFAULT_SYSTEM, "test-system",
             JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName()));
-    MetadataStoreFactory metadataStoreFactory =
-        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(mapConfig));
-    assertNull(metadataStoreFactory);
+    Optional<MetadataStoreFactory> metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(mapConfig);
+    assertTrue(metadataStoreFactory.isPresent());
   }
 
   /**
@@ -602,29 +587,5 @@ public class TestLocalApplicationRunner {
 
     // creating underlying coordinator stream should not be called for other coordinator stream metadata store types.
     verify(localApplicationRunner, never()).createUnderlyingCoordinatorStream(eq(config));
-  }
-
-  @Test
-  public void testGetApplicationDescriptorWithoutLoader() {
-    Config expected = ApplicationDescriptorUtil.getAppDescriptor(mockApp, config).getConfig();
-    Config actual = LocalApplicationRunner.getApplicationDescriptor(mockApp, config).getConfig();
-
-    assertEquals(expected, actual);
-  }
-
-  @Test
-  public void testGetApplicationDescriptorWithLoader() {
-    final Map<String, String> cfgs = new HashMap<>();
-    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
-    cfgs.put(ApplicationConfig.APP_NAME, "test-app");
-    cfgs.put(ApplicationConfig.APP_ID, "test-appId");
-    cfgs.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getCanonicalName());
-    cfgs.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path", getClass().getResource("/test.properties").getPath());
-    config = new MapConfig(cfgs);
-
-    Config expected = ConfigUtil.loadConfig(config);
-    Config actual = LocalApplicationRunner.getApplicationDescriptor(mockApp, config).getConfig();
-
-    assertEquals(expected, actual);
   }
 }
