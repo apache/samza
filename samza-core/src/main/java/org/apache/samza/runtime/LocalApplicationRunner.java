@@ -133,7 +133,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
     this.isAppModeBatch = isAppModeBatch(config);
     this.coordinationUtils = context.coordinationUtils.isPresent()
         ? context.coordinationUtils
-        : getCoordinationUtils(appDesc.getConfig());
+        : getCoordinationUtils(config);
     this.metadataStoreFactory = context.metadataStoreFactory.isPresent()
         ? context.metadataStoreFactory
         : getDefaultCoordinatorStreamStoreFactory(config);
