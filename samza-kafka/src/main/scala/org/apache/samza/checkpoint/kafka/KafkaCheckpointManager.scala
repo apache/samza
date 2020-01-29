@@ -58,11 +58,12 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
   var MaxRetryDurationInMillis: Long = TimeUnit.MINUTES.toMillis(15)
 
+  val checkpointSystem: String = checkpointSpec.getSystemName
+  val checkpointTopic: String = checkpointSpec.getPhysicalName
+
   info(s"Creating KafkaCheckpointManager for checkpointTopic:$checkpointTopic, systemName:$checkpointSystem " +
     s"validateCheckpoints:$validateCheckpoint")
 
-  val checkpointSystem: String = checkpointSpec.getSystemName
-  val checkpointTopic: String = checkpointSpec.getPhysicalName
   val checkpointSsp: SystemStreamPartition = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
   val expectedGrouperFactory: String = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
