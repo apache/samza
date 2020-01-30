@@ -19,9 +19,10 @@
 
 package org.apache.samza.checkpoint
 
+import java.io.FileInputStream
 import java.net.URI
 import java.util
-import java.util.function.Supplier
+import java.util.Properties
 import java.util.regex.Pattern
 
 import joptsimple.ArgumentAcceptingOptionSpec
@@ -32,7 +33,7 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.job.JobRunner.info
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.util.{CommandLine, ConfigUtil, CoordinatorStreamUtil, Logging, ReflectionUtil, Util}
+import org.apache.samza.util.{CommandLine, ConfigUtil, CoordinatorStreamUtil, Logging}
 import org.apache.samza.Partition
 import org.apache.samza.SamzaException
 
@@ -91,7 +92,7 @@ object CheckpointTool {
 
     var newOffsets: TaskNameToCheckpointMap = _
 
-    def parseOffsets(propertiesFile: Config): TaskNameToCheckpointMap = {
+    def parseOffsets(propertiesFile: Properties): TaskNameToCheckpointMap = {
       var checkpoints : ListBuffer[(TaskName, Map[SystemStreamPartition, String])] = ListBuffer()
       propertiesFile.asScala.foreach { case (key, value) =>
         val matcher = SSP_REGEX.matcher(key)
@@ -117,10 +118,15 @@ object CheckpointTool {
         .mapValues(m => m.reduce( _ ++ _))  // Merge all the maps of SSPs->Offset into one for the whole taskname
     }
 
-    override def loadConfig(options: OptionSet): MapConfig = {
+    override def loadConfig(options: OptionSet): Config = {
       val config = super.loadConfig(options)
       if (options.has(newOffsetsOpt)) {
-        val properties = configFactory.getConfig(options.valueOf(newOffsetsOpt))
+        val newOffsetsInputStream = new FileInputStream(options.valueOf(newOffsetsOpt).getPath)
+        val properties = new Properties()
+
+        properties.load(newOffsetsInputStream)
+        newOffsetsInputStream.close()
+
         newOffsets = parseOffsets(properties)
       }
       config
@@ -192,12 +198,11 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
 
       if (newOffsets != null) {
         newOffsets.foreach {
-          case (taskName: TaskName, offsets: Map[SystemStreamPartition, String]) => {
+          case (taskName: TaskName, offsets: Map[SystemStreamPartition, String]) =>
             logCheckpoint(taskName, offsets, "New offset to be written for task: " + taskName)
             val checkpoint = new Checkpoint(offsets.asJava)
             checkpointManager.writeCheckpoint(taskName, checkpoint)
             info(s"Updated the checkpoint of the task: $taskName to: $offsets")
-          }
         }
       }
     } finally {
@@ -207,7 +212,7 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
   }
 
   def getConfigFromCoordinatorStream(coordinatorStreamStore: CoordinatorStreamStore): Config = {
-    return CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore)
+    CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore)
   }
 
   def logCheckpoint(tn: TaskName, checkpoint: Map[SystemStreamPartition, String], prefix: String) {
