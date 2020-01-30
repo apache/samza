@@ -542,7 +542,7 @@ public class TestLocalApplicationRunner {
   public void testGetCoordinatorStreamStoreFactoryWithDefaultSystem() {
     Optional<MetadataStoreFactory> metadataStoreFactory =
         LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "test-system")));
-    assertFalse(metadataStoreFactory.isPresent());
+    assertTrue(metadataStoreFactory.isPresent());
   }
 
   /**
@@ -557,7 +557,7 @@ public class TestLocalApplicationRunner {
             JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName()));
     Optional<MetadataStoreFactory> metadataStoreFactory =
         LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(mapConfig);
-    assertTrue(metadataStoreFactory.isPresent());
+    assertFalse(metadataStoreFactory.isPresent());
   }
 
   /**
