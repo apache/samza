@@ -19,10 +19,13 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
-import org.apache.samza.application.SamzaApplication;
+import joptsimple.OptionSet;
 import org.apache.samza.application.MockStreamApplication;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigLoaderFactory;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.job.ApplicationStatus;
 import org.junit.Test;
@@ -33,7 +36,7 @@ import static org.junit.Assert.assertEquals;
 public class TestApplicationRunnerMain {
 
   @Test
-  public void TestRunOperation() throws Exception {
+  public void TestRunOperation() {
     assertEquals(0, TestApplicationRunnerInvocationCounts.runCount);
     ApplicationRunnerMain.main(new String[]{
         "--config-loader-factory",
@@ -48,7 +51,7 @@ public class TestApplicationRunnerMain {
   }
 
   @Test
-  public void TestKillOperation() throws Exception {
+  public void TestKillOperation() {
     assertEquals(0, TestApplicationRunnerInvocationCounts.killCount);
     ApplicationRunnerMain.main(new String[]{
         "--config-loader-factory",
@@ -64,7 +67,7 @@ public class TestApplicationRunnerMain {
   }
 
   @Test
-  public void TestStatusOperation() throws Exception {
+  public void TestStatusOperation() {
     assertEquals(0, TestApplicationRunnerInvocationCounts.statusCount);
     ApplicationRunnerMain.main(new String[]{
         "--config-loader-factory",
@@ -77,6 +80,28 @@ public class TestApplicationRunnerMain {
     });
 
     assertEquals(1, TestApplicationRunnerInvocationCounts.statusCount);
+  }
+
+  @Test
+  public void TestLoadConfig() {
+    ApplicationRunnerMain.ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerMain.ApplicationRunnerCommandLine();
+    OptionSet options = cmdLine.parser().parse(
+        "--config-loader-factory",
+        "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
+        "--config-loader-properties",
+        "path=" + getClass().getResource("/test.properties").getPath(),
+        "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
+        "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()));
+
+    Config actual = cmdLine.loadConfig(options);
+
+    assertEquals(4, actual.size());
+    assertEquals("org.apache.samza.config.loaders.PropertiesConfigLoaderFactory", actual.get(JobConfig.CONFIG_LOADER_FACTORY));
+    assertEquals(
+        getClass().getResource("/test.properties").getPath(),
+        actual.get(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path"));
+    assertEquals(MockStreamApplication.class.getName(), actual.get(ApplicationConfig.APP_CLASS));
+    assertEquals(TestApplicationRunnerInvocationCounts.class.getName(), actual.get("app.runner.class"));
   }
 
   public static class TestApplicationRunnerInvocationCounts implements ApplicationRunner {
