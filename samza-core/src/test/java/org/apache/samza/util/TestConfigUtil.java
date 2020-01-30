@@ -24,9 +24,11 @@ import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -159,6 +161,34 @@ public class TestConfigUtil {
             "not_a_class");
     Config expectedConfig = new MapConfig(ImmutableMap.of(CONFIG_KEY, CONFIG_VALUE, NEW_CONFIG_KEY, CONFIG_VALUE));
     assertEquals(expectedConfig, ConfigUtil.applyRewriter(new MapConfig(fullConfig), REWRITER_NAME));
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testLoadConfigWithoutLoader() {
+    Map<String, String> config = new HashMap<>();
+    config.put(JobConfig.JOB_NAME, "new-test-job");
+
+    ConfigUtil.loadConfig(new MapConfig(config));
+  }
+
+  @Test
+  public void testLoadConfigWithOverridesAndRewrites() {
+    Map<String, String> config = new HashMap<>();
+    config.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getCanonicalName());
+    config.put(JobConfig.JOB_NAME, "new-test-job");
+    config.put(JobConfig.CONFIG_REWRITERS, REWRITER_NAME);
+    config.put(CONFIG_KEY, CONFIG_VALUE);
+    config.put(String.format(JobConfig.CONFIG_REWRITER_CLASS, REWRITER_NAME), NewPropertyRewriter.class.getName());
+    config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path", getClass().getResource("/test.properties").getPath());
+
+    Config actual = ConfigUtil.loadConfig(new MapConfig(config));
+
+    assertEquals("org.apache.samza.job.MockJobFactory", actual.get("job.factory.class"));
+    assertEquals("bar", actual.get("foo"));
+    // overridden value
+    assertEquals("new-test-job", actual.get("job.name"));
+    // rewritten value
+    assertEquals(CONFIG_VALUE, actual.get(NEW_CONFIG_KEY));
   }
 
   /**

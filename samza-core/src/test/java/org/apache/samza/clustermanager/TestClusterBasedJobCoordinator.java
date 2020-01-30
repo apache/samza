@@ -21,21 +21,29 @@ package org.apache.samza.clustermanager;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.MockStreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
+import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.MockSystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -51,7 +59,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.AdditionalMatchers.aryEq;
-import static org.mockito.Matchers.anyObject;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -59,16 +67,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.verifyPrivate;
+import static org.powermock.api.mockito.PowerMockito.verifyNew;
 
 
 /**
  * Tests for {@link ClusterBasedJobCoordinator}
  */
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({CoordinatorStreamUtil.class, ClusterBasedJobCoordinator.class})
+@PrepareForTest({
+    CoordinatorStreamUtil.class,
+    ClusterBasedJobCoordinator.class,
+    CoordinatorStreamStore.class,
+    RemoteJobPlanner.class})
 public class TestClusterBasedJobCoordinator {
 
-  Map<String, String> configMap;
+  private Map<String, String> configMap;
 
   @Before
   public void setUp() {
@@ -106,7 +119,7 @@ public class TestClusterBasedJobCoordinator {
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
-    ClusterBasedJobCoordinator clusterCoordinator = new ClusterBasedJobCoordinator(config);
+    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinator.createFromMetadataStore(config);
 
     // change the input system stream metadata
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(1)), new ArrayList<>());
@@ -126,7 +139,7 @@ public class TestClusterBasedJobCoordinator {
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
-    ClusterBasedJobCoordinator clusterCoordinator = new ClusterBasedJobCoordinator(config);
+    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinator.createFromMetadataStore(config);
 
     // change the input system stream metadata
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(1)), new ArrayList<>());
@@ -144,7 +157,7 @@ public class TestClusterBasedJobCoordinator {
     Config config = new MapConfig(configMap);
     MockitoException stopException = new MockitoException("Stop");
 
-    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(new ClusterBasedJobCoordinator(config));
+    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(ClusterBasedJobCoordinator.createFromMetadataStore(config));
     ContainerProcessManager mockContainerProcessManager = mock(ContainerProcessManager.class);
     doReturn(true).when(mockContainerProcessManager).shouldShutdown();
     StartpointManager mockStartpointManager = mock(StartpointManager.class);
@@ -197,5 +210,34 @@ public class TestClusterBasedJobCoordinator {
     verify(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
     // make sure runClusterBasedJobCoordinator only got called once
     verifyPrivate(ClusterBasedJobCoordinator.class).invoke("runClusterBasedJobCoordinator", new Object[]{aryEq(args)});
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testCreateFromConfigLoaderWithoutConfigLoaderFactory() {
+    ClusterBasedJobCoordinator.createFromConfigLoader(new MapConfig());
+  }
+
+  @Test
+  public void testCreateFromConfigLoader() throws Exception {
+    Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.APP_CLASS, MockStreamApplication.class.getCanonicalName());
+    config.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getCanonicalName());
+    config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path",
+        getClass().getResource("/test.properties").getPath());
+    Config submissionConfig = new MapConfig(config);
+    JobConfig fullJobConfig = new JobConfig(ConfigUtil.loadConfig(submissionConfig));
+
+    RemoteJobPlanner mockJobPlanner = mock(RemoteJobPlanner.class);
+    CoordinatorStreamStore mockCoordinatorStreamStore = mock(CoordinatorStreamStore.class);
+
+    PowerMockito.whenNew(ClusterBasedJobCoordinator.class).withAnyArguments().thenReturn(mock(ClusterBasedJobCoordinator.class));
+    PowerMockito.doReturn(new MapConfig()).when(CoordinatorStreamUtil.class, "buildCoordinatorStreamConfig", any());
+    PowerMockito.whenNew(CoordinatorStreamStore.class).withAnyArguments().thenReturn(mockCoordinatorStreamStore);
+    PowerMockito.whenNew(RemoteJobPlanner.class).withAnyArguments().thenReturn(mockJobPlanner);
+    when(mockJobPlanner.prepareJobs()).thenReturn(Collections.singletonList(fullJobConfig));
+
+    ClusterBasedJobCoordinator.createFromConfigLoader(submissionConfig);
+
+    verifyNew(ClusterBasedJobCoordinator.class).withArguments(any(MetricsRegistryMap.class), eq(mockCoordinatorStreamStore), eq(fullJobConfig));
   }
 }
