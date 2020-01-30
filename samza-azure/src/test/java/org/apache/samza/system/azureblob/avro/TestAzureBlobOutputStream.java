@@ -17,6 +17,7 @@
  * under the License.
  */
 
+// Check if flaky: testCloseMultipleBlocks
 package org.apache.samza.system.azureblob.avro;
 
 import com.azure.core.http.rest.SimpleResponse;
