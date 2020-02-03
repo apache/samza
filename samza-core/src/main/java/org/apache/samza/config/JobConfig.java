@@ -174,6 +174,11 @@ public class JobConfig extends MapConfig {
     return Optional.ofNullable(get(JOB_DEFAULT_SYSTEM));
   }
 
+  /**
+   * Return the value of JOB_CONTAINER_COUNT or "yarn.container.count" (in that order) if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_COUNT.
+   * @return
+   */
   public int getContainerCount() {
     Optional<String> autoscalingContainerCountValue = Optional.ofNullable(get(JOB_AUTOSIZING_CONTAINER_COUNT));
     Optional<String> jobContainerCountValue = Optional.ofNullable(get(JOB_CONTAINER_COUNT));
@@ -299,6 +304,11 @@ public class JobConfig extends MapConfig {
     return get(SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX, DEFAULT_SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX);
   }
 
+  /**
+   * Return the value of JOB_CONTAINER_THREAD_POOL_SIZE if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE.
+   * @return
+   */
   public int getThreadPoolSize() {
     Optional<String> autoscalingContainerThreadPoolSize = Optional.ofNullable(get(
         JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE));
