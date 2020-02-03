@@ -163,7 +163,14 @@ object CoordinatorStreamUtil extends Logging {
 
     val oldConfig = coordinatorSystemConsumer.getConfig
     if (resetJobConfig) {
-      val keysToRemove = oldConfig.keySet.asScala.toSet.diff(config.keySet.asScala)
+      var keysToRemove = oldConfig.keySet.asScala.toSet.diff(config.keySet.asScala)
+
+      val jobConfig = new JobConfig(config)
+      if (jobConfig.getAutosizingEnabled) {
+        // If autosizing is enabled, we retain auto-sizing related configs
+        keysToRemove = keysToRemove.filter(configKey => !jobConfig.isAutosizingConfig(configKey))
+      }
+
       info("Deleting old configs that are no longer defined: %s".format(keysToRemove))
       keysToRemove.foreach(key => { coordinatorSystemProducer.send(new Delete(JobRunner.SOURCE, key, SetConfig.TYPE)) })
     }

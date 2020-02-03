@@ -144,7 +144,9 @@ public class ClusterManagerConfig extends MapConfig {
   }
 
   public int getNumCores() {
-    if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
+    if (getBoolean(JobConfig.JOB_AUTOSIZING_ENABLED, false) && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES)) {
+      return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES);
+    } else if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
       return getInt(CLUSTER_MANAGER_MAX_CORES);
     } else if (containsKey(CONTAINER_MAX_CPU_CORES)) {
       log.info("Configuration {} is deprecated. Please use {}", CONTAINER_MAX_CPU_CORES, CLUSTER_MANAGER_MAX_CORES);
@@ -155,7 +157,9 @@ public class ClusterManagerConfig extends MapConfig {
   }
 
   public int getContainerMemoryMb() {
-    if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
+    if (getBoolean(JobConfig.JOB_AUTOSIZING_ENABLED, false) && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB)) {
+      return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB);
+    } else if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
       return getInt(CLUSTER_MANAGER_MEMORY_MB);
     } else if (containsKey(CONTAINER_MAX_MEMORY_MB)) {
       log.info("Configuration {} is deprecated. Please use {}", CONTAINER_MAX_MEMORY_MB, CLUSTER_MANAGER_MEMORY_MB);

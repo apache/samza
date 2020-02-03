@@ -59,6 +59,7 @@ public class DiagnosticsStreamMessage {
   private static final String CONTAINER_MAX_CONFIGURED_HEAP_METRIC_NAME = "maxHeap";
   private static final String CONTAINER_THREAD_POOL_SIZE_METRIC_NAME = "containerThreadPoolSize";
   private static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
+  private static final String AUTOSIZING_ENABLED_METRIC_NAME = "autosizingEnabled";
 
   private final MetricsHeader metricsHeader;
   private final Map<String, Map<String, Object>> metricsMessage;
@@ -124,6 +125,14 @@ public class DiagnosticsStreamMessage {
       addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MODELS_METRIC_NAME,
           serializeContainerModelMap(containerModelMap));
     }
+  }
+
+  /**
+   * Add the current auto-scaling setting.
+   * @param autosizingEnabled the parameter value.
+   */
+  public void addAutosizingEnabled(Boolean autosizingEnabled) {
+    addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, AUTOSIZING_ENABLED_METRIC_NAME, autosizingEnabled);
   }
 
   /**
@@ -213,6 +222,10 @@ public class DiagnosticsStreamMessage {
 
   public Map<String, ContainerModel> getContainerModels() {
     return deserializeContainerModelMap((String) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MODELS_METRIC_NAME));
+  }
+
+  public Boolean getAutosizingEnabled() {
+    return (Boolean) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, AUTOSIZING_ENABLED_METRIC_NAME);
   }
 
   // Helper method to get a {@link DiagnosticsStreamMessage} from a {@link MetricsSnapshot}.

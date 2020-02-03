@@ -57,6 +57,7 @@ public class TestDiagnosticsManager {
   private long maxHeapSize = 900;
   private int numPersistentStores = 2;
   private int containerNumCores = 2;
+  private boolean autosizingEnabled = false;
   private Map<String, ContainerModel> containerModels = TestDiagnosticsStreamMessage.getSampleContainerModels();
   private Collection<DiagnosticsExceptionEvent> exceptionEventList = TestDiagnosticsStreamMessage.getExceptionList();
 
@@ -78,7 +79,7 @@ public class TestDiagnosticsManager {
     this.diagnosticsManager =
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores, maxHeapSize, containerThreadPoolSize,
             "0", executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticsSystemStream,
-            mockSystemProducer, Duration.ofSeconds(1), mockExecutorService);
+            mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, autosizingEnabled);
 
     exceptionEventList.forEach(
         diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
@@ -212,6 +213,7 @@ public class TestDiagnosticsManager {
     Assert.assertEquals(containerModels, diagnosticsStreamMessage.getContainerModels());
     Assert.assertEquals(containerNumCores, diagnosticsStreamMessage.getContainerNumCores().intValue());
     Assert.assertEquals(numPersistentStores, diagnosticsStreamMessage.getNumPersistentStores().intValue());
+    Assert.assertEquals(autosizingEnabled, diagnosticsStreamMessage.getAutosizingEnabled());
   }
 
   private class MockSystemProducer implements SystemProducer {
