@@ -20,25 +20,33 @@
 package org.apache.samza.job
 
 
+import joptsimple.{OptionSet, OptionSpec}
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
-import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer}
-import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
-import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.runtime.ApplicationRunnerMain.ApplicationRunnerCommandLine
 import org.apache.samza.runtime.ApplicationRunnerOperation
-import org.apache.samza.system.{StreamSpec, SystemAdmins}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util._
-
-import scala.collection.JavaConverters._
 
 
 object JobRunner extends Logging {
   val SOURCE = "job-runner"
 
+  class JobRunnerCommandLine extends CommandLine {
+    var operationOpt: OptionSpec[String] =
+      parser.accepts("operation", "The operation to perform; run, status, kill.")
+        .withRequiredArg
+        .ofType(classOf[String])
+        .describedAs("operation=run")
+        .defaultsTo("run")
+
+    def getOperation(options: OptionSet): ApplicationRunnerOperation = {
+      val rawOp = options.valueOf(operationOpt)
+      ApplicationRunnerOperation.fromString(rawOp)
+    }
+  }
+
   def main(args: Array[String]) {
-    val cmdline = new ApplicationRunnerCommandLine
+    val cmdline = new JobRunnerCommandLine
     val options = cmdline.parser.parse(args: _*)
     val config = cmdline.loadConfig(options)
     val operation = cmdline.getOperation(options)
