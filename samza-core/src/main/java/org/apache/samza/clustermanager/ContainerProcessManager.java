@@ -159,7 +159,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // Wire all metrics to all reporters
     this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
 
-    this.containerManager = new ContainerManager(state, clusterResourceManager, jobConfig.getStandbyTasksEnabled());
+    this.containerManager = new ContainerManager(state, clusterResourceManager, hostAffinityEnabled, jobConfig.getStandbyTasksEnabled());
 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
@@ -402,6 +402,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       if (state.neededProcessors.decrementAndGet() == 0) {
         state.jobHealthy.set(true);
       }
+      containerManager.handleContainerLaunchSuccess(processorId);
     } else {
       LOG.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. " +
           "Ignoring invalid/redundant notification.", containerId, containerHost);
