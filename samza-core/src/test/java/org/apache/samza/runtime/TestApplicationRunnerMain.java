@@ -18,6 +18,7 @@
  */
 package org.apache.samza.runtime;
 
+import com.google.common.collect.ImmutableMap;
 import java.time.Duration;
 import joptsimple.OptionSet;
 import org.apache.samza.application.MockStreamApplication;
@@ -26,6 +27,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigLoaderFactory;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.ExternalContext;
 import org.apache.samza.job.ApplicationStatus;
 import org.junit.Test;
@@ -95,13 +97,13 @@ public class TestApplicationRunnerMain {
 
     Config actual = cmdLine.loadConfig(options);
 
-    assertEquals(4, actual.size());
-    assertEquals("org.apache.samza.config.loaders.PropertiesConfigLoaderFactory", actual.get(JobConfig.CONFIG_LOADER_FACTORY));
-    assertEquals(
-        getClass().getResource("/test.properties").getPath(),
-        actual.get(ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path"));
-    assertEquals(MockStreamApplication.class.getName(), actual.get(ApplicationConfig.APP_CLASS));
-    assertEquals(TestApplicationRunnerInvocationCounts.class.getName(), actual.get("app.runner.class"));
+    Config expected = new MapConfig(ImmutableMap.of(
+        JobConfig.CONFIG_LOADER_FACTORY, "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
+        ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path", getClass().getResource("/test.properties").getPath(),
+        ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName(),
+        "app.runner.class", TestApplicationRunnerInvocationCounts.class.getName()));
+
+    assertEquals(expected, actual);
   }
 
   public static class TestApplicationRunnerInvocationCounts implements ApplicationRunner {
