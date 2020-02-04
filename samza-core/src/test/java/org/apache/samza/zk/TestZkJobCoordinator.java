@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -35,6 +36,8 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -47,10 +50,12 @@ import org.apache.samza.zk.ZkJobCoordinator.ZkSessionStateChangedListener;
 import org.apache.zookeeper.Watcher;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
@@ -59,6 +64,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
@@ -265,7 +271,15 @@ public class TestZkJobCoordinator {
     when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(jobModel);
 
     StartpointManager mockStartpointManager = Mockito.mock(StartpointManager.class);
+    CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+    HashMap<String, byte[]> currentCoordinatorConfigMap =
+        new HashMap<>(config.entrySet().stream().collect(
+            Collectors.toMap(e -> CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE, e.getKey()), e -> jsonSerde.toBytes(e.getValue()))));
+    HashMap<String, byte[]> prevCoordinatorConfigMap = new HashMap<>(currentCoordinatorConfigMap);
+    prevCoordinatorConfigMap.put(CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE, "deleteMe1"), "foo1".getBytes());
+    prevCoordinatorConfigMap.put(CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE, "deleteMe2"), "foo2".getBytes());
 
+    doReturn(prevCoordinatorConfigMap).when(coordinatorStreamStore).all();
     ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator("TEST_PROCESSOR_ID", config, new NoOpMetricsRegistry(), zkUtils,
         zkMetadataStore, coordinatorStreamStore));
     doReturn(mockStartpointManager).when(zkJobCoordinator).createStartpointManager();
@@ -276,6 +290,14 @@ public class TestZkJobCoordinator {
     verifyZeroInteractions(mockStartpointManager);
 
     zkJobCoordinator.loadMetadataResources(jobModel);
+
+    // Verify old keys are deleted and current keys are stored.
+    verify(coordinatorStreamStore, times(2)).delete(anyString());
+    verify(coordinatorStreamStore).delete(CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE, "deleteMe1"));
+    verify(coordinatorStreamStore).delete(CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE, "deleteMe2"));
+    ArgumentCaptor<Map> argumentsCaptured = ArgumentCaptor.forClass(Map.class);
+    verify(coordinatorStreamStore).putAll((Map<String, byte[]>) argumentsCaptured.capture());
+    assertEquals(currentCoordinatorConfigMap.keySet(), argumentsCaptured.getValue().keySet());
 
     verify(mockMetadataResourceUtil).createResources();
     verify(mockStartpointManager).start();

@@ -26,6 +26,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.serializers.Serde;
@@ -101,7 +102,9 @@ public class TaskAssignmentManager {
    * @param taskName    the task name
    * @param containerId the SamzaContainer ID or {@code null} to delete the mapping
    * @param taskMode the mode of the task
+   * @deprecated in favor of {@link #writeTaskContainerAssignments(Map)}
    */
+  @Deprecated
   public void writeTaskContainerMapping(String taskName, String containerId, TaskMode taskMode) {
     String existingContainerId = taskNameToContainerId.get(taskName);
     if (existingContainerId != null && !existingContainerId.equals(containerId)) {
@@ -118,6 +121,45 @@ public class TaskAssignmentManager {
       taskContainerMappingMetadataStore.put(taskName, containerIdSerde.toBytes(containerId));
       taskModeMappingMetadataStore.put(taskName, taskModeSerde.toBytes(taskMode.toString()));
       taskNameToContainerId.put(taskName, containerId);
+    }
+  }
+
+  /**
+   * Method to write task-to-container mapping and the mode of the task to {@link MetadataStore}
+   * @param taskToContainerMapping the task name to container mapping. Container IDs that are null are deleted.
+   */
+  public void writeTaskContainerAssignments(Map<String, ContainerModel> taskToContainerMapping) {
+    HashMap<String, byte[]> containerMapping = new HashMap<>();
+    HashMap<String, byte[]> modeMapping = new HashMap<>();
+
+    for (String taskName : taskToContainerMapping.keySet()) {
+      ContainerModel container = taskToContainerMapping.get(taskName);
+      String containerId = container.getId();
+      TaskMode taskMode = container.getTasks().get(new TaskName(taskName)).getTaskMode();
+
+      String existingContainerId = taskNameToContainerId.get(taskName);
+      if (existingContainerId != null && !existingContainerId.equals(containerId)) {
+        LOG.info("Task \"{}\" in mode {} moved from container {} to container {}", new Object[]{taskName, taskMode, existingContainerId, containerId});
+      } else {
+        LOG.debug("Task \"{}\" in mode {} assigned to container {}", taskName, taskMode, containerId);
+      }
+
+      if (containerId == null) {
+        LOG.info("Deleting task: {} from the task-to-container assignment in the metadata store", taskName);
+        taskContainerMappingMetadataStore.delete(taskName);
+        taskModeMappingMetadataStore.delete(taskName);
+        taskNameToContainerId.remove(taskName);
+      } else {
+        LOG.info("Assigning task: {} to container ID: {} in the metadata store", taskName, containerId);
+        containerMapping.put(taskName, containerIdSerde.toBytes(containerId));
+        modeMapping.put(taskName, taskModeSerde.toBytes(taskMode.toString()));
+        taskNameToContainerId.put(taskName, containerId);
+      }
+    }
+
+    if (!containerMapping.isEmpty()) {
+      taskContainerMappingMetadataStore.putAll(containerMapping);
+      taskModeMappingMetadataStore.putAll(modeMapping);
     }
   }
 

@@ -18,13 +18,19 @@
  */
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
+import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
+import org.apache.samza.metadatastore.InMemoryMetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.StreamValidationException;
@@ -35,9 +41,12 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 
 public class TestChangelogStreamManager {
@@ -60,6 +69,44 @@ public class TestChangelogStreamManager {
         .build();
     Config config = new MapConfig(map);
     ChangelogStreamManager.createChangelogStreams(config, MAX_CHANGELOG_STREAM_PARTITIONS);
+  }
+
+  @Test
+  public void testWritePartitionMapping() {
+    InMemoryMetadataStore inMemoryMetadataStore = new InMemoryMetadataStore();
+    NamespaceAwareCoordinatorStreamStore prevChangelogStreamStore =
+        new NamespaceAwareCoordinatorStreamStore(inMemoryMetadataStore, SetChangelogMapping.TYPE);
+    CoordinatorStreamValueSerde valueSerde = new CoordinatorStreamValueSerde(SetChangelogMapping.TYPE);
+    TaskName t0 = new TaskName("Task0");
+    TaskName t1 = new TaskName("Task1");
+    TaskName t2 = new TaskName("Task2");
+    TaskName t3 = new TaskName("Task3");
+    TaskName t4 = new TaskName("Task4");
+
+    prevChangelogStreamStore.put(t0.getTaskName(), valueSerde.toBytes("0"));
+    prevChangelogStreamStore.put(t1.getTaskName(), valueSerde.toBytes("1"));
+    prevChangelogStreamStore.put(t2.getTaskName(), valueSerde.toBytes("2"));
+    prevChangelogStreamStore.put(t3.getTaskName(), valueSerde.toBytes("3"));
+    prevChangelogStreamStore.put(t4.getTaskName(), valueSerde.toBytes("4"));
+
+    NamespaceAwareCoordinatorStreamStore currentChangelogStreamStore =
+        spy(new NamespaceAwareCoordinatorStreamStore(inMemoryMetadataStore, SetChangelogMapping.TYPE));
+    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(currentChangelogStreamStore);
+
+    HashMap<TaskName, Integer> newPartitionMapping = new HashMap<>();
+    newPartitionMapping.put(t0, 5);
+    newPartitionMapping.put(t1, 6);
+    newPartitionMapping.put(t2, null); // delete
+    newPartitionMapping.put(t3, null); // delete
+    newPartitionMapping.put(t4, 7);
+
+    changelogStreamManager.writePartitionMapping(newPartitionMapping);
+
+    verify(currentChangelogStreamStore).delete(t2.getTaskName());
+    verify(currentChangelogStreamStore).delete(t3.getTaskName());
+    ArgumentCaptor<Map> argumentsCaptured = ArgumentCaptor.forClass(Map.class);
+    verify(currentChangelogStreamStore).putAll((Map<String, byte[]>) argumentsCaptured.capture());
+    assertEquals(ImmutableSet.of(t0.getTaskName(), t1.getTaskName(), t4.getTaskName()), argumentsCaptured.getValue().keySet());
   }
 
   public static class MockSystemAdminFactory implements SystemFactory {

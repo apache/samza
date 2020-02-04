@@ -20,6 +20,7 @@ package org.apache.samza.zk;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -316,14 +318,21 @@ public class ZkJobCoordinator implements JobCoordinator {
       metadataResourceUtil.createResources();
 
       if (coordinatorStreamStore != null) {
-        // TODO: SAMZA-2273 - publish configs async
         CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
         NamespaceAwareCoordinatorStreamStore configStore =
             new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE);
-        for (Map.Entry<String, String> entry : config.entrySet()) {
-          byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
-          configStore.put(entry.getKey(), serializedValue);
+
+        // Delete configs from metadata store that are no longer needed.
+        Set<String> configsToDelete = Sets.difference(configStore.all().keySet(), config.keySet());
+        for (String configKeyToDelete : configsToDelete) {
+          LOG.debug("Deleting config: {}", configKeyToDelete);
+          configStore.delete(configKeyToDelete);
         }
+
+        // Publish current configs to metadata store.
+        Map<String, byte[]> configsToStore =
+            config.entrySet().stream().collect(Collectors.toMap(e -> e.getKey(), e -> jsonSerde.toBytes(e.getValue())));
+        configStore.putAll(configsToStore);
 
         // fan out the startpoints
         StartpointManager startpointManager = createStartpointManager();
