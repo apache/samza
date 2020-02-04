@@ -67,7 +67,7 @@ public class DiagnosticsManager {
   private final long maxHeapSizeBytes;
   private final int containerThreadPoolSize;
   private final Map<String, ContainerModel> containerModels;
-  private final boolean autoscalingEnabled;
+  private final boolean autosizingEnabled;
   private boolean jobParamsEmitted = false;
 
   private final SystemProducer systemProducer; // SystemProducer for writing diagnostics data
@@ -93,12 +93,12 @@ public class DiagnosticsManager {
       String hostname,
       SystemStream diagnosticSystemStream,
       SystemProducer systemProducer,
-      Duration terminationDuration, boolean autoscalingEnabled) {
+      Duration terminationDuration, boolean autosizingEnabled) {
 
     this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numPersistentStores, maxHeapSizeBytes, containerThreadPoolSize,
         containerId, executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticSystemStream, systemProducer,
         terminationDuration, Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()), autoscalingEnabled);
+            new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()), autosizingEnabled);
   }
 
   @VisibleForTesting
@@ -118,7 +118,7 @@ public class DiagnosticsManager {
       SystemStream diagnosticSystemStream,
       SystemProducer systemProducer,
       Duration terminationDuration,
-      ScheduledExecutorService executorService, boolean autoscalingEnabled) {
+      ScheduledExecutorService executorService, boolean autosizingEnabled) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.containerModels = containerModels;
@@ -139,7 +139,7 @@ public class DiagnosticsManager {
     this.processorStopEvents = new ConcurrentLinkedQueue<>();
     this.exceptions = new BoundedList<>("exceptions"); // Create a BoundedList with default size and time parameters
     this.scheduler = executorService;
-    this.autoscalingEnabled = autoscalingEnabled;
+    this.autosizingEnabled = autosizingEnabled;
 
     resetTime = Instant.now();
 
@@ -204,7 +204,7 @@ public class DiagnosticsManager {
           diagnosticsStreamMessage.addContainerModels(containerModels);
           diagnosticsStreamMessage.addMaxHeapSize(maxHeapSizeBytes);
           diagnosticsStreamMessage.addContainerThreadPoolSize(containerThreadPoolSize);
-          diagnosticsStreamMessage.addAutosizingEnabled(autoscalingEnabled);
+          diagnosticsStreamMessage.addAutosizingEnabled(autosizingEnabled);
         }
 
         // Add stop event list to the message

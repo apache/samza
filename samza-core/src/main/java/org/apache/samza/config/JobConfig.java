@@ -132,12 +132,13 @@ public class JobConfig extends MapConfig {
 
   // Auto-sizing related configs tthat ake precedence over respective sizing confings job.container.count, etc,
   // *only* when job.autosizing.enabled is true. Otherwise current behavior is maintained.
-  public static final String JOB_AUTOSIZING_ENABLED = "job.autosizing.enabled";
-  public static final String JOB_AUTOSIZING_CONTAINER_COUNT = "job.autosizing.container.count";
-  public static final String JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE = "job.autosizing.container.thread.pool.size";
-  public static final String JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB = "job.autosizing.container.maxheap.mb";
-  public static final String JOB_AUTOSIZING_CONTAINER_MEMORY_MB = "job.autosizing.container.memory.mb";
-  public static final String JOB_AUTOSIZING_CONTAINER_MAX_CORES = "job.autosizing.container.cpu.cores";
+  private static final String JOB_AUTOSIZING_CONFIG_PREFIX = "job.autosizing."; // used to determine if a config is related to autosizing
+  public static final String JOB_AUTOSIZING_ENABLED = JOB_AUTOSIZING_CONFIG_PREFIX + "enabled";
+  public static final String JOB_AUTOSIZING_CONTAINER_COUNT = JOB_AUTOSIZING_CONFIG_PREFIX + "container.count";
+  public static final String JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE = JOB_AUTOSIZING_CONFIG_PREFIX + "container.thread.pool.size";
+  public static final String JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB = JOB_AUTOSIZING_CONFIG_PREFIX + "container.maxheap.mb";
+  public static final String JOB_AUTOSIZING_CONTAINER_MEMORY_MB = JOB_AUTOSIZING_CONFIG_PREFIX + "container.memory.mb";
+  public static final String JOB_AUTOSIZING_CONTAINER_MAX_CORES = JOB_AUTOSIZING_CONFIG_PREFIX + "container.cpu.cores";
 
   public static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
   public static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
@@ -180,11 +181,11 @@ public class JobConfig extends MapConfig {
    * @return
    */
   public int getContainerCount() {
-    Optional<String> autoscalingContainerCountValue = Optional.ofNullable(get(JOB_AUTOSIZING_CONTAINER_COUNT));
+    Optional<String> autosizingContainerCountValue = Optional.ofNullable(get(JOB_AUTOSIZING_CONTAINER_COUNT));
     Optional<String> jobContainerCountValue = Optional.ofNullable(get(JOB_CONTAINER_COUNT));
 
-    if (getAutosizingEnabled() && autoscalingContainerCountValue.isPresent()) {
-      return Integer.parseInt(autoscalingContainerCountValue.get());
+    if (getAutosizingEnabled() && autosizingContainerCountValue.isPresent()) {
+      return Integer.parseInt(autosizingContainerCountValue.get());
     } else if (jobContainerCountValue.isPresent()) {
       return Integer.parseInt(jobContainerCountValue.get());
     } else {
@@ -310,10 +311,10 @@ public class JobConfig extends MapConfig {
    * @return
    */
   public int getThreadPoolSize() {
-    Optional<String> autoscalingContainerThreadPoolSize = Optional.ofNullable(get(
+    Optional<String> autosizingContainerThreadPoolSize = Optional.ofNullable(get(
         JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE));
-    if (getAutosizingEnabled() && autoscalingContainerThreadPoolSize.isPresent()) {
-      return Integer.parseInt(autoscalingContainerThreadPoolSize.get());
+    if (getAutosizingEnabled() && autosizingContainerThreadPoolSize.isPresent()) {
+      return Integer.parseInt(autosizingContainerThreadPoolSize.get());
     } else {
       return getInt(JOB_CONTAINER_THREAD_POOL_SIZE, 0);
     }
@@ -343,17 +344,14 @@ public class JobConfig extends MapConfig {
     return getBoolean(JOB_AUTOSIZING_ENABLED, false);
   }
 
+  /**
+   * Check if a given config parameter is an internal autosizing related config, based on
+   * its name having the prefix "job.autosizing"
+   * @param configParam the config param to determine
+   * @return true if the config is related to autosizing, false otherwise
+   */
   public boolean isAutosizingConfig(String configParam) {
-    switch (configParam) {
-      case JOB_AUTOSIZING_CONTAINER_COUNT:
-      case JOB_AUTOSIZING_CONTAINER_MAX_CORES:
-      case JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB:
-      case JOB_AUTOSIZING_CONTAINER_MEMORY_MB:
-      case JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE:
-        return true;
-      default:
-        return false;
-    }
+    return configParam.startsWith(JOB_AUTOSIZING_CONFIG_PREFIX);
   }
 
   public boolean getJMXEnabled() {

@@ -607,5 +607,11 @@ public class TestJobConfig {
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(new MapConfig(config));
     Assert.assertEquals(900, clusterManagerConfig.getContainerMemoryMb());
     Assert.assertEquals(2, clusterManagerConfig.getNumCores());
+
+    ShellCommandConfig shellCommandConfig = new ShellCommandConfig(new MapConfig(ImmutableMap.of("task.opts", "-Xmx100m")));
+    Assert.assertEquals("Xmx param should match task.opts parameter with autosizing off", shellCommandConfig.getTaskOpts().get(), "-Xmx100m");
+
+    shellCommandConfig = new ShellCommandConfig(new MapConfig(config));
+    Assert.assertEquals("Xmx param should match job.autosizing.container.maxheap.mb value", "-Xmx500m", shellCommandConfig.getTaskOpts().get());
   }
 }

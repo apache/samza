@@ -149,7 +149,7 @@ public class ClusterManagerConfig extends MapConfig {
    * @return
    */
   public int getNumCores() {
-    if (getBoolean(JobConfig.JOB_AUTOSIZING_ENABLED, false) && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES)) {
+    if (new JobConfig(this).getAutosizingEnabled() && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES)) {
       return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES);
     } else if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
       return getInt(CLUSTER_MANAGER_MAX_CORES);
@@ -167,7 +167,7 @@ public class ClusterManagerConfig extends MapConfig {
    * @return
    */
   public int getContainerMemoryMb() {
-    if (getBoolean(JobConfig.JOB_AUTOSIZING_ENABLED, false) && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB)) {
+    if (new JobConfig(this).getAutosizingEnabled() && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB)) {
       return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB);
     } else if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
       return getInt(CLUSTER_MANAGER_MEMORY_MB);
