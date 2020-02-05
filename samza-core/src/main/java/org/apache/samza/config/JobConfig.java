@@ -130,7 +130,7 @@ public class JobConfig extends MapConfig {
   public static final String CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata"; // Filename: <containerID>.metadata
   public static final String CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY = "samza.log.dir";
 
-  // Auto-sizing related configs tthat ake precedence over respective sizing confings job.container.count, etc,
+  // Auto-sizing related configs that ake precedence over respective sizing confings job.container.count, etc,
   // *only* when job.autosizing.enabled is true. Otherwise current behavior is maintained.
   private static final String JOB_AUTOSIZING_CONFIG_PREFIX = "job.autosizing."; // used to determine if a config is related to autosizing
   public static final String JOB_AUTOSIZING_ENABLED = JOB_AUTOSIZING_CONFIG_PREFIX + "enabled";
