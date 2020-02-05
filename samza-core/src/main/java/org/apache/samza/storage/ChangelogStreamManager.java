@@ -102,6 +102,7 @@ public class ChangelogStreamManager {
         metadataStore.delete(taskName);
       }
     }
+    metadataStore.flush();
   }
 
   /**

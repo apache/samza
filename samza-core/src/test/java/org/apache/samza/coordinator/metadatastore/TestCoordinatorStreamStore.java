@@ -105,7 +105,6 @@ public class TestCoordinatorStreamStore {
     Assert.assertEquals(value3, spyCoordinatorStreamStore.get(key3));
     Assert.assertEquals(value4, spyCoordinatorStreamStore.get(key4));
     Assert.assertEquals(value5, spyCoordinatorStreamStore.get(key5));
-    Mockito.verify(spyCoordinatorStreamStore).flush(); // verify flush called only once during putAll
   }
 
   @Test
