@@ -28,15 +28,21 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator;
 import org.apache.samza.clustermanager.container.placements.ContainerPlacementMetadata;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
+import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.JobModelManagerTestUtil;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -53,6 +59,9 @@ import org.mockito.stubbing.Answer;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Set of Integration tests for container placement actions
+ */
 @RunWith(MockitoJUnitRunner.class)
 public class TestContainerPlacementActions {
 
@@ -71,10 +80,22 @@ public class TestContainerPlacementActions {
       put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
       put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
       put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
+      put("job.name", "test-job");
+      put("job.coordinator.system", "test-kafka");
+      put("app.run.id", "appAttempt-001");
     }
   };
 
   private Config config = new MapConfig(configVals);
+
+  private CoordinatorStreamStore coordinatorStreamStore;
+  private ContainerPlacementMetadataStore containerPlacementMetadataStore;
+
+  private SamzaApplicationState state;
+  private ContainerManager containerManager;
+  private MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity;
+  private ContainerProcessManager cpm;
+  private ClusterResourceManager.Callback callback;
 
   private Config getConfig() {
     Map<String, String> map = new HashMap<>();
@@ -108,26 +129,27 @@ public class TestContainerPlacementActions {
   @Before
   public void setup() throws Exception {
     server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
+    // Utils Related to Container Placement Metadata store
+    CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(config);
+    coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
+    coordinatorStreamStore.init();
+    containerPlacementMetadataStore = new ContainerPlacementMetadataStore(coordinatorStreamStore);
+    containerPlacementMetadataStore.start();
+    // Utils Related to Cluster manager:
+    Map<String, String> conf = new HashMap<>();
+    conf.putAll(getConfigWithHostAffinityAndRetries(true, 1, true));
+    state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
+    callback = mock(ClusterResourceManager.Callback.class);
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+    containerManager = spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false));
+    allocatorWithHostAffinity = new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
+    cpm = new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
+            clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
   }
 
   @Test(timeout = 10000)
   public void testContainerSuccessfulMoveAction() throws Exception {
-    Map<String, String> conf = new HashMap<>();
-    conf.putAll(getConfigWithHostAffinityAndRetries(true, 1, true));
-
-    SamzaApplicationState state =
-        new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
-
-    ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
-    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
-    ContainerManager containerManager = spy(new ContainerManager(state, clusterResourceManager, true, false));
-    MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity =
-        new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
-    ContainerProcessManager cpm =
-        new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
-            clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
-
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
@@ -179,6 +201,7 @@ public class TestContainerPlacementActions {
     ContainerPlacementRequestMessage requestMessage =
         new ContainerPlacementRequestMessage(UUID.randomUUID(), "appAttempt-001", "0", "host-3",
             System.currentTimeMillis());
+
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
@@ -197,24 +220,120 @@ public class TestContainerPlacementActions {
     assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
     assertEquals(state.anyHostRequests.get(), 0);
     assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
+
+    Optional<ContainerPlacementResponseMessage> responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    assertTrue(responseMessage.isPresent());
+    assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
+    assertResponseMessage(responseMessage.get(), requestMessage);
+  }
+
+  @Test(timeout = 30000)
+  public void testActionQueuingForConsecutivePlacementActions() throws Exception {
+    // Spawn a Request Allocator Thread
+    Thread requestAllocatorThread = new Thread(
+        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config)),
+        "ContainerPlacement Request Allocator Thread");
+    requestAllocatorThread.start();
+
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+        new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
+          }, "AMRMClientAsync").start();
+        return null;
+      }
+    }).when(callback).onResourcesAvailable(anyList());
+
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+        new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
+          }, "AMRMClientAsync").start();
+        return null;
+      }
+    }).when(callback).onStreamProcessorLaunchSuccess(any());
+
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+        new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
+          }, "AMRMClientAsync").start();
+        return null;
+      }
+    }).when(callback).onResourcesCompleted(anyList());
+
+    cpm.start();
+
+    if (!allocatorWithHostAffinity.awaitContainersStart(2, 5, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+
+    while (state.runningProcessors.size() != 2) {
+      Thread.sleep(100);
+    }
+
+    // App is in running state with two containers running
+    assertEquals(state.runningProcessors.size(), 2);
+    assertEquals(state.runningProcessors.get("0").getHost(), "host-1");
+    assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
+    assertEquals(state.preferredHostRequests.get(), 2);
+    assertEquals(state.anyHostRequests.get(), 0);
+
+    // Initiate container placement action to move a container with container id 0
+
+    UUID requestUUIDMove1 = containerPlacementMetadataStore.writeContainerPlacementRequestMessage("appAttempt-001", "0", "host-3",
+        null, System.currentTimeMillis());
+
+    UUID requestUUIDMoveBad = containerPlacementMetadataStore.writeContainerPlacementRequestMessage("appAttempt-002", "0", "host-4",
+        null, System.currentTimeMillis());
+
+    UUID requestUUIDMove2 = containerPlacementMetadataStore.writeContainerPlacementRequestMessage("appAttempt-001", "0", "host-4",
+        null, System.currentTimeMillis());
+
+    // Wait for the ControlAction to complete
+    while (true) {
+      if (containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestUUIDMove2).isPresent() &&
+          containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestUUIDMove2).get().getStatusCode()
+              == ContainerPlacementMessage.StatusCode.SUCCEEDED) {
+        break;
+      }
+      Thread.sleep(Duration.ofSeconds(5).toMillis());
+    }
+
+    assertEquals(state.preferredHostRequests.get(), 4);
+    assertEquals(state.runningProcessors.size(), 2);
+    assertEquals(state.runningProcessors.get("0").getHost(), "host-4");
+    assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
+    assertEquals(state.anyHostRequests.get(), 0);
+
+    Optional<ContainerPlacementResponseMessage> responseMessageMove1 =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestUUIDMove1);
+
+    Optional<ContainerPlacementResponseMessage> responseMessageMove2 =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestUUIDMove2);
+
+    assertTrue(responseMessageMove1.isPresent());
+    assertEquals(responseMessageMove1.get().getStatusCode(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
+
+    assertTrue(responseMessageMove2.isPresent());
+    assertEquals(responseMessageMove2.get().getStatusCode(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
+
+    // Request should be deleted as soon as ita accepted / being acted upon
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestUUIDMove1).isPresent());
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestUUIDMove2).isPresent());
+
+    // Requests from Previous deploy must be cleaned
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestUUIDMoveBad).isPresent());
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestUUIDMoveBad).isPresent());
   }
 
   @Test(timeout = 10000)
   public void testContainerMoveActionExpiredRequestNotAffectRunningContainers() throws Exception {
-    Map<String, String> conf = new HashMap<>();
-    conf.putAll(getConfigWithHostAffinityAndRetries(true, 1, true));
-
-    SamzaApplicationState state =
-        new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
-
-    ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
-    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ContainerManager containerManager = spy(new ContainerManager(state, clusterResourceManager, true, false));
-    MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity =
-        new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
-    ContainerProcessManager cpm =
-        new ContainerProcessManager(new ClusterManagerConfig(new MapConfig(conf)), state, new MetricsRegistryMap(),
-            clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
 
     // Mimic the behavior of Expired request
     doAnswer(new Answer<Void>() {
@@ -276,25 +395,19 @@ public class TestContainerPlacementActions {
     assertEquals(state.runningProcessors.get("0").getHost(), "host-1");
     assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
     assertEquals(state.anyHostRequests.get(), 0);
+
+    Optional<ContainerPlacementResponseMessage> responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    assertTrue(responseMessage.isPresent());
+    assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.FAILED);
+    assertResponseMessage(responseMessage.get(), requestMessage);
+    // Request shall be deleted as soon as it is acted upon
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestMessage.getUuid()).isPresent());
   }
 
   @Test(timeout = 10000)
   public void testActiveContainerLaunchFailureOnControlActionShouldFallbackToSourceHost() throws Exception {
-    Map<String, String> conf = new HashMap<>();
-    conf.putAll(getConfigWithHostAffinityAndRetries(true, 1, true));
-
-    SamzaApplicationState state =
-        new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
-
-    ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
-    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ContainerManager containerManager = spy(new ContainerManager(state, clusterResourceManager, true, false));
-    MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity =
-        new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
-    ContainerProcessManager cpm =
-        new ContainerProcessManager(new ClusterManagerConfig(new MapConfig(conf)), state, new MetricsRegistryMap(),
-            clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
-
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
@@ -375,6 +488,16 @@ public class TestContainerPlacementActions {
     assertEquals(state.anyHostRequests.get(), 0);
     // Control Action should be failed in this case
     assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.FAILED);
+
+    Optional<ContainerPlacementResponseMessage> responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    assertTrue(responseMessage.isPresent());
+    assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.FAILED);
+    assertResponseMessage(responseMessage.get(), requestMessage);
+
+    // Request shall be deleted as soon as it is acted upon
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestMessage.getUuid()).isPresent());
   }
 
   @Test(timeout = 10000)
@@ -385,7 +508,8 @@ public class TestContainerPlacementActions {
         new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
     ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ContainerManager containerManager = new ContainerManager(state, clusterResourceManager, false, false);
+    ContainerManager containerManager =
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, false, false);
     MockContainerAllocatorWithoutHostAffinity allocatorWithoutHostAffinity =
         new MockContainerAllocatorWithoutHostAffinity(clusterResourceManager, new MapConfig(conf), state,
             containerManager);
@@ -479,6 +603,36 @@ public class TestContainerPlacementActions {
     assertEquals(3, state.anyHostRequests.get());
     // Action should success
     assertEquals(ContainerPlacementMessage.StatusCode.SUCCEEDED, metadata.getActionStatus());
+
+    Optional<ContainerPlacementResponseMessage> responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    assertTrue(responseMessage.isPresent());
+    assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
+    assertResponseMessage(responseMessage.get(), requestMessage);
+
+    /**
+     * Inject a duplicate request and check it is not accepted
+     */
+    ContainerPlacementRequestMessage duplicateRequestToBeIgnored =
+        new ContainerPlacementRequestMessage(requestMessage.getUuid(), "app-attempt-001", "1",
+            "host-3", System.currentTimeMillis());
+
+    // Request with a dup uuid should not be accepted
+    metadata = containerManager.registerContainerPlacementActionForTest(duplicateRequestToBeIgnored,
+        allocatorWithoutHostAffinity);
+    // metadata should be from the previous completed action
+    assertTrue(metadata == null || metadata.getUuid() != duplicateRequestToBeIgnored.getUuid());
+
+    responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    assertTrue(responseMessage.isPresent());
+    assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.BAD_REQUEST);
+    assertResponseMessage(responseMessage.get(), duplicateRequestToBeIgnored);
+
+    // Request shall be deleted as soon as it is acted upon
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestMessage.getUuid()).isPresent());
   }
 
   @Test(expected = NullPointerException.class)
@@ -487,7 +641,8 @@ public class TestContainerPlacementActions {
         new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
     ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ContainerManager containerManager = spy(new ContainerManager(state, clusterResourceManager, true, false));
+    ContainerManager containerManager =
+        spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false));
     MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity =
         new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     ContainerProcessManager cpm = new ContainerProcessManager(
@@ -521,6 +676,13 @@ public class TestContainerPlacementActions {
     assertBadRequests("2", "host8", containerManager, allocatorWithHostAffinity);
   }
 
+  private void assertResponseMessage(ContainerPlacementResponseMessage responseMessage,
+      ContainerPlacementRequestMessage requestMessage) {
+    assertEquals(responseMessage.getProcessorId(), requestMessage.getProcessorId());
+    assertEquals(responseMessage.getDeploymentId(), requestMessage.getDeploymentId());
+    assertEquals(responseMessage.getDestinationHost(), requestMessage.getDestinationHost());
+  }
+
   private void assertBadRequests(String processorId, String destinationHost, ContainerManager containerManager,
       ContainerAllocator allocator) {
     ContainerPlacementRequestMessage requestMessage =
@@ -529,5 +691,14 @@ public class TestContainerPlacementActions {
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocator);
     assertNull(metadata);
+
+    Optional<ContainerPlacementResponseMessage> responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    assertTrue(responseMessage.isPresent());
+    assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.BAD_REQUEST);
+    assertResponseMessage(responseMessage.get(), requestMessage);
+    // Request shall be deleted as soon as it is acted upon
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestMessage.getUuid()).isPresent());
   }
 }

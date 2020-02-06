@@ -21,13 +21,15 @@ package org.apache.samza.clustermanager;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.clustermanager.container.placements.ContainerPlacementMetadata;
+import org.apache.samza.clustermanager.container.placements.DequeuedPlacementActionsCache;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
+import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +54,10 @@ public class ContainerManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContainerManager.class);
   private static final String ANY_HOST = ResourceRequestState.ANY_HOST;
-
+  /**
+   * Container placement metadata store to write responses to control actions
+   */
+  private final ContainerPlacementMetadataStore containerPlacementMetadataStore;
   /**
    * Resource-manager, used to stop containers
    */
@@ -65,15 +70,19 @@ public class ContainerManager {
    * Key is chosen to be processorId since at a time only one placement action can be in progress on a container.
    */
   private final ConcurrentHashMap<String, ContainerPlacementMetadata> actions;
+  private final DequeuedPlacementActionsCache dequeuedActionsCache;
 
   private final Optional<StandbyContainerManager> standbyContainerManager;
 
-  public ContainerManager(SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager,
+  public ContainerManager(ContainerPlacementMetadataStore containerPlacementMetadataStore,
+      SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager,
       boolean hostAffinityEnabled, boolean standByEnabled) {
     this.samzaApplicationState = samzaApplicationState;
     this.clusterResourceManager = clusterResourceManager;
     this.actions = new ConcurrentHashMap<>();
+    this.dequeuedActionsCache = new DequeuedPlacementActionsCache();
     this.hostAffinityEnabled = hostAffinityEnabled;
+    this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     // Enable standby container manager if required
     if (standByEnabled) {
       this.standbyContainerManager =
@@ -110,12 +119,14 @@ public class ContainerManager {
       ContainerPlacementMetadata actionMetaData = getPlacementActionMetadata(processorId).get();
       ContainerPlacementMetadata.ContainerStatus actionStatus = actionMetaData.getContainerStatus();
       if (samzaApplicationState.runningProcessors.containsKey(processorId) && actionStatus == ContainerPlacementMetadata.ContainerStatus.RUNNING) {
-        LOG.info("Requesting running container to shutdown due to existing container placement action {}", actionMetaData);
+        LOG.debug("Requesting running container to shutdown due to existing ContainerPlacement action {}", actionMetaData);
         actionMetaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS);
+        updateContainerPlacementActionStatus(actionMetaData, ContainerPlacementMessage.StatusCode.IN_PROGRESS,
+            "Active container stop in progress");
         clusterResourceManager.stopStreamProcessor(samzaApplicationState.runningProcessors.get(processorId));
         return false;
       } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS) {
-        LOG.info("Waiting for running container to shutdown due to existing container placement action {}", actionMetaData);
+        LOG.info("Waiting for running container to shutdown due to existing ContainerPlacement action {}", actionMetaData);
         return false;
       } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOPPED) {
         allocator.runStreamProcessor(request, preferredHost);
@@ -210,9 +221,10 @@ public class ContainerManager {
   void handleContainerLaunchSuccess(String processorId) {
     if (hasActiveContainerPlacementAction(processorId)) {
       ContainerPlacementMetadata metadata = getPlacementActionMetadata(processorId).get();
-      metadata.setActionStatus(ContainerPlacementMessage.StatusCode.SUCCEEDED,
-              "Successfully completed the container placement action");
-      LOG.info("Container placement action succeeded {}", metadata);
+      // Mark the active container running again and dispatch a response
+      metadata.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.RUNNING);
+      updateContainerPlacementActionStatus(metadata, ContainerPlacementMessage.StatusCode.SUCCEEDED,
+          "Successfully completed the container placement action");
     }
   }
 
@@ -285,34 +297,41 @@ public class ContainerManager {
    * @param containerAllocator to request physical resources
    */
   public void registerContainerPlacementAction(ContainerPlacementRequestMessage requestMessage, ContainerAllocator containerAllocator) {
-    LOG.info("Received a ContainerPlacement action request: {}", requestMessage);
     String processorId = requestMessage.getProcessorId();
     String destinationHost = requestMessage.getDestinationHost();
-    Pair<ContainerPlacementMessage.StatusCode, String> actionStatus =
-        checkValidControlAction(processorId, destinationHost, requestMessage.getUuid());
-
+    Optional<Pair<ContainerPlacementMessage.StatusCode, String>> actionStatus = validatePlacementAction(requestMessage);
+    if (!actionStatus.isPresent()) {
+      // Action is supposed to be queued
+      LOG.info("ContainerPlacement request is en-queued metadata: {}", requestMessage);
+      return;
+    }
+    LOG.info("ContainerPlacement action is de-queued metadata: {}", requestMessage);
+    // Remove the request message from metastore since this message is already acted upon
+    containerPlacementMetadataStore.deleteContainerPlacementRequestMessage(requestMessage.getUuid());
+    // Action is de-queued upon so we record it in the cache
+    dequeuedActionsCache.put(requestMessage.getUuid());
     // Request is bad just update the response on message & return
-    if (actionStatus.getKey() == ContainerPlacementMessage.StatusCode.BAD_REQUEST) {
+    if (actionStatus.get().getKey() == ContainerPlacementMessage.StatusCode.BAD_REQUEST) {
+      writeContainerPlacementResponseMessage(requestMessage, actionStatus.get().getKey(), actionStatus.get().getValue());
       return;
     }
 
     SamzaResource currentResource = samzaApplicationState.runningProcessors.get(processorId);
-    LOG.info(
-        "Processor ID: {} matched an active container with deployment ID: {} is running on host: {} for ContainerPlacement action: {}",
+    LOG.info("Processor ID: {} matched an active container with deployment ID: {} is running on host: {} for ContainerPlacement action: {}",
         processorId, currentResource.getContainerId(), currentResource.getHost(), requestMessage);
 
     if (!hostAffinityEnabled) {
-      LOG.info("Changing the requested host for placement action to {} because host affinity is disabled",
-          ResourceRequestState.ANY_HOST);
+      LOG.info("Changing the requested host for placement action to {} because host affinity is disabled", ResourceRequestState.ANY_HOST);
       destinationHost = ANY_HOST;
     }
 
     SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequest(processorId, destinationHost);
     ContainerPlacementMetadata actionMetaData = new ContainerPlacementMetadata(requestMessage, currentResource.getHost());
     // Record the resource request for monitoring
-    actionMetaData.setActionStatus(ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Preferred Resources requested");
     actionMetaData.recordResourceRequest(resourceRequest);
     actions.put(processorId, actionMetaData);
+    updateContainerPlacementActionStatus(actionMetaData, ContainerPlacementMessage.StatusCode.IN_PROGRESS,
+        "Preferred Resources requested");
     containerAllocator.issueResourceRequest(resourceRequest);
     LOG.info("Issued resource request for preferred resources for ContainerPlacement action: {}", actionMetaData);
   }
@@ -342,8 +361,7 @@ public class ContainerManager {
   }
 
   private void markContainerPlacementActionFailed(ContainerPlacementMetadata metaData, String failureMessage) {
-    metaData.setActionStatus(ContainerPlacementMessage.StatusCode.FAILED, failureMessage);
-    LOG.info("Container Placement action failed with metadata {}", metaData);
+    updateContainerPlacementActionStatus(metaData, ContainerPlacementMessage.StatusCode.FAILED, failureMessage);
   }
 
   /**
@@ -371,47 +389,54 @@ public class ContainerManager {
     return Optional.ofNullable(this.actions.get(processorId));
   }
 
+  private void updateContainerPlacementActionStatus(ContainerPlacementMetadata metadata,
+      ContainerPlacementMessage.StatusCode statusCode, String responseMessage) {
+    metadata.setActionStatus(statusCode, responseMessage);
+    writeContainerPlacementResponseMessage(metadata.getRequestMessage(), statusCode, responseMessage);
+    LOG.info("Status updated for ContainerPlacement action: {}", metadata);
+  }
+
+  private void writeContainerPlacementResponseMessage(ContainerPlacementRequestMessage requestMessage,
+      ContainerPlacementMessage.StatusCode statusCode, String responseMessage) {
+    containerPlacementMetadataStore.writeContainerPlacementResponseMessage(
+        ContainerPlacementResponseMessage.fromContainerPlacementRequestMessage(requestMessage, statusCode,
+            responseMessage, System.currentTimeMillis()));
+  }
+
   /**
    * A valid container placement action is only issued for a running processor with a valid processor id which has no
-   * in flight container requests. Duplicate actions are handled by deduping on uuid
-   *
-   * TODO: SAMZA-2402: Disallow pending Container Placement actions in metastore on job restarts
+   * in flight container requests. Duplicate actions are handled by deduping on uuid. If there is an existing inflight
+   * request or container is pending a start, the container placement request is queued to be executed in future.
    */
-  private Pair<ContainerPlacementMessage.StatusCode, String> checkValidControlAction(String processorId, String destinationHost, UUID uuid) {
-    String errorMessagePrefix =
-        String.format("ControlAction to move or restart container with processor id %s to host %s is rejected due to",
-            processorId, destinationHost);
+  private Optional<Pair<ContainerPlacementMessage.StatusCode, String>> validatePlacementAction(ContainerPlacementRequestMessage requestMessage) {
+    String errorMessagePrefix = String.format("ContainerPlacement request: %s is rejected due to", requestMessage);
     Boolean invalidAction = false;
     String errorMessage = null;
     if (standbyContainerManager.isPresent()) {
       errorMessage = String.format("%s not supported for host standby enabled", errorMessagePrefix);
       invalidAction = true;
-    } else if (processorId == null || destinationHost == null) {
-      errorMessage = String.format("%s either processor id or the host argument is null", errorMessagePrefix);
+    } else if (hasActiveContainerPlacementAction(requestMessage.getProcessorId())) {
+      // Action is supposed to be queued
+      return Optional.empty();
+    } else if (!samzaApplicationState.runningProcessors.containsKey(requestMessage.getProcessorId())
+        || samzaApplicationState.pendingProcessors.containsKey(requestMessage.getProcessorId())) {
+      // Action is supposed to be queued
+      return Optional.empty();
+    } else if (dequeuedActionsCache.containsKey(requestMessage.getUuid())) {
+      errorMessage = String.format("%s duplicate UUID of the request, please retry", errorMessagePrefix);
       invalidAction = true;
-    } else if (Integer.parseInt(processorId) >= samzaApplicationState.processorCount.get()) {
+    } else if (Integer.parseInt(requestMessage.getProcessorId()) >= samzaApplicationState.processorCount.get()
+    ) {
       errorMessage = String.format("%s invalid processor id", errorMessagePrefix);
-      invalidAction = true;
-    } else if (hasActiveContainerPlacementAction(processorId)) {
-      errorMessage = String.format("%s existing container placement action on container with metadata %s", errorMessagePrefix,
-          actions.get(processorId));
-      invalidAction = true;
-    } else if (actions.get(processorId) != null && actions.get(processorId).getUuid().equals(uuid)) {
-      errorMessage = String.format("%s duplicate Container Placement request received, previous action taken: %s", errorMessagePrefix,
-          actions.get(processorId));
-      invalidAction = true;
-    } else if (!samzaApplicationState.runningProcessors.containsKey(processorId)
-        || samzaApplicationState.pendingProcessors.containsKey(processorId)) {
-      errorMessage = String.format("%s container is either is not running or is in pending state", errorMessagePrefix);
       invalidAction = true;
     }
 
     if (invalidAction) {
       LOG.info(errorMessage);
-      return new ImmutablePair<>(ContainerPlacementMessage.StatusCode.BAD_REQUEST, errorMessage);
+      return Optional.of(new ImmutablePair<>(ContainerPlacementMessage.StatusCode.BAD_REQUEST, errorMessage));
     }
 
-    return new ImmutablePair<>(ContainerPlacementMessage.StatusCode.ACCEPTED, "Request is accepted");
+    return Optional.of(new ImmutablePair<>(ContainerPlacementMessage.StatusCode.ACCEPTED, "Request is accepted"));
   }
 
 }

@@ -42,7 +42,7 @@ public class ContainerPlacementResponseMessage extends ContainerPlacementMessage
     this(uuid, deploymentId, processorId, destinationHost, null, statusCode, responseMessage, timestamp);
   }
 
-  static ContainerPlacementResponseMessage fromContainerPlacementRequestMessage(
+  public static ContainerPlacementResponseMessage fromContainerPlacementRequestMessage(
       ContainerPlacementRequestMessage requestMessage, StatusCode statusCode, String responseMessage, long timestamp) {
     return new ContainerPlacementResponseMessage(requestMessage.getUuid(), requestMessage.getDeploymentId(), requestMessage.getProcessorId(),
         requestMessage.getDestinationHost(), requestMessage.getRequestExpiry(), statusCode, responseMessage, timestamp);
