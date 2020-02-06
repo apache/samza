@@ -40,10 +40,10 @@ public class AzureBlobConfig extends MapConfig {
 
   // Azure Storage Account name under which the Azure container representing this system is.
   // System name = Azure container name (https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata#container-names)
-  public static final String SYSTEM_AZURE_ACCOUNT_NAME = SYSTEM_AZUREBLOB_PREFIX + "account.name";
+  public static final String SYSTEM_AZURE_ACCOUNT_NAME = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "account.name";
 
   // Azure Storage Account key associated with the Azure Storage Account
-  public static final String SYSTEM_AZURE_ACCOUNT_KEY  = SYSTEM_AZUREBLOB_PREFIX + "account.key";
+  public static final String SYSTEM_AZURE_ACCOUNT_KEY  = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "account.key";
 
   // Whether to use proxy while connecting to Azure Storage
   public static final String SYSTEM_AZURE_USE_PROXY  = SYSTEM_AZUREBLOB_PREFIX + "proxy.use";

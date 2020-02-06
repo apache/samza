@@ -270,7 +270,7 @@ public class TestJobModelManager {
 
     when(mockJobModel.getContainers()).thenReturn(containerMapping);
     when(mockGrouperMetadata.getPreviousTaskToProcessorAssignment()).thenReturn(new HashMap<>());
-    Mockito.doNothing().when(mockTaskAssignmentManager).writeTaskContainerMapping(Mockito.any(), Mockito.any(), Mockito.any());
+    Mockito.doNothing().when(mockTaskAssignmentManager).writeTaskContainerMappings(Mockito.any());
 
     JobModelManager.updateTaskAssignments(mockJobModel, mockTaskAssignmentManager, mockTaskPartitionAssignmentManager, mockGrouperMetadata);
 
@@ -289,18 +289,18 @@ public class TestJobModelManager {
     // Verifications
     Mockito.verify(mockJobModel, atLeast(1)).getContainers();
     Mockito.verify(mockTaskAssignmentManager).deleteTaskContainerMappings(Mockito.any());
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-1", "test-container-id", TaskMode.Active);
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-2", "test-container-id", TaskMode.Active);
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-3", "test-container-id", TaskMode.Active);
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-4", "test-container-id", TaskMode.Active);
+    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMappings(ImmutableMap.of("test-container-id",
+        ImmutableMap.of("task-1", TaskMode.Active, "task-2", TaskMode.Active, "task-3", TaskMode.Active, "task-4", TaskMode.Active)));
 
     // Verify that the old, stale partition mappings had been purged in the coordinator stream.
     Mockito.verify(mockTaskPartitionAssignmentManager).delete(systemStreamPartitions);
 
     // Verify that the new task to partition assignment is stored in the coordinator stream.
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignment(testSystemStreamPartition1, ImmutableList.of("task-1"));
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignment(testSystemStreamPartition2, ImmutableList.of("task-2"));
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignment(testSystemStreamPartition3, ImmutableList.of("task-3"));
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignment(testSystemStreamPartition4, ImmutableList.of("task-4"));
+    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignments(ImmutableMap.of(
+        testSystemStreamPartition1, ImmutableList.of("task-1"),
+        testSystemStreamPartition2, ImmutableList.of("task-2"),
+        testSystemStreamPartition3, ImmutableList.of("task-3"),
+        testSystemStreamPartition4, ImmutableList.of("task-4")
+    ));
   }
 }

@@ -145,6 +145,7 @@ public class StartpointManager {
 
     try {
       readWriteStore.put(toReadWriteStoreKey(ssp, taskName), objectMapper.writeValueAsBytes(startpoint));
+      readWriteStore.flush();
     } catch (Exception ex) {
       throw new SamzaException(String.format(
           "Startpoint for SSP: %s and task: %s may not have been written to the metadata store.", ssp, taskName), ex);
@@ -208,6 +209,7 @@ public class StartpointManager {
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
 
     readWriteStore.delete(toReadWriteStoreKey(ssp, taskName));
+    readWriteStore.flush();
   }
 
   /**
@@ -218,6 +220,7 @@ public class StartpointManager {
     for (String key : readWriteKeys) {
       readWriteStore.delete(key);
     }
+    readWriteStore.flush();
   }
 
   /**
@@ -273,6 +276,7 @@ public class StartpointManager {
       StartpointFanOutPerTask newFanOut = fanOuts.get(taskName);
       fanOutStore.put(fanOutKey, objectMapper.writeValueAsBytes(newFanOut));
     }
+    fanOutStore.flush();
 
     for (SystemStreamPartition ssp : deleteKeys.keySet()) {
       for (TaskName taskName : deleteKeys.get(ssp)) {
@@ -314,6 +318,7 @@ public class StartpointManager {
     Preconditions.checkNotNull(taskName, "TaskName cannot be null");
 
     fanOutStore.delete(toFanOutStoreKey(taskName));
+    fanOutStore.flush();
   }
 
   /**
@@ -324,6 +329,7 @@ public class StartpointManager {
     for (String key : fanOutKeys) {
       fanOutStore.delete(key);
     }
+    fanOutStore.flush();
   }
 
   @VisibleForTesting

@@ -102,7 +102,10 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   @Override
   public void stopStreamProcessor(SamzaResource resource) {
-    // no op
+    SamzaResourceStatus status = new SamzaResourceStatus(resource.getContainerId(), "diagnostics", SamzaResourceStatus.PREEMPTED);
+    List<SamzaResourceStatus> statList = new ArrayList<>();
+    statList.add(status);
+    clusterManagerCallback.onResourcesCompleted(statList);
   }
 
   public void registerContainerListener(MockContainerListener listener) {

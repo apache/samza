@@ -84,6 +84,7 @@ public class RunIdGenerator {
               String.valueOf(System.currentTimeMillis()) + "-" + UUID.randomUUID().toString().substring(0, 8);
           LOG.info("Writing the run id for this run as {}", runId);
           metadataStore.put(CoordinationConstants.RUNID_STORE_KEY, runId.getBytes("UTF-8"));
+          metadataStore.flush();
         } else {
           runId = new String(metadataStore.get(CoordinationConstants.RUNID_STORE_KEY));
           LOG.info("Read the run id for this run as {}", runId);

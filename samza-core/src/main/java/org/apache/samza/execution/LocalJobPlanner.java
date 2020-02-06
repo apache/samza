@@ -190,6 +190,7 @@ public class LocalJobPlanner extends JobPlanner {
           streamManager.createStreams(intStreams);
           String streamCreatedMessage = "Streams created by processor " + processorId;
           metadataStore.put(String.format(STREAM_CREATED_STATE_KEY, lockId), streamCreatedMessage.getBytes("UTF-8"));
+          metadataStore.flush();
           distributedLock.unlock();
           break;
         } else {

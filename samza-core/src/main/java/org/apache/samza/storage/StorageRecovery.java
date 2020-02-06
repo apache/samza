@@ -53,7 +53,6 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
-import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.StreamUtil;
@@ -63,11 +62,11 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Recovers the state storages from the changelog streams and store the storages
+ * Recovers the state storage from the changelog streams and stores the state
  * in the directory provided by the users. The changelog streams are derived
  * from the job's config file.
  */
-public class StorageRecovery extends CommandLine {
+public class StorageRecovery {
   private static final Logger LOG = LoggerFactory.getLogger(StorageRecovery.class);
 
   private final Config jobConfig;
@@ -108,7 +107,7 @@ public class StorageRecovery extends CommandLine {
   }
 
   /**
-   * run the setup phase and restore all the task storages
+   * run the setup phase and restore all the task storage
    */
   public void run() {
     setup();
@@ -126,9 +125,7 @@ public class StorageRecovery extends CommandLine {
               + " Proceeding with the next container", containerName);
         }
       });
-    this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
-        containerStorageManager.shutdown();
-      });
+    this.containerStorageManagers.forEach((containerName, containerStorageManager) -> containerStorageManager.shutdown());
     systemAdmins.stop();
 
     LOG.info("successfully recovered in " + storeBaseDir.toString());
@@ -169,13 +166,15 @@ public class StorageRecovery extends CommandLine {
 
       LOG.info("stream name for " + storeName + " is " + streamName.orElse(null));
 
-      if (streamName.isPresent()) {
-        changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(streamName.get()));
-      }
+      streamName.ifPresent(name -> changeLogSystemStreams.put(storeName, StreamUtil.getSystemStreamFromNames(name)));
 
       Optional<String> factoryClass = config.getStorageFactoryClassName(storeName);
       if (factoryClass.isPresent()) {
-        storageEngineFactories.put(storeName, ReflectionUtil.getObj(factoryClass.get(), StorageEngineFactory.class));
+        @SuppressWarnings("unchecked")
+        StorageEngineFactory<Object, Object> factory =
+            (StorageEngineFactory<Object, Object>) ReflectionUtil.getObj(factoryClass.get(), StorageEngineFactory.class);
+
+        storageEngineFactories.put(storeName, factory);
       } else {
         throw new SamzaException("Missing storage factory for " + storeName + ".");
       }
@@ -204,7 +203,8 @@ public class StorageRecovery extends CommandLine {
         .forEach(serdeName -> {
             String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
               .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
-            Serde serde =
+            @SuppressWarnings("unchecked")
+            Serde<Object> serde =
                 ReflectionUtil.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
             serdeMap.put(serdeName, serde);
           });
@@ -216,7 +216,7 @@ public class StorageRecovery extends CommandLine {
    * create one TaskStorageManager for each task. Add all of them to the
    * List<TaskStorageManager>
    */
-  @SuppressWarnings({"unchecked", "rawtypes"})
+  @SuppressWarnings("rawtypes")
   private void getContainerStorageManagers() {
     Clock clock = SystemClock.instance();
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);

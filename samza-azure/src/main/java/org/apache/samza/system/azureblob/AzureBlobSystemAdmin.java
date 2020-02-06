@@ -19,6 +19,7 @@
 
 package org.apache.samza.system.azureblob;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.system.SystemAdmin;
@@ -34,8 +35,23 @@ public class AzureBlobSystemAdmin implements SystemAdmin {
     throw new UnsupportedOperationException("getOffsetsAfter not supported for AzureBlobSystemAdmin");
   }
 
+  /**
+   * SystemAdmin.getSystemStreamMetadata is directly or indirectly used for the following purposes
+   * 1. Get number of partitions which is then used to validate joins or calculate intermediate streams
+   * 2. CoordinatorStream purposes, offsets for SystemConsumer, changelog offsets or cache of SSP metadata
+   * The (2) category of usages are not relevant for AzureBlob as it has no consumer.
+   * The (1) usage is again not relevant for AzureBlob as it can not be an input to join
+   * or affect an intermediate stream as it is currently supporting only an output stream.
+   * Additionally, AzureBlob has no concept of a partition and
+   * SystemStreamMetadata gives oldest, newest and upcoming offsets for a stream which are not relevant for an Azure Blob.
+   * Hence, returning empty map is acceptable.
+   * @param streamNames
+   *          The streams to to fetch metadata for.
+   * @return map of streamName to {@link org.apache.samza.system.SystemStreamMetadata}
+   *         returns an empty map.
+   */
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
-    throw new UnsupportedOperationException("getSystemStreamMetadata not supported for AzureBlobSystemAdmin");
+    return new HashMap<>();
   }
 
   public Integer offsetComparator(String offset1, String offset2) {

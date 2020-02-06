@@ -19,9 +19,15 @@
 
 package org.apache.samza.runtime;
 
+import java.util.Collections;
+import java.util.Map;
+import java.util.stream.Collectors;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigLoaderFactory;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.util.CommandLine;
 
 
@@ -43,9 +49,33 @@ public class ApplicationRunnerMain {
       String rawOp = options.valueOf(operationOpt);
       return ApplicationRunnerOperation.fromString(rawOp);
     }
+
+    @Override
+    public Config loadConfig(OptionSet options) {
+      // Set up the job parameters.
+      String configLoaderFactoryClassName = options.valueOf(configLoaderFactoryOpt());
+      Map<String, String> configLoaderProperties =
+          options.valuesOf(configLoaderPropertiesOpt())
+          .stream()
+          .collect(Collectors.toMap(
+              kv -> ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + kv.key,
+              kv -> kv.value));
+
+      Map<String, String> configOverrides = options.valuesOf(configOverrideOpt())
+          .stream()
+          .collect(Collectors.toMap(
+              kv -> kv.key,
+              kv -> kv.value));
+
+      // ConfigLoader is not supposed to be invoked to load full job config during job submission.
+      return new MapConfig(
+          Collections.singletonMap(JobConfig.CONFIG_LOADER_FACTORY, configLoaderFactoryClassName),
+          configLoaderProperties,
+          configOverrides);
+    }
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);

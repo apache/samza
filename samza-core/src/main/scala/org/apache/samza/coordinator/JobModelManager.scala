@@ -240,10 +240,12 @@ object JobModelManager extends Logging {
     // taskName to SystemStreamPartitions is done here to wire-in the data to {@see JobModel}.
     val sspToTaskNameMap: util.Map[SystemStreamPartition, util.List[String]] = new util.HashMap[SystemStreamPartition, util.List[String]]()
 
+    val taskContainerMappings: util.Map[String, util.Map[String, TaskMode]] = new util.HashMap[String, util.Map[String, TaskMode]]()
+
     for (container <- jobModel.getContainers.values()) {
       for ((taskName, taskModel) <- container.getTasks) {
-        info ("Storing task: %s and container ID: %s into metadata store" format(taskName.getTaskName, container.getId))
-        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId, container.getTasks.get(taskName).getTaskMode)
+        taskContainerMappings.putIfAbsent(container.getId, new util.HashMap[String, TaskMode]())
+        taskContainerMappings.get(container.getId).put(taskName.getTaskName, container.getTasks.get(taskName).getTaskMode)
         for (partition <- taskModel.getSystemStreamPartitions) {
           if (!sspToTaskNameMap.containsKey(partition)) {
             sspToTaskNameMap.put(partition, new util.ArrayList[String]())
@@ -253,10 +255,8 @@ object JobModelManager extends Logging {
       }
     }
 
-    for ((ssp, taskNames) <- sspToTaskNameMap) {
-      info ("Storing ssp: %s and task: %s into metadata store" format(ssp, taskNames))
-      taskPartitionAssignmentManager.writeTaskPartitionAssignment(ssp, taskNames)
-    }
+    taskAssignmentManager.writeTaskContainerMappings(taskContainerMappings)
+    taskPartitionAssignmentManager.writeTaskPartitionAssignments(sspToTaskNameMap);
   }
 
   /**

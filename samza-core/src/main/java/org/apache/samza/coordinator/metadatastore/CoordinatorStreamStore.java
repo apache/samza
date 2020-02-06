@@ -126,19 +126,6 @@ public class CoordinatorStreamStore implements MetadataStore {
 
   @Override
   public void put(String namespacedKey, byte[] value) {
-    putWithoutFlush(namespacedKey, value);
-    flush();
-  }
-
-  @Override
-  public void putAll(Map<String, byte[]> entries) {
-    for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
-      putWithoutFlush(entry.getKey(), entry.getValue());
-    }
-    flush();
-  }
-
-  private void putWithoutFlush(String namespacedKey, byte[] value) {
     // 1. Store the namespace and key into correct fields of the CoordinatorStreamKey and convert the key to bytes.
     CoordinatorMessageKey coordinatorMessageKey = deserializeCoordinatorMessageKeyFromJson(namespacedKey);
     CoordinatorStreamKeySerde keySerde = new CoordinatorStreamKeySerde(coordinatorMessageKey.getNamespace());

@@ -63,7 +63,7 @@ public class TestTaskPartitionAssignmentManager {
   @Test
   public void testReadAfterWrite() {
     List<String> testTaskNames = ImmutableList.of("test-task1", "test-task2", "test-task3");
-    taskPartitionAssignmentManager.writeTaskPartitionAssignment(testSystemStreamPartition, testTaskNames);
+    taskPartitionAssignmentManager.writeTaskPartitionAssignments(ImmutableMap.of(testSystemStreamPartition, testTaskNames));
 
     Map<SystemStreamPartition, List<String>> expectedMapping = ImmutableMap.of(testSystemStreamPartition, testTaskNames);
     Map<SystemStreamPartition, List<String>> actualMapping = taskPartitionAssignmentManager.readTaskPartitionAssignments();
@@ -74,7 +74,7 @@ public class TestTaskPartitionAssignmentManager {
   @Test
   public void testDeleteAfterWrite() {
     List<String> testTaskNames = ImmutableList.of("test-task1", "test-task2", "test-task3");
-    taskPartitionAssignmentManager.writeTaskPartitionAssignment(testSystemStreamPartition, testTaskNames);
+    taskPartitionAssignmentManager.writeTaskPartitionAssignments(ImmutableMap.of(testSystemStreamPartition, testTaskNames));
 
     Map<SystemStreamPartition, List<String>> actualMapping = taskPartitionAssignmentManager.readTaskPartitionAssignments();
     Assert.assertEquals(1, actualMapping.size());
@@ -94,12 +94,13 @@ public class TestTaskPartitionAssignmentManager {
     SystemStreamPartition testSystemStreamPartition3 = new SystemStreamPartition(TEST_SYSTEM, "stream-3", PARTITION);
     List<String> testTaskNames3 = ImmutableList.of("test-task6", "test-task7", "test-task8");
 
-    taskPartitionAssignmentManager.writeTaskPartitionAssignment(testSystemStreamPartition1, testTaskNames1);
-    taskPartitionAssignmentManager.writeTaskPartitionAssignment(testSystemStreamPartition2, testTaskNames2);
-    taskPartitionAssignmentManager.writeTaskPartitionAssignment(testSystemStreamPartition3, testTaskNames3);
+    taskPartitionAssignmentManager.writeTaskPartitionAssignments(
+        ImmutableMap.of(testSystemStreamPartition1, testTaskNames1, testSystemStreamPartition2, testTaskNames2,
+            testSystemStreamPartition3, testTaskNames3));
 
-    Map<SystemStreamPartition, List<String>> expectedMapping = ImmutableMap.of(testSystemStreamPartition1, testTaskNames1,
-            testSystemStreamPartition2, testTaskNames2, testSystemStreamPartition3, testTaskNames3);
+    Map<SystemStreamPartition, List<String>> expectedMapping =
+        ImmutableMap.of(testSystemStreamPartition1, testTaskNames1, testSystemStreamPartition2, testTaskNames2,
+            testSystemStreamPartition3, testTaskNames3);
     Map<SystemStreamPartition, List<String>> actualMapping = taskPartitionAssignmentManager.readTaskPartitionAssignments();
 
     Assert.assertEquals(expectedMapping, actualMapping);
@@ -108,14 +109,11 @@ public class TestTaskPartitionAssignmentManager {
   @Test
   public void testMultipleUpdatesReturnsTheMostRecentValue() {
     List<String> testTaskNames1 = ImmutableList.of("test-task1", "test-task2", "test-task3");
-
-    taskPartitionAssignmentManager.writeTaskPartitionAssignment(testSystemStreamPartition, testTaskNames1);
-
+    taskPartitionAssignmentManager.writeTaskPartitionAssignments(ImmutableMap.of(testSystemStreamPartition, testTaskNames1));
     List<String> testTaskNames2 = ImmutableList.of("test-task4", "test-task5");
-    taskPartitionAssignmentManager.writeTaskPartitionAssignment(testSystemStreamPartition, testTaskNames2);
-
+    taskPartitionAssignmentManager.writeTaskPartitionAssignments(ImmutableMap.of(testSystemStreamPartition, testTaskNames2));
     List<String> testTaskNames3 = ImmutableList.of("test-task6", "test-task7", "test-task8");
-    taskPartitionAssignmentManager.writeTaskPartitionAssignment(testSystemStreamPartition, testTaskNames3);
+    taskPartitionAssignmentManager.writeTaskPartitionAssignments(ImmutableMap.of(testSystemStreamPartition, testTaskNames3));
 
     Map<SystemStreamPartition, List<String>> expectedMapping = ImmutableMap.of(testSystemStreamPartition, testTaskNames3);
     Map<SystemStreamPartition, List<String>> actualMapping = taskPartitionAssignmentManager.readTaskPartitionAssignments();

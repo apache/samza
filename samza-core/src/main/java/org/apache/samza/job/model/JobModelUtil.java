@@ -80,6 +80,7 @@ public class JobModelUtil {
       byte[] jobModelSerializedAsBytes = jobModelSerializedAsString.getBytes(UTF_8);
       String metadataStoreKey = getJobModelKey(jobModelVersion);
       metadataStore.put(metadataStoreKey, jobModelSerializedAsBytes);
+      metadataStore.flush();
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception occurred when storing JobModel: %s with version: %s.", jobModel, jobModelVersion), e);
     }
