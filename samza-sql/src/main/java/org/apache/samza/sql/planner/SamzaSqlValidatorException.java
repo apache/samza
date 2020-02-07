@@ -19,8 +19,6 @@
 
 package org.apache.samza.sql.planner;
 
-import org.apache.samza.SamzaException;
-
 /**
  * Checked Exception thrown while validating SQL statement.
  */
