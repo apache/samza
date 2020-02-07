@@ -610,6 +610,11 @@ public class TestJobConfig {
     ShellCommandConfig shellCommandConfig =
         new ShellCommandConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "false")));
     assertEquals(Option.empty(), shellCommandConfig.getTaskOpts());
+
+    String taskOpts = "-Dproperty=value";
+    shellCommandConfig = new ShellCommandConfig(new MapConfig(
+        ImmutableMap.of(ShellCommandConfig.TASK_JVM_OPTS(), taskOpts, JobConfig.JOB_AUTOSIZING_ENABLED, "false")));
+    assertEquals(Option.apply(taskOpts), shellCommandConfig.getTaskOpts());
   }
 
   @Test
@@ -625,16 +630,16 @@ public class TestJobConfig {
         ImmutableMap.of(ShellCommandConfig.TASK_JVM_OPTS(), taskOpts, JobConfig.JOB_AUTOSIZING_ENABLED, "true")));
     assertEquals(Option.apply(taskOpts), shellCommandConfig.getTaskOpts());
 
-    // opts not set, autosizing max heap set
+    // opts set with Xmx, autosizing max heap set
     shellCommandConfig = new ShellCommandConfig(new MapConfig(
         ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "true", JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB,
-            "1024")));
-    assertEquals(Option.apply("-Xmx1024m"), shellCommandConfig.getTaskOpts());
+            "1024", "task.opts", "-Xmx10m -Dproperty=value")));
+    assertEquals(Option.apply("-Xmx1024m -Dproperty=value"), shellCommandConfig.getTaskOpts());
 
     // opts set without -Xmx, autosizing max heap set
     shellCommandConfig = new ShellCommandConfig(new MapConfig(
         ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "true", JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB,
-            "1024")));
-    assertEquals(Option.apply("-Xmx1024m"), shellCommandConfig.getTaskOpts());
+            "1024", "task.opts", "-Dproperty=value")));
+    assertEquals(Option.apply("-Dproperty=value -Xmx1024m"), shellCommandConfig.getTaskOpts());
   }
 }
