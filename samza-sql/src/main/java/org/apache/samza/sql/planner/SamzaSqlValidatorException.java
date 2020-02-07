@@ -19,10 +19,12 @@
 
 package org.apache.samza.sql.planner;
 
+import org.apache.samza.SamzaException;
+
 /**
  * Checked Exception thrown while validating SQL statement.
  */
-public class SamzaSqlValidatorException extends Exception {
+public class SamzaSqlValidatorException extends RuntimeException {
   public SamzaSqlValidatorException() {
   }
 

@@ -71,7 +71,7 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
   }
 
   // TODO: SAMZA-2345 - Change RelSchemaConverter code to apply nullability based on Sql schema.
-  private RelDataType getRelDataType(SqlFieldSchema fieldSchema) {
+  public RelDataType getRelDataType(SqlFieldSchema fieldSchema) {
     switch (fieldSchema.getFieldType()) {
       case ARRAY:
         RelDataType elementType = getRelDataType(fieldSchema.getElementSchema());
