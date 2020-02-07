@@ -130,6 +130,16 @@ public class JobConfig extends MapConfig {
   public static final String CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata"; // Filename: <containerID>.metadata
   public static final String CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY = "samza.log.dir";
 
+  // Auto-sizing related configs that take precedence over respective sizing confings job.container.count, etc,
+  // *only* when job.autosizing.enabled is true. Otherwise current behavior is maintained.
+  private static final String JOB_AUTOSIZING_CONFIG_PREFIX = "job.autosizing."; // used to determine if a config is related to autosizing
+  public static final String JOB_AUTOSIZING_ENABLED = JOB_AUTOSIZING_CONFIG_PREFIX + "enabled";
+  public static final String JOB_AUTOSIZING_CONTAINER_COUNT = JOB_AUTOSIZING_CONFIG_PREFIX + "container.count";
+  public static final String JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE = JOB_AUTOSIZING_CONFIG_PREFIX + "container.thread.pool.size";
+  public static final String JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB = JOB_AUTOSIZING_CONFIG_PREFIX + "container.maxheap.mb";
+  public static final String JOB_AUTOSIZING_CONTAINER_MEMORY_MB = JOB_AUTOSIZING_CONFIG_PREFIX + "container.memory.mb";
+  public static final String JOB_AUTOSIZING_CONTAINER_MAX_CORES = JOB_AUTOSIZING_CONFIG_PREFIX + "container.cpu.cores";
+
   public static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
   public static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
 
@@ -165,9 +175,18 @@ public class JobConfig extends MapConfig {
     return Optional.ofNullable(get(JOB_DEFAULT_SYSTEM));
   }
 
+  /**
+   * Return the value of JOB_CONTAINER_COUNT or "yarn.container.count" (in that order) if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_COUNT.
+   * @return
+   */
   public int getContainerCount() {
+    Optional<String> autosizingContainerCountValue = Optional.ofNullable(get(JOB_AUTOSIZING_CONTAINER_COUNT));
     Optional<String> jobContainerCountValue = Optional.ofNullable(get(JOB_CONTAINER_COUNT));
-    if (jobContainerCountValue.isPresent()) {
+
+    if (getAutosizingEnabled() && autosizingContainerCountValue.isPresent()) {
+      return Integer.parseInt(autosizingContainerCountValue.get());
+    } else if (jobContainerCountValue.isPresent()) {
       return Integer.parseInt(jobContainerCountValue.get());
     } else {
       // To maintain backwards compatibility, honor yarn.container.count for now.
@@ -286,8 +305,19 @@ public class JobConfig extends MapConfig {
     return get(SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX, DEFAULT_SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX);
   }
 
+  /**
+   * Return the value of JOB_CONTAINER_THREAD_POOL_SIZE if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE.
+   * @return
+   */
   public int getThreadPoolSize() {
-    return getInt(JOB_CONTAINER_THREAD_POOL_SIZE, 0);
+    Optional<String> autosizingContainerThreadPoolSize = Optional.ofNullable(get(
+        JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE));
+    if (getAutosizingEnabled() && autosizingContainerThreadPoolSize.isPresent()) {
+      return Integer.parseInt(autosizingContainerThreadPoolSize.get());
+    } else {
+      return getInt(JOB_CONTAINER_THREAD_POOL_SIZE, 0);
+    }
   }
 
   public int getDebounceTimeMs() {
@@ -308,6 +338,20 @@ public class JobConfig extends MapConfig {
 
   public boolean getDiagnosticsEnabled() {
     return getBoolean(JOB_DIAGNOSTICS_ENABLED, false);
+  }
+
+  public boolean getAutosizingEnabled() {
+    return getBoolean(JOB_AUTOSIZING_ENABLED, false);
+  }
+
+  /**
+   * Check if a given config parameter is an internal autosizing related config, based on
+   * its name having the prefix "job.autosizing"
+   * @param configParam the config param to determine
+   * @return true if the config is related to autosizing, false otherwise
+   */
+  public boolean isAutosizingConfig(String configParam) {
+    return configParam.startsWith(JOB_AUTOSIZING_CONFIG_PREFIX);
   }
 
   public boolean getJMXEnabled() {
