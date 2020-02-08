@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.Map;
 import java.util.concurrent.ThreadFactory;
 import joptsimple.OptionSet;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -133,7 +132,7 @@ public class SamzaRestService {
   private static SamzaRestConfig parseConfig(String[] args) {
     CommandLine cmd = new CommandLine();
     OptionSet options = cmd.parser().parse(args);
-    Config cfg = cmd.loadConfig(options);
+    MapConfig cfg = cmd.loadConfig(options);
     return new SamzaRestConfig(new MapConfig(cfg));
   }
 

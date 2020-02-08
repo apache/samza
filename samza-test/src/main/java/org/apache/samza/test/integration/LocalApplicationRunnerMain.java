@@ -42,7 +42,7 @@ public class LocalApplicationRunnerMain {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(LocalApplicationRunnerMain.class);
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     ApplicationRunnerMain.ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerMain.ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
@@ -60,7 +60,7 @@ public class LocalApplicationRunnerMain {
     }
   }
 
-  private static Optional<ExternalContext> buildExternalContext(@SuppressWarnings("unused") Config config) {
+  private static Optional<ExternalContext> buildExternalContext(Config config) {
     /*
      * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
      * a non-empty ExternalContext. Only config should be used to build the external context. In the future, components

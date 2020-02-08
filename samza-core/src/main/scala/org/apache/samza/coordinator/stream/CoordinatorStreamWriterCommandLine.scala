@@ -20,11 +20,11 @@
 package org.apache.samza.coordinator.stream
 
 import org.apache.samza.util.CommandLine
-import joptsimple.{ArgumentAcceptingOptionSpec, OptionSet}
+import joptsimple.OptionSet
 
 class CoordinatorStreamWriterCommandLine extends CommandLine {
 
-  val messageType: ArgumentAcceptingOptionSpec[String] =
+  val messageType =
     parser.accepts("type", "the type of the message being sent.")
         .withRequiredArg
         .ofType(classOf[java.lang.String])
@@ -32,19 +32,19 @@ class CoordinatorStreamWriterCommandLine extends CommandLine {
         " The possible values are {\"set-config\"}")
 
 
-  val messageKey: ArgumentAcceptingOptionSpec[String] =
+  val messageKey =
     parser.accepts("key", "the type of the message being sent")
         .withRequiredArg
         .ofType(classOf[java.lang.String])
         .describedAs("key of the message")
 
-  val messageValue: ArgumentAcceptingOptionSpec[String] =
+  val messageValue =
     parser.accepts("value", "the type of the message being sent")
         .withRequiredArg
         .ofType(classOf[java.lang.String])
         .describedAs("value of the message")
 
-  def loadType(options: OptionSet): String = {
+  def loadType(options: OptionSet) = {
     if (!options.has(messageType)) {
       parser.printHelpOn(System.err)
       System.exit(-1)
@@ -60,7 +60,7 @@ class CoordinatorStreamWriterCommandLine extends CommandLine {
     }
   }
 
-  def loadValue(options: OptionSet): String = {
+  def loadValue(options: OptionSet) = {
     var value: java.lang.String = null
     if (options.has(messageValue)) {
       value = options.valueOf(messageValue)
