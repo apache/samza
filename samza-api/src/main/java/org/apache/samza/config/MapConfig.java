@@ -50,7 +50,6 @@ public class MapConfig extends Config {
     }
   }
 
-  @SafeVarargs
   public MapConfig(Map<String, String>... maps) {
     this(Arrays.asList(maps));
   }

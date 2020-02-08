@@ -19,27 +19,35 @@
 
 package org.apache.samza.checkpoint
 
-import java.util.Properties
+import java.util
 
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.CheckpointTool.{CheckpointToolCommandLine, TaskNameToCheckpointMap}
-import org.apache.samza.checkpoint.TestCheckpointTool.{MockCheckpointManagerFactory, MockSystemFactory}
-import org.apache.samza.config._
+import org.apache.samza.checkpoint.CheckpointTool.CheckpointToolCommandLine
+import org.apache.samza.checkpoint.CheckpointTool.TaskNameToCheckpointMap
 import org.apache.samza.container.TaskName
+import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
+import org.apache.samza.checkpoint.TestCheckpointTool.MockSystemFactory
+import org.apache.samza.config._
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, CoordinatorStreamStoreTestUtil}
-import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
-import org.apache.samza.execution.JobPlanner
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
-import org.apache.samza.system._
-import org.junit.{Before, Test}
+import org.apache.samza.system.SystemAdmin
+import org.apache.samza.system.SystemConsumer
+import org.apache.samza.system.SystemFactory
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemStreamMetadata
+import org.apache.samza.system.SystemStreamPartition
+import org.junit.Before
+import org.junit.Test
 import org.mockito.Matchers._
-import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
+import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
+import org.apache.samza.execution.JobPlanner
+import org.mockito.Mockito
 
 object TestCheckpointTool {
   var checkpointManager: CheckpointManager = _
@@ -120,7 +128,7 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testGrouping(): Unit = {
-    val config : java.util.Properties = new Properties()
+    val config : java.util.Map[String, String] = new util.HashMap()
     config.put("tasknames.Partition 0.systems.kafka-atc-repartitioned-requests.streams.ArticleRead.partitions.0", "0000")
     config.put("tasknames.Partition 0.systems.kafka-atc-repartitioned-requests.streams.CommunicationRequest.partitions.0", "1111")
     config.put("tasknames.Partition 1.systems.kafka-atc-repartitioned-requests.streams.ArticleRead.partitions.1", "2222")
@@ -128,7 +136,7 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     config.put("tasknames.Partition 1.systems.kafka-atc-repartitioned-requests.streams.StateChange.partitions.1", "5555")
 
     val ccl = new CheckpointToolCommandLine
-    val result = ccl.parseOffsets(config)
+    val result = ccl.parseOffsets(new MapConfig(config))
 
     assert(result(new TaskName("Partition 0")).size == 2)
     assert(result(new TaskName("Partition 1")).size == 3)

@@ -36,10 +36,10 @@ public class TestApplicationRunnerMain {
   public void TestRunOperation() throws Exception {
     assertEquals(0, TestApplicationRunnerInvocationCounts.runCount);
     ApplicationRunnerMain.main(new String[]{
-        "--config-loader-factory",
-        "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
-        "--config-loader-properties",
-        "path=" + getClass().getResource("/test.properties").getPath(),
+        "--config-factory",
+        "org.apache.samza.config.factories.PropertiesConfigFactory",
+        "--config-path",
+        getClass().getResource("/test.properties").getPath(),
         "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
         "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
     });
@@ -51,10 +51,10 @@ public class TestApplicationRunnerMain {
   public void TestKillOperation() throws Exception {
     assertEquals(0, TestApplicationRunnerInvocationCounts.killCount);
     ApplicationRunnerMain.main(new String[]{
-        "--config-loader-factory",
-        "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
-        "--config-loader-properties",
-        "path=" + getClass().getResource("/test.properties").getPath(),
+        "--config-factory",
+        "org.apache.samza.config.factories.PropertiesConfigFactory",
+        "--config-path",
+        getClass().getResource("/test.properties").getPath(),
         "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
         "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
         "--operation=kill"
@@ -67,10 +67,10 @@ public class TestApplicationRunnerMain {
   public void TestStatusOperation() throws Exception {
     assertEquals(0, TestApplicationRunnerInvocationCounts.statusCount);
     ApplicationRunnerMain.main(new String[]{
-        "--config-loader-factory",
-        "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
-        "--config-loader-properties",
-        "path=" + getClass().getResource("/test.properties").getPath(),
+        "--config-factory",
+        "org.apache.samza.config.factories.PropertiesConfigFactory",
+        "--config-path",
+        getClass().getResource("/test.properties").getPath(),
         "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
         "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
         "--operation=status"
