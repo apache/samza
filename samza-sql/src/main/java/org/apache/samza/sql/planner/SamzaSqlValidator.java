@@ -50,7 +50,6 @@ import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * SamzaSqlValidator that uses calcite engine to convert the sql query to relational graph and validates the query
  * including the output.
@@ -130,12 +129,12 @@ public class SamzaSqlValidator {
       throws SamzaSqlValidatorException {
     LogicalProject project = (LogicalProject) relRoot.rel;
 
-    RelRecordType projetRecord = (RelRecordType) project.getRowType();
+    RelRecordType projectRecord = (RelRecordType) project.getRowType();
     RelRecordType outputRecord = (RelRecordType) QueryPlanner.getSourceRelSchema(outputRelSchemaProvider,
         new RelSchemaConverter());
 
     // Handle any DELETE ops.
-    if (projetRecord.getFieldList().stream().anyMatch(f -> f.getName().equalsIgnoreCase(SamzaSqlRelMessage.OP_NAME))) {
+    if (projectRecord.getFieldList().stream().anyMatch(f -> f.getName().equalsIgnoreCase(SamzaSqlRelMessage.OP_NAME))) {
       validateDeleteOp(relRoot);
       return;
     }
@@ -145,28 +144,28 @@ public class SamzaSqlValidator {
     // we use SqlSchema in validating output.
     SqlSchema outputSqlSchema = QueryPlanner.getSourceSqlSchema(outputRelSchemaProvider);
 
-    validateOutputRecords(outputSqlSchema, outputRecord, projetRecord, outputRelSchemaProvider);
+    validateOutputRecords(outputSqlSchema, outputRecord, projectRecord, outputRelSchemaProvider);
     LOG.info("Samza Sql Validation finished successfully.");
   }
 
   private void validateDeleteOp(RelRoot relRoot) throws SamzaSqlValidatorException {
     LogicalProject project = (LogicalProject) relRoot.rel;
-    RelRecordType projetRecord = (RelRecordType) project.getRowType();
+    RelRecordType projectRecord = (RelRecordType) project.getRowType();
 
     // In the case of DELETE op, only the key and DELETE op are required.
 
-    if (projetRecord.getFieldCount() != 2) {
+    if (projectRecord.getFieldCount() != 2) {
       throw new SamzaSqlValidatorException(String.format("Only two select query fields are expected for DELETE op."
-          + " But there are %d fields given in the query.", projetRecord.getFieldCount()));
+          + " But there are %d fields given in the query.", projectRecord.getFieldCount()));
     }
 
-    RelDataTypeField keyField = projetRecord.getField(SamzaSqlRelMessage.KEY_NAME, true, true);
+    RelDataTypeField keyField = projectRecord.getField(SamzaSqlRelMessage.KEY_NAME, true, true);
     if (keyField == null) {
       throw new SamzaSqlValidatorException(String.format("Select query needs to specify '%s' field while using DELETE"
               + " op. Eg: 'SELECT myKey AS %s, '%s' AS %s FROM myTable'", SamzaSqlRelMessage.KEY_NAME,
           SamzaSqlRelMessage.KEY_NAME, SamzaSqlRelMessage.DELETE_OP, SamzaSqlRelMessage.OP_NAME));
     }
-    int keyIdx = projetRecord.getFieldList().indexOf(keyField);
+    int keyIdx = projectRecord.getFieldList().indexOf(keyField);
     // Get the node corresponding to the special op.
     RexNode node = project.getProjects().get(1 - keyIdx);
     if (!node.toString().equals(String.format("'%s'", SamzaSqlRelMessage.DELETE_OP))) {

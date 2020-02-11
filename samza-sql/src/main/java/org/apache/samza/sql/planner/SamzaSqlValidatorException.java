@@ -22,7 +22,7 @@ package org.apache.samza.sql.planner;
 /**
  * Checked Exception thrown while validating SQL statement.
  */
-public class SamzaSqlValidatorException extends Exception {
+public class SamzaSqlValidatorException extends RuntimeException {
   public SamzaSqlValidatorException() {
   }
 
