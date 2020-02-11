@@ -30,9 +30,13 @@ import org.apache.samza.system.SystemStreamPartition;
 
 public class KafkaUtil {
   private static final int CHECKPOINT_LOG_VERSION_NUMBER = 1;
+  /**
+   * Need to fill in checkpoint log version number, job name, job id.
+   */
+  private static final String CHECKPOINT_TOPIC_FORMAT = "__samza_checkpoint_ver_%d_for_%s_%s";
 
   public static String getCheckpointTopic(String jobName, String jobId, Config config) {
-    String checkpointTopic = String.format("__samza_checkpoint_ver_%d_for_%s_%s", CHECKPOINT_LOG_VERSION_NUMBER,
+    String checkpointTopic = String.format(CHECKPOINT_TOPIC_FORMAT, CHECKPOINT_LOG_VERSION_NUMBER,
         jobName.replaceAll("_", "-"), jobId.replaceAll("_", "-"));
     return StreamManager.createUniqueNameForBatch(checkpointTopic, config);
   }
