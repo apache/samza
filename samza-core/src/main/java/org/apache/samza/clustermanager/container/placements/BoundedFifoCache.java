@@ -18,37 +18,39 @@
  */
 package org.apache.samza.clustermanager.container.placements;
 
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * FIFO cache that maintains de-queued container actions. This cache is only accessed by one thread,
  * {@link org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator} thread in ClusterBasedJobCoordinator
  *
+ * This class is not thread-safe
  */
-public class DequeuedPlacementActionsCache {
+public class BoundedFifoCache<T> {
 
-  private static final int CACHE_SIZE = 20000;
-  private final ConcurrentLinkedQueue<UUID> actionQueue;
-  private final Set<UUID> actionCache;
+  private final int cacheSize;
+  private final Queue<T> actionQueue;
+  private final Set<T> actionCache;
 
-  public DequeuedPlacementActionsCache() {
-    this.actionQueue = new ConcurrentLinkedQueue<UUID>();
-    this.actionCache = ConcurrentHashMap.newKeySet();
+  public BoundedFifoCache(int size) {
+    this.actionQueue = new LinkedList<T>();
+    this.actionCache = new HashSet<T>();
+    this.cacheSize = size;
   }
 
-  public boolean containsKey(UUID uuid) {
-    return actionCache.contains(uuid);
+  public boolean containsKey(T element) {
+    return actionCache.contains(element);
   }
 
-  public void put(UUID uuid) {
-    if (actionCache.size() > CACHE_SIZE) {
-      UUID evictedUuid = actionQueue.poll();
-      actionCache.remove(evictedUuid);
+  public void put(T element) {
+    if (actionCache.size() > cacheSize) {
+      T evictedElement = actionQueue.poll();
+      actionCache.remove(evictedElement);
     }
-    actionCache.add(uuid);
-    actionQueue.add(uuid);
+    actionCache.add(element);
+    actionQueue.add(element);
   }
 }
