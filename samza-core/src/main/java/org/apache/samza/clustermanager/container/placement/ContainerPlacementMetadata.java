@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.clustermanager.container.placements;
+package org.apache.samza.clustermanager.container.placement;
 
 import java.time.Duration;
 import java.util.HashSet;

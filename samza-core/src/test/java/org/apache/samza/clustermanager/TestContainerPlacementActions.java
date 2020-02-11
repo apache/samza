@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator;
-import org.apache.samza.clustermanager.container.placements.ContainerPlacementMetadata;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadata;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
