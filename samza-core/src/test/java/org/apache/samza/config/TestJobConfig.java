@@ -18,26 +18,24 @@
  */
 package org.apache.samza.config;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory;
 import org.apache.samza.container.grouper.stream.HashSystemStreamPartitionMapperFactory;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory;
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory;
+import org.junit.Assert;
 import org.junit.Test;
+import scala.Option;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 
 public class TestJobConfig {
@@ -581,5 +579,67 @@ public class TestJobConfig {
 
     jobConfig = new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.COORDINATOR_STREAM_FACTORY, "specific_coordinator_stream")));
     assertEquals(jobConfig.getCoordinatorStreamFactory(), "specific_coordinator_stream");
+  }
+
+  @Test
+  public void testAutosizingConfig() {
+    Map<String, String> config = new HashMap<>();
+    config.put("job.autosizing.enabled", "true");
+    config.put("job.container.count", "1");
+    config.put("job.autosizing.container.count", "2");
+    config.put("job.container.thread.pool.size", "1");
+    config.put("job.autosizing.container.thread.pool.size", "3");
+    config.put("job.autosizing.container.maxheap.mb", "500");
+
+    config.put("cluster-manager.container.memory.mb", "500");
+    config.put("job.autosizing.container.memory.mb", "900");
+    config.put("cluster-manager.container.cpu.cores", "1");
+    config.put("job.autosizing.container.cpu.cores", "2");
+    JobConfig jobConfig = new JobConfig(new MapConfig(config));
+    Assert.assertTrue(jobConfig.getAutosizingEnabled());
+    Assert.assertEquals(2, jobConfig.getContainerCount());
+    Assert.assertEquals(3, jobConfig.getThreadPoolSize());
+
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(new MapConfig(config));
+    Assert.assertEquals(900, clusterManagerConfig.getContainerMemoryMb());
+    Assert.assertEquals(2, clusterManagerConfig.getNumCores());
+  }
+
+  @Test
+  public void testGetTaskOptsAutosizingDisabled() {
+    ShellCommandConfig shellCommandConfig =
+        new ShellCommandConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "false")));
+    assertEquals(Option.empty(), shellCommandConfig.getTaskOpts());
+
+    String taskOpts = "-Dproperty=value";
+    shellCommandConfig = new ShellCommandConfig(new MapConfig(
+        ImmutableMap.of(ShellCommandConfig.TASK_JVM_OPTS(), taskOpts, JobConfig.JOB_AUTOSIZING_ENABLED, "false")));
+    assertEquals(Option.apply(taskOpts), shellCommandConfig.getTaskOpts());
+  }
+
+  @Test
+  public void testGetTaskOptsAutosizingEnabled() {
+    // opts not set, autosizing max heap not set
+    ShellCommandConfig shellCommandConfig =
+        new ShellCommandConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "true")));
+    assertEquals(Option.empty(), shellCommandConfig.getTaskOpts());
+
+    // opts set, autosizing max heap not set
+    String taskOpts = "-Dproperty=value";
+    shellCommandConfig = new ShellCommandConfig(new MapConfig(
+        ImmutableMap.of(ShellCommandConfig.TASK_JVM_OPTS(), taskOpts, JobConfig.JOB_AUTOSIZING_ENABLED, "true")));
+    assertEquals(Option.apply(taskOpts), shellCommandConfig.getTaskOpts());
+
+    // opts set with Xmx, autosizing max heap set
+    shellCommandConfig = new ShellCommandConfig(new MapConfig(
+        ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "true", JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB,
+            "1024", "task.opts", "-Xmx10m -Dproperty=value")));
+    assertEquals(Option.apply("-Xmx1024m -Dproperty=value"), shellCommandConfig.getTaskOpts());
+
+    // opts set without -Xmx, autosizing max heap set
+    shellCommandConfig = new ShellCommandConfig(new MapConfig(
+        ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "true", JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB,
+            "1024", "task.opts", "-Dproperty=value")));
+    assertEquals(Option.apply("-Dproperty=value -Xmx1024m"), shellCommandConfig.getTaskOpts());
   }
 }

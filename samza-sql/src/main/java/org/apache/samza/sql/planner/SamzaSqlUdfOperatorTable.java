@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.planner;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.sql.SqlFunctionCategory;
@@ -37,14 +38,18 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
   private final ListSqlOperatorTable operatorTable;
 
   public SamzaSqlUdfOperatorTable(List<SamzaSqlScalarFunctionImpl> scalarFunctions) {
-    operatorTable = new ListSqlOperatorTable(getSqlOperators(scalarFunctions));
+    this.operatorTable = new ListSqlOperatorTable(getSqlOperators(scalarFunctions));
   }
 
   private List<SqlOperator> getSqlOperators(List<SamzaSqlScalarFunctionImpl> scalarFunctions) {
-    return scalarFunctions.stream().map(this::getSqlOperator).collect(Collectors.toList());
+    List<UdfMetadata> udfMetadataList = new ArrayList<>();
+    scalarFunctions.forEach(samzaSqlScalarFunction -> {
+      udfMetadataList.add(samzaSqlScalarFunction.getUdfMetadata());
+      });
+    return scalarFunctions.stream().map(scalarFunction -> getSqlOperator(scalarFunction, udfMetadataList)).collect(Collectors.toList());
   }
 
-  private SqlOperator getSqlOperator(SamzaSqlScalarFunctionImpl scalarFunction) {
+  private SqlOperator getSqlOperator(SamzaSqlScalarFunctionImpl scalarFunction, List<UdfMetadata> udfMetadataList) {
     int numArguments = scalarFunction.numberOfArguments();
     UdfMetadata udfMetadata = scalarFunction.getUdfMetadata();
 
@@ -53,9 +58,14 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
           o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.ANY_CHECKER,
           null, scalarFunction);
     } else {
-      return new SqlUserDefinedFunction(new SqlIdentifier(scalarFunction.getUdfName(), SqlParserPos.ZERO),
-          o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.getChecker(numArguments, numArguments),
-          null, scalarFunction);
+      return new SqlUserDefinedFunction(
+              new SqlIdentifier(scalarFunction.getUdfName(),
+                                SqlParserPos.ZERO),
+          o -> scalarFunction.getReturnType(o.getTypeFactory()),
+          null,
+          Checker.getChecker(numArguments, numArguments, udfMetadata),
+          null,
+              scalarFunction);
     }
   }
 

@@ -599,6 +599,20 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(outMessages.size(), numMessages);
   }
 
+  @Test(expected = SamzaSqlValidatorException.class)
+  public void testMismatchedUdfArgumentTypeShouldFailWithException() {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+    String sql1 = "Insert into testavro.outputTopic(long_value) "
+            + "select MyTestObj(pageKey) as long_value from testavro.PAGEVIEW";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+  }
+
   @Test
   public void testEndToEndUdf() throws Exception {
     int numMessages = 20;

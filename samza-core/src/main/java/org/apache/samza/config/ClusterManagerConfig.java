@@ -143,8 +143,15 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
+  /**
+   * Return the value of CLUSTER_MANAGER_MAX_CORES or CONTAINER_MAX_CPU_CORES (in that order) if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_MAX_CORES.
+   * @return
+   */
   public int getNumCores() {
-    if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
+    if (new JobConfig(this).getAutosizingEnabled() && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES)) {
+      return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES);
+    } else if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
       return getInt(CLUSTER_MANAGER_MAX_CORES);
     } else if (containsKey(CONTAINER_MAX_CPU_CORES)) {
       log.info("Configuration {} is deprecated. Please use {}", CONTAINER_MAX_CPU_CORES, CLUSTER_MANAGER_MAX_CORES);
@@ -154,8 +161,15 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
+  /**
+   * Return the value of CLUSTER_MANAGER_MEMORY_MB or CONTAINER_MAX_MEMORY_MB (in that order) if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_MEMORY_MB.
+   * @return
+   */
   public int getContainerMemoryMb() {
-    if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
+    if (new JobConfig(this).getAutosizingEnabled() && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB)) {
+      return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB);
+    } else if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
       return getInt(CLUSTER_MANAGER_MEMORY_MB);
     } else if (containsKey(CONTAINER_MAX_MEMORY_MB)) {
       log.info("Configuration {} is deprecated. Please use {}", CONTAINER_MAX_MEMORY_MB, CLUSTER_MANAGER_MEMORY_MB);

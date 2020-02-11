@@ -139,7 +139,7 @@ public class DiagnosticsUtil {
           new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
               new StorageConfig(config).getNumPersistentStores(), maxHeapSizeBytes, containerThreadPoolSize, containerId, execEnvContainerId.orElse(""),
               taskClassVersion, samzaVersion, hostName, diagnosticsSystemStream, systemProducer,
-              Duration.ofMillis(new TaskConfig(config).getShutdownMs()));
+              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled());
 
       Option<String> blacklist = ScalaJavaUtil.JavaOptionals$.MODULE$.toRichOptional(
           metricsConfig.getMetricsSnapshotReporterBlacklist(diagnosticsReporterName)).toOption();
