@@ -405,7 +405,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       if (state.neededProcessors.decrementAndGet() == 0) {
         state.jobHealthy.set(true);
       }
-      containerManager.handleContainerLaunchSuccess(processorId);
+      containerManager.handleContainerLaunchSuccess(processorId, containerHost);
     } else {
       LOG.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. " +
           "Ignoring invalid/redundant notification.", containerId, containerHost);

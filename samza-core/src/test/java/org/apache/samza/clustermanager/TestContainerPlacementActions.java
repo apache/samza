@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator;
@@ -45,6 +46,7 @@ import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
@@ -83,6 +85,7 @@ public class TestContainerPlacementActions {
       put("job.name", "test-job");
       put("job.coordinator.system", "test-kafka");
       put("app.run.id", "appAttempt-001");
+      put("job.standbytasks.replication.factor", "2");
     }
   };
 
@@ -126,6 +129,19 @@ public class TestContainerPlacementActions {
         mockLocalityManager, this.server);
   }
 
+  private JobModelManager getJobModelManagerWithHostAffinityWithStandby(Map<String, String> containerIdToHost) {
+    Map<String, Map<String, String>> localityMap = new HashMap<>();
+    containerIdToHost.forEach((containerId, host) -> {
+        localityMap.put(containerId,
+            ImmutableMap.of(SetContainerHostMapping.HOST_KEY, containerIdToHost.get(containerId)));
+      });
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+    when(mockLocalityManager.readContainerLocality()).thenReturn(localityMap);
+    // Generate JobModel for standby containers
+    JobModel standbyJobModel = TestStandbyAllocator.getJobModelWithStandby(2, 2, 2, Optional.of(mockLocalityManager));
+    return new JobModelManager(standbyJobModel, server, null);
+  }
+
   @Before
   public void setup() throws Exception {
     server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
@@ -148,8 +164,20 @@ public class TestContainerPlacementActions {
             clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
   }
 
+  public void setupStandby() throws Exception {
+    state = new SamzaApplicationState(getJobModelManagerWithHostAffinityWithStandby(ImmutableMap.of("0", "host-1", "1", "host-2", "0-0", "host-2", "1-0", "host-1")));
+    callback = mock(ClusterResourceManager.Callback.class);
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+    // Enable standby
+    containerManager = spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, true));
+    allocatorWithHostAffinity = new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
+    cpm = new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
+        clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
+  }
+
   @Test(timeout = 10000)
-  public void testContainerSuccessfulMoveAction() throws Exception {
+  public void testContainerSuccessfulMoveActionWithoutStandby() throws Exception {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
@@ -674,6 +702,154 @@ public class TestContainerPlacementActions {
     assertBadRequests(null, "host2", containerManager, allocatorWithHostAffinity);
     assertBadRequests("0", null, containerManager, allocatorWithHostAffinity);
     assertBadRequests("2", "host8", containerManager, allocatorWithHostAffinity);
+  }
+
+
+  @Test(timeout = 30000)
+  public void testContainerSuccessfulMoveActionWithStandbyEnabled() throws Exception {
+    // Setup standby for job
+    setupStandby();
+
+    // Spawn a Request Allocator Thread
+    Thread requestAllocatorThread = new Thread(
+        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config)),
+        "ContainerPlacement Request Allocator Thread");
+    requestAllocatorThread.start();
+
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+        new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
+          }, "AMRMClientAsync").start();
+        return null;
+      }
+    }).when(callback).onResourcesAvailable(anyList());
+
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+        new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
+          }, "AMRMClientAsync").start();
+        return null;
+      }
+    }).when(callback).onStreamProcessorLaunchSuccess(any());
+
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+        new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
+          }, "AMRMClientAsync").start();
+          return null;
+      }
+    }).when(callback).onResourcesCompleted(anyList());
+
+    cpm.start();
+
+    if (!allocatorWithHostAffinity.awaitContainersStart(4, 4, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+
+    while (state.runningProcessors.size() != 4) {
+      Thread.sleep(100);
+    }
+
+    // First running state of the app
+    Consumer<SamzaApplicationState> stateCheck = (SamzaApplicationState state) -> {
+      assertEquals(4, state.runningProcessors.size());
+      assertEquals("host-1", state.runningProcessors.get("0").getHost());
+      assertEquals("host-2", state.runningProcessors.get("1").getHost());
+      assertEquals("host-2", state.runningProcessors.get("0-0").getHost());
+      assertEquals("host-1", state.runningProcessors.get("1-0").getHost());
+      assertEquals(4, state.preferredHostRequests.get());
+      assertEquals(0, state.failedStandbyAllocations.get());
+      assertEquals(0, state.anyHostRequests.get());
+    };
+    // Invoke a state check
+    stateCheck.accept(state);
+
+    // Initiate a bad container placement action to move a standby to its active host and vice versa
+    // which should fail because this violates standby constraints
+    UUID badRequest1 = containerPlacementMetadataStore.writeContainerPlacementRequestMessage("appAttempt-001", "0-0", "host-1",
+        null, System.currentTimeMillis());
+
+    UUID badRequest2 = containerPlacementMetadataStore.writeContainerPlacementRequestMessage("appAttempt-001", "0", "host-2",
+        null, System.currentTimeMillis() + 100);
+
+    // Wait for the ControlActions to complete
+    while (true) {
+      if (containerPlacementMetadataStore.readContainerPlacementResponseMessage(badRequest2).isPresent() &&
+          containerPlacementMetadataStore.readContainerPlacementResponseMessage(badRequest2).get().getStatusCode()
+              == ContainerPlacementMessage.StatusCode.BAD_REQUEST) {
+        break;
+      }
+      Thread.sleep(Duration.ofSeconds(5).toMillis());
+    }
+
+    // App running state should remain the same
+    stateCheck.accept(state);
+
+    Optional<ContainerPlacementResponseMessage> responseMessageMove1 =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(badRequest1);
+    Optional<ContainerPlacementResponseMessage> responseMessageMove2 =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(badRequest2);
+
+    // Assert that both the requests were bad
+    assertTrue(responseMessageMove1.isPresent());
+    assertEquals(responseMessageMove1.get().getStatusCode(), ContainerPlacementMessage.StatusCode.BAD_REQUEST);
+    assertTrue(responseMessageMove2.isPresent());
+    assertEquals(responseMessageMove2.get().getStatusCode(), ContainerPlacementMessage.StatusCode.BAD_REQUEST);
+
+
+    // Initiate a standby failover which is supposed to be done in two steps
+    // Step 1. Move the standby container to any other host: move 0-0 to say host-3
+    // Step 2. Move the active container to the standby's host: move 0 to host-1
+
+    // Action will get executed first
+    UUID standbyMoveRequest =
+        containerPlacementMetadataStore.writeContainerPlacementRequestMessage("appAttempt-001", "0-0", "host-3",
+            null, System.currentTimeMillis());
+    // Action will get executed when standbyMoveRequest move request is complete
+    UUID activeMoveRequest = containerPlacementMetadataStore.writeContainerPlacementRequestMessage("appAttempt-001", "0", "host-2", null,
+            System.currentTimeMillis() + 100);
+
+    // Wait for the ControlActions to complete
+    while (true) {
+      if (containerPlacementMetadataStore.readContainerPlacementResponseMessage(activeMoveRequest).isPresent() &&
+          containerPlacementMetadataStore.readContainerPlacementResponseMessage(activeMoveRequest).get().getStatusCode()
+              == ContainerPlacementMessage.StatusCode.SUCCEEDED) {
+        break;
+      }
+      Thread.sleep(Duration.ofSeconds(5).toMillis());
+    }
+
+    assertEquals(4, state.runningProcessors.size());
+    assertEquals("host-2", state.runningProcessors.get("0").getHost());
+    assertEquals("host-2", state.runningProcessors.get("1").getHost());
+    assertEquals("host-3", state.runningProcessors.get("0-0").getHost());
+    assertEquals("host-1", state.runningProcessors.get("1-0").getHost());
+    assertEquals(6, state.preferredHostRequests.get());
+    assertEquals(0, state.failedStandbyAllocations.get());
+    assertEquals(0, state.anyHostRequests.get());
+
+
+    Optional<ContainerPlacementResponseMessage> responseStandbyMove =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(standbyMoveRequest);
+
+    Optional<ContainerPlacementResponseMessage> responseActiveMove =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(activeMoveRequest);
+
+    assertTrue(responseStandbyMove.isPresent());
+    assertEquals(responseStandbyMove.get().getStatusCode(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
+
+    assertTrue(responseActiveMove.isPresent());
+    assertEquals(responseActiveMove.get().getStatusCode(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
+
+    // Request should be deleted as soon as ita accepted / being acted upon
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(standbyMoveRequest).isPresent());
+    assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(activeMoveRequest).isPresent());
   }
 
   private void assertResponseMessage(ContainerPlacementResponseMessage responseMessage,
