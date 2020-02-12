@@ -16,41 +16,38 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.clustermanager.utils;
+package org.apache.samza.util;
 
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * FIFO cache that maintains de-queued container actions. This cache is only accessed by one thread,
- * {@link org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator} thread in ClusterBasedJobCoordinator
+ * FIFO cache of size cacheSize
  *
  * This class is not thread-safe
  */
 public class BoundedFifoCache<T> {
 
   private final int cacheSize;
-  private final Queue<T> actionQueue;
-  private final Set<T> actionCache;
+  private final Set<T> cache;
 
   public BoundedFifoCache(int size) {
-    this.actionQueue = new LinkedList<T>();
-    this.actionCache = new HashSet<T>();
+    this.cache = new LinkedHashSet<T>();
     this.cacheSize = size;
   }
 
   public boolean containsKey(T element) {
-    return actionCache.contains(element);
+    return cache.contains(element);
   }
 
   public void put(T element) {
-    if (actionCache.size() > cacheSize) {
-      T evictedElement = actionQueue.poll();
-      actionCache.remove(evictedElement);
+    if (cache.size() > cacheSize) {
+      Iterator iterator = cache.iterator();
+      if (iterator.hasNext()) {
+        iterator.remove();
+      }
     }
-    actionCache.add(element);
-    actionQueue.add(element);
+    cache.add(element);
   }
 }

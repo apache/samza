@@ -26,11 +26,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
-import org.apache.samza.clustermanager.utils.BoundedFifoCache;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadata;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
+import org.apache.samza.util.BoundedFifoCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,7 +73,11 @@ public class ContainerManager {
    * Key is chosen to be processorId since at a time only one placement action can be in progress on a container.
    */
   private final ConcurrentHashMap<String, ContainerPlacementMetadata> actions;
-  private final BoundedFifoCache<UUID> dequeuedActionsCache;
+  /**
+   * In-memory cache of placement requests UUIDs de-queued from the metadata store. Used to de-dup requests with the same
+   * request UUID. Sized using max tolerable memory footprint and max likely duplicate-spacing.
+   */
+  private final BoundedFifoCache<UUID> placementRequestsCache;
 
   private final Optional<StandbyContainerManager> standbyContainerManager;
 
@@ -83,7 +87,7 @@ public class ContainerManager {
     this.samzaApplicationState = samzaApplicationState;
     this.clusterResourceManager = clusterResourceManager;
     this.actions = new ConcurrentHashMap<>();
-    this.dequeuedActionsCache = new BoundedFifoCache<UUID>(UUID_CACHE_SIZE);
+    this.placementRequestsCache = new BoundedFifoCache<UUID>(UUID_CACHE_SIZE);
     this.hostAffinityEnabled = hostAffinityEnabled;
     this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     // Enable standby container manager if required
@@ -294,6 +298,9 @@ public class ContainerManager {
    * When host affinity is enabled move / restart is allowed on specific or ANY_HOST
    * TODO: SAMZA-2378: Container Placements for Standby containers enabled jobs
    *
+   * Container placement requests are tied to deploymentId which is currently {@link org.apache.samza.config.ApplicationConfig#APP_RUN_ID}
+   * On job restarts container placement requests queued for the previous deployment are invalidated using this
+   *
    * @param requestMessage request containing logical processor id 0,1,2 and host where container is desired to be moved,
    *                       acceptable values of this param are any valid hostname or "ANY_HOST"(in this case the request
    *                       is sent to resource manager for any host)
@@ -304,13 +311,12 @@ public class ContainerManager {
     String destinationHost = requestMessage.getDestinationHost();
     // Is the action ready to be de-queued and taken or it needs to wait to be executed in future
     if (!deQueueAction(requestMessage)) {
-      LOG.info("ContainerPlacement request is en-queued metadata: {}", requestMessage);
       return;
     }
     Pair<ContainerPlacementMessage.StatusCode, String> actionStatus = validatePlacementAction(requestMessage);
     LOG.info("ContainerPlacement action is de-queued metadata: {}", requestMessage);
     // Action is de-queued upon so we record it in the cache
-    dequeuedActionsCache.put(requestMessage.getUuid());
+    placementRequestsCache.put(requestMessage.getUuid());
     // Remove the request message from metastore since this message is already acted upon
     containerPlacementMetadataStore.deleteContainerPlacementRequestMessage(requestMessage.getUuid());
     // Request is bad just update the response on message & return
@@ -320,9 +326,10 @@ public class ContainerManager {
     }
 
     SamzaResource currentResource = samzaApplicationState.runningProcessors.get(processorId);
-    LOG.info("Processor ID: {} matched an active container with deployment ID: {} is running on host: {} for ContainerPlacement action: {}",
+    LOG.info("Processor ID: {} matched an active container with containerId ID: {} is running on host: {} for ContainerPlacement action: {}",
         processorId, currentResource.getContainerId(), currentResource.getHost(), requestMessage);
 
+    // TODO: SAMZA-2457: Allow host affinity disabled jobs to move containers to specific host
     if (!hostAffinityEnabled) {
       LOG.info("Changing the requested host for placement action to {} because host affinity is disabled", ResourceRequestState.ANY_HOST);
       destinationHost = ANY_HOST;
@@ -414,11 +421,13 @@ public class ContainerManager {
   private boolean deQueueAction(ContainerPlacementRequestMessage requestMessage) {
     // Do not dequeue action wait for the in-flight action to complete
     if (hasActiveContainerPlacementAction(requestMessage.getProcessorId())) {
+      LOG.info("ContainerPlacement request: {} is en-queued because container has an in-progress placement action", requestMessage);
       return false;
     }
     // Do not dequeue the action wait for the container to come to a running state
     if (!samzaApplicationState.runningProcessors.containsKey(requestMessage.getProcessorId())
         || samzaApplicationState.pendingProcessors.containsKey(requestMessage.getProcessorId())) {
+      LOG.info("ContainerPlacement request: {} is en-queued because container is pending start", requestMessage);
       return false;
     }
     return true;
@@ -437,7 +446,7 @@ public class ContainerManager {
     if (standbyContainerManager.isPresent()) {
       errorMessage = String.format("%s not supported for hot standby enabled", errorMessagePrefix);
       invalidAction = true;
-    } else if (dequeuedActionsCache.containsKey(requestMessage.getUuid())) {
+    } else if (placementRequestsCache.containsKey(requestMessage.getUuid())) {
       errorMessage = String.format("%s duplicate UUID of the request, please retry", errorMessagePrefix);
       invalidAction = true;
     } else if (Integer.parseInt(requestMessage.getProcessorId()) >= samzaApplicationState.processorCount.get()

@@ -42,6 +42,10 @@ public class ContainerPlacementResponseMessage extends ContainerPlacementMessage
     this(uuid, deploymentId, processorId, destinationHost, null, statusCode, responseMessage, timestamp);
   }
 
+  /**
+   * Creates a {@link ContainerPlacementResponseMessage} using {@link ContainerPlacementRequestMessage}
+   * status of current request and response associated with status
+   */
   public static ContainerPlacementResponseMessage fromContainerPlacementRequestMessage(
       ContainerPlacementRequestMessage requestMessage, StatusCode statusCode, String responseMessage, long timestamp) {
     return new ContainerPlacementResponseMessage(requestMessage.getUuid(), requestMessage.getDeploymentId(), requestMessage.getProcessorId(),

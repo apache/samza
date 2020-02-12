@@ -27,6 +27,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Stateless handler that periodically dispatches {@link ContainerPlacementRequestMessage} read from Metadata store to Job Coordinator
+ * Container placement requests from the previous deployment are deleted from the metadata store, ContainerPlacementRequestAllocatorThread
+ * does this cleanup
  */
 public class ContainerPlacementRequestAllocator implements Runnable {
 
