@@ -33,7 +33,7 @@ import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{KafkaUtilException, NoOpMetricsRegistry, ReflectionUtil}
+import org.apache.samza.util.{NoOpMetricsRegistry, ReflectionUtil}
 import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit._
@@ -159,29 +159,31 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   def testFailOnTopicValidation(): Unit = {
     // By default, should fail if there is a topic validation error
     val checkpointTopic = "eight-partition-topic";
-    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
-    kcm1.register(taskName)
+    val kcm = createKafkaCheckpointManager(checkpointTopic)
+    kcm.register(taskName)
     // create topic with the wrong number of partitions
     createTopic(checkpointTopic, 8, new KafkaConfig(config).getCheckpointTopicProperties())
     try {
-      kcm1.createResources
-      kcm1.start
+      kcm.createResources()
+      kcm.start()
       fail("Expected an exception for invalid number of partitions in the checkpoint topic.")
     } catch {
       case e: StreamValidationException => None
     }
-    kcm1.stop
+    kcm.stop()
+  }
 
-    // Should not fail if failOnTopicValidation = false
+  @Test
+  def testNoFailOnTopicValidationDisabled(): Unit = {
+    val checkpointTopic = "eight-partition-topic";
+    // create topic with the wrong number of partitions
+    createTopic(checkpointTopic, 8, new KafkaConfig(config).getCheckpointTopicProperties())
     val failOnTopicValidation = false
-    val kcm2 = createKafkaCheckpointManager(checkpointTopic, new CheckpointSerde, failOnTopicValidation)
-    kcm2.register(taskName)
-    try {
-      kcm2.start
-    } catch {
-      case e: KafkaUtilException => fail("Unexpected exception for invalid number of partitions in the checkpoint topic")
-    }
-    kcm2.stop
+    val kcm = createKafkaCheckpointManager(checkpointTopic, new CheckpointSerde, failOnTopicValidation)
+    kcm.register(taskName)
+    kcm.createResources()
+    kcm.start()
+    kcm.stop()
   }
 
   @After
