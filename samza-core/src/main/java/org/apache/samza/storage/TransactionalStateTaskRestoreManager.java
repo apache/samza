@@ -244,13 +244,21 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
               checkpointedChangelogOffset.getCheckpointId().getMillis();
         }
 
-        // if the clean.store.start config is set, delete the currentDir, restore from oldest offset to checkpointed
+        // if the clean.store.start config is set, delete current and checkpoint dirs, restore from oldest offset to checkpointed
         if (storageEngine.getStoreProperties().isPersistedToDisk() && new StorageConfig(
           config).getCleanLoggedStoreDirsOnStart(storeName)) {
           File currentDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDirectory, storeName, taskName, taskMode);
           LOG.info("Marking current directory: {} for store: {} in task: {} for deletion due to clean.on.container.start config.",
               currentDir, storeName, taskName);
           storeDirsToDelete.put(storeName, currentDir);
+
+          storageManagerUtil.getTaskStoreCheckpointDirs(loggedStoreBaseDirectory, storeName, taskName, taskMode)
+              .forEach(checkpointDir -> {
+                LOG.info("Marking checkpoint directory: {} for store: {} in task: {} for deletion due to clean.on.container.start config.",
+                    checkpointDir, storeName, taskName);
+                storeDirsToDelete.put(storeName, checkpointDir);
+              });
+
           LOG.info("Marking restore offsets for store: {} in task: {} to {}, {} ", storeName, taskName, oldestOffset, checkpointedOffset);
           storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, checkpointedOffset));
           return;
