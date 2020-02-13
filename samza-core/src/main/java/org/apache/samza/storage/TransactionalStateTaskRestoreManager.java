@@ -254,10 +254,10 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
 
           storageManagerUtil.getTaskStoreCheckpointDirs(loggedStoreBaseDirectory, storeName, taskName, taskMode)
               .forEach(checkpointDir -> {
-                LOG.info("Marking checkpoint directory: {} for store: {} in task: {} for deletion due to clean.on.container.start config.",
-                    checkpointDir, storeName, taskName);
-                storeDirsToDelete.put(storeName, checkpointDir);
-              });
+                  LOG.info("Marking checkpoint directory: {} for store: {} in task: {} for deletion due to clean.on.container.start config.",
+                      checkpointDir, storeName, taskName);
+                  storeDirsToDelete.put(storeName, checkpointDir);
+                });
 
           LOG.info("Marking restore offsets for store: {} in task: {} to {}, {} ", storeName, taskName, oldestOffset, checkpointedOffset);
           storesToRestore.put(storeName, new RestoreOffsets(oldestOffset, checkpointedOffset));
