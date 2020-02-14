@@ -22,17 +22,20 @@ package org.apache.samza.job.local
 import java.util
 
 import org.apache.samza.SamzaException
+import org.apache.samza.application.ApplicationUtil
+import org.apache.samza.application.descriptors.ApplicationDescriptorUtil
 import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
 import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
+import org.apache.samza.execution.RemoteJobPlanner
 import org.apache.samza.job.model.JobModelUtil
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.startpoint.StartpointManager
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.util.{CoordinatorStreamUtil, Logging, ReflectionUtil}
+import org.apache.samza.util.{ConfigUtil, CoordinatorStreamUtil, DiagnosticsUtil, Logging, ReflectionUtil}
 
 import scala.collection.JavaConversions._
 
@@ -40,7 +43,23 @@ import scala.collection.JavaConversions._
  * Creates a stand alone ProcessJob with the specified config.
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
-  def getJob(config: Config): StreamJob = {
+  def getJob(submissionConfig: Config): StreamJob = {
+    val originalConfig = ConfigUtil.loadConfig(submissionConfig)
+
+    // Execute planning
+    val planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig))
+    val jobConfigs = planner.prepareJobs
+
+    if (jobConfigs.size != 1) {
+      throw new SamzaException("Only single process job is supported.")
+    }
+
+    // This is the full job config
+    val config = jobConfigs.get(0)
+    // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
+    CoordinatorStreamUtil.writeConfigToCoordinatorStream(config)
+    DiagnosticsUtil.createDiagnosticsStream(config)
+
     val containerCount = new JobConfig(config).getContainerCount
 
     if (containerCount > 1) {
@@ -51,15 +70,11 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val coordinatorStreamStore: CoordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap())
     coordinatorStreamStore.init()
 
-    val configFromCoordinatorStream: Config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore)
-
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
-
-    val coordinator = JobModelManager(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
-      coordinatorStreamStore, metricsRegistry)
+    val coordinator = JobModelManager(config, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
     val jobModel = coordinator.jobModel
-
     val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
+
     for (containerModel <- jobModel.getContainers.values) {
       for (taskModel <- containerModel.getTasks.values) {
         taskPartitionMappings.put(taskModel.getTaskName, taskModel.getChangelogPartition.getPartitionId)
