@@ -49,21 +49,24 @@ import scala.collection.mutable
 class ThreadJobFactory extends StreamJobFactory with Logging {
   def getJob(submissionConfig: Config): StreamJob = {
     info("Creating a ThreadJob, which is only meant for debugging.")
-    val originalConfig = ConfigUtil.loadConfig(submissionConfig)
+    var config = submissionConfig
+    if (new JobConfig(submissionConfig).getConfigLoaderFactory.isPresent) {
+      val originalConfig = ConfigUtil.loadConfig(submissionConfig)
 
-    // Execute planning
-    val planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig))
-    val jobConfigs = planner.prepareJobs
+      // Execute planning
+      val planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig))
+      val jobConfigs = planner.prepareJobs
 
-    if (jobConfigs.size != 1) {
-      throw new SamzaException("Only single stage job is supported.")
+      if (jobConfigs.size != 1) {
+        throw new SamzaException("Only single stage job is supported.")
+      }
+
+      // This is the full job config
+      config = jobConfigs.get(0)
+      // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
+      CoordinatorStreamUtil.writeConfigToCoordinatorStream(config)
+      DiagnosticsUtil.createDiagnosticsStream(config)
     }
-
-    // This is the full job config
-    val config = jobConfigs.get(0)
-    // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
-    CoordinatorStreamUtil.writeConfigToCoordinatorStream(config)
-    DiagnosticsUtil.createDiagnosticsStream(config)
 
     val metricsRegistry = new MetricsRegistryMap()
     val coordinatorStreamStore: CoordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap())

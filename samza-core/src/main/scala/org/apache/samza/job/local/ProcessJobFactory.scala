@@ -44,21 +44,25 @@ import scala.collection.JavaConversions._
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
   def getJob(submissionConfig: Config): StreamJob = {
-    val originalConfig = ConfigUtil.loadConfig(submissionConfig)
+    var config = submissionConfig
 
-    // Execute planning
-    val planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig))
-    val jobConfigs = planner.prepareJobs
+    if (new JobConfig(submissionConfig).getConfigLoaderFactory.isPresent) {
+      val originalConfig = ConfigUtil.loadConfig(submissionConfig)
 
-    if (jobConfigs.size != 1) {
-      throw new SamzaException("Only single process job is supported.")
+      // Execute planning
+      val planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig))
+      val jobConfigs = planner.prepareJobs
+
+      if (jobConfigs.size != 1) {
+        throw new SamzaException("Only single process job is supported.")
+      }
+
+      // This is the full job config
+      config = jobConfigs.get(0)
+      // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
+      CoordinatorStreamUtil.writeConfigToCoordinatorStream(config)
+      DiagnosticsUtil.createDiagnosticsStream(config)
     }
-
-    // This is the full job config
-    val config = jobConfigs.get(0)
-    // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
-    CoordinatorStreamUtil.writeConfigToCoordinatorStream(config)
-    DiagnosticsUtil.createDiagnosticsStream(config)
 
     val containerCount = new JobConfig(config).getContainerCount
 
