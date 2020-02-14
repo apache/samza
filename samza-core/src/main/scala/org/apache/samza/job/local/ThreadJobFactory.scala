@@ -56,7 +56,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val jobConfigs = planner.prepareJobs
 
     if (jobConfigs.size != 1) {
-      throw new SamzaException("Only single process job is supported.")
+      throw new SamzaException("Only single thread job is supported.")
     }
 
     // This is the full job config
