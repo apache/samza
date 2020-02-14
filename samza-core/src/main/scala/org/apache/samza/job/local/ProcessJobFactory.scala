@@ -40,7 +40,7 @@ import org.apache.samza.util.{ConfigUtil, CoordinatorStreamUtil, DiagnosticsUtil
 import scala.collection.JavaConversions._
 
 /**
- * Creates a stand alone ProcessJob with the specified config.
+ * Creates a ProcessJob with the specified config.
  */
 class ProcessJobFactory extends StreamJobFactory with Logging {
   def getJob(submissionConfig: Config): StreamJob = {
@@ -71,8 +71,8 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     coordinatorStreamStore.init()
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
-    val coordinator = JobModelManager(config, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
-    val jobModel = coordinator.jobModel
+    val jobModelManager = JobModelManager(config, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metricsRegistry)
+    val jobModel = jobModelManager.jobModel
     val taskPartitionMappings: util.Map[TaskName, Integer] = new util.HashMap[TaskName, Integer]
 
     for (containerModel <- jobModel.getContainers.values) {
@@ -102,13 +102,13 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val commandBuilder = ReflectionUtil.getObj(commandBuilderClass, classOf[CommandBuilder])
 
     // JobCoordinator is stopped by ProcessJob when it exits
-    coordinator.start
+    jobModelManager.start
 
     commandBuilder
       .setConfig(config)
       .setId("0")
-      .setUrl(coordinator.server.getUrl)
+      .setUrl(jobModelManager.server.getUrl)
 
-    new ProcessJob(commandBuilder, coordinator)
+    new ProcessJob(commandBuilder, jobModelManager)
   }
 }

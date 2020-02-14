@@ -56,7 +56,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val jobConfigs = planner.prepareJobs
 
     if (jobConfigs.size != 1) {
-      throw new SamzaException("Only single thread job is supported.")
+      throw new SamzaException("Only single stage job is supported.")
     }
 
     // This is the full job config
@@ -71,9 +71,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
 
-    val coordinator = JobModelManager(config, changelogStreamManager.readPartitionMapping(),
+    val jobModelManager = JobModelManager(config, changelogStreamManager.readPartitionMapping(),
       coordinatorStreamStore, metricsRegistry)
-    val jobModel = coordinator.jobModel
+    val jobModel = jobModelManager.jobModel
 
     val taskPartitionMappings: mutable.Map[TaskName, Integer] = mutable.Map[TaskName, Integer]()
     for (containerModel <- jobModel.getContainers.values) {
@@ -137,7 +137,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     }
 
     try {
-      coordinator.start
+      jobModelManager.start
       val container = SamzaContainer(
         containerId,
         jobModel,
@@ -153,7 +153,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       val threadJob = new ThreadJob(container)
       threadJob
     } finally {
-      coordinator.stop
+      jobModelManager.stop
       if (jmxServer != null) {
         jmxServer.stop
       }
