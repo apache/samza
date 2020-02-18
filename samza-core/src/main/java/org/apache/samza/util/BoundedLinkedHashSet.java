@@ -23,16 +23,16 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * FIFO cache of size cacheSize
+ * LinkedinHashSet of bounded size {@code size} with a FIFO eviction policy
  *
  * This class is not thread-safe
  */
-public class BoundedFifoCache<T> {
+public class BoundedLinkedHashSet<T> {
 
   private final int cacheSize;
   private final Set<T> cache;
 
-  public BoundedFifoCache(int size) {
+  public BoundedLinkedHashSet(int size) {
     this.cache = new LinkedHashSet<T>();
     this.cacheSize = size;
   }

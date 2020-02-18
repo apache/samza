@@ -30,7 +30,7 @@ import org.apache.samza.clustermanager.container.placement.ContainerPlacementMet
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
-import org.apache.samza.util.BoundedFifoCache;
+import org.apache.samza.util.BoundedLinkedHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,7 +77,7 @@ public class ContainerManager {
    * In-memory cache of placement requests UUIDs de-queued from the metadata store. Used to de-dup requests with the same
    * request UUID. Sized using max tolerable memory footprint and max likely duplicate-spacing.
    */
-  private final BoundedFifoCache<UUID> placementRequestsCache;
+  private final BoundedLinkedHashSet<UUID> placementRequestsCache;
 
   private final Optional<StandbyContainerManager> standbyContainerManager;
 
@@ -87,7 +87,7 @@ public class ContainerManager {
     this.samzaApplicationState = samzaApplicationState;
     this.clusterResourceManager = clusterResourceManager;
     this.actions = new ConcurrentHashMap<>();
-    this.placementRequestsCache = new BoundedFifoCache<UUID>(UUID_CACHE_SIZE);
+    this.placementRequestsCache = new BoundedLinkedHashSet<UUID>(UUID_CACHE_SIZE);
     this.hostAffinityEnabled = hostAffinityEnabled;
     this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     // Enable standby container manager if required
@@ -299,7 +299,7 @@ public class ContainerManager {
    * TODO: SAMZA-2378: Container Placements for Standby containers enabled jobs
    *
    * Container placement requests are tied to deploymentId which is currently {@link org.apache.samza.config.ApplicationConfig#APP_RUN_ID}
-   * On job restarts container placement requests queued for the previous deployment are invalidated using this
+   * On job restarts container placement requests queued for the previous deployment are deleted using this
    *
    * @param requestMessage request containing logical processor id 0,1,2 and host where container is desired to be moved,
    *                       acceptable values of this param are any valid hostname or "ANY_HOST"(in this case the request
