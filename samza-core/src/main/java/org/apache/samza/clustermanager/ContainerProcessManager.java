@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -127,7 +128,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private JvmMetrics jvmMetrics;
   private Map<String, MetricsReporter> metricsReporters;
 
-  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry) {
+  public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
+      ContainerPlacementMetadataStore metadataStore) {
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
@@ -159,7 +161,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // Wire all metrics to all reporters
     this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
 
-    this.containerManager = new ContainerManager(state, clusterResourceManager, hostAffinityEnabled, jobConfig.getStandbyTasksEnabled());
+    this.containerManager = new ContainerManager(metadataStore, state, clusterResourceManager, hostAffinityEnabled,
+        jobConfig.getStandbyTasksEnabled());
 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
@@ -572,7 +575,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * @param requestMessage request containing details of the desited container placement action
    */
   public void registerContainerPlacementAction(ContainerPlacementRequestMessage requestMessage) {
-    // Call the ContainerManager#registerContainerPlacementAction
+    containerManager.registerContainerPlacementAction(requestMessage, containerAllocator);
   }
 
   private Duration getRetryDelay(String processorId) {

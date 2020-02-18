@@ -28,12 +28,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.JobModelManagerTestUtil;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -77,9 +80,12 @@ public class TestContainerProcessManager {
       put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
       put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
       put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
+      put("job.name", "test-job");
+      put("job.coordinator.system", "test-kafka");
     }
   };
   private Config config = new MapConfig(configVals);
+  private ContainerPlacementMetadataStore containerPlacementMetadataStore;
 
   private Config getConfig() {
     Map<String, String> map = new HashMap<>();
@@ -122,6 +128,11 @@ public class TestContainerProcessManager {
   @Before
   public void setup() throws Exception {
     server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
+    CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(config);
+    CoordinatorStreamStore coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
+    coordinatorStreamStore.init();
+    containerPlacementMetadataStore = new ContainerPlacementMetadataStore(coordinatorStreamStore);
+    containerPlacementMetadataStore.start();
   }
 
   private Field getPrivateFieldFromCpm(String fieldName, ContainerProcessManager object) throws Exception {
@@ -141,7 +152,8 @@ public class TestContainerProcessManager {
     SamzaApplicationState state = new SamzaApplicationState(getJobModelManagerWithoutHostAffinity(1));
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ContainerManager containerManager = new ContainerManager(state, clusterResourceManager, true, false);
+    ContainerManager containerManager =
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false);
     ContainerProcessManager cpm =
         buildContainerProcessManager(new ClusterManagerConfig(new MapConfig(conf)), state, clusterResourceManager, Optional.empty());
 
@@ -185,7 +197,8 @@ public class TestContainerProcessManager {
     ClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
     ContainerManager containerManager =
-        new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false);
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false);
 
     ContainerProcessManager cpm =
         buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.empty());
@@ -252,7 +265,8 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
     ContainerManager containerManager =
-        new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false);
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -299,7 +313,8 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
     ContainerManager containerManager =
-        new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false);
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -397,7 +412,8 @@ public class TestContainerProcessManager {
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ContainerManager containerManager =
-        new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false);
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -482,7 +498,8 @@ public class TestContainerProcessManager {
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ContainerManager containerManager =
-        new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false);
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -591,7 +608,8 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
     ContainerManager containerManager =
-        new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false);
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -631,7 +649,7 @@ public class TestContainerProcessManager {
     configMap.putAll(getConfig());
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ContainerManager containerManager = new ContainerManager(state, clusterResourceManager,
+    ContainerManager containerManager = new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
         Boolean.valueOf(config.get(ClusterManagerConfig.HOST_AFFINITY_ENABLED)), false);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
@@ -666,7 +684,7 @@ public class TestContainerProcessManager {
         "1", "host2")));
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
-    ContainerManager containerManager = new ContainerManager(state, clusterResourceManager,
+    ContainerManager containerManager = new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
         Boolean.valueOf(config.get(ClusterManagerConfig.HOST_AFFINITY_ENABLED)), false);
 
     MockContainerAllocatorWithHostAffinity allocator = new MockContainerAllocatorWithHostAffinity(
@@ -731,7 +749,8 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(new MapConfig(conf)));
     ContainerManager containerManager =
-        new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false);
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -805,7 +824,8 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(new MapConfig(config)));
     ContainerManager containerManager =
-        new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false);
+        new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -897,7 +917,8 @@ public class TestContainerProcessManager {
 
   private ContainerProcessManager buildContainerProcessManager(ClusterManagerConfig clusterManagerConfig, SamzaApplicationState state,
       ClusterResourceManager clusterResourceManager, Optional<ContainerAllocator> allocator) {
-    return new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(), clusterResourceManager, allocator,
-         new ContainerManager(state, clusterResourceManager, clusterManagerConfig.getHostAffinityEnabled(), false));
+    return new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(), clusterResourceManager,
+        allocator, new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+        clusterManagerConfig.getHostAffinityEnabled(), false));
   }
 }

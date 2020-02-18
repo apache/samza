@@ -38,6 +38,7 @@ import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.classloader.IsolatingClassLoaderFactory;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -217,12 +218,16 @@ public class ClusterBasedJobCoordinator {
     this.isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
     this.jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
 
+    // build metastore for container placement messages
+    containerPlacementMetadataStore = new ContainerPlacementMetadataStore(metadataStore);
+
     // build a container process Manager
     containerProcessManager = createContainerProcessManager();
 
     // build utils related to container placements
-    containerPlacementMetadataStore = new ContainerPlacementMetadataStore(metadataStore);
-    containerPlacementRequestAllocator = new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, containerProcessManager);
+    containerPlacementRequestAllocator =
+        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, containerProcessManager,
+            new ApplicationConfig(config));
     this.containerPlacementRequestAllocatorThread =
         new Thread(containerPlacementRequestAllocator, "Samza-" + ContainerPlacementRequestAllocator.class.getSimpleName());
   }
@@ -452,7 +457,7 @@ public class ClusterBasedJobCoordinator {
 
   @VisibleForTesting
   ContainerProcessManager createContainerProcessManager() {
-    return new ContainerProcessManager(config, state, metrics);
+    return new ContainerProcessManager(config, state, metrics, containerPlacementMetadataStore);
   }
 
   /**
