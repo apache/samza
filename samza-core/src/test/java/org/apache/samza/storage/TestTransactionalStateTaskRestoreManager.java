@@ -222,7 +222,7 @@ public class TestTransactionalStateTaskRestoreManager {
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
-    // ensure that there is one directory to delete
+    // ensure that current and checkpoint directories are marked for deletion
     assertEquals(2, storeActions.storeDirsToDelete.size());
     assertTrue(storeActions.storeDirsToDelete.containsValue(dummyCheckpointDir));
     assertTrue(storeActions.storeDirsToDelete.containsValue(dummyCurrentDir));
