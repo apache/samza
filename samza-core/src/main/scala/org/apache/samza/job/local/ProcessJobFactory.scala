@@ -105,7 +105,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     info("Using command builder class %s" format commandBuilderClass)
     val commandBuilder = ReflectionUtil.getObj(commandBuilderClass, classOf[CommandBuilder])
 
-    // JobCoordinator is stopped by ProcessJob when it exits
+    // Start JobModelManager which will be stopped by ProcessJob when it exits
     jobModelManager.start
 
     commandBuilder
