@@ -467,6 +467,7 @@ object SamzaContainer extends Logging {
 
     val threadPoolSize = jobConfig.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
+    samzaContainerMetrics.containerThreadPoolSize.set(threadPoolSize)
 
     val taskThreadPool = if (threadPoolSize > 0) {
       Executors.newFixedThreadPool(threadPoolSize,
