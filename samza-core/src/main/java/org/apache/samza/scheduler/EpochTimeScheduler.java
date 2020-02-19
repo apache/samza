@@ -90,7 +90,11 @@ public class EpochTimeScheduler {
 
   public Map<TimerKey<?>, ScheduledCallback> removeReadyTimers() {
     final Map<TimerKey<?>, ScheduledCallback> timers = new TreeMap<>(readyTimers);
-    readyTimers.keySet().removeAll(timers.keySet());
+    // Remove keys on the map directly instead of using key set iterator and remove all
+    // on the key set as it results in duplicate firings due to weakly consistent SetView
+    for (TimerKey<?> key : timers.keySet()) {
+      readyTimers.remove(key);
+    }
     return timers;
   }
 
