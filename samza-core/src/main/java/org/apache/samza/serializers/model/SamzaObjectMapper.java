@@ -28,7 +28,9 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.HostLocality;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStream;
@@ -129,6 +131,11 @@ public class SamzaObjectMapper {
         return new ContainerModel(id, tasksMapping);
       }
     });
+
+    mapper.getSerializationConfig().addMixInAnnotations(LocalityModel.class, JsonLocalityModelMixIn.class);
+    mapper.getDeserializationConfig().addMixInAnnotations(LocalityModel.class, JsonLocalityModelMixIn.class);
+    mapper.getSerializationConfig().addMixInAnnotations(HostLocality.class, JsonHostLocalityMixIn.class);
+    mapper.getDeserializationConfig().addMixInAnnotations(HostLocality.class, JsonHostLocalityMixIn.class);
 
     // Convert camel case to hyphenated field names, and register the module.
     mapper.setPropertyNamingStrategy(new CamelCaseToDashesStrategy());

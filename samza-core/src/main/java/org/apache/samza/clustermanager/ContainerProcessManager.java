@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
@@ -33,9 +34,11 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
+import org.apache.samza.job.model.HostLocality;
+import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
 import org.apache.samza.metrics.JvmMetrics;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -103,6 +106,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   private final Option<DiagnosticsManager> diagnosticsManager;
 
+  private final LocalityManager localityManager;
+
   /**
    * A standard interface to request resources.
    */
@@ -130,7 +135,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private Map<String, MetricsReporter> metricsReporters;
 
   public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
-      ContainerPlacementMetadataStore metadataStore) {
+      ContainerPlacementMetadataStore metadataStore, LocalityManager localityManager) {
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
@@ -159,11 +164,12 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       diagnosticsManager = Option.empty();
     }
 
+    this.localityManager = localityManager;
     // Wire all metrics to all reporters
     this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
 
     this.containerManager = new ContainerManager(metadataStore, state, clusterResourceManager, hostAffinityEnabled,
-        jobConfig.getStandbyTasksEnabled());
+        jobConfig.getStandbyTasksEnabled(), localityManager);
 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
@@ -176,7 +182,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       MetricsRegistryMap registry,
       ClusterResourceManager resourceManager,
       Optional<ContainerAllocator> allocator,
-      ContainerManager containerManager) {
+      ContainerManager containerManager,
+      LocalityManager localityManager) {
     this.state = state;
     this.clusterManagerConfig = clusterManagerConfig;
     this.jobConfig = new JobConfig(clusterManagerConfig);
@@ -186,6 +193,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.clusterResourceManager = resourceManager;
     this.containerManager = containerManager;
     this.diagnosticsManager = Option.empty();
+    this.localityManager = localityManager;
     this.containerAllocator = allocator.orElseGet(
       () -> new ContainerAllocator(this.clusterResourceManager, clusterManagerConfig, state,
           hostAffinityEnabled, this.containerManager));
@@ -233,8 +241,16 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
 
     // Request initial set of containers
-    Map<String, String> processorToHostMapping = state.jobModelManager.jobModel().getAllContainerLocality();
-    containerAllocator.requestResources(processorToHostMapping);
+    LocalityModel localityModel = localityManager.readLocality();
+    Map<String, String> processorToHost = new HashMap<>();
+    state.jobModelManager.jobModel().getContainers().keySet().forEach((containerId) -> {
+      String host = Optional.ofNullable(localityModel.getHostLocality(containerId))
+          .map(HostLocality::host)
+          .filter(StringUtils::isNotBlank)
+          .orElse(null);
+      processorToHost.put(containerId, host);
+    });
+    containerAllocator.requestResources(processorToHost);
 
     // Start container allocator thread
     LOG.info("Starting the container allocator thread");
@@ -476,8 +492,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     state.neededProcessors.incrementAndGet();
     // Find out previously running container location
-    String lastSeenOn = state.jobModelManager.jobModel().getContainerToHostValue(processorId, SetContainerHostMapping.HOST_KEY);
-    if (!hostAffinityEnabled || lastSeenOn == null) {
+    String lastSeenOn = Optional.ofNullable(localityManager.readLocality().getHostLocality(processorId))
+        .map(HostLocality::host)
+        .orElse(null);
+    if (!hostAffinityEnabled || StringUtils.isBlank(lastSeenOn)) {
       lastSeenOn = ResourceRequestState.ANY_HOST;
     }
     LOG.info("Container ID: {} for Processor ID: {} was last seen on host {}.", containerId, processorId, lastSeenOn);

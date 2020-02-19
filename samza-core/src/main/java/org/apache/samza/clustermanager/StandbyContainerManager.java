@@ -26,8 +26,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.container.LocalityManager;
+import org.apache.samza.job.model.HostLocality;
 import org.apache.samza.job.model.JobModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +44,8 @@ public class StandbyContainerManager {
 
   private final SamzaApplicationState samzaApplicationState;
 
+  private final LocalityManager localityManager;
+
   // Map of samza containerIDs to their corresponding active and standby containers, e.g., 0 -> {0-0, 0-1}, 0-0 -> {0, 0-1}
   // This is used for checking no two standbys or active-standby-pair are started on the same host
   private final Map<String, List<String>> standbyContainerConstraints;
@@ -53,8 +57,9 @@ public class StandbyContainerManager {
   private ClusterResourceManager clusterResourceManager;
 
   public StandbyContainerManager(SamzaApplicationState samzaApplicationState,
-      ClusterResourceManager clusterResourceManager) {
+      ClusterResourceManager clusterResourceManager, LocalityManager localityManager) {
     this.failovers = new ConcurrentHashMap<>();
+    this.localityManager = localityManager;
     this.standbyContainerConstraints = new HashMap<>();
     this.samzaApplicationState = samzaApplicationState;
     JobModel jobModel = samzaApplicationState.jobModelManager.jobModel();
@@ -297,12 +302,13 @@ public class StandbyContainerManager {
     // We iterate over the list of last-known standbyHosts to check if anyone of them has not already been tried
     for (String standbyContainerID : this.standbyContainerConstraints.get(activeContainerID)) {
 
-      String standbyHost = this.samzaApplicationState.jobModelManager.jobModel().
-          getContainerToHostValue(standbyContainerID, SetContainerHostMapping.HOST_KEY);
+      String standbyHost =
+          Optional.ofNullable(localityManager.readLocality().getHostLocality(standbyContainerID))
+              .map(HostLocality::host)
+              .orElse(null);
 
-      if (standbyHost == null || standbyHost.isEmpty()) {
+      if (StringUtils.isNotBlank(standbyHost)) {
         log.info("No last known standbyHost for container {}", standbyContainerID);
-
       } else if (failoverMetadata.isPresent() && failoverMetadata.get().isStandbyHostUsed(standbyHost)) {
 
         log.info("Not using standby host {} for active container {} because it had already been selected", standbyHost,
