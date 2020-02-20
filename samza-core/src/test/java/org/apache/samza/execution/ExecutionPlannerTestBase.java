@@ -101,6 +101,10 @@ class ExecutionPlannerTestBase {
   }
 
   void configureJobNode(ApplicationDescriptorImpl mockStreamAppDesc) {
+    configureJobNode(mockStreamAppDesc, mockConfig);
+  }
+
+  void configureJobNode(ApplicationDescriptorImpl mockStreamAppDesc, Config mockConfig) {
     JobGraph jobGraph = new ExecutionPlanner(mockConfig, mock(StreamManager.class))
         .createJobGraph(mockStreamAppDesc);
     mockJobNode = spy(jobGraph.getJobNodes().get(0));

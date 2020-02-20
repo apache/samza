@@ -21,6 +21,7 @@ package org.apache.samza.execution;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
+import joptsimple.internal.Strings;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptorImpl;
@@ -119,6 +120,23 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
     validateJobConfig(expectedJobConfig, jobConfig);
     Map<String, Serde> deserializedSerdes = validateAndGetDeserializedSerdes(jobConfig, 2);
     validateStreamConfigures(jobConfig, deserializedSerdes);
+  }
+
+  @Test
+  public void testGenerateJobConfigWithTaskApplicationWhenSpecifiedTaskInputsInConfig() {
+    Map<String, String> configs = new HashMap<>(mockConfig);
+    // specify task.inputs in config explicitly
+    configs.put(TaskConfig.INPUT_STREAMS, "kafka.topic1,kafka.topic2");
+    MapConfig originConfig = new MapConfig(configs);
+    TaskApplicationDescriptorImpl taskAppDesc = new TaskApplicationDescriptorImpl(getTaskApplication(), originConfig);
+    configureJobNode(taskAppDesc, originConfig);
+    // create the JobGraphConfigureGenerator and generate the jobConfig for the jobNode
+    JobNodeConfigurationGenerator configureGenerator = new JobNodeConfigurationGenerator();
+    JobConfig jobConfig = configureGenerator.generateJobConfig(mockJobNode, "testJobGraphJson");
+
+    // Verify the results
+    Config expectedJobConfig = getExpectedJobConfig(originConfig, mockJobNode.getInEdges());
+    validateJobConfig(expectedJobConfig, jobConfig);
   }
 
   @Test
@@ -273,6 +291,10 @@ public class TestJobNodeConfigurationGenerator extends ExecutionPlannerTestBase 
       } else {
         inputs.add(inputEdge.getName());
       }
+    }
+    String originalInputs = originConfig.get(TaskConfig.INPUT_STREAMS);
+    if (!Strings.isNullOrEmpty(originalInputs)) {
+      inputs.add(originalInputs);
     }
     if (!inputs.isEmpty()) {
       configMap.put(TaskConfig.INPUT_STREAMS, Joiner.on(',').join(inputs));
