@@ -38,6 +38,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.storage.TransactionalStateTaskRestoreManager.RestoreOffsets;
 import org.apache.samza.storage.TransactionalStateTaskRestoreManager.StoreActions;
@@ -166,6 +167,7 @@ public class TestTransactionalStateTaskRestoreManager {
     when(mockTaskModel.getTaskName()).thenReturn(taskName);
     Partition taskChangelogPartition = new Partition(0);
     when(mockTaskModel.getChangelogPartition()).thenReturn(taskChangelogPartition);
+    when(mockTaskModel.getTaskMode()).thenReturn(TaskMode.Active);
 
     String store1Name = "store1";
     StorageEngine store1Engine = mock(StorageEngine.class);
@@ -208,13 +210,22 @@ public class TestTransactionalStateTaskRestoreManager {
             return Long.valueOf(offset1).compareTo(Long.valueOf(offset2));
           });
 
+    File dummyCurrentDir = new File("currentDir");
+    File dummyCheckpointDir = new File("checkpointDir1");
+    when(mockStorageManagerUtil.getTaskStoreDir(mockLoggedStoreBaseDir, store1Name, taskName, TaskMode.Active))
+        .thenReturn(dummyCurrentDir);
+    when(mockStorageManagerUtil.getTaskStoreCheckpointDirs(mockLoggedStoreBaseDir, store1Name, taskName, TaskMode.Active))
+        .thenReturn(ImmutableList.of(dummyCheckpointDir));
+
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
         mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
-    // ensure that there is one directory to delete
-    assertEquals(1, storeActions.storeDirsToDelete.size());
+    // ensure that current and checkpoint directories are marked for deletion
+    assertEquals(2, storeActions.storeDirsToDelete.size());
+    assertTrue(storeActions.storeDirsToDelete.containsValue(dummyCheckpointDir));
+    assertTrue(storeActions.storeDirsToDelete.containsValue(dummyCurrentDir));
     // ensure that we restore from the oldest changelog offset to checkpointed changelog offset
     assertEquals("0", storeActions.storesToRestore.get(store1Name).startingOffset);
     assertEquals(changelog1CheckpointedOffset, storeActions.storesToRestore.get(store1Name).endingOffset);
