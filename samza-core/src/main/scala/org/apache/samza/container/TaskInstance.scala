@@ -277,7 +277,7 @@ class TaskInstance(
       try {
         storageManager.removeOldCheckpoints(checkpointId)
       } catch {
-        case e: Exception => error("Failed to remove old checkpoints", e)
+        case e: Exception => error("Failed to remove old checkpoints for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)
       }
     }
 
