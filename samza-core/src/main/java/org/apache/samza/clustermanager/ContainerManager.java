@@ -141,8 +141,8 @@ public class ContainerManager {
           LOG.info(
               "Starting container {} on host {} does not meet standby constraints, falling back to source host placement metadata: {}",
               request.getProcessorId(), preferredHost, actionMetaData);
-          resourceRequestState.releaseUnstartableContainer(allocatedResource, preferredHost);
-          resourceRequestState.cancelResourceRequest(request);
+          // Release unstartable container
+          standbyContainerManager.get().releaseUnstartableContainer(request, allocatedResource, preferredHost, resourceRequestState);
           // Fallback to source host since the new allocated resource does not meet standby constraints
           allocator.requestResource(processorId, actionMetaData.getSourceHost());
           markContainerPlacementActionFailed(actionMetaData,

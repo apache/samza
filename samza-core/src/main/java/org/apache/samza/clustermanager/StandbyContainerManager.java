@@ -383,8 +383,7 @@ public class StandbyContainerManager {
       log.info(
           "Running standby container {} on host {} does not meet standby constraints, cancelling resource request, releasing resource, and making a new ANY_HOST request",
           containerID, samzaResource.getHost());
-      resourceRequestState.releaseUnstartableContainer(samzaResource, preferredHost);
-      resourceRequestState.cancelResourceRequest(request);
+      releaseUnstartableContainer(request, samzaResource, preferredHost, resourceRequestState);
       containerAllocator.requestResource(containerID, ResourceRequestState.ANY_HOST);
       samzaApplicationState.failedStandbyAllocations.incrementAndGet();
     } else {
@@ -392,9 +391,7 @@ public class StandbyContainerManager {
       log.warn(
           "Running active container {} on host {} does not meet standby constraints, cancelling resource request, releasing resource",
           containerID, samzaResource.getHost());
-      resourceRequestState.releaseUnstartableContainer(samzaResource, preferredHost);
-      resourceRequestState.cancelResourceRequest(request);
-
+      releaseUnstartableContainer(request, samzaResource, preferredHost, resourceRequestState);
       Optional<FailoverMetadata> failoverMetadata = getFailoverMetadata(request);
       String lastKnownResourceID =
           failoverMetadata.isPresent() ? failoverMetadata.get().activeContainerResourceID : "unknown-" + containerID;
@@ -431,6 +428,16 @@ public class StandbyContainerManager {
   List<String> getStandbyList(String activeContainerId) {
     return this.standbyContainerConstraints.get(activeContainerId);
   }
+
+  /**
+   * Release un-startable resources immediately and deletes requests corresponsing to it
+   */
+  void releaseUnstartableContainer(SamzaResourceRequest request, SamzaResource resource, String preferredHost,
+      ResourceRequestState resourceRequestState) {
+    resourceRequestState.releaseUnstartableContainer(resource, preferredHost);
+    resourceRequestState.cancelResourceRequest(request);
+  }
+
 
   // Handle an expired resource request that was made for placing a standby container
   private void handleExpiredRequestForStandbyContainer(String containerID, SamzaResourceRequest request,
