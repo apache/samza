@@ -299,7 +299,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder) {
-    String processorId = builder.buildEnvironment().get(ShellCommandConfig.ENV_CONTAINER_ID());
+    String processorId = builder.buildEnvironment().get(ShellCommandConfig.ENV_CONTAINER_ID);
     String containerId = resource.getContainerId();
     String host = resource.getHost();
     log.info("Starting Processor ID: {} on Container ID: {} on host: {}", processorId, containerId, host);
@@ -589,7 +589,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     String command = cmdBuilder.buildCommand();
 
     Map<String, String> env = getEscapedEnvironmentVariablesMap(cmdBuilder);
-    env.put(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID(), Util.envVarEscape(container.getId().toString()));
+    env.put(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID, Util.envVarEscape(container.getId().toString()));
 
     Path packagePath = new Path(yarnConfig.getPackagePath());
     String formattedCommand =

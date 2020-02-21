@@ -64,9 +64,9 @@ public class TestYarnJob {
     String expectedCoordinatorStreamConfigStringValue = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
         .writeValueAsString(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)));
     Map<String, String> expected = ImmutableMap.of(
-        ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG(), expectedCoordinatorStreamConfigStringValue,
-        ShellCommandConfig.ENV_JAVA_OPTS(), Util.envVarEscape(amJvmOptions),
-        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED(), "false");
+        ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
+        ShellCommandConfig.ENV_JAVA_OPTS, Util.envVarEscape(amJvmOptions),
+        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
@@ -83,10 +83,10 @@ public class TestYarnJob {
     String expectedCoordinatorStreamConfigStringValue = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
         .writeValueAsString(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)));
     Map<String, String> expected = ImmutableMap.of(
-        ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG(), expectedCoordinatorStreamConfigStringValue,
-        ShellCommandConfig.ENV_JAVA_OPTS(), "",
-        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED(), "true",
-        ShellCommandConfig.ENV_APPLICATION_LIB_DIR(), "./__package/lib");
+        ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
+        ShellCommandConfig.ENV_JAVA_OPTS, "",
+        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true",
+        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
@@ -104,10 +104,10 @@ public class TestYarnJob {
     String expectedCoordinatorStreamConfigStringValue = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
         .writeValueAsString(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)));
     Map<String, String> expected = ImmutableMap.of(
-        ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG(), expectedCoordinatorStreamConfigStringValue,
-        ShellCommandConfig.ENV_JAVA_OPTS(), "",
-        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED(), "false",
-        ShellCommandConfig.ENV_JAVA_HOME(), "/some/path/to/java/home");
+        ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
+        ShellCommandConfig.ENV_JAVA_OPTS, "",
+        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false",
+        ShellCommandConfig.ENV_JAVA_HOME, "/some/path/to/java/home");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
@@ -124,10 +124,10 @@ public class TestYarnJob {
     String expectedSubmissionConfig = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
         .writeValueAsString(config));
     Map<String, String> expected = ImmutableMap.of(
-        ShellCommandConfig.ENV_SUBMISSION_CONFIG(), expectedSubmissionConfig,
-        ShellCommandConfig.ENV_JAVA_OPTS(), "",
-        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED(), "true",
-        ShellCommandConfig.ENV_APPLICATION_LIB_DIR(), "./__package/lib");
+        ShellCommandConfig.ENV_SUBMISSION_CONFIG, expectedSubmissionConfig,
+        ShellCommandConfig.ENV_JAVA_OPTS, "",
+        ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true",
+        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }

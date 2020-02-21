@@ -111,7 +111,7 @@ public abstract class JobPlanner {
   final void writePlanJsonFile(String planJson) {
     try {
       String content = "plan='" + planJson + "'";
-      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR());
+      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR);
       if (planPath != null && !planPath.isEmpty()) {
         // Write the plan json to plan path
         File file = new File(planPath + "/plan.json");
