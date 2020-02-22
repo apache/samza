@@ -439,13 +439,7 @@ public class ContainerManager {
    */
   private boolean deQueueAction(ContainerPlacementRequestMessage requestMessage) {
     // Do not dequeue action wait for the in-flight action to complete
-    if (hasActiveContainerPlacementAction(requestMessage.getProcessorId())
-        || checkStandbyOrActiveContainerHasActivePlacementAction(requestMessage.getProcessorId())) {
-      if (standbyContainerManager.isPresent()) {
-        LOG.info("ContainerPlacement request: {} is en-queued because either active container or its standby replica has an in-progress placement action", requestMessage);
-      } else {
-        LOG.info("ContainerPlacement request: {} is en-queued because container has an in-progress placement action", requestMessage);
-      }
+    if (checkIfActiveOrStandbyContainerHasActivePlacementAction(requestMessage)) {
       return false;
     }
     // Do not dequeue the action wait for the container to come to a running state
@@ -465,20 +459,20 @@ public class ContainerManager {
    * @return Pair<ContainerPlacementMessage.StatusCode, String> which is status code & response suggesting if the request is valid
    */
   private Pair<ContainerPlacementMessage.StatusCode, String> validatePlacementAction(ContainerPlacementRequestMessage requestMessage) {
-    String errorMessagePrefix = ContainerPlacementMessage.StatusCode.BAD_REQUEST + " reason: ";
+    String errorMessagePrefix = ContainerPlacementMessage.StatusCode.BAD_REQUEST + " reason: %s";
     Boolean invalidAction = false;
     String errorMessage = null;
     if (!samzaApplicationState.runningProcessors.containsKey(requestMessage.getProcessorId()) &&
         !samzaApplicationState.pendingProcessors.containsKey(requestMessage.getProcessorId())
     ) {
-      errorMessage = String.format("%s invalid processor id neither in running or pending processors", errorMessagePrefix);
+      errorMessage = String.format(errorMessagePrefix, "invalid processor id neither in running or pending processors");
       invalidAction = true;
     } else if (placementRequestsCache.containsKey(requestMessage.getUuid())) {
-      errorMessage = String.format("%s duplicate UUID of the request, please retry", errorMessagePrefix);
+      errorMessage = String.format(errorMessagePrefix, "duplicate UUID of the request, please retry");
       invalidAction = true;
     } else if (standbyContainerManager.isPresent() && !standbyContainerManager.get()
         .checkStandbyConstraints(requestMessage.getProcessorId(), requestMessage.getDestinationHost())) {
-      errorMessage = String.format("%s destination host does not meet standby constraints", errorMessagePrefix);
+      errorMessage = String.format(errorMessagePrefix, "destination host does not meet standby constraints");
       invalidAction = true;
     }
 
@@ -490,15 +484,23 @@ public class ContainerManager {
   }
 
   /**
-   * An active and a standby container cannot have a concurrent placement action in flight, if they do actions are taken
-   * serially in the order of timestamps
+   * Checks if there are any active container placement action on container itself or on any of its standby containers
+   * (if enabled)
    */
-  private boolean checkStandbyOrActiveContainerHasActivePlacementAction(String processorId) {
+  private boolean checkIfActiveOrStandbyContainerHasActivePlacementAction(ContainerPlacementRequestMessage request) {
+    String processorId = request.getProcessorId();
+    // Container itself has active container placement actions
+    if (hasActiveContainerPlacementAction(processorId)) {
+      LOG.info("ContainerPlacement request: {} is en-queued because container has an in-progress placement action", request);
+      return true;
+    }
+
     if (standbyContainerManager.isPresent()) {
       // If requested placement action is on a standby container and its active container has a placement request,
       // this request shall not be de-queued until in-flight action on active container is complete
       if (StandbyTaskUtil.isStandbyContainer(processorId) && hasActiveContainerPlacementAction(
           StandbyTaskUtil.getActiveContainerId(processorId))) {
+        LOG.info("ContainerPlacement request: {} is en-queued because its active container has an in-progress placement action", request);
         return true;
       }
       // If requested placement action is on a standby container and its active container has a placement request,
@@ -506,6 +508,7 @@ public class ContainerManager {
       if (!StandbyTaskUtil.isStandbyContainer(processorId)) {
         for (String standby : standbyContainerManager.get().getStandbyList(processorId)) {
           if (hasActiveContainerPlacementAction(standby)) {
+            LOG.info("ContainerPlacement request: {} is en-queued because one of its standby replica has an in-progress placement action", request);
             return true;
           }
         }
