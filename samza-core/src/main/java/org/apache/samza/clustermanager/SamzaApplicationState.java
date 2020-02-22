@@ -160,6 +160,11 @@ public class SamzaApplicationState {
   */
   public final AtomicInteger failoversToAnyHost = new AtomicInteger(0);
 
+  /**
+   * Number of occurrences of failed container placement actions
+   */
+  public final AtomicInteger failedContainerPlacementActions = new AtomicInteger(0);
+
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;
   }

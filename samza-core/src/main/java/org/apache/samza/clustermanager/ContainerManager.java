@@ -387,6 +387,7 @@ public class ContainerManager {
   }
 
   private void markContainerPlacementActionFailed(ContainerPlacementMetadata metaData, String failureMessage) {
+    samzaApplicationState.failedContainerPlacementActions.incrementAndGet();
     updateContainerPlacementActionStatus(metaData, ContainerPlacementMessage.StatusCode.FAILED, failureMessage);
   }
 
