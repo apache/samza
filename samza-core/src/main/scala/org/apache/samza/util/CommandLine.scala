@@ -19,11 +19,8 @@
 
 package org.apache.samza.util
 
-<<<<<<< HEAD
 import java.util
 
-=======
->>>>>>> 4b403581e61756a054508d9c67b61adcde559a5c
 import joptsimple.util.KeyValuePair
 import joptsimple.{ArgumentAcceptingOptionSpec, OptionParser, OptionSet}
 import org.apache.samza.config.{Config, ConfigLoaderFactory, MapConfig}
