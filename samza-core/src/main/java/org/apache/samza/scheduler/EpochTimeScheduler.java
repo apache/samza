@@ -86,10 +86,10 @@ public class EpochTimeScheduler {
   }
 
   public <K> void deleteTimer(K key) {
-    final List<ScheduledFuture> scheduledFuture = scheduledFutures.remove(key);
-    for (ScheduledFuture s: scheduledFuture) {
-      if (s != null) {
-        s.cancel(false);
+    final List<ScheduledFuture> scheduledFutureList = scheduledFutures.remove(key);
+    for (ScheduledFuture scheduledFuture: scheduledFutureList) {
+      if (scheduledFuture != null) {
+        scheduledFuture.cancel(false);
       }
     }
   }
