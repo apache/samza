@@ -868,12 +868,10 @@ class SamzaContainer(
       return
     }
 
-    /**
-      * Countdown the standbyContainerShutdownLatch so standby container can invoke a shutdown sequence
-      */
-    standbyContainerShutdownLatch.countDown();
-
-    shutdownRunLoop()
+    if (taskInstances.size > 0 )
+      shutdownRunLoop()
+    else
+      standbyContainerShutdownLatch.countDown // Countdown the latch so standby container can invoke a shutdown sequence
   }
 
   // Shutdown Runloop
