@@ -52,7 +52,9 @@ public class TestEpochTimeScheduler {
 
   private void fireTimers(EpochTimeScheduler factory) {
     factory.removeReadyTimers().entrySet().forEach(entry -> {
-        entry.getValue().onCallback(entry.getKey().getKey(), mock(MessageCollector.class), mock(TaskCoordinator.class));
+        entry.getValue().forEach(scheduledCallback -> {
+            scheduledCallback.onCallback(entry.getKey().getKey(), mock(MessageCollector.class), mock(TaskCoordinator.class));
+          });
       });
   }
 

@@ -225,7 +225,7 @@ class TaskInstance(
 
     exceptionHandler.maybeHandle {
       epochTimeScheduler.removeReadyTimers().entrySet().foreach { entry =>
-        entry.getValue.asInstanceOf[ScheduledCallback[Any]].onCallback(entry.getKey.getKey, collector, coordinator)
+        entry.getValue.asScala.toList.foreach(_.asInstanceOf[ScheduledCallback[Any]].onCallback(entry.getKey.getKey, collector, coordinator))
       }
     }
   }

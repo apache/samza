@@ -19,14 +19,12 @@
 
 package org.apache.samza.scheduler;
 
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Per-task scheduler for keyed timers.
@@ -45,8 +43,8 @@ public class EpochTimeScheduler {
   }
 
   private final ScheduledExecutorService executor;
-  private final Map<Object, ScheduledFuture> scheduledFutures = new ConcurrentHashMap<>();
-  private final Map<TimerKey<?>, ScheduledCallback> readyTimers = new ConcurrentHashMap<>();
+  private final Map<Object, List<ScheduledFuture>> scheduledFutures = new ConcurrentHashMap<>();
+  private final Map<TimerKey<?>, List<ScheduledCallback>> readyTimers = new ConcurrentHashMap<>();
   private volatile TimerListener timerListener;
 
   public static EpochTimeScheduler create(ScheduledExecutorService executor) {
@@ -58,25 +56,41 @@ public class EpochTimeScheduler {
   }
 
   public <K> void setTimer(K key, long timestamp, ScheduledCallback<K> callback) {
-    checkState(!scheduledFutures.containsKey(key),
-        String.format("Duplicate key %s registration for the same timer", key));
 
     final long delay = timestamp - System.currentTimeMillis();
     final ScheduledFuture<?> scheduledFuture = executor.schedule(() -> {
         scheduledFutures.remove(key);
-        readyTimers.put(TimerKey.of(key, timestamp), callback);
+        TimerKey timer = TimerKey.of(key, timestamp);
+        if (readyTimers.containsKey(timer)) {
+          List<ScheduledCallback> scheduledCallbackList = readyTimers.get(timer);
+          scheduledCallbackList.add(callback);
+          readyTimers.put(timer, scheduledCallbackList);
+        } else {
+          List<ScheduledCallback> scheduledCallbackList = Collections.singletonList(callback);
+          readyTimers.put(timer, scheduledCallbackList);
+        }
 
         if (timerListener != null) {
           timerListener.onTimer();
         }
       }, delay > 0 ? delay : 0, TimeUnit.MILLISECONDS);
-    scheduledFutures.put(key, scheduledFuture);
+
+    if (scheduledFutures.containsKey(key)) {
+      List<ScheduledFuture> scheduledFutureList = scheduledFutures.get(key);
+      scheduledFutureList.add(scheduledFuture);
+      scheduledFutures.put(key, scheduledFutureList);
+    } else {
+      List<ScheduledFuture> scheduledFutureList = Collections.singletonList(scheduledFuture);
+      scheduledFutures.put(key, scheduledFutureList);
+    }
   }
 
   public <K> void deleteTimer(K key) {
-    final ScheduledFuture<?> scheduledFuture = scheduledFutures.remove(key);
-    if (scheduledFuture != null) {
-      scheduledFuture.cancel(false);
+    final List<ScheduledFuture> scheduledFuture = scheduledFutures.remove(key);
+    for (ScheduledFuture s: scheduledFuture) {
+      if (s != null) {
+        s.cancel(false);
+      }
     }
   }
 
@@ -88,8 +102,8 @@ public class EpochTimeScheduler {
     }
   }
 
-  public Map<TimerKey<?>, ScheduledCallback> removeReadyTimers() {
-    final Map<TimerKey<?>, ScheduledCallback> timers = new TreeMap<>(readyTimers);
+  public Map<TimerKey<?>, List<ScheduledCallback>> removeReadyTimers() {
+    final Map<TimerKey<?>, List<ScheduledCallback>> timers = new TreeMap<>(readyTimers);
     // Remove keys on the map directly instead of using key set iterator and remove all
     // on the key set as it results in duplicate firings due to weakly consistent SetView
     for (TimerKey<?> key : timers.keySet()) {
