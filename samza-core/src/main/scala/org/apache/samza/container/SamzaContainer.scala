@@ -715,7 +715,7 @@ class SamzaContainer(
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
 
-  @volatile private var stopSignalLatch = new CountDownLatch(1);
+  @volatile private var standbyContainerShutdownLatch = new CountDownLatch(1);
 
   private var exceptionSeen: Throwable = null
   private var containerListener: SamzaContainerListener = null
@@ -770,7 +770,7 @@ class SamzaContainer(
       if (taskInstances.size > 0)
         runLoop.run
       else
-        stopSignalLatch.await() // Standby containers do not spin runLoop, instead they wait on signal to invoke shutdown
+        standbyContainerShutdownLatch.await() // Standby containers do not spin runLoop, instead they wait on signal to invoke shutdown
     } catch {
       case e: InterruptedException =>
         /*
@@ -869,9 +869,9 @@ class SamzaContainer(
     }
 
     /**
-      * Countdown the stopSignalLatch so standby container can invoke a shutdown sequence
+      * Countdown the standbyContainerShutdownLatch so standby container can invoke a shutdown sequence
       */
-    stopSignalLatch.countDown();
+    standbyContainerShutdownLatch.countDown();
 
     shutdownRunLoop()
   }
