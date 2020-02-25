@@ -19,12 +19,16 @@
 
 package org.apache.samza.util
 
+<<<<<<< HEAD
+import java.util
+
+=======
+>>>>>>> 4b403581e61756a054508d9c67b61adcde559a5c
 import joptsimple.util.KeyValuePair
 import joptsimple.{ArgumentAcceptingOptionSpec, OptionParser, OptionSet}
 import org.apache.samza.config.{Config, ConfigLoaderFactory, MapConfig}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 /**
  * Defines a basic set of command-line options for Samza tasks. Tools can use this
@@ -41,12 +45,13 @@ class CommandLine {
   var configLoaderFactory: ConfigLoaderFactory = _
 
   def loadConfig(options: OptionSet): Config = {
-    val configOverrides = options.valuesOf(configOverrideOpt).asScala
+    ConfigUtil.loadConfig(new MapConfig(getConfigOverrides(options)))
+  }
+
+  def getConfigOverrides(options: OptionSet): util.Map[String, String] = {
+    options.valuesOf(configOverrideOpt).asScala
       .map(kv => (kv.key, kv.value))
       .toMap
-    val original = mutable.HashMap[String, String]()
-    original ++= configOverrides
-
-    ConfigUtil.loadConfig(new MapConfig(original.asJava))
+      .asJava
   }
 }
