@@ -868,7 +868,7 @@ class SamzaContainer(
       return
     }
 
-    if (taskInstances.size > 0 )
+    if (taskInstances.size > 0)
       shutdownRunLoop()
     else
       standbyContainerShutdownLatch.countDown // Countdown the latch so standby container can invoke a shutdown sequence

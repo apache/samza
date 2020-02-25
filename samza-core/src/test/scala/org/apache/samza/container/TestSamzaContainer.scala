@@ -50,7 +50,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Mock
   private var config: Config = null
   @Mock
-  private var taskInstance: TaskInstance = null;
+  private var taskInstance: TaskInstance = null
   @Mock
   private var runLoop: Runnable = null
   @Mock
@@ -129,7 +129,6 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testShutDownSequenceForStandbyContainers() {
-
     class ShutDownSignal(container: SamzaContainer) extends Runnable {
       def run(): Unit = {
         Thread.sleep(2000)
