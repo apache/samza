@@ -19,14 +19,9 @@
 
 package org.apache.samza.runtime;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.stream.Collectors;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.ConfigLoaderFactory;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.util.CommandLine;
 
@@ -38,40 +33,22 @@ import org.apache.samza.util.CommandLine;
 public class ApplicationRunnerMain {
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
-    public OptionSpec<String> operationOpt =
+    OptionSpec<String> operationOpt =
         parser().accepts("operation", "The operation to perform; run, status, kill.")
             .withRequiredArg()
             .ofType(String.class)
             .describedAs("operation=run")
             .defaultsTo("run");
 
-    public ApplicationRunnerOperation getOperation(OptionSet options) {
+    ApplicationRunnerOperation getOperation(OptionSet options) {
       String rawOp = options.valueOf(operationOpt);
       return ApplicationRunnerOperation.fromString(rawOp);
     }
 
     @Override
     public Config loadConfig(OptionSet options) {
-      // Set up the job parameters.
-      String configLoaderFactoryClassName = options.valueOf(configLoaderFactoryOpt());
-      Map<String, String> configLoaderProperties =
-          options.valuesOf(configLoaderPropertiesOpt())
-          .stream()
-          .collect(Collectors.toMap(
-              kv -> ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + kv.key,
-              kv -> kv.value));
-
-      Map<String, String> configOverrides = options.valuesOf(configOverrideOpt())
-          .stream()
-          .collect(Collectors.toMap(
-              kv -> kv.key,
-              kv -> kv.value));
-
       // ConfigLoader is not supposed to be invoked to load full job config during job submission.
-      return new MapConfig(
-          Collections.singletonMap(JobConfig.CONFIG_LOADER_FACTORY, configLoaderFactoryClassName),
-          configLoaderProperties,
-          configOverrides);
+      return new MapConfig(getConfigOverrides(options));
     }
   }
 
