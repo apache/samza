@@ -126,6 +126,45 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     verify(this.runLoop).run()
   }
 
+
+  @Test
+  def testShutDownSequenceForStandbyContainers() {
+    class ShutDownSignal(container: SamzaContainer) extends Runnable {
+      def run(): Unit = {
+        Thread.sleep(2000)
+        container.shutdown();
+      }
+    }
+
+    this.samzaContainer = new SamzaContainer(
+      this.config,
+      Map.empty[TaskName, TaskInstance],
+      Map.empty[TaskName, TaskInstanceMetrics],
+      this.runLoop,
+      this.systemAdmins,
+      this.consumerMultiplexer,
+      this.producerMultiplexer,
+      this.metrics,
+      localityManager = this.localityManager,
+      containerContext = this.containerContext,
+      applicationContainerContextOption = Some(this.applicationContainerContext),
+      externalContextOption = None,
+      containerStorageManager = containerStorageManager)
+    this.samzaContainer.setContainerListener(this.samzaContainerListener)
+
+    new ShutDownSignal(samzaContainer).run();
+    this.samzaContainer.run
+
+    verify(this.samzaContainerListener).beforeStart()
+    verify(this.samzaContainerListener).afterStart()
+    verify(this.samzaContainerListener).afterStop()
+    verify(this.runLoop, never()).run()
+    verify(this.systemAdmins).stop()
+    verify(this.containerStorageManager).shutdown()
+  }
+
+
+
   @Test
   def testCleanRun(): Unit = {
     doNothing().when(this.runLoop).run() // run loop completes successfully
