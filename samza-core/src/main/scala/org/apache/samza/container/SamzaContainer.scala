@@ -26,7 +26,7 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util
 import java.util.{Base64, Optional}
-import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
+import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -467,6 +467,7 @@ object SamzaContainer extends Logging {
 
     val threadPoolSize = jobConfig.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
+    samzaContainerMetrics.containerThreadPoolSize.set(threadPoolSize)
 
     val taskThreadPool = if (threadPoolSize > 0) {
       Executors.newFixedThreadPool(threadPoolSize,
@@ -713,6 +714,9 @@ class SamzaContainer(
   var jmxServer: JmxServer = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
+
+  @volatile private var standbyContainerShutdownLatch = new CountDownLatch(1);
+
   private var exceptionSeen: Throwable = null
   private var containerListener: SamzaContainerListener = null
 
@@ -766,7 +770,7 @@ class SamzaContainer(
       if (taskInstances.size > 0)
         runLoop.run
       else
-        Thread.sleep(Long.MaxValue)
+        standbyContainerShutdownLatch.await() // Standby containers do not spin runLoop, instead they wait on signal to invoke shutdown
     } catch {
       case e: InterruptedException =>
         /*
@@ -864,7 +868,10 @@ class SamzaContainer(
       return
     }
 
-    shutdownRunLoop()
+    if (taskInstances.size > 0)
+      shutdownRunLoop()
+    else
+      standbyContainerShutdownLatch.countDown // Countdown the latch so standby container can invoke a shutdown sequence
   }
 
   // Shutdown Runloop

@@ -20,6 +20,7 @@
 package org.apache.samza.system.inmemory;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -199,6 +200,6 @@ class InMemoryManager {
       return new ArrayList<>();
     }
 
-    return messageEnvelopesForSSP.subList(startingOffset, messageEnvelopesForSSP.size());
+    return ImmutableList.copyOf(messageEnvelopesForSSP.subList(startingOffset, messageEnvelopesForSSP.size()));
   }
 }

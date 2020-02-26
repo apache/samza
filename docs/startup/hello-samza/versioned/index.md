@@ -27,7 +27,6 @@ Check out the hello-samza project:
 {% highlight bash %}
 git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 cd hello-samza
-git checkout latest
 {% endhighlight %}
 
 This project contains everything you'll need to run your first Samza jobs.
@@ -50,10 +49,13 @@ Once the grid command completes, you can verify that YARN is up and running by g
 
 Before you can run a Samza job, you need to build a package for it. This package is what YARN uses to deploy your jobs on the grid.
 
-NOTE: if you are building from the latest branch of hello-samza project, make sure that you run the following step from your local Samza project first:
-
+**(Optional)** NOTE: if you want the hello-samza jobs to run with a local Samza build (e.g., if you are a Samza developer), 
+make sure that you run the following steps, otherwise skip them.
 {% highlight bash %}
-./gradlew publishToMavenLocal
+In your hello-world project,  
+git checkout latest  
+In your local Samza project,  
+./gradlew publishToMavenLocal  
 {% endhighlight %}
 
 Then, you can continue w/ the following command in hello-samza project:
