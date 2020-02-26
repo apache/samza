@@ -45,4 +45,6 @@ public class DependencyIsolationUtils {
    * classloader.
    */
   public static final String FRAMEWORK_API_CLASS_LIST_FILE_NAME = "samza-framework-api-classes.txt";
+
+  public static final String RUNTIME_FRAMEWORK_RESOURCES_PATHING_JAR_NAME = "runtime-framework-resources-pathing.jar";
 }
