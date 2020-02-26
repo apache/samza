@@ -44,10 +44,9 @@ class CommandLine {
   }
 
   def getConfigOverrides(options: OptionSet): Config = {
-    new MapConfig(
-      options.valuesOf(configOverrideOpt).asScala
-        .map(kv => (kv.key, kv.value))
-        .toMap
-        .asJava)
+    new MapConfig(options.valuesOf(configOverrideOpt).asScala
+      .map(kv => (kv.key, kv.value))
+      .toMap
+      .asJava)
   }
 }
