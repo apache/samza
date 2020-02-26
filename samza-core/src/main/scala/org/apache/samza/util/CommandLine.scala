@@ -19,8 +19,6 @@
 
 package org.apache.samza.util
 
-import java.util
-
 import joptsimple.util.KeyValuePair
 import joptsimple.{ArgumentAcceptingOptionSpec, OptionParser, OptionSet}
 import org.apache.samza.config.{Config, ConfigLoaderFactory, MapConfig}
@@ -45,10 +43,11 @@ class CommandLine {
     ConfigUtil.loadConfig(new MapConfig(getConfigOverrides(options)))
   }
 
-  def getConfigOverrides(options: OptionSet): util.Map[String, String] = {
-    options.valuesOf(configOverrideOpt).asScala
-      .map(kv => (kv.key, kv.value))
-      .toMap
-      .asJava
+  def getConfigOverrides(options: OptionSet): Config = {
+    new MapConfig(
+      options.valuesOf(configOverrideOpt).asScala
+        .map(kv => (kv.key, kv.value))
+        .toMap
+        .asJava)
   }
 }
