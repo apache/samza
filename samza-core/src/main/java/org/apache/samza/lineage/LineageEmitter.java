@@ -3,6 +3,7 @@ package org.apache.samza.lineage;
 import java.util.Optional;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.LineageConfig;
 import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
@@ -10,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * The LineageEmitter class helps generate and emit job lineage data to specified sink stream.
+ * The LineageEmitter class helps generate and emit job lineage data to configured sink stream.
  */
 public final class LineageEmitter {
 
@@ -29,12 +30,10 @@ public final class LineageEmitter {
       return;
     }
     if (!lineageFactoryClassName.isPresent()) {
-      LOGGER.warn("Missing the config: {}, skip to enable lineage feature", LineageConfig.LINEAGE_FACTORY);
-      return;
+      throw new ConfigException(String.format("Missing the lineage config: %s", LineageConfig.LINEAGE_FACTORY));
     }
     if (!lineageReporterFactoryClassName.isPresent()) {
-      LOGGER.warn("Missing the config: {}, skip to enable lineage feature", LineageConfig.LINEAGE_REPORTER_FACTORY);
-      return;
+      throw new ConfigException(String.format("Missing the lineage config: %s", LineageConfig.LINEAGE_REPORTER_FACTORY));
     }
 
     LineageFactory lineageFactory = ReflectionUtil.getObj(lineageFactoryClassName.get(), LineageFactory.class);
