@@ -34,7 +34,6 @@ import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
 import org.apache.samza.container.LocalityManager
 import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.server.JobServlet
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
@@ -42,6 +41,7 @@ import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.job.model.TaskModel
+import org.apache.samza.lineage.LineageEmitter
 import org.apache.samza.metadatastore.MetadataStore
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
@@ -268,23 +268,10 @@ object JobModelManager extends Logging {
     */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
 
-    def invokeRegexTopicRewriter(config: Config): Config = {
-      val jobConfig = new JobConfig(config)
-      JavaOptionals.toRichOptional(jobConfig.getConfigRewriters).toOption match {
-        case Some(rewriters) => rewriters.split(",").
-          filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
-            .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-            .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
-          foldLeft(config)(ConfigUtil.applyRewriter(_, _))
-        case _ => config
-      }
-    }
-
-    val configAfterRegexTopicRewrite = invokeRegexTopicRewriter(config)
-    val taskConfigAfterRegexTopicRewrite = new TaskConfig(configAfterRegexTopicRewrite)
+    val taskConfig = new TaskConfig(config)
     // Expand regex input, if a regex-rewriter is defined in config
     val inputSystemStreams =
-      JavaConverters.asScalaSetConverter(taskConfigAfterRegexTopicRewrite.getInputStreams).asScala.toSet
+      JavaConverters.asScalaSetConverter(taskConfig.getInputStreams).asScala.toSet
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache
@@ -339,6 +326,23 @@ object JobModelManager extends Logging {
   }
 
   /**
+   * Refresh Kafka topic list used as input streams if enabled {@link org.apache.samza.config.RegExTopicGenerator}
+   * @param config Samza job config
+   * @return refreshed config
+   */
+  private def refreshConfigByRegexTopicRewriter(config: Config): Config = {
+    val jobConfig = new JobConfig(config)
+    JavaOptionals.toRichOptional(jobConfig.getConfigRewriters).toOption match {
+      case Some(rewriters) => rewriters.split(",").
+        filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
+          .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
+          .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
+        foldLeft(config)(ConfigUtil.applyRewriter(_, _))
+      case _ => config
+    }
+  }
+
+  /**
     * Does the following:
     * 1. Fetches metadata of the input streams defined in configuration through {@param streamMetadataCache}.
     * 2. Applies the {@see SystemStreamPartitionGrouper}, {@see TaskNameGrouper} defined in the configuration
@@ -353,20 +357,24 @@ object JobModelManager extends Logging {
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
                    streamMetadataCache: StreamMetadataCache,
                    grouperMetadata: GrouperMetadata): JobModel = {
-    val taskConfig = new TaskConfig(config)
+
+    // refresh config if enabled regex topic rewriter
+    var newConfig = refreshConfigByRegexTopicRewriter(config)
+
+    val taskConfig = new TaskConfig(newConfig)
     // Do grouping to fetch TaskName to SSP mapping
-    val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
+    val allSystemStreamPartitions = getMatchedInputStreamPartitions(newConfig, streamMetadataCache)
 
     // processor list is required by some of the groupers. So, let's pass them as part of the config.
     // Copy the config and add the processor list to the config copy.
-    val configMap = new util.HashMap[String, String](config)
+    val configMap = new util.HashMap[String, String](newConfig)
     configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", grouperMetadata.getProcessorLocality.keySet()))
     val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap))
 
-    val jobConfig = new JobConfig(config)
+    val jobConfig = new JobConfig(newConfig)
 
     val groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = if (jobConfig.isSSPGrouperProxyEnabled) {
-      val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(config, grouper)
+      val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(newConfig, grouper)
       sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata)
     } else {
       warn("SSPGrouperProxy is disabled (%s = false). Stateful jobs may produce erroneous results if this is not enabled." format JobConfig.SSP_INPUT_EXPANSION_ENABLED)
@@ -402,17 +410,20 @@ object JobModelManager extends Logging {
       ReflectionUtil.getObj(taskConfig.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
     val standbyTasksEnabled = jobConfig.getStandbyTasksEnabled
     val standbyTaskReplicationFactor = jobConfig.getStandbyTaskReplicationFactor
-    val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)
+    val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(newConfig), standbyTasksEnabled, standbyTaskReplicationFactor)
     var containerModels: util.Set[ContainerModel] = null
-    val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
+    val isHostAffinityEnabled = new ClusterManagerConfig(newConfig).getHostAffinityEnabled
     if(isHostAffinityEnabled) {
       containerModels = taskNameGrouperProxy.group(taskModels, grouperMetadata)
     } else {
       containerModels = taskNameGrouperProxy.group(taskModels, new util.ArrayList[String](grouperMetadata.getProcessorLocality.keySet()))
     }
 
+    // Parse and emit job lineage data if enabled
+    LineageEmitter.emit(newConfig)
+
     val containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
-    new JobModel(config, containerMap.asJava)
+    new JobModel(newConfig, containerMap.asJava)
   }
 }
 
