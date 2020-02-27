@@ -291,6 +291,29 @@ public class ContainerManager {
   }
 
   /**
+   * Handles expired allocated resource by requesting the same resource again and release the expired allocated resource
+   *
+   * @param request pending request for the preferred host
+   * @param resource resource allocated from {@link ClusterResourceManager} which has expired
+   * @param preferredHost host on which container is requested to be deployed
+   * @param resourceRequestState state of request in {@link ContainerAllocator}
+   * @param allocator allocator for requesting resources
+   */
+  void handleExpiredResource(SamzaResourceRequest request, SamzaResource resource, String preferredHost,
+      ResourceRequestState resourceRequestState, ContainerAllocator allocator) {
+    LOG.info("Allocated resource {} has been expired for Processor ID: {} request: {} re-requesting resource again",
+        resource, request.getProcessorId(), request);
+    resourceRequestState.releaseUnstartableContainer(resource, preferredHost);
+    resourceRequestState.cancelResourceRequest(request);
+    SamzaResourceRequest resourceRequest = allocator.getResourceRequest(request.getProcessorId(), request.getPreferredHost());
+    if (hasActiveContainerPlacementAction(request.getProcessorId())) {
+      ContainerPlacementMetadata metadata = getPlacementActionMetadata(request.getProcessorId()).get();
+      metadata.recordResourceRequest(resourceRequest);
+    }
+    allocator.issueResourceRequest(request);
+  }
+
+  /**
    * Registers a container placement action to move the running container to destination host, if destination host is same as the
    * host on which container is running, container placement action is treated as a restart.
    *
