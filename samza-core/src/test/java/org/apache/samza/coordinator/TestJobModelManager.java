@@ -29,9 +29,12 @@ import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.RegExTopicGenerator;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GroupByContainerCount;
+import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
@@ -47,6 +50,7 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.testUtils.MockHttpServer;
+import org.apache.samza.util.ConfigUtil;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.Assert;
@@ -70,7 +74,7 @@ import scala.collection.JavaConversions;
  * Unit tests for {@link JobModelManager}
  */
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({TaskAssignmentManager.class, GroupByContainerCount.class})
+@PrepareForTest({TaskAssignmentManager.class, GroupByContainerCount.class, ConfigUtil.class})
 public class TestJobModelManager {
   private final TaskAssignmentManager mockTaskManager = mock(TaskAssignmentManager.class);
   private final Map<String, Map<String, String>> localityMappings = new HashMap<>();
@@ -302,5 +306,33 @@ public class TestJobModelManager {
         testSystemStreamPartition3, ImmutableList.of("task-3"),
         testSystemStreamPartition4, ImmutableList.of("task-4")
     ));
+  }
+
+  @Test
+  public void testJobModelContainsLatestTaskInputsWhenEnabledRegexTopicRewriter() {
+    ImmutableMap<String, String> rewriterConfig = ImmutableMap.of(
+        JobConfig.CONFIG_REWRITERS, "regexTopicRewriter",
+        String.format(JobConfig.CONFIG_REWRITER_CLASS, "regexTopicRewriter"), RegExTopicGenerator.class.getCanonicalName()
+    );
+
+    Config config = new MapConfig(rewriterConfig);
+    String taskInputMatchedRegex = inputStream.getSystem() + "." + inputStream.getStream();
+    Config refreshedConfig = new MapConfig(ImmutableMap.<String, String>builder()
+        .putAll(rewriterConfig)
+        .put(TaskConfig.INPUT_STREAMS, taskInputMatchedRegex)
+        .build()
+    );
+
+    PowerMockito.mockStatic(ConfigUtil.class);
+    PowerMockito.when(ConfigUtil.applyRewriter(config, "regexTopicRewriter")).thenReturn(refreshedConfig);
+
+    Map<TaskName, Integer> changeLogPartitionMapping = new HashMap<>();
+    GrouperMetadata grouperMetadata = mock(GrouperMetadata.class);
+
+    JobModel jobModel =
+        JobModelManager.readJobModel(config, changeLogPartitionMapping, mockStreamMetadataCache, grouperMetadata);
+
+    Assert.assertNotNull(jobModel);
+    Assert.assertEquals(taskInputMatchedRegex, jobModel.getConfig().get(TaskConfig.INPUT_STREAMS));
   }
 }
