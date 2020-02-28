@@ -173,7 +173,7 @@ public class AzureBlobOutputStream extends OutputStream {
       LOG.info("For blob: {} committing blockList size:{}", blobAsyncClient.getBlobUrl().toString(), blockList.size());
       metrics.updateAzureCommitMetrics();
       Map<String, String> blobMetadata = Collections.singletonMap(BLOB_RAW_SIZE_BYTES_METADATA, Long.toString(totalUploadedBlockSize));
-      blobAsyncClient.commitBlockListWithResponse(blockList, null, blobMetadata, null, null).block();
+      commitBlob(blockList, blobMetadata);
     } catch (Exception e) {
       String msg = String.format("Close blob %s failed with exception. Total pending sends %d",
           blobAsyncClient.getBlobUrl().toString(), pendingUpload.size());
@@ -225,6 +225,11 @@ public class AzureBlobOutputStream extends OutputStream {
     this.maxBlockFlushThresholdSize = maxBlockFlushThresholdSize;
     this.metrics = metrics;
     this.compression = compression;
+  }
+
+  @VisibleForTesting
+  void commitBlob(ArrayList<String> blockList, Map<String, String> blobMetadata) {
+    blobAsyncClient.commitBlockListWithResponse(blockList, null, blobMetadata, null, null).block();
   }
 
   /**
