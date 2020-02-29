@@ -227,6 +227,7 @@ public class AzureBlobOutputStream extends OutputStream {
     this.compression = compression;
   }
 
+  // SAMZA-2476 stubbing BlockBlobAsyncClient.commitBlockListWithResponse was causing flaky tests.
   @VisibleForTesting
   void commitBlob(ArrayList<String> blockList, Map<String, String> blobMetadata) {
     blobAsyncClient.commitBlockListWithResponse(blockList, null, blobMetadata, null, null).block();
