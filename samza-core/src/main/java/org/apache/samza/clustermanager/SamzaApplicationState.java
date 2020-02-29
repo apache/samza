@@ -110,7 +110,17 @@ public class SamzaApplicationState {
    */
   public final ConcurrentMap<String, SamzaResource> runningProcessors = new ConcurrentHashMap<>(0);
 
-   /**
+  /**
+   *  Map of the failed Samza processor ID to resource status of the last attempted of the container.
+   *  This map is only used when {@link org.apache.samza.config.ClusterManagerConfig#CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES}
+   *  is set to false, this map tracks the containers which have exhausted all retires for restart and JobCoordinator is
+   *  no longer attempting to restart this container
+   *
+   *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
+   */
+  public final ConcurrentHashMap<String, SamzaResourceStatus> failedProcessors = new ConcurrentHashMap<>(0);
+
+  /**
    * Final status of the application. Made to be volatile s.t. changes will be visible in multiple threads.
    */
   public volatile SamzaAppStatus status = SamzaAppStatus.UNDEFINED;

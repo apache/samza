@@ -273,6 +273,7 @@ public class ContainerAllocator implements Runnable {
     // prior to issuing the request. Otherwise, there's a race where the response callback may arrive sooner and not see
     // the processor as "pending" (SAMZA-2117)
 
+    state.failedProcessors.remove(processorId);
     state.pendingProcessors.put(processorId, resource);
 
     clusterResourceManager.launchStreamProcessor(resource, builder);

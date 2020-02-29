@@ -499,6 +499,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       } else {
         LOG.error("Processor ID: {} (current Container ID: {}) failed, and retry count is set to 0, " +
             "but the job will continue to run with the failed container.", processorId, containerId);
+        state.failedProcessors.put(processorId, resourceStatus);
       }
       retryContainerRequest = false;
     } else if (retryCount > 0) {
@@ -544,6 +545,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
         } else {
           LOG.warn("Processor ID: {} with Container ID: {} failed after all retry attempts. Job will continue to run without this container.",
               processorId, containerId);
+          state.failedProcessors.put(processorId, resourceStatus);
         }
       } else {
         LOG.info("Current failure count for Processor ID: {} is {}.", processorId, currentFailCount);

@@ -113,6 +113,7 @@ public class TestContainerPlacementActions {
     map.put("job.host-affinity.enabled", String.valueOf(withHostAffinity));
     map.put(ClusterManagerConfig.CLUSTER_MANAGER_CONTAINER_RETRY_COUNT, String.valueOf(maxRetries));
     map.put(ClusterManagerConfig.CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES, String.valueOf(failAfterRetries));
+    map.put(ClusterManagerConfig.CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS, "100");
     return new MapConfig(map);
   }
 
@@ -152,8 +153,7 @@ public class TestContainerPlacementActions {
     containerPlacementMetadataStore = new ContainerPlacementMetadataStore(coordinatorStreamStore);
     containerPlacementMetadataStore.start();
     // Utils Related to Cluster manager:
-    Map<String, String> conf = new HashMap<>();
-    conf.putAll(getConfigWithHostAffinityAndRetries(true, 1, true));
+    config = new MapConfig(configVals, getConfigWithHostAffinityAndRetries(true, 1, true));
     state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
     callback = mock(ClusterResourceManager.Callback.class);
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
@@ -528,6 +528,124 @@ public class TestContainerPlacementActions {
     assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestMessage.getUuid()).isPresent());
   }
 
+
+  @Test(timeout = 20000)
+  public void testContainerPlacementsForJobRunningInDegradedState() throws Exception {
+    // Set failure after retries to false to enable job running in degraded state
+    config = new MapConfig(configVals, getConfigWithHostAffinityAndRetries(true, 1, false));
+    state = new SamzaApplicationState(getJobModelManagerWithHostAffinity(ImmutableMap.of("0", "host-1", "1", "host-2")));
+    callback = mock(ClusterResourceManager.Callback.class);
+    MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+    containerManager = spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false));
+    allocatorWithHostAffinity = new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
+    cpm = new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
+        clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
+
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+          new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
+          }, "AMRMClientAsync").start();
+          return null;
+        }
+      }).when(callback).onResourcesAvailable(anyList());
+
+    // Mimic stream processor launch failure only on host-2,
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+          new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
+          }, "AMRMClientAsync").start();
+          return null;
+        }
+      }).when(callback).onStreamProcessorLaunchSuccess(any());
+
+    doAnswer(new Answer<Void>() {
+      public Void answer(InvocationOnMock invocation) {
+          new Thread(() -> {
+            Object[] args = invocation.getArguments();
+            cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
+          }, "AMRMClientAsync").start();
+          return null;
+        }
+      }).when(callback).onResourcesCompleted(anyList());
+
+    cpm.start();
+
+
+    if (!allocatorWithHostAffinity.awaitContainersStart(2, 5, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+
+    while (state.runningProcessors.size() != 2) {
+      Thread.sleep(100);
+    }
+
+    // App is in running state with two containers running
+    assertEquals(state.runningProcessors.size(), 2);
+    assertEquals(state.runningProcessors.get("0").getHost(), "host-1");
+    assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
+    assertEquals(state.preferredHostRequests.get(), 2);
+    assertEquals(state.anyHostRequests.get(), 0);
+
+
+    // Trigger a container failure
+    clusterResourceManager.stopStreamProcessor(state.runningProcessors.get("1"), -103);
+    // Wait for container to start
+    if (!allocatorWithHostAffinity.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+    while (state.runningProcessors.size() != 2) {
+      Thread.sleep(100);
+    }
+    // Trigger a container failure again
+    clusterResourceManager.stopStreamProcessor(state.runningProcessors.get("1"), -103);
+    // Ensure that this container has exhausted all retires
+    while (state.failedProcessors.size() != 1 && state.runningProcessors.size() != 1) {
+      Thread.sleep(100);
+    }
+
+    // At this point the application should only have one container running
+    assertEquals(state.runningProcessors.get("0").getHost(), "host-1");
+    assertEquals(state.runningProcessors.size(), 1);
+    assertEquals(state.pendingProcessors.size(), 0);
+    assertTrue(state.failedProcessors.containsKey("1"));
+
+    ContainerPlacementRequestMessage requestMessage =
+        new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-attempt-001", "1", "host-3",
+            System.currentTimeMillis());
+
+    ContainerPlacementMetadata metadata =
+        containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
+
+    // Control action should be in progress
+    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.IN_PROGRESS);
+
+    // Wait for the ControlAction to complete
+    if (!allocatorWithHostAffinity.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
+      fail("timed out waiting for the containers to start");
+    }
+
+    // Wait for both the containers to be in running state
+    while (state.runningProcessors.size() != 2) {
+      Thread.sleep(100);
+    }
+
+    assertEquals(state.preferredHostRequests.get(), 4);
+    assertEquals(state.runningProcessors.size(), 2);
+    // Container 1 should not go to host-3
+    assertEquals(state.runningProcessors.get("0").getHost(), "host-1");
+    assertEquals(state.runningProcessors.get("1").getHost(), "host-3");
+    assertEquals(state.anyHostRequests.get(), 0);
+    // Failed processors must be empty
+    assertEquals(state.failedProcessors.size(), 0);
+    // Control Action should be success in this case
+    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
+  }
+
   @Test(timeout = 10000)
   public void testAlwaysMoveToAnyHostForHostAffinityDisabled() throws Exception {
     Map<String, String> conf = new HashMap<>();
@@ -543,7 +661,7 @@ public class TestContainerPlacementActions {
             containerManager);
 
     ContainerProcessManager cpm = new ContainerProcessManager(
-        new ClusterManagerConfig(new MapConfig(getConfig(), getConfigWithHostAffinityAndRetries(true, 1, true))), state,
+        new ClusterManagerConfig(new MapConfig(getConfig(), getConfigWithHostAffinityAndRetries(false, 1, true))), state,
         new MetricsRegistryMap(), clusterResourceManager, Optional.of(allocatorWithoutHostAffinity), containerManager);
 
     // Mimic Cluster Manager returning any request
