@@ -35,6 +35,8 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -121,14 +123,14 @@ public class IsolatingClassLoaderFactory {
    */
   public ClassLoader buildClassLoader() {
     // start at the user.dir to find the resources for the classpaths
-    String baseDirectoryPath = System.getProperty("user.dir");
-    File apiLibDirectory = libDirectory(new File(baseDirectoryPath, DependencyIsolationUtils.FRAMEWORK_API_DIRECTORY));
+    File baseJobDirectory = new File(System.getProperty("user.dir"));
+    File apiLibDirectory = libDirectory(new File(baseJobDirectory, DependencyIsolationUtils.FRAMEWORK_API_DIRECTORY));
     LOG.info("Using API lib directory: {}", apiLibDirectory);
     File infrastructureLibDirectory =
-        libDirectory(new File(baseDirectoryPath, DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY));
+        libDirectory(new File(baseJobDirectory, DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY));
     LOG.info("Using infrastructure lib directory: {}", infrastructureLibDirectory);
     File applicationLibDirectory =
-        libDirectory(new File(baseDirectoryPath, DependencyIsolationUtils.APPLICATION_DIRECTORY));
+        libDirectory(new File(baseJobDirectory, DependencyIsolationUtils.APPLICATION_DIRECTORY));
     LOG.info("Using application lib directory: {}", applicationLibDirectory);
 
     ClassLoader apiClassLoader = buildApiClassLoader(apiLibDirectory);
@@ -136,7 +138,7 @@ public class IsolatingClassLoaderFactory {
         buildApplicationClassLoader(applicationLibDirectory, apiLibDirectory, apiClassLoader);
 
     // the classloader to return is the one with the infrastructure classpath
-    return buildInfrastructureClassLoader(infrastructureLibDirectory, apiLibDirectory, apiClassLoader,
+    return buildInfrastructureClassLoader(infrastructureLibDirectory, baseJobDirectory, apiLibDirectory, apiClassLoader,
         applicationClassLoader);
   }
 
@@ -173,19 +175,38 @@ public class IsolatingClassLoaderFactory {
   }
 
   /**
-   * Build the {@link ClassLoader} which can load Samza framework core classes.
+   * Build the {@link ClassLoader} which can load Samza framework core classes. If a file with the name
+   * {@link DependencyIsolationUtils#RUNTIME_FRAMEWORK_RESOURCES_PATHING_JAR_NAME} is found in {@code baseJobDirectory},
+   * then it will be included in the classpath.
    * This may also fall back to loading application classes.
    *
    * This sets up two links: One link between the infrastructure classloader and the API and another link between the
    * infrastructure classloader and the application classloader (see {@link #buildClassLoader()}.
    */
-  private static ClassLoader buildInfrastructureClassLoader(File infrastructureLibDirectory, File apiLibDirectory,
-      ClassLoader apiClassLoader, ClassLoader applicationClassLoader) {
-    return LoaderBuilder.anIsolatingLoader()
-        // look in infrastructure lib directory for JARs
-        .withClasspath(getClasspathAsURIs(infrastructureLibDirectory))
+  private static ClassLoader buildInfrastructureClassLoader(File infrastructureLibDirectory,
+      File baseJobDirectory,
+      File apiLibDirectory,
+      ClassLoader apiClassLoader,
+      ClassLoader applicationClassLoader) {
+    // start with JARs in infrastructure lib directory
+    List<URI> classpathURIs = new ArrayList<>(getClasspathAsURIs(infrastructureLibDirectory));
+    OriginRestriction originRestriction = OriginRestriction.denyByDefault()
         // getClasspathAsURIs should only return JARs within infrastructureLibDirectory anyways, but doing it to be safe
-        .withOriginRestriction(OriginRestriction.denyByDefault().allowingDirectory(infrastructureLibDirectory, false))
+        .allowingDirectory(infrastructureLibDirectory, false);
+    File runtimeFrameworkResourcesPathingJar =
+        new File(baseJobDirectory, DependencyIsolationUtils.RUNTIME_FRAMEWORK_RESOURCES_PATHING_JAR_NAME);
+    if (canAccess(runtimeFrameworkResourcesPathingJar)) {
+      // if there is a runtime framework resources pathing JAR, then include that in the classpath as well
+      classpathURIs.add(runtimeFrameworkResourcesPathingJar.toURI());
+      originRestriction.allowingGlobPattern(fileURL(runtimeFrameworkResourcesPathingJar).toExternalForm());
+      LOG.info("Added {} to infrastructure classpath", runtimeFrameworkResourcesPathingJar.getPath());
+    } else {
+      LOG.info("Unable to access {}, so not adding to infrastructure classpath",
+          runtimeFrameworkResourcesPathingJar.getPath());
+    }
+    return LoaderBuilder.anIsolatingLoader()
+        .withClasspath(Collections.unmodifiableList(classpathURIs))
+        .withOriginRestriction(originRestriction)
         .withParentRelationship(buildApiParentRelationship(apiLibDirectory, apiClassLoader))
         /*
          * Fall back to the application classloader for certain classes. For example, the application might implement
@@ -284,11 +305,15 @@ public class IsolatingClassLoaderFactory {
         .collect(Collectors.toList());
   }
 
+  private static boolean canAccess(File file) {
+    return file.exists() && file.canRead();
+  }
+
   /**
    * Makes sure that a file exists and can be read.
    */
   private static void validateCanAccess(File file) {
-    if (!file.exists() || !file.canRead()) {
+    if (!canAccess(file)) {
       throw new SamzaException("Unable to access file: " + file);
     }
   }

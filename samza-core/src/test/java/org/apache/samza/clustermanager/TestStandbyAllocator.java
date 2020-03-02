@@ -22,8 +22,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.Partition;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -38,7 +40,7 @@ public class TestStandbyAllocator {
 
   @Test
   public void testWithNoStandby() {
-    JobModel jobModel = getJobModelWithStandby(1, 1, 1);
+    JobModel jobModel = getJobModelWithStandby(1, 1, 1, Optional.empty());
     List<String> containerConstraints = StandbyTaskUtil.getStandbyContainerConstraints("0", jobModel);
     Assert.assertEquals("Constrained container count should be 0", 0, containerConstraints.size());
   }
@@ -57,7 +59,7 @@ public class TestStandbyAllocator {
 
 
   public void testWithStandby(int nContainers, int nTasks, int replicationFactor) {
-    JobModel jobModel = getJobModelWithStandby(nContainers, nTasks, replicationFactor);
+    JobModel jobModel = getJobModelWithStandby(nContainers, nTasks, replicationFactor, Optional.empty());
 
     for (String containerID : jobModel.getContainers().keySet()) {
       List<String> containerConstraints = StandbyTaskUtil.getStandbyContainerConstraints(containerID, jobModel);
@@ -79,7 +81,7 @@ public class TestStandbyAllocator {
   }
 
   // Helper method to create a jobmodel with given number of containers, tasks and replication factor
-  private JobModel getJobModelWithStandby(int nContainers, int nTasks, int replicationFactor) {
+  public static JobModel getJobModelWithStandby(int nContainers, int nTasks, int replicationFactor, Optional<LocalityManager> localityManager) {
     Map<String, ContainerModel> containerModels = new HashMap<>();
     int taskID = 0;
 
@@ -102,7 +104,7 @@ public class TestStandbyAllocator {
     }
 
     containerModels.putAll(standbyContainerModels);
-    return new JobModel(new MapConfig(), containerModels);
+    return new JobModel(new MapConfig(), containerModels, localityManager.orElse(null));
   }
 
   // Helper method that creates a taskmodel with one input ssp
@@ -113,7 +115,7 @@ public class TestStandbyAllocator {
   }
 
   // Helper method to create standby-taskModels from active-taskModels
-  private Map<TaskName, TaskModel> getStandbyTasks(Map<TaskName, TaskModel> tasks, int replicaNum) {
+  private static Map<TaskName, TaskModel> getStandbyTasks(Map<TaskName, TaskModel> tasks, int replicaNum) {
     Map<TaskName, TaskModel> standbyTasks = new HashMap<>();
     tasks.forEach((taskName, taskModel) -> {
         TaskName standbyTaskName = StandbyTaskUtil.getStandbyTaskName(taskName, replicaNum);

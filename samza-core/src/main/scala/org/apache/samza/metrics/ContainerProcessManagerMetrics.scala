@@ -60,6 +60,8 @@ class ContainerProcessManagerMetrics(val config: Config,
   val mFailoversToAnyHost = newGauge("failovers-to-any-host", () => state.failoversToAnyHost.get())
   val mFailoversToStandby = newGauge("failovers-to-standby", () => state.failoversToStandby.get())
 
+  val mFailedContainerPlacementActions = newGauge("failed-container-placements-actions", () => state.failedContainerPlacementActions.get())
+
   val mContainerMemoryMb = newGauge("container-memory-mb", () => clusterManagerConfig.getContainerMemoryMb)
   val mContainerCpuCores = newGauge("container-cpu-cores", () => clusterManagerConfig.getNumCores)
 }
