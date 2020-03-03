@@ -36,7 +36,7 @@ import java.util.concurrent.ExecutorService;
 public class RunLoopFactory {
   private static final Logger log = LoggerFactory.getLogger(RunLoopFactory.class);
 
-  public static Runnable createRunLoop(scala.collection.immutable.Map<TaskName, TaskInstance> taskInstances,
+  public static Runnable createRunLoop(scala.collection.immutable.Map<TaskName, RunLoopTask> taskInstances,
       SystemConsumers consumerMultiplexer,
       ExecutorService threadPool,
       long maxThrottlingDelayMs,
@@ -52,9 +52,9 @@ public class RunLoopFactory {
 
     log.info("Got commit milliseconds: {}.", taskCommitMs);
 
-    int asyncTaskCount = taskInstances.values().count(new AbstractFunction1<TaskInstance, Object>() {
+    int asyncTaskCount = taskInstances.values().count(new AbstractFunction1<RunLoopTask, Object>() {
       @Override
-      public Boolean apply(TaskInstance t) {
+      public Boolean apply(RunLoopTask t) {
         return t.isAsyncTask();
       }
     });

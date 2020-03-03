@@ -138,7 +138,6 @@ object SamzaContainer extends Logging {
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
     val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
-
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
 
     info("Setting up Samza container: %s" format containerName)
