@@ -301,7 +301,7 @@ public class ContainerManager {
    */
   void handleExpiredResource(SamzaResourceRequest request, SamzaResource resource, String preferredHost,
       ResourceRequestState resourceRequestState, ContainerAllocator allocator) {
-    LOG.info("Allocated resource {} has been expired for Processor ID: {} request: {} re-requesting resource again",
+    LOG.info("Allocated resource {} has expired for Processor ID: {} request: {}. Re-requesting resource again",
         resource, request.getProcessorId(), request);
     resourceRequestState.releaseUnstartableContainer(resource, preferredHost);
     resourceRequestState.cancelResourceRequest(request);

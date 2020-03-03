@@ -578,9 +578,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
   @Override
   public boolean isResourceExpired(SamzaResource resource) {
-    /**
-     * Time from which resource was allocated > Yarn Expiry Timeout - 30 sec (to account for clock skew)
-     */
+    // Time from which resource was allocated > Yarn Expiry Timeout - 30 sec (to account for clock skew)
     Duration yarnAllocatedResourceExpiry =
         Duration.ofMinutes(YarnConfiguration.DEFAULT_RM_CONTAINER_ALLOC_EXPIRY_INTERVAL_MS)
             .minus(Duration.ofSeconds(30));
