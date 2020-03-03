@@ -305,12 +305,12 @@ public class ContainerManager {
         resource, request.getProcessorId(), request);
     resourceRequestState.releaseUnstartableContainer(resource, preferredHost);
     resourceRequestState.cancelResourceRequest(request);
-    SamzaResourceRequest resourceRequest = allocator.getResourceRequest(request.getProcessorId(), request.getPreferredHost());
-    if (hasActiveContainerPlacementAction(request.getProcessorId())) {
+    SamzaResourceRequest newResourceRequest = allocator.getResourceRequest(request.getProcessorId(), request.getPreferredHost());
+    if (hasActiveContainerPlacementAction(newResourceRequest.getProcessorId())) {
       ContainerPlacementMetadata metadata = getPlacementActionMetadata(request.getProcessorId()).get();
-      metadata.recordResourceRequest(resourceRequest);
+      metadata.recordResourceRequest(newResourceRequest);
     }
-    allocator.issueResourceRequest(request);
+    allocator.issueResourceRequest(newResourceRequest);
   }
 
   /**
