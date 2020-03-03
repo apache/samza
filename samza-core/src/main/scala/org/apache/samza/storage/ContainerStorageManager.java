@@ -46,10 +46,13 @@ import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.container.BaseTask;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
@@ -61,6 +64,7 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.scheduler.EpochTimeScheduler;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeManager;
 import org.apache.samza.storage.kv.Entry;
@@ -81,6 +85,9 @@ import org.apache.samza.system.chooser.DefaultChooser;
 import org.apache.samza.system.chooser.MessageChooser;
 import org.apache.samza.system.chooser.RoundRobinChooserFactory;
 import org.apache.samza.table.utils.SerdeUtils;
+import org.apache.samza.task.ReadableCoordinator;
+import org.apache.samza.task.TaskCallback;
+import org.apache.samza.task.TaskCallbackFactory;
 import org.apache.samza.task.TaskInstanceCollector;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.ReflectionUtil;
@@ -603,7 +610,7 @@ public class ContainerStorageManager {
           }
 
           TaskSideInputStorageManager taskSideInputStorageManager =
-              new TaskSideInputStorageManager(taskName, taskModel.getTaskMode(), streamMetadataCache,
+              new NonTransactionalTaskSideInputStorageManager(taskName, taskModel.getTaskMode(), streamMetadataCache,
                   loggedStoreBaseDirectory, sideInputStores, taskSideInputProcessors.get(taskName), sideInputStoresToSSPs,
                   systemAdmins, config, clock);
 
@@ -716,6 +723,120 @@ public class ContainerStorageManager {
     // initialize the sideInputStorageManagers
     getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.init());
 
+    /////// testing shit
+
+    ConcurrentHashMap<SystemStreamPartition, String> checkpointedOffsets = new ConcurrentHashMap<>();
+
+    new BaseTask() {
+
+      @Override
+      public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator,
+          TaskCallbackFactory callbackFactory) {
+        TaskCallback callback = callbackFactory.createCallback();
+        SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
+        String offset = envelope.getOffset();
+        SystemAdmin admin = systemAdmins.getSystemAdmin(envelopeSSP.getSystem());
+
+        if (checkpointedOffsets.containsKey(envelopeSSP) && admin.offsetComparator(offset, checkpointedOffsets.get(envelopeSSP)) > 0) {
+          // wait
+        } else {
+          sideInputStorageManagers.get(envelopeSSP).process(envelope);
+        }
+
+        // is this call thread-safe?
+        checkSideInputCaughtUp(envelopeSSP, offset, SystemStreamMetadata.OffsetType.NEWEST, false);
+        callback.complete();
+      }
+
+      @Override
+      public void endOfStream(ReadableCoordinator coordinator) {
+        // nothing
+      }
+
+      @Override
+      public void window(ReadableCoordinator coordinator) {
+        // nothing
+      }
+
+      @Override
+      public void scheduler(ReadableCoordinator coordinator) {
+        // nothing
+      }
+
+      @Override
+      public void commit() {
+        Map<SystemStreamPartition, String> lastProcessedOffsets = sideInputStorageManagers.entrySet()
+            .stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getLastProcessedOffset(e.getKey())));
+
+        sideInputStorageManagers.values().forEach(storageManager -> {
+            storageManager.flush();
+            String checkpointId = CheckpointId.create().toString();
+            storageManager.checkpoint(checkpointId, lastProcessedOffsets);
+            storageManager.removeOldCheckpoints(checkpointId);
+          });
+      }
+
+      @Override
+      public OffsetManager offsetManager() {
+        return null;
+      }
+
+      @Override
+      public TaskInstanceMetrics metrics() {
+        return null;
+      }
+
+      @Override
+      public scala.collection.immutable.Set<SystemStreamPartition> systemStreamPartitions() {
+        return null;
+      }
+
+      @Override
+      public scala.collection.immutable.Set<String> intermediateStreams() {
+        return null;
+      }
+
+      @Override
+      public EpochTimeScheduler epochTimeScheduler() {
+        return null;
+      }
+
+      @Override
+      public boolean isAsyncTask() {
+        return false;
+      }
+
+      @Override
+      public boolean isClosableTask() {
+        return false;
+      }
+
+      @Override
+      public boolean isEndOfStreamListenerTask() {
+        return false;
+      }
+
+      @Override
+      public boolean isWindowableTask() {
+        return false;
+      }
+
+      @Override
+      public boolean isInitableTask() {
+        return false;
+      }
+
+      @Override
+      public TaskName taskName() {
+        return new TaskName("testing-standby-sideinput-runloop");
+      }
+    };
+
+
+
+    /////// testing shit
+
     // start the checkpointing thread at the commit-ms frequency
     TaskConfig taskConfig = new TaskConfig(config);
     sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
@@ -735,7 +856,7 @@ public class ContainerStorageManager {
 
     // register all sideInput SSPs with the consumers
     for (SystemStreamPartition ssp : sideInputStorageManagers.keySet()) {
-      String startingOffset = sideInputStorageManagers.get(ssp).getStartingOffset(ssp);
+      String startingOffset = sideInputStorageManagers.get(ssp).m(ssp);
 
       if (startingOffset == null) {
         throw new SamzaException("No offset defined for SideInput SystemStreamPartition : " + ssp);
@@ -816,7 +937,7 @@ public class ContainerStorageManager {
   }
 
   // Method to check if the given offset means the stream is caught up for reads
-  private void checkSideInputCaughtUp(SystemStreamPartition ssp, String offset, SystemStreamMetadata.OffsetType offsetType, boolean isEndOfStream) {
+  void checkSideInputCaughtUp(SystemStreamPartition ssp, String offset, SystemStreamMetadata.OffsetType offsetType, boolean isEndOfStream) {
 
     if (isEndOfStream) {
       this.initialSideInputSSPMetadata.remove(ssp);

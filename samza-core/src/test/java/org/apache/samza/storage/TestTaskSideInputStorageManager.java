@@ -52,7 +52,8 @@ public class TestTaskSideInputStorageManager {
     final String storeName = "test-init-store";
     final String taskName = "test-init-task";
 
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
+    NonTransactionalTaskSideInputStorageManager
+        testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
         .addLoggedStore(storeName, ImmutableSet.of())
         .build();
 
@@ -69,7 +70,8 @@ public class TestTaskSideInputStorageManager {
     final SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
     final String offset = "123";
 
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
+    NonTransactionalTaskSideInputStorageManager
+        testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
         .addLoggedStore(storeName, ImmutableSet.of(ssp))
         .build();
     Map<String, StorageEngine> stores = new HashMap<>();
@@ -97,7 +99,7 @@ public class TestTaskSideInputStorageManager {
     final String storeName = "test-stop-store";
     final String taskName = "test-stop-task";
 
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, NON_LOGGED_STORE_DIR)
+    NonTransactionalTaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, NON_LOGGED_STORE_DIR)
         .addInMemoryStore(storeName, ImmutableSet.of())
         .build();
 
@@ -113,7 +115,8 @@ public class TestTaskSideInputStorageManager {
     final String storeName = "test-write-offset-non-persisted-store";
     final String taskName = "test-write-offset-for-non-persisted-task";
 
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, NON_LOGGED_STORE_DIR)
+    NonTransactionalTaskSideInputStorageManager
+        testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, NON_LOGGED_STORE_DIR)
         .addInMemoryStore(storeName, ImmutableSet.of())
         .build();
 
@@ -134,7 +137,8 @@ public class TestTaskSideInputStorageManager {
     final SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
     final SystemStreamPartition ssp2 = new SystemStreamPartition("test-system2", "test-stream2", new Partition(0));
 
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
+    NonTransactionalTaskSideInputStorageManager
+        testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
         .addLoggedStore(storeName, ImmutableSet.of(ssp))
         .addLoggedStore(storeName2, ImmutableSet.of(ssp2))
         .build();
@@ -166,7 +170,8 @@ public class TestTaskSideInputStorageManager {
         .mapToObj(idx -> new SystemStreamPartition("test-system", "test-stream", new Partition(idx)))
         .collect(Collectors.toSet());
 
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
+    NonTransactionalTaskSideInputStorageManager
+        testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
         .addLoggedStore(storeName, ssps)
         .build();
 
@@ -192,7 +197,8 @@ public class TestTaskSideInputStorageManager {
         .collect(Collectors.toSet());
 
 
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
+    NonTransactionalTaskSideInputStorageManager
+        testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
         .addLoggedStore(storeName, ssps)
         .build();
 
@@ -220,7 +226,7 @@ public class TestTaskSideInputStorageManager {
     assertTrue("Failed to get starting offsets for all ssps", startingOffsets.size() == 5);
   }
 
-  private void initializeSideInputStorageManager(TaskSideInputStorageManager testSideInputStorageManager) {
+  private void initializeSideInputStorageManager(NonTransactionalTaskSideInputStorageManager testSideInputStorageManager) {
     doReturn(new HashMap<>()).when(testSideInputStorageManager).getStartingOffsets(any(), any());
     testSideInputStorageManager.init();
   }
@@ -288,8 +294,8 @@ public class TestTaskSideInputStorageManager {
       return this;
     }
 
-    TaskSideInputStorageManager build() {
-      return spy(new TaskSideInputStorageManager(taskName, TaskMode.Active, streamMetadataCache, new File(storeBaseDir), stores,
+    NonTransactionalTaskSideInputStorageManager build() {
+      return spy(new NonTransactionalTaskSideInputStorageManager(taskName, TaskMode.Active, streamMetadataCache, new File(storeBaseDir), stores,
           storeToProcessor, storeToSSps, systemAdmins, mock(Config.class), clock));
     }
   }

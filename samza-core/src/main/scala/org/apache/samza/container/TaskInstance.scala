@@ -60,16 +60,16 @@ class TaskInstance(
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
   applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-  externalContextOption: Option[ExternalContext]) extends Logging {
+  externalContextOption: Option[ExternalContext]) extends Logging with BaseTask {
 
-  val taskName: TaskName = taskModel.getTaskName
-  val isInitableTask = task.isInstanceOf[InitableTask]
-  val isWindowableTask = task.isInstanceOf[WindowableTask]
-  val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
-  val isClosableTask = task.isInstanceOf[ClosableTask]
-  val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
+  override val taskName: TaskName = taskModel.getTaskName
+  override val isInitableTask = task.isInstanceOf[InitableTask]
+  override val isWindowableTask = task.isInstanceOf[WindowableTask]
+  override val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
+  override val isClosableTask = task.isInstanceOf[ClosableTask]
+  override val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
+  override val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
 
   private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
@@ -93,13 +93,13 @@ class TaskInstance(
   // means the same ssp in other taskInstances have the same offset as
   // the one here.
   var ssp2CaughtupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
-    scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
+  scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
   private val config: Config = jobContext.getConfig
 
   val streamConfig: StreamConfig = new StreamConfig(config)
-  val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
+  override val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
 
   val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
 
@@ -148,13 +148,13 @@ class TaskInstance(
   }
 
   /**
-    * Computes the starting offset for the partitions assigned to the task and registers them with the underlying {@see SystemConsumers}.
-    *
-    * Starting offset for a partition of the task is computed in the following manner:
-    *
-    * 1. If a startpoint exists for a task, system stream partition and it resolves to a offset, then the resolved offset is used as the starting offset.
-    * 2. Else, the checkpointed offset for the system stream partition is used as the starting offset.
-    */
+   * Computes the starting offset for the partitions assigned to the task and registers them with the underlying {@see SystemConsumers}.
+   *
+   * Starting offset for a partition of the task is computed in the following manner:
+   *
+   * 1. If a startpoint exists for a task, system stream partition and it resolves to a offset, then the resolved offset is used as the starting offset.
+   * 2. Else, the checkpointed offset for the system stream partition is used as the starting offset.
+   */
   def registerConsumers() {
     debug("Registering consumers for taskName: %s" format taskName)
     systemStreamPartitions.foreach(systemStreamPartition => {
@@ -164,7 +164,7 @@ class TaskInstance(
     })
   }
 
-  def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
+  override def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
     callbackFactory: TaskCallbackFactory = null) {
     metrics.processes.inc
 
@@ -200,7 +200,7 @@ class TaskInstance(
     }
   }
 
-  def endOfStream(coordinator: ReadableCoordinator): Unit = {
+  override def endOfStream(coordinator: ReadableCoordinator): Unit = {
     if (isEndOfStreamListenerTask) {
       exceptionHandler.maybeHandle {
         task.asInstanceOf[EndOfStreamListenerTask].onEndOfStream(collector, coordinator)
@@ -208,7 +208,7 @@ class TaskInstance(
     }
   }
 
-  def window(coordinator: ReadableCoordinator) {
+  override def window(coordinator: ReadableCoordinator) {
     if (isWindowableTask) {
       trace("Windowing for taskName: %s" format taskName)
 
@@ -220,7 +220,7 @@ class TaskInstance(
     }
   }
 
-  def scheduler(coordinator: ReadableCoordinator) {
+  override def scheduler(coordinator: ReadableCoordinator) {
     trace("Scheduler for taskName: %s" format taskName)
 
     exceptionHandler.maybeHandle {
@@ -230,7 +230,7 @@ class TaskInstance(
     }
   }
 
-  def commit {
+  override def commit {
     metrics.commits.inc
 
     val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
@@ -359,8 +359,8 @@ class TaskInstance(
   }
 
   /**
-    * Check each partition assigned to the task is caught to the last offset
-    */
+   * Check each partition assigned to the task is caught to the last offset
+   */
   def initCaughtUpMapping() {
     if (inputStreamMetadata != null && inputStreamMetadata.nonEmpty) {
       systemStreamPartitions.foreach(ssp => {
