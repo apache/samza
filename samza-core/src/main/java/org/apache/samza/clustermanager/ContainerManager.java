@@ -430,7 +430,7 @@ public class ContainerManager {
   }
 
   /**
-   * Gets the hostname on which container is either currently running or the last
+   * Gets the hostname on which container is either currently running or was last seen on if it is not running
    */
   private String getSourceHostForContainer(ContainerPlacementRequestMessage requestMessage) {
     String sourceHost = null;
