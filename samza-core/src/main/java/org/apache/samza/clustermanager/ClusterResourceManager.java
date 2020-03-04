@@ -132,15 +132,6 @@ public abstract class ClusterResourceManager {
 
   public abstract void stop(SamzaApplicationState.SamzaAppStatus status);
 
-  /**
-   * Checks if the allocated resource is expired. If the {@link ClusterResourceManager} does not have a
-   * concept of expired allocated resource we assume allocated resources never expire
-   * @param resource allocated resource
-   * @return if the allocated resource is expired
-   */
-  public boolean isResourceExpired(SamzaResource resource) {
-    return false;
-  }
 
   /***
    * Defines a callback interface for interacting with notifications from a ClusterResourceManager
