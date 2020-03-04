@@ -21,6 +21,8 @@ package org.apache.samza.metrics
 
 import org.apache.samza.metrics.MetricGroup.ValueFunction
 
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters
 
 /**
  * MetricsHelper is a little helper class to make it easy to register and
@@ -32,6 +34,7 @@ import org.apache.samza.metrics.MetricGroup.ValueFunction
 trait MetricsHelper {
   val group = this.getClass.getName
   val registry: MetricsRegistry
+
   val metricGroup = new MetricGroup(group, getPrefix, registry)
 
   def newCounter(name: String) = metricGroup.newCounter(name)
@@ -50,6 +53,9 @@ trait MetricsHelper {
       override def getValue = value()
     })
   }
+
+  def newHistogram(name: String, percentiles: java.util.List[Double]) = metricGroup.newHistogram(name,percentiles)
+
 
   /**
    * Returns a prefix for metric names.

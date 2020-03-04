@@ -19,9 +19,8 @@
 
 package org.apache.samza.storage.kv
 
-import org.apache.samza.metrics.MetricsHelper
-import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.metrics.MetricsRegistryMap
+import org.apache.samza.metrics.{MetricsHelper, MetricsRegistry, MetricsRegistryMap, SamzaHistogram}
+
 
 class SerializedKeyValueStoreMetrics(
   val storeName: String = "unknown",
@@ -36,6 +35,10 @@ class SerializedKeyValueStoreMetrics(
   val bytesSerialized = newCounter("bytes-serialized")
   val bytesDeserialized = newCounter("bytes-deserialized")
   val maxRecordSizeBytes = newGauge("max-record-size-bytes", 0L)
+  val record_key_size_percentiles = java.util.Arrays.asList(10D, 50D, 90D, 99D)
+  val record_value_size_percentiles = java.util.Arrays.asList(10D, 50D, 90D, 99D)
+  val recordKeySizeBytes = newHistogram("key-size-bytes-histogram",record_key_size_percentiles )
+  val recordValueSizeBytes = newHistogram("value-size-bytes-histogram", record_value_size_percentiles)
 
   override def getPrefix = storeName + "-"
 }

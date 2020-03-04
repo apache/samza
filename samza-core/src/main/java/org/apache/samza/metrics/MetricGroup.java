@@ -19,6 +19,9 @@
 
 package org.apache.samza.metrics;
 
+import java.util.List;
+
+
 /**
  * MetricGroup is a little helper class to make it easy to register and
  * manage a group of counters, gauges and timers.  It's shared between Java
@@ -64,5 +67,9 @@ public class MetricGroup {
 
   public Timer newTimer(String name) {
     return registry.newTimer(groupName, (prefix + name).toLowerCase());
+  }
+
+  public SamzaHistogram newHistogram(String name, List<Double> histogram_percentiles){
+    return new SamzaHistogram(registry, groupName, name, histogram_percentiles);
   }
 }
