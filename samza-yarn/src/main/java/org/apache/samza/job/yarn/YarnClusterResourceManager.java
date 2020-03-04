@@ -19,7 +19,6 @@
 
 package org.apache.samza.job.yarn;
 
-import java.time.Duration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -574,15 +573,6 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       log.warn("Did not find the running Processor ID for the stop error notification for Container ID: {}. " +
           "Ignoring notification", containerId);
     }
-  }
-
-  @Override
-  public boolean isResourceExpired(SamzaResource resource) {
-    // Time from which resource was allocated > Yarn Expiry Timeout - 30 sec (to account for clock skew)
-    Duration yarnAllocatedResourceExpiry =
-        Duration.ofMinutes(YarnConfiguration.DEFAULT_RM_CONTAINER_ALLOC_EXPIRY_INTERVAL_MS)
-            .minus(Duration.ofSeconds(30));
-    return System.currentTimeMillis() - resource.getTimestamp() > yarnAllocatedResourceExpiry.toMillis();
   }
 
   /**

@@ -511,51 +511,6 @@ public class TestContainerAllocatorWithHostAffinity {
     containerAllocator.stop();
   }
 
-  @Test(timeout = 5000)
-  public void testExpiredAllocatedResourcesAreReleased() throws Exception {
-    ClusterResourceManager.Callback mockCPM = mock(MockClusterResourceManagerCallback.class);
-    MockClusterResourceManager mockClusterResourceManager = new MockClusterResourceManager(mockCPM, state);
-    ContainerManager spyContainerManager =
-        spy(new ContainerManager(containerPlacementMetadataStore, state, mockClusterResourceManager, true, false));
-
-    SamzaResource expiredAllocatedResource = new SamzaResource(1, 1000, "host-0", "id0",
-        System.currentTimeMillis() - Duration.ofMinutes(10).toMillis());
-    spyAllocator = Mockito.spy(
-        new ContainerAllocator(mockClusterResourceManager, config, state, true, spyContainerManager));
-    spyAllocator.addResource(expiredAllocatedResource);
-    spyAllocator.addResource(new SamzaResource(1, 1000, "host-1", "1d1"));
-
-    // Request Preferred Resources
-    spyAllocator.requestResources(new HashMap<String, String>() {
-      {
-        put("0", "host-0");
-        put("1", "host-1");
-      }
-    });
-
-    spyAllocatorThread = new Thread(spyAllocator);
-    // Start the container allocator thread periodic assignment
-    spyAllocatorThread.start();
-
-    // Wait until allocated resource is expired
-    while (state.preferredHostRequests.get() != 3) {
-      Thread.sleep(100);
-    }
-
-    // Verify that handleExpiredResource was invoked once for expired allocated resource
-    ArgumentCaptor<SamzaResourceRequest> resourceRequestCaptor = ArgumentCaptor.forClass(SamzaResourceRequest.class);
-    ArgumentCaptor<SamzaResource> resourceArgumentCaptor = ArgumentCaptor.forClass(SamzaResource.class);
-    verify(spyContainerManager, times(1)).handleExpiredResource(resourceRequestCaptor.capture(),
-        resourceArgumentCaptor.capture(), eq("host-0"), any(), any());
-    resourceRequestCaptor.getAllValues()
-        .forEach(resourceRequest -> assertEquals(resourceRequest.getProcessorId(), "0"));
-    resourceArgumentCaptor.getAllValues()
-        .forEach(resource -> assertEquals(resource.getHost(), "host-0"));
-    // Verify resources were released
-    assertTrue(mockClusterResourceManager.containsReleasedResource(expiredAllocatedResource));
-    containerAllocator.stop();
-  }
-
   //@Test
   public void testExpiryWithNonResponsiveClusterManager() throws Exception {
 
