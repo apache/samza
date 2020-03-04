@@ -21,9 +21,6 @@ package org.apache.samza.metrics
 
 import org.apache.samza.metrics.MetricGroup.ValueFunction
 
-import scala.collection.JavaConversions._
-import scala.collection.JavaConverters
-
 /**
  * MetricsHelper is a little helper class to make it easy to register and
  * manage counters, gauges and timers.
@@ -54,8 +51,7 @@ trait MetricsHelper {
     })
   }
 
-  def newHistogram(name: String, percentiles: java.util.List[Double]) = metricGroup.newHistogram(name,percentiles)
-
+  def newHistogram(name: String, percentiles: java.util.List[java.lang.Double]) = metricGroup.newHistogram(name,percentiles)
 
   /**
    * Returns a prefix for metric names.

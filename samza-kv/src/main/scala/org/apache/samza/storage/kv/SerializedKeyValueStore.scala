@@ -64,8 +64,8 @@ class SerializedKeyValueStore[K, V](
     store.put(keyBytes, valBytes)
     val keySizeBytes = if (keyBytes == null) 0 else keyBytes.length
     val valSizeBytes = if (valBytes == null) 0 else valBytes.length
-    metrics.record_key_size_percentiles.add(keySizeBytes)
-    metrics.record_value_size_percentiles.add(valSizeBytes)
+    metrics.recordKeySizeBytes.update(keySizeBytes)
+    metrics.recordValueSizeBytes.update(valSizeBytes)
     updatePutMetrics(1, valSizeBytes)
   }
 
@@ -79,8 +79,8 @@ class SerializedKeyValueStore[K, V](
       val valBytes = toBytesOrNull(curr.getValue, msgSerde)
       val keySizeBytes = if (keyBytes == null) 0 else keyBytes.length
       val valSizeBytes = if (valBytes == null) 0 else valBytes.length
-      metrics.record_key_size_percentiles.add(keySizeBytes)
-      metrics.record_value_size_percentiles.add(valSizeBytes)
+      metrics.recordKeySizeBytes.update(keySizeBytes)
+      metrics.recordValueSizeBytes.update(valSizeBytes)
       newMaxRecordSizeBytes = Math.max(newMaxRecordSizeBytes, valSizeBytes)
       list.add(new Entry(keyBytes, valBytes))
     }
