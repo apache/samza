@@ -19,6 +19,9 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.annotations.VisibleForTesting;
+
+
 /**
  * Specification of a Samza Resource. A resource is identified by a unique resource ID.
  * A resource is currently comprised of CPUs and Memory resources on a host.
@@ -28,6 +31,7 @@ public class SamzaResource {
   private final int memoryMb;
   private final String host;
   private final String containerId;
+  private final long timestamp;
 
   //TODO: Investigate adding disk space. Mesos supports disk based reservations.
 
@@ -36,6 +40,16 @@ public class SamzaResource {
     this.memoryMb = memoryMb;
     this.host = host;
     this.containerId = containerId;
+    this.timestamp = System.currentTimeMillis();
+  }
+
+  @VisibleForTesting
+  SamzaResource(int numCores, int memoryMb, String host, String containerId, long timestamp) {
+    this.numCores = numCores;
+    this.memoryMb = memoryMb;
+    this.host = host;
+    this.containerId = containerId;
+    this.timestamp = timestamp;
   }
 
   @Override
@@ -81,5 +95,9 @@ public class SamzaResource {
 
   public String getContainerId() {
     return containerId;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
   }
 }

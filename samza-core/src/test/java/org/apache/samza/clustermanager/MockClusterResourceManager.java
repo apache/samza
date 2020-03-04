@@ -20,6 +20,7 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.collect.ImmutableList;
+import java.time.Duration;
 import org.apache.samza.job.CommandBuilder;
 import org.junit.Assert;
 
@@ -108,12 +109,23 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     clusterManagerCallback.onResourcesCompleted(statList);
   }
 
+  @Override
+  public boolean isResourceExpired(SamzaResource resource) {
+    Duration yarnAllocatedResourceExpiry = Duration.ofMinutes(10).minus(Duration.ofSeconds(30));
+    return System.currentTimeMillis() - resource.getTimestamp() > yarnAllocatedResourceExpiry.toMillis();
+  }
+
+
   public void registerContainerListener(MockContainerListener listener) {
     mockContainerListeners.add(listener);
   }
 
   public void clearContainerListeners() {
     mockContainerListeners.clear();
+  }
+
+  public boolean containsReleasedResource(SamzaResource resource) {
+    return releasedResources.contains(resource);
   }
 
   @Override
