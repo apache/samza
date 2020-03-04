@@ -555,12 +555,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
 
     store.flush()
   }
-
   
-  @Test
-  def testKeyValueSizeHistogramMetric() {
-
-  }
 
   def checkRange(vals: IndexedSeq[String], iter: KeyValueIterator[Array[Byte], Array[Byte]]) {
     for (v <- vals) {
