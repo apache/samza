@@ -261,6 +261,14 @@ public class ContainerAllocator implements Runnable {
       throw new SamzaException("Expected resource for Processor ID: " + request.getProcessorId() + " was unavailable on host: " + preferredHost);
     }
 
+    /**
+     * If the allocated resource has expired then release the expired resource and re-request the resources from {@link ClusterResourceManager}
+     */
+    if (clusterResourceManager.isResourceExpired(resource)) {
+      containerManager.handleExpiredResource(request, resource, preferredHost, resourceRequestState, this);
+      return;
+    }
+
     // Update state
     resourceRequestState.updateStateAfterAssignment(request, preferredHost, resource);
     String processorId = request.getProcessorId();
