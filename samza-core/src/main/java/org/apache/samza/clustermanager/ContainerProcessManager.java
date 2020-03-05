@@ -466,7 +466,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     LOG.info("Container ID: {} for Processor ID: {} failed with exit code: {}.", containerId, processorId, exitStatus);
     Instant now = Instant.now();
     state.failedContainers.incrementAndGet();
-    state.failedContainersStatus.put(containerId, resourceStatus);
     state.jobHealthy.set(false);
 
     state.neededProcessors.incrementAndGet();

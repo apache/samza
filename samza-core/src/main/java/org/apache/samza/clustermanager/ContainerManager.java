@@ -464,6 +464,8 @@ public class ContainerManager {
     }
 
     if (samzaApplicationState.failedProcessors.containsKey(requestMessage.getProcessorId())) {
+      LOG.info("ContainerPlacement request: {} is de-queued, container with Processor ID: {} has exhausted all retries and is in failed state",
+          requestMessage, requestMessage.getProcessorId());
       return true;
     }
 
@@ -487,10 +489,12 @@ public class ContainerManager {
     String errorMessagePrefix = ContainerPlacementMessage.StatusCode.BAD_REQUEST + " reason: %s";
     Boolean invalidAction = false;
     String errorMessage = null;
-    if (!samzaApplicationState.runningProcessors.containsKey(requestMessage.getProcessorId()) &&
-        !samzaApplicationState.pendingProcessors.containsKey(requestMessage.getProcessorId()) &&
-        !samzaApplicationState.failedProcessors.containsKey(requestMessage.getProcessorId())
-    ) {
+
+    boolean isRunning = samzaApplicationState.runningProcessors.containsKey(requestMessage.getProcessorId());
+    boolean isPending = samzaApplicationState.pendingProcessors.containsKey(requestMessage.getProcessorId());
+    boolean isFailed = samzaApplicationState.failedProcessors.containsKey(requestMessage.getProcessorId());
+
+    if (!isRunning && !isPending && !isFailed) {
       errorMessage = String.format(errorMessagePrefix, "invalid processor id neither in running or pending processors");
       invalidAction = true;
     } else if (placementRequestsCache.containsKey(requestMessage.getUuid())) {

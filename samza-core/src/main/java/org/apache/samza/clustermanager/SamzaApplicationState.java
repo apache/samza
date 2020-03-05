@@ -78,11 +78,6 @@ public class SamzaApplicationState {
   public final AtomicInteger releasedContainers = new AtomicInteger(0);
 
   /**
-   * ContainerStatuses of failed containers.
-   */
-  public final ConcurrentMap<String, SamzaResourceStatus> failedContainersStatus = new ConcurrentHashMap<>();
-
-  /**
    * Number of processors configured for the job
    */
   public final AtomicInteger processorCount = new AtomicInteger(0);
