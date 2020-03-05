@@ -6,10 +6,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import org.apache.samza.SamzaException;
+import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsVisitor;
 import org.apache.samza.metrics.SamzaHistogram;
+import org.apache.samza.metrics.Timer;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore;
@@ -19,10 +22,13 @@ import org.junit.Before;
 import org.junit.Test;
 
 
+/**
+ * This class is used to test whether the key value size metrics in {@link SerializedKeyValueStoreMetrics} works correctly.
+ */
 public class TestKeyValueSizeHistogramMetric {
 
   private static String storeName = "testStore";
-  private static MetricsRegistry metricsRegistry = new MetricsRegistryMap();
+  private static MetricsRegistryMap metricsRegistry = new MetricsRegistryMap();
   private static KeyValueStoreMetrics keyValueStoreMetrics = new KeyValueStoreMetrics(storeName, metricsRegistry);
   private static SerializedKeyValueStoreMetrics serializedKeyValueStoreMetrics =
       new SerializedKeyValueStoreMetrics(storeName, metricsRegistry);
@@ -39,9 +45,12 @@ public class TestKeyValueSizeHistogramMetric {
     store = new NullSafeKeyValueStore<>(serializedStore);
   }
 
+  /**
+   * Make sure that the histograms can record the key value size and we can use a
+   * {@link MetricsVisitor} to get access to the value store in the histograms
+   */
   @Test
   public void testHistogramMetric() {
-
 
     List<String> keys = new ArrayList<>();
     List<String> values = new ArrayList<>();
@@ -58,29 +67,26 @@ public class TestKeyValueSizeHistogramMetric {
       store.put(keys.get(i), values.get(i));
     }
 
-    SamzaHistogram recordKeySizeBytes = serializedKeyValueStoreMetrics.recordKeySizeBytes();
-    SamzaHistogram recordValueSizeBytes = serializedKeyValueStoreMetrics.recordValueSizeBytes();
-    serializedKeyValueStoreMetrics.record_key_size_percentiles().forEach(
-        p -> recordKeySizeBytes.updateGaugeValues(p)
-    );
+    metricsRegistry.getGroups().forEach(group -> metricsRegistry.getGroup(group.toString()).forEach((name, metric) -> {
+      if (name.contains("size-bytes-histogram")) {
+        metric.visit(new MetricsVisitor() {
+          @Override
+          public void counter(Counter counter) {
 
-    serializedKeyValueStoreMetrics.record_value_size_percentiles().forEach(
-        p -> recordValueSizeBytes.updateGaugeValues(p)
-    );
+          }
 
-    for(Map.Entry<Double, Gauge<Double>> entry : recordKeySizeBytes.getGauges().entrySet()){
-      if(entry.getKey() >= 1){
-        //System.out.println(entry.getKey() + " -> " + entry.getValue().getValue());
-        Assert.assertNotEquals(0D, entry.getValue().getValue(), 0.000001D);
+          @Override
+          public <T> void gauge(Gauge<T> gauge) {
+            Assert.assertNotEquals(0D, (Double) gauge.getValue(), 0.0001);
+          }
+
+          @Override
+          public void timer(Timer timer) {
+
+          }
+        });
       }
-    }
-    for(Map.Entry<Double, Gauge<Double>> entry : recordValueSizeBytes.getGauges().entrySet()){
-      if(entry.getKey() >= 1){
-        //System.out.println(entry.getKey() + " -> " + entry.getValue().getValue());
-        Assert.assertNotEquals(0D, entry.getValue().getValue(), 0.000001D);
-      }
-    }
-
+    }));
   }
 
   private String getRandomString() {

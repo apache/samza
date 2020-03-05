@@ -37,8 +37,23 @@ class SerializedKeyValueStoreMetrics(
   val maxRecordSizeBytes = newGauge("max-record-size-bytes", 0L)
   val record_key_size_percentiles = java.util.Arrays.asList[java.lang.Double](10D, 50D, 90D, 99D)
   val record_value_size_percentiles = java.util.Arrays.asList[java.lang.Double](10D, 50D, 90D, 99D)
-  val recordKeySizeBytes = newHistogram("key-size-bytes-histogram",record_key_size_percentiles )
+
+  /**
+   * Metric used for monitoring the size of keys written to KV storage.
+   * This metric is a {@link SamzaHistogram} stores counts for each percentile range.
+   * Counts for each range is emitted as a {@link Gauge}
+   */
+  val recordKeySizeBytes = newHistogram("key-size-bytes-histogram", record_key_size_percentiles)
+
+  /**
+   * Metric used for monitoring the size of values written to KV storage.
+   * This metric is a {@link SamzaHistogram} stores counts for each percentile range.
+   * Counts for each range is emitted as a {@link Gauge}
+   */
   val recordValueSizeBytes = newHistogram("value-size-bytes-histogram", record_value_size_percentiles)
+
+
+
 
   override def getPrefix = storeName + "-"
 }
