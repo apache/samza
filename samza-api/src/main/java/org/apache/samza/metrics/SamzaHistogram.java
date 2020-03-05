@@ -60,11 +60,6 @@ public class SamzaHistogram {
     gauges.get(percentile).set(values.getValue(percentile / 100));
   }
 
-  //for debug
-  public Map<Double, Gauge<Double>> getGauges() {
-    return gauges;
-  }
-
   /**
    * Custom gauge whose value is set based on the underlying Histogram
    */
