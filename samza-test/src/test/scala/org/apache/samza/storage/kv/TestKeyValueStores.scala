@@ -555,7 +555,6 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
 
     store.flush()
   }
-  
 
   def checkRange(vals: IndexedSeq[String], iter: KeyValueIterator[Array[Byte], Array[Byte]]) {
     for (v <- vals) {
@@ -582,8 +581,6 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   def s(b: Array[Byte]) =
     new String(b)
 }
-
-
 
 object TestKeyValueStores {
   val CacheSize = 1024
