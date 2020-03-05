@@ -70,6 +70,6 @@ public class MetricGroup {
   }
 
   public SamzaHistogram newHistogram(String name, List<Double> histogram_percentiles){
-    return new SamzaHistogram(registry, groupName, (prefix + name).toLowerCase(), histogram_percentiles);
+    return new SamzaHistogram(registry, groupName, name, histogram_percentiles);
   }
 }
