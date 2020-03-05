@@ -22,6 +22,7 @@ package org.apache.samza.metrics;
 import com.codahale.metrics.ExponentiallyDecayingReservoir;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.Snapshot;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -58,11 +59,6 @@ public class SamzaHistogram {
   public void updateGaugeValues(double percentile) {
     Snapshot values = histogram.getSnapshot();
     gauges.get(percentile).set(values.getValue(percentile / 100));
-  }
-
-  //for debug
-  public Map<Double, Gauge<Double>> getGauges() {
-    return gauges;
   }
 
   /**
