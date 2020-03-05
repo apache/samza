@@ -20,6 +20,7 @@ package org.apache.samza.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
@@ -53,6 +54,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.BaseTask;
+import org.apache.samza.container.RunLoop;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
@@ -176,6 +178,8 @@ public class ContainerStorageManager {
 
   private final Config config;
   private final StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
+  private RunLoop sideInputRunLoop;
+  private final ConcurrentHashMap
 
   public ContainerStorageManager(
       CheckpointManager checkpointManager,
@@ -727,7 +731,9 @@ public class ContainerStorageManager {
 
     ConcurrentHashMap<SystemStreamPartition, String> checkpointedOffsets = new ConcurrentHashMap<>();
 
-    new BaseTask() {
+    // need a thread to update checkpointed offsets at some interval (commit ms)
+
+    BaseTask task = new BaseTask() {
 
       @Override
       public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator,
@@ -737,8 +743,9 @@ public class ContainerStorageManager {
         String offset = envelope.getOffset();
         SystemAdmin admin = systemAdmins.getSystemAdmin(envelopeSSP.getSystem());
 
-        if (checkpointedOffsets.containsKey(envelopeSSP) && admin.offsetComparator(offset, checkpointedOffsets.get(envelopeSSP)) > 0) {
-          // wait
+        if (checkpointedOffsets.containsKey(envelopeSSP)
+            && admin.offsetComparator(offset, checkpointedOffsets.get(envelopeSSP)) > 0) {
+          // need an object to wait on
         } else {
           sideInputStorageManagers.get(envelopeSSP).process(envelope);
         }
@@ -833,30 +840,27 @@ public class ContainerStorageManager {
       }
     };
 
-
+    sideInputRunLoop = new RunLoop(ImmutableMap.of(task.taskName(), task),
+        Executors.newSingleThreadExecutor(),
+        sideInputSystemConsumers,
+        1,
+        0,
+        new TaskConfig(this.config).getCommitMs(),
+        5000,
+        1000,
+        10,
+        new SamzaContainerMetrics("source", new MetricsRegistryMap()),
+        System::nanoTime,
+        false);
 
     /////// testing shit
-
-    // start the checkpointing thread at the commit-ms frequency
-    TaskConfig taskConfig = new TaskConfig(config);
-    sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.flush());
-        } catch (Exception e) {
-          LOG.error("Exception during flushing sideInputs", e);
-          sideInputException = e;
-        }
-      }
-    }, 0, taskConfig.getCommitMs(), TimeUnit.MILLISECONDS);
 
     // set the latch to the number of sideInput SSPs
     this.sideInputsCaughtUp = new CountDownLatch(this.sideInputStorageManagers.keySet().size());
 
     // register all sideInput SSPs with the consumers
     for (SystemStreamPartition ssp : sideInputStorageManagers.keySet()) {
-      String startingOffset = sideInputStorageManagers.get(ssp).m(ssp);
+      String startingOffset = sideInputStorageManagers.get(ssp).getStartingOffset(ssp);
 
       if (startingOffset == null) {
         throw new SamzaException("No offset defined for SideInput SystemStreamPartition : " + ssp);
@@ -881,26 +885,10 @@ public class ContainerStorageManager {
     // start the systemConsumers for consuming input
     this.sideInputSystemConsumers.start();
 
-
     try {
-
-    // submit the sideInput read runnable
       sideInputsReadExecutor.submit(() -> {
           try {
-            while (!shouldShutdown) {
-              IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
-
-              if (envelope != null) {
-                if (!envelope.isEndOfStream()) {
-                  sideInputStorageManagers.get(envelope.getSystemStreamPartition()).process(envelope);
-                }
-
-                checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
-                    SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
-              } else {
-                LOG.trace("No incoming message was available");
-              }
-            }
+            sideInputRunLoop.run();
           } catch (Exception e) {
             LOG.error("Exception in reading sideInputs", e);
             sideInputException = e;
@@ -925,7 +913,7 @@ public class ContainerStorageManager {
        * interrupt exception and shutdown the components and cleaning up the resource. We don't want to clean up the
        * resources prematurely here.
        */
-      shouldShutdown = true; // todo: should we cancel the flush future right away or wait for container to handle it as part of shutdown sequence?
+      shouldShutdown = true;
       throw new SamzaException("Side inputs read was interrupted", e);
     }
 
@@ -1013,6 +1001,7 @@ public class ContainerStorageManager {
 
     // stop all sideinput consumers and stores
     if (sideInputsPresent()) {
+      sideInputRunLoop.shutdown();
       sideInputsReadExecutor.shutdownNow();
 
       this.sideInputSystemConsumers.stop();
