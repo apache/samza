@@ -866,3 +866,8 @@ project(":samza-test_$scalaSuffix") {
     from(configurations.archives.artifacts.files) { into("lib/") }
   }
 }
+
+// SAMZA-2473 read wrapper version from gradle.properties
+wrapper {
+  gradleVersion = project.gradleVersion
+}

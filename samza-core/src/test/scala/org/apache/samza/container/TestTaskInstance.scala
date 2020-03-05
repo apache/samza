@@ -336,7 +336,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   }
 
   @Test
-  def testCommitFailsIfErrorClearingOldCheckpoints() { // required for transactional state
+  def testCommitContinuesIfErrorClearingOldCheckpoints() { // required for transactional state
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
 
@@ -352,10 +352,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     } catch {
       case e: SamzaException =>
         // exception is expected, container should fail if could not get changelog offsets.
-        return
+        fail("Exception from removeOldCheckpoints should have been caught")
     }
-
-    fail("Should have failed commit if error getting newest changelog offests")
   }
 
   /**
