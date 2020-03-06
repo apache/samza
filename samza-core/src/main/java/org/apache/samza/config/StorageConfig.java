@@ -173,7 +173,7 @@ public class StorageConfig extends MapConfig {
    */
   private long getDefaultChangelogMinCompactionLagMs() {
     String defaultMinCompactLagConfigName = STORE_PREFIX + "default.changelog." + MIN_COMPACTION_LAG_MS;
-    return getLong(defaultMinCompactLagConfigName, DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS
+    return getLong(defaultMinCompactLagConfigName, DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS);
   }
 
   /**
