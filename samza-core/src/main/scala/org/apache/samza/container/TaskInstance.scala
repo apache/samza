@@ -274,7 +274,11 @@ class TaskInstance(
 
     if (storageManager != null) {
       trace("Remove old checkpoint stores for taskName: %s" format taskName)
-      storageManager.removeOldCheckpoints(checkpointId)
+      try {
+        storageManager.removeOldCheckpoints(checkpointId)
+      } catch {
+        case e: Exception => error("Failed to remove old checkpoints for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)
+      }
     }
 
     if (inputCheckpoint != null) {
