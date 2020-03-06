@@ -22,15 +22,12 @@ package org.apache.samza.storage.kv;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsVisitor;
-import org.apache.samza.metrics.SamzaHistogram;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
@@ -87,25 +84,25 @@ public class TestKeyValueSizeHistogramMetric {
     }
 
     metricsRegistry.getGroups().forEach(group -> metricsRegistry.getGroup(group.toString()).forEach((name, metric) -> {
-      if (name.contains("size-bytes-histogram")) {
-        metric.visit(new MetricsVisitor() {
-          @Override
-          public void counter(Counter counter) {
+        if (name.contains("size-bytes-histogram")) {
+          metric.visit(new MetricsVisitor() {
+            @Override
+            public void counter(Counter counter) {
 
-          }
+            }
 
-          @Override
-          public <T> void gauge(Gauge<T> gauge) {
-            Assert.assertNotEquals(0D, (Double) gauge.getValue(), 0.0001);
-          }
+            @Override
+            public <T> void gauge(Gauge<T> gauge) {
+              Assert.assertNotEquals(0D, (Double) gauge.getValue(), 0.0001);
+            }
 
-          @Override
-          public void timer(Timer timer) {
+            @Override
+            public void timer(Timer timer) {
 
-          }
-        });
-      }
-    }));
+            }
+          });
+        }
+      }));
   }
 
   private String getRandomString() {
