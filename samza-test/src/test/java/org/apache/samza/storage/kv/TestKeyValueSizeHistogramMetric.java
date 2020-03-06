@@ -21,8 +21,10 @@ package org.apache.samza.storage.kv;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
@@ -43,7 +45,9 @@ import org.junit.Test;
  */
 public class TestKeyValueSizeHistogramMetric {
 
-  private static String storeName = "testStore";
+  private static String storeName = "teststore";
+  private static String keyPrefix = "key-size-bytes-histogram";
+  private static String valuePrefix = "value-size-bytes-histogram";
   private static MetricsRegistryMap metricsRegistry = new MetricsRegistryMap();
   private static KeyValueStoreMetrics keyValueStoreMetrics = new KeyValueStoreMetrics(storeName, metricsRegistry);
   private static SerializedKeyValueStoreMetrics serializedKeyValueStoreMetrics =
@@ -71,20 +75,26 @@ public class TestKeyValueSizeHistogramMetric {
     List<String> keys = new ArrayList<>();
     List<String> values = new ArrayList<>();
 
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 300; i++) {
       keys.add(getRandomString());
       values.add(getRandomString());
     }
-
-    Collections.shuffle(keys);
-    Collections.shuffle(values);
 
     for (int i = 0; i < keys.size(); i++) {
       store.put(keys.get(i), values.get(i));
     }
 
+    Set<String> names = new HashSet<>();
+    for(Double p : serializedKeyValueStoreMetrics.record_key_size_percentiles())
+      names.add(storeName + "-" + keyPrefix + "_" + p);
+
+    for(Double p : serializedKeyValueStoreMetrics.record_value_size_percentiles())
+      names.add(storeName + "-" + valuePrefix + "_" + p);
+
+
     metricsRegistry.getGroups().forEach(group -> metricsRegistry.getGroup(group.toString()).forEach((name, metric) -> {
-        if (name.contains("size-bytes-histogram")) {
+        if (names.contains(name)) {
+          System.out.println(name);
           metric.visit(new MetricsVisitor() {
             @Override
             public void counter(Counter counter) {
@@ -93,6 +103,8 @@ public class TestKeyValueSizeHistogramMetric {
 
             @Override
             public <T> void gauge(Gauge<T> gauge) {
+              Double num = (Double)gauge.getValue();
+              //System.out.println(num);
               Assert.assertNotEquals(0D, (Double) gauge.getValue(), 0.0001);
             }
 
@@ -108,7 +120,7 @@ public class TestKeyValueSizeHistogramMetric {
   private String getRandomString() {
     int leftLimit = 97; // letter 'a'
     int rightLimit = 122; // letter 'z'
-    int maxLength = 1000;
+    int maxLength = 100;
 
     String generatedString = random.ints(leftLimit, rightLimit + 1)
         .limit(random.nextInt(maxLength))
