@@ -20,7 +20,6 @@
 package org.apache.samza.storage.kv;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -85,12 +84,13 @@ public class TestKeyValueSizeHistogramMetric {
     }
 
     Set<String> names = new HashSet<>();
-    for(Double p : serializedKeyValueStoreMetrics.record_key_size_percentiles())
+    for (Double p : serializedKeyValueStoreMetrics.record_key_size_percentiles()) {
       names.add(storeName + "-" + keyPrefix + "_" + p);
+    }
 
-    for(Double p : serializedKeyValueStoreMetrics.record_value_size_percentiles())
+    for (Double p : serializedKeyValueStoreMetrics.record_value_size_percentiles()) {
       names.add(storeName + "-" + valuePrefix + "_" + p);
-
+    }
 
     metricsRegistry.getGroups().forEach(group -> metricsRegistry.getGroup(group.toString()).forEach((name, metric) -> {
         if (names.contains(name)) {
@@ -103,7 +103,7 @@ public class TestKeyValueSizeHistogramMetric {
 
             @Override
             public <T> void gauge(Gauge<T> gauge) {
-              Double num = (Double)gauge.getValue();
+              Double num = (Double) gauge.getValue();
               //System.out.println(num);
               Assert.assertNotEquals(0D, (Double) gauge.getValue(), 0.0001);
             }
