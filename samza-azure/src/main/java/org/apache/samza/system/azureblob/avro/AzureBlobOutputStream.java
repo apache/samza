@@ -230,13 +230,13 @@ public class AzureBlobOutputStream extends OutputStream {
     blobAsyncClient.commitBlockListWithResponse(blockList, null, blobMetadata, null, null).block();
   }
 
-  // TODO-NEW JIRA stubbing BlockBlobAsyncClient.stageBlock was causing flaky tests.
+  // SAMZA-2476 stubbing BlockBlobAsyncClient.stageBlock was causing flaky tests.
   @VisibleForTesting
   void stageBlock(String blockIdEncoded, ByteBuffer outputStream, int blockSize) {
     blobAsyncClient.stageBlock(blockIdEncoded, Flux.just(outputStream), blockSize).block();
   }
 
-  // TODO-NEW JIRA blockList cleared makes it hard to test close
+  // blockList cleared makes it hard to test close
   @VisibleForTesting
   void clearAndMarkClosed() {
     blockList.clear();
