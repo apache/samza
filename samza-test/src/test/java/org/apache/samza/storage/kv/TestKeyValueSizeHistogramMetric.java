@@ -94,7 +94,7 @@ public class TestKeyValueSizeHistogramMetric {
 
     metricsRegistry.getGroups().forEach(group -> metricsRegistry.getGroup(group.toString()).forEach((name, metric) -> {
         if (names.contains(name)) {
-          System.out.println(name);
+          //System.out.println(name);
           metric.visit(new MetricsVisitor() {
             @Override
             public void counter(Counter counter) {
