@@ -411,8 +411,6 @@ public class TestContainerPlacementActions {
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
-    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.IN_PROGRESS);
-
     while (metadata.getActionStatus() != ContainerPlacementMessage.StatusCode.FAILED) {
       Thread.sleep(100);
     }
@@ -495,9 +493,6 @@ public class TestContainerPlacementActions {
             System.currentTimeMillis());
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
-
-    // Control action should be in progress
-    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.IN_PROGRESS);
 
     // Wait for the ControlAction to complete
     if (!allocatorWithHostAffinity.awaitContainersStart(1, 3, TimeUnit.SECONDS)) {
@@ -621,9 +616,6 @@ public class TestContainerPlacementActions {
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
-    // Control action should be in progress
-    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.IN_PROGRESS);
-
     // Wait for the ControlAction to complete
     if (!allocatorWithHostAffinity.awaitContainersStart(1, 2, TimeUnit.SECONDS)) {
       fail("timed out waiting for the containers to start");
@@ -725,9 +717,6 @@ public class TestContainerPlacementActions {
             System.currentTimeMillis());
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithoutHostAffinity);
-
-    // Initiated Control action should be in progress
-    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.IN_PROGRESS);
 
     // Wait for the ControlAction to complete and spawn an async request
     if (!allocatorWithoutHostAffinity.awaitContainersStart(1, 3, TimeUnit.SECONDS)) {

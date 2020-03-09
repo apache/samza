@@ -454,6 +454,7 @@ public class ContainerManager {
 
   /**
    * Gets the hostname on which container is either currently running or was last seen on if it is not running
+   * TODO SAMZA-2480: Move logic related to onResourcesCompleted from ContainerProcessManager to ContainerManager
    */
   private String getSourceHostForContainer(ContainerPlacementRequestMessage requestMessage) {
     String sourceHost = null;
@@ -518,7 +519,7 @@ public class ContainerManager {
     boolean isFailed = samzaApplicationState.failedProcessors.containsKey(requestMessage.getProcessorId());
 
     if (!isRunning && !isPending && !isFailed) {
-      errorMessage = String.format(errorMessagePrefix, "invalid processor id neither in running or pending processors");
+      errorMessage = String.format(errorMessagePrefix, "invalid processor id neither in running, pending or failed processors");
       invalidAction = true;
     } else if (placementRequestsCache.containsKey(requestMessage.getUuid())) {
       errorMessage = String.format(errorMessagePrefix, "duplicate UUID of the request, please retry");
