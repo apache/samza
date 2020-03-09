@@ -35,7 +35,6 @@ import org.apache.samza.metrics.MetricsVisitor;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStore;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
