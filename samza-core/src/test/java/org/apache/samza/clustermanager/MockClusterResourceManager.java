@@ -19,6 +19,7 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import java.time.Duration;
 import org.apache.samza.job.CommandBuilder;
@@ -103,7 +104,12 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   @Override
   public void stopStreamProcessor(SamzaResource resource) {
-    SamzaResourceStatus status = new SamzaResourceStatus(resource.getContainerId(), "diagnostics", SamzaResourceStatus.PREEMPTED);
+    stopStreamProcessor(resource, SamzaResourceStatus.PREEMPTED);
+  }
+
+  @VisibleForTesting
+  void stopStreamProcessor(SamzaResource resource, int exitCode) {
+    SamzaResourceStatus status = new SamzaResourceStatus(resource.getContainerId(), "diagnostics", exitCode);
     List<SamzaResourceStatus> statList = new ArrayList<>();
     statList.add(status);
     clusterManagerCallback.onResourcesCompleted(statList);
@@ -114,7 +120,6 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     Duration yarnAllocatedResourceExpiry = Duration.ofMinutes(10).minus(Duration.ofSeconds(30));
     return System.currentTimeMillis() - resource.getTimestamp() > yarnAllocatedResourceExpiry.toMillis();
   }
-
 
   public void registerContainerListener(MockContainerListener listener) {
     mockContainerListeners.add(listener);
