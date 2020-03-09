@@ -206,6 +206,13 @@ project(":samza-core_$scalaSuffix") {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
     toolVersion = "$checkstyleVersion"
   }
+
+  test {
+    // TODO SAMZA-2481: why do some tests need so much memory?
+    minHeapSize = "3g"
+    maxHeapSize = "3g"
+    jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
+  }
 }
 
 project(":samza-azure_$scalaSuffix") {
