@@ -558,6 +558,7 @@ public class ClusterBasedJobCoordinator {
       /*
        * Invoke app.main.class with app.main.args when present.
        * For Beam jobs, app.main.class will be Beam's main class
+       * and app.main.args will be Beam's pipeline options.
        */
       if (appConfig.getAppMainClass().isPresent()) {
         String className = appConfig.getAppMainClass().get();
