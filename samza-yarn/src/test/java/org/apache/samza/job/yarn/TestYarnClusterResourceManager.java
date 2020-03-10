@@ -102,7 +102,5 @@ public class TestYarnClusterResourceManager {
     when(allocatedResource.getTimestamp()).thenReturn(System.currentTimeMillis() - Duration.ofMinutes(10).toMillis());
 
     Assert.assertTrue(yarnClusterResourceManager.isResourceExpired(allocatedResource));
-
   }
-
 }
