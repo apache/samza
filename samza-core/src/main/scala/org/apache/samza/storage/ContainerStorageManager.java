@@ -50,6 +50,7 @@ import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.OffsetManager;
+import org.apache.samza.clustermanager.StandbyTaskUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
@@ -732,16 +733,17 @@ public class ContainerStorageManager {
     getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.init());
 
     // read the active task checkpoints and save any offsets related to this task's side inputs
-    getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
-      Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
-      if (checkpoint != null) {
-        checkpoint.getOffsets().forEach((ssp, offset) -> {
-          if (this.sideInputStorageManagers.containsKey(ssp)) {
-            this.checkpointedSideInputSSPOffsets.put(ssp, offset);
-          }
-        });
-      }
-    });
+    getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
+        TaskName activeTaskName = StandbyTaskUtil.getActiveTaskName(taskName);
+        Checkpoint checkpoint = checkpointManager.readLastCheckpoint(activeTaskName);
+        if (checkpoint != null) {
+          checkpoint.getOffsets().forEach((ssp, offset) -> {
+              if (this.sideInputStorageManagers.containsKey(ssp)) {
+                this.checkpointedSideInputSSPOffsets.put(ssp, offset);
+              }
+            });
+        }
+      });
 
     BaseTask task = new BaseTask() {
 
@@ -873,30 +875,29 @@ public class ContainerStorageManager {
         System::nanoTime,
         false);
 
-    /////// testing shit
-
     TaskConfig taskConfig = new TaskConfig(config);
     sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
       @Override
       public void run() {
-        getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
-          Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
-          if (checkpoint != null) {
-            checkpoint.getOffsets().forEach((ssp, offset) -> {
-              if (sideInputStorageManagers.containsKey(ssp)) {
-                String currentOffset = checkpointedSideInputSSPOffsets.get(ssp);
-                checkpointedSideInputSSPOffsets.put(ssp, offset);
-                // wake up any threads that are waiting for their ssp offsets to be updated
-                // TODO should be checking stricly GREATER THAN
-                if (!currentOffset.equals(offset)) {
-                  synchronized (sideInputSSPs.get(ssp)) {
-                    sideInputSSPs.get(ssp).notify();
+        getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
+          TaskName activeTaskName = StandbyTaskUtil.getActiveTaskName(taskName);
+          Checkpoint checkpoint = checkpointManager.readLastCheckpoint(activeTaskName);
+            if (checkpoint != null) {
+              checkpoint.getOffsets().forEach((ssp, offset) -> {
+                  if (sideInputStorageManagers.containsKey(ssp)) {
+                    String currentOffset = checkpointedSideInputSSPOffsets.get(ssp);
+                    checkpointedSideInputSSPOffsets.put(ssp, offset);
+                    // wake up any threads that are waiting for their ssp offsets to be updated
+                    // TODO should be checking strictly GREATER THAN
+                    if (!currentOffset.equals(offset)) {
+                      synchronized (sideInputSSPs.get(ssp)) {
+                        sideInputSSPs.get(ssp).notify();
+                      }
+                    }
                   }
-                }
-              }
-            });
-          }
-        });
+                });
+            }
+          });
       }
     }, 0, taskConfig.getCommitMs(), TimeUnit.MILLISECONDS);
 
