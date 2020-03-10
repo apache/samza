@@ -209,7 +209,7 @@ project(":samza-core_$scalaSuffix") {
 
   test {
     // TODO SAMZA-2481: why do some tests need so much memory?
-    maxHeapSize = "3g"
+    maxHeapSize = "4g"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 }
