@@ -22,6 +22,8 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -195,7 +197,7 @@ public class ClusterBasedJobCoordinator {
    * @param metadataStore metadata store to hold metadata.
    * @param fullJobConfig full job config.
    */
-  private ClusterBasedJobCoordinator(MetricsRegistryMap metrics, MetadataStore metadataStore, Config fullJobConfig) {
+  public ClusterBasedJobCoordinator(MetricsRegistryMap metrics, MetadataStore metadataStore, Config fullJobConfig) {
     this.metrics = metrics;
     this.metadataStore = metadataStore;
     this.config = fullJobConfig;
@@ -551,8 +553,23 @@ public class ClusterBasedJobCoordinator {
         throw new SamzaException(e);
       }
 
-      ClusterBasedJobCoordinator jc = createFromConfigLoader(submissionConfig);
-      jc.run();
+      ApplicationConfig appConfig = new ApplicationConfig(submissionConfig);
+
+      if (appConfig.getAppMainClass().isPresent()) {
+        String className = appConfig.getAppMainClass().get();
+        LOG.info("Invoke main {}", className);
+        try {
+          Class<?> cls = Class.forName(className);
+          Method mainMethod = cls.getMethod("main", String[].class);
+          mainMethod.invoke(null, (Object) toArgs(appConfig));
+        } catch (Exception e) {
+          throw new SamzaException(e);
+        }
+      } else {
+        ClusterBasedJobCoordinator jc = createFromConfigLoader(submissionConfig);
+        jc.run();
+      }
+
       LOG.info("Finished running ClusterBasedJobCoordinator");
     } else {
       // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
@@ -633,5 +650,21 @@ public class ClusterBasedJobCoordinator {
         metrics,
         metadataStore,
         config);
+  }
+
+  @VisibleForTesting
+  static String[] toArgs(ApplicationConfig config) {
+    List<String> args = new ArrayList<>(config.size() * 2);
+
+    config.forEach((key, value) -> {
+      if (key.equals(ApplicationConfig.APP_MAIN_ARGS)) {
+        args.addAll(Arrays.asList(value.split("\\s")));
+      } else {
+        args.add("--config");
+        args.add(String.format("%s=%s", key, value));
+      }
+    });
+
+   return args.toArray(new String[0]);
   }
 }
