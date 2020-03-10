@@ -22,6 +22,7 @@ package org.apache.samza.job.local
 import java.util.concurrent.CountDownLatch
 
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
 import org.apache.samza.job.ApplicationStatus.{New, Running, SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.{ApplicationStatus, CommandBuilder, StreamJob}
 import org.apache.samza.util.Logging
@@ -41,7 +42,10 @@ object ProcessJob {
   }
 }
 
-class ProcessJob(commandBuilder: CommandBuilder, val jobModelManager: JobModelManager) extends StreamJob with Logging {
+class ProcessJob(
+  commandBuilder: CommandBuilder,
+  val jobModelManager: JobModelManager,
+  val coordinatorStreamStore: CoordinatorStreamStore) extends StreamJob with Logging {
 
   import ProcessJob._
 
@@ -72,6 +76,7 @@ class ProcessJob(commandBuilder: CommandBuilder, val jobModelManager: JobModelMa
           case e: Exception => error("Encountered an error during job start: %s".format(e.getMessage))
         } finally {
           jobModelManager.stop
+          coordinatorStreamStore.close
           setStatus(if (processExitCode == 0) SuccessfulFinish else UnsuccessfulFinish)
         }
       }

@@ -94,7 +94,7 @@ public class CoordinatorStreamStore implements MetadataStore {
   }
 
   @VisibleForTesting
-  CoordinatorStreamStore(Config config, SystemProducer systemProducer, SystemConsumer systemConsumer, SystemAdmin systemAdmin) {
+  protected CoordinatorStreamStore(Config config, SystemProducer systemProducer, SystemConsumer systemConsumer, SystemAdmin systemAdmin) {
     this.config = config;
     this.systemConsumer = systemConsumer;
     this.systemProducer = systemProducer;
