@@ -19,7 +19,6 @@
 package org.apache.samza.config;
 
 import java.util.Optional;
-import javax.swing.text.html.Option;
 import org.apache.samza.runtime.UUIDGenerator;
 
 
