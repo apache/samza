@@ -19,9 +19,15 @@
 
 package org.apache.samza.job.local
 
+import com.google.common.collect.ImmutableMap
+import org.apache.samza.config.MapConfig
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
+import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
 import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.CommandBuilder
+import org.apache.samza.system.{SystemAdmin, SystemConsumer, SystemProducer}
+import org.apache.samza.util.NoOpMetricsRegistry
 import org.junit.Assert._
 import org.junit.Test
 
@@ -34,6 +40,8 @@ object TestProcessJob {
   val SimpleCommand = "true"
   val FailingCommand = "false"
   val BadCommand = "bad-non-existing-command"
+  val MockSystemName = "test-kafka"
+  val MockConfigs = new MapConfig(ImmutableMap.of("job.name", "test-job", "job.coordinator.system", MockSystemName))
 
   private def createProcessJob(command: String): ProcessJob = {
     val commandBuilder = new CommandBuilder {
@@ -41,11 +49,25 @@ object TestProcessJob {
 
       override def buildEnvironment = Map[String, String]().asJava
     }
-    new ProcessJob(commandBuilder, new MockJobModelManager)
+    // Setup for mocking a CoordinateStreamStore
+    val systemFactory = new MockCoordinatorStreamSystemFactory
+    MockCoordinatorStreamSystemFactory.enableMockConsumerCache
+    val systemConsumer = systemFactory.getConsumer(MockSystemName, MockConfigs, new NoOpMetricsRegistry)
+    val systemProducer = systemFactory.getProducer(MockSystemName, MockConfigs, new NoOpMetricsRegistry)
+    val systemAdmin = systemFactory.getAdmin(MockSystemName, MockConfigs)
+
+    new ProcessJob(
+      commandBuilder,
+      new MockJobModelManager,
+      new MockCoordinateStreamStore(MockConfigs, systemProducer, systemConsumer, systemAdmin))
   }
 
   private def getMockJobModelManager(processJob: ProcessJob): MockJobModelManager = {
     processJob.jobModelManager.asInstanceOf[MockJobModelManager]
+  }
+
+  private def getMockCoordinatorStreamStore(processJob: ProcessJob): MockCoordinateStreamStore = {
+    processJob.coordinatorStreamStore.asInstanceOf[MockCoordinateStreamStore]
   }
 }
 
@@ -61,6 +83,7 @@ class TestProcessJob {
 
     assertEquals(SuccessfulFinish, status)
     assertTrue(getMockJobModelManager(processJob).stopped)
+    assertTrue(getMockCoordinatorStreamStore(processJob).closed)
   }
 
   @Test
@@ -71,6 +94,7 @@ class TestProcessJob {
 
     assertEquals(UnsuccessfulFinish, status)
     assertTrue(getMockJobModelManager(processJob).stopped)
+    assertTrue(getMockCoordinatorStreamStore(processJob).closed)
   }
 
   @Test
@@ -91,6 +115,7 @@ class TestProcessJob {
 
     assertEquals(UnsuccessfulFinish, processJob.getStatus)
     assertTrue(getMockJobModelManager(processJob).stopped)
+    assertTrue(getMockCoordinatorStreamStore(processJob).closed)
   }
 
   @Test
@@ -101,6 +126,7 @@ class TestProcessJob {
 
     assertEquals(UnsuccessfulFinish, processJob.getStatus)
     assertTrue(getMockJobModelManager(processJob).stopped)
+    assertTrue(getMockCoordinatorStreamStore(processJob).closed)
   }
 
   @Test
@@ -111,6 +137,7 @@ class TestProcessJob {
 
     assertEquals(SuccessfulFinish, processJob.getStatus)
     assertTrue(getMockJobModelManager(processJob).stopped)
+    assertTrue(getMockCoordinatorStreamStore(processJob).closed)
   }
 
   @Test
@@ -143,5 +170,20 @@ class MockJobModelManager extends JobModelManager(null, null) {
 
   override def stop: Unit = {
     stopped = true
+  }
+}
+
+class MockCoordinateStreamStore(
+  config: MapConfig,
+  systemProducer: SystemProducer,
+  systemConsumer: SystemConsumer,
+  systemAdmin: SystemAdmin)
+  extends CoordinatorStreamStore(config, systemProducer, systemConsumer, systemAdmin) {
+  var closed: Boolean = false
+
+  override def init: Unit = {}
+
+  override def close: Unit = {
+    closed = true
   }
 }

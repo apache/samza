@@ -30,6 +30,7 @@ import org.apache.samza.clustermanager.container.placement.ContainerPlacementMet
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
+import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.util.BoundedLinkedHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +49,6 @@ import org.slf4j.LoggerFactory;
  * ContainerManager encapsulates logic and state related to container placement actions like move, restarts for active container
  * if issued externally.
  *
- * TODO SAMZA-2379: Container Placements for job running in degraded state
  */
 public class ContainerManager {
 
@@ -362,10 +362,6 @@ public class ContainerManager {
       return;
     }
 
-    SamzaResource currentResource = samzaApplicationState.runningProcessors.get(processorId);
-    LOG.info("Processor ID: {} matched an active container with containerId ID: {} is running on host: {} for ContainerPlacement action: {}",
-        processorId, currentResource.getContainerId(), currentResource.getHost(), requestMessage);
-
     // TODO: SAMZA-2457: Allow host affinity disabled jobs to move containers to specific host
     if (!hostAffinityEnabled) {
       LOG.info("Changing the requested host for placement action to {} because host affinity is disabled", ResourceRequestState.ANY_HOST);
@@ -373,8 +369,13 @@ public class ContainerManager {
     }
 
     // Register metadata
-    ContainerPlacementMetadata actionMetaData = new ContainerPlacementMetadata(requestMessage, currentResource.getHost());
+    ContainerPlacementMetadata actionMetaData = new ContainerPlacementMetadata(requestMessage, getSourceHostForContainer(requestMessage));
     actions.put(processorId, actionMetaData);
+
+    // If the job is running in a degraded state then the container is already stopped
+    if (samzaApplicationState.failedProcessors.containsKey(requestMessage.getProcessorId())) {
+      actionMetaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOPPED);
+    }
 
     SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequest(processorId, destinationHost);
     // Record the resource request for monitoring
@@ -382,7 +383,6 @@ public class ContainerManager {
     actions.put(processorId, actionMetaData);
     updateContainerPlacementActionStatus(actionMetaData, ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Preferred Resources requested");
     containerAllocator.issueResourceRequest(resourceRequest);
-
   }
 
   /**
@@ -453,6 +453,26 @@ public class ContainerManager {
   }
 
   /**
+   * Gets the hostname on which container is either currently running or was last seen on if it is not running
+   * TODO SAMZA-2480: Move logic related to onResourcesCompleted from ContainerProcessManager to ContainerManager
+   */
+  private String getSourceHostForContainer(ContainerPlacementRequestMessage requestMessage) {
+    String sourceHost = null;
+    String processorId = requestMessage.getProcessorId();
+    if (samzaApplicationState.runningProcessors.containsKey(processorId)) {
+      SamzaResource currentResource = samzaApplicationState.runningProcessors.get(processorId);
+      LOG.info("Processor ID: {} matched a running container with containerId ID: {} is running on host: {} for ContainerPlacement action: {}",
+          processorId, currentResource.getContainerId(), currentResource.getHost(), requestMessage);
+      sourceHost = currentResource.getHost();
+    } else {
+      sourceHost = samzaApplicationState.jobModelManager.jobModel().getContainerToHostValue(processorId, SetContainerHostMapping.HOST_KEY);
+      LOG.info("Processor ID: {} is not running and was last seen on host: {} for ContainerPlacement action: {}",
+          processorId, sourceHost, requestMessage);
+    }
+    return sourceHost;
+  }
+
+  /**
    * These are specific scenarios in which a placement action should wait for existing action to complete before it is executed
    * 1. If there is an placement request in progress on active container
    * 2. If there is an placement request is progress on any of its standby container
@@ -466,6 +486,13 @@ public class ContainerManager {
     if (checkIfActiveOrStandbyContainerHasActivePlacementAction(requestMessage)) {
       return false;
     }
+
+    if (samzaApplicationState.failedProcessors.containsKey(requestMessage.getProcessorId())) {
+      LOG.info("ContainerPlacement request: {} is de-queued, container with Processor ID: {} has exhausted all retries and is in failed state",
+          requestMessage, requestMessage.getProcessorId());
+      return true;
+    }
+
     // Do not dequeue the action wait for the container to come to a running state
     if (!samzaApplicationState.runningProcessors.containsKey(requestMessage.getProcessorId())
         || samzaApplicationState.pendingProcessors.containsKey(requestMessage.getProcessorId())) {
@@ -486,10 +513,13 @@ public class ContainerManager {
     String errorMessagePrefix = ContainerPlacementMessage.StatusCode.BAD_REQUEST + " reason: %s";
     Boolean invalidAction = false;
     String errorMessage = null;
-    if (!samzaApplicationState.runningProcessors.containsKey(requestMessage.getProcessorId()) &&
-        !samzaApplicationState.pendingProcessors.containsKey(requestMessage.getProcessorId())
-    ) {
-      errorMessage = String.format(errorMessagePrefix, "invalid processor id neither in running or pending processors");
+
+    boolean isRunning = samzaApplicationState.runningProcessors.containsKey(requestMessage.getProcessorId());
+    boolean isPending = samzaApplicationState.pendingProcessors.containsKey(requestMessage.getProcessorId());
+    boolean isFailed = samzaApplicationState.failedProcessors.containsKey(requestMessage.getProcessorId());
+
+    if (!isRunning && !isPending && !isFailed) {
+      errorMessage = String.format(errorMessagePrefix, "invalid processor id neither in running, pending or failed processors");
       invalidAction = true;
     } else if (placementRequestsCache.containsKey(requestMessage.getUuid())) {
       errorMessage = String.format(errorMessagePrefix, "duplicate UUID of the request, please retry");
