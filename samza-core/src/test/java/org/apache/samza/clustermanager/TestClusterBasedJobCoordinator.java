@@ -19,10 +19,13 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -55,9 +58,7 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.any;
@@ -239,5 +240,25 @@ public class TestClusterBasedJobCoordinator {
     ClusterBasedJobCoordinator.createFromConfigLoader(submissionConfig);
 
     verifyNew(ClusterBasedJobCoordinator.class).withArguments(any(MetricsRegistryMap.class), eq(mockCoordinatorStreamStore), eq(fullJobConfig));
+  }
+
+  @Test
+  public void testToArgs() {
+    ApplicationConfig appConfig = new ApplicationConfig(new MapConfig(ImmutableMap.of(
+        JobConfig.JOB_NAME, "test1",
+        ApplicationConfig.APP_CLASS, "class1",
+        ApplicationConfig.APP_MAIN_ARGS, "--runner=SamzaRunner --maxSourceParallelism=1024"
+    )));
+
+    List<String> expected = Arrays.asList(
+        "--config", "job.name=test1",
+        "--config", "app.class=class1",
+        "--runner=SamzaRunner",
+        "--maxSourceParallelism=1024");
+    List<String> actual = Arrays.asList(ClusterBasedJobCoordinator.toArgs(appConfig));
+
+    // cannot assert expected equals to actual as the order can be different.
+    assertEquals(expected.size(), actual.size());
+    assertTrue(actual.containsAll(expected));
   }
 }
