@@ -555,6 +555,10 @@ public class ClusterBasedJobCoordinator {
 
       ApplicationConfig appConfig = new ApplicationConfig(submissionConfig);
 
+      /*
+       * Invoke app.main.class with app.main.args when present.
+       * For Beam jobs, app.main.class will be Beam's main class
+       */
       if (appConfig.getAppMainClass().isPresent()) {
         String className = appConfig.getAppMainClass().get();
         LOG.info("Invoke main {}", className);
@@ -652,19 +656,33 @@ public class ClusterBasedJobCoordinator {
         config);
   }
 
+  /**
+   * Convert Samza config to command line arguments to invoke app.main.class
+   *
+   * @param config Samza config to convert.
+   * @return converted command line arguments.
+   */
   @VisibleForTesting
   static String[] toArgs(ApplicationConfig config) {
     List<String> args = new ArrayList<>(config.size() * 2);
 
     config.forEach((key, value) -> {
-      if (key.equals(ApplicationConfig.APP_MAIN_ARGS)) {
-        args.addAll(Arrays.asList(value.split("\\s")));
-      } else {
-        args.add("--config");
-        args.add(String.format("%s=%s", key, value));
-      }
-    });
+        if (key.equals(ApplicationConfig.APP_MAIN_ARGS)) {
+          /*
+           * Converts native beam pipeline options such as
+           * --runner=SamzaRunner --maxSourceParallelism=1024
+           */
+          args.addAll(Arrays.asList(value.split("\\s")));
+        } else {
+          /*
+           * Converts native Samza configs to config override format such as
+           * --config job.name=test
+           */
+          args.add("--config");
+          args.add(String.format("%s=%s", key, value));
+        }
+      });
 
-   return args.toArray(new String[0]);
+    return args.toArray(new String[0]);
   }
 }
