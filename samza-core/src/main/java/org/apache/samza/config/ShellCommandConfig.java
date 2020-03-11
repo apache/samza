@@ -16,44 +16,46 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.config;
 
-package org.apache.samza.config
+import java.util.Optional;
 
-object ShellCommandConfig {
+
+public class ShellCommandConfig extends MapConfig {
   /**
    * This environment variable is used to store a JSON serialized map of all coordinator system configs.
    */
-  val ENV_COORDINATOR_SYSTEM_CONFIG = "SAMZA_COORDINATOR_SYSTEM_CONFIG"
+  public static final String ENV_COORDINATOR_SYSTEM_CONFIG = "SAMZA_COORDINATOR_SYSTEM_CONFIG";
 
   /**
    * This environment variable is used to pass a JSON serialized map of configs provided during job submission.
    */
-  val ENV_SUBMISSION_CONFIG = "SAMZA_SUBMISSION_CONFIG"
+  public static final String ENV_SUBMISSION_CONFIG = "SAMZA_SUBMISSION_CONFIG";
 
   /**
    * The ID for a container. This is a string representation that is unique to the runtime environment.
    */
-  val ENV_CONTAINER_ID = "SAMZA_CONTAINER_ID"
+  public static final String ENV_CONTAINER_ID = "SAMZA_CONTAINER_ID";
 
   /**
    * The URL location of the job coordinator's HTTP server.
    */
-  val ENV_COORDINATOR_URL = "SAMZA_COORDINATOR_URL"
+  public static final String ENV_COORDINATOR_URL = "SAMZA_COORDINATOR_URL";
 
   /**
    * Arguments to be passed to the processing running the TaskRunner (or equivalent, for non JVM languages).
    */
-  val ENV_JAVA_OPTS = "JAVA_OPTS"
+  public static final String ENV_JAVA_OPTS = "JAVA_OPTS";
 
   /**
    * The JAVA_HOME path for running the task
    */
-  val ENV_JAVA_HOME = "JAVA_HOME"
+  public static final String ENV_JAVA_HOME = "JAVA_HOME";
 
   /**
    * The ID assigned to the container by the execution environment (eg: YARN Container Id)
    */
-  val ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID"
+  public static final String ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID";
 
   /**
    * Set to "true" if cluster-based job coordinator dependency isolation is enabled. Otherwise, will be considered
@@ -64,8 +66,8 @@ object ShellCommandConfig {
    * variable, because the value needs to be known before the full configs can be read from the metadata store (full
    * configs are only read after launch is complete).
    */
-  val ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED =
-    "CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED"
+  public static final String ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED =
+      "CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED";
 
   /**
    * When running the cluster-based job coordinator in an isolated mode, it uses JARs and resources from a lib directory
@@ -77,7 +79,7 @@ object ShellCommandConfig {
    * For example, this is used to set a system property for the location of an application-specified log4j configuration
    * file when launching the cluster-based job coordinator Java process.
    */
-  val ENV_APPLICATION_LIB_DIR = "APPLICATION_LIB_DIR"
+  public static final String ENV_APPLICATION_LIB_DIR = "APPLICATION_LIB_DIR";
 
   /*
    * The base directory for storing logged data stores used in Samza. This has to be set on all machine running Samza
@@ -85,21 +87,21 @@ object ShellCommandConfig {
    * If this environment variable is not set, the path defaults to current working directory (which is the same as the
    * path for persisting non-logged data stores)
    */
-  val ENV_LOGGED_STORE_BASE_DIR = "LOGGED_STORE_BASE_DIR"
+  public static final String ENV_LOGGED_STORE_BASE_DIR = "LOGGED_STORE_BASE_DIR";
 
   /**
    * The directory path that contains the execution plan
    */
-  val EXECUTION_PLAN_DIR = "EXECUTION_PLAN_DIR"
+  public static final String EXECUTION_PLAN_DIR = "EXECUTION_PLAN_DIR";
 
   /**
    * Points to the lib directory of the localized resources(other than the framework dependencies).
    */
-  val ENV_ADDITIONAL_CLASSPATH_DIR = "ADDITIONAL_CLASSPATH_DIR"
+  public static final String ENV_ADDITIONAL_CLASSPATH_DIR = "ADDITIONAL_CLASSPATH_DIR";
 
-  val COMMAND_SHELL_EXECUTE = "task.execute"
-  val TASK_JVM_OPTS = "task.opts"
-  val TASK_JAVA_HOME = "task.java.home"
+  public static final String COMMAND_SHELL_EXECUTE = "task.execute";
+  public static final String TASK_JVM_OPTS = "task.opts";
+  public static final String TASK_JAVA_HOME = "task.java.home";
 
   /**
    * SamzaContainer uses JARs from the lib directory of the framework in it classpath. In some cases, it is necessary to include
@@ -108,35 +110,38 @@ object ShellCommandConfig {
    * run-time before launching the SamzaContainer. This environment variable can be set to a lib directory of the localized resource and
    * it will be included in the java classpath of the SamzaContainer.
    */
-  val ADDITIONAL_CLASSPATH_DIR = "additional.classpath.dir"
+  public static final String ADDITIONAL_CLASSPATH_DIR = "additional.classpath.dir";
 
-  implicit def Config2ShellCommand(config: Config) = new ShellCommandConfig(config)
-}
-
-class ShellCommandConfig(config: Config) extends ScalaMapConfig(config) {
-  def getCommand = getOption(ShellCommandConfig.COMMAND_SHELL_EXECUTE).getOrElse("bin/run-container.sh")
-
-  def getTaskOpts = {
-    var jvmOpts = getOption(ShellCommandConfig.TASK_JVM_OPTS)
-    val jobConfig = new JobConfig(config)
-
-    if (jobConfig.getAutosizingEnabled && getOption(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB).isDefined) {
-
-      val maxHeapMb = getOption(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB).get
-      val xmxSetting = "-Xmx" + maxHeapMb + "m"
-
-      if (jvmOpts.isDefined && jvmOpts.get.contains("-Xmx"))
-        jvmOpts = Option(jvmOpts.get.replaceAll("-Xmx\\S+", xmxSetting))
-      else if (jvmOpts.isDefined)
-        jvmOpts = Option(jvmOpts.get.concat(" " + xmxSetting))
-      else
-        jvmOpts = Some(xmxSetting)
-    }
-
-    jvmOpts
+  public ShellCommandConfig(Config config) {
+    super(config);
   }
 
-  def getJavaHome = getOption(ShellCommandConfig.TASK_JAVA_HOME)
+  public String getCommand() {
+    return Optional.ofNullable(get(ShellCommandConfig.COMMAND_SHELL_EXECUTE)).orElse("bin/run-container.sh");
+  }
 
-  def getAdditionalClasspathDir(): Option[String] = getOption(ShellCommandConfig.ADDITIONAL_CLASSPATH_DIR)
+  public Optional<String> getTaskOpts() {
+    Optional<String> jvmOpts = Optional.ofNullable(get(ShellCommandConfig.TASK_JVM_OPTS));
+    Optional<String> maxHeapMbOptional = Optional.ofNullable(get(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB));
+    if (new JobConfig(this).getAutosizingEnabled() && maxHeapMbOptional.isPresent()) {
+      String maxHeapMb = maxHeapMbOptional.get();
+      String xmxSetting = "-Xmx" + maxHeapMb + "m";
+      if (jvmOpts.isPresent() && jvmOpts.get().contains("-Xmx")) {
+        jvmOpts = Optional.of(jvmOpts.get().replaceAll("-Xmx\\S+", xmxSetting));
+      } else if (jvmOpts.isPresent()) {
+        jvmOpts = Optional.of(jvmOpts.get().concat(" " + xmxSetting));
+      } else {
+        jvmOpts = Optional.of(xmxSetting);
+      }
+    }
+    return jvmOpts;
+  }
+
+  public Optional<String> getJavaHome() {
+    return Optional.ofNullable(get(ShellCommandConfig.TASK_JAVA_HOME));
+  }
+
+  public Optional<String> getAdditionalClasspathDir() {
+    return Optional.ofNullable(get(ShellCommandConfig.ADDITIONAL_CLASSPATH_DIR));
+  }
 }

@@ -467,7 +467,7 @@ public class ClusterBasedJobCoordinator {
    */
   public static void main(String[] args) {
     boolean dependencyIsolationEnabled = Boolean.parseBoolean(
-        System.getenv(ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED()));
+        System.getenv(ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED));
     if (!dependencyIsolationEnabled) {
       // no isolation enabled, so can just execute runClusterBasedJobCoordinator directly
       runClusterBasedJobCoordinator(args);
@@ -537,8 +537,8 @@ public class ClusterBasedJobCoordinator {
    * {@link #main(String[])} so that it can be executed directly or from a separate classloader.
    */
   private static void runClusterBasedJobCoordinator(String[] args) {
-    final String coordinatorSystemEnv = System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG());
-    final String submissionEnv = System.getenv(ShellCommandConfig.ENV_SUBMISSION_CONFIG());
+    final String coordinatorSystemEnv = System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG);
+    final String submissionEnv = System.getenv(ShellCommandConfig.ENV_SUBMISSION_CONFIG);
 
     if (!StringUtils.isBlank(submissionEnv)) {
       Config submissionConfig;
