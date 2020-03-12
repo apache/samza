@@ -101,11 +101,11 @@ public class ApplicationConfig extends MapConfig {
   }
 
   public Optional<String> getAppMainArgs() {
-    return Optional.ofNullable(get(APP_MAIN_CLASS));
+    return Optional.ofNullable(get(APP_MAIN_ARGS));
   }
 
   public Optional<String> getAppMainClass() {
-    return Optional.ofNullable(get(APP_MAIN_ARGS));
+    return Optional.ofNullable(get(APP_MAIN_CLASS));
   }
 
 }
