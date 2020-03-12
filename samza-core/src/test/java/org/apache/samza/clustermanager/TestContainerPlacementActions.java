@@ -94,7 +94,7 @@ public class TestContainerPlacementActions {
   private CoordinatorStreamStore coordinatorStreamStore;
   private ContainerPlacementMetadataStore containerPlacementMetadataStore;
 
-  private SamzaApplicationState state;
+  volatile private SamzaApplicationState state;
   private ContainerManager containerManager;
   private MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity;
   private ContainerProcessManager cpm;
@@ -238,8 +238,17 @@ public class TestContainerPlacementActions {
       fail("timed out waiting for the containers to start");
     }
 
-    while (metadata.getActionStatus() != ContainerPlacementMessage.StatusCode.SUCCEEDED) {
+    Optional<ContainerPlacementResponseMessage> responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    // Wait for the placement action to be complete & get written to the underlying metastore
+    while (true) {
+      if (metadata.getActionStatus() == ContainerPlacementMessage.StatusCode.SUCCEEDED && responseMessage.isPresent()
+          && responseMessage.get().getStatusCode() == ContainerPlacementMessage.StatusCode.SUCCEEDED) {
+        break;
+      }
       Thread.sleep(100);
+      responseMessage = containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
     }
 
     assertEquals(state.preferredHostRequests.get(), 3);
@@ -248,9 +257,6 @@ public class TestContainerPlacementActions {
     assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
     assertEquals(state.anyHostRequests.get(), 0);
     assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
-
-    Optional<ContainerPlacementResponseMessage> responseMessage =
-        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
 
     assertTrue(responseMessage.isPresent());
     assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
@@ -411,8 +417,19 @@ public class TestContainerPlacementActions {
     ContainerPlacementMetadata metadata =
         containerManager.registerContainerPlacementActionForTest(requestMessage, allocatorWithHostAffinity);
 
-    while (metadata.getActionStatus() != ContainerPlacementMessage.StatusCode.FAILED) {
+
+    Optional<ContainerPlacementResponseMessage> responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    // Wait for the placement action to be complete & get written to the underlying metastore
+    while (true) {
+      if (metadata.getActionStatus() == ContainerPlacementMessage.StatusCode.FAILED
+          && responseMessage.isPresent()
+          && responseMessage.get().getStatusCode() == ContainerPlacementMessage.StatusCode.FAILED) {
+        break;
+      }
       Thread.sleep(100);
+      responseMessage = containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
     }
 
     assertEquals(state.preferredHostRequests.get(), 3);
@@ -421,9 +438,6 @@ public class TestContainerPlacementActions {
     assertEquals(state.runningProcessors.get("0").getHost(), "host-1");
     assertEquals(state.runningProcessors.get("1").getHost(), "host-2");
     assertEquals(state.anyHostRequests.get(), 0);
-
-    Optional<ContainerPlacementResponseMessage> responseMessage =
-        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
 
     assertTrue(responseMessage.isPresent());
     assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.FAILED);
@@ -723,8 +737,16 @@ public class TestContainerPlacementActions {
       fail("timed out waiting for the containers to start");
     }
 
-    while (metadata.getActionStatus() != ContainerPlacementMessage.StatusCode.SUCCEEDED) {
+    Optional<ContainerPlacementResponseMessage> responseMessage =
+        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+
+    while (true) {
+      if (metadata.getActionStatus() == ContainerPlacementMessage.StatusCode.SUCCEEDED && responseMessage.isPresent()
+          && responseMessage.get().getStatusCode() == ContainerPlacementMessage.StatusCode.SUCCEEDED) {
+        break;
+      }
       Thread.sleep(100);
+      responseMessage = containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
     }
 
     // We should have no preferred host request
@@ -738,9 +760,6 @@ public class TestContainerPlacementActions {
     assertEquals(3, state.anyHostRequests.get());
     // Action should success
     assertEquals(ContainerPlacementMessage.StatusCode.SUCCEEDED, metadata.getActionStatus());
-
-    Optional<ContainerPlacementResponseMessage> responseMessage =
-        containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
 
     assertTrue(responseMessage.isPresent());
     assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
@@ -967,7 +986,7 @@ public class TestContainerPlacementActions {
   }
 
   private void assertBadRequests(String processorId, String destinationHost, ContainerManager containerManager,
-      ContainerAllocator allocator) {
+      ContainerAllocator allocator) throws InterruptedException {
     ContainerPlacementRequestMessage requestMessage =
         new ContainerPlacementRequestMessage(UUID.randomUUID(), "app-Attemp-001", processorId, destinationHost,
             System.currentTimeMillis());
@@ -978,7 +997,15 @@ public class TestContainerPlacementActions {
     Optional<ContainerPlacementResponseMessage> responseMessage =
         containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
 
-    assertTrue(responseMessage.isPresent());
+    while (true) {
+      if (responseMessage.isPresent()
+          && responseMessage.get().getStatusCode() == ContainerPlacementMessage.StatusCode.BAD_REQUEST) {
+        break;
+      }
+      Thread.sleep(100);
+      responseMessage = containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestMessage.getUuid());
+    }
+
     assertEquals(responseMessage.get().getStatusCode(), ContainerPlacementMessage.StatusCode.BAD_REQUEST);
     assertResponseMessage(responseMessage.get(), requestMessage);
     // Request shall be deleted as soon as it is acted upon
