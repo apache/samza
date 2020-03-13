@@ -34,6 +34,7 @@ class SerializedKeyValueStoreMetrics(
   val flushes = newCounter("flushes")
   val bytesSerialized = newCounter("bytes-serialized")
   val bytesDeserialized = newCounter("bytes-deserialized")
+  val maxRecordKeySizeBytes = newGauge("max-record-key-size-bytes", 0L)
   val maxRecordSizeBytes = newGauge("max-record-size-bytes", 0L)
   val record_key_size_percentiles = java.util.Arrays.asList[java.lang.Double](50D, 90D, 99D, 99.9D)
   val record_value_size_percentiles = java.util.Arrays.asList[java.lang.Double](50D, 90D, 99D, 99.9D)
