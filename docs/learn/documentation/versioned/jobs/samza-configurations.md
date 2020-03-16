@@ -264,6 +264,8 @@ These properties define Samza's storage mechanism for efficient [stateful stream
 ##### <a name="advanced-storage-configurations"></a>[4.1 Advanced Storage Configurations](#advanced-storage-configurations)
 |Name|Default|Description|
 |--- |--- |--- |
+|stores.default.changelog.<br>min.compaction.lag.ms|14400000|This property defines the default minimum period that must pass before a changelog message can be compacted.|
+|stores.**_store-name_**.changelog.<br>min.compaction.lag.ms|stores.default.changelog.<br>min.compaction.lag.ms|This property defines the minimum period that must pass before a message in the store's changelog can be compacted.|
 |stores.default.changelog.<br>replication.factor|2|This property defines the default number of replicas to use for the change log stream.|
 |stores.**_store-name_**.changelog.<br>replication.factor|stores.default.changelog.<br>replication.factor|The property defines the number of replicas to use for the change log stream.|
 |stores.**_store-name_**.changelog.<br>kafka.topic-level-property| |The property allows you to specify topic level settings for the changelog topic to be created. For e.g., you can specify the clean up policy as "stores.mystore.changelog.cleanup.policy=delete". Please refer to the [Kafka documentation](http://kafka.apache.org/documentation.html#configuration) for more topic level configurations.|
