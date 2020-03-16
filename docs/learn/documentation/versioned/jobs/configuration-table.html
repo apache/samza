@@ -1590,7 +1590,7 @@
                     <td class="default">14400000</td>
                     <td class="description">
                         This property defines the default minimum period that must pass before a changelog message can be compacted.
-                        Be mindful that the larger this value, the larger in size changelog topics will be in Kafka due to un-compacted data and the longer your application's bootstrap time will be.
+                        Be mindful that the larger this value, the larger in size changelog topics will be in Kafka due to un-compacted data and the longer your application's time to restore from changelog will be.
                         This may impact your application's startup time if host affinity is not enabled. For changelog topics which have "compact,delete" cleanup policy, this value should be < retention.ms.
                     </td>
                 </tr>
@@ -1600,7 +1600,7 @@
                     <td class="default">stores.default.changelog.min.compaction.lag.ms</td>
                     <td class="description">
                         This property defines the minimum period that must pass before a message in the store's changelog can be compacted.
-                        Be mindful that the larger this value, the larger in size the changelog topic will be in Kafka due to un-compacted data and the longer your application's bootstrap time will be.
+                        Be mindful that the larger this value, the larger in size the changelog topic will be in Kafka due to un-compacted data and the longer your application's time to restore from changelog will be.
                         This may impact your application's startup time if host affinity is not enabled. For changelog topics which have "compact,delete" cleanup policy, this value should be < retention.ms.
                     </td>
                 </tr>
