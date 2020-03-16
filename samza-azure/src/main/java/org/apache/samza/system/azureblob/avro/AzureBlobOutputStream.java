@@ -179,10 +179,7 @@ public class AzureBlobOutputStream extends OutputStream {
           blobAsyncClient.getBlobUrl().toString(), pendingUpload.size());
       throw new AzureException(msg, e);
     } finally {
-      blockList.clear();
-      pendingUpload.stream().forEach(future -> future.cancel(true));
-      pendingUpload.clear();
-      isClosed = true;
+      clearAndMarkClosed();
     }
   }
 
@@ -233,6 +230,21 @@ public class AzureBlobOutputStream extends OutputStream {
     blobAsyncClient.commitBlockListWithResponse(blockList, null, blobMetadata, null, null).block();
   }
 
+  // SAMZA-2476 stubbing BlockBlobAsyncClient.stageBlock was causing flaky tests.
+  @VisibleForTesting
+  void stageBlock(String blockIdEncoded, ByteBuffer outputStream, int blockSize) {
+    blobAsyncClient.stageBlock(blockIdEncoded, Flux.just(outputStream), blockSize).block();
+  }
+
+  // blockList cleared makes it hard to test close
+  @VisibleForTesting
+  void clearAndMarkClosed() {
+    blockList.clear();
+    pendingUpload.stream().forEach(future -> future.cancel(true));
+    pendingUpload.clear();
+    isClosed = true;
+  }
+
   /**
    * This api will async upload the outputstream into block using stageBlocks,
    * reint outputstream
@@ -275,7 +287,7 @@ public class AzureBlobOutputStream extends OutputStream {
             LOG.info("{} Upload block start for blob: {} for block size:{}.", blobAsyncClient.getBlobUrl().toString(), blockId, blockSize);
             metrics.updateAzureUploadMetrics();
             // StageBlock generates exception on Failure.
-            blobAsyncClient.stageBlock(blockIdEncoded, Flux.just(outputStream), blockSize).block();
+            stageBlock(blockIdEncoded, outputStream, blockSize);
             break;
           } catch (Exception e) {
             attemptCount += 1;
