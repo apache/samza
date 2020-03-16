@@ -347,33 +347,33 @@ object JobModelManager extends Logging {
     * 1. Fetches metadata of the input streams defined in configuration through {@param streamMetadataCache}.
     * 2. Applies the {@see SystemStreamPartitionGrouper}, {@see TaskNameGrouper} defined in the configuration
     * to build the {@see JobModel}.
-    * @param config the configuration of the job.
+    * @param originalConfig the configuration of the job.
     * @param changeLogPartitionMapping the task to changelog partition mapping of the job.
     * @param streamMetadataCache the cache that holds the partition metadata of the input streams.
     * @param grouperMetadata provides the historical metadata of the application.
     * @return the built {@see JobModel}.
     */
-  def readJobModel(config: Config,
+  def readJobModel(originalConfig: Config,
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
                    streamMetadataCache: StreamMetadataCache,
                    grouperMetadata: GrouperMetadata): JobModel = {
     // refresh config if enabled regex topic rewriter
-    val newConfig = refreshConfigByRegexTopicRewriter(config)
+    val config = refreshConfigByRegexTopicRewriter(originalConfig)
 
-    val taskConfig = new TaskConfig(newConfig)
+    val taskConfig = new TaskConfig(config)
     // Do grouping to fetch TaskName to SSP mapping
-    val allSystemStreamPartitions = getMatchedInputStreamPartitions(newConfig, streamMetadataCache)
+    val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
 
-    // processor list is required by some of the groupers. So, let's pass them as part of the newConfig.
-    // Copy the newConfig and add the processor list to the newConfig copy.
-    val configMap = new util.HashMap[String, String](newConfig)
+    // processor list is required by some of the groupers. So, let's pass them as part of the config.
+    // Copy the config and add the processor list to the config copy.
+    val configMap = new util.HashMap[String, String](config)
     configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", grouperMetadata.getProcessorLocality.keySet()))
     val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap))
 
-    val jobConfig = new JobConfig(newConfig)
+    val jobConfig = new JobConfig(config)
 
     val groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = if (jobConfig.isSSPGrouperProxyEnabled) {
-      val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(newConfig, grouper)
+      val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(config, grouper)
       sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata)
     } else {
       warn("SSPGrouperProxy is disabled (%s = false). Stateful jobs may produce erroneous results if this is not enabled." format JobConfig.SSP_INPUT_EXPANSION_ENABLED)
@@ -409,9 +409,9 @@ object JobModelManager extends Logging {
       ReflectionUtil.getObj(taskConfig.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
     val standbyTasksEnabled = jobConfig.getStandbyTasksEnabled
     val standbyTaskReplicationFactor = jobConfig.getStandbyTaskReplicationFactor
-    val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(newConfig), standbyTasksEnabled, standbyTaskReplicationFactor)
+    val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)
     var containerModels: util.Set[ContainerModel] = null
-    val isHostAffinityEnabled = new ClusterManagerConfig(newConfig).getHostAffinityEnabled
+    val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
     if(isHostAffinityEnabled) {
       containerModels = taskNameGrouperProxy.group(taskModels, grouperMetadata)
     } else {
@@ -419,7 +419,7 @@ object JobModelManager extends Logging {
     }
 
     val containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
-    new JobModel(newConfig, containerMap.asJava)
+    new JobModel(config, containerMap.asJava)
   }
 }
 
