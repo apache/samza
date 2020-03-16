@@ -268,23 +268,10 @@ object JobModelManager extends Logging {
     */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
 
-    def invokeRegexTopicRewriter(config: Config): Config = {
-      val jobConfig = new JobConfig(config)
-      JavaOptionals.toRichOptional(jobConfig.getConfigRewriters).toOption match {
-        case Some(rewriters) => rewriters.split(",").
-          filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
-            .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-            .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
-          foldLeft(config)(ConfigUtil.applyRewriter(_, _))
-        case _ => config
-      }
-    }
-
-    val configAfterRegexTopicRewrite = invokeRegexTopicRewriter(config)
-    val taskConfigAfterRegexTopicRewrite = new TaskConfig(configAfterRegexTopicRewrite)
+    val taskConfig = new TaskConfig(config)
     // Expand regex input, if a regex-rewriter is defined in config
     val inputSystemStreams =
-      JavaConverters.asScalaSetConverter(taskConfigAfterRegexTopicRewrite.getInputStreams).asScala.toSet
+      JavaConverters.asScalaSetConverter(taskConfig.getInputStreams).asScala.toSet
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache
@@ -339,20 +326,40 @@ object JobModelManager extends Logging {
   }
 
   /**
+   * Refresh Kafka topic list used as input streams if enabled {@link org.apache.samza.config.RegExTopicGenerator}
+   * @param config Samza job config
+   * @return refreshed config
+   */
+  private def refreshConfigByRegexTopicRewriter(config: Config): Config = {
+    val jobConfig = new JobConfig(config)
+    JavaOptionals.toRichOptional(jobConfig.getConfigRewriters).toOption match {
+      case Some(rewriters) => rewriters.split(",").
+        filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
+          .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
+          .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
+        foldLeft(config)(ConfigUtil.applyRewriter(_, _))
+      case _ => config
+    }
+  }
+
+  /**
     * Does the following:
     * 1. Fetches metadata of the input streams defined in configuration through {@param streamMetadataCache}.
     * 2. Applies the {@see SystemStreamPartitionGrouper}, {@see TaskNameGrouper} defined in the configuration
     * to build the {@see JobModel}.
-    * @param config the configuration of the job.
+    * @param originalConfig the configuration of the job.
     * @param changeLogPartitionMapping the task to changelog partition mapping of the job.
     * @param streamMetadataCache the cache that holds the partition metadata of the input streams.
     * @param grouperMetadata provides the historical metadata of the application.
     * @return the built {@see JobModel}.
     */
-  def readJobModel(config: Config,
+  def readJobModel(originalConfig: Config,
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
                    streamMetadataCache: StreamMetadataCache,
                    grouperMetadata: GrouperMetadata): JobModel = {
+    // refresh config if enabled regex topic rewriter
+    val config = refreshConfigByRegexTopicRewriter(originalConfig)
+
     val taskConfig = new TaskConfig(config)
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
