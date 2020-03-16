@@ -618,10 +618,17 @@ public class ContainerStorageManager {
             sideInputStoresToSSPs.put(storeName, storeSSPs);
           }
 
-          TaskSideInputStorageManager taskSideInputStorageManager =
-              new NonTransactionalTaskSideInputStorageManager(taskName, taskModel.getTaskMode(), streamMetadataCache,
-                  loggedStoreBaseDirectory, sideInputStores, taskSideInputProcessors.get(taskName), sideInputStoresToSSPs,
-                  systemAdmins, config, clock);
+          TaskSideInputStorageManager taskSideInputStorageManager;
+          TaskConfig taskConfig = new TaskConfig(config);
+          if (taskConfig.getTransactionalStateCheckpointEnabled()) {
+            taskSideInputStorageManager = new TransactionalTaskSideInputStorageManager(taskName, taskModel.getTaskMode(),
+                streamMetadataCache, loggedStoreBaseDirectory, sideInputStores, taskSideInputProcessors.get(taskName),
+                sideInputStoresToSSPs, systemAdmins, config, clock);
+          } else {
+            taskSideInputStorageManager = new NonTransactionalTaskSideInputStorageManager(taskName, taskModel.getTaskMode(),
+                streamMetadataCache, loggedStoreBaseDirectory, sideInputStores, taskSideInputProcessors.get(taskName),
+                sideInputStoresToSSPs, systemAdmins, config, clock);
+          }
 
           sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
               sideInputStorageManagers.put(ssp, taskSideInputStorageManager);

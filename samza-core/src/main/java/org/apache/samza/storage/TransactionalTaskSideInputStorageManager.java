@@ -28,9 +28,12 @@ import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class TransactionalTaskSideInputStorageManager extends NonTransactionalTaskSideInputStorageManager implements TaskSideInputStorageManager {
+  private static final Logger LOG = LoggerFactory.getLogger(TransactionalTaskSideInputStorageManager.class);
 
   public TransactionalTaskSideInputStorageManager(TaskName taskName, TaskMode taskMode,
       StreamMetadataCache streamMetadataCache, File storeBaseDir, Map<String, StorageEngine> sideInputStores,
@@ -42,11 +45,13 @@ public class TransactionalTaskSideInputStorageManager extends NonTransactionalTa
 
   @Override
   public void checkpoint(String checkpointId, Map<SystemStreamPartition, String> checkpointOffsets) {
+    LOG.info("CHECKPOINT======CHECKPOINT");
     super.checkpoint(checkpointId, checkpointOffsets);
   }
 
   @Override
   public void removeOldCheckpoints(String latestCheckpointId) {
+    LOG.info("REMOVE_OLD_CHECKPOINTS======REMOVE_OLD_CHECKPOINTS");
     super.removeOldCheckpoints(latestCheckpointId);
   }
 }
