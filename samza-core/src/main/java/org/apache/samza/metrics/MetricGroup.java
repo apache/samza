@@ -69,6 +69,12 @@ public class MetricGroup {
     return registry.newTimer(groupName, (prefix + name).toLowerCase());
   }
 
+  /**
+   *
+   * @param name Name of the histogram metric
+   * @param percentiles  
+   * @return Return a SamzaHistogram to record the percentiles of a specific metric.
+   */
   public SamzaHistogram newHistogram(String name, List<Double> percentiles) {
     return new SamzaHistogram(registry, groupName, (prefix + name).toLowerCase(), percentiles);
   }
