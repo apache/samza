@@ -71,8 +71,8 @@ public class MetricGroup {
 
   /**
    *
-   * @param name Name of the histogram metric
-   * @param percentiles  
+   * @param name - Name of the histogram metric
+   * @param percentiles - percentiles you want to record for this metric, such as P50, P90, P99
    * @return Return a SamzaHistogram to record the percentiles of a specific metric.
    */
   public SamzaHistogram newHistogram(String name, List<Double> percentiles) {
