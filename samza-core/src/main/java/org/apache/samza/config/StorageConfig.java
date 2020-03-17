@@ -166,6 +166,17 @@ public class StorageConfig extends MapConfig {
   }
 
   /**
+   * Gets the configured default for stores' changelog min.compaction.lag.ms, or if not defined uses the default
+   * value defined in this class.
+   *
+   * @return the default changelog min.compaction.lag.ms
+   */
+  private long getDefaultChangelogMinCompactionLagMs() {
+    String defaultMinCompactLagConfigName = STORE_PREFIX + "default.changelog." + MIN_COMPACTION_LAG_MS;
+    return getLong(defaultMinCompactLagConfigName, DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS);
+  }
+
+  /**
    * Gets the side inputs for the store. A store can have multiple side input streams which can be
    * provided as a comma separated list.
    *
@@ -226,7 +237,7 @@ public class StorageConfig extends MapConfig {
     checkArgument(get("stores." + storeName + ".changelog.kafka." + MIN_COMPACTION_LAG_MS) == null,
         "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
 
-    return getLong(minCompactLagConfigName, DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS);
+    return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
   }
 
   /**
