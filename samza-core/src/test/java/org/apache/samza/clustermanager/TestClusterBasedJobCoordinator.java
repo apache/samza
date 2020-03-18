@@ -23,18 +23,15 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.MockStreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
@@ -45,7 +42,6 @@ import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.MockSystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -209,30 +205,6 @@ public class TestClusterBasedJobCoordinator {
     verify(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
     // make sure runClusterBasedJobCoordinator only got called once
     verifyPrivate(ClusterBasedJobCoordinator.class).invoke("runClusterBasedJobCoordinator", new Object[]{aryEq(args)});
-  }
-
-  @Test
-  public void testCreateFromConfigLoader() throws Exception {
-    Map<String, String> config = new HashMap<>();
-    config.put(ApplicationConfig.APP_CLASS, MockStreamApplication.class.getCanonicalName());
-    config.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getCanonicalName());
-    config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path",
-        getClass().getResource("/test.properties").getPath());
-    Config submissionConfig = new MapConfig(config);
-    JobConfig fullJobConfig = new JobConfig(ConfigUtil.loadConfig(submissionConfig));
-
-    RemoteJobPlanner mockJobPlanner = mock(RemoteJobPlanner.class);
-    CoordinatorStreamStore mockCoordinatorStreamStore = mock(CoordinatorStreamStore.class);
-
-    PowerMockito.whenNew(ClusterBasedJobCoordinator.class).withAnyArguments().thenReturn(mock(ClusterBasedJobCoordinator.class));
-    PowerMockito.doReturn(new MapConfig()).when(CoordinatorStreamUtil.class, "buildCoordinatorStreamConfig", any());
-    PowerMockito.whenNew(CoordinatorStreamStore.class).withAnyArguments().thenReturn(mockCoordinatorStreamStore);
-    PowerMockito.whenNew(RemoteJobPlanner.class).withAnyArguments().thenReturn(mockJobPlanner);
-    when(mockJobPlanner.prepareJobs()).thenReturn(Collections.singletonList(fullJobConfig));
-
-//    ClusterBasedJobCoordinator.createFromConfigLoader(submissionConfig);
-
-//    verifyNew(ClusterBasedJobCoordinator.class).withArguments(any(MetricsRegistryMap.class), eq(mockCoordinatorStreamStore), eq(fullJobConfig));
   }
 
   @Test
