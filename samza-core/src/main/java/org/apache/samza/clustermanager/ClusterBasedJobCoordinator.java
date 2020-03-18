@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
@@ -571,8 +572,16 @@ public class ClusterBasedJobCoordinator {
           throw new SamzaException(e);
         }
       } else {
-        ClusterBasedJobCoordinator jc = createFromConfigLoader(submissionConfig);
-        jc.run();
+        JobConfig jobConfig = new JobConfig(submissionConfig);
+
+        if (!jobConfig.getConfigLoaderFactory().isPresent()) {
+          throw new SamzaException(JobConfig.CONFIG_LOADER_FACTORY + " is required to initialize job coordinator from config loader");
+        }
+
+        // load full job config with ConfigLoader
+        Config originalConfig = ConfigUtil.loadConfig(submissionConfig);
+
+        JobCoordinatorLaunchUtil.run(ApplicationUtil.fromConfig(originalConfig), originalConfig);
       }
 
       LOG.info("Finished running ClusterBasedJobCoordinator");
@@ -612,49 +621,6 @@ public class ClusterBasedJobCoordinator {
     Config config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
 
     return new ClusterBasedJobCoordinator(metrics, coordinatorStreamStore, config);
-  }
-
-  /**
-   * Initialize {@link ClusterBasedJobCoordinator} with submission config, full job config will be fetched using
-   * specified {@link org.apache.samza.config.ConfigLoaderFactory}
-   *
-   * @param submissionConfig specifies {@link org.apache.samza.config.ConfigLoaderFactory}
-   * @return {@link ClusterBasedJobCoordinator}
-   */
-  @VisibleForTesting
-  static ClusterBasedJobCoordinator createFromConfigLoader(Config submissionConfig) {
-    JobConfig jobConfig = new JobConfig(submissionConfig);
-
-    if (!jobConfig.getConfigLoaderFactory().isPresent()) {
-      throw new SamzaException(JobConfig.CONFIG_LOADER_FACTORY + " is required to initialize job coordinator from config loader");
-    }
-
-    MetricsRegistryMap metrics = new MetricsRegistryMap();
-    // load full job config with ConfigLoader
-    Config originalConfig = ConfigUtil.loadConfig(submissionConfig);
-
-    // Execute planning
-    ApplicationDescriptorImpl<? extends ApplicationDescriptor>
-        appDesc = ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(originalConfig), originalConfig);
-    RemoteJobPlanner planner = new RemoteJobPlanner(appDesc);
-    List<JobConfig> jobConfigs = planner.prepareJobs();
-
-    if (jobConfigs.size() != 1) {
-      throw new SamzaException("Only support single remote job is supported.");
-    }
-
-    Config config = jobConfigs.get(0);
-
-    // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
-    CoordinatorStreamUtil.writeConfigToCoordinatorStream(config, true);
-    DiagnosticsUtil.createDiagnosticsStream(config);
-    MetadataStore metadataStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(config), metrics);
-    metadataStore.init();
-
-    return new ClusterBasedJobCoordinator(
-        metrics,
-        metadataStore,
-        config);
   }
 
   /**
