@@ -34,6 +34,10 @@ import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.DiagnosticsUtil;
 
 
+/**
+ * Util class to launch and run {@link ClusterBasedJobCoordinator}.
+ * This util is being used by both high/low and beam API Samza jobs.
+ */
 public class JobCoordinatorLaunchUtil {
   /**
    * Run {@link ClusterBasedJobCoordinator} with full job config.
@@ -61,6 +65,9 @@ public class JobCoordinatorLaunchUtil {
     MetricsRegistryMap metrics = new MetricsRegistryMap();
     MetadataStore
         metadataStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(finalConfig), metrics);
+    // MetadataStore will be closed in ClusterBasedJobCoordinator#onShutDown
+    // initialization of MetadataStore can be moved to ClusterBasedJobCoordinator after we clean up
+    // ClusterBasedJobCoordinator#createFromMetadataStore
     metadataStore.init();
 
     ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(
