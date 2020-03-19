@@ -8,7 +8,8 @@ Releasing Samza involves the following steps:
 * Wait till the [VOTE] completes and send [RESULT][VOTE]. [Example](http://mail-archives.apache.org/mod_mbox/samza-dev/201412.mbox/%3CCADiKvVuAkgiR7-0VBYccez96xtfV6edavdy7xc%3Drg9GCftaEsg%40mail.gmail.com%3E)
 * Publish source tarball to Apache SVN
 * Publish website documents for new release
-* Write a blog post on [Apache Blog](https://blogs.apache.org/samza/) (Note: Apache blog editor is primitive. You have to provide HTML formatted document.)
+* Write a blog post on [Apache Blog](https://blogs.apache.org/samza/)
+* Update the master branch of samza-hello-samza
 
 The following sections will be focusing on creating the release candidate, publish the source tarball, and publish website documents.
 
@@ -16,9 +17,10 @@ The following sections will be focusing on creating the release candidate, publi
 
 Before you start, here are a few prerequisite steps that would be useful later:
 
-   * Make sure you have your GPG key generated and added to KEYS file. GPG tools: https://gpgtools.org/
-   * Setup your personal website on Apache: http://www.apache.org/dev/new-committers-guide.html
-   * Setup access to author the apache blog: http://www.apache.org/dev/project-blogs#grantrights
+   * You may find https://www.apache.org/dev/release-signing.html useful for providing some additional context regarding the release process.
+   * Make sure you have your GPG key generated/signed/published and added to KEYS file. GPG tools: https://gpgtools.org/
+   * Setup your personal website on Apache: https://www.apache.org/dev/new-committers-guide.html#personal-web-space
+   * Setup access to author the apache blog: https://infra.apache.org/pages/project-blog.html
 
 And before you proceed, do the following steps:
 
@@ -63,6 +65,7 @@ Alternatively, you can make a fresh clone of the repository to a separate direct
 ```bash
     git clone http://git-wip-us.apache.org/repos/asf/samza.git samza-release
     cd samza-release
+    git checkout $VERSION
 ```
 
 Then build the source and samza-tools tarballs:
@@ -74,25 +77,25 @@ Then build the source and samza-tools tarballs:
 Then sign them:
 
    ```bash
-    gpg --sign --armor --detach-sig ./build/distribution/source/apache-samza-*.tgz
-    gpg --sign --armor --detach-sig ./samza-tools/build/distributions/samza-tools-*.tgz
+    gpg --sign --armor --detach-sig ./build/distribution/source/apache-samza-$VERSION-src.tgz
+    gpg --sign --armor --detach-sig ./samza-tools/build/distributions/samza-tools_$SCALAVERSION-$VERSION.tgz
    ```
 
 Create MD5 signatures:
 
    ```bash
-    gpg --print-md MD5 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.md5
-    gpg --print-md MD5 ./samza-tools/build/distributions/samza-tools-*.tgz > ./samza-tools/build/distributions/samza-tools-*.tgz.md5
+    gpg --print-md MD5 ./build/distribution/source/apache-samza-$VERSION-src.tgz > ./build/distribution/source/apache-samza-$VERSION-src.tgz.md5
+    gpg --print-md MD5 ./samza-tools/build/distributions/samza-tools_$SCALAVERSION-$VERSION.tgz > ./samza-tools/build/distributions/samza-tools_$SCALAVERSION-$VERSION.tgz.md5
    ```
 
 Create SHA1 signatures:
 
    ```bash
-    gpg --print-md SHA1 ./build/distribution/source/apache-samza-*.tgz > ./build/distribution/source/apache-samza-*.tgz.sha1
-    gpg --print-md SHA1 ./samza-tools/build/distributions/samza-tools-*.tgz > ./samza-tools/build/distributions/samza-tools-*.tgz.sha1
+    gpg --print-md SHA1 ./build/distribution/source/apache-samza-$VERSION-src.tgz > ./build/distribution/source/apache-samza-$VERSION-src.tgz.sha1
+    gpg --print-md SHA1 ./samza-tools/build/distributions/samza-tools_$SCALAVERSION-$VERSION.tgz > ./samza-tools/build/distributions/samza-tools_$SCALAVERSION-$VERSION.tgz.sha1
    ```
 
-Upload the build artifacts to your Apache home directory:
+Upload the build artifacts to your Apache home directory (you can authorize your public SSH key through https://id.apache.org):
 
    ```bash
     sftp <apache-username>@home.apache.org
@@ -100,7 +103,7 @@ Upload the build artifacts to your Apache home directory:
     mkdir samza-$VERSION-rc0
     cd samza-$VERSION-rc0
     put ./build/distribution/source/apache-samza-$VERSION-src.* .
-    put ./samza-tools/build/distributions/samza-tools-$VERSION.* .
+    put ./samza-tools/build/distributions/samza-tools_$SCALAVERSION-$VERSION.* .
     bye
    ```
 
@@ -160,6 +163,8 @@ Update gradle.properties with the next master version (1.0.0 -> 1.1.0 for exampl
 
 ## Steps to Upload Source Tarball to Apache SVN
 
+Note that only PMCs have permissions to commit to this repository.
+
 Check out the following Apache dist SVN to local:
 
 ```bash
@@ -193,3 +198,22 @@ Do not publish the website or any public document until the release jars are ava
 ## Steps to Update Public Documentation
 
 Please refer to docs/README.md, specifically "Release-new-version Website Checklist" section.
+
+## Write a blog post on the Apache blog site
+
+You can use the same content as the blog you wrote for the Samza site.
+
+Notes:
+* Apache blog editor is primitive. You have to provide HTML formatted document, but you should pretty much be able
+to use the HTML source generated for the Samza site.
+* Only PMCs have permissions to update https://blogs.apache.org/samza/. If you are not a PMC, then you can ask a PMC to
+update the blog or ask a PMC to add write permissions for you.
+
+## Update the master branch of samza-hello-samza
+
+Make sure that the `master` branch of [samza-hello-samza](https://github.com/apache/samza-hello-samza) is synced with the
+`latest` branch.
+```bash
+   git merge latest
+```
+Also in the `master` branch, remove the `-SNAPSHOT` part of the Samza version in `gradle.properties` and `pom.xml`.
