@@ -49,6 +49,7 @@ public class AsyncFlatmapOperatorImpl<M, RM> extends OperatorImpl<M, RM> {
 
   @Override
   protected void handleClose() {
+    this.transformFn.close();
   }
 
   @Override
