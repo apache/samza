@@ -9,7 +9,8 @@ Releasing Samza involves the following steps:
 * Publish source tarball to Apache SVN
 * Publish website documents for new release
 * Write a blog post on [Apache Blog](https://blogs.apache.org/samza/)
-* Update the master branch of samza-hello-samza
+* Update the Samza version of the master branch to the next version
+* Update [samza-hello-samza](https://github.com/apache/samza-hello-samza) to use the new Samza version
 
 The following sections will be focusing on creating the release candidate, publish the source tarball, and publish website documents.
 
@@ -209,11 +210,13 @@ to use the HTML source generated for the Samza site.
 * Only PMCs have permissions to update https://blogs.apache.org/samza/. If you are not a PMC, then you can ask a PMC to
 update the blog or ask a PMC to add write permissions for you.
 
-## Update the master branch of samza-hello-samza
+## Update samza-hello-samza
 
 Make sure that the `master` branch of [samza-hello-samza](https://github.com/apache/samza-hello-samza) is synced with the
 `latest` branch.
 ```bash
    git merge latest
 ```
-Also in the `master` branch, remove the `-SNAPSHOT` part of the Samza version in `gradle.properties` and `pom.xml`.
+In the `master` branch, remove the `-SNAPSHOT` part of the Samza version in `gradle.properties` and `pom.xml`.
+
+In the `latest` branch, update the Samza version in `gradle.properties` and `pom.xml` to be the next version of Samza.
