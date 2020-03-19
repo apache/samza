@@ -22,7 +22,7 @@ Samza's documentation uses Jekyll to build a website out of markdown pages. Prer
 2. Install [Bundler](http://bundler.io/) by running `sudo gem install bundler`
 3. To install Jekyll and its dependencies, change to the `docs` directory and run `bundle install`
 
-To serve the website on [localhost:4000](http://localhost:4000/):
+To serve the website on [localhost:4000](http://localhost:4000/) (run from the `docs` directory):
 
     bundle exec jekyll serve --watch --baseurl ""
 
@@ -41,7 +41,8 @@ If you're working with versioned content (anything in the learn or img directori
 
       _docs/local-site-test.sh
 
-The local-site-test.sh script must be run every time a change is made to versioned content locally in order to trigger a refresh with Jekyll.
+Run this script after starting the site server with the `serve` command above. Otherwise, you may see some errors when trying to view versioned content.
+In addition, the local-site-test.sh script must be run every time a change is made to versioned content locally in order to trigger a refresh with Jekyll.
 
 Keep in mind that versioned content in older versions links to samza.apache.org, not the localhost:4000. This is because they are not updated by your branch and are using the values in SVN instead.
 
@@ -89,7 +90,9 @@ Following can be done when updating the gradle.properties file
     * update the download page (docs/startup/download/index.md) to use x.x.x release
       by adding an entry to the Sources and Samza Tools sections to use the new x.x.x release
 
-    *  add a release page samza/docs/_releases/x.x.x.md
+    * add a release page samza/docs/_releases/x.x.x.md
+
+    * add a new entry for the new version in samza/docs/_menu/index.html
 
     * update the version number in "tar -xvf ./target/hello-samza-y.y.y-dist.tar.gz -C deploy/samza" in each of the tutorials (and search for other uses of version x.x.x which may need to be replaced with y.y.y)
       * docs/startup/hello-samza/versioned/index.md
