@@ -181,6 +181,8 @@ project(":samza-core_$scalaSuffix") {
     compile project(':samza-api')
     compile("com.101tec:zkclient:$zkClientVersion") {
       exclude module: 'junit:junit'
+      // exclude the slf4j implementation since it should be up to the application to choose the logging implementation
+      exclude group: 'org.slf4j', module: 'slf4j-log4j12'
     }
     compile "com.google.guava:guava:$guavaVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
@@ -201,6 +203,8 @@ project(":samza-core_$scalaSuffix") {
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
     testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
     testCompile "org.hamcrest:hamcrest-all:$hamcrestVersion"
+    // zookeeper debug logging causes some memory issues in tests; avoid those issues by using log4j2, which defaults to error log level
+    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:$log4j2Version"
   }
 
   checkstyle {
@@ -209,8 +213,8 @@ project(":samza-core_$scalaSuffix") {
   }
 
   test {
-    // TODO SAMZA-2481: why do some tests need so much memory?
-    maxHeapSize = "4g"
+    // some unit tests use embedded zookeeper, so adding some extra memory for those
+    maxHeapSize = "1560m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 }
