@@ -32,6 +32,7 @@ The following table lists the complete set of properties that can be included in
   + [3.4 Event Hubs](#eventhubs)
   + [3.5 Kinesis](#kinesis)
   + [3.6 ElasticSearch](#elasticsearch)
+  + [3.7 Azure Blob Storage](#azure-blob-storage)
 * [4. State Storage](#state-storage)
   + [4.1 Advanced Storage Configurations](#advanced-storage-configurations)
 * [5. Deployment](#deployment)
@@ -244,6 +245,34 @@ Configs for producing to [ElasticSearch](https://www.elastic.co/products/elastic
 |systems.**_system-name_**.<br>bulk.flush.max.actions|100|The maximum number of messages to be buffered before flushing.|
 |systems.**_system-name_**.<br>bulk.flush.max.size.mb|5|The maximum aggregate size of messages in the buffered before flushing.|
 |systems.**_system-name_**.<br>bulk.flush.interval.ms|never|How often buffered messages should be flushed.|
+
+#### <a name="azure-blob-storage"></a>[3.7 Azure Blob Storage](#azure-blob-storage)
+Configs for producing to [Azure Blob Storage](https://azure.microsoft.com/en-us/services/storage/blobs/). This section applies if you have set systems.**__system-name__**.samza.factory = `org.apache.samza.system.azureblob.AzureBlobSystemFactory`.<br>
+**_system-name_** is the Azure container name you want to produce blobs to. If such a container does not exist then it is created.<br> 
+
+|Name|Default|Description|
+|--- |--- |--- |
+|sensitive.systems.**_system-name_**.azureblob.account.name| |__Required:__ The Azure account name to which the Azure container belongs to. |
+|sensitive.systems.**_system-name_**.azureblob.account.key| |__Required:__ Key for the Azure account specified above.|
+
+#### <a name="advanced-azure-blob-storage"></a>[Advanced Azure Blob Storage Configurations](#advanced-azure-blob-storage)
+|Name|Default|Description|
+|--- |--- |--- |
+|systems.**_system-name_**.azureblob.proxy.use |"false"|if true, proxy will be used to connect to Azure.|
+|systems.**_system-name_**.azureblob.proxy.hostname| |if proxy.use is true then host name of proxy.|
+|systems.**_system-name_**.azureblob.proxy.port| |if proxy.use is true then port of proxy.|
+|samza.azureblob.log.slowRequestMs|30 secs|The duration after which an Azure request will be logged as a warning.|
+|systems.**_system-name_**.azureblob.writer.factory.class|`org.apache.samza.system.`<br>`azureblob.avro.`<br>`AzureBlobAvroWriterFactory`|Fully qualified class name of the `org.apache.samza.system.azureblob.producer.AzureBlobWriter` impl for the system producer.<br><br>The default writer creates blobs that are of type AVRO and require the messages sent to a blob to be AVRO records. The blobs created by the default writer are of type [Block Blobs](https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs#about-block-blobs).<br>All the following configs are relevant to this default writer.|
+|systems.**_system-name_**.azureblob.compression.type|"none"|type of compression to be used before uploading blocks. Can be "none" or "gzip".|
+|systems.**_system-name_**.azureblob.maxFlushThresholdSize|10485760 (10 MB)|max size of the uncompressed block to be uploaded in bytes. Maximum size allowed by Azure is 100MB.|
+|systems.**_system-name_**.azureblob.maxBlobSize|Long.MAX_VALUE (unlimited)|max size of the uncompressed blob in bytes.<br>If default value then size is unlimited capped only by Azure BlockBlob size of  4.75 TB (100 MB per block X 50,000 blocks).|
+|systems.**_system-name_**.azureblob.maxMessagesPerBlob|Long.MAX_VALUE (unlimited)|max number of messages per blob.|
+|systems.**_system-name_**.azureblob.threadPoolCount|2|number of threads for the asynchronous uploading of blocks.|
+|systems.**_system-name_**.azureblob.blockingQueueSize|Thread Pool Count * 2|size of the queue to hold blocks ready to be uploaded by asynchronous threads.<br>If all threads are busy uploading then blocks are queued and if queue is full then main thread will start uploading which will block processing of incoming messages.|
+|systems.**_system-name_**.azureblob.flushTimeoutMs|3 mins|timeout to finish uploading all blocks before committing a blob.|
+|systems.**_system-name_**.azureblob.closeTimeoutMs|5 mins|timeout to finish committing all the blobs currently being written to. This does not include the flush timeout per blob.|
+|systems.**_system-name_**.azureblob.suffixRandomStringToBlobName|true|if true, a random string of 8 chars is suffixed to the blob name to prevent name collision when more than one Samza tasks are writing to the same SSP.|
+
 
 ### <a name="state-storage"></a>[4. State Storage](#state-storage)
 These properties define Samza's storage mechanism for efficient [stateful stream processing](../container/state-management.html). Stateful applications should configure base directories for durable and non-durable stores using `job.logged.store.base.dir` and `job.non.logged.store.base.dir` respectively.
