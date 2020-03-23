@@ -368,6 +368,31 @@ public class TestJobGraphJsonGenerator {
     assertEquals(0, jsonObject.jobs.size());
   }
 
+  @Test
+  public void testToJobGraphJson() throws Exception {
+    JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
+
+    JobGraph mockJobGraph = mock(JobGraph.class);
+    ApplicationConfig mockAppConfig = mock(ApplicationConfig.class);
+    when(mockAppConfig.getAppName()).thenReturn("jobName");
+    when(mockAppConfig.getAppId()).thenReturn("jobId");
+    when(mockJobGraph.getApplicationConfig()).thenReturn(mockAppConfig);
+
+    Set<StreamEdge> inEdges = new HashSet<>(mockJobNode.getInEdges().values());
+    Set<StreamEdge> outEdges = new HashSet<>(mockJobNode.getOutEdges().values());
+    when(mockJobGraph.getInputStreams()).thenReturn(new HashSet<>(inEdges));
+    when(mockJobGraph.getOutputStreams()).thenReturn(new HashSet<>(outEdges));
+
+    String plainJson = jsonGenerator.toJson(mockJobGraph);
+
+    JobGraphJsonGenerator.JobGraphJson jobGraphJson = jsonGenerator.toJobGraphJson(plainJson);
+    assertNotNull(jobGraphJson);
+    assertEquals(jobGraphJson.getApplicationName(), "jobName");
+    assertEquals(jobGraphJson.getApplicationId(), "jobId");
+    assertEquals(jobGraphJson.getSourceStreams().size(), inEdges.size());
+    assertEquals(jobGraphJson.getSinkStreams().size(), outEdges.size());
+  }
+
   public class PageViewEvent {
     String getCountry() {
       return "";

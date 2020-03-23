@@ -21,6 +21,7 @@ package org.apache.samza.execution;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -46,9 +47,9 @@ import org.codehaus.jackson.map.ObjectMapper;
 /**
  * This class generates the JSON representation of the {@link JobGraph}.
  */
-/* package private */ class JobGraphJsonGenerator {
+public class JobGraphJsonGenerator {
 
-  static final class StreamSpecJson {
+  public static final class StreamSpecJson {
     @JsonProperty("id")
     String id;
     @JsonProperty("systemName")
@@ -57,50 +58,118 @@ import org.codehaus.jackson.map.ObjectMapper;
     String physicalName;
     @JsonProperty("partitionCount")
     int partitionCount;
+
+    public String getId() {
+      return id;
+    }
+
+    public String getSystemName() {
+      return systemName;
+    }
+
+    public String getPhysicalName() {
+      return physicalName;
+    }
+
+    public int getPartitionCount() {
+      return partitionCount;
+    }
   }
 
-  static final class TableSpecJson {
+  public static final class TableSpecJson {
     @JsonProperty("id")
     String id;
     @JsonProperty("providerFactory")
     String providerFactory;
+
+    public String getId() {
+      return id;
+    }
+
+    public String getProviderFactory() {
+      return providerFactory;
+    }
   }
 
-  static final class StreamEdgeJson {
+  public static final class StreamEdgeJson {
     @JsonProperty("streamSpec")
     StreamSpecJson streamSpec;
     @JsonProperty("sourceJobs")
     List<String> sourceJobs;
     @JsonProperty("targetJobs")
     List<String> targetJobs;
+
+    public StreamSpecJson getStreamSpec() {
+      return streamSpec;
+    }
+
+    public List<String> getSourceJobs() {
+      return sourceJobs;
+    }
+
+    public List<String> getTargetJobs() {
+      return targetJobs;
+    }
   }
 
-  static final class OperatorGraphJson {
+  public static final class OperatorGraphJson {
     @JsonProperty("inputStreams")
     List<StreamJson> inputStreams;
     @JsonProperty("outputStreams")
     List<StreamJson> outputStreams;
     @JsonProperty("operators")
     Map<String, Map<String, Object>> operators = new HashMap<>();
+
+    public List<StreamJson> getInputStreams() {
+      return inputStreams;
+    }
+
+    public List<StreamJson> getOutputStreams() {
+      return outputStreams;
+    }
+
+    public Map<String, Map<String, Object>> getOperators() {
+      return operators;
+    }
   }
 
-  static final class StreamJson {
+  public static final class StreamJson {
     @JsonProperty("streamId")
     String streamId;
     @JsonProperty("nextOperatorIds")
     Set<String>  nextOperatorIds = new HashSet<>();
+
+    public String getStreamId() {
+      return streamId;
+    }
+
+    public Set<String> getNextOperatorIds() {
+      return nextOperatorIds;
+    }
   }
 
-  static final class JobNodeJson {
+  public static final class JobNodeJson {
     @JsonProperty("jobName")
     String jobName;
     @JsonProperty("jobId")
     String jobId;
     @JsonProperty("operatorGraph")
     OperatorGraphJson operatorGraph;
+
+    public String getJobName() {
+      return jobName;
+    }
+
+    public String getJobId() {
+      return jobId;
+    }
+
+    public OperatorGraphJson getOperatorGraph() {
+      return operatorGraph;
+    }
   }
 
-  static final class JobGraphJson {
+  public static final class JobGraphJson {
     @JsonProperty("jobs")
     List<JobNodeJson> jobs;
     @JsonProperty("sourceStreams")
@@ -115,6 +184,45 @@ import org.codehaus.jackson.map.ObjectMapper;
     String applicationName;
     @JsonProperty("applicationId")
     String applicationId;
+
+    public List<JobNodeJson> getJobs() {
+      return jobs;
+    }
+
+    public Map<String, StreamEdgeJson> getSourceStreams() {
+      return sourceStreams;
+    }
+
+    public Map<String, StreamEdgeJson> getSinkStreams() {
+      return sinkStreams;
+    }
+
+    public Map<String, StreamEdgeJson> getIntermediateStreams() {
+      return intermediateStreams;
+    }
+
+    public Map<String, TableSpecJson> getTables() {
+      return tables;
+    }
+
+    public String getApplicationName() {
+      return applicationName;
+    }
+
+    public String getApplicationId() {
+      return applicationId;
+    }
+  }
+
+  /**
+   * Deserialize the given plain json string to JobGraphJson object
+   * @param plainJson plain json string
+   * @return JobGraphJson object
+   * @throws IOException
+   */
+  public JobGraphJson toJobGraphJson(String plainJson) throws IOException {
+    ObjectMapper mapper = new ObjectMapper();
+    return mapper.readValue(plainJson.getBytes(), JobGraphJson.class);
   }
 
   /**
