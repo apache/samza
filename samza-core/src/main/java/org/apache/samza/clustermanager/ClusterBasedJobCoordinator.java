@@ -464,12 +464,17 @@ public class ClusterBasedJobCoordinator {
   public static void main(String[] args) {
     boolean dependencyIsolationEnabled = Boolean.parseBoolean(
         System.getenv(ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED));
+    Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
+        LOG.error("Uncaught exception in ClusterBasedJobCoordinator::main. Exiting job coordinator", exception);
+        System.exit(1);
+      });
     if (!dependencyIsolationEnabled) {
       // no isolation enabled, so can just execute runClusterBasedJobCoordinator directly
       runClusterBasedJobCoordinator(args);
     } else {
       runWithClassLoader(new IsolatingClassLoaderFactory().buildClassLoader(), args);
     }
+    System.exit(0);
   }
 
   /**
