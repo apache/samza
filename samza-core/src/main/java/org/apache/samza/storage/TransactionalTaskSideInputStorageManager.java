@@ -44,14 +44,20 @@ public class TransactionalTaskSideInputStorageManager extends NonTransactionalTa
   }
 
   @Override
-  public void checkpoint(String checkpointId, Map<SystemStreamPartition, String> checkpointOffsets) {
-    LOG.info("CHECKPOINT======CHECKPOINT");
-    super.checkpoint(checkpointId, checkpointOffsets);
+  public synchronized void flush() {
+    LOG.info("Flushing side inputs for task: {}", getTaskName());
+    stores.values().forEach(StorageEngine::flush);
+  }
+
+  @Override
+  public void checkpoint(String checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint) {
+    LOG.info("Creating checkpoint for task: {}", getTaskName());
+    // TODO create checkpoint
   }
 
   @Override
   public void removeOldCheckpoints(String latestCheckpointId) {
-    LOG.info("REMOVE_OLD_CHECKPOINTS======REMOVE_OLD_CHECKPOINTS");
-    super.removeOldCheckpoints(latestCheckpointId);
+    LOG.info("Removing checkpoints older than: {} for task: {}", latestCheckpointId, getTaskName());
+    // TODO remove old checkpoints
   }
 }

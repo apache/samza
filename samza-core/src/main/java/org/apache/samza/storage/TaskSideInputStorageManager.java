@@ -42,7 +42,7 @@ public interface TaskSideInputStorageManager {
 
   void process(IncomingMessageEnvelope message);
 
-  void checkpoint(String checkpointId, Map<SystemStreamPartition, String> checkpointOffsets);
+  void checkpoint(String checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint);
 
   void removeOldCheckpoints(String latestCheckpointId);
 }

@@ -63,7 +63,7 @@ public class NonTransactionalTaskSideInputStorageManager implements TaskSideInpu
 
   private final Clock clock;
   private final Map<String, SideInputsProcessor> storeToProcessor;
-  private final Map<String, StorageEngine> stores;
+  protected final Map<String, StorageEngine> stores;
   private final File storeBaseDir;
   private final Map<String, Set<SystemStreamPartition>> storeToSSps;
   private final Map<SystemStreamPartition, Set<String>> sspsToStores;
@@ -139,7 +139,7 @@ public class NonTransactionalTaskSideInputStorageManager implements TaskSideInpu
    */
   @Override
   public synchronized void flush() {
-    LOG.info("Flushing the side input stores.");
+    LOG.info("Flushing side inputs for task: {}", this.taskName);
     stores.values().forEach(StorageEngine::flush);
     writeOffsetFiles();
   }
@@ -241,7 +241,7 @@ public class NonTransactionalTaskSideInputStorageManager implements TaskSideInpu
   }
 
   @Override
-  public void checkpoint(String checkpointId, Map<SystemStreamPartition, String> checkpointOffsets) {
+  public void checkpoint(String checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint) {
 
   }
 

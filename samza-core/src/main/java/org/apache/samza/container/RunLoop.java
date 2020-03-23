@@ -88,7 +88,7 @@ public class RunLoop implements Runnable, Throttleable {
   private final boolean isAsyncCommitEnabled;
   private volatile boolean runLoopResumedSinceLastChecked;
 
-  public RunLoop(Map<TaskName, BaseTask> taskInstances,
+  public RunLoop(Map<TaskName, RunLoopTask> taskInstances,
       ExecutorService threadPool,
       SystemConsumers consumerMultiplexer,
       int maxConcurrency,
@@ -116,7 +116,7 @@ public class RunLoop implements Runnable, Throttleable {
     this.workerTimer = Executors.newSingleThreadScheduledExecutor();
     this.clock = clock;
     Map<TaskName, AsyncTaskWorker> workers = new HashMap<>();
-    for (BaseTask task : taskInstances.values()) {
+    for (RunLoopTask task : taskInstances.values()) {
       workers.put(task.taskName(), new AsyncTaskWorker(task));
     }
     // Partions and tasks assigned to the container will not change during the run loop life time
@@ -129,9 +129,9 @@ public class RunLoop implements Runnable, Throttleable {
    * Returns mapping of the SystemStreamPartition to the AsyncTaskWorkers to efficiently route the envelopes
    */
   private static Map<SystemStreamPartition, List<AsyncTaskWorker>> getSspToAsyncTaskWorkerMap(
-      Map<TaskName, BaseTask> taskInstances, Map<TaskName, AsyncTaskWorker> taskWorkers) {
+      Map<TaskName, RunLoopTask> taskInstances, Map<TaskName, AsyncTaskWorker> taskWorkers) {
     Map<SystemStreamPartition, List<AsyncTaskWorker>> sspToWorkerMap = new HashMap<>();
-    for (BaseTask task : taskInstances.values()) {
+    for (RunLoopTask task : taskInstances.values()) {
       Set<SystemStreamPartition> ssps = JavaConverters.setAsJavaSetConverter(task.systemStreamPartitions()).asJava();
       for (SystemStreamPartition ssp : ssps) {
         sspToWorkerMap.putIfAbsent(ssp, new ArrayList<>());
@@ -355,11 +355,11 @@ public class RunLoop implements Runnable, Throttleable {
    * will run the task asynchronously. It runs window and commit in the provided thread pool.
    */
   private class AsyncTaskWorker implements TaskCallbackListener {
-    private final BaseTask task;
+    private final RunLoopTask task;
     private final TaskCallbackManager callbackManager;
     private volatile AsyncTaskState state;
 
-    AsyncTaskWorker(BaseTask task) {
+    AsyncTaskWorker(RunLoopTask task) {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
       Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
@@ -403,7 +403,7 @@ public class RunLoop implements Runnable, Throttleable {
      * @param task
      * @return a Set of SSPs such that all SSPs are not at end of stream.
      */
-    private Set<SystemStreamPartition> getWorkingSSPSet(BaseTask task) {
+    private Set<SystemStreamPartition> getWorkingSSPSet(RunLoopTask task) {
 
       Set<SystemStreamPartition> allPartitions = new HashSet<>(JavaConverters.setAsJavaSetConverter(task.systemStreamPartitions()).asJava());
 
@@ -625,6 +625,7 @@ public class RunLoop implements Runnable, Throttleable {
               log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
 
               // update offset
+              // TODO null check
               task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
 
               // update coordinator

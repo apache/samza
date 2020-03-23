@@ -22,24 +22,25 @@ import org.apache.samza.checkpoint.OffsetManager
 import org.apache.samza.scheduler.EpochTimeScheduler
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task.{ReadableCoordinator, TaskCallbackFactory}
+import org.apache.samza.util.Logging
 
-trait BaseTask {
+abstract class RunLoopTask extends Logging {
 
   val taskName: TaskName
 
-  val isInitableTask: Boolean
+  val isInitableTask: Boolean = false
 
-  val isWindowableTask: Boolean
+  val isWindowableTask: Boolean = false
 
-  val isEndOfStreamListenerTask: Boolean
+  val isEndOfStreamListenerTask: Boolean = false
 
-  val isClosableTask: Boolean
+  val isClosableTask: Boolean = false
 
-  val isAsyncTask: Boolean
+  val isAsyncTask: Boolean = false
 
-  val epochTimeScheduler: EpochTimeScheduler
+  val epochTimeScheduler: EpochTimeScheduler = null
 
-  val intermediateStreams: Set[String]
+  val intermediateStreams: Set[String] = Set()
 
   val systemStreamPartitions: Set[SystemStreamPartition]
 
@@ -48,13 +49,13 @@ trait BaseTask {
   def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
     callbackFactory: TaskCallbackFactory)
 
-  def endOfStream(coordinator: ReadableCoordinator): Unit
+  def endOfStream(coordinator: ReadableCoordinator): Unit = {}
 
-  def window(coordinator: ReadableCoordinator)
+  def window(coordinator: ReadableCoordinator): Unit = {}
 
-  def scheduler(coordinator: ReadableCoordinator)
+  def scheduler(coordinator: ReadableCoordinator): Unit = {}
 
   def commit: Unit
 
-  def offsetManager: OffsetManager
+  def offsetManager: OffsetManager = null
 }

@@ -34,7 +34,7 @@ import org.apache.samza.storage.TaskStorageManager
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
-import org.apache.samza.util.{Logging, ScalaJavaUtil}
+import org.apache.samza.util.ScalaJavaUtil
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -47,7 +47,7 @@ class TaskInstance(
   systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
-  val offsetManager: OffsetManager = new OffsetManager,
+  override val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   tableManager: TableManager = null,
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
@@ -60,14 +60,14 @@ class TaskInstance(
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
   applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-  externalContextOption: Option[ExternalContext]) extends Logging with BaseTask {
+  externalContextOption: Option[ExternalContext]) extends RunLoopTask {
 
   override val taskName: TaskName = taskModel.getTaskName
-  override val isInitableTask = task.isInstanceOf[InitableTask]
-  override val isWindowableTask = task.isInstanceOf[WindowableTask]
-  override val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
-  override val isClosableTask = task.isInstanceOf[ClosableTask]
-  override val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
+  override val isInitableTask: Boolean = task.isInstanceOf[InitableTask]
+  override val isWindowableTask: Boolean = task.isInstanceOf[WindowableTask]
+  override val isEndOfStreamListenerTask: Boolean = task.isInstanceOf[EndOfStreamListenerTask]
+  override val isClosableTask: Boolean = task.isInstanceOf[ClosableTask]
+  override val isAsyncTask: Boolean = task.isInstanceOf[AsyncStreamTask]
 
   override val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
 

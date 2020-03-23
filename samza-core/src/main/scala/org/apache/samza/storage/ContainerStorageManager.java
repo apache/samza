@@ -20,7 +20,6 @@ package org.apache.samza.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
@@ -45,16 +44,16 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
+import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.clustermanager.StandbyTaskUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.container.BaseTask;
+import org.apache.samza.container.RunLoopTask;
 import org.apache.samza.container.RunLoop;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
@@ -67,7 +66,6 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.scheduler.EpochTimeScheduler;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeManager;
 import org.apache.samza.storage.kv.Entry;
@@ -159,10 +157,9 @@ public class ContainerStorageManager {
   private final int maxChangeLogStreamPartitions; // The partition count of each changelog-stream topic. This is used for validating changelog streams before restoring.
 
   /* Sideinput related parameters */
-  private final Map<String, Set<SystemStream>> sideInputSystemStreams; // Map of sideInput system-streams indexed by store name
+  // side inputs indexed first by task, then store name
   private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputSSPs;
   private final Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers; // Map of sideInput storageManagers indexed by ssp, for simpler lookup for process()
-  private final Map<String, SystemConsumer> sideInputConsumers; // Mapping from storeSystemNames to SystemConsumers
   private SystemConsumers sideInputSystemConsumers;
   private final Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata
       = new ConcurrentHashMap<>(); // Recorded sspMetadata of the taskSideInputSSPs recorded at start, used to determine when sideInputs are caughtup and container init can proceed
@@ -181,7 +178,6 @@ public class ContainerStorageManager {
   private final StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
   private RunLoop sideInputRunLoop;
   private final Map<SystemStreamPartition, String> checkpointedSideInputSSPOffsets;
-  private final Map<SystemStreamPartition, SystemStreamPartition> sideInputSSPs;
 
   public ContainerStorageManager(
       CheckpointManager checkpointManager,
@@ -207,14 +203,18 @@ public class ContainerStorageManager {
       Clock clock) {
     this.checkpointManager = checkpointManager;
     this.containerModel = containerModel;
-    this.sideInputSystemStreams = new HashMap<>(sideInputSystemStreams);
-    this.sideInputSSPs = new ConcurrentHashMap<>();
-    this.taskSideInputSSPs = getTaskSideInputSSPs(containerModel, sideInputSystemStreams);
+    this.taskSideInputSSPs = getTaskSideInputSSPs(containerModel, sideInputSystemStreams, changelogSystemStreams);
     this.sspMetadataCache = sspMetadataCache;
-    this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams); // handling standby task
+    this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams);
     this.checkpointedSideInputSSPOffsets = new HashMap<>();
 
-    LOG.info("Starting with changelogSystemStreams = {} sideInputSystemStreams = {}", this.changelogSystemStreams, this.sideInputSystemStreams);
+    Set<SystemStream> allSideInputSystemStreams = this.taskSideInputSSPs.values().stream()
+        .flatMap(map -> map.values().stream())
+        .flatMap(Set::stream)
+        .map(SystemStreamPartition::getSystemStream)
+        .collect(Collectors.toSet());
+
+    LOG.info("Starting with changelogSystemStreams = {} sideInputSystemStreams = {}", this.changelogSystemStreams, allSideInputSystemStreams);
 
     this.storageEngineFactories = storageEngineFactories;
     this.serdes = serdes;
@@ -254,8 +254,10 @@ public class ContainerStorageManager {
     this.taskStores = createTaskStores(containerModel, jobContext, containerContext, storageEngineFactories, serdes, taskInstanceMetrics, taskInstanceCollectors);
 
     // create system consumers (1 per store system in changelogSystemStreams), and index it by storeName
-    Map<String, SystemConsumer> storeSystemConsumers = createConsumers(this.changelogSystemStreams.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
-        e -> Collections.singleton(e.getValue()))), systemFactories, config, this.samzaContainerMetrics.registry());
+    Map<String, SystemConsumer> storeSystemConsumers = createConsumers(this.changelogSystemStreams.values().stream().map(SystemStream::getSystem).collect(
+        Collectors.toSet()),
+        systemFactories, config, this.samzaContainerMetrics.registry());
+
     this.storeConsumers = createStoreIndexedMap(this.changelogSystemStreams, storeSystemConsumers);
 
     // creating task restore managers
@@ -264,23 +266,32 @@ public class ContainerStorageManager {
     // create sideInput storage managers
     sideInputStorageManagers = createSideInputStorageManagers(clock);
 
+    Set<String> sideInputSystems = this.taskSideInputSSPs.values().stream()
+        .flatMap(map -> map.values().stream())
+        .flatMap(Set::stream)
+        .map(SystemStreamPartition::getSystem)
+        .collect(Collectors.toSet());
+
     // create sideInput consumers indexed by systemName
-    this.sideInputConsumers = createConsumers(this.sideInputSystemStreams, systemFactories, config, this.samzaContainerMetrics.registry());
+    // Mapping from storeSystemNames to SystemConsumers
+    Map<String, SystemConsumer> sideInputConsumers =
+        createConsumers(sideInputSystems, systemFactories, config, this.samzaContainerMetrics.registry());
 
     // create SystemConsumers for consuming from taskSideInputSSPs, if sideInputs are being used
     if (sideInputsPresent()) {
 
-      scala.collection.immutable.Map<SystemStream, SystemStreamMetadata> inputStreamMetadata = streamMetadataCache.getStreamMetadata(JavaConversions.asScalaSet(
-          this.sideInputSystemStreams.values().stream().flatMap(Set::stream).collect(Collectors.toSet())).toSet(), false);
+      scala.collection.immutable.Map<SystemStream, SystemStreamMetadata> inputStreamMetadata = streamMetadataCache.getStreamMetadata(
+          JavaConversions.asScalaSet(sideInputSystems).toSet(),
+          false);
 
       SystemConsumersMetrics sideInputSystemConsumersMetrics = new SystemConsumersMetrics(samzaContainerMetrics.registry(), SIDEINPUTS_METRICS_PREFIX);
-      // we use the same registry as samza-container-metrics
 
+      // we use the same registry as samza-container-metrics
       MessageChooser chooser = DefaultChooser.apply(inputStreamMetadata, new RoundRobinChooserFactory(), config,
           sideInputSystemConsumersMetrics.registry(), systemAdmins);
 
       sideInputSystemConsumers =
-          new SystemConsumers(chooser, ScalaJavaUtil.toScalaMap(this.sideInputConsumers), systemAdmins, serdeManager,
+          new SystemConsumers(chooser, ScalaJavaUtil.toScalaMap(sideInputConsumers), systemAdmins, serdeManager,
               sideInputSystemConsumersMetrics, SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT(), SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR(),
               TaskConfig.DEFAULT_POLL_INTERVAL_MS, ScalaJavaUtil.toScalaFunction(() -> System.nanoTime()));
     }
@@ -288,33 +299,45 @@ public class ContainerStorageManager {
   }
 
   /**
-   * Add all sideInputs to a map of maps, indexed first by taskName, then by sideInput store name.
+   * Add all sideInputs to a map of maps, indexed first by taskName, then by sideInput store name. For each Standby
+   * task, we add its changelog partition
    *
    * @param containerModel the containerModel to use
    * @param sideInputSystemStreams the map of store to sideInput system stream
    * @return taskSideInputSSPs map
    */
-  private Map<TaskName, Map<String, Set<SystemStreamPartition>>> getTaskSideInputSSPs(ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams) {
+  private Map<TaskName, Map<String, Set<SystemStreamPartition>>> getTaskSideInputSSPs(ContainerModel containerModel,
+      Map<String, Set<SystemStream>> sideInputSystemStreams, Map<String, SystemStream> changelogSystemStreams) {
     Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputSSPs = new HashMap<>();
 
     containerModel.getTasks().forEach((taskName, taskModel) -> {
+        taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
         sideInputSystemStreams.keySet().forEach(storeName -> {
-            Set<SystemStreamPartition> taskSideInputs = taskModel.getSystemStreamPartitions().stream().filter(ssp -> sideInputSystemStreams.get(storeName).contains(ssp.getSystemStream())).collect(Collectors.toSet());
-            taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
+            Set<SystemStreamPartition> taskSideInputs = taskModel.getSystemStreamPartitions().stream()
+                .filter(ssp -> sideInputSystemStreams.get(storeName).contains(ssp.getSystemStream()))
+                .collect(Collectors.toSet());
             taskSideInputSSPs.get(taskName).put(storeName, taskSideInputs);
-            taskSideInputs.forEach(ssp -> sideInputSSPs.put(ssp, ssp));
           });
       });
+
+    // for standby tasks, assign changelog ssps as side inputs
+    getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
+        changelogSystemStreams.forEach((storeName, systemStream) -> {
+            SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
+            taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
+            taskSideInputSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
+          });
+      });
+
     return taskSideInputSSPs;
   }
 
   /**
-   * For each standby task, we remove its changeLogSSPs from changelogSSP map and add it to the task's taskSideInputSSPs.
-   * The task's sideInputManager will consume and restore these as well.
+   * Computes the changelog system streams across all active tasks.
    *
    * @param containerModel the container's model
    * @param changelogSystemStreams the passed in set of changelogSystemStreams
-   * @return A map of changeLogSSP to storeName across all tasks, assuming no two stores have the same changelogSSP
+   * @return A map of changeLogSSP to storeName across active tasks, assuming no two stores have the same changelogSSP
    */
   private Map<String, SystemStream> getChangelogSystemStreams(ContainerModel containerModel, Map<String, SystemStream> changelogSystemStreams) {
 
@@ -323,37 +346,26 @@ public class ContainerStorageManager {
     }
 
     Map<SystemStreamPartition, String> changelogSSPToStore = new HashMap<>();
+
+    // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to sideInputs)
     changelogSystemStreams.forEach((storeName, systemStream) ->
-        containerModel.getTasks().forEach((taskName, taskModel) -> { changelogSSPToStore.put(new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()), storeName); })
+        getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
+            changelogSSPToStore.put(new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()), storeName);
+          })
     );
 
-    getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
-        changelogSystemStreams.forEach((storeName, systemStream) -> {
-            SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
-            changelogSSPToStore.remove(ssp);
-            this.taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
-            this.sideInputSystemStreams.put(storeName, Collections.singleton(ssp.getSystemStream()));
-            this.taskSideInputSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
-          });
-      });
-
-    // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to sideInputs above)
-    return MapUtils.invertMap(changelogSSPToStore).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getSystemStream()));
+    return MapUtils.invertMap(changelogSSPToStore).entrySet().stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getSystemStream()));
   }
 
 
   /**
    *  Creates SystemConsumer objects for store restoration, creating one consumer per system.
    */
-  private static Map<String, SystemConsumer> createConsumers(Map<String, Set<SystemStream>> systemStreams,
+  private Map<String, SystemConsumer> createConsumers(Set<String> storeSystems,
       Map<String, SystemFactory> systemFactories, Config config, MetricsRegistry registry) {
-    // Determine the set of systems being used across all stores
-    Set<String> storeSystems =
-        systemStreams.values().stream().flatMap(Set::stream).map(SystemStream::getSystem).collect(Collectors.toSet());
-
     // Create one consumer for each system in use, map with one entry for each such system
     Map<String, SystemConsumer> storeSystemConsumers = new HashMap<>();
-
 
     // Iterate over the list of storeSystems and create one sysConsumer per system
     for (String storeSystemName : storeSystems) {
@@ -397,7 +409,8 @@ public class ContainerStorageManager {
   // Helper method to filter active Tasks from the container model
   private static Map<TaskName, TaskModel> getTasks(ContainerModel containerModel, TaskMode taskMode) {
     return containerModel.getTasks().entrySet().stream()
-            .filter(x -> x.getValue().getTaskMode().equals(taskMode)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .filter(x -> x.getValue().getTaskMode().equals(taskMode))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   /**
@@ -422,7 +435,7 @@ public class ContainerStorageManager {
 
       for (String storeName : storageEngineFactories.keySet()) {
 
-        StorageEngineFactory.StoreMode storeMode = this.sideInputSystemStreams.containsKey(storeName) ?
+        StorageEngineFactory.StoreMode storeMode = taskSideInputSSPs.get(taskName).containsKey(storeName) ?
             StorageEngineFactory.StoreMode.ReadWrite : StorageEngineFactory.StoreMode.BulkLoad;
 
         StorageEngine storageEngine =
@@ -492,7 +505,7 @@ public class ContainerStorageManager {
     // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
     // for non logged stores
     File storeDirectory;
-    if (changeLogSystemStreamPartition != null || sideInputSystemStreams.containsKey(storeName)) {
+    if (changeLogSystemStreamPartition != null || taskSideInputSSPs.get(taskName).containsKey(storeName)) {
       storeDirectory = storageManagerUtil.getTaskStoreDir(this.loggedStoreBaseDirectory, storeName, taskName,
           taskModel.getTaskMode());
     } else {
@@ -538,15 +551,14 @@ public class ContainerStorageManager {
 
   // Create sideInput store processors, one per store per task
   private Map<TaskName, Map<String, SideInputsProcessor>> createSideInputProcessors(StorageConfig config,
-      ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams,
-      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
+      ContainerModel containerModel, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
 
     Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessors = new HashMap<>();
     containerModel.getTasks().forEach((taskName, taskModel) -> {
         sideInputStoresToProcessors.put(taskName, new HashMap<>());
         TaskMode taskMode = taskModel.getTaskMode();
 
-        for (String storeName : sideInputSystemStreams.keySet()) {
+        for (String storeName : this.taskSideInputSSPs.get(taskName).keySet()) {
 
           SideInputsProcessor sideInputsProcessor;
           Optional<String> sideInputsProcessorSerializedInstance =
@@ -602,8 +614,7 @@ public class ContainerStorageManager {
   private Map<SystemStreamPartition, TaskSideInputStorageManager> createSideInputStorageManagers(Clock clock) {
     // creating sideInput store processors, one per store per task
     Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors =
-        createSideInputProcessors(new StorageConfig(config), this.containerModel, this.sideInputSystemStreams,
-            this.taskInstanceMetrics);
+        createSideInputProcessors(new StorageConfig(config), this.containerModel, this.taskInstanceMetrics);
 
     Map<SystemStreamPartition, TaskSideInputStorageManager> sideInputStorageManagers = new HashMap<>();
 
@@ -642,13 +653,15 @@ public class ContainerStorageManager {
   }
 
   private Map<String, StorageEngine> getSideInputStores(TaskName taskName) {
-    return taskStores.get(taskName).entrySet().stream().
-        filter(e -> sideInputSystemStreams.containsKey(e.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    return taskStores.get(taskName).entrySet().stream()
+        .filter(e -> taskSideInputSSPs.get(taskName).containsKey(e.getKey()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private Map<String, StorageEngine> getNonSideInputStores(TaskName taskName) {
-    return taskStores.get(taskName).entrySet().stream().
-        filter(e -> !sideInputSystemStreams.containsKey(e.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    return taskStores.get(taskName).entrySet().stream()
+        .filter(e -> !taskSideInputSSPs.get(taskName).containsKey(e.getKey()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private Set<TaskSideInputStorageManager> getSideInputStorageManagers() {
@@ -740,11 +753,13 @@ public class ContainerStorageManager {
     getSideInputStorageManagers().forEach(sideInputStorageManager -> sideInputStorageManager.init());
 
     // read the active task checkpoints and save any offsets related to this task's side inputs
+    // TODO what if the active task has not yet checkpointed?
     getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
         TaskName activeTaskName = StandbyTaskUtil.getActiveTaskName(taskName);
         Checkpoint checkpoint = checkpointManager.readLastCheckpoint(activeTaskName);
         if (checkpoint != null) {
           checkpoint.getOffsets().forEach((ssp, offset) -> {
+              // is ssp registered as side input for
               if (this.sideInputStorageManagers.containsKey(ssp)) {
                 this.checkpointedSideInputSSPOffsets.put(ssp, offset);
               }
@@ -752,133 +767,90 @@ public class ContainerStorageManager {
         }
       });
 
-    BaseTask task = new BaseTask() {
+    Map<TaskName, RunLoopTask> taskMap = new HashMap<>();
 
-      @Override
-      public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator,
-          TaskCallbackFactory callbackFactory) {
-        TaskCallback callback = callbackFactory.createCallback();
-        SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
-        String offset = envelope.getOffset();
-        SystemAdmin admin = systemAdmins.getSystemAdmin(envelopeSSP.getSystem());
 
-        // if the incoming envelope has an offset greater than the checkpoint, have this thread wait until
-        // the checkpoint refresher thread wakes it back up
-        if (checkpointedSideInputSSPOffsets.containsKey(envelopeSSP)
-            && admin.offsetComparator(offset, checkpointedSideInputSSPOffsets.get(envelopeSSP)) > 0) {
-          synchronized (sideInputSSPs.get(envelopeSSP)) {
-            try {
-              sideInputSSPs.get(envelopeSSP).wait();
-            } catch (InterruptedException e) {
-              LOG.error("got fucked", e);
-              callback.failure(e);
-              throw new SamzaException(e);
-            }
-          }
-        }
+    this.taskSideInputSSPs.forEach((taskName, storeAndSSPs) ->
+        storeAndSSPs.forEach((store, storeSSPs) -> {
+            RunLoopTask runLoopTask = new RunLoopTask() {
 
-        sideInputStorageManagers.get(envelopeSSP).process(envelope);
+              @Override
+              public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator, TaskCallbackFactory callbackFactory) {
+                TaskCallback callback = callbackFactory.createCallback();
+                SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
+                String offset = envelope.getOffset();
+                SystemAdmin admin = systemAdmins.getSystemAdmin(envelopeSSP.getSystem());
 
-        // is this call thread-safe?
-        checkSideInputCaughtUp(envelopeSSP, offset, SystemStreamMetadata.OffsetType.NEWEST, false);
-        callback.complete();
-      }
+                // if the incoming envelope has an offset greater than the checkpoint, have this thread wait until
+                // the checkpoint updating thread wakes it back up
+                // TODO per SSP lock
+                synchronized (taskSideInputSSPs.get(taskName).get(store)) {
+                  while (checkpointedSideInputSSPOffsets.containsKey(envelopeSSP)
+                    && admin.offsetComparator(offset, checkpointedSideInputSSPOffsets.get(envelopeSSP)) > 0) {
+                    try {
+                      taskSideInputSSPs.get(taskName).get(store).wait();
+                    } catch (InterruptedException e) {
+                      LOG.error("Side input restore interrupted when waiting for new checkpoint: " + store, e);
+                      callback.failure(e);
+                      throw new SamzaException(e);
+                    }
+                  }
+                }
 
-      @Override
-      public void endOfStream(ReadableCoordinator coordinator) {
-        // nothing
-      }
+                sideInputStorageManagers.get(envelopeSSP).process(envelope);
 
-      @Override
-      public void window(ReadableCoordinator coordinator) {
-        // nothing
-      }
+                // is this call thread-safe?
+                checkSideInputCaughtUp(envelopeSSP, offset, SystemStreamMetadata.OffsetType.NEWEST, false);
+                callback.complete();
+              }
 
-      @Override
-      public void scheduler(ReadableCoordinator coordinator) {
-        // nothing
-      }
+              @Override
+              // should flush, checkpoint, write offset files corresponding to the store for this task
+              // TODO thread safety when SSPs are associated with multiple stores
+              public void commit() {
+                Map<SystemStreamPartition, String> lastProcessedOffsets = storeSSPs.stream()
+                    .collect(Collectors.toMap(
+                        ssp -> ssp,
+                        ssp -> sideInputStorageManagers.get(ssp).getLastProcessedOffset(ssp)));
 
-      @Override
-      public void commit() {
-        Map<SystemStreamPartition, String> lastProcessedOffsets = sideInputStorageManagers.entrySet()
-            .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getLastProcessedOffset(e.getKey())));
+                // within the scope of the task, all SSPs for the store share the same task side input storage manager
+                TaskSideInputStorageManager taskSideInputStorageManager = sideInputStorageManagers.get(
+                    new SystemStreamPartition(new SystemStream("sys", "str"), new Partition(0)));
 
-        sideInputStorageManagers.values().forEach(storageManager -> {
-            storageManager.flush();
-            String checkpointId = CheckpointId.create().toString();
-            storageManager.checkpoint(checkpointId, lastProcessedOffsets);
-            storageManager.removeOldCheckpoints(checkpointId);
-          });
-      }
+                String checkpointId = CheckpointId.create().toString();
 
-      @Override
-      public OffsetManager offsetManager() {
-        return null;
-      }
+                taskSideInputStorageManager.flush();
+                taskSideInputStorageManager.checkpoint(checkpointId, lastProcessedOffsets);
+                taskSideInputStorageManager.removeOldCheckpoints(checkpointId);
+              }
 
-      @Override
-      public TaskInstanceMetrics metrics() {
-        return null;
-      }
+              @Override
+              public TaskInstanceMetrics metrics() {
+                return taskInstanceMetrics.get(taskName);
+              }
 
-      @Override
-      public scala.collection.immutable.Set<SystemStreamPartition> systemStreamPartitions() {
-        return null;
-      }
+              @Override
+              public scala.collection.immutable.Set<SystemStreamPartition> systemStreamPartitions() {
+                return JavaConversions.asScalaSet(storeSSPs).toSet();
+              }
 
-      @Override
-      public scala.collection.immutable.Set<String> intermediateStreams() {
-        return null;
-      }
+              @Override
+              public TaskName taskName() {
+                return taskName;
+              }
+            };
+          }));
 
-      @Override
-      public EpochTimeScheduler epochTimeScheduler() {
-        return null;
-      }
-
-      @Override
-      public boolean isAsyncTask() {
-        return false;
-      }
-
-      @Override
-      public boolean isClosableTask() {
-        return false;
-      }
-
-      @Override
-      public boolean isEndOfStreamListenerTask() {
-        return false;
-      }
-
-      @Override
-      public boolean isWindowableTask() {
-        return false;
-      }
-
-      @Override
-      public boolean isInitableTask() {
-        return false;
-      }
-
-      @Override
-      public TaskName taskName() {
-        return new TaskName("testing-standby-sideinput-runloop");
-      }
-    };
-
-    sideInputRunLoop = new RunLoop(ImmutableMap.of(task.taskName(), task),
-        Executors.newSingleThreadExecutor(),
+    sideInputRunLoop = new RunLoop(taskMap,
+        Executors.newSingleThreadExecutor(), // TODO parallelism config for standby restore
         sideInputSystemConsumers,
-        1,
-        0,
+        1, // TODO separate max concurrency for standby restore into its own config
+        -1L, // none of executables in runloop will perform windowing
         new TaskConfig(this.config).getCommitMs(),
-        5000,
-        1000,
-        10,
-        new SamzaContainerMetrics("source", new MetricsRegistryMap()),
+        new TaskConfig(this.config).getCallbackTimeoutMs(),
+        1,
+        new TaskConfig(this.config).getMaxIdleMs(),
+        samzaContainerMetrics, // TODO what do we do here
         System::nanoTime,
         false);
 
@@ -887,19 +859,19 @@ public class ContainerStorageManager {
       @Override
       public void run() {
         getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
-          TaskName activeTaskName = StandbyTaskUtil.getActiveTaskName(taskName);
-          Checkpoint checkpoint = checkpointManager.readLastCheckpoint(activeTaskName);
+            TaskName activeTaskName = StandbyTaskUtil.getActiveTaskName(taskName);
+            Checkpoint checkpoint = checkpointManager.readLastCheckpoint(activeTaskName);
             if (checkpoint != null) {
               checkpoint.getOffsets().forEach((ssp, offset) -> {
                   if (sideInputStorageManagers.containsKey(ssp)) {
                     String currentOffset = checkpointedSideInputSSPOffsets.get(ssp);
                     checkpointedSideInputSSPOffsets.put(ssp, offset);
                     // wake up any threads that are waiting for their ssp offsets to be updated
-                    // TODO should be checking strictly GREATER THAN
-                    if (!currentOffset.equals(offset)) {
-                      synchronized (sideInputSSPs.get(ssp)) {
-                        sideInputSSPs.get(ssp).notify();
-                      }
+                    SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(ssp.getSystem());
+                    if (systemAdmin.offsetComparator(offset, currentOffset) > 0) {
+//                      synchronized (sideInputSSPs.get(ssp)) {
+//                        sideInputSSPs.get(ssp).notify();
+//                      }
                     }
                   }
                 });
@@ -974,7 +946,8 @@ public class ContainerStorageManager {
   }
 
   private boolean sideInputsPresent() {
-    return !this.sideInputSystemStreams.isEmpty();
+    return !this.taskSideInputSSPs.values().stream()
+        .allMatch(Map::isEmpty);
   }
 
   // Method to check if the given offset means the stream is caught up for reads

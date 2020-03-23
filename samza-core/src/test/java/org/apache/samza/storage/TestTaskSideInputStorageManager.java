@@ -107,7 +107,7 @@ public class TestTaskSideInputStorageManager {
     testSideInputStorageManager.stop();
 
     verify(testSideInputStorageManager.getStore(storeName)).stop();
-    verify(testSideInputStorageManager).writeOffsetFiles();
+    verify(testSideInputStorageManager).writeOffsetFiles(); //TODO
   }
 
   @Test
