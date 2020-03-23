@@ -40,7 +40,7 @@
   junitVersion = "4.12"
   kafkaVersion = "2.0.1"
   log4jVersion = "1.2.17"
-  log4j2Version = "2.11.0"
+  log4j2Version = "2.12.0"
   metricsVersion = "2.2.0"
   mockitoVersion = "1.10.19"
   powerMockVersion = "1.6.6"
