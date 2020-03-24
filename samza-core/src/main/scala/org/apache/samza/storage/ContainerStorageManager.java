@@ -786,8 +786,11 @@ public class ContainerStorageManager {
             .flatMap(Set::stream)
             .collect(Collectors.toSet());
 
-        RunLoopTask sideInputRestoreTask = new SideInputRestoreTask(checkpointedSideInputExecutor, nonCheckpointedSideInputExecutor,
-            taskSSPs, taskSideInputStorageManager, taskName);
+        RunLoopTask sideInputRestoreTask = new SideInputRestoreTask(checkpointedSideInputExecutor,
+            nonCheckpointedSideInputExecutor,
+            taskSSPs,
+            taskSideInputStorageManager,
+            taskName);
 
         taskMap.put(taskName, sideInputRestoreTask);
       });

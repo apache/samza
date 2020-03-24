@@ -243,7 +243,7 @@ public class NonTransactionalTaskSideInputStorageManager implements TaskSideInpu
 
   @Override
   public void checkpoint(CheckpointId checkpointId) {
-
+    // no-op
   }
 
   @Override
