@@ -292,7 +292,7 @@ public class ContainerStorageManager {
           createConsumers(sideInputSystems, systemFactories, config, this.samzaContainerMetrics.registry());
 
       scala.collection.immutable.Map<SystemStream, SystemStreamMetadata> inputStreamMetadata = streamMetadataCache.getStreamMetadata(
-          JavaConversions.asScalaSet(sideInputSystems).toSet(),
+          JavaConversions.asScalaSet(allSideInputSystemStreams).toSet(),
           false);
 
       SystemConsumersMetrics sideInputSystemConsumersMetrics = new SystemConsumersMetrics(samzaContainerMetrics.registry(), SIDEINPUTS_METRICS_PREFIX);
@@ -787,7 +787,7 @@ public class ContainerStorageManager {
                 .findFirst()
                 .get();
 
-            RunLoopTask runLoopTask = new SideInputRunLoopTask(checkpointedSideInputExecutor, nonCheckpointedSideInputExecutor,
+            RunLoopTask runLoopTask = new SideInputRestoreTask(checkpointedSideInputExecutor, nonCheckpointedSideInputExecutor,
                 store, storeSSPs, taskSideInputStorageManager, taskName);
 
             taskMap.put(taskName, runLoopTask);
@@ -796,8 +796,8 @@ public class ContainerStorageManager {
     sideInputRunLoop = new RunLoop(taskMap,
         null,
         sideInputSystemConsumers,
-        1, // TODO separate max concurrency for standby restore into its own config
-        -1L,
+        1, // max concurrency fixed to 1 so as to not concurrently processes envelopes for the same store
+        -1L, // no windowing done for side input restore
         new TaskConfig(this.config).getCommitMs(),
         new TaskConfig(this.config).getCallbackTimeoutMs(),
         1,
@@ -1050,7 +1050,7 @@ public class ContainerStorageManager {
     }
   }
 
-  private class SideInputRunLoopTask extends RunLoopTask {
+  private class SideInputRestoreTask extends RunLoopTask {
 
     private final KeyBasedExecutorService checkpointedSideInputExecutor;
     private final KeyBasedExecutorService nonCheckpointedSideInputExecutor;
@@ -1059,7 +1059,7 @@ public class ContainerStorageManager {
     private final TaskSideInputStorageManager taskSideInputStorageManager;
     private final TaskName taskName;
 
-    public SideInputRunLoopTask(KeyBasedExecutorService checkpointedSideInputExecutor,
+    public SideInputRestoreTask(KeyBasedExecutorService checkpointedSideInputExecutor,
         KeyBasedExecutorService nonCheckpointedSideInputExecutor, String store, Set<SystemStreamPartition> storeSSPs,
         TaskSideInputStorageManager taskSideInputStorageManager, TaskName taskName) {
       this.checkpointedSideInputExecutor = checkpointedSideInputExecutor;
@@ -1071,8 +1071,7 @@ public class ContainerStorageManager {
     }
 
     @Override
-    public void process(
-        IncomingMessageEnvelope envelope, ReadableCoordinator coordinator, TaskCallbackFactory callbackFactory) {
+    public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator, TaskCallbackFactory callbackFactory) {
       TaskCallback callback = callbackFactory.createCallback();
       SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
       String offset = envelope.getOffset();
@@ -1100,7 +1099,6 @@ public class ContainerStorageManager {
 
           this.taskSideInputStorageManager.process(envelope);
 
-          // TODO is this call thread-safe?
           checkSideInputCaughtUp(envelopeSSP, offset, SystemStreamMetadata.OffsetType.NEWEST);
           callback.complete();
         });
@@ -1113,11 +1111,11 @@ public class ContainerStorageManager {
               ssp -> ssp,
               this.taskSideInputStorageManager::getLastProcessedOffset));
 
-      String checkpointId = CheckpointId.create().toString();
+      CheckpointId checkpointId = CheckpointId.create();
 
       this.taskSideInputStorageManager.flush();
       this.taskSideInputStorageManager.checkpoint(checkpointId, lastProcessedOffsets);
-      this.taskSideInputStorageManager.removeOldCheckpoints(checkpointId);
+      this.taskSideInputStorageManager.removeOldCheckpoints(checkpointId.toString());
     }
 
     @Override

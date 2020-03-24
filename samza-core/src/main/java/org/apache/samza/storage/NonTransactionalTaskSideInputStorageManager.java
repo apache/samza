@@ -22,6 +22,7 @@ package org.apache.samza.storage;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
@@ -61,18 +62,18 @@ public class NonTransactionalTaskSideInputStorageManager implements TaskSideInpu
   private static final Logger LOG = LoggerFactory.getLogger(NonTransactionalTaskSideInputStorageManager.class);
   private static final long STORE_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1); // same as changelog delete retention
 
-  private final Clock clock;
-  private final Map<String, SideInputsProcessor> storeToProcessor;
+  protected final Clock clock;
+  protected final Map<String, SideInputsProcessor> storeToProcessor;
   protected final Map<String, StorageEngine> stores;
-  private final File storeBaseDir;
-  private final Map<String, Set<SystemStreamPartition>> storeToSSps;
-  private final Map<SystemStreamPartition, Set<String>> sspsToStores;
-  private final StreamMetadataCache streamMetadataCache;
-  private final SystemAdmins systemAdmins;
-  private final TaskName taskName;
-  private final TaskMode taskMode;
-  private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
-  private final StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
+  protected final File storeBaseDir;
+  protected final Map<String, Set<SystemStreamPartition>> storeToSSps;
+  protected final Map<SystemStreamPartition, Set<String>> sspsToStores;
+  protected final StreamMetadataCache streamMetadataCache;
+  protected final SystemAdmins systemAdmins;
+  protected final TaskName taskName;
+  protected final TaskMode taskMode;
+  protected final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
+  protected final StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
@@ -241,13 +242,13 @@ public class NonTransactionalTaskSideInputStorageManager implements TaskSideInpu
   }
 
   @Override
-  public void checkpoint(String checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint) {
+  public void checkpoint(CheckpointId checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint) {
 
   }
 
   @Override
   public void removeOldCheckpoints(String latestCheckpointId) {
-
+    // no-op
   }
 
   /**

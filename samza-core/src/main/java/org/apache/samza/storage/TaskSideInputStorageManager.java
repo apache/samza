@@ -19,6 +19,7 @@
 package org.apache.samza.storage;
 
 import java.util.Map;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
@@ -42,7 +43,7 @@ public interface TaskSideInputStorageManager {
 
   void process(IncomingMessageEnvelope message);
 
-  void checkpoint(String checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint);
+  void checkpoint(CheckpointId checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint);
 
   void removeOldCheckpoints(String latestCheckpointId);
 }
