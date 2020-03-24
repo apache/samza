@@ -60,7 +60,6 @@ import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
-import org.apache.samza.executors.KeyBasedExecutorService;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
@@ -774,29 +773,29 @@ public class ContainerStorageManager {
       });
 
     Map<TaskName, RunLoopTask> taskMap = new HashMap<>();
+    ExecutorService checkpointedSideInputExecutor = Executors.newSingleThreadExecutor();
+    ExecutorService nonCheckpointedSideInputExecutor = Executors.newSingleThreadExecutor();
 
-    // since changelog side input consumption is checkpoint based, we separate it's executor from other side inputs so we do not
-    // unnecessary block side input. TODO expand to configurable thread pool sizes
-    KeyBasedExecutorService checkpointedSideInputExecutor = new KeyBasedExecutorService("checkpointedSideInputs", 1);
-    KeyBasedExecutorService nonCheckpointedSideInputExecutor = new KeyBasedExecutorService("nonCheckpointedSideInputs", 1);
+    this.taskSideInputStoreSSPs.forEach((taskName, storesToSSPs) -> {
+        TaskSideInputStorageManager taskSideInputStorageManager = sideInputStorageManagers.values().stream()
+            .filter(storageManager -> storageManager.getTaskName() == taskName)
+            .findFirst()
+            .get();
 
-    this.taskSideInputStoreSSPs.forEach((taskName, storeAndSSPs) ->
-        storeAndSSPs.forEach((store, storeSSPs) -> {
-            TaskSideInputStorageManager taskSideInputStorageManager = sideInputStorageManagers.values().stream()
-                .filter(storageManager -> storageManager.getTaskName() == taskName)
-                .findFirst()
-                .get();
+        Set<SystemStreamPartition> taskSSPs = storesToSSPs.values().stream()
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
 
-            RunLoopTask runLoopTask = new SideInputRestoreTask(checkpointedSideInputExecutor, nonCheckpointedSideInputExecutor,
-                store, storeSSPs, taskSideInputStorageManager, taskName);
+        RunLoopTask sideInputRestoreTask = new SideInputRestoreTask(checkpointedSideInputExecutor, nonCheckpointedSideInputExecutor,
+            taskSSPs, taskSideInputStorageManager, taskName);
 
-            taskMap.put(taskName, runLoopTask);
-          }));
+        taskMap.put(taskName, sideInputRestoreTask);
+      });
 
     sideInputRunLoop = new RunLoop(taskMap,
         null,
         sideInputSystemConsumers,
-        1, // max concurrency fixed to 1 so as to not concurrently processes envelopes for the same store
+        1,
         -1L, // no windowing done for side input restore
         new TaskConfig(this.config).getCommitMs(),
         new TaskConfig(this.config).getCallbackTimeoutMs(),
@@ -1052,20 +1051,23 @@ public class ContainerStorageManager {
 
   private class SideInputRestoreTask extends RunLoopTask {
 
-    private final KeyBasedExecutorService checkpointedSideInputExecutor;
-    private final KeyBasedExecutorService nonCheckpointedSideInputExecutor;
-    private final String store;
-    private final Set<SystemStreamPartition> storeSSPs;
+    // since changelog side input consumption is checkpoint based, we separate it's executor from other side inputs so we do not
+    // unnecessary block side input.
+    // TODO allow more parallelism by using key based executors and splitting work by store and using task.max.concurrency
+    private final ExecutorService checkpointedSideInputExecutor;
+    private final ExecutorService nonCheckpointedSideInputExecutor;
+    private final Set<SystemStreamPartition> taskSSPs;
     private final TaskSideInputStorageManager taskSideInputStorageManager;
     private final TaskName taskName;
 
-    public SideInputRestoreTask(KeyBasedExecutorService checkpointedSideInputExecutor,
-        KeyBasedExecutorService nonCheckpointedSideInputExecutor, String store, Set<SystemStreamPartition> storeSSPs,
-        TaskSideInputStorageManager taskSideInputStorageManager, TaskName taskName) {
+    public SideInputRestoreTask(ExecutorService checkpointedSideInputExecutor,
+        ExecutorService nonCheckpointedSideInputExecutor,
+        Set<SystemStreamPartition> taskSSPs,
+        TaskSideInputStorageManager taskSideInputStorageManager,
+        TaskName taskName) {
       this.checkpointedSideInputExecutor = checkpointedSideInputExecutor;
       this.nonCheckpointedSideInputExecutor = nonCheckpointedSideInputExecutor;
-      this.store = store;
-      this.storeSSPs = storeSSPs;
+      this.taskSSPs = taskSSPs;
       this.taskSideInputStorageManager = taskSideInputStorageManager;
       this.taskName = taskName;
     }
@@ -1076,10 +1078,11 @@ public class ContainerStorageManager {
       SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
       String offset = envelope.getOffset();
       boolean isSspCheckpointed = checkpointedSideInputSSPOffsets.containsKey(envelopeSSP);
-      KeyBasedExecutorService
-          executorToUse = isSspCheckpointed ? this.checkpointedSideInputExecutor : this.nonCheckpointedSideInputExecutor;
+      ExecutorService executorToUse = isSspCheckpointed
+          ? this.checkpointedSideInputExecutor
+          : this.nonCheckpointedSideInputExecutor;
 
-      executorToUse.submitOrdered(this.store, () -> {
+      executorToUse.submit(() -> {
           SystemAdmin admin = systemAdmins.getSystemAdmin(envelopeSSP.getSystem());
 
           // if the incoming envelope has an offset greater than the checkpoint, have this thread wait until
@@ -1090,7 +1093,7 @@ public class ContainerStorageManager {
               try {
                 sideInputSSPLocks.get(envelopeSSP).wait();
               } catch (InterruptedException e) {
-                LOG.error("Side input restore interrupted when waiting for new checkpoint: " + this.store, e);
+                LOG.error("Side input restore interrupted when waiting for new checkpoint. Task: " + this.taskName, e);
                 callback.failure(e);
                 throw new SamzaException(e);
               }
@@ -1106,15 +1109,10 @@ public class ContainerStorageManager {
 
     @Override
     public void commit() {
-      Map<SystemStreamPartition, String> lastProcessedOffsets = this.storeSSPs.stream()
-          .collect(Collectors.toMap(
-              ssp -> ssp,
-              this.taskSideInputStorageManager::getLastProcessedOffset));
-
       CheckpointId checkpointId = CheckpointId.create();
 
       this.taskSideInputStorageManager.flush();
-      this.taskSideInputStorageManager.checkpoint(checkpointId, lastProcessedOffsets);
+      this.taskSideInputStorageManager.checkpoint(checkpointId);
       this.taskSideInputStorageManager.removeOldCheckpoints(checkpointId.toString());
     }
 
@@ -1125,7 +1123,7 @@ public class ContainerStorageManager {
 
     @Override
     public scala.collection.immutable.Set<SystemStreamPartition> systemStreamPartitions() {
-      return JavaConversions.asScalaSet(this.storeSSPs).toSet();
+      return JavaConversions.asScalaSet(this.taskSSPs).toSet();
     }
 
     @Override

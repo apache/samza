@@ -242,7 +242,7 @@ public class NonTransactionalTaskSideInputStorageManager implements TaskSideInpu
   }
 
   @Override
-  public void checkpoint(CheckpointId checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint) {
+  public void checkpoint(CheckpointId checkpointId) {
 
   }
 

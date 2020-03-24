@@ -69,16 +69,21 @@ public class TransactionalTaskSideInputStorageManager extends NonTransactionalTa
   }
 
   @Override
-  public void checkpoint(CheckpointId checkpointId, Map<SystemStreamPartition, String> sspOffsetsToCheckpoint) {
+  public void checkpoint(CheckpointId checkpointId) {
     LOG.info("Creating checkpoint for task: {}", getTaskName());
+
+    Map<SystemStreamPartition, String> lastProcessedOffsets = this.sspsToStores.keySet().stream()
+        .collect(Collectors.toMap(
+            ssp -> ssp,
+            this::getLastProcessedOffset));
 
     Map<String, Path> checkpointPaths = new HashMap<>();
     stores.forEach((store, storageEngine) ->
-      // TODO only checkpoint changelog STORES
+      // TODO what subset of stores to checkpoint? an ssp can be a changelog side input for one store and a regular side input for another store
       storageEngine.checkpoint(checkpointId).ifPresent(path -> checkpointPaths.put(store, path))
     );
 
-    writeOffsetFiles(checkpointPaths, sspOffsetsToCheckpoint);
+    writeOffsetFiles(checkpointPaths, lastProcessedOffsets);
   }
 
   @Override
@@ -86,19 +91,19 @@ public class TransactionalTaskSideInputStorageManager extends NonTransactionalTa
     LOG.info("Removing checkpoints older than: {} for task: {}", latestCheckpointId, getTaskName());
     File[] storeDirs = storeBaseDir.listFiles((dir, name) -> stores.containsKey(name));
     (storeDirs == null ? Stream.<File>empty() : Arrays.stream(storeDirs)).forEach(storeDir -> {
-      String taskStoreName = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeDir.getName(), taskName, taskMode).getName();
-      FileFilter wildcardFileFilter = new WildcardFileFilter(taskStoreName + "-*");
-      File[] checkpointDirs = storeDir.listFiles(wildcardFileFilter);
-      (checkpointDirs == null ? Stream.<File>empty() : Arrays.stream(checkpointDirs)).forEach(checkpointDir -> {
-        if (checkpointDir.getName().contains(latestCheckpointId)) {
-          try {
-            FileUtils.deleteDirectory(checkpointDir);
-          } catch (IOException e) {
-            LOG.error("Failed to remove old checkpointDir: {} for task: {}, latestCheckpointId: {}", checkpointDir, taskName, latestCheckpointId);
-          }
-        }
+        String taskStoreName = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeDir.getName(), taskName, taskMode).getName();
+        FileFilter wildcardFileFilter = new WildcardFileFilter(taskStoreName + "-*");
+        File[] checkpointDirs = storeDir.listFiles(wildcardFileFilter);
+        (checkpointDirs == null ? Stream.<File>empty() : Arrays.stream(checkpointDirs)).forEach(checkpointDir -> {
+            if (checkpointDir.getName().contains(latestCheckpointId)) {
+              try {
+                FileUtils.deleteDirectory(checkpointDir);
+              } catch (IOException e) {
+                LOG.error("Failed to remove old checkpointDir: {} for task: {}, latestCheckpointId: {}", checkpointDir, taskName, latestCheckpointId);
+              }
+            }
+          });
       });
-    });
   }
 
   /**
