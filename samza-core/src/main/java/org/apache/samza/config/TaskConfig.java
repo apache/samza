@@ -105,6 +105,7 @@ public class TaskConfig extends MapConfig {
   private static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
   private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
+  public static final String CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ = "task.checkpoint.consumer.stop.after.first.read";
 
   public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
@@ -211,6 +212,14 @@ public class TaskConfig extends MapConfig {
         .filter(StringUtils::isNotBlank)
         .map(checkpointManagerFactoryName -> ReflectionUtil.getObj(checkpointManagerFactoryName,
             CheckpointManagerFactory.class).getCheckpointManager(this, metricsRegistry));
+  }
+
+  /**
+   * Internal config to indicate whether the SystemConsumer underlying a CheckpointManager should be left open after
+   * initial read of checkpoints.
+   */
+  public boolean getCheckpointManagerConsumerStopAfterFirstRead() {
+    return getBoolean(CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, true);
   }
 
   /**
