@@ -120,7 +120,7 @@ public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
   private static final String SIDEINPUTS_READ_THREAD_NAME = "SideInputs Read Thread";
-  private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
+  private static final String SIDEINPUTS_CHECKPOINT_THREAD_NAME = "SideInputs Checkpoint Refresh Thread";
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
   // We use a prefix to differentiate the SystemConsumersMetrics for sideInputs from the ones in SamzaContainer
 
@@ -173,9 +173,9 @@ public class ContainerStorageManager {
   private final ExecutorService sideInputsReadExecutor = Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_READ_THREAD_NAME).build());
 
-  private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
-      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
-  private ScheduledFuture sideInputsFlushFuture;
+  private final ScheduledExecutorService sideInputCheckpointRefreshExecutor = Executors.newSingleThreadScheduledExecutor(
+      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_CHECKPOINT_THREAD_NAME).build());
+  private ScheduledFuture sideInputCheckpointRefreshFuture;
   private volatile Throwable sideInputException = null;
 
   private final Config config;
@@ -787,71 +787,9 @@ public class ContainerStorageManager {
                 .findFirst()
                 .get();
 
-            RunLoopTask runLoopTask = new RunLoopTask() {
+            RunLoopTask runLoopTask = new SideInputRunLoopTask(checkpointedSideInputExecutor, nonCheckpointedSideInputExecutor,
+                store, storeSSPs, taskSideInputStorageManager, taskName);
 
-              @Override
-              public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator, TaskCallbackFactory callbackFactory) {
-                TaskCallback callback = callbackFactory.createCallback();
-                SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
-                String offset = envelope.getOffset();
-                boolean isSspCheckpointed = checkpointedSideInputSSPOffsets.containsKey(envelopeSSP);
-                KeyBasedExecutorService executorToUse = isSspCheckpointed ? checkpointedSideInputExecutor : nonCheckpointedSideInputExecutor;
-
-                executorToUse.submitOrdered(store, () -> {
-                    SystemAdmin admin = systemAdmins.getSystemAdmin(envelopeSSP.getSystem());
-
-                    // if the incoming envelope has an offset greater than the checkpoint, have this thread wait until
-                    // the checkpoint updating thread wakes it back up
-                    synchronized (sideInputSSPLocks.get(envelopeSSP)) {
-                      while (isSspCheckpointed && checkpointedSideInputSSPOffsets.get(envelopeSSP).isPresent()
-                          && admin.offsetComparator(offset, checkpointedSideInputSSPOffsets.get(envelopeSSP).get()) > 0) {
-                        try {
-                          sideInputSSPLocks.get(envelopeSSP).wait();
-                        } catch (InterruptedException e) {
-                          LOG.error("Side input restore interrupted when waiting for new checkpoint: " + store, e);
-                          callback.failure(e);
-                          throw new SamzaException(e);
-                        }
-                      }
-                    }
-
-                    sideInputStorageManagers.get(envelopeSSP).process(envelope);
-
-                    // TODO is this call thread-safe?
-                    checkSideInputCaughtUp(envelopeSSP, offset, SystemStreamMetadata.OffsetType.NEWEST);
-                    callback.complete();
-                  });
-              }
-
-              @Override
-              public void commit() {
-                Map<SystemStreamPartition, String> lastProcessedOffsets = storeSSPs.stream()
-                    .collect(Collectors.toMap(
-                        ssp -> ssp,
-                        taskSideInputStorageManager::getLastProcessedOffset));
-
-                String checkpointId = CheckpointId.create().toString();
-
-                taskSideInputStorageManager.flush();
-                taskSideInputStorageManager.checkpoint(checkpointId, lastProcessedOffsets);
-                taskSideInputStorageManager.removeOldCheckpoints(checkpointId);
-              }
-
-              @Override
-              public TaskInstanceMetrics metrics() {
-                return taskInstanceMetrics.get(taskName);
-              }
-
-              @Override
-              public scala.collection.immutable.Set<SystemStreamPartition> systemStreamPartitions() {
-                return JavaConversions.asScalaSet(storeSSPs).toSet();
-              }
-
-              @Override
-              public TaskName taskName() {
-                return taskName;
-              }
-            };
             taskMap.put(taskName, runLoopTask);
           }));
 
@@ -869,7 +807,7 @@ public class ContainerStorageManager {
         false);
 
     TaskConfig taskConfig = new TaskConfig(config);
-    sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
+    sideInputCheckpointRefreshFuture = sideInputCheckpointRefreshExecutor.scheduleWithFixedDelay(new Runnable() {
       @Override
       public void run() {
         getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
@@ -1045,10 +983,10 @@ public class ContainerStorageManager {
       this.sideInputSystemConsumers.stop();
 
       // cancel all future sideInput flushes, shutdown the executor, and await for finish
-      sideInputsFlushFuture.cancel(false);
-      sideInputsFlushExecutor.shutdown();
+      sideInputCheckpointRefreshFuture.cancel(false);
+      sideInputCheckpointRefreshExecutor.shutdown();
       try {
-        sideInputsFlushExecutor.awaitTermination(SIDE_INPUT_FLUSH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+        sideInputCheckpointRefreshExecutor.awaitTermination(SIDE_INPUT_FLUSH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
       } catch (InterruptedException e) {
         throw new SamzaException("Exception while shutting down sideInputs", e);
       }
@@ -1109,6 +1047,92 @@ public class ContainerStorageManager {
       }
 
       return null;
+    }
+  }
+
+  private class SideInputRunLoopTask extends RunLoopTask {
+
+    private final KeyBasedExecutorService checkpointedSideInputExecutor;
+    private final KeyBasedExecutorService nonCheckpointedSideInputExecutor;
+    private final String store;
+    private final Set<SystemStreamPartition> storeSSPs;
+    private final TaskSideInputStorageManager taskSideInputStorageManager;
+    private final TaskName taskName;
+
+    public SideInputRunLoopTask(KeyBasedExecutorService checkpointedSideInputExecutor,
+        KeyBasedExecutorService nonCheckpointedSideInputExecutor, String store, Set<SystemStreamPartition> storeSSPs,
+        TaskSideInputStorageManager taskSideInputStorageManager, TaskName taskName) {
+      this.checkpointedSideInputExecutor = checkpointedSideInputExecutor;
+      this.nonCheckpointedSideInputExecutor = nonCheckpointedSideInputExecutor;
+      this.store = store;
+      this.storeSSPs = storeSSPs;
+      this.taskSideInputStorageManager = taskSideInputStorageManager;
+      this.taskName = taskName;
+    }
+
+    @Override
+    public void process(
+        IncomingMessageEnvelope envelope, ReadableCoordinator coordinator, TaskCallbackFactory callbackFactory) {
+      TaskCallback callback = callbackFactory.createCallback();
+      SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
+      String offset = envelope.getOffset();
+      boolean isSspCheckpointed = checkpointedSideInputSSPOffsets.containsKey(envelopeSSP);
+      KeyBasedExecutorService
+          executorToUse = isSspCheckpointed ? this.checkpointedSideInputExecutor : this.nonCheckpointedSideInputExecutor;
+
+      executorToUse.submitOrdered(this.store, () -> {
+          SystemAdmin admin = systemAdmins.getSystemAdmin(envelopeSSP.getSystem());
+
+          // if the incoming envelope has an offset greater than the checkpoint, have this thread wait until
+          // the checkpoint updating thread wakes it back up
+          synchronized (sideInputSSPLocks.get(envelopeSSP)) {
+            while (isSspCheckpointed && checkpointedSideInputSSPOffsets.get(envelopeSSP).isPresent()
+                && admin.offsetComparator(offset, checkpointedSideInputSSPOffsets.get(envelopeSSP).get()) > 0) {
+              try {
+                sideInputSSPLocks.get(envelopeSSP).wait();
+              } catch (InterruptedException e) {
+                LOG.error("Side input restore interrupted when waiting for new checkpoint: " + this.store, e);
+                callback.failure(e);
+                throw new SamzaException(e);
+              }
+            }
+          }
+
+          this.taskSideInputStorageManager.process(envelope);
+
+          // TODO is this call thread-safe?
+          checkSideInputCaughtUp(envelopeSSP, offset, SystemStreamMetadata.OffsetType.NEWEST);
+          callback.complete();
+        });
+    }
+
+    @Override
+    public void commit() {
+      Map<SystemStreamPartition, String> lastProcessedOffsets = this.storeSSPs.stream()
+          .collect(Collectors.toMap(
+              ssp -> ssp,
+              this.taskSideInputStorageManager::getLastProcessedOffset));
+
+      String checkpointId = CheckpointId.create().toString();
+
+      this.taskSideInputStorageManager.flush();
+      this.taskSideInputStorageManager.checkpoint(checkpointId, lastProcessedOffsets);
+      this.taskSideInputStorageManager.removeOldCheckpoints(checkpointId);
+    }
+
+    @Override
+    public TaskInstanceMetrics metrics() {
+      return taskInstanceMetrics.get(this.taskName);
+    }
+
+    @Override
+    public scala.collection.immutable.Set<SystemStreamPartition> systemStreamPartitions() {
+      return JavaConversions.asScalaSet(this.storeSSPs).toSet();
+    }
+
+    @Override
+    public TaskName taskName() {
+      return this.taskName;
     }
   }
 }
