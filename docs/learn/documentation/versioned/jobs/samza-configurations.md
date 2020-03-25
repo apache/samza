@@ -258,19 +258,18 @@ Configs for producing to [Azure Blob Storage](https://azure.microsoft.com/en-us/
 #### <a name="advanced-azure-blob-storage"></a>[Advanced Azure Blob Storage Configurations](#advanced-azure-blob-storage)
 |Name|Default|Description|
 |--- |--- |--- |
-|systems.**_system-name_**.azureblob.proxy.use |"false"|if true, proxy will be used to connect to Azure.|
+|systems.**_system-name_**.azureblob.proxy.use |false|if true, proxy will be used to connect to Azure.|
 |systems.**_system-name_**.azureblob.proxy.hostname| |if proxy.use is true then host name of proxy.|
 |systems.**_system-name_**.azureblob.proxy.port| |if proxy.use is true then port of proxy.|
-|samza.azureblob.log.slowRequestMs|30 secs|The duration after which an Azure request will be logged as a warning.|
-|systems.**_system-name_**.azureblob.writer.factory.class|`org.apache.samza.system.`<br>`azureblob.avro.`<br>`AzureBlobAvroWriterFactory`|Fully qualified class name of the `org.apache.samza.system.azureblob.producer.AzureBlobWriter` impl for the system producer.<br><br>The default writer creates blobs that are of type AVRO and require the messages sent to a blob to be AVRO records. The blobs created by the default writer are of type [Block Blobs](https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs#about-block-blobs).<br>All the following configs are relevant to this default writer.|
+|systems.**_system-name_**.azureblob.writer.factory.class|`org.apache.samza.system.`<br>`azureblob.avro.`<br>`AzureBlobAvroWriterFactory`|Fully qualified class name of the `org.apache.samza.system.azureblob.producer.AzureBlobWriter` impl for the system producer.<br><br>The default writer creates blobs that are of type AVRO and require the messages sent to a blob to be AVRO records. The blobs created by the default writer are of type [Block Blobs](https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs#about-block-blobs).|
 |systems.**_system-name_**.azureblob.compression.type|"none"|type of compression to be used before uploading blocks. Can be "none" or "gzip".|
 |systems.**_system-name_**.azureblob.maxFlushThresholdSize|10485760 (10 MB)|max size of the uncompressed block to be uploaded in bytes. Maximum size allowed by Azure is 100MB.|
-|systems.**_system-name_**.azureblob.maxBlobSize|Long.MAX_VALUE (unlimited)|max size of the uncompressed blob in bytes.<br>If default value then size is unlimited capped only by Azure BlockBlob size of  4.75 TB (100 MB per block X 50,000 blocks).|
+|systems.**_system-name_**.azureblob.maxBlobSize|Long.MAX_VALUE (unlimited)|max size of the uncompressed blob in bytes.<br>If default value then size is unlimited capped only by Azure BlockBlob size of 4.75 TB (100 MB per block X 50,000 blocks).|
 |systems.**_system-name_**.azureblob.maxMessagesPerBlob|Long.MAX_VALUE (unlimited)|max number of messages per blob.|
 |systems.**_system-name_**.azureblob.threadPoolCount|2|number of threads for the asynchronous uploading of blocks.|
 |systems.**_system-name_**.azureblob.blockingQueueSize|Thread Pool Count * 2|size of the queue to hold blocks ready to be uploaded by asynchronous threads.<br>If all threads are busy uploading then blocks are queued and if queue is full then main thread will start uploading which will block processing of incoming messages.|
-|systems.**_system-name_**.azureblob.flushTimeoutMs|3 mins|timeout to finish uploading all blocks before committing a blob.|
-|systems.**_system-name_**.azureblob.closeTimeoutMs|5 mins|timeout to finish committing all the blobs currently being written to. This does not include the flush timeout per blob.|
+|systems.**_system-name_**.azureblob.flushTimeoutMs|180000 (3 mins)|timeout to finish uploading all blocks before committing a blob.|
+|systems.**_system-name_**.azureblob.closeTimeoutMs|300000 (5 mins)|timeout to finish committing all the blobs currently being written to. This does not include the flush timeout per blob.|
 |systems.**_system-name_**.azureblob.suffixRandomStringToBlobName|true|if true, a random string of 8 chars is suffixed to the blob name to prevent name collision when more than one Samza tasks are writing to the same SSP.|
 
 
