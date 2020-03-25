@@ -93,7 +93,7 @@ class TaskInstance(
   // means the same ssp in other taskInstances have the same offset as
   // the one here.
   var ssp2CaughtupMapping: scala.collection.mutable.Map[SystemStreamPartition, Boolean] =
-  scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
+    scala.collection.mutable.Map[SystemStreamPartition, Boolean]()
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
   private val config: Config = jobContext.getConfig
@@ -148,13 +148,13 @@ class TaskInstance(
   }
 
   /**
-   * Computes the starting offset for the partitions assigned to the task and registers them with the underlying {@see SystemConsumers}.
-   *
-   * Starting offset for a partition of the task is computed in the following manner:
-   *
-   * 1. If a startpoint exists for a task, system stream partition and it resolves to a offset, then the resolved offset is used as the starting offset.
-   * 2. Else, the checkpointed offset for the system stream partition is used as the starting offset.
-   */
+    * Computes the starting offset for the partitions assigned to the task and registers them with the underlying {@see SystemConsumers}.
+    *
+    * Starting offset for a partition of the task is computed in the following manner:
+    *
+    * 1. If a startpoint exists for a task, system stream partition and it resolves to a offset, then the resolved offset is used as the starting offset.
+    * 2. Else, the checkpointed offset for the system stream partition is used as the starting offset.
+    */
   def registerConsumers() {
     debug("Registering consumers for taskName: %s" format taskName)
     systemStreamPartitions.foreach(systemStreamPartition => {
@@ -359,8 +359,8 @@ class TaskInstance(
   }
 
   /**
-   * Check each partition assigned to the task is caught to the last offset
-   */
+    * Check each partition assigned to the task is caught to the last offset
+    */
   def initCaughtUpMapping() {
     if (inputStreamMetadata != null && inputStreamMetadata.nonEmpty) {
       systemStreamPartitions.foreach(ssp => {
