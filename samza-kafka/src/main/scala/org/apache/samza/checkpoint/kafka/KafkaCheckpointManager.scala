@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.base.Preconditions
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
-import org.apache.samza.config.{Config, JobConfig, TaskConfig}
+import org.apache.samza.config.{Config, JobConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.serializers.Serde
 import org.apache.samza.metrics.MetricsRegistry
@@ -76,8 +76,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val producerRef: AtomicReference[SystemProducer] = new AtomicReference[SystemProducer](getSystemProducer())
   val producerCreationLock: Object = new Object
 
-  val stopConsumerAfterFirstRead: Boolean = new TaskConfig(config).getCheckpointManagerConsumerStopAfterFirstRead
-
   /**
     * Create checkpoint stream prior to start.
     */
@@ -109,6 +107,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Starting the checkpoint SystemConsumer from oldest offset $oldestOffset")
     systemConsumer.register(checkpointSsp, oldestOffset)
     systemConsumer.start()
+    // the consumer will be closed after first time reading the checkpoint
   }
 
   /**
@@ -133,12 +132,9 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     if (taskNamesToCheckpoints == null) {
       info("Reading checkpoints for the first time")
       taskNamesToCheckpoints = readCheckpoints()
-      if (stopConsumerAfterFirstRead) {
-        info("Stopping system consumer")
-        systemConsumer.stop()
-      }
-    } else if (!stopConsumerAfterFirstRead) {
-      taskNamesToCheckpoints ++= readCheckpoints()
+      // Stop the system consumer since we only need to read checkpoints once
+      info("Stopping system consumer.")
+      systemConsumer.stop()
     }
 
     val checkpoint: Checkpoint = taskNamesToCheckpoints.getOrElse(taskName, null)
@@ -223,11 +219,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
     info ("Stopping system producer.")
     producerRef.get().stop()
-
-    if (!stopConsumerAfterFirstRead) {
-      info("Stopping system consumer")
-      systemConsumer.stop()
-    }
 
     info("CheckpointManager stopped.")
   }

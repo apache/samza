@@ -50,7 +50,6 @@ import org.apache.samza.task._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Util, _}
 import org.apache.samza.SamzaException
-import org.apache.samza.clustermanager.StandbyTaskUtil
 
 import scala.collection.JavaConverters._
 
@@ -134,12 +133,6 @@ object SamzaContainer extends Logging {
     startpointManager: StartpointManager = null,
     diagnosticsManager: Option[DiagnosticsManager] = Option.empty) = {
     val config = jobContext.getConfig
-    if (StandbyTaskUtil.isStandbyContainer(containerId)) {
-      // standby containers will need to continually poll checkpoint messages
-      val newConfig = new util.HashMap[String, String]()
-      newConfig.putAll(config)
-      newConfig.put(TaskConfig.CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, java.lang.Boolean.FALSE.toString)
-    }
     val jobConfig = new JobConfig(config)
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
