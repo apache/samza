@@ -835,23 +835,23 @@ public class ContainerStorageManager {
     ExecutorService nonCheckpointedSideInputExecutor = Executors.newSingleThreadExecutor();
 
     this.taskSideInputStoreSSPs.forEach((taskName, storesToSSPs) -> {
-      TaskSideInputStorageManager taskSideInputStorageManager = sideInputStorageManagers.values().stream()
-          .filter(storageManager -> storageManager.getTaskName() == taskName)
-          .findFirst()
-          .get();
+        TaskSideInputStorageManager taskSideInputStorageManager = sideInputStorageManagers.values().stream()
+            .filter(storageManager -> storageManager.getTaskName() == taskName)
+            .findFirst()
+            .get();
 
-      Set<SystemStreamPartition> taskSSPs = storesToSSPs.values().stream()
-          .flatMap(Set::stream)
-          .collect(Collectors.toSet());
+        Set<SystemStreamPartition> taskSSPs = storesToSSPs.values().stream()
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
 
-      RunLoopTask sideInputRestoreTask = new SideInputRestoreTask(checkpointedSideInputExecutor,
-          nonCheckpointedSideInputExecutor,
-          taskSSPs,
-          taskSideInputStorageManager,
-          taskName);
+        RunLoopTask sideInputRestoreTask = new SideInputRestoreTask(checkpointedSideInputExecutor,
+            nonCheckpointedSideInputExecutor,
+            taskSSPs,
+            taskSideInputStorageManager,
+            taskName);
 
-      taskMap.put(taskName, sideInputRestoreTask);
-    });
+        taskMap.put(taskName, sideInputRestoreTask);
+      });
 
     this.sideInputRunLoop = new RunLoop(taskMap,
         null,
