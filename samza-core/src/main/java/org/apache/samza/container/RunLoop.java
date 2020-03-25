@@ -625,8 +625,9 @@ public class RunLoop implements Runnable, Throttleable {
               log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
 
               // update offset
-              // TODO null check
-              task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
+              if (task.offsetManager() != null) {
+                task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
+              }
 
               // update coordinator
               coordinatorRequests.update(callbackToUpdate.getCoordinator());
