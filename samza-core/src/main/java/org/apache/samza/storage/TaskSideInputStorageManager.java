@@ -44,5 +44,5 @@ public interface TaskSideInputStorageManager {
 
   void checkpoint(CheckpointId checkpointId);
 
-  void removeOldCheckpoints(String latestCheckpointId);
+  void removeOldCheckpoints(CheckpointId latestCheckpointId);
 }

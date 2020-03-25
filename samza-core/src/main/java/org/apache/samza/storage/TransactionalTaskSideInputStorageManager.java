@@ -62,14 +62,7 @@ public class TransactionalTaskSideInputStorageManager extends NonTransactionalTa
   }
 
   @Override
-  public synchronized void flush() {
-    LOG.info("Flushing side inputs for task: {}", getTaskName());
-    stores.values().forEach(StorageEngine::flush);
-    super.writeOffsetFiles();
-  }
-
-  @Override
-  public void checkpoint(CheckpointId checkpointId) {
+  public synchronized void checkpoint(CheckpointId checkpointId) {
     LOG.info("Creating checkpoint for task: {}", getTaskName());
 
     Map<SystemStreamPartition, String> lastProcessedOffsets = this.sspsToStores.keySet().stream()
@@ -87,7 +80,7 @@ public class TransactionalTaskSideInputStorageManager extends NonTransactionalTa
   }
 
   @Override
-  public void removeOldCheckpoints(String latestCheckpointId) {
+  public void removeOldCheckpoints(CheckpointId latestCheckpointId) {
     LOG.info("Removing checkpoints older than: {} for task: {}", latestCheckpointId, getTaskName());
     File[] storeDirs = storeBaseDir.listFiles((dir, name) -> stores.containsKey(name));
     (storeDirs == null ? Stream.<File>empty() : Arrays.stream(storeDirs)).forEach(storeDir -> {
@@ -95,7 +88,7 @@ public class TransactionalTaskSideInputStorageManager extends NonTransactionalTa
         FileFilter wildcardFileFilter = new WildcardFileFilter(taskStoreName + "-*");
         File[] checkpointDirs = storeDir.listFiles(wildcardFileFilter);
         (checkpointDirs == null ? Stream.<File>empty() : Arrays.stream(checkpointDirs)).forEach(checkpointDir -> {
-            if (checkpointDir.getName().contains(latestCheckpointId)) {
+            if (checkpointDir.getName().contains(latestCheckpointId.toString())) {
               try {
                 FileUtils.deleteDirectory(checkpointDir);
               } catch (IOException e) {

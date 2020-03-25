@@ -242,12 +242,12 @@ public class NonTransactionalTaskSideInputStorageManager implements TaskSideInpu
   }
 
   @Override
-  public void checkpoint(CheckpointId checkpointId) {
+  public synchronized void checkpoint(CheckpointId checkpointId) {
     // no-op
   }
 
   @Override
-  public void removeOldCheckpoints(String latestCheckpointId) {
+  public void removeOldCheckpoints(CheckpointId latestCheckpointId) {
     // no-op
   }
 

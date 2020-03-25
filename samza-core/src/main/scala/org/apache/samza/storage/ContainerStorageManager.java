@@ -772,42 +772,6 @@ public class ContainerStorageManager {
         }
       });
 
-    Map<TaskName, RunLoopTask> taskMap = new HashMap<>();
-    ExecutorService checkpointedSideInputExecutor = Executors.newSingleThreadExecutor();
-    ExecutorService nonCheckpointedSideInputExecutor = Executors.newSingleThreadExecutor();
-
-    this.taskSideInputStoreSSPs.forEach((taskName, storesToSSPs) -> {
-        TaskSideInputStorageManager taskSideInputStorageManager = sideInputStorageManagers.values().stream()
-            .filter(storageManager -> storageManager.getTaskName() == taskName)
-            .findFirst()
-            .get();
-
-        Set<SystemStreamPartition> taskSSPs = storesToSSPs.values().stream()
-            .flatMap(Set::stream)
-            .collect(Collectors.toSet());
-
-        RunLoopTask sideInputRestoreTask = new SideInputRestoreTask(checkpointedSideInputExecutor,
-            nonCheckpointedSideInputExecutor,
-            taskSSPs,
-            taskSideInputStorageManager,
-            taskName);
-
-        taskMap.put(taskName, sideInputRestoreTask);
-      });
-
-    sideInputRunLoop = new RunLoop(taskMap,
-        null,
-        sideInputSystemConsumers,
-        1,
-        -1L, // no windowing done for side input restore
-        new TaskConfig(this.config).getCommitMs(),
-        new TaskConfig(this.config).getCallbackTimeoutMs(),
-        1,
-        new TaskConfig(this.config).getMaxIdleMs(),
-        samzaContainerMetrics,
-        System::nanoTime,
-        false);
-
     TaskConfig taskConfig = new TaskConfig(config);
     sideInputCheckpointRefreshFuture = sideInputCheckpointRefreshExecutor.scheduleWithFixedDelay(new Runnable() {
       @Override
@@ -817,6 +781,7 @@ public class ContainerStorageManager {
             Checkpoint checkpoint = checkpointManager.readLastCheckpoint(activeTaskName);
             if (checkpoint != null) {
               checkpoint.getOffsets().forEach((ssp, latestOffset) -> {
+                  // TODO what if an active task has an input stream that is also a side input?
                   if (sideInputStorageManagers.containsKey(ssp)) {
                     Optional<String> currentOffsetOpt = checkpointedSideInputSSPOffsets.get(ssp);
                     Optional<String> latestOffsetOpt = Optional.ofNullable(latestOffset);
@@ -864,6 +829,42 @@ public class ContainerStorageManager {
       // check if the ssp is caught to upcoming, even at start
       checkSideInputCaughtUp(ssp, startingOffset, SystemStreamMetadata.OffsetType.UPCOMING);
     }
+
+    Map<TaskName, RunLoopTask> taskMap = new HashMap<>();
+    ExecutorService checkpointedSideInputExecutor = Executors.newSingleThreadExecutor();
+    ExecutorService nonCheckpointedSideInputExecutor = Executors.newSingleThreadExecutor();
+
+    this.taskSideInputStoreSSPs.forEach((taskName, storesToSSPs) -> {
+      TaskSideInputStorageManager taskSideInputStorageManager = sideInputStorageManagers.values().stream()
+          .filter(storageManager -> storageManager.getTaskName() == taskName)
+          .findFirst()
+          .get();
+
+      Set<SystemStreamPartition> taskSSPs = storesToSSPs.values().stream()
+          .flatMap(Set::stream)
+          .collect(Collectors.toSet());
+
+      RunLoopTask sideInputRestoreTask = new SideInputRestoreTask(checkpointedSideInputExecutor,
+          nonCheckpointedSideInputExecutor,
+          taskSSPs,
+          taskSideInputStorageManager,
+          taskName);
+
+      taskMap.put(taskName, sideInputRestoreTask);
+    });
+
+    this.sideInputRunLoop = new RunLoop(taskMap,
+        null,
+        sideInputSystemConsumers,
+        1,
+        -1L, // no windowing done for side input restore
+        new TaskConfig(this.config).getCommitMs(),
+        new TaskConfig(this.config).getCallbackTimeoutMs(),
+        1,
+        new TaskConfig(this.config).getMaxIdleMs(),
+        samzaContainerMetrics,
+        System::nanoTime,
+        false);
 
     // start the systemConsumers for consuming input
     this.sideInputSystemConsumers.start();
@@ -1116,7 +1117,7 @@ public class ContainerStorageManager {
 
       this.taskSideInputStorageManager.flush();
       this.taskSideInputStorageManager.checkpoint(checkpointId);
-      this.taskSideInputStorageManager.removeOldCheckpoints(checkpointId.toString());
+      this.taskSideInputStorageManager.removeOldCheckpoints(checkpointId);
     }
 
     @Override
