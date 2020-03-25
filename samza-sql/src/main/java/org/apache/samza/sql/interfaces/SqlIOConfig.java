@@ -81,13 +81,11 @@ public class SqlIOConfig {
     this.streamId = String.format("%s-%s", systemName, streamName);
 
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
-    Validate.notEmpty(samzaRelConverterName,
-        String.format("%s is not set or empty for system %s", CFG_SAMZA_REL_CONVERTER, systemName));
+    Validate.notEmpty(samzaRelConverterName, String.format("System %s is not supported. Please check if the system name is provided correctly.", systemName));
 
     if (isRemoteTable()) {
       samzaRelTableKeyConverterName = streamConfigs.get(CFG_SAMZA_REL_TABLE_KEY_CONVERTER);
-      Validate.notEmpty(samzaRelTableKeyConverterName,
-          String.format("%s is not set or empty for system %s", CFG_SAMZA_REL_CONVERTER, systemName));
+      Validate.notEmpty(samzaRelTableKeyConverterName, String.format("System %s is not supported. Please check if the system name is provided correctly.", systemName));
     } else {
       samzaRelTableKeyConverterName = "";
     }
@@ -100,11 +98,11 @@ public class SqlIOConfig {
 
     if (!isRemoteTable()) {
       // The below config is required for local table and streams but not for remote table.
-      streamConfigs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID(), streamId), streamName);
+      streamConfigs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID, streamId), streamName);
       if (tableDescriptor != null) {
         // For local table, set the bootstrap config and default offset to oldest
-        streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID(), streamId), "true");
-        streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID(), streamId), "oldest");
+        streamConfigs.put(String.format(StreamConfig.BOOTSTRAP_FOR_STREAM_ID, streamId), "true");
+        streamConfigs.put(String.format(StreamConfig.CONSUMER_OFFSET_DEFAULT_FOR_STREAM_ID, streamId), "oldest");
       }
     }
 

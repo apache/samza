@@ -33,23 +33,20 @@ import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
-import org.apache.calcite.rel.externalize.RelJsonWriter;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
-import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.AbstractTable;
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
+import org.apache.calcite.sql.validate.SqlConformanceEnum;
+import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.Planner;
@@ -57,6 +54,9 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.sql.schema.SamzaSqlFieldType;
+import org.apache.samza.sql.schema.SqlFieldSchema;
+import org.apache.samza.sql.schema.SqlSchema;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,36 +83,41 @@ public class QueryPlanner {
     this.udfMetadata = udfMetadata;
   }
 
+  private void registerSourceSchemas(SchemaPlus rootSchema) {
+    RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
+
+    for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
+      SchemaPlus previousLevelSchema = rootSchema;
+      List<String> sourceParts = ssc.getSourceParts();
+      RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSource());
+
+      for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
+        String sourcePart = sourceParts.get(sourcePartIndex);
+        if (sourcePartIndex < sourceParts.size() - 1) {
+          SchemaPlus sourcePartSchema = previousLevelSchema.getSubSchema(sourcePart);
+          if (sourcePartSchema == null) {
+            sourcePartSchema = previousLevelSchema.add(sourcePart, new AbstractSchema());
+          }
+          previousLevelSchema = sourcePartSchema;
+        } else {
+          // If the source part is the last one, then fetch the schema corresponding to the stream and register.
+          RelDataType relationalSchema = getSourceRelSchema(relSchemaProvider, relSchemaConverter);
+          previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
+          break;
+        }
+      }
+    }
+  }
+
   public RelRoot plan(String query) {
     try {
       Connection connection = DriverManager.getConnection("jdbc:calcite:");
       CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
-
-      for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
-        SchemaPlus previousLevelSchema = rootSchema;
-        List<String> sourceParts = ssc.getSourceParts();
-        RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSource());
-
-        for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
-          String sourcePart = sourceParts.get(sourcePartIndex);
-          if (sourcePartIndex < sourceParts.size() - 1) {
-            SchemaPlus sourcePartSchema = previousLevelSchema.getSubSchema(sourcePart);
-            if (sourcePartSchema == null) {
-              sourcePartSchema = previousLevelSchema.add(sourcePart, new AbstractSchema());
-            }
-            previousLevelSchema = sourcePartSchema;
-          } else {
-            // If the source part is the last one, then fetch the schema corresponding to the stream and register.
-            RelDataType relationalSchema = relSchemaProvider.getRelationalSchema();
-            previousLevelSchema.add(sourcePart, createTableFromRelSchema(relationalSchema));
-            break;
-          }
-        }
-      }
+      registerSourceSchemas(rootSchema);
 
       List<SamzaSqlScalarFunctionImpl> samzaSqlFunctions = udfMetadata.stream()
-          .map(x -> new SamzaSqlScalarFunctionImpl(x.getName(), x.getUdfMethod()))
+          .map(x -> new SamzaSqlScalarFunctionImpl(x))
           .collect(Collectors.toList());
 
       final List<RelTraitDef> traitDefs = new ArrayList<>();
@@ -124,10 +129,12 @@ public class QueryPlanner {
       sqlOperatorTables.add(new SamzaSqlOperatorTable());
       sqlOperatorTables.add(new SamzaSqlUdfOperatorTable(samzaSqlFunctions));
 
+      // Using lenient so that !=,%,- are allowed.
       FrameworkConfig frameworkConfig = Frameworks.newConfigBuilder()
-          .parserConfig(SqlParser.configBuilder().setLex(Lex.JAVA).build())
+          .parserConfig(SqlParser.configBuilder().setLex(Lex.JAVA).setConformance(SqlConformanceEnum.LENIENT).build())
           .defaultSchema(rootSchema)
           .operatorTable(new ChainedSqlOperatorTable(sqlOperatorTables))
+          .sqlToRelConverterConfig(SqlToRelConverter.Config.DEFAULT)
           .traitDefs(traitDefs)
           .context(Contexts.EMPTY_CONTEXT)
           .costFactory(null)
@@ -137,22 +144,44 @@ public class QueryPlanner {
       SqlNode sql = planner.parse(query);
       SqlNode validatedSql = planner.validate(sql);
       RelRoot relRoot = planner.rel(validatedSql);
-      LOG.info("query plan:\n" + RelOptUtil.toString(relRoot.rel));
+      LOG.info("query plan:\n" + RelOptUtil.toString(relRoot.rel, SqlExplainLevel.ALL_ATTRIBUTES));
       return relRoot;
     } catch (Exception e) {
-      LOG.error("Query planner failed with exception.", e);
-      throw new SamzaException(e);
+      String errorMsg = SamzaSqlValidator.formatErrorString(query, e);
+      LOG.error(errorMsg, e);
+      throw new SamzaException(errorMsg, e);
     }
   }
 
-  private Table createTableFromRelSchema(RelDataType relationalSchema) {
+  public static SqlSchema getSourceSqlSchema(RelSchemaProvider relSchemaProvider) {
+    SqlSchema sqlSchema = relSchemaProvider.getSqlSchema();
+
+    List<String> fieldNames = new ArrayList<>();
+    List<SqlFieldSchema> fieldTypes = new ArrayList<>();
+    if (!sqlSchema.containsField(SamzaSqlRelMessage.KEY_NAME)) {
+      fieldNames.add(SamzaSqlRelMessage.KEY_NAME);
+      // Key is a nullable and optional field. It is defaulted to null in SamzaSqlRelMessage.
+      fieldTypes.add(SqlFieldSchema.createPrimitiveSchema(SamzaSqlFieldType.ANY, true, true));
+    }
+
+    fieldNames.addAll(
+        sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldName).collect(Collectors.toList()));
+    fieldTypes.addAll(
+        sqlSchema.getFields().stream().map(SqlSchema.SqlField::getFieldSchema).collect(Collectors.toList()));
+
+    return new SqlSchema(fieldNames, fieldTypes);
+  }
+
+  public static RelDataType getSourceRelSchema(RelSchemaProvider relSchemaProvider,
+      RelSchemaConverter relSchemaConverter) {
+    // If the source part is the last one, then fetch the schema corresponding to the stream and register.
+    return relSchemaConverter.convertToRelSchema(getSourceSqlSchema(relSchemaProvider));
+  }
+
+  private static Table createTableFromRelSchema(RelDataType relationalSchema) {
     return new AbstractTable() {
       public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        List<RelDataTypeField> fieldsList = new ArrayList<>();
-        fieldsList.add(new RelDataTypeFieldImpl(SamzaSqlRelMessage.KEY_NAME, 0,
-            typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.ANY), true)));
-        fieldsList.addAll(relationalSchema.getFieldList());
-        return new RelRecordType(fieldsList);
+        return relationalSchema;
       }
     };
   }

@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -55,6 +56,7 @@ public class TestRemoteApplicationRunner {
   @Before
   public void setUp() {
     Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.APP_NAME, "test-app");
     StreamApplication userApp = appDesc -> { };
     runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(config)));
   }
@@ -74,19 +76,30 @@ public class TestRemoteApplicationRunner {
   }
 
   @Test
-  public void testGetStatus() {
-    Map m = new HashMap<String, String>();
-    m.put(JobConfig.JOB_NAME(), "jobName");
-    m.put(JobConfig.STREAM_JOB_FACTORY_CLASS(), MockStreamJobFactory.class.getName());
+  public void testRunWithConfigLoaderFactoryPresent() {
+    Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.APP_NAME, "test-app");
+    config.put(JobConfig.CONFIG_LOADER_FACTORY, "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory");
+    config.put(JobConfig.STREAM_JOB_FACTORY_CLASS, MockStreamJobFactory.class.getName());
+    runner = new RemoteApplicationRunner(null, new MapConfig(config));
 
-    m.put(JobConfig.JOB_ID(), "newJob");
+    runner.run(null);
+  }
+
+  @Test
+  public void testGetStatus() {
+    Map<String, String> m = new HashMap<>();
+    m.put(JobConfig.JOB_NAME, "jobName");
+    m.put(JobConfig.STREAM_JOB_FACTORY_CLASS, MockStreamJobFactory.class.getName());
+
+    m.put(JobConfig.JOB_ID, "newJob");
 
     StreamApplication userApp = appDesc -> { };
     runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
 
     Assert.assertEquals(ApplicationStatus.New, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
 
-    m.put(JobConfig.JOB_ID(), "runningJob");
+    m.put(JobConfig.JOB_ID, "runningJob");
     runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
     Assert.assertEquals(ApplicationStatus.Running, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
   }
@@ -99,8 +112,8 @@ public class TestRemoteApplicationRunner {
     @Override
     public StreamJob getJob(final Config config) {
 
-      StreamJob streamJob = new StreamJob() {
-        JobConfig c = (JobConfig) config;
+      return new StreamJob() {
+        JobConfig c = new JobConfig(config);
 
         @Override
         public StreamJob submit() {
@@ -135,8 +148,6 @@ public class TestRemoteApplicationRunner {
           }
         }
       };
-
-      return streamJob;
     }
   }
 }

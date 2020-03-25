@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.translator;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.time.Instant;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
@@ -60,7 +59,7 @@ class TranslatorInputMetricsMapFunction implements MapFunction<SamzaSqlRelMessag
   @Override
   public SamzaSqlRelMessage apply(SamzaSqlRelMessage message) {
     inputEvents.inc();
-    message.getSamzaSqlRelMsgMetadata().operatorBeginProcessingInstant = Instant.now().toString();
+    message.getSamzaSqlRelMsgMetadata().joinStartTimeMs = Instant.now().toEpochMilli();
     return message;
   }
 

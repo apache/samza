@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * SamzaAppState encapsulates state like - completedContainers, runningContainers. This
+ * SamzaAppState encapsulates state like - completedProcessors, runningProcessors. This
  * class is also used to display information in the Samza UI. Changing any variable name/
  * data structure type in this class WILL break the UI.
  *
@@ -63,9 +63,9 @@ public class SamzaApplicationState {
    */
 
   /**
-   * Number of containers that have completed their execution and exited successfully
+   * Number of Samza processors that have completed their execution and exited successfully
    */
-  public final AtomicInteger completedContainers = new AtomicInteger(0);
+  public final AtomicInteger completedProcessors = new AtomicInteger(0);
 
   /**
    * Number of failed containers
@@ -78,37 +78,42 @@ public class SamzaApplicationState {
   public final AtomicInteger releasedContainers = new AtomicInteger(0);
 
   /**
-   * ContainerStatus of failed containers.
+   * Number of processors configured for the job
    */
-  public final ConcurrentMap<String, SamzaResourceStatus> failedContainersStatus = new ConcurrentHashMap<String, SamzaResourceStatus>();
-
-  /**
-   * Number of containers configured for the job
-   */
-  public final AtomicInteger containerCount = new AtomicInteger(0);
+  public final AtomicInteger processorCount = new AtomicInteger(0);
 
   /**
    * Set of finished containers
    */
-  public final AtomicInteger finishedContainers = new AtomicInteger(0);
+  public final AtomicInteger finishedProcessors = new AtomicInteger(0);
 
   /**
-   *  Number of containers needed for the job to be declared healthy
+   *  Number of processors needed for the job to be declared healthy
    *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
    */
-  public final AtomicInteger neededContainers = new AtomicInteger(0);
+  public final AtomicInteger neededProcessors = new AtomicInteger(0);
 
   /**
-   *  Map of the samzaContainerId to the {@link SamzaResource} on which it is submitted for launch.
+   *  Map of the Samza processor ID to the {@link SamzaResource} on which it is submitted for launch.
    *  Modified by both the NMCallback and the ContainerAllocator thread.
    */
-  public final ConcurrentMap<String, SamzaResource> pendingContainers = new ConcurrentHashMap<String, SamzaResource>(0);
+  public final ConcurrentMap<String, SamzaResource> pendingProcessors = new ConcurrentHashMap<>(0);
 
   /**
-   *  Map of the samzaContainerId to the {@link SamzaResource} on which it is running.
+   *  Map of the Samza processor ID to the {@link SamzaResource} on which it is running.
    *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
    */
-  public final ConcurrentMap<String, SamzaResource> runningContainers = new ConcurrentHashMap<String, SamzaResource>(0);
+  public final ConcurrentMap<String, SamzaResource> runningProcessors = new ConcurrentHashMap<>(0);
+
+  /**
+   *  Map of the failed Samza processor ID to resource status of the last attempted of the container.
+   *  This map is only used when {@link org.apache.samza.config.ClusterManagerConfig#CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES}
+   *  is set to false, this map tracks the containers which have exhausted all retires for restart and JobCoordinator is
+   *  no longer attempting to restart this container
+   *
+   *  Modified by both the AMRMCallbackThread and the ContainerAllocator thread
+   */
+  public final ConcurrentHashMap<String, SamzaResourceStatus> failedProcessors = new ConcurrentHashMap<>(0);
 
   /**
    * Final status of the application. Made to be volatile s.t. changes will be visible in multiple threads.
@@ -140,6 +145,30 @@ public class SamzaApplicationState {
    * {@link ContainerProcessManager}
    */
   public final AtomicInteger redundantNotifications = new AtomicInteger(0);
+
+  /**
+   * Number of container allocations from the RM, that did not meet standby container constraints, in which case the
+   * existing resource was given back to the RM, and a new ANY-HOST request had to be made.
+   */
+  public final AtomicInteger failedStandbyAllocations = new AtomicInteger(0);
+
+  /**
+   * Number of occurrences in which a failover of an active container was initiated (due to a node failure), in which a
+   * running standby container was available for the failover.
+   * If two standby containers were used for one failing active, it counts as two.
+   */
+  public final AtomicInteger failoversToStandby = new AtomicInteger(0);
+
+  /**
+   * Number of occurrences in which a failover of an active container was initiated (due to a node failure), in which no
+   * running standby container was available for the failover.
+  */
+  public final AtomicInteger failoversToAnyHost = new AtomicInteger(0);
+
+  /**
+   * Number of occurrences of failed container placement actions
+   */
+  public final AtomicInteger failedContainerPlacementActions = new AtomicInteger(0);
 
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;

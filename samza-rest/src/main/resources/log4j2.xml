@@ -19,7 +19,7 @@ specific language governing permissions and limitations
 under the License.
 
 -->
-<Configuration>
+<Configuration strict="true">
   <Appenders>
     <RollingFile name="RollingFile" fileName="${sys:samza.log.dir}/samza-rest-service.log.log"
                  filePattern="${sys:samza.log.dir}/samza-rest-service-%d{MM-dd-yyyy}-%i.log.gz">

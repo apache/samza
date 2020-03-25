@@ -22,13 +22,13 @@ subprojects {
   publishing {
     publications {
       mavenJava(MavenPublication) {
-        from components.java
-        if(project.name == 'samza-shell') {
-          artifact shellTarGz {
-            classifier "dist"
+        afterEvaluate {
+          from components.java
+          if(project.name == 'samza-shell') {
+            artifact shellTarGz
           }
         }
-     }
+      }
     }
   }
 }

@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -48,7 +49,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * rather those extending Samza to consume from new types of stream providers
  * and other systems.
  * </p>
- * 
+ *
  * <p>
  * SystemConsumers that implement BlockingEnvelopeMap need to add messages using
  * {@link #put(org.apache.samza.system.SystemStreamPartition, org.apache.samza.system.IncomingMessageEnvelope) put}
@@ -68,6 +69,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   private final ConcurrentHashMap<SystemStreamPartition, AtomicLong> bufferedMessagesSize;  // size in bytes per SystemStreamPartition
   private final Map<SystemStreamPartition, Boolean> noMoreMessage;
   private final Clock clock;
+  private volatile Throwable failureCause = null;
 
   public BlockingEnvelopeMap() {
     this(new NoOpMetricsRegistry());
@@ -97,7 +99,16 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   /**
    * {@inheritDoc}
    */
+  @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
+    initializeInternalStateForSSP(systemStreamPartition);
+  }
+
+  /**
+   * Initializes the metrics and in-memory buffer for the {@param systemStreamPartition}.
+   * @param systemStreamPartition represents the input system stream partition.
+   */
+  private void initializeInternalStateForSSP(SystemStreamPartition systemStreamPartition) {
     metrics.initMetrics(systemStreamPartition);
     bufferedMessages.putIfAbsent(systemStreamPartition, newBlockingQueue());
     bufferedMessagesSize.putIfAbsent(systemStreamPartition, new AtomicLong(0));
@@ -110,6 +121,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
   /**
    * {@inheritDoc}
    */
+  @Override
   public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) throws InterruptedException {
     long stopTime = clock.currentTimeMillis() + timeout;
     Map<SystemStreamPartition, List<IncomingMessageEnvelope>> messagesToReturn = new HashMap<SystemStreamPartition, List<IncomingMessageEnvelope>>();
@@ -132,6 +144,13 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
           // Block until we get at least one message, or until we catch up to
           // the head of the stream.
           while (envelope == null && !isAtHead(systemStreamPartition)) {
+
+            // Check for consumerFailure and throw exception
+            if (this.failureCause != null) {
+              String message = String.format("%s: Consumer has stopped.", this);
+              throw new SamzaException(message, this.failureCause);
+            }
+
             metrics.incBlockingPoll(systemStreamPartition);
             envelope = queue.poll(1000, TimeUnit.MILLISECONDS);
           }
@@ -231,10 +250,14 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     return getNumMessagesInQueue(systemStreamPartition) == 0 && isAtHead != null && isAtHead.equals(true);
   }
 
+  protected void setFailureCause(Throwable throwable) {
+    this.failureCause = throwable;
+  }
+
   public class BlockingEnvelopeMapMetrics {
     private final String group;
     private final MetricsRegistry metricsRegistry;
-    private final ConcurrentHashMap<SystemStreamPartition, Gauge<Boolean>> noMoreMessageGaugeMap;
+    private final ConcurrentHashMap<SystemStreamPartition, Gauge<Integer>> noMoreMessageGaugeMap;
     private final ConcurrentHashMap<SystemStreamPartition, Counter> blockingPollCountMap;
     private final ConcurrentHashMap<SystemStreamPartition, Counter> blockingPollTimeoutCountMap;
     private final Counter pollCount;
@@ -242,14 +265,14 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     public BlockingEnvelopeMapMetrics(String group, MetricsRegistry metricsRegistry) {
       this.group = group;
       this.metricsRegistry = metricsRegistry;
-      this.noMoreMessageGaugeMap = new ConcurrentHashMap<SystemStreamPartition, Gauge<Boolean>>();
+      this.noMoreMessageGaugeMap = new ConcurrentHashMap<SystemStreamPartition, Gauge<Integer>>();
       this.blockingPollCountMap = new ConcurrentHashMap<SystemStreamPartition, Counter>();
       this.blockingPollTimeoutCountMap = new ConcurrentHashMap<SystemStreamPartition, Counter>();
       this.pollCount = metricsRegistry.newCounter(group, "poll-count");
     }
 
     public void initMetrics(SystemStreamPartition systemStreamPartition) {
-      this.noMoreMessageGaugeMap.putIfAbsent(systemStreamPartition, metricsRegistry.<Boolean>newGauge(group, "no-more-messages-" + systemStreamPartition, false));
+      this.noMoreMessageGaugeMap.putIfAbsent(systemStreamPartition, metricsRegistry.newGauge(group, "no-more-messages-" + systemStreamPartition, 0));
       this.blockingPollCountMap.putIfAbsent(systemStreamPartition, metricsRegistry.newCounter(group, "blocking-poll-count-" + systemStreamPartition));
       this.blockingPollTimeoutCountMap.putIfAbsent(systemStreamPartition, metricsRegistry.newCounter(group, "blocking-poll-timeout-count-" + systemStreamPartition));
 
@@ -258,7 +281,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
     }
 
     public void setNoMoreMessages(SystemStreamPartition systemStreamPartition, boolean noMoreMessages) {
-      this.noMoreMessageGaugeMap.get(systemStreamPartition).set(noMoreMessages);
+      this.noMoreMessageGaugeMap.get(systemStreamPartition).set(noMoreMessages ? 1 : 0);
     }
 
     public void incBlockingPoll(SystemStreamPartition systemStreamPartition) {

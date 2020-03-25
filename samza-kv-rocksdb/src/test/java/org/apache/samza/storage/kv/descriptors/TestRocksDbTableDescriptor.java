@@ -19,18 +19,20 @@
 package org.apache.samza.storage.kv.descriptors;
 
 import java.util.Map;
-import junit.framework.Assert;
+
 import org.apache.samza.config.Config;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.LocalTableProviderFactory;
 import org.apache.samza.storage.kv.RocksDbKeyValueStorageEngineFactory;
+
 import org.junit.Test;
+import org.junit.Assert;
 
 public class TestRocksDbTableDescriptor {
 
@@ -38,7 +40,7 @@ public class TestRocksDbTableDescriptor {
 
   @Test
   public void testMinimal() {
-    Map<String, String> tableConfig = createTableDescriptor()
+    Map tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertNotNull(tableConfig);
     Assert.assertEquals(2, tableConfig.size());
@@ -46,19 +48,19 @@ public class TestRocksDbTableDescriptor {
 
   @Test
   public void testTableProviderFactoryConfig() {
-    Map<String, String> tableConfig = createTableDescriptor()
+    Map tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertEquals(2, tableConfig.size());
     Assert.assertEquals(LocalTableProviderFactory.class.getName(),
         tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID)));
     Assert.assertEquals(RocksDbKeyValueStorageEngineFactory.class.getName(),
-        tableConfig.get(String.format(StorageConfig.FACTORY(), TABLE_ID)));
+        tableConfig.get(String.format(StorageConfig.FACTORY, TABLE_ID)));
   }
 
   @Test
   public void testRocksDbConfig() {
 
-    Map<String, String> tableConfig = new RocksDbTableDescriptor<Integer, String>(
+    Map tableConfig = new RocksDbTableDescriptor<Integer, String>(
             TABLE_ID, KVSerde.of(new IntegerSerde(), new StringSerde()))
         .withBlockSize(1)
         .withCacheSize(2)
@@ -86,12 +88,12 @@ public class TestRocksDbTableDescriptor {
     assertEquals("9", RocksDbTableDescriptor.CONTAINER_WRITE_BUFFER_SIZE_BYTES, tableConfig);
     assertEquals("snappy", RocksDbTableDescriptor.ROCKSDB_COMPRESSION, tableConfig);
     assertEquals("fifo", RocksDbTableDescriptor.ROCKSDB_COMPACTION_STYLE, tableConfig);
-    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM(), TABLE_ID)));
-    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR(), TABLE_ID)));
+    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM, TABLE_ID)));
+    Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_REPLICATION_FACTOR, TABLE_ID)));
     Assert.assertEquals("xyz", tableConfig.get("abc"));
   }
 
-  private void assertEquals(String expectedValue, String key, Map<String, String> config) {
+  private void assertEquals(String expectedValue, String key, Map config) {
     String realKey = String.format("stores.%s.%s", TABLE_ID, key);
     Assert.assertEquals(expectedValue, config.get(realKey));
   }
@@ -101,7 +103,7 @@ public class TestRocksDbTableDescriptor {
   }
 
   private RocksDbTableDescriptor createTableDescriptor() {
-    return new RocksDbTableDescriptor(TABLE_ID,
-        new KVSerde(new NoOpSerde(), new NoOpSerde()));
+    return new RocksDbTableDescriptor<>(TABLE_ID,
+        KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
   }
 }

@@ -36,7 +36,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.coordinator.stream.CoordinatorStreamManager;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.yarn.ClientHelper;
 import org.apache.samza.metrics.JmxMetricsAccessor;
@@ -44,9 +44,10 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsValidator;
 import org.apache.samza.storage.ChangelogStreamManager;
-import org.apache.samza.util.Util;
-import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.apache.samza.util.CommandLine;
+import org.apache.samza.util.CoordinatorStreamUtil;
+import org.apache.samza.util.ReflectionUtil;
+import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -154,26 +155,30 @@ public class YarnJobValidationTool {
 
   public void validateJmxMetrics() throws Exception {
     MetricsRegistry metricsRegistry = new MetricsRegistryMap();
-    CoordinatorStreamManager coordinatorStreamManager = new CoordinatorStreamManager(config, metricsRegistry);
-    coordinatorStreamManager.register(getClass().getSimpleName());
-    coordinatorStreamManager.start();
-    coordinatorStreamManager.bootstrap();
-    ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamManager);
-    JobModelManager jobModelManager = JobModelManager.apply(coordinatorStreamManager.getConfig(), changelogStreamManager.readPartitionMapping(), metricsRegistry);
-    validator.init(config);
-    Map<String, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
-    for (Map.Entry<String, String> entry : jmxUrls.entrySet()) {
-      String containerId = entry.getKey();
-      String jmxUrl = entry.getValue();
-      log.info("validate container " + containerId + " metrics with JMX: " + jmxUrl);
-      JmxMetricsAccessor jmxMetrics = new JmxMetricsAccessor(jmxUrl);
-      jmxMetrics.connect();
-      validator.validate(jmxMetrics);
-      jmxMetrics.close();
-      log.info("validate container " + containerId + " successfully");
+    CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(config, metricsRegistry);
+    coordinatorStreamStore.init();
+    try{
+      Config configFromCoordinatorStream = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
+      ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamStore);
+      JobModelManager jobModelManager =
+          JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
+              coordinatorStreamStore, metricsRegistry);
+      validator.init(config);
+      Map<String, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
+      for (Map.Entry<String, String> entry : jmxUrls.entrySet()) {
+        String containerId = entry.getKey();
+        String jmxUrl = entry.getValue();
+        log.info("validate container " + containerId + " metrics with JMX: " + jmxUrl);
+        JmxMetricsAccessor jmxMetrics = new JmxMetricsAccessor(jmxUrl);
+        jmxMetrics.connect();
+        validator.validate(jmxMetrics);
+        jmxMetrics.close();
+        log.info("validate container " + containerId + " successfully");
+      }
+      validator.complete();
+    } finally {
+      coordinatorStreamStore.close();
     }
-    validator.complete();
-    coordinatorStreamManager.stop();
   }
 
   public static void main(String [] args) throws Exception {
@@ -187,7 +192,7 @@ public class YarnJobValidationTool {
     MetricsValidator validator = null;
     if (options.has(validatorOpt)) {
       String validatorClass = options.valueOf(validatorOpt);
-      validator = Util.getObj(validatorClass, MetricsValidator.class);
+      validator = ReflectionUtil.getObj(validatorClass, MetricsValidator.class);
     }
 
     YarnConfiguration hadoopConfig = new YarnConfiguration();

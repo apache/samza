@@ -228,6 +228,15 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job-coordinator-max-message-bytes">job.coordinator.<br>max.message.bytes</td>
+                    <td class="default">1000012</td>
+                    <td class="description">
+                        If you are using Kafka for coordinator stream, this sets the largest record size for the checkpoint
+                        topic.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="job-coordinator-monitor-partition-change">job.coordinator.<br />monitor-partition-change</td>
                     <td class="default">false</td>
                     <td class="description">
@@ -338,7 +347,7 @@
                         <strong>required</strong> configuration. Specify a comma separated list of range(s) to determine which
                         partition matches, and thus statically assigned to the Job. For example "2,3,11-20", statically assigns
                         partition 2, 3, and 11 to 20 for all the specified system and streams (topics in case of Kafka) to the job.
-                        A singel configuration value like "19" is valid as well. This statically assigns partition 19.
+                        A single configuration value like "19" is valid as well. This statically assigns partition 19.
                         For config validation each element in the comma separated list much conform to one of the
                         following regex:
                         <ul>
@@ -406,14 +415,6 @@
                         container, and the maximum number of containers is the number of task instances (usually the
                         <a href="../container/samza-container.html#tasks-and-partitions">number of input stream partitions</a>).
                         Task instances are evenly distributed across the number of containers that you specify.
-                    </td>
-                </tr>
-
-                <tr>
-                    <td class="property" id="job-container-single-thread-mode">job.container.single.thread.mode</td>
-                    <td class="default">false</td>
-                    <td class="description">
-                        If set to true, samza will fallback to legacy single-threaded event loop. Default is false, which enables the <a href="../container/event-loop.html">multithreading execution</a>.
                     </td>
                 </tr>
 
@@ -1550,6 +1551,15 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-checkpoint-max-message-bytes">task.checkpoint.<br>max.message.bytes</td>
+                    <td class="default">1000012</td>
+                    <td class="description">
+                        If you are using Kafka for checkpoints, this sets the largest record size for the checkpoint
+                        topic.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="store-changelog-replication-factor">stores.<span class="store">store-name</span>.changelog.<br>replication.factor</td>
                     <td class="default">stores.default.changelog.replication.factor</td>
                     <td class="description">
@@ -1572,6 +1582,26 @@
                         The property allows you to specify topic level settings for the changelog topic to be created.
                         For e.g., you can specify the clean up policy as "stores.mystore.changelog.cleanup.policy=delete".
                         Please refer to http://kafka.apache.org/documentation.html#configuration for more topic level configurations.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="store-default-changelog-min-compaction-lag-ms">stores.default.changelog.min.compaction.lag.ms</td>
+                    <td class="default">14400000</td>
+                    <td class="description">
+                        This property defines the default minimum period that must pass before a changelog message can be compacted.
+                        Be mindful that the larger this value, the larger in size changelog topics will be in Kafka due to un-compacted data and the longer your application's time to restore from changelog will be.
+                        This may impact your application's startup time if host affinity is not enabled. For changelog topics which have "compact,delete" cleanup policy, this value should be < retention.ms.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="store-changelog-min-compaction-lag-ms">stores.<span class="store">store-name</span>.changelog.min.compaction.lag.ms</td>
+                    <td class="default">stores.default.changelog.min.compaction.lag.ms</td>
+                    <td class="description">
+                        This property defines the minimum period that must pass before a message in the store's changelog can be compacted.
+                        Be mindful that the larger this value, the larger in size the changelog topic will be in Kafka due to un-compacted data and the longer your application's time to restore from changelog will be.
+                        This may impact your application's startup time if host affinity is not enabled. For changelog topics which have "compact,delete" cleanup policy, this value should be < retention.ms.
                     </td>
                 </tr>
 
@@ -1692,6 +1722,49 @@
                         Any output stream can be used as changelog, but you must ensure that only one job
                         ever writes to a given changelog stream (each instance of a job and each store
                         needs its own changelog stream).
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-changelog-max-message-size-bytes">stores.<span class="store">store-name</span>.changelog.max.message.size.bytes</td>
+                    <td class="default">1048576</td>
+                    <td class="description">
+                        This property sets the maximum size of the messages allowed in the changelog.
+                        The default value is 1 MB.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-disallow-large-messages">stores.<span class="store">store-name</span>.disallow.large.messages</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This property, when turned on, tells the system to expect large messages to be put in the stores
+                        and disallows them. It looks out for any large messages greater than
+                        <a href="#stores-changelog-max-message-size-bytes" class="property">stores.*.changelog.max.message.size.bytes</a>
+                        and throws a SamzaException when it finds one, stating that the record is too large.
+                        In the case of using CachedStore, it will serialize the message first, validate
+                        its size and then cache it if the size is under the permissible limit.
+                        Note that if enabled retroactively, this may cause a performance regression due to the pre-caching serialization.
+                        When this property is turned on, the <a href="#stores-drop-large-messages" class="property">stores.*.drop.large.messages</a>
+                        configuration is ignored. The default value for this config is false. When this property is not set,
+                        <a href="#stores-drop-large-messages" class="property">stores.*.drop.large.messages</a>
+                        determines the large message handling behavior.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="stores-drop-large-messages">stores.<span class="store">store-name</span>.drop.large.messages</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        This property, when turned on, causes messages larger than
+                        <a href="#stores-changelog-max-message-size-bytes" class="property">stores.*.changelog.max.message.size.bytes</a>
+                        to be dropped from the underlying store and changelog. No exception is thrown when a large message is encountered.
+                        For the case when storing messages in the cache is enabled along with this config being
+                        turned on (look at the <a href="#stores-rocksdb-object-cache-size" class="property">stores.*.object.cache.size</a>
+                        config), the large message is stored in the cache but is not written to the
+                        changelog and underlying store, resulting in an inconsistent state temporarily.
+                        When this property is turned off, large messages will be sent to the changelog topic as is,
+                        and may cause the container to fail during commit.
                     </td>
                 </tr>
 

@@ -27,12 +27,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
-import kafka.admin.AdminClient;
-import kafka.utils.ZkUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -43,7 +39,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.KafkaConfig;
-import org.apache.samza.config.KafkaConsumerConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
@@ -82,8 +77,8 @@ public class TestKafkaSystemAdminWithMock {
     configMap.put(String.format(KafkaConfig.CONSUMER_CONFIGS_CONFIG_KEY(), TEST_SYSTEM, ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG),
         "localhost:123");
     configMap.put(String.format(KafkaConfig.CONSUMER_ZK_CONNECT_CONFIG_KEY(), TEST_SYSTEM), "localhost:124");
-    configMap.put(JobConfig.JOB_NAME(), "jobName");
-    configMap.put(JobConfig.JOB_ID(), "jobId");
+    configMap.put(JobConfig.JOB_NAME, "jobName");
+    configMap.put(JobConfig.JOB_ID, "jobId");
 
     testConfig = new MapConfig(configMap);
 

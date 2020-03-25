@@ -22,29 +22,27 @@ package org.apache.samza.container
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
+import org.apache.samza.Partition
 import org.apache.samza.config.{ClusterManagerConfig, Config, MapConfig}
-import org.apache.samza.context.{ApplicationContainerContext, ContainerContext, JobContext}
+import org.apache.samza.context.{ApplicationContainerContext, ContainerContext}
 import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
-import org.apache.samza.metrics.{Gauge, MetricsReporter, Timer}
-import org.apache.samza.storage.{ContainerStorageManager, TaskStorageManager}
+import org.apache.samza.metrics.Gauge
+import org.apache.samza.storage.ContainerStorageManager
 import org.apache.samza.system._
-import org.apache.samza.task.{StreamTaskFactory, TaskFactory}
-import org.apache.samza.{Partition, SamzaContainerStatus}
 import org.junit.Assert._
 import org.junit.{Before, Test}
 import org.mockito.Matchers.{any, notNull}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.mockito.{ArgumentCaptor, Mock, Mockito, MockitoAnnotations}
+import org.mockito.{Mock, Mockito, MockitoAnnotations}
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   private val TASK_NAME = new TaskName("taskName")
@@ -80,7 +78,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   def setup(): Unit = {
     MockitoAnnotations.initMocks(this)
     setupSamzaContainer(Some(this.applicationContainerContext))
-    when(this.metrics.containerStartupTime).thenReturn(mock[Timer])
+    when(this.metrics.containerStartupTime).thenReturn(mock[Gauge[Long]])
   }
 
   @Test
@@ -128,6 +126,45 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     verify(this.runLoop).run()
   }
 
+
+  @Test
+  def testShutDownSequenceForStandbyContainers() {
+    class ShutDownSignal(container: SamzaContainer) extends Runnable {
+      def run(): Unit = {
+        Thread.sleep(2000)
+        container.shutdown();
+      }
+    }
+
+    this.samzaContainer = new SamzaContainer(
+      this.config,
+      Map.empty[TaskName, TaskInstance],
+      Map.empty[TaskName, TaskInstanceMetrics],
+      this.runLoop,
+      this.systemAdmins,
+      this.consumerMultiplexer,
+      this.producerMultiplexer,
+      this.metrics,
+      localityManager = this.localityManager,
+      containerContext = this.containerContext,
+      applicationContainerContextOption = Some(this.applicationContainerContext),
+      externalContextOption = None,
+      containerStorageManager = containerStorageManager)
+    this.samzaContainer.setContainerListener(this.samzaContainerListener)
+
+    new ShutDownSignal(samzaContainer).run();
+    this.samzaContainer.run
+
+    verify(this.samzaContainerListener).beforeStart()
+    verify(this.samzaContainerListener).afterStart()
+    verify(this.samzaContainerListener).afterStop()
+    verify(this.runLoop, never()).run()
+    verify(this.systemAdmins).stop()
+    verify(this.containerStorageManager).shutdown()
+  }
+
+
+
   @Test
   def testCleanRun(): Unit = {
     doNothing().when(this.runLoop).run() // run loop completes successfully
@@ -141,6 +178,46 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     verify(this.samzaContainerListener).afterStop()
     verify(this.samzaContainerListener, never()).afterFailure(any())
     verify(this.runLoop).run()
+  }
+
+  @Test
+  def testInterruptDuringStoreRestorationShutdownContainer(): Unit = {
+    when(this.containerStorageManager.start())
+      .thenAnswer(new Answer[Void] {
+        override def answer(mock: InvocationOnMock): Void = {
+        Thread.sleep(1000)
+        throw new InterruptedException("Injecting interrupt into container storage manager")
+      }
+      })
+
+    this.samzaContainer.run
+
+    assertEquals(SamzaContainerStatus.STOPPED, this.samzaContainer.getStatus())
+    verify(this.samzaContainerListener).beforeStart()
+    verify(this.samzaContainerListener).afterStop()
+    verify(this.samzaContainerListener, never()).afterFailure(any())
+    verify(this.runLoop, times(0)).run()
+  }
+
+  @Test
+  def testInterruptDuringStoreRestorationWithErrorsDuringContainerShutdown(): Unit = {
+    when(this.containerStorageManager.start())
+      .thenAnswer(new Answer[Void] {
+        override def answer(mock: InvocationOnMock): Void = {
+          Thread.sleep(1000)
+          throw new InterruptedException("Injecting interrupt into container storage manager")
+        }
+      })
+
+    when(this.taskInstance.shutdownTask).thenThrow(new RuntimeException("Trigger a shutdown, please."))
+
+    this.samzaContainer.run
+
+    assertEquals(SamzaContainerStatus.FAILED, this.samzaContainer.getStatus())
+    verify(this.samzaContainerListener).beforeStart()
+    verify(this.samzaContainerListener).afterFailure(any())
+    verify(this.samzaContainerListener, never()).afterStop()
+    verify(this.runLoop, times(0)).run()
   }
 
   @Test
@@ -280,6 +357,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     this.samzaContainer = new SamzaContainer(
       this.config,
       Map(TASK_NAME -> this.taskInstance),
+      Map(TASK_NAME -> new TaskInstanceMetrics),
       this.runLoop,
       this.systemAdmins,
       this.consumerMultiplexer,

@@ -57,7 +57,7 @@ public class TestMonitorService {
         Monitor monitor = null;
         try {
             monitor = MonitorLoader.instantiateMonitor("testMonitor", new MonitorConfig(new MapConfig(configMap)),
-                                                       METRICS_REGISTRY);
+                METRICS_REGISTRY);
         } catch (InstantiationException e) {
             fail();
         }

@@ -223,7 +223,7 @@ _Gauges_ are useful when measuring the magnitude of a certain system property, e
 
 _Counters_ are useful in measuring metrics that are cumulative values, e.g., the number of messages processed since container startup. Certain counters are also useful when visualized with their rate-of-change, e.g., the rate of message processing.
 
-_Timers_ are useful for storing and reporting a sliding-window of timing values. Samza also supports a ListGauge type metric, which can be used to store and report a list of any primitive-type such as strings.
+_Timers_ are useful for storing and reporting a sliding-window of timing values. 
 
 ## <a name="userdefinedmetrics"></a> C. Adding User-Defined Metrics
 
@@ -478,7 +478,7 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 |   | \<system\>-<host\>-<port\>-skipped-fetch-requests | Number of times the fetchMessage method is called but no topic/partitions needed new messages. |
 |   | \<system\>-<host\>-<port\>-topic-partitions | Number of broker&#39;s topic partitions which are being consumed. |
 |   | poll-count | Number of polls the KafkaSystemConsumer performed to get new messages. |
-|   | no-more-messages-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Indicates if the Kafka consumer is at the head for particular partition. |
+|   | no-more-messages-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Indicates if the Kafka consumer is at the head for particular partition. 1 if it is caught up, 0 otherwise. |
 |   | blocking-poll-count-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Number of times a blocking poll is executed (polling until we get at least one message, or until we catch up to the head of the stream) (per partition). |
 |   | blocking-poll-timeout-count-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Number of times a blocking poll has timed out (polling until we get at least one message within a timeout period) (per partition). |
 |   | buffered-message-count-SystemStreamPartition [\<system\>, \<stream\>, \<partition\>] | Current number of messages in queue (per partition). |

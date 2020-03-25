@@ -22,7 +22,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 
+import java.util.concurrent.CompletionStage;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.operators.functions.AsyncFlatMapFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -68,6 +70,31 @@ public interface MessageStream<M> {
   <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn);
 
   /**
+   * Applies the provided 1:n transformation asynchronously to this {@link MessageStream}. The asynchronous transformation
+   * is specified through {@link AsyncFlatMapFunction}. The results are emitted to the downstream operators upon the
+   * completion of the {@link CompletionStage} returned from the {@link AsyncFlatMapFunction}.
+   * <p>
+   * The operator can operate in two modes depending on <i>task.max.concurrency.</i>.
+   * <ul>
+   *   <li>
+   *     Serialized (task.max.concurrency=1) - In this mode, each invocation of the {@link AsyncFlatMapFunction} is guaranteed
+   *     to happen-before next invocation.
+   *   </li>
+   *   <li>
+   *     Parallel (task.max.concurrency&gt;1) - In this mode, multiple invocations can happen in parallel without happens-before guarantee
+   *     and the {@link AsyncFlatMapFunction} is required synchronize any shared state. The operator doesn't provide any ordering guarantees.
+   *     i.e The results corresponding to each invocation of this operator might not be emitted in the same order as invocations.
+   *     By extension, the operator chain that follows it also doesn't have any ordering guarantees.
+   *   </li>
+   * </ul>
+   *
+   * @param asyncFlatMapFn the async function to transform a message to zero or more messages
+   * @param <OM> the type of messages in the transformed {@link MessageStream}
+   * @return the transformed {@link MessageStream}
+   */
+  <OM> MessageStream<OM> flatMapAsync(AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn);
+
+  /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the
    * filtered {@link MessageStream}.
    * <p>
@@ -85,7 +112,7 @@ public interface MessageStream<M> {
    * Offers more control over processing and sending messages than {@link #sendTo(OutputStream)} since
    * the {@link SinkFunction} has access to the {@link org.apache.samza.task.MessageCollector} and
    * {@link org.apache.samza.task.TaskCoordinator}.
-   * <p>
+   *
    * This can also be used to send output to a system (e.g. a database) that doesn't have a corresponding
    * Samza SystemProducer implementation.
    *
@@ -94,14 +121,19 @@ public interface MessageStream<M> {
   void sink(SinkFunction<? super M> sinkFn);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream}.
+   * Allows sending messages in this {@link MessageStream} to an {@link OutputStream} and then propagates this
+   * {@link MessageStream} to the next chained operator
    * <p>
    * When sending messages to an {@code OutputStream<KV<K, V>>}, messages are partitioned using their serialized key.
    * When sending messages to any other {@code OutputStream<M>}, messages are partitioned using a null partition key.
+   * <p>
+   * Note: The message will be written but not flushed to the underlying output system before its propagated to the
+   * chained operators. Messages retain the original partitioning scheme when propogated to next operator.
    *
    * @param outputStream the output stream to send messages to
+   * @return this {@link MessageStream}
    */
-  void sendTo(OutputStream<M> outputStream);
+  MessageStream<M> sendTo(OutputStream<M> outputStream);
 
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
@@ -175,13 +207,14 @@ public interface MessageStream<M> {
    *
    * @param table the table being joined
    * @param joinFn the join function
+   * @param args additional arguments passed to the table
    * @param <K> the type of join key
    * @param <R> the type of table record
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
   <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
-      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn);
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn, Object ... args);
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
@@ -248,14 +281,22 @@ public interface MessageStream<M> {
       MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
 
   /**
-   * Sends messages in this {@link MessageStream} to a {@link Table}. The type of input message is expected
-   * to be {@link KV}, otherwise a {@link ClassCastException} will be thrown.
+   * Allows sending messages in this {@link MessageStream} to a {@link Table} and then propagates this
+   * {@link MessageStream} to the next chained operator. The type of input message is expected to be {@link KV},
+   * otherwise a {@link ClassCastException} will be thrown.
+   * <p>
+   * Note: The message will be written but may not be flushed to the underlying table before its propagated to the
+   * chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
+   * it was flushed and whether the Table offers read after write consistency. Messages retain the original partitioning
+   * scheme when propogated to next operator.
    *
    * @param table the table to write messages to
+   * @param args additional arguments passed to the table
    * @param <K> the type of key in the table
    * @param <V> the type of record value in the table
+   * @return this {@link MessageStream}
    */
-  <K, V> void sendTo(Table<KV<K, V>> table);
+  <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object ... args);
 
   /**
    * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..

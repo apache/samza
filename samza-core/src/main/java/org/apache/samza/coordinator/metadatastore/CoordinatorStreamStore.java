@@ -18,15 +18,18 @@
  */
 package org.apache.samza.coordinator.metadatastore;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+import java.io.IOException;
 import java.util.Collections;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Map;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.CoordinatorStreamKeySerde;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
@@ -35,29 +38,35 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemProducer;
-import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.system.SystemStreamPartitionIterator;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
-import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.system.SystemStreamPartitionIterator;
 import org.apache.samza.util.CoordinatorStreamUtil;
+import org.codehaus.jackson.annotate.JsonProperty;
+import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * An implementation of the {@link MetadataStore} interface where the metadata of the Samza job is stored in coordinator stream.
+ * An implementation of the {@link MetadataStore} interface where the metadata of the samza job is stored in coordinator stream.
  *
  * This class is thread safe.
+ *
+ * It is recommended to use {@link NamespaceAwareCoordinatorStreamStore}. This will enable the single CoordinatorStreamStore connection
+ * to be shared by the multiple {@link NamespaceAwareCoordinatorStreamStore} instances.
  */
 public class CoordinatorStreamStore implements MetadataStore {
 
   private static final Logger LOG = LoggerFactory.getLogger(CoordinatorStreamStore.class);
   private static final String SOURCE = "SamzaContainer";
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private final Config config;
   private final SystemStream coordinatorSystemStream;
@@ -65,25 +74,33 @@ public class CoordinatorStreamStore implements MetadataStore {
   private final SystemProducer systemProducer;
   private final SystemConsumer systemConsumer;
   private final SystemAdmin systemAdmin;
-  private final String type;
-  private final CoordinatorStreamKeySerde keySerde;
 
-  private final Map<String, byte[]> bootstrappedMessages = new HashMap<>();
+  // Namespaced key to the message byte array.
+  private final Map<String, byte[]> messagesReadFromCoordinatorStream = new ConcurrentHashMap<>();
+
   private final Object bootstrapLock = new Object();
   private final AtomicBoolean isInitialized = new AtomicBoolean(false);
 
   private SystemStreamPartitionIterator iterator;
 
-  public CoordinatorStreamStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
+  public CoordinatorStreamStore(Config config, MetricsRegistry metricsRegistry) {
     this.config = config;
-    this.type = namespace;
-    this.keySerde = new CoordinatorStreamKeySerde(type);
     this.coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
     this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
     SystemFactory systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config);
     this.systemProducer = systemFactory.getProducer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry);
     this.systemConsumer = systemFactory.getConsumer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry);
     this.systemAdmin = systemFactory.getAdmin(this.coordinatorSystemStream.getSystem(), config);
+  }
+
+  @VisibleForTesting
+  protected CoordinatorStreamStore(Config config, SystemProducer systemProducer, SystemConsumer systemConsumer, SystemAdmin systemAdmin) {
+    this.config = config;
+    this.systemConsumer = systemConsumer;
+    this.systemProducer = systemProducer;
+    this.systemAdmin = systemAdmin;
+    this.coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
+    this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
   }
 
   @Override
@@ -95,41 +112,43 @@ public class CoordinatorStreamStore implements MetadataStore {
       systemProducer.register(SOURCE);
       systemProducer.start();
       iterator = new SystemStreamPartitionIterator(systemConsumer, coordinatorSystemStreamPartition);
-      bootstrapMessagesFromStream();
+      readMessagesFromCoordinatorStream();
     } else {
       LOG.info("Store had already been initialized. Skipping.", coordinatorSystemStreamPartition);
     }
   }
 
   @Override
-  public byte[] get(String key) {
-    bootstrapMessagesFromStream();
-    return bootstrappedMessages.get(key);
+  public byte[] get(String namespacedKey) {
+    readMessagesFromCoordinatorStream();
+    return messagesReadFromCoordinatorStream.get(namespacedKey);
   }
 
   @Override
-  public void put(String key, byte[] value) {
-    OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(coordinatorSystemStream, 0, keySerde.toBytes(key), value);
+  public void put(String namespacedKey, byte[] value) {
+    // 1. Store the namespace and key into correct fields of the CoordinatorStreamKey and convert the key to bytes.
+    CoordinatorMessageKey coordinatorMessageKey = deserializeCoordinatorMessageKeyFromJson(namespacedKey);
+    CoordinatorStreamKeySerde keySerde = new CoordinatorStreamKeySerde(coordinatorMessageKey.getNamespace());
+    byte[] keyBytes = keySerde.toBytes(coordinatorMessageKey.getKey());
+
+    // 2. Set the key, message in correct fields of {@link OutgoingMessageEnvelope} and publish it to the coordinator stream.
+    OutgoingMessageEnvelope envelope = new OutgoingMessageEnvelope(coordinatorSystemStream, 0, keyBytes, value);
     systemProducer.send(SOURCE, envelope);
-    flush();
   }
 
   @Override
-  public void delete(String key) {
-    // Since kafka doesn't support individual message deletion, store value as null for a key to delete.
-    put(key, null);
+  public void delete(String namespacedKey) {
+    // Since kafka doesn't support individual message deletion, store value as null for a namespacedKey to delete.
+    put(namespacedKey, null);
   }
 
   @Override
   public Map<String, byte[]> all() {
-    bootstrapMessagesFromStream();
-    return Collections.unmodifiableMap(bootstrappedMessages);
+    readMessagesFromCoordinatorStream();
+    return Collections.unmodifiableMap(messagesReadFromCoordinatorStream);
   }
 
-  /**
-   * Returns all the messages from the earliest offset all the way to the latest.
-   */
-  private void bootstrapMessagesFromStream() {
+  private void readMessagesFromCoordinatorStream() {
     synchronized (bootstrapLock) {
       while (iterator.hasNext()) {
         IncomingMessageEnvelope envelope = iterator.next();
@@ -137,12 +156,11 @@ public class CoordinatorStreamStore implements MetadataStore {
         Serde<List<?>> serde = new JsonSerde<>();
         Object[] keyArray = serde.fromBytes(keyAsBytes).toArray();
         CoordinatorStreamMessage coordinatorStreamMessage = new CoordinatorStreamMessage(keyArray, new HashMap<>());
-        if (Objects.equals(coordinatorStreamMessage.getType(), type)) {
-          if (envelope.getMessage() != null) {
-            bootstrappedMessages.put(coordinatorStreamMessage.getKey(), (byte[]) envelope.getMessage());
-          } else {
-            bootstrappedMessages.remove(coordinatorStreamMessage.getKey());
-          }
+        String namespacedKey = serializeCoordinatorMessageKeyToJson(coordinatorStreamMessage.getType(), coordinatorStreamMessage.getKey());
+        if (envelope.getMessage() != null) {
+          messagesReadFromCoordinatorStream.put(namespacedKey, (byte[]) envelope.getMessage());
+        } else {
+          messagesReadFromCoordinatorStream.remove(namespacedKey);
         }
       }
     }
@@ -166,9 +184,16 @@ public class CoordinatorStreamStore implements MetadataStore {
       systemProducer.flush(SOURCE);
     } catch (Exception e) {
       LOG.error("Exception occurred when flushing the metadata store:", e);
+      throw new SamzaException("Exception occurred when flushing the metadata store:", e);
     }
   }
 
+  /**
+   * <p>
+   *   Fetches the metadata of the topic partition of coordinator stream. Registers the oldest offset
+   *   for the topic partition of coordinator stream with the coordinator system consumer.
+   * </p>
+   */
   private void registerConsumer() {
     LOG.debug("Attempting to register system stream partition: {}", coordinatorSystemStreamPartition);
     String streamName = coordinatorSystemStreamPartition.getStream();
@@ -183,5 +208,66 @@ public class CoordinatorStreamStore implements MetadataStore {
     String startingOffset = systemStreamPartitionMetadata.getOldestOffset();
     LOG.info("Registering system stream partition: {} with offset: {}.", coordinatorSystemStreamPartition, startingOffset);
     systemConsumer.register(coordinatorSystemStreamPartition, startingOffset);
+  }
+
+  /**
+   *
+   * Serializes the {@link CoordinatorMessageKey} into a json string.
+   *
+   * @param type the type of the coordinator message.
+   * @param key the key associated with the type
+   * @return the CoordinatorMessageKey serialized to a json string.
+   */
+  public static String serializeCoordinatorMessageKeyToJson(String type, String key) {
+    try {
+      CoordinatorMessageKey coordinatorMessageKey = new CoordinatorMessageKey(key, type);
+      return OBJECT_MAPPER.writeValueAsString(coordinatorMessageKey);
+    } catch (IOException e) {
+      throw new SamzaException(String.format("Exception occurred when serializing metadata for type: %s, key: %s", type, key), e);
+    }
+  }
+
+  /**
+   * Deserializes the @param coordinatorMsgKeyAsString in json format to {@link CoordinatorMessageKey}.
+   * @param coordinatorMsgKeyAsJson the serialized CoordinatorMessageKey in json format.
+   * @return the deserialized CoordinatorMessageKey.
+   */
+  public static CoordinatorMessageKey deserializeCoordinatorMessageKeyFromJson(String coordinatorMsgKeyAsJson) {
+    try {
+      return OBJECT_MAPPER.readValue(coordinatorMsgKeyAsJson, CoordinatorMessageKey.class);
+    } catch (IOException e) {
+      throw new SamzaException(String.format("Exception occurred when deserializing the coordinatorMsgKey: %s", coordinatorMsgKeyAsJson), e);
+    }
+  }
+
+  /**
+   * <p>
+   * Represents the key of a message in the coordinator stream.
+   *
+   * Coordinator message key is composite. It has both the type of the message
+   * and the key associated with the type in it.
+   * </p>
+   */
+  public static class CoordinatorMessageKey {
+
+    // Represents the key associated with the type
+    private final String key;
+
+    // Represents the type of the message.
+    private final String namespace;
+
+    CoordinatorMessageKey(@JsonProperty("key") String key,
+                          @JsonProperty("namespace") String namespace) {
+      this.key = key;
+      this.namespace = namespace;
+    }
+
+    public String getKey() {
+      return this.key;
+    }
+
+    public String getNamespace() {
+      return this.namespace;
+    }
   }
 }

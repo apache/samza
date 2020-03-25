@@ -31,23 +31,30 @@ import org.apache.samza.operators.functions.WatermarkFunction;
  * @param <V> the type of the table record value
  */
 @InterfaceStability.Unstable
-public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, Void> {
+public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, KV<K, V>> {
 
   private final String tableId;
+  private final Object[] args;
 
   /**
    * Constructor for a {@link SendToTableOperatorSpec}.
    *
    * @param tableId  the Id of the table written to
    * @param opId  the unique ID for this operator
+   * @param args additional arguments passed to the table
    */
-  SendToTableOperatorSpec(String tableId, String opId) {
+  SendToTableOperatorSpec(String tableId, String opId, Object ... args) {
     super(OpCode.SEND_TO, opId);
     this.tableId = tableId;
+    this.args = args;
   }
 
   public String getTableId() {
     return tableId;
+  }
+
+  public Object[] getArgs() {
+    return args;
   }
 
   @Override

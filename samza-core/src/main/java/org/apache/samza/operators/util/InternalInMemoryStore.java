@@ -19,16 +19,19 @@
 
 package org.apache.samza.operators.util;
 
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueSnapshot;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
 
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Implements a {@link KeyValueStore} using an in-memory Java Map.
@@ -135,5 +138,10 @@ public class InternalInMemoryStore<K, V> implements KeyValueStore<K, V> {
   @Override
   public void flush() {
     //not applicable
+  }
+
+  @Override
+  public Optional<Path> checkpoint(CheckpointId id) {
+    return Optional.empty();
   }
 }

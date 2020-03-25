@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.Map;
 import java.util.concurrent.ThreadFactory;
 import joptsimple.OptionSet;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -92,8 +93,8 @@ public class SamzaRestService {
       ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
       log.info("Creating new SamzaRestService with config: {}", config);
       MetricsConfig metricsConfig = new MetricsConfig(config);
-      Map<String, MetricsReporter> metricsReporters = MetricsReporterLoader.getMetricsReporters(metricsConfig,
-          Util.getLocalHost().getHostName());
+      Map<String, MetricsReporter> metricsReporters =
+          MetricsReporterLoader.getMetricsReporters(metricsConfig, Util.getLocalHost().getHostName());
       SamzaRestService restService = new SamzaRestService(new Server(config.getPort()), metricsRegistry, metricsReporters,
           new ServletContextHandler(ServletContextHandler.SESSIONS));
 
@@ -132,7 +133,7 @@ public class SamzaRestService {
   private static SamzaRestConfig parseConfig(String[] args) {
     CommandLine cmd = new CommandLine();
     OptionSet options = cmd.parser().parse(args);
-    MapConfig cfg = cmd.loadConfig(options);
+    Config cfg = cmd.loadConfig(options);
     return new SamzaRestConfig(new MapConfig(cfg));
   }
 

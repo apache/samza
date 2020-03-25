@@ -23,7 +23,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +54,7 @@ public class TableManager {
 
   static class TableCtx {
     private TableProvider tableProvider;
-    private Table table;
+    private ReadWriteTable table;
   }
 
   private final Logger logger = LoggerFactory.getLogger(TableManager.class.getName());
@@ -92,10 +92,19 @@ public class TableManager {
     JavaTableConfig tableConfig = new JavaTableConfig(config);
     String providerFactoryClassName = tableConfig.getTableProviderFactory(tableId);
     TableProviderFactory tableProviderFactory =
-        Util.getObj(providerFactoryClassName, TableProviderFactory.class);
+        ReflectionUtil.getObj(providerFactoryClassName, TableProviderFactory.class);
     TableCtx ctx = new TableCtx();
     ctx.tableProvider = tableProviderFactory.getTableProvider(tableId);
     tableContexts.put(tableId, ctx);
+  }
+
+  /**
+   * Flush all tables
+   */
+  public void flush() {
+    tableContexts.values().stream()
+        .filter(ctx -> ctx.table != null)
+        .forEach(ctx -> ctx.table.flush());
   }
 
   /**
@@ -110,7 +119,7 @@ public class TableManager {
    * @param tableId Id of the table
    * @return table instance
    */
-  public Table getTable(String tableId) {
+  public ReadWriteTable getTable(String tableId) {
     Preconditions.checkState(initialized, "TableManager has not been initialized.");
 
     TableCtx ctx = tableContexts.get(tableId);

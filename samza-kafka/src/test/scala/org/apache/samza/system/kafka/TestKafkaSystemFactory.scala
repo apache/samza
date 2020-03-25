@@ -20,8 +20,7 @@
 package org.apache.samza.system.kafka
 
 import org.apache.samza.SamzaException
-import org.apache.samza.config.MapConfig
-import org.apache.samza.config.StorageConfig
+import org.apache.samza.config.{StorageConfig, MapConfig}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.junit.Assert._
 import org.junit.Test

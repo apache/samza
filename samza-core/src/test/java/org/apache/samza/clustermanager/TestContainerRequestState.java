@@ -19,17 +19,31 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.collect.ImmutableList;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Random;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+
 
 public class TestContainerRequestState {
 
   private final MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback);
+  private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, new SamzaApplicationState(null));
 
   private static final String ANY_HOST = ResourceRequestState.ANY_HOST;
 
@@ -48,9 +62,9 @@ public class TestContainerRequestState {
 
     assertNotNull(state.numPendingRequests() == 1);
 
-    assertNotNull(state.getRequestsToCountMap());
-    assertNotNull(state.getRequestsToCountMap().get("abc"));
-    assertEquals(1, state.getRequestsToCountMap().get("abc").get());
+    assertNotNull(state.getHostRequestCounts());
+    assertNotNull(state.getHostRequestCounts().get("abc"));
+    assertEquals(1, state.getHostRequestCounts().get("abc").get());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(0, state.getResourcesOnAHost("abc").size());
@@ -66,8 +80,8 @@ public class TestContainerRequestState {
 
     assertTrue(state1.numPendingRequests() == 1);
 
-    assertNotNull(state1.getRequestsToCountMap());
-    assertNull(state1.getRequestsToCountMap().get(ANY_HOST));
+    assertNotNull(state1.getHostRequestCounts());
+    assertNull(state1.getHostRequestCounts().get(ANY_HOST));
 
   }
 
@@ -82,14 +96,14 @@ public class TestContainerRequestState {
 
     state.addResource(resource);
 
-    assertNotNull(state.getRequestsToCountMap());
+    assertNotNull(state.getHostRequestCounts());
     assertNotNull(state.getResourcesOnAHost(ANY_HOST));
 
     assertEquals(1, state.getResourcesOnAHost(ANY_HOST).size());
     assertEquals(resource, state.getResourcesOnAHost(ANY_HOST).get(0));
 
     // Container Allocated when there is no request in queue
-    ResourceRequestState state1 = new ResourceRequestState(true, manager);
+    ResourceRequestState state1 = spy(new ResourceRequestState(true, manager));
     SamzaResource container1 = new SamzaResource(1, 1024, "zzz", "id2");
     state1.addResource(container1);
 
@@ -103,11 +117,21 @@ public class TestContainerRequestState {
     // Container Allocated on a Requested Host
     state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "abc", "0"));
 
-    assertEquals(1, state1.numPendingRequests());
+    // Delayed request
+    state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "def", "1",
+        Instant.now().plus(Duration.ofHours(1))));
+    state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "ghi", "2",
+        Instant.now().plus(Duration.ofHours(2))));
 
-    assertNotNull(state1.getRequestsToCountMap());
-    assertNotNull(state1.getRequestsToCountMap().get("abc"));
-    assertEquals(1, state1.getRequestsToCountMap().get("abc").get());
+    assertEquals(1, state1.numPendingRequests());
+    assertEquals(2, state1.numDelayedRequests());
+
+    // Verify request sent only once for the non-delayed request
+    verify(state1).sendResourceRequest(any(SamzaResourceRequest.class));
+
+    assertNotNull(state1.getHostRequestCounts());
+    assertNotNull(state1.getHostRequestCounts().get("abc"));
+    assertEquals(1, state1.getHostRequestCounts().get("abc").get());
 
     state1.addResource(resource);
 
@@ -156,7 +180,7 @@ public class TestContainerRequestState {
     state.addResource(container1);
 
     assertEquals(2, state.numPendingRequests());
-    assertEquals(2, state.getRequestsToCountMap().size());
+    assertEquals(2, state.getHostRequestCounts().size());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(1, state.getResourcesOnAHost("abc").size());
@@ -174,8 +198,8 @@ public class TestContainerRequestState {
 
     assertEquals(request1, state.peekPendingRequest());
 
-    assertNotNull(state.getRequestsToCountMap().get("abc"));
-    assertEquals(0, state.getRequestsToCountMap().get("abc").get());
+    assertNotNull(state.getHostRequestCounts().get("abc"));
+    assertEquals(0, state.getHostRequestCounts().get("abc").get());
 
     assertNotNull(state.getResourcesOnAHost("abc"));
     assertEquals(0, state.getResourcesOnAHost("abc").size());
@@ -185,12 +209,104 @@ public class TestContainerRequestState {
 
     assertEquals(0, state.numPendingRequests());
 
-    assertNotNull(state.getRequestsToCountMap().get("def"));
-    assertEquals(0, state.getRequestsToCountMap().get("def").get());
+    assertNotNull(state.getHostRequestCounts().get("def"));
+    assertEquals(0, state.getHostRequestCounts().get("def").get());
 
     assertNotNull(state.getResourcesOnAHost(ANY_HOST));
     assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());
 
   }
 
+  @Test
+  public void testReleaseResource() {
+    // Host-affinity is enabled
+    ResourceRequestState state = new ResourceRequestState(true, manager);
+
+    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0");
+    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", "0");
+    state.addResourceRequest(request);
+    state.addResourceRequest(request1);
+
+    SamzaResource container = new SamzaResource(1, 1024, "abc", "id0");
+    SamzaResource container1 = new SamzaResource(1, 1024, ANY_HOST, "id1");
+    state.addResource(container);
+    state.addResource(container1);
+
+    state.releaseResource("id0");
+    assertEquals(0, state.getResourcesOnAHost("abc").size());
+    assertEquals(1, state.getResourcesOnAHost(ANY_HOST).size());
+
+    state.releaseResource("id1");
+    assertEquals(0, state.getResourcesOnAHost("abc").size());
+    assertEquals(0, state.getResourcesOnAHost(ANY_HOST).size());
+  }
+
+  @Test
+  public void testPriorityQueueOrdering() {
+    PriorityQueue<SamzaResourceRequest> pq = new PriorityQueue<>();
+    Instant now = Instant.now();
+
+    ImmutableList<SamzaResourceRequest> expectedOrder = ImmutableList.of(
+        createRequestForActive(now.minusSeconds(120)),
+        createRequestForActive(now),
+        createRequestForActive(now.plusSeconds(120)),
+        createRequestForActive(now.plusSeconds(240)),
+        createRequestForStandby(now.minusSeconds(120)),
+        createRequestForStandby(now),
+        createRequestForStandby(now.plusSeconds(120)),
+        createRequestForStandby(now.plusSeconds(240)));
+
+    SamzaResourceRequest[] copyExpectedOrder = new SamzaResourceRequest[expectedOrder.size()];
+    copyExpectedOrder = expectedOrder.toArray(copyExpectedOrder);
+    List<SamzaResourceRequest> shuffled = Arrays.asList(copyExpectedOrder);
+
+    Collections.shuffle(shuffled, new Random(Instant.now().toEpochMilli()));
+    pq.addAll(shuffled);
+
+    ArrayList priorityQueueOrder = new ArrayList();
+    for (int i = 0; i < expectedOrder.size(); ++i) {
+      priorityQueueOrder.add(pq.poll());
+    }
+    assertEquals(expectedOrder, priorityQueueOrder);
+  }
+
+  @Test
+  public void testDelayedQueueOrdering() {
+    ResourceRequestState.DelayedRequestQueue delayedRequestQueue = new ResourceRequestState.DelayedRequestQueue();
+    Instant now = Instant.now();
+
+    // Expected priority by request timestamp only, regardless of active or standby
+    ImmutableList<SamzaResourceRequest> expectedOrder = ImmutableList.of(
+        createRequestForActive(now),
+        createRequestForStandby(now.plusSeconds(60)),
+        createRequestForActive(now.plusSeconds(120)),
+        createRequestForStandby(now.plusSeconds(121)),
+        createRequestForActive(now.plusSeconds(240)),
+        createRequestForStandby(now.plusSeconds(241)));
+
+    SamzaResourceRequest[] copyExpectedOrder = new SamzaResourceRequest[expectedOrder.size()];
+    copyExpectedOrder = expectedOrder.toArray(copyExpectedOrder);
+    List<SamzaResourceRequest> shuffled = Arrays.asList(copyExpectedOrder);
+
+    Collections.shuffle(shuffled, new Random(Instant.now().toEpochMilli()));
+    delayedRequestQueue.addAll(shuffled);
+
+    ArrayList priorityQueueOrder = new ArrayList();
+    for (int i = 0; i < expectedOrder.size(); ++i) {
+      priorityQueueOrder.add(delayedRequestQueue.poll());
+    }
+    assertEquals(expectedOrder, priorityQueueOrder);
+  }
+
+  SamzaResourceRequest createRequestForActive(Instant requestTime) {
+    String randomHost = RandomStringUtils.randomAlphanumeric(4);
+    String randomId = RandomStringUtils.randomAlphanumeric(8);
+    return new SamzaResourceRequest(1, 1, randomHost, randomId, requestTime);
+  }
+
+  SamzaResourceRequest createRequestForStandby(Instant requestTime) {
+    String randomHost = RandomStringUtils.randomAlphanumeric(4);
+    String randomId = RandomStringUtils.randomAlphanumeric(8) + "-standby"; // hyphen in ID denotes a standby processor
+    return new SamzaResourceRequest(1, 1, randomHost, randomId, requestTime);
+  }
 }

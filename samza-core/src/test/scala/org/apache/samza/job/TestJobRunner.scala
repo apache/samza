@@ -43,10 +43,8 @@ class TestJobRunner {
 
     assertEquals(0, TestJobRunner.processCount)
     JobRunner.main(Array(
-      "--config-factory",
-      "org.apache.samza.config.factories.PropertiesConfigFactory",
-      "--config-path",
-      getClass.getResource("/test.properties").getPath))
+      "--config", "job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
+      "--config", "job.config.loader.properties.path=" + getClass.getResource("/test.properties").getPath))
     assertEquals(1, TestJobRunner.processCount)
   }
 
@@ -56,10 +54,8 @@ class TestJobRunner {
 
     assertEquals(0, TestJobRunner.killCount)
     JobRunner.main(Array(
-      "--config-factory",
-      "org.apache.samza.config.factories.PropertiesConfigFactory",
-      "--config-path",
-      getClass.getResource("/test.properties").getPath,
+      "--config", "job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
+      "--config", "job.config.loader.properties.path=" + getClass.getResource("/test.properties").getPath,
       "--operation=kill"))
     assertEquals(1, TestJobRunner.killCount)
   }
@@ -70,10 +66,8 @@ class TestJobRunner {
 
     assertEquals(0, TestJobRunner.getStatusCount)
     JobRunner.main(Array(
-      "--config-factory",
-      "org.apache.samza.config.factories.PropertiesConfigFactory",
-      "--config-path",
-      getClass.getResource("/test.properties").getPath,
+      "-config", "job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
+      "-config", "job.config.loader.properties.path=" + getClass.getResource("/test.properties").getPath,
       "--operation=status"))
     assertEquals(1, TestJobRunner.getStatusCount)
   }

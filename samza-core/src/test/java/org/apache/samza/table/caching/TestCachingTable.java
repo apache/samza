@@ -35,11 +35,10 @@ import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.ReadableTable;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
 import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
-import org.apache.samza.table.remote.RemoteReadWriteTable;
+import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
@@ -138,14 +137,14 @@ public class TestCachingTable {
     return Pair.of(cacheTable, cacheStore);
   }
 
-  private void initTables(ReadableTable ... tables) {
+  private void initTables(ReadWriteTable ... tables) {
     initTables(false, tables);
   }
 
-  private void initTables(boolean isTimerMetricsDisabled, ReadableTable ... tables) {
+  private void initTables(boolean isTimerMetricsDisabled, ReadWriteTable ... tables) {
     Map<String, String> config = new HashMap<>();
     if (isTimerMetricsDisabled) {
-      config.put(MetricsConfig.METRICS_TIMER_ENABLED(), "false");
+      config.put(MetricsConfig.METRICS_TIMER_ENABLED, "false");
     }
     Context context = new MockContext();
     doReturn(new MapConfig(config)).when(context.getJobContext()).getConfig();
@@ -242,7 +241,7 @@ public class TestCachingTable {
 
   @Test
   public void testNonexistentKeyInTable() {
-    ReadableTable<String, String> table = mock(ReadableTable.class);
+    ReadWriteTable<String, String> table = mock(ReadWriteTable.class);
     doReturn(CompletableFuture.completedFuture(null)).when(table).getAsync(any());
     ReadWriteTable<String, String> cache = getMockCache().getLeft();
     CachingTable<String, String> cachingTable = new CachingTable<>("myTable", table, cache, false);
@@ -255,7 +254,7 @@ public class TestCachingTable {
 
   @Test
   public void testKeyEviction() {
-    ReadableTable<String, String> table = mock(ReadableTable.class);
+    ReadWriteTable<String, String> table = mock(ReadWriteTable.class);
     doReturn(CompletableFuture.completedFuture("3")).when(table).getAsync(any());
     ReadWriteTable<String, String> cache = mock(ReadWriteTable.class);
 
@@ -283,24 +282,27 @@ public class TestCachingTable {
     TableRateLimiter<String, String> rateLimitHelper = mock(TableRateLimiter.class);
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
-    final RemoteReadWriteTable<String, String> remoteTable = new RemoteReadWriteTable<>(
-        tableId + "-remote", readFn, writeFn, rateLimitHelper, rateLimitHelper,
-        Executors.newSingleThreadExecutor(), Executors.newSingleThreadExecutor());
+    final RemoteTable<String, String> remoteTable = new RemoteTable<>(
+        tableId + "-remote", readFn, writeFn,
+        rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
+        null, null, null,
+        null, null,
+        Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(
         tableId, remoteTable, guavaTable, false);
 
     initTables(cachingTable, guavaTable, remoteTable);
 
-    // 3 per readable table (9)
-    // 5 per read/write table (15)
-    verify(metricsRegistry, times(24)).newCounter(any(), anyString());
+    // 4 per readable table (12)
+    // 6 per read/write table (18)
+    verify(metricsRegistry, times(30)).newCounter(any(), anyString());
 
-    // 2 per readable table (6)
-    // 5 per read/write table (15)
+    // 3 per readable table (9)
+    // 6 per read/write table (18)
     // 1 per remote readable table (1)
     // 1 per remote read/write table (1)
-    verify(metricsRegistry, times(23)).newTimer(any(), anyString());
+    verify(metricsRegistry, times(29)).newTimer(any(), anyString());
 
     // 1 per guava table (1)
     // 3 per caching table (2)
@@ -402,9 +404,12 @@ public class TestCachingTable {
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
 
-    final RemoteReadWriteTable<String, String> remoteTable = new RemoteReadWriteTable<>(
-        tableId, readFn, writeFn, rateLimitHelper, rateLimitHelper,
-        Executors.newSingleThreadExecutor(), Executors.newSingleThreadExecutor());
+    final RemoteTable<String, String> remoteTable = new RemoteTable<>(
+        tableId, readFn, writeFn,
+        rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
+        null, null, null,
+        null, null,
+        Executors.newSingleThreadExecutor());
 
     final CachingTable<String, String> cachingTable = new CachingTable<>(
         tableId, remoteTable, guavaTable, false);

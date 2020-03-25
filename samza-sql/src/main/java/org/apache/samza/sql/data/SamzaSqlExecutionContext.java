@@ -19,17 +19,18 @@
 
 package org.apache.samza.sql.data;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.Context;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
-import org.apache.samza.sql.testutil.ReflectionUtils;
 import org.apache.samza.sql.udfs.ScalarUdf;
+import org.apache.samza.util.ReflectionUtil;
 
 
 public class SamzaSqlExecutionContext implements Cloneable {
@@ -38,7 +39,10 @@ public class SamzaSqlExecutionContext implements Cloneable {
    * The variables that are shared among all cloned instance of {@link SamzaSqlExecutionContext}
    */
   private final SamzaSqlApplicationConfig sqlConfig;
-  private final Map<String, UdfMetadata> udfMetadata;
+
+  // Maps the UDF name to list of all UDF methods associated with the name.
+  // Since we support polymorphism there can be multiple udfMetadata associated with the single name.
+  private final Map<String, List<UdfMetadata>> udfMetadata;
 
   /**
    * The variable that are not shared among all cloned instance of {@link SamzaSqlExecutionContext}
@@ -52,22 +56,22 @@ public class SamzaSqlExecutionContext implements Cloneable {
 
   public SamzaSqlExecutionContext(SamzaSqlApplicationConfig config) {
     this.sqlConfig = config;
-    udfMetadata =
-        this.sqlConfig.getUdfMetadata().stream().collect(Collectors.toMap(UdfMetadata::getName, Function.identity()));
-  }
-
-  public ScalarUdf getOrCreateUdf(String clazz, String udfName) {
-    return udfInstances.computeIfAbsent(udfName, s -> createInstance(clazz, udfName));
-  }
-
-  public ScalarUdf createInstance(String clazz, String udfName) {
-    Config udfConfig = udfMetadata.get(udfName).getUdfConfig();
-    ScalarUdf scalarUdf = ReflectionUtils.createInstance(clazz);
-    if (scalarUdf == null) {
-      String msg = String.format("Couldn't create udf %s of class %s", udfName, clazz);
-      throw new SamzaException(msg);
+    udfMetadata = new HashMap<>();
+    for(UdfMetadata udf : this.sqlConfig.getUdfMetadata()) {
+      udfMetadata.putIfAbsent(udf.getName(), new ArrayList<>());
+      udfMetadata.get(udf.getName()).add(udf);
     }
-    scalarUdf.init(udfConfig);
+  }
+
+  public ScalarUdf getOrCreateUdf(String clazz, String udfName, Context context) {
+    return udfInstances.computeIfAbsent(udfName, s -> createInstance(clazz, udfName, context));
+  }
+
+  public ScalarUdf createInstance(String clazz, String udfName, Context context) {
+    // Configs should be same for all the UDF methods within a UDF. Hence taking the first one.
+    Config udfConfig = udfMetadata.get(udfName).get(0).getUdfConfig();
+    ScalarUdf scalarUdf = ReflectionUtil.getObj(clazz, ScalarUdf.class);
+    scalarUdf.init(udfConfig, context);
     return scalarUdf;
   }
 

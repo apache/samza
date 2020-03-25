@@ -21,12 +21,14 @@ package org.apache.samza.config;
 
 import org.apache.samza.system.SystemStream;
 
+import java.util.Optional;
+
 
 /**
  * This class contains the methods for getting properties that are needed by the
  * StreamAppender.
  */
-public class Log4jSystemConfig extends JavaSystemConfig {
+public class Log4jSystemConfig extends SystemConfig {
 
   private static final String LOCATION_ENABLED = "task.log4j.location.info.enabled";
   private static final String TASK_LOG4J_SYSTEM = "task.log4j.system";
@@ -62,11 +64,11 @@ public class Log4jSystemConfig extends JavaSystemConfig {
   }
 
   public String getJobName() {
-    return get(JobConfig.JOB_NAME(), null);
+    return get(JobConfig.JOB_NAME, null);
   }
 
   public String getJobId() {
-    return get(JobConfig.JOB_ID(), null);
+    return get(JobConfig.JOB_ID, null);
   }
 
   /**
@@ -77,12 +79,12 @@ public class Log4jSystemConfig extends JavaSystemConfig {
    *         supplied serde name.
    */
   public String getSerdeClass(String name) {
-    return get(String.format(SerializerConfig.SERDE_FACTORY_CLASS(), name), null);
+    return get(String.format(SerializerConfig.SERDE_FACTORY_CLASS, name), null);
   }
 
   public String getStreamSerdeName(String systemName, String streamName) {
     StreamConfig streamConfig =  new StreamConfig(this);
-    scala.Option<String> option = streamConfig.getStreamMsgSerde(new SystemStream(systemName, streamName));
-    return option.isEmpty() ? null : option.get();
+    Optional<String> option = streamConfig.getStreamMsgSerde(new SystemStream(systemName, streamName));
+    return option.isPresent() ? option.get() : null;
   }
 }

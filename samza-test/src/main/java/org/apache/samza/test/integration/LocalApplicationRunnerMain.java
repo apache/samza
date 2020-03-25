@@ -28,7 +28,7 @@ import org.apache.samza.context.ExternalContext;
 import org.apache.samza.runtime.ApplicationRunnerMain;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ConfigUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,11 +42,11 @@ public class LocalApplicationRunnerMain {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(LocalApplicationRunnerMain.class);
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     ApplicationRunnerMain.ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerMain.ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);
-    Config config = Util.rewriteConfig(orgConfig);
+    Config config = ConfigUtil.rewriteConfig(orgConfig);
 
     SamzaApplication app = ApplicationUtil.fromConfig(config);
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(app, config);
@@ -60,7 +60,7 @@ public class LocalApplicationRunnerMain {
     }
   }
 
-  private static Optional<ExternalContext> buildExternalContext(Config config) {
+  private static Optional<ExternalContext> buildExternalContext(@SuppressWarnings("unused") Config config) {
     /*
      * By default, use an empty ExternalContext here. In a custom fork of Samza, this can be implemented to pass
      * a non-empty ExternalContext. Only config should be used to build the external context. In the future, components

@@ -22,6 +22,8 @@ package org.apache.samza.sql.client.util;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.samza.sql.client.exceptions.CliException;
+
 
 /**
  * A queue that supports random access and consumption.

@@ -24,7 +24,5 @@ public interface ReadableMetricsRegistryListener {
 
   void onGauge(String group, Gauge<?> gauge);
 
-  void onListGauge(String group, ListGauge<?> listGauge);
-
   void onTimer(String group, Timer timer);
 }

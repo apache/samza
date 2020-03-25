@@ -31,8 +31,9 @@ class ZkClient:
     Instantiates a kazoo client to connect to zookeeper server at :param zookeeper_host::param zookeeper_port.
     """
     def __init__(self, zookeeper_host, zookeeper_port, app_name, app_id):
+        self.protocol_version = "2.0"
         self.kazoo_client = KazooClient(hosts='{0}:{1}'.format(zookeeper_host, zookeeper_port))
-        self.zk_base_node = 'app-{0}-{1}/{2}-{3}-coordinationData'.format(app_name, app_id, app_name, app_id)
+        self.zk_base_node = 'app-{0}-{1}/{2}-{3}-{4}-coordinationData'.format(app_name, app_id, app_name, app_id, self.protocol_version)
 
     def start(self):
         """
@@ -61,7 +62,7 @@ class ZkClient:
                 childZkNodes.sort()
                 childZkNodes.reverse()
 
-                job_model_generation_path = '{0}/jobModelGeneration/jobModels/{1}/'.format(self.zk_base_node, childZkNodes[0])
+                job_model_generation_path = '{0}/jobModelGeneration/jobModels/{1}/0'.format(self.zk_base_node, childZkNodes[0])
                 job_model, _ = self.kazoo_client.get(job_model_generation_path)
 
                 """
@@ -74,7 +75,8 @@ class ZkClient:
                 """
 
                 first_curly_brace_index = job_model.find('{')
-                job_model = job_model[first_curly_brace_index: ]
+                last_curly_brace_index = job_model.rindex('}')
+                job_model = job_model[first_curly_brace_index: last_curly_brace_index + 1]
                 job_model_dict = json.loads(job_model)
                 logger.info("Recent JobModel in zookeeper: {0}".format(job_model_dict))
         except:

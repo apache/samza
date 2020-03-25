@@ -19,10 +19,10 @@
 
 package org.apache.samza.clustermanager;
 
+import java.time.Instant;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.UUID;
 
 /**
  * Specification of a Request for resources from a ClusterResourceManager. A
@@ -51,37 +51,41 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   /**
    * A request is identified by an unique identifier.
    */
-  private final String requestID;
+  private final String requestId;
   /**
-   * The ID of the StreamProcessor which this request is for.
+   * The ID of the Samza Processor which this request is for.
    */
-  private final String containerID;
+  private final String processorId;
 
   /**
    * The timestamp in millis when the request was created.
    */
-  private final long requestTimestampMs;
+  private final Instant requestTimestamp;
 
-  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String expectedContainerID) {
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId) {
+    this(numCores, memoryMB, preferredHost, processorId, Instant.now());
+  }
+
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp) {
     this.numCores = numCores;
     this.memoryMB = memoryMB;
     this.preferredHost = preferredHost;
-    this.requestID = UUID.randomUUID().toString();
-    this.containerID = expectedContainerID;
-    this.requestTimestampMs = System.currentTimeMillis();
-    log.info("Resource Request created for {} on {} at {}", new Object[] {this.containerID, this.preferredHost, this.requestTimestampMs});
+    this.requestId = UUID.randomUUID().toString();
+    this.processorId = processorId;
+    this.requestTimestamp = requestTimestamp;
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
   }
 
-  public String getContainerID() {
-    return containerID;
+  public String getProcessorId() {
+    return processorId;
   }
 
-  public long getRequestTimestampMs() {
-    return requestTimestampMs;
+  public Instant getRequestTimestamp() {
+    return requestTimestamp;
   }
 
-  public String getRequestID() {
-    return requestID;
+  public String getRequestId() {
+    return requestId;
   }
 
   public int getNumCores() {
@@ -102,22 +106,36 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
             "numCores=" + numCores +
             ", memoryMB=" + memoryMB +
             ", preferredHost='" + preferredHost + '\'' +
-            ", requestID='" + requestID + '\'' +
-            ", containerID=" + containerID +
-            ", requestTimestampMs=" + requestTimestampMs +
+            ", requestId='" + requestId + '\'' +
+            ", processorId=" + processorId +
+            ", requestTimestampMs=" + requestTimestamp +
             '}';
   }
 
   /**
-   * Requests are ordered by the time at which they were created.
+   * Requests are ordered by the processor type and the time at which they were created.
+   * Requests with timestamps in the future for retries take less precedence than timestamps in the past or current.
+   * Otherwise, active processors take precedence over standby processors, regardless of timestamp.
    * @param o the other
    */
   @Override
   public int compareTo(SamzaResourceRequest o) {
-    if (this.requestTimestampMs < o.requestTimestampMs)
+    if (!StandbyTaskUtil.isStandbyContainer(processorId) && StandbyTaskUtil.isStandbyContainer(o.processorId)) {
       return -1;
-    if (this.requestTimestampMs > o.requestTimestampMs)
+    }
+
+    if (StandbyTaskUtil.isStandbyContainer(processorId) && !StandbyTaskUtil.isStandbyContainer(o.processorId)) {
       return 1;
+    }
+
+    if (requestTimestamp.isBefore(o.requestTimestamp)) {
+      return -1;
+    }
+
+    if (requestTimestamp.isAfter(o.requestTimestamp)) {
+      return 1;
+    }
+
     return 0;
   }
 }

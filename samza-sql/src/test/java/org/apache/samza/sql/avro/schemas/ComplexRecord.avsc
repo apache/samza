@@ -20,29 +20,27 @@
 {
     "name": "ComplexRecord",
     "version" : 1,
-    "namespace": "org.apache.samza.sql.system.avro",
+    "namespace": "org.apache.samza.sql.avro.schemas",
     "type": "record",
     "fields": [
         {
             "name": "id",
             "doc": "Record id.",
-            "type": ["null", "int"],
-            "default":null
+            "type": "int"
         },
         {
             "name": "bool_value",
             "doc": "Boolean Value.",
-            "type": ["null", "boolean"],
-            "default":null
+            "type": "boolean",
+            "default": false
         },
         {
             "name": "double_value",
             "doc": "double Value.",
-            "type": ["null", "double"],
-            "default":null
+            "type": ["null", "double"]
         },
         {
-            "name": "float_value",
+            "name": "float_value0",
             "doc": "float Value.",
             "type": ["null", "float"],
             "default":null
@@ -72,8 +70,8 @@
                "name": "MyFixed",
                "type":"fixed",
                "size":16
-            }
-          ]
+            }],
+            "default":null
         },
         {
             "name": "array_values",
@@ -104,12 +102,24 @@
             "type": [ "null",
             {
                "name": "TestEnumType",
-               "namespace": "org.apache.samza.sql.system.avro",
+               "namespace": "org.apache.samza.sql.avro.schemas",
                "type": "enum",
                "doc": "My sample enum type",
                "symbols": ["foo", "bar"]
             }
           ]
+        },
+        {
+          "name" : "empty_record",
+          "type" : [ "null", {
+            "type" : "record",
+            "name" : "emptySubRecord",
+            "namespace" : "org.apache.samza.sql.avro.schemas",
+            "doc" : "",
+            "fields" : [ ]
+            }
+          ],
+          "default":null
         },
         {
             "name": "array_records",
@@ -119,7 +129,7 @@
               {
                 "type": "record",
                 "name": "SubRecord",
-                "namespace": "org.apache.samza.sql.system.avro",
+                "namespace": "org.apache.samza.sql.avro.schemas",
                 "doc": "Sub record",
                 "fields": [
                   {
@@ -138,6 +148,12 @@
                 ]
               }
             ]
+        },
+        {
+          "name": "union_value",
+          "doc": "union Value.",
+          "type": ["null", "SubRecord", "string"],
+          "default":null
         }
     ]
 }

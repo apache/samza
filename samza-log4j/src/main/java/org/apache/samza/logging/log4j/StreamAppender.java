@@ -55,7 +55,7 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.ExponentialSleepStrategy;
 import org.apache.samza.util.HttpUtil;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 
 /**
  * StreamAppender is a log4j appender that sends logs to the system which is
@@ -271,7 +271,7 @@ public class StreamAppender extends AppenderSkeleton {
       if (isApplicationMaster) {
         config = JobModelManager.currentJobModelManager().jobModel().getConfig();
       } else {
-        String url = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
+        String url = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
         String response = HttpUtil.read(new URL(url), 30000, new ExponentialSleepStrategy());
         config = SamzaObjectMapper.getObjectMapper().readValue(response, JobModel.class).getConfig();
       }
@@ -279,14 +279,13 @@ public class StreamAppender extends AppenderSkeleton {
       throw new SamzaException("can not read the config", e);
     }
     // Make system producer drop producer errors for StreamAppender
-    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS(), "true"));
+    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS, "true"));
 
     return config;
   }
 
   protected void setupSystem() {
     config = getConfig();
-    SystemFactory systemFactory = null;
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(config);
 
     if (streamName == null) {
@@ -298,12 +297,10 @@ public class StreamAppender extends AppenderSkeleton {
     metrics = new StreamAppenderMetrics("stream-appender", metricsRegistry);
 
     String systemName = log4jSystemConfig.getSystemName();
-    String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName);
-    if (systemFactoryName != null) {
-      systemFactory = Util.getObj(systemFactoryName, SystemFactory.class);
-    } else {
-      throw new SamzaException("Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use");
-    }
+    String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
+        .orElseThrow(() -> new SamzaException(
+            "Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use"));
+    SystemFactory systemFactory = ReflectionUtil.getObj(systemFactoryName, SystemFactory.class);
 
     setSerde(log4jSystemConfig, systemName, streamName);
 
@@ -394,10 +391,10 @@ public class StreamAppender extends AppenderSkeleton {
     }
 
     if (serdeClass != null) {
-      SerdeFactory<LoggingEvent> serdeFactory = Util.getObj(serdeClass, SerdeFactory.class);
+      SerdeFactory<LoggingEvent> serdeFactory = ReflectionUtil.getObj(serdeClass, SerdeFactory.class);
       serde = serdeFactory.getSerde(systemName, config);
     } else {
-      String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS(), serdeName);
+      String serdeKey = String.format(SerializerConfig.SERDE_FACTORY_CLASS, serdeName);
       throw new SamzaException("Can not find serializers class for key '" + serdeName + "'. Please specify " +
           serdeKey + " property");
     }

@@ -65,7 +65,10 @@ public class InMemorySystemConsumer implements SystemConsumer {
    * should try and read messages from all SystemStreamPartitions that are
    * registered to it. SystemStreamPartitions should only be registered before
    * start is called.
-   *  @param systemStreamPartition
+   *
+   * For this implementation, if the offset is null, then consumption will start with the oldest offset.
+   *
+   * @param systemStreamPartition
    *          The SystemStreamPartition object representing the Samza
    *          SystemStreamPartition to receive messages from.
    * @param offset
@@ -74,11 +77,23 @@ public class InMemorySystemConsumer implements SystemConsumer {
    *          specified, the first message for the system/stream/partition to be
    *          consumed and returned would be a message whose offset is "7".
    *          Note: For broadcast streams, different tasks may checkpoint the same ssp with different values. It
+   *          is the system's responsibility to select the lowest one.
    */
   @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
-    LOG.info("Registering ssp {} with starting offset {}", systemStreamPartition, offset);
-    sspToOffset.put(systemStreamPartition, offset);
+    String offsetToRegister;
+    if (offset == null) {
+      /*
+       * A null offset is the same as the oldest offset of the stream. Can't use null directly since ConcurrentHashMap
+       * doesn't allow putting null values.
+       */
+      LOG.info("Registering ssp {} with starting offset null, overriding to 0", systemStreamPartition);
+      offsetToRegister = "0";
+    } else {
+      LOG.info("Registering ssp {} with starting offset {}", systemStreamPartition, offset);
+      offsetToRegister = offset;
+    }
+    sspToOffset.put(systemStreamPartition, offsetToRegister);
   }
 
   /**

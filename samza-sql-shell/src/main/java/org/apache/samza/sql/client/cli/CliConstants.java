@@ -22,7 +22,7 @@ package org.apache.samza.sql.client.cli;
 /**
  * Constant definitions for the shell.
  */
-class CliConstants {
+public class CliConstants {
   public static final String APP_NAME = "Samza SQL Shell";
   public static final String WINDOW_TITLE = "Samza SQL Shell";
   public static final String PROMPT_1ST = "Samza SQL";
@@ -32,9 +32,8 @@ class CliConstants {
   public static final String CONFIG_SHELL_PREFIX = "shell.";
   // Specifies the executor used by the shell
   public static final String CONFIG_EXECUTOR = "shell.executor";
-
-  public static final String VERSION = "0.0.1";
-
+  public static final String CONFIG_COMMAND_HANDLER = "shell.commandhandlers";
+  public static final String DEFAULT_EXECUTOR_CLASS = "org.apache.samza.sql.client.impl.SamzaExecutor";
 
   public static final String WELCOME_MESSAGE;
   static {
@@ -50,7 +49,7 @@ class CliConstants {
 "   \\  \\:\\/:/        /  /:/        /  /:/     \\  \\:\\           /  /:/ \n"+
 "    \\  \\::/        /__/:/        /__/:/       \\  \\:\\         /__/:/ \n"+
 "     \\__\\/         \\__\\/         \\__\\/         \\__\\/         \\__\\/  \n\n"+
-"Welcome to Samza SQL shell (V" + VERSION + "). Enter HELP for all commands.\n\n";
+"Welcome to Samza SQL shell. Enter HELP for all commands.\n";
   }
 
   public static final char SPACE = '\u0020';

@@ -30,7 +30,7 @@ import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.TaskCoordinator;
 
 
-public class IdentityStreamTask implements StreamTask , InitableTask  {
+public class IdentityStreamTask implements StreamTask, InitableTask  {
   private int processedMessageCount = 0;
   private int expectedMessageCount;
   private String outputTopic;

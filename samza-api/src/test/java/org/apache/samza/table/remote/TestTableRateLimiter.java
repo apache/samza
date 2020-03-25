@@ -25,12 +25,10 @@ import java.util.Collections;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.util.RateLimiter;
+import org.junit.Assert;
 import org.junit.Test;
 
-import junit.framework.Assert;
-
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyMap;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -46,13 +44,13 @@ public class TestTableRateLimiter {
 
   public TableRateLimiter<String, String> getThrottler(String tag) {
     TableRateLimiter.CreditFunction<String, String> credFn =
-        (TableRateLimiter.CreditFunction<String, String>) (key, value) -> {
+        (TableRateLimiter.CreditFunction<String, String>) (key, value, args) -> {
       int credits = key == null ? 0 : 3;
       credits += value == null ? 0 : 3;
       return credits;
     };
     RateLimiter rateLimiter = mock(RateLimiter.class);
-    doReturn(Collections.singleton(DEFAULT_TAG)).when(rateLimiter).getSupportedTags();
+    doReturn(Collections.singleton(tag)).when(rateLimiter).getSupportedTags();
     TableRateLimiter<String, String> rateLimitHelper = new TableRateLimiter<>("foo", rateLimiter, credFn, tag);
     Timer timer = mock(Timer.class);
     rateLimitHelper.setTimerMetric(timer);
@@ -85,19 +83,36 @@ public class TestTableRateLimiter {
   }
 
   @Test
+  public void testCreditOpId() {
+    TableRateLimiter<String, String> rateLimitHelper = getThrottler();
+    Assert.assertEquals(1, rateLimitHelper.getCredits(1, 2));
+  }
+
+  @Test
   public void testThrottle() {
     TableRateLimiter<String, String> rateLimitHelper = getThrottler();
     Timer timer = mock(Timer.class);
     rateLimitHelper.setTimerMetric(timer);
+    int times = 0;
     rateLimitHelper.throttle("foo");
-    verify(rateLimitHelper.rateLimiter, times(1)).acquire(anyMap());
-    verify(timer, times(1)).update(anyLong());
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMapOf(String.class, Integer.class));
+    verify(timer, times(times)).update(anyLong());
+    rateLimitHelper.throttle("foo", "bar");
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMapOf(String.class, Integer.class));
+    verify(timer, times(times)).update(anyLong());
+    rateLimitHelper.throttle(Arrays.asList("foo", "bar"));
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMapOf(String.class, Integer.class));
+    verify(timer, times(times)).update(anyLong());
+    rateLimitHelper.throttle(1, 2);
+    verify(rateLimitHelper.rateLimiter, times(++times)).acquire(anyMapOf(String.class, Integer.class));
+    verify(timer, times(times)).update(anyLong());
   }
 
   @Test
   public void testThrottleUnknownTag() {
     TableRateLimiter<String, String> rateLimitHelper = getThrottler("unknown_tag");
     rateLimitHelper.throttle("foo");
-    verify(rateLimitHelper.rateLimiter, times(0)).acquire(anyMap());
+    verify(rateLimitHelper.rateLimiter, times(0)).acquire(anyInt());
+    verify(rateLimitHelper.rateLimiter, times(1)).acquire(anyMapOf(String.class, Integer.class));
   }
 }

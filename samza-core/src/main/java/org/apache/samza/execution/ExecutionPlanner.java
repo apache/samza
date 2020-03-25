@@ -43,6 +43,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.operators.spec.InputOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -125,9 +126,12 @@ public class ExecutionPlanner {
 
     Set<TableDescriptor> tables = appDesc.getTableDescriptors();
 
+    // Generate job.id and job.name configs from app.id and app.name if defined
+    MapConfig generatedJobConfigs = JobPlanner.generateSingleJobConfig(config);
+    String jobName = generatedJobConfigs.get(JobConfig.JOB_NAME);
+    String jobId = generatedJobConfigs.get(JobConfig.JOB_ID, "1");
+
     // For this phase, we have a single job node for the whole DAG
-    String jobName = config.get(JobConfig.JOB_NAME());
-    String jobId = config.get(JobConfig.JOB_ID(), "1");
     JobNode node = jobGraph.getOrCreateJobNode(jobName, jobId);
 
     // Add input streams

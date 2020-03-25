@@ -26,6 +26,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,22 +34,22 @@ import org.slf4j.LoggerFactory;
 public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZkJobCoordinatorFactory.class);
-  private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-coordinationData";
+  private static final String JOB_COORDINATOR_ZK_PATH_FORMAT = "%s/%s-%s-%s-coordinationData";
   private static final String DEFAULT_JOB_NAME = "defaultJob";
+  private static final String PROTOCOL_VERSION = "2.0";
 
-  /**
-   * Instantiates an {@link ZkJobCoordinator} using the {@link Config}.
-   *
-   * @param config zookeeper configurations required for instantiating {@link ZkJobCoordinator}
-   * @return An instance of {@link ZkJobCoordinator}
-   */
   @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry,
+      MetadataStore coordinatorStreamStore) {
     // TODO: Separate JC related configs into a "ZkJobCoordinatorConfig"
     String jobCoordinatorZkBasePath = getJobCoordinationZkPath(config);
     ZkUtils zkUtils = getZkUtils(config, metricsRegistry, jobCoordinatorZkBasePath);
     LOG.debug("Creating ZkJobCoordinator with config: {}.", config);
-    return new ZkJobCoordinator(processorId, config, metricsRegistry, zkUtils);
+
+    // TODO: This should be merged with coordinatorStreamStore - SAMZA-2272
+    ZkMetadataStore zkMetadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getRootPath(), config, metricsRegistry);
+
+    return new ZkJobCoordinator(processorId, config, metricsRegistry, zkUtils, zkMetadataStore, coordinatorStreamStore);
   }
 
   private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry, String coordinatorZkBasePath) {
@@ -62,11 +63,9 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   public static String getJobCoordinationZkPath(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     String appId = new ApplicationConfig(config).getGlobalAppId();
-    String jobName = jobConfig.getName().isDefined()
-        ? jobConfig.getName().get()
-        : DEFAULT_JOB_NAME;
+    String jobName = jobConfig.getName().orElse(DEFAULT_JOB_NAME);
     String jobId = jobConfig.getJobId();
 
-    return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId);
+    return String.format(JOB_COORDINATOR_ZK_PATH_FORMAT, appId, jobName, jobId, PROTOCOL_VERSION);
   }
 }

@@ -28,6 +28,8 @@ import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rex.RexCall;
@@ -280,7 +282,7 @@ class JoinTranslator {
     if (sqlTypeName != SqlTypeName.BOOLEAN && sqlTypeName != SqlTypeName.TINYINT && sqlTypeName != SqlTypeName.SMALLINT
         && sqlTypeName != SqlTypeName.INTEGER && sqlTypeName != SqlTypeName.CHAR && sqlTypeName != SqlTypeName.BIGINT
         && sqlTypeName != SqlTypeName.VARCHAR && sqlTypeName != SqlTypeName.DOUBLE && sqlTypeName != SqlTypeName.FLOAT
-        && sqlTypeName != SqlTypeName.ANY) {
+        && sqlTypeName != SqlTypeName.ANY && sqlTypeName != SqlTypeName.OTHER) {
       log.error("Unsupported key type " + sqlTypeName + " used in join condition.");
       throw new SamzaException("Unsupported key type used in join condition.");
     }
@@ -292,15 +294,25 @@ class JoinTranslator {
         SqlExplainLevel.EXPPLAN_ATTRIBUTES);
   }
 
-  private SqlIOConfig resolveSourceConfigForTable(RelNode relNode, TranslatorContext context) {
+  private SqlIOConfig resolveSQlIOForTable(RelNode relNode, TranslatorContext context) {
+    // Let's recursively get to the TableScan node to identify IO for the table.
     if (relNode instanceof LogicalProject) {
-      return resolveSourceConfigForTable(((LogicalProject) relNode).getInput(), context);
+      return resolveSQlIOForTable(((LogicalProject) relNode).getInput(), context);
     }
 
-    // We are returning the sourceConfig for the table as null when the table is in another join rather than an output
-    // table, that's because the output of stream-table join is considered a stream.
-    if (relNode.getInputs().size() > 1) {
+    if (relNode instanceof LogicalFilter) {
+      return resolveSQlIOForTable(((LogicalFilter) relNode).getInput(), context);
+    }
+
+    // We return null for table IO as the table seems to be involved in another join. The output of stream-table join
+    // is considered a stream. Hence, we return null for the table.
+    if (relNode instanceof LogicalJoin && relNode.getInputs().size() > 1) {
       return null;
+    }
+
+    if (!(relNode instanceof TableScan)) {
+      throw new SamzaException(String.format("Unsupported query. relNode %s is not of type TableScan.",
+          relNode.toString()));
     }
 
     String sourceName = SqlIOConfig.getSourceFromSourceParts(relNode.getTable().getQualifiedName());
@@ -320,7 +332,7 @@ class JoinTranslator {
     // The join key(s) for the table could be an udf in which case the relNode would be LogicalProject.
 
     if (relNode instanceof EnumerableTableScan || relNode instanceof LogicalProject) {
-      SqlIOConfig sourceTableConfig = resolveSourceConfigForTable(relNode, context);
+      SqlIOConfig sourceTableConfig = resolveSQlIOForTable(relNode, context);
       if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
         return JoinInputNode.InputType.STREAM;
       } else if (sourceTableConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor ||
@@ -336,7 +348,7 @@ class JoinTranslator {
 
   private Table getTable(JoinInputNode tableNode, TranslatorContext context) {
 
-    SqlIOConfig sourceTableConfig = resolveSourceConfigForTable(tableNode.getRelNode(), context);
+    SqlIOConfig sourceTableConfig = resolveSQlIOForTable(tableNode.getRelNode(), context);
 
     if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
       String errMsg = "Failed to resolve table source in join operation: node=" + tableNode.getRelNode();

@@ -20,6 +20,7 @@
 
 package org.apache.samza.config;
 
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,7 +88,23 @@ public class ClusterManagerConfig extends MapConfig {
    */
   public static final String CONTAINER_RETRY_COUNT = "yarn.container.retry.count";
   public static final String CLUSTER_MANAGER_CONTAINER_RETRY_COUNT = "cluster-manager.container.retry.count";
-  private static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
+  public static final int DEFAULT_CONTAINER_RETRY_COUNT = 8;
+
+  /**
+   * Determines if a job should fail after any container has exhausted all its retries.
+   */
+  public static final String CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES = "cluster-manager.container.fail.job.after.retries";
+  public static final boolean DEFAULT_CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES = true;
+
+  /**
+   * Maximum delay in milliseconds for the last container retry
+   */
+  public static final String CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS =
+      "cluster-manager.container.preferred-host.last.retry.delay.ms";
+  private static final long CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_RETRY_DELAY_CLOCK_SKEW_DELTA =
+      Duration.ofSeconds(1).toMillis();
+  private static final long DEFAULT_CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS =
+      Duration.ofMinutes(6).toMillis() + CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_RETRY_DELAY_CLOCK_SKEW_DELTA;
 
   /**
    * The cluster managed job coordinator sleeps for a configurable time before checking again for termination.
@@ -126,8 +143,15 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
+  /**
+   * Return the value of CLUSTER_MANAGER_MAX_CORES or CONTAINER_MAX_CPU_CORES (in that order) if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_MAX_CORES.
+   * @return
+   */
   public int getNumCores() {
-    if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
+    if (new JobConfig(this).getAutosizingEnabled() && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES)) {
+      return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES);
+    } else if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
       return getInt(CLUSTER_MANAGER_MAX_CORES);
     } else if (containsKey(CONTAINER_MAX_CPU_CORES)) {
       log.info("Configuration {} is deprecated. Please use {}", CONTAINER_MAX_CPU_CORES, CLUSTER_MANAGER_MAX_CORES);
@@ -137,8 +161,15 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
+  /**
+   * Return the value of CLUSTER_MANAGER_MEMORY_MB or CONTAINER_MAX_MEMORY_MB (in that order) if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_MEMORY_MB.
+   * @return
+   */
   public int getContainerMemoryMb() {
-    if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
+    if (new JobConfig(this).getAutosizingEnabled() && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB)) {
+      return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB);
+    } else if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
       return getInt(CLUSTER_MANAGER_MEMORY_MB);
     } else if (containsKey(CONTAINER_MAX_MEMORY_MB)) {
       log.info("Configuration {} is deprecated. Please use {}", CONTAINER_MAX_MEMORY_MB, CLUSTER_MANAGER_MEMORY_MB);
@@ -178,6 +209,24 @@ public class ClusterManagerConfig extends MapConfig {
       return getInt(CONTAINER_RETRY_COUNT);
     } else {
       return DEFAULT_CONTAINER_RETRY_COUNT;
+    }
+  }
+
+  /**
+   * The value of {@link ClusterManagerConfig#CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES} that determines if the
+   * job will fail if any container has exhausted all its retries and each retry is within the {@link ClusterManagerConfig#CLUSTER_MANAGER_RETRY_WINDOW_MS}.
+   * @return true if the job should fail after any container has exhausted all its retries; otherwise, false.
+   */
+  public boolean shouldFailJobAfterContainerRetries() {
+    return getBoolean(CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES,
+        DEFAULT_CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES);
+  }
+
+  public long getContainerPreferredHostLastRetryDelayMs() {
+    if (containsKey(CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS)) {
+      return getLong(CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS) + CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_RETRY_DELAY_CLOCK_SKEW_DELTA;
+    } else {
+      return DEFAULT_CLUSTER_MANAGER_CONTAINER_PREFERRED_HOST_LAST_RETRY_DELAY_MS;
     }
   }
 

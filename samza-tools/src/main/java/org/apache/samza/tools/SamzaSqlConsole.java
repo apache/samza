@@ -39,12 +39,11 @@ import org.apache.samza.sql.avro.ConfigBasedAvroRelSchemaProviderFactory;
 import org.apache.samza.sql.fn.FlattenUdf;
 import org.apache.samza.sql.fn.RegexMatchUdf;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
-import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
-import org.apache.samza.sql.testutil.JsonUtil;
-import org.apache.samza.sql.testutil.SqlFileParser;
+import org.apache.samza.sql.util.JsonUtil;
+import org.apache.samza.sql.util.SqlFileParser;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.system.kafka.KafkaSystemFactory;
 import org.apache.samza.tools.avro.AvroSchemaGenRelConverterFactory;
@@ -113,10 +112,10 @@ public class SamzaSqlConsole {
   public static Map<String, String> fetchSamzaSqlConfig() {
     HashMap<String, String> staticConfigs = new HashMap<>();
 
-    staticConfigs.put(JobConfig.JOB_NAME(), "sql-job");
-    staticConfigs.put(JobConfig.PROCESSOR_ID(), "1");
+    staticConfigs.put(JobConfig.JOB_NAME, "sql-job");
+    staticConfigs.put(JobConfig.PROCESSOR_ID, "1");
     staticConfigs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
-    staticConfigs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    staticConfigs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_IO_RESOLVER, "config");
     String configIOResolverDomain =
@@ -125,11 +124,6 @@ public class SamzaSqlConsole {
         ConfigBasedIOResolverFactory.class.getName());
 
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_UDF_RESOLVER, "config");
-    String configUdfResolverDomain = String.format(SamzaSqlApplicationConfig.CFG_FMT_UDF_RESOLVER_DOMAIN, "config");
-    staticConfigs.put(configUdfResolverDomain + SamzaSqlApplicationConfig.CFG_FACTORY,
-        ConfigBasedUdfResolver.class.getName());
-    staticConfigs.put(configUdfResolverDomain + ConfigBasedUdfResolver.CFG_UDF_CLASSES,
-        Joiner.on(",").join(RegexMatchUdf.class.getName(), FlattenUdf.class.getName()));
 
     staticConfigs.put("serializers.registry.string.class", StringSerdeFactory.class.getName());
     staticConfigs.put("serializers.registry.avro.class", AvroSerDeFactory.class.getName());

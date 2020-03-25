@@ -162,8 +162,8 @@ public class TestPartitionByOperatorSpec {
 
   private Config getConfig() {
     HashMap<String, String> configMap = new HashMap<>();
-    configMap.put(JobConfig.JOB_NAME(), testJobName);
-    configMap.put(JobConfig.JOB_ID(), testJobId);
+    configMap.put(JobConfig.JOB_NAME, testJobName);
+    configMap.put(JobConfig.JOB_ID, testJobId);
     return new MapConfig(configMap);
   }
 

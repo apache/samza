@@ -218,6 +218,10 @@
         <td>The physical memory used by the Samza container process (native + on heap) (in megabytes)</td>
     </tr>
     <tr>
+        <td>container-thread-pool-size</td>
+        <td>The size of the thread pool used by the Samza container for input processing, configured using job.container.thread.pool.size.</td>
+    </tr>
+    <tr>
         <td>container-startup-time</td>
         <td><a href="#average-time">Average time</a> spent for the container to startup</td>
     </tr>
@@ -555,7 +559,7 @@
     </tr>
     <tr>
         <td>no-more-messages-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
-        <td>Indicates if kafka consumer is at head for particular partition</td>
+        <td>Indicates if kafka consumer is at head for particular partition. 1 if it is caught up, 0 otherwise.</td>
     </tr>
     <tr>
         <td>blocking-poll-count-SystemStreamPartition [<span class="system">system</span>, <span class="stream">stream</span>, <span class="partition">partition</span>]</td>
@@ -781,6 +785,23 @@
         <td><span class="store">store-name</span>-flushes</td>
         <td>Total number of flushing the underlying key-value store</td>
     </tr>
+    <tr>
+        <td><span class="store">store-name</span>-max-record-key-size-bytes</td>
+        <td>Maximum key size of records written to the underlying key-value store </td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-max-record-size-bytes</td>
+        <td>Maximum value size of records written to the underlying key-value store </td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-key-size-bytes-histogram</td>
+        <td>A histogram of the keys'size written to the underlying key-value store</td>
+    </tr>
+    <tr>
+        <td><span class="store">store-name</span>-value-size-bytes-histogram</td>
+        <td>A histogram of the the values'size written to the underlying key-value store</td>
+    </tr>
+
 
     <tr>
         <th colspan="2" class="section" id="cached-store-metrics">org.apache.samza.storage.kv.CachedStoreMetrics</th>
@@ -938,7 +959,7 @@
     </tr>
     <tr>
         <td>is-leader</td>
-        <td>Denotes if the processor is a leader or not</td>
+        <td>Denotes if the processor is a leader or not. 1 if it is a leader, 0 otherwise.</td>
     </tr>
     <tr>
         <td>barrier-creation</td>

@@ -85,7 +85,7 @@ public class ConsoleLoggingSystemFactory implements SystemFactory {
     @Override
     public void send(String source, OutgoingMessageEnvelope envelope) {
       String msg = String.format("OutputStream:%s Key:%s Value:%s", envelope.getSystemStream(), envelope.getKey(),
-          new String((byte[]) envelope.getMessage()));
+          envelope.getMessage() != null ? new String((byte[]) envelope.getMessage()) : null);
       LOG.info(msg);
 
       System.out.println(String.format("Message %d :", messageCounter.incrementAndGet()));
@@ -97,7 +97,7 @@ public class ConsoleLoggingSystemFactory implements SystemFactory {
     }
 
     private String getFormattedValue(OutgoingMessageEnvelope envelope) {
-      String value = new String((byte[]) envelope.getMessage());
+      String value = envelope.getMessage() != null ? new String((byte[]) envelope.getMessage()) : null;
       String formattedValue;
 
       try {

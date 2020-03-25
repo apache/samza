@@ -18,40 +18,47 @@
  */
 package org.apache.samza.container.grouper.stream;
 
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Set;
-import java.util.HashSet;
 import com.google.common.base.Preconditions;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.StorageConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Provides a stream expansion aware task to partition assignments on top of a custom implementation
  * of the {@link SystemStreamPartitionGrouper}.
+ * @see <a href="https://cwiki.apache.org/confluence/display/SAMZA/SEP-5%3A+Enable+partition+expansion+of+input+streams">SEP-5</a>
+ * for more details.
  */
 public class SSPGrouperProxy {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SSPGrouperProxy.class);
 
-  private final SystemStreamPartitionMapper systemStreamPartitionMapper;
-  private final Set<SystemStreamPartition> broadcastSystemStreamPartitions;
+  private final Config config;
   private final SystemStreamPartitionGrouper grouper;
 
   public SSPGrouperProxy(Config config, SystemStreamPartitionGrouper grouper) {
     Preconditions.checkNotNull(config);
     Preconditions.checkNotNull(grouper);
+    this.config = config;
     this.grouper = grouper;
-    this.broadcastSystemStreamPartitions = new TaskConfigJava(config).getBroadcastSystemStreamPartitions();
-    this.systemStreamPartitionMapper = getSystemStreamPartitionMapper(config);
   }
 
   /**
@@ -60,51 +67,86 @@ public class SSPGrouperProxy {
    * 3. Uses the previous, current task to partition assignments and result of {@link SystemStreamPartitionMapper} to redistribute the expanded {@link SystemStreamPartition}'s
    * to correct tasks after the stream expansion or contraction.
    * @param ssps the input system stream partitions of the job.
-   * @param grouperContext the grouper context holding metadata for the previous job execution.
+   * @param grouperMetadata provides the metadata for the previous samza job execution.
    * @return the grouped {@link TaskName} to {@link SystemStreamPartition} assignments.
    */
-  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps, GrouperContext grouperContext) {
-    Map<TaskName, Set<SystemStreamPartition>> currentTaskAssignments = grouper.group(ssps);
+  public Map<TaskName, Set<SystemStreamPartition>> group(Set<SystemStreamPartition> ssps, GrouperMetadata grouperMetadata) {
+    Map<TaskName, Set<SystemStreamPartition>> groupedResult = grouper.group(ssps);
+    int numPersistentStores = new StorageConfig(config).getNumPersistentStores();
 
-    if (grouperContext.getPreviousTaskToSSPAssignment().isEmpty()) {
-      LOGGER.info("Previous task to partition assignment does not exist. Using the result from the group method.");
-      return currentTaskAssignments;
+    if (numPersistentStores > 0) {
+      LOGGER.info("Application is stateful with {} stores. Proceeding with the SSP Grouper Proxy.", numPersistentStores);
+    } else {
+      LOGGER.info("Application is stateless with no stores. Using the result from the group method directly from {}.",
+          grouper.getClass().getName());
+      return groupedResult;
     }
 
-    Map<SystemStreamPartition, TaskName> previousSSPToTask = getPreviousSSPToTaskMapping(grouperContext);
+    if (grouperMetadata.getPreviousTaskToSSPAssignment().isEmpty()) {
+      LOGGER.info("Previous task to partition assignment does not exist. Using the result from the group method directly from {}.",
+          grouper.getClass().getName());
+      return groupedResult;
+    }
+
+    Map<TaskName, List<SystemStreamPartition>> currentTaskAssignments = new HashMap<>();
+    for (Map.Entry<TaskName, Set<SystemStreamPartition>> entry : groupedResult.entrySet()) {
+      currentTaskAssignments.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+    }
+
+    Set<SystemStreamPartition> broadcastSystemStreamPartitions = new TaskConfig(config).getBroadcastSystemStreamPartitions();
+    Map<SystemStreamPartition, TaskName> previousSSPToTask = getPreviousSSPToTaskMapping(grouperMetadata, broadcastSystemStreamPartitions);
 
     Map<TaskName, PartitionGroup> taskToPartitionGroup = new HashMap<>();
     currentTaskAssignments.forEach((taskName, systemStreamPartitions) -> taskToPartitionGroup.put(taskName, new PartitionGroup(taskName, systemStreamPartitions)));
 
-    Map<SystemStream, Integer> previousStreamToPartitionCount = getSystemStreamToPartitionCount(grouperContext.getPreviousTaskToSSPAssignment());
+    Map<SystemStream, Integer> previousStreamToPartitionCount = getSystemStreamToPartitionCount(grouperMetadata.getPreviousTaskToSSPAssignment());
     Map<SystemStream, Integer> currentStreamToPartitionCount = getSystemStreamToPartitionCount(currentTaskAssignments);
 
-    for (Map.Entry<TaskName, Set<SystemStreamPartition>> entry : currentTaskAssignments.entrySet()) {
-      TaskName currentlyAssignedTask = entry.getKey();
-      for (SystemStreamPartition currentSystemStreamPartition : entry.getValue()) {
-        if (broadcastSystemStreamPartitions.contains(currentSystemStreamPartition)) {
-          LOGGER.info("SystemStreamPartition: {} is part of broadcast stream. Skipping reassignment.", currentSystemStreamPartition);
-        } else {
-          SystemStream systemStream = currentSystemStreamPartition.getSystemStream();
+    SystemStreamPartitionMapper systemStreamPartitionMapper = getSystemStreamPartitionMapper(config);
 
-          Integer previousStreamPartitionCount = previousStreamToPartitionCount.getOrDefault(systemStream, 0);
-          Integer currentStreamPartitionCount = currentStreamToPartitionCount.getOrDefault(systemStream, 0);
-
-          if (previousStreamPartitionCount > 0 && !currentStreamPartitionCount.equals(previousStreamPartitionCount)) {
-            LOGGER.info("Partition count of system stream: {} had changed from: {} to: {} partitions. Performing partition reassignment.", systemStream, previousStreamPartitionCount, currentStreamPartitionCount);
-
-            SystemStreamPartition previousSystemStreamPartition = systemStreamPartitionMapper.getPreviousSSP(currentSystemStreamPartition, previousStreamPartitionCount, currentStreamPartitionCount);
-            TaskName previouslyAssignedTask = previousSSPToTask.get(previousSystemStreamPartition);
-
-            LOGGER.info("Moving systemStreamPartition: {} from task: {} to task: {}.", currentSystemStreamPartition, currentlyAssignedTask, previouslyAssignedTask);
-
-            taskToPartitionGroup.get(currentlyAssignedTask).removeSSP(currentSystemStreamPartition);
-            taskToPartitionGroup.get(previouslyAssignedTask).addSSP(currentSystemStreamPartition);
+    try {
+      for (Map.Entry<TaskName, List<SystemStreamPartition>> entry : currentTaskAssignments.entrySet()) {
+        TaskName currentlyAssignedTask = entry.getKey();
+        for (SystemStreamPartition currentSystemStreamPartition : entry.getValue()) {
+          if (broadcastSystemStreamPartitions.contains(currentSystemStreamPartition)) {
+            LOGGER.info("SystemStreamPartition: {} is part of broadcast stream. Skipping reassignment.",
+                currentSystemStreamPartition);
           } else {
-            LOGGER.debug("No partition change in SystemStream: {}. Skipping partition reassignment.", systemStream);
+            SystemStream systemStream = currentSystemStreamPartition.getSystemStream();
+
+            Integer previousStreamPartitionCount = previousStreamToPartitionCount.getOrDefault(systemStream, 0);
+            Integer currentStreamPartitionCount = currentStreamToPartitionCount.getOrDefault(systemStream, 0);
+
+            TaskName previouslyAssignedTask = null;
+            if (previousStreamPartitionCount > 0 && !currentStreamPartitionCount.equals(previousStreamPartitionCount)) {
+              LOGGER.info("Partition count of system stream: {} had changed from: {} to: {} partitions.", systemStream,
+                  previousStreamPartitionCount, currentStreamPartitionCount);
+
+              SystemStreamPartition previousSystemStreamPartition =
+                  systemStreamPartitionMapper.getPreviousSSP(currentSystemStreamPartition, previousStreamPartitionCount,
+                      currentStreamPartitionCount);
+              previouslyAssignedTask = previousSSPToTask.get(previousSystemStreamPartition);
+            } else if (previousSSPToTask.containsKey(currentSystemStreamPartition)) {
+              // If a previous mapping for a task to system stream partition exists, then move the SSP to it.
+              previouslyAssignedTask = previousSSPToTask.get(currentSystemStreamPartition);
+            }
+
+            if (previouslyAssignedTask != null && !Objects.equals(previouslyAssignedTask, currentlyAssignedTask)) {
+              LOGGER.info("Moving systemStreamPartition: {} from task: {} to task: {}.", currentSystemStreamPartition,
+                  currentlyAssignedTask, previouslyAssignedTask);
+
+              taskToPartitionGroup.get(currentlyAssignedTask).removeSSP(currentSystemStreamPartition);
+              taskToPartitionGroup.get(previouslyAssignedTask).addSSP(currentSystemStreamPartition);
+            }
           }
         }
       }
+    } catch (Exception ex) {
+      String errMsg =
+        String.format("Error in partition-to-task assignment via the SSPGroupProxy. To disable the SSPGroupProxy, "
+                + "set config %s = false, only if you cannot address the root cause as shown in the underlying exception.",
+            JobConfig.SSP_INPUT_EXPANSION_ENABLED);
+      throw new SamzaException(errMsg, ex);
     }
 
     Map<TaskName, Set<SystemStreamPartition>> taskToSystemStreamPartitions = new HashMap<>();
@@ -121,7 +163,7 @@ public class SSPGrouperProxy {
    * @param taskToSSPAssignment the {@link TaskName} to {@link SystemStreamPartition}'s assignment of the job.
    * @return a mapping from {@link SystemStream} to the number of partitions of the stream.
    */
-  private Map<SystemStream, Integer> getSystemStreamToPartitionCount(Map<TaskName, Set<SystemStreamPartition>> taskToSSPAssignment) {
+  private Map<SystemStream, Integer> getSystemStreamToPartitionCount(Map<TaskName, List<SystemStreamPartition>> taskToSSPAssignment) {
     Map<SystemStream, Integer> systemStreamToPartitionCount = new HashMap<>();
     taskToSSPAssignment.forEach((taskName, systemStreamPartitions) -> {
         systemStreamPartitions.forEach(systemStreamPartition -> {
@@ -134,13 +176,14 @@ public class SSPGrouperProxy {
   }
 
   /**
-   * Computes a mapping from the {@link SystemStreamPartition} to {@link TaskName} using the provided {@param grouperContext}
-   * @param grouperContext the grouper context that contains relevant historical metadata about the job.
+   * Computes a mapping from the {@link SystemStreamPartition} to {@link TaskName} using the provided {@param grouperMetadata}
+   * @param grouperMetadata the grouper context that contains relevant historical metadata about the job.
    * @return a mapping from {@link SystemStreamPartition} to {@link TaskName}.
    */
-  private Map<SystemStreamPartition, TaskName> getPreviousSSPToTaskMapping(GrouperContext grouperContext) {
+  private static Map<SystemStreamPartition, TaskName> getPreviousSSPToTaskMapping(GrouperMetadata grouperMetadata,
+      Set<SystemStreamPartition> broadcastSystemStreamPartitions) {
     Map<SystemStreamPartition, TaskName> sspToTaskMapping = new HashMap<>();
-    Map<TaskName, Set<SystemStreamPartition>> previousTaskToSSPAssignment = grouperContext.getPreviousTaskToSSPAssignment();
+    Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignment = grouperMetadata.getPreviousTaskToSSPAssignment();
     previousTaskToSSPAssignment.forEach((taskName, systemStreamPartitions) -> {
         systemStreamPartitions.forEach(systemStreamPartition -> {
             if (!broadcastSystemStreamPartitions.contains(systemStreamPartition)) {
@@ -160,7 +203,8 @@ public class SSPGrouperProxy {
   private SystemStreamPartitionMapper getSystemStreamPartitionMapper(Config config) {
     JobConfig jobConfig = new JobConfig(config);
     String systemStreamPartitionMapperClass = jobConfig.getSystemStreamPartitionMapperFactoryName();
-    SystemStreamPartitionMapperFactory systemStreamPartitionMapperFactory = Util.getObj(systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class);
+    SystemStreamPartitionMapperFactory systemStreamPartitionMapperFactory =
+        ReflectionUtil.getObj(systemStreamPartitionMapperClass, SystemStreamPartitionMapperFactory.class);
     return systemStreamPartitionMapperFactory.getStreamPartitionMapper(config, new MetricsRegistryMap());
   }
 
@@ -172,7 +216,7 @@ public class SSPGrouperProxy {
     private TaskName taskName;
     private Set<SystemStreamPartition> systemStreamPartitions;
 
-    PartitionGroup(TaskName taskName, Set<SystemStreamPartition> systemStreamPartitions) {
+    PartitionGroup(TaskName taskName, Collection<SystemStreamPartition> systemStreamPartitions) {
       Preconditions.checkNotNull(taskName);
       Preconditions.checkNotNull(systemStreamPartitions);
       this.taskName = taskName;

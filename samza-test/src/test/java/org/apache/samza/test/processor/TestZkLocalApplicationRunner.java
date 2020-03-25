@@ -21,47 +21,72 @@ package org.apache.samza.test.processor;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.HashSet;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import kafka.admin.AdminUtils;
-import kafka.admin.RackAwareMode;
-import kafka.utils.TestUtils;
+import java.util.stream.Collectors;
 import org.I0Itec.zkclient.ZkClient;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.ClusterManagerConfig;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.config.ZkConfig;
-import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.JobContext;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.job.ApplicationStatus;
+import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.JobModelUtil;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metadatastore.MetadataStoreFactory;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
+import org.apache.samza.runtime.LocalApplicationRunner;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.storage.MockStorageEngine;
+import org.apache.samza.storage.StorageEngine;
+import org.apache.samza.storage.StorageEngineFactory;
+import org.apache.samza.storage.StoreProperties;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.test.StandaloneIntegrationTestHarness;
+import org.apache.samza.task.MessageCollector;
 import org.apache.samza.test.StandaloneTestUtils;
+import org.apache.samza.test.harness.IntegrationTestHarness;
+import org.apache.samza.test.util.TestKafkaEvent;
 import org.apache.samza.util.NoOpMetricsRegistry;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkKeyBuilder;
+import org.apache.samza.zk.ZkMetadataStore;
+import org.apache.samza.zk.ZkStringSerializer;
 import org.apache.samza.zk.ZkUtils;
 import org.junit.Assert;
 import org.junit.Rule;
@@ -72,7 +97,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
+
 
 /**
  * Integration tests for {@link org.apache.samza.runtime.LocalApplicationRunner} with {@link ZkJobCoordinatorFactory}.
@@ -81,7 +109,7 @@ import static org.junit.Assert.assertTrue;
  * through {@link org.apache.samza.runtime.LocalApplicationRunner} to verify the guarantees made in stand alone execution
  * environment.
  */
-public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarness {
+public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(TestZkLocalApplicationRunner.class);
 
@@ -108,6 +136,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   private ApplicationConfig applicationConfig3;
   private String testStreamAppName;
   private String testStreamAppId;
+  private MetadataStore zkMetadataStore;
 
   @Rule
   public Timeout testTimeOutInMillis = new Timeout(150000);
@@ -129,59 +158,49 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Set up stream application config map with the given testStreamAppName, testStreamAppId and test kafka system
     // TODO: processorId should typically come up from a processorID generator as processor.id will be deprecated in 0.14.0+
     Map<String, String> configMap =
-        buildStreamApplicationConfigMap(TEST_SYSTEM, inputKafkaTopic, testStreamAppName, testStreamAppId);
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, false, Optional.empty());
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
     applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[1]);
     applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[2]);
     applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
 
-    ZkClient zkClient = new ZkClient(zkConnect());
+    ZkClient zkClient = new ZkClient(zkConnect(), ZK_CONNECTION_TIMEOUT_MS, ZK_CONNECTION_TIMEOUT_MS, new ZkStringSerializer());
     ZkKeyBuilder zkKeyBuilder = new ZkKeyBuilder(ZkJobCoordinatorFactory.getJobCoordinationZkPath(applicationConfig1));
     zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
     zkUtils.connect();
 
-    for (String kafkaTopic : ImmutableList.of(inputKafkaTopic, outputKafkaTopic)) {
-      LOGGER.info("Creating kafka topic: {}.", kafkaTopic);
-      TestUtils.createTopic(zkUtils(), kafkaTopic, 5, 1, servers(), new Properties());
-      if (AdminUtils.topicExists(zkUtils(), kafkaTopic)) {
-        LOGGER.info("Topic: {} was created", kafkaTopic);
-      } else {
-        Assert.fail(String.format("Unable to create kafka topic: %s.", kafkaTopic));
-      }
-    }
-    for (String kafkaTopic : ImmutableList.of(inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)) {
-      LOGGER.info("Creating kafka topic: {}.", kafkaTopic);
-      TestUtils.createTopic(zkUtils(), kafkaTopic, 1, 1, servers(), new Properties());
-      if (AdminUtils.topicExists(zkUtils(), kafkaTopic)) {
-        LOGGER.info("Topic: {} was created", kafkaTopic);
-      } else {
-        Assert.fail(String.format("Unable to create kafka topic: %s.", kafkaTopic));
-      }
-    }
+    ImmutableMap<String, Integer> topicToPartitionCount = ImmutableMap.of(
+        inputSinglePartitionKafkaTopic, 1,
+        outputSinglePartitionKafkaTopic, 1,
+        inputKafkaTopic, 5,
+        outputKafkaTopic, 5);
+
+    List<NewTopic> newTopics =
+        ImmutableList.of(inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)
+            .stream()
+            .map(topic -> new NewTopic(topic, topicToPartitionCount.get(topic), (short) 1))
+            .collect(Collectors.toList());
+
+    assertTrue("Encountered errors during test setup. Failed to create topics.", createTopics(newTopics));
+    zkMetadataStore = new ZkMetadataStore(zkUtils.getKeyBuilder().getRootPath(), new MapConfig(configMap), new NoOpMetricsRegistry());
   }
 
+  @Override
   public void tearDown() {
+    deleteTopics(ImmutableList.of(
+        inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic));
     SharedContextFactories.clearAll();
-    for (String kafkaTopic : ImmutableList.of(inputKafkaTopic, outputKafkaTopic)) {
-      LOGGER.info("Deleting kafka topic: {}.", kafkaTopic);
-      AdminUtils.deleteTopic(zkUtils(), kafkaTopic);
-    }
-    for (String kafkaTopic : ImmutableList.of(inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)) {
-      LOGGER.info("Deleting kafka topic: {}.", kafkaTopic);
-      AdminUtils.deleteTopic(zkUtils(), kafkaTopic);
-    }
     zkUtils.close();
     super.tearDown();
   }
 
   private void publishKafkaEvents(String topic, int startIndex, int endIndex, String streamProcessorId) {
-    KafkaProducer producer = getKafkaProducer();
     for (int eventIndex = startIndex; eventIndex < endIndex; eventIndex++) {
       try {
         LOGGER.info("Publish kafka event with index : {} for stream processor: {}.", eventIndex, streamProcessorId);
-        producer.send(new ProducerRecord(topic, new TestStreamApplication.TestKafkaEvent(streamProcessorId, String.valueOf(eventIndex)).toString().getBytes()));
+        producer.send(new ProducerRecord(topic, new TestKafkaEvent(streamProcessorId, String.valueOf(eventIndex)).toString().getBytes()));
       } catch (Exception  e) {
         LOGGER.error("Publishing to kafka topic: {} resulted in exception: {}.", new Object[]{topic, e});
         throw new SamzaException(e);
@@ -189,32 +208,42 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     }
   }
 
-  private Map<String, String> buildStreamApplicationConfigMap(String systemName, String inputTopic,
-      String appName, String appId) {
-    Map<String, String> samzaContainerConfig = ImmutableMap.<String, String>builder()
-        .put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS)
-        .put(TaskConfig.INPUT_STREAMS(), inputTopic)
-        .put(JobConfig.JOB_DEFAULT_SYSTEM(), systemName)
-        .put(TaskConfig.IGNORED_EXCEPTIONS(), "*")
-        .put(ZkConfig.ZK_CONNECT, zkConnect())
-        .put(JobConfig.SSP_GROUPER_FACTORY(), TEST_SSP_GROUPER_FACTORY)
-        .put(TaskConfig.GROUPER_FACTORY(), TEST_TASK_GROUPER_FACTORY)
-        .put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY)
-        .put(ApplicationConfig.APP_NAME, appName)
-        .put(ApplicationConfig.APP_ID, appId)
-        .put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner")
-        .put(String.format("systems.%s.samza.factory", systemName), TEST_SYSTEM_FACTORY)
-        .put(JobConfig.JOB_NAME(), appName)
-        .put(JobConfig.JOB_ID(), appId)
-        .put(TaskConfigJava.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS)
-        .put(TaskConfig.DROP_PRODUCER_ERRORS(), "true")
-        .put(JobConfig.JOB_DEBOUNCE_TIME_MS(), JOB_DEBOUNCE_TIME_MS)
-        .put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS(), "1000")
-        .put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "true")
-        .build();
+  private Map<String, String> buildStreamApplicationConfigMap(String appName, String appId, boolean isBatch, Optional<String> storeName) {
+    String coordinatorSystemName = "coordinatorSystem";
+    Map<String, String> config = new HashMap<>();
+    config.put(ZkConfig.ZK_CONSENSUS_TIMEOUT_MS, BARRIER_TIMEOUT_MS);
+    config.put(JobConfig.JOB_DEFAULT_SYSTEM, TestZkLocalApplicationRunner.TEST_SYSTEM);
+    config.put(TaskConfig.IGNORED_EXCEPTIONS, "*");
+    config.put(ZkConfig.ZK_CONNECT, zkConnect());
+    config.put(JobConfig.SSP_GROUPER_FACTORY, TEST_SSP_GROUPER_FACTORY);
+    config.put(TaskConfig.GROUPER_FACTORY, TEST_TASK_GROUPER_FACTORY);
+    config.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY);
+    config.put(ApplicationConfig.APP_NAME, appName);
+    config.put(ApplicationConfig.APP_ID, appId);
+    config.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    config.put(String.format("systems.%s.samza.factory", TestZkLocalApplicationRunner.TEST_SYSTEM), TEST_SYSTEM_FACTORY);
+    config.put(JobConfig.JOB_NAME, appName);
+    config.put(JobConfig.JOB_ID, appId);
+    config.put(TaskConfig.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS);
+    config.put(TaskConfig.DROP_PRODUCER_ERRORS, "true");
+    config.put(JobConfig.JOB_DEBOUNCE_TIME_MS, JOB_DEBOUNCE_TIME_MS);
+    config.put(JobConfig.MONITOR_PARTITION_CHANGE_FREQUENCY_MS, "1000");
+    config.put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "true");
+    config.put("job.coordinator.system", coordinatorSystemName);
+    config.put("job.coordinator.replication.factor", "1");
+    if (isBatch) {
+      config.put(ApplicationConfig.APP_MODE, "BATCH");
+      config.put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "false");
+    }
+    storeName.ifPresent(s -> {
+        config.put(String.format(StorageConfig.FACTORY, s), MockStoreFactory.class.getName());
+        config.put(String.format(StorageConfig.KEY_SERDE, s), "string");
+        config.put(String.format(StorageConfig.MSG_SERDE, s), "string");
+      });
+    Map<String, String> samzaContainerConfig = ImmutableMap.<String, String>builder().putAll(config).build();
     Map<String, String> applicationConfig = Maps.newHashMap(samzaContainerConfig);
-
-    applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(systemName, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
+    applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(coordinatorSystemName, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
+    applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(TestZkLocalApplicationRunner.TEST_SYSTEM, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
     return applicationConfig;
   }
 
@@ -235,8 +264,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     publishKafkaEvents(inputSinglePartitionKafkaTopic, 0, NUM_KAFKA_EVENTS * 2, PROCESSOR_IDS[0]);
 
     // Configuration, verification variables
-    MapConfig testConfig = new MapConfig(ImmutableMap.of(JobConfig.SSP_GROUPER_FACTORY(),
-        "org.apache.samza.container.grouper.stream.GroupBySystemStreamPartitionFactory", JobConfig.JOB_DEBOUNCE_TIME_MS(), "10",
+    MapConfig testConfig = new MapConfig(ImmutableMap.of(JobConfig.SSP_GROUPER_FACTORY,
+        "org.apache.samza.container.grouper.stream.GroupBySystemStreamPartitionFactory", JobConfig.JOB_DEBOUNCE_TIME_MS, "10",
             ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED, "true"));
     // Declared as final array to update it from streamApplication callback(Variable should be declared final to access in lambda block).
     final JobModel[] previousJobModel = new JobModel[1];
@@ -255,14 +284,14 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch processedMessagesLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
     Config localTestConfig2 = new MapConfig(applicationConfig2, testConfig);
     ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic, processedMessagesLatch,
+        TEST_SYSTEM, ImmutableList.of(inputSinglePartitionKafkaTopic), outputSinglePartitionKafkaTopic, processedMessagesLatch,
         null, null, localTestConfig2), localTestConfig2);
 
     // Callback handler for appRunner1.
     TestStreamApplication.StreamApplicationCallback callback = m -> {
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
         previousJobModelVersion[0] = zkUtils.getJobModelVersion();
-        previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
+        previousJobModel[0] = JobModelUtil.readJobModel(previousJobModelVersion[0], zkMetadataStore);
         executeRun(appRunner2, localTestConfig2);
         try {
           // Wait for appRunner2 to register with zookeeper.
@@ -277,14 +306,14 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Set up stream app appRunner1.
     Config localTestConfig1 = new MapConfig(applicationConfig1, testConfig);
     ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic, null,
+        TEST_SYSTEM, ImmutableList.of(inputSinglePartitionKafkaTopic), outputSinglePartitionKafkaTopic, null,
         callback, kafkaEventsConsumedLatch, localTestConfig1), localTestConfig1);
     executeRun(appRunner1, localTestConfig1);
 
     kafkaEventsConsumedLatch.await();
 
     String currentJobModelVersion = zkUtils.getJobModelVersion();
-    JobModel updatedJobModel = zkUtils.getJobModel(currentJobModelVersion);
+    JobModel updatedJobModel = JobModelUtil.readJobModel(currentJobModelVersion, zkMetadataStore);
 
     // Job model before and after the addition of second stream processor should be the same.
     assertEquals(previousJobModel[0], updatedJobModel);
@@ -318,8 +347,8 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS * 2, PROCESSOR_IDS[0]);
 
     // Configuration, verification variables
-    MapConfig testConfig = new MapConfig(ImmutableMap.of(JobConfig.SSP_GROUPER_FACTORY(),
-        "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory", JobConfig.JOB_DEBOUNCE_TIME_MS(), "10"));
+    MapConfig testConfig = new MapConfig(ImmutableMap.of(JobConfig.SSP_GROUPER_FACTORY,
+        "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory", JobConfig.JOB_DEBOUNCE_TIME_MS, "10", ClusterManagerConfig.HOST_AFFINITY_ENABLED, "false"));
     // Declared as final array to update it from streamApplication callback(Variable should be declared final to access in lambda block).
     final JobModel[] previousJobModel = new JobModel[1];
     final String[] previousJobModelVersion = new String[1];
@@ -337,14 +366,14 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch processedMessagesLatch = new CountDownLatch(NUM_KAFKA_EVENTS * 2);
     Config testAppConfig2 = new MapConfig(applicationConfig2, testConfig);
     ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch, null,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch, null,
         null, testAppConfig2), testAppConfig2);
 
     // Callback handler for appRunner1.
     TestStreamApplication.StreamApplicationCallback streamApplicationCallback = message -> {
       if (hasSecondProcessorJoined.compareAndSet(false, true)) {
         previousJobModelVersion[0] = zkUtils.getJobModelVersion();
-        previousJobModel[0] = zkUtils.getJobModel(previousJobModelVersion[0]);
+        previousJobModel[0] = JobModelUtil.readJobModel(previousJobModelVersion[0], zkMetadataStore);
         executeRun(appRunner2, testAppConfig2);
         try {
           // Wait for appRunner2 to register with zookeeper.
@@ -361,14 +390,14 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Set up stream app appRunner1.
     Config testAppConfig1 = new MapConfig(applicationConfig1, testConfig);
     ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, null, streamApplicationCallback,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, null, streamApplicationCallback,
         kafkaEventsConsumedLatch, testAppConfig1), testAppConfig1);
     executeRun(appRunner1, testAppConfig1);
 
     kafkaEventsConsumedLatch.await();
 
     String currentJobModelVersion = zkUtils.getJobModelVersion();
-    JobModel updatedJobModel = zkUtils.getJobModel(currentJobModelVersion);
+    JobModel updatedJobModel = JobModelUtil.readJobModel(currentJobModelVersion, zkMetadataStore);
 
     // JobModelVersion check to verify that leader publishes new jobModel.
     assertTrue(Integer.parseInt(previousJobModelVersion[0]) < Integer.parseInt(currentJobModelVersion));
@@ -391,7 +420,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     TaskModel taskModel1 = updatedTaskModelMap1.values().stream().findFirst().get();
     TaskModel taskModel2 = updatedTaskModelMap2.values().stream().findFirst().get();
     assertEquals(taskModel1.getSystemStreamPartitions(), taskModel2.getSystemStreamPartitions());
-    assertTrue(!taskModel1.getTaskName().getTaskName().equals(taskModel2.getTaskName().getTaskName()));
+    assertFalse(taskModel1.getTaskName().getTaskName().equals(taskModel2.getTaskName().getTaskName()));
 
     processedMessagesLatch.await();
 
@@ -415,13 +444,13 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
 
     ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
         applicationConfig1), applicationConfig1);
     ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
         applicationConfig2), applicationConfig2);
     ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch3, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch3, null, kafkaEventsConsumedLatch,
         applicationConfig3), applicationConfig3);
 
     executeRun(appRunner1, applicationConfig1);
@@ -433,7 +462,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Verifications before killing the leader.
     String jobModelVersion = zkUtils.getJobModelVersion();
-    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
     assertEquals(2, jobModel.getContainers().size());
     assertEquals(Sets.newHashSet("0000000000", "0000000001"), jobModel.getContainers().keySet());
     assertEquals("1", jobModelVersion);
@@ -459,7 +488,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     assertEquals(2, processorIdsFromZK.size());
     assertEquals(PROCESSOR_IDS[1], processorIdsFromZK.get(0));
     jobModelVersion = zkUtils.getJobModelVersion();
-    jobModel = zkUtils.getJobModel(jobModelVersion);
+    jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
     assertEquals(Sets.newHashSet("0000000001", "0000000002"), jobModel.getContainers().keySet());
     assertEquals(2, jobModel.getContainers().size());
 
@@ -482,10 +511,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
 
     ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
         applicationConfig1), applicationConfig1);
     ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
         applicationConfig2), applicationConfig2);
 
     // Run stream applications.
@@ -500,7 +529,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[2]);
     kafkaEventsConsumedLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
     ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, null, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, null, null, kafkaEventsConsumedLatch,
         applicationConfig2), applicationConfig2);
     // Fail when the duplicate processor joins.
     expectedException.expect(SamzaException.class);
@@ -520,16 +549,16 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // Set up kafka topics.
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
-    Map<String, String> configMap = buildStreamApplicationConfigMap(
-        TEST_SYSTEM, inputKafkaTopic, testStreamAppName, testStreamAppId);
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, false, Optional.empty());
 
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
     Config applicationConfig1 = new MapConfig(configMap);
 
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[1]);
     Config applicationConfig2 = new MapConfig(configMap);
 
-    List<TestStreamApplication.TestKafkaEvent> messagesProcessed = new ArrayList<>();
+    List<TestKafkaEvent> messagesProcessed = new ArrayList<>();
     TestStreamApplication.StreamApplicationCallback streamApplicationCallback = messagesProcessed::add;
 
     // Create StreamApplication from configuration.
@@ -538,10 +567,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
 
     ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
         applicationConfig1), applicationConfig1);
     ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
         applicationConfig2), applicationConfig2);
 
     // Run stream application.
@@ -553,13 +582,13 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Read job model before rolling upgrade.
     String jobModelVersion = zkUtils.getJobModelVersion();
-    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
 
     appRunner1.kill();
     appRunner1.waitForFinish();
 
     int lastProcessedMessageId = -1;
-    for (TestStreamApplication.TestKafkaEvent message : messagesProcessed) {
+    for (TestKafkaEvent message : messagesProcessed) {
       lastProcessedMessageId = Math.max(lastProcessedMessageId, Integer.parseInt(message.getEventData()));
     }
     messagesProcessed.clear();
@@ -569,7 +598,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     processedMessagesLatch1 = new CountDownLatch(1);
     publishKafkaEvents(inputKafkaTopic, NUM_KAFKA_EVENTS, 2 * NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
     ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
         applicationConfig1), applicationConfig1);
     executeRun(appRunner3, applicationConfig1);
 
@@ -577,7 +606,7 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
 
     // Read new job model after rolling upgrade.
     String newJobModelVersion = zkUtils.getJobModelVersion();
-    JobModel newJobModel = zkUtils.getJobModel(newJobModelVersion);
+    JobModel newJobModel = JobModelUtil.readJobModel(newJobModelVersion, zkMetadataStore);
 
     assertEquals(Integer.parseInt(jobModelVersion) + 1, Integer.parseInt(newJobModelVersion));
     assertEquals(jobModel.getContainers(), newJobModel.getContainers());
@@ -594,13 +623,14 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
   public void testShouldStopStreamApplicationWhenShutdownTimeOutIsLessThanContainerShutdownTime() throws Exception {
     publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
 
-    Map<String, String> configMap = buildStreamApplicationConfigMap(TEST_SYSTEM, inputKafkaTopic, testStreamAppName, testStreamAppId);
-    configMap.put(TaskConfig.SHUTDOWN_MS(), "0");
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, false, Optional.empty());
+    configMap.put(TaskConfig.TASK_SHUTDOWN_MS, "0");
 
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[0]);
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
     Config applicationConfig1 = new MapConfig(configMap);
 
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[1]);
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[1]);
     Config applicationConfig2 = new MapConfig(configMap);
 
     // Create StreamApplication from configuration.
@@ -609,10 +639,10 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
 
     ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch,
         applicationConfig1), applicationConfig1);
     ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, kafkaEventsConsumedLatch,
         applicationConfig2), applicationConfig2);
 
     executeRun(appRunner1, applicationConfig1);
@@ -625,16 +655,16 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     // At this stage, both the processors are running and have drained the kakfa source.
     // Trigger re-balancing phase, by manually adding a new processor.
 
-    configMap.put(JobConfig.PROCESSOR_ID(), PROCESSOR_IDS[2]);
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[2]);
 
     // Reset the task shutdown ms for 3rd application to give it ample time to shutdown cleanly
-    configMap.put(TaskConfig.SHUTDOWN_MS(), TASK_SHUTDOWN_MS);
+    configMap.put(TaskConfig.TASK_SHUTDOWN_MS, TASK_SHUTDOWN_MS);
     Config applicationConfig3 = new MapConfig(configMap);
 
     CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
 
     ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-        TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch3, null, kafkaEventsConsumedLatch,
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch3, null, kafkaEventsConsumedLatch,
         applicationConfig3), applicationConfig3);
     executeRun(appRunner3, applicationConfig3);
 
@@ -670,22 +700,27 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     CountDownLatch kafkaEventsConsumedLatch1 = new CountDownLatch(NUM_KAFKA_EVENTS);
     CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
 
-    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
-            TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch1,
-            applicationConfig1), applicationConfig1);
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, false, Optional.of("test-store-partition-count-change"));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
+    ApplicationConfig applicationConfig = new ApplicationConfig(new MapConfig(configMap));
 
-    executeRun(appRunner1, applicationConfig1);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+            TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch1,
+            applicationConfig), applicationConfig);
+
+    executeRun(appRunner1, applicationConfig);
     processedMessagesLatch1.await();
 
     String jobModelVersion = zkUtils.getJobModelVersion();
-    JobModel jobModel = zkUtils.getJobModel(jobModelVersion);
-    Set<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
+    List<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
 
     // Validate that the input partition count is 5 in the JobModel.
     Assert.assertEquals(5, ssps.size());
 
     // Increase the partition count of input kafka topic to 100.
-    AdminUtils.addPartitions(zkUtils(), inputKafkaTopic, 100, "", true, RackAwareMode.Enforced$.MODULE$);
+    increasePartitionsTo(inputKafkaTopic, 100);
 
     long jobModelWaitTimeInMillis = 10;
     while (Objects.equals(zkUtils.getJobModelVersion(), jobModelVersion)) {
@@ -695,18 +730,573 @@ public class TestZkLocalApplicationRunner extends StandaloneIntegrationTestHarne
     }
 
     String newJobModelVersion = zkUtils.getJobModelVersion();
-    JobModel newJobModel = zkUtils.getJobModel(newJobModelVersion);
+    JobModel newJobModel = JobModelUtil.readJobModel(newJobModelVersion, zkMetadataStore);
     ssps = getSystemStreamPartitions(newJobModel);
 
     // Validate that the input partition count is 100 in the new JobModel.
     Assert.assertEquals(100, ssps.size());
+
+    // Validate that configuration is stored in coordinator stream.
+    MapConfig config = getConfigFromCoordinatorStream(applicationConfig);
+
+    // Execution plan and serialized DAG of a samza job is stored in the config of coordinator stream. Thus, direct equals comparison between
+    // the application configuration and the coordinator config will fail. Iterating through the entire configuration bag and verify that expected
+    // configuration is present in the coordinator configuration.
+    for (Map.Entry<String, String> entry : applicationConfig.entrySet()) {
+      Assert.assertTrue(config.containsKey(entry.getKey()));
+    }
   }
 
-  private static Set<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {
-    Set<SystemStreamPartition> ssps = new HashSet<>();
+  private MapConfig getConfigFromCoordinatorStream(Config config) {
+    MetadataStoreFactory metadataStoreFactory =
+        ReflectionUtil.getObj(new JobConfig(config).getMetadataStoreFactory(), MetadataStoreFactory.class);
+    MetadataStore metadataStore = metadataStoreFactory.getMetadataStore("set-config", config, new MetricsRegistryMap());
+    metadataStore.init();
+    Map<String, String> configMap = new HashMap<>();
+    CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde("set-config");
+    metadataStore.all().forEach((key, value) -> {
+        CoordinatorStreamStore.CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(key);
+        String deserializedValue = jsonSerde.fromBytes(value);
+        configMap.put(coordinatorMessageKey.getKey(), deserializedValue);
+      });
+    return new MapConfig(configMap);
+  }
+
+  /**
+   * A. Create a input kafka topic with partition count set to 32.
+   * B. Create and launch a stateful samza application which consumes events from the input kafka topic.
+   * C. Validate that the {@link JobModel} contains 32 {@link SystemStreamPartition}'s.
+   * D. Increase the partition count of the input kafka topic to 64.
+   * E. Validate that the new {@link JobModel} contains 64 {@link SystemStreamPartition}'s and the input
+   * SystemStreamPartitions are mapped to the correct task.
+   */
+  @Test
+  public void testStatefulSamzaApplicationShouldRedistributeInputPartitionsToCorrectTasksWhenAInputStreamIsExpanded() throws Exception {
+    // Setup input topics.
+    String statefulInputKafkaTopic = String.format("test-input-topic-%s", UUID.randomUUID().toString());
+    createTopic(statefulInputKafkaTopic, 32, 1);
+
+    // Generate configuration for the test.
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, false, Optional.of("test-store-redistribute-partitions"));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
+    Config applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+
+    publishKafkaEvents(statefulInputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    // Create StreamApplication from configuration.
+    CountDownLatch kafkaEventsConsumedLatch1 = new CountDownLatch(NUM_KAFKA_EVENTS);
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+            TEST_SYSTEM, ImmutableList.of(statefulInputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch1,
+            applicationConfig1), applicationConfig1);
+
+    executeRun(appRunner1, applicationConfig1);
+    processedMessagesLatch1.await();
+
+    // Generate the correct task assignments before the input stream expansion.
+    Map<TaskName, Set<SystemStreamPartition>> expectedTaskAssignments = new HashMap<>();
+    for (int partition = 0; partition < 32; ++partition) {
+      TaskName taskName = new TaskName(String.format("Partition %d", partition));
+      SystemStreamPartition systemStreamPartition = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic, new Partition(partition));
+      expectedTaskAssignments.put(taskName, ImmutableSet.of(systemStreamPartition));
+    }
+
+    // Read the latest JobModel for validation.
+    String jobModelVersion = zkUtils.getJobModelVersion();
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
+    List<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
+
+    // Validate that the input partition count is 32 in the JobModel.
+    Assert.assertEquals(32, ssps.size());
+
+    // Validate that the new JobModel has the expected task assignments before the input stream expansion.
+    Map<TaskName, Set<SystemStreamPartition>> actualTaskAssignments = getTaskAssignments(jobModel);
+    Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
+
+    // Increase the partition count of the input kafka topic to 64.
+    increasePartitionsTo(statefulInputKafkaTopic, 64);
+
+    // Wait for the JobModel version to change due to the increase in the input partition count.
+    long jobModelWaitTimeInMillis = 10;
+    while (true) {
+      LOGGER.info("Waiting for new jobModel to be published");
+      jobModelVersion = zkUtils.getJobModelVersion();
+      jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
+      ssps = getSystemStreamPartitions(jobModel);
+
+      if (ssps.size() == 64) {
+        break;
+      }
+      Thread.sleep(jobModelWaitTimeInMillis);
+    }
+
+    // Validate that the input partition count is 64 in the new JobModel.
+    Assert.assertEquals(64, ssps.size());
+
+    // Generate the correct task assignments after the input stream expansion.
+    expectedTaskAssignments = new HashMap<>();
+    for (int partition = 0; partition < 32; ++partition) {
+      TaskName taskName = new TaskName(String.format("Partition %d", partition));
+      SystemStreamPartition ssp = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic, new Partition(partition));
+      SystemStreamPartition expandedSSP = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic, new Partition(partition + 32));
+      expectedTaskAssignments.put(taskName, ImmutableSet.of(ssp, expandedSSP));
+    }
+
+    // Validate that the new JobModel has the expected task assignments.
+    actualTaskAssignments = getTaskAssignments(jobModel);
+
+    for (Map.Entry<TaskName, Set<SystemStreamPartition>> entry : expectedTaskAssignments.entrySet()) {
+      TaskName taskName = entry.getKey();
+      Set<SystemStreamPartition> expectedSSPs = entry.getValue();
+      Assert.assertTrue(actualTaskAssignments.containsKey(taskName));
+      Set<SystemStreamPartition> actualSSPs = actualTaskAssignments.get(taskName);
+      Assert.assertEquals(expectedSSPs, actualSSPs);
+    }
+
+    Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
+    Assert.assertEquals(32, jobModel.maxChangeLogStreamPartitions);
+  }
+
+  /**
+   * A. Create a input kafka topic: T1 with partition count set to 32.
+   * B. Create a input kafka topic: T2 with partition count set to 32.
+   * C. Create and launch a stateful samza application which consumes events from the kafka topics: T1 and T2.
+   * D. Validate that the {@link JobModel} contains 32 {@link SystemStreamPartition}'s of T1 and 32 {@link SystemStreamPartition}'s of T2.
+   * E. Increase the partition count of the input kafka topic: T1 to 64.
+   * F. Increase the partition count of the input kafka topic: T2 to 64.
+   * G. Validate that the new {@link JobModel} contains 64 {@link SystemStreamPartition}'s of T1, T2 and the input
+   * SystemStreamPartitions are mapped to the correct task.
+   */
+  @Test
+  public void testStatefulSamzaApplicationShouldRedistributeInputPartitionsToCorrectTasksWhenMultipleInputStreamsAreExpanded() throws Exception {
+    // Setup the two input kafka topics.
+    String statefulInputKafkaTopic1 = String.format("test-input-topic-%s", UUID.randomUUID().toString());
+    String statefulInputKafkaTopic2 = String.format("test-input-topic-%s", UUID.randomUUID().toString());
+    createTopic(statefulInputKafkaTopic1, 32, 1);
+    createTopic(statefulInputKafkaTopic2, 32, 1);
+
+    // Generate configuration for the test.
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, false, Optional.of("test-store-redistribute-partitions"));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
+    Config applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+
+    // Publish events into the input kafka topics.
+    publishKafkaEvents(statefulInputKafkaTopic1, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+    publishKafkaEvents(statefulInputKafkaTopic2, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    // Create and launch the StreamApplication from configuration.
+    CountDownLatch kafkaEventsConsumedLatch1 = new CountDownLatch(NUM_KAFKA_EVENTS);
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(statefulInputKafkaTopic1, statefulInputKafkaTopic2), outputKafkaTopic, processedMessagesLatch1, null, kafkaEventsConsumedLatch1,
+        applicationConfig1), applicationConfig1);
+
+    executeRun(appRunner1, applicationConfig1);
+    processedMessagesLatch1.await();
+    kafkaEventsConsumedLatch1.await();
+
+    // Generate the correct task assignments before the input stream expansion.
+    Map<TaskName, Set<SystemStreamPartition>> expectedTaskAssignments = new HashMap<>();
+    for (int partition = 0; partition < 32; ++partition) {
+      TaskName taskName = new TaskName(String.format("Partition %d", partition));
+      SystemStreamPartition systemStreamPartition1 = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic1, new Partition(partition));
+      SystemStreamPartition systemStreamPartition2 = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic2, new Partition(partition));
+      expectedTaskAssignments.put(taskName, ImmutableSet.of(systemStreamPartition1, systemStreamPartition2));
+    }
+
+    // Read the latest JobModel for validation.
+    String jobModelVersion = zkUtils.getJobModelVersion();
+    JobModel jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
+    List<SystemStreamPartition> ssps = getSystemStreamPartitions(jobModel);
+
+    // Validate that the input 64 partitions are present in JobModel.
+    Assert.assertEquals(64, ssps.size());
+
+    // Validate that the new JobModel has the expected task assignments before the input stream expansion.
+    Map<TaskName, Set<SystemStreamPartition>> actualTaskAssignments = getTaskAssignments(jobModel);
+    Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
+
+    // Increase the partition count of the input kafka topic1 to 64.
+    increasePartitionsTo(statefulInputKafkaTopic1, 64);
+
+    // Increase the partition count of the input kafka topic2 to 64.
+    increasePartitionsTo(statefulInputKafkaTopic2, 64);
+
+    // Wait for the JobModel version to change due to the increase in the input partition count.
+    long jobModelWaitTimeInMillis = 10;
+    while (true) {
+      LOGGER.info("Waiting for new jobModel to be published");
+      jobModelVersion = zkUtils.getJobModelVersion();
+      jobModel = JobModelUtil.readJobModel(jobModelVersion, zkMetadataStore);
+      ssps = getSystemStreamPartitions(jobModel);
+
+      if (ssps.size() == 128) {
+        break;
+      }
+
+      Thread.sleep(jobModelWaitTimeInMillis);
+    }
+
+    // Validate that the input partition count is 128 in the new JobModel.
+    Assert.assertEquals(128, ssps.size());
+
+    // Generate the correct task assignments after the input stream expansion.
+    expectedTaskAssignments = new HashMap<>();
+    for (int partition = 0; partition < 32; ++partition) {
+      TaskName taskName = new TaskName(String.format("Partition %d", partition));
+      SystemStreamPartition ssp1 = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic1, new Partition(partition));
+      SystemStreamPartition expandedSSP1 = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic1, new Partition(partition + 32));
+      SystemStreamPartition ssp2 = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic2, new Partition(partition));
+      SystemStreamPartition expandedSSP2 = new SystemStreamPartition(TEST_SYSTEM, statefulInputKafkaTopic2, new Partition(partition + 32));
+      expectedTaskAssignments.put(taskName, ImmutableSet.of(ssp1, expandedSSP1, ssp2, expandedSSP2));
+    }
+
+    // Validate that the new JobModel has the expected task assignments.
+    actualTaskAssignments = getTaskAssignments(jobModel);
+    Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
+    Assert.assertEquals(32, jobModel.maxChangeLogStreamPartitions);
+  }
+
+  @Test
+  public void testApplicationShutdownShouldBeIndependentOfPerMessageProcessingTime() throws Exception {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    // Create a TaskApplication with only one task per container.
+    // The task does not invokes taskCallback.complete for any of the dispatched message.
+    CountDownLatch shutdownLatch = new CountDownLatch(1);
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+
+    TaskApplication taskApplication = new TestTaskApplication(TEST_SYSTEM, inputKafkaTopic, outputKafkaTopic, processedMessagesLatch1, shutdownLatch);
+    MapConfig taskApplicationConfig = new MapConfig(ImmutableList.of(applicationConfig1,
+        ImmutableMap.of(TaskConfig.MAX_CONCURRENCY, "1", JobConfig.SSP_GROUPER_FACTORY, "org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory")));
+    ApplicationRunner appRunner = ApplicationRunners.getApplicationRunner(taskApplication, taskApplicationConfig);
+
+    // Run the application.
+    executeRun(appRunner, applicationConfig1);
+
+    // Wait for the task to receive at least one dispatched message.
+    processedMessagesLatch1.await();
+
+    // Kill the application when none of the dispatched messages is acknowledged as completed by the task.
+    appRunner.kill();
+    appRunner.waitForFinish();
+
+    // Expect the shutdown latch to be triggered.
+    shutdownLatch.await();
+
+    // Assert that the shutdown was successful.
+    Assert.assertEquals(ApplicationStatus.SuccessfulFinish, appRunner.status());
+  }
+
+  /**
+   * Test if two processors coming up at the same time agree on a single runid
+   * 1. bring up two processors
+   * 2. wait till they start consuimg messages
+   * 3. check if first processor run.id matches that of second processor
+   */
+  @Test
+  public void testAgreeingOnSameRunIdForBatch() throws InterruptedException {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, true, Optional.empty());
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
+    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[1]);
+    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+
+
+    // Create StreamApplication from configuration.
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, null,
+        applicationConfig2), applicationConfig2);
+
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
+
+    processedMessagesLatch1.await();
+    processedMessagesLatch2.await();
+
+    // At this stage, both the processors are running.
+    // check if their runId matches
+
+    LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
+    LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
+
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
+
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+  }
+
+
+  /**
+   * Test if a new processors joining an existing qurorum get the same runid
+   * 1. bring up two processors
+   * 2. wait till they start consuming messages
+   * 3. bring up a third processor
+   * 4. wait till third processor starts consuming messsages
+   * 5. check if third processor run.id matches that of first twp
+   */
+  @Test
+  public void testNewProcessorGetsSameRunIdForBatch() throws InterruptedException {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, true, Optional.empty());
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
+    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[1]);
+    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[2]);
+    applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
+
+    // Create StreamApplication from configuration.
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, null,
+        applicationConfig2), applicationConfig2);
+
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
+
+    processedMessagesLatch1.await();
+    processedMessagesLatch2.await();
+
+    // At this stage, both the processors are running.
+    // check if their runId matches
+
+    LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
+    LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
+
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
+
+    //Bring up a new processsor
+    CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch3, null, null,
+        applicationConfig3), applicationConfig3);
+    executeRun(appRunner3, applicationConfig3);
+    processedMessagesLatch3.await();
+
+    // At this stage, the new processor is running.
+    // check if new processor's runId matches that of the older processors
+    LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
+    assertEquals("RunId of the new processor does not match that of old processor", localApplicationRunner3.getRunId(), localApplicationRunner1.getRunId());
+
+
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+  }
+
+
+  /**
+   * Test one group of processors dying and a new processor coming up generates new run.id
+   * 1. bring up two processors
+   * 2. wait till they start consuimg messages
+   * 3. kill and shutdown neatly both the processors
+   * 4. bring up a new processor
+   * 5. wait till new processor starts consuming messages
+   * 6. check if new processor has new runid different from shutdown processors
+   */
+  @Test
+  public void testAllProcesssorDieNewProcessorGetsNewRunIdForBatch() throws InterruptedException {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, true, Optional.empty());
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
+    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[1]);
+    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[2]);
+    applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
+
+    // Create StreamApplication from configuration.
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, null,
+        applicationConfig2), applicationConfig2);
+
+    executeRun(appRunner1, applicationConfig1);
+    executeRun(appRunner2, applicationConfig2);
+
+    processedMessagesLatch1.await();
+    processedMessagesLatch2.await();
+
+    // At this stage, both the processors are running.
+    // check if their runId matches
+
+    LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
+    LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
+
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
+
+    String oldRunId = localApplicationRunner1.getRunId().get();
+
+    // shut down both the processors
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+
+    //Bring up a new processsor
+    CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch3, null, null,
+        applicationConfig3), applicationConfig3);
+    executeRun(appRunner3, applicationConfig3);
+    processedMessagesLatch3.await();
+
+    // At this stage, the new processor is running.
+    // check if new processor's runId matches that of the older processors
+    LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
+
+    assertNotEquals("RunId of the new processor same as that of old stopped processors", oldRunId, localApplicationRunner3.getRunId());
+
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+  }
+
+
+  /**
+   * Test if first processor dying changes the runid for new processors joining
+   * 1. bring up two processors
+   * 2. wait till they start consuimg messages
+   * 3. kill and shutdown first processor
+   * 4. bring up a new processor
+   * 5. wait till new processor starts consuming messages
+   * 6. check if new processor gets same run.id
+   */
+  @Test
+  public void testFirstProcessorDiesButSameRunIdForBatch() throws InterruptedException {
+    publishKafkaEvents(inputKafkaTopic, 0, NUM_KAFKA_EVENTS, PROCESSOR_IDS[0]);
+
+    Map<String, String> configMap =
+        buildStreamApplicationConfigMap(testStreamAppName, testStreamAppId, true, Optional.empty());
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[0]);
+    applicationConfig1 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[1]);
+    applicationConfig2 = new ApplicationConfig(new MapConfig(configMap));
+    configMap.put(JobConfig.PROCESSOR_ID, PROCESSOR_IDS[2]);
+    applicationConfig3 = new ApplicationConfig(new MapConfig(configMap));
+
+    CountDownLatch processedMessagesLatch1 = new CountDownLatch(1);
+    ApplicationRunner appRunner1 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch1, null, null,
+        applicationConfig1), applicationConfig1);
+    executeRun(appRunner1, applicationConfig1);
+
+    // firt processor is up and running
+    processedMessagesLatch1.await();
+
+    LocalApplicationRunner localApplicationRunner1 = (LocalApplicationRunner) appRunner1;
+
+    // bring up second processor
+    CountDownLatch processedMessagesLatch2 = new CountDownLatch(1);
+    ApplicationRunner appRunner2 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch2, null, null,
+        applicationConfig2), applicationConfig2);
+    executeRun(appRunner2, applicationConfig2);
+
+    // second processor is up and running
+    processedMessagesLatch2.await();
+    LocalApplicationRunner localApplicationRunner2 = (LocalApplicationRunner) appRunner2;
+
+    assertEquals("RunId of the two processors does not match", localApplicationRunner2.getRunId(), localApplicationRunner1.getRunId());
+
+    // shut down first processor
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+
+    //Bring up a new processsor
+    CountDownLatch processedMessagesLatch3 = new CountDownLatch(1);
+    ApplicationRunner appRunner3 = ApplicationRunners.getApplicationRunner(TestStreamApplication.getInstance(
+        TEST_SYSTEM, ImmutableList.of(inputKafkaTopic), outputKafkaTopic, processedMessagesLatch3, null, null,
+        applicationConfig3), applicationConfig3);
+    executeRun(appRunner3, applicationConfig3);
+    processedMessagesLatch3.await();
+
+    // At this stage, the new processor is running.
+    // check if new processor runid matches the old ones
+    LocalApplicationRunner localApplicationRunner3 = (LocalApplicationRunner) appRunner3;
+    assertEquals("RunId of the new processor is not the same as that of earlier processors", localApplicationRunner2.getRunId(), localApplicationRunner3.getRunId());
+
+
+    appRunner2.kill();
+    appRunner2.waitForFinish();
+    appRunner3.kill();
+    appRunner3.waitForFinish();
+  }
+
+  /**
+   * Computes the task to partition assignment of the {@param JobModel}.
+   * @param jobModel the jobModel to compute task to partition assignment for.
+   * @return the computed task to partition assignments of the {@param JobModel}.
+   */
+  private static Map<TaskName, Set<SystemStreamPartition>> getTaskAssignments(JobModel jobModel) {
+    Map<TaskName, Set<SystemStreamPartition>> taskAssignments = new HashMap<>();
+    for (Map.Entry<String, ContainerModel> entry : jobModel.getContainers().entrySet()) {
+      Map<TaskName, TaskModel> tasks = entry.getValue().getTasks();
+      for (TaskModel taskModel : tasks.values()) {
+        if (!taskAssignments.containsKey(taskModel.getTaskName())) {
+          taskAssignments.put(taskModel.getTaskName(), new HashSet<>());
+        }
+        if (taskModel.getTaskMode() == TaskMode.Active) {
+          taskAssignments.get(taskModel.getTaskName()).addAll(taskModel.getSystemStreamPartitions());
+        }
+      }
+    }
+    return taskAssignments;
+  }
+
+  private static List<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {
+    List<SystemStreamPartition> ssps = new ArrayList<>();
     jobModel.getContainers().forEach((containerName, containerModel) -> {
         containerModel.getTasks().forEach((taskName, taskModel) -> ssps.addAll(taskModel.getSystemStreamPartitions()));
       });
     return ssps;
+  }
+
+  public static class MockStoreFactory implements StorageEngineFactory<Object, Object> {
+    @Override
+    public StorageEngine getStorageEngine(String storeName,
+        File storeDir,
+        Serde<Object> keySerde,
+        Serde<Object> msgSerde,
+        MessageCollector collector,
+        MetricsRegistry registry,
+        SystemStreamPartition changeLogSystemStreamPartition,
+        JobContext jobContext,
+        ContainerContext containerContext, StoreMode storeMode) {
+      StoreProperties storeProperties = new StoreProperties.StorePropertiesBuilder().setLoggedStore(false).build();
+      return new MockStorageEngine(storeName, storeDir, changeLogSystemStreamPartition, storeProperties);
+    }
   }
 }

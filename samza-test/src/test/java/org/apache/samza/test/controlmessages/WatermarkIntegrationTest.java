@@ -19,9 +19,9 @@
 
 package org.apache.samza.test.controlmessages;
 
+import org.apache.samza.config.TaskConfig;
 import scala.collection.JavaConverters;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,7 +35,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.TaskInstance;
 import org.apache.samza.container.TaskName;
@@ -65,12 +64,11 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.task.AsyncStreamTaskAdapter;
 import org.apache.samza.task.StreamOperatorTask;
 import org.apache.samza.task.TestStreamOperatorTask;
 import org.apache.samza.test.controlmessages.TestData.PageView;
 import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.SimpleSystemAdmin;
 import org.apache.samza.test.util.TestStreamConsumer;
 import org.junit.Test;
@@ -78,7 +76,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 
-public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
+public class WatermarkIntegrationTest extends IntegrationTestHarness {
 
   private static int offset = 1;
   private static final String TEST_SYSTEM = "test";
@@ -130,10 +128,10 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.partitionCount", String.valueOf(PARTITION_COUNT));
 
-    configs.put(JobConfig.JOB_NAME(), "test-watermark-job");
-    configs.put(JobConfig.PROCESSOR_ID(), "1");
+    configs.put(JobConfig.JOB_NAME, "test-watermark-job");
+    configs.put(JobConfig.PROCESSOR_ID, "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
-    configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 
     configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
     configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());
@@ -198,10 +196,7 @@ public class WatermarkIntegrationTest extends AbstractIntegrationTestHarness {
     Map<TaskName, TaskInstance> taskInstances = JavaConverters.mapAsJavaMapConverter(container.getTaskInstances()).asJava();
     Map<String, StreamOperatorTask> tasks = new HashMap<>();
     for (Map.Entry<TaskName, TaskInstance> entry : taskInstances.entrySet()) {
-      AsyncStreamTaskAdapter adapter = (AsyncStreamTaskAdapter) entry.getValue().task();
-      Field field = AsyncStreamTaskAdapter.class.getDeclaredField("wrappedTask");
-      field.setAccessible(true);
-      StreamOperatorTask task = (StreamOperatorTask) field.get(adapter);
+      StreamOperatorTask task = (StreamOperatorTask) entry.getValue().task();
       tasks.put(entry.getKey().getTaskName(), task);
     }
     return tasks;

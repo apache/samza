@@ -37,24 +37,24 @@ Please follow the instructions from the [Kafka quickstart](http://kafka.apache.o
 
 The below sql statements requires a topic named ProfileChangeStream to be created on the Kafka broker. You can follow the instructions in the [Kafka quick start guide](http://kafka.apache.org/quickstart) to create a topic named "ProfileChangeStream".
 
-{% highlight bash %}
+```bash
 ./deploy/kafka/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic ProfileChangeStream
-{% endhighlight %}
+```
 
 ## Generate events into ProfileChangeStream topic
 
 Use generate-kafka-events from [Samza tools](samza-tools.html) to generate events into the ProfileChangeStream
 
-{% highlight bash %}
+```bash
 cd samza-tools-<version>
 ./scripts/generate-kafka-events.sh -t ProfileChangeStream -e ProfileChange
-{% endhighlight %}
+```
 
 ## Using Samza SQL Console to run Samza sql on your local machine
 
 Below are some of the sql queries that you can execute using the samza-sql-console tool from [Samza tools](samza-tools.html) package.
 
-{% highlight bash %}
+```bash
 # This command just prints out all the events in the Kafka topic ProfileChangeStream into console output as a json serialized payload.
 ./scripts/samza-sql-console.sh --sql "insert into log.consoleoutput select * from kafka.ProfileChangeStream"
 
@@ -63,8 +63,7 @@ Below are some of the sql queries that you can execute using the samza-sql-conso
 
 # This command showcases the RegexMatch udf and filtering capabilities.
 ./scripts/samza-sql-console.sh --sql "insert into log.consoleoutput select Name as __key__, Name, NewCompany, RegexMatch('.*soft', OldCompany) from kafka.ProfileChangeStream where NewCompany = 'LinkedIn'"
-{% endhighlight %}
-
+```
 
 # Running Samza SQL on YARN
 
@@ -88,14 +87,14 @@ Before you can run a Samza application, you need to build a package for it. Plea
 
 After you've built your Samza package, you can start the app on the grid using the run-app.sh script.
 
-{% highlight bash %}
+```bash
 ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/page-view-filter-sql.properties
-{% endhighlight %}
+```
 
 The app executes the following SQL command :
-{% highlight sql %}
+```sql
 insert into kafka.NewLinkedInEmployees select Name from ProfileChangeStream where NewCompany = 'LinkedIn'
-{% endhighlight %}
+```
 
 This SQL performs the following
 
@@ -106,18 +105,17 @@ This SQL performs the following
 
 Give the job a minute to startup, and then tail the Kafka topic:
 
-{% highlight bash %}
+```bash
 ./deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic NewLinkedInEmployees
-{% endhighlight %}
-
+```
 
 Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza SQL application on it.
 
 ## Shutdown and cleanup
 
 To shutdown the app, use the same _run-app.sh_ script with an extra _--operation=kill_ argument
-{% highlight bash %}
+```bash
 ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/page-view-filter-sql.properties --operation=kill
-{% endhighlight %}
+```
 
 Please follow the instructions from [Hello Samza High Level API - YARN Deployment](hello-samza-high-level-yarn.html) on how to shutdown and cleanup the app.

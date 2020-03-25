@@ -26,8 +26,7 @@
         {
             "name": "id",
             "doc": "Profile id.",
-            "type": ["null", "int"],
-            "default":null
+            "type": ["null", "int"]
         },
         {
             "name": "name",

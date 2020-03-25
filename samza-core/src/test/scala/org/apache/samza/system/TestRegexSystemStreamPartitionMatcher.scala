@@ -52,7 +52,7 @@ class TestRegexSystemStreamPartitionMatcher {
       JobConfig.STREAM_JOB_FACTORY_CLASS -> classOf[ThreadJobFactory].getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CLASS_REGEX,
       JobConfig.SSP_MATCHER_CONFIG_REGEX -> regex,
-      (SystemConfig.SYSTEM_FACTORY format "test") -> classOf[MockSystemFactory].getCanonicalName).asJava)
+      (SystemConfig.SYSTEM_FACTORY_FORMAT format "test") -> classOf[MockSystemFactory].getCanonicalName).asJava)
   }
 
   @Test
@@ -70,7 +70,7 @@ class TestRegexSystemStreamPartitionMatcher {
       TaskConfig.INPUT_STREAMS -> "test.stream1",
       JobConfig.STREAM_JOB_FACTORY_CLASS -> classOf[ThreadJobFactory].getCanonicalName,
       JobConfig.SSP_MATCHER_CLASS -> JobConfig.SSP_MATCHER_CONFIG_REGEX,
-      (SystemConfig.SYSTEM_FACTORY format "test") -> classOf[MockSystemFactory].getCanonicalName).asJava)
+      (SystemConfig.SYSTEM_FACTORY_FORMAT format "test") -> classOf[MockSystemFactory].getCanonicalName).asJava)
 
     new RegexSystemStreamPartitionMatcher().filter(sspSet.asJava, config)
   }

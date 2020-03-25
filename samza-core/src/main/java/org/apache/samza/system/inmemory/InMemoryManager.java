@@ -19,6 +19,9 @@
 
 package org.apache.samza.system.inmemory;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -28,6 +31,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
@@ -68,10 +72,33 @@ class InMemoryManager {
       offset = IncomingMessageEnvelope.END_OF_STREAM_OFFSET;
     }
 
-    IncomingMessageEnvelope messageEnvelope = new IncomingMessageEnvelope(ssp, offset, key, message);
+    IncomingMessageEnvelope messageEnvelope = new IncomingMessageEnvelope(ssp, offset, key, message,
+        0, 0L, Instant.now().toEpochMilli());
     bufferedMessages.get(ssp)
         .add(messageEnvelope);
   }
+
+  /**
+   * Handles produce request from {@link InMemorySystemProducer} for case where a job has a custom IME and
+   * populates the underlying message queue with the IME.
+   * Note: Offset in the envelope needs to be in the increasing order for envelopes in the same ssp and needs to
+   * start at 0 for the first envelope, otherwise poll logic will be impacted
+   *
+   * @param ssp system stream partition
+   * @param envelope incoming message envelope
+   */
+  void put(SystemStreamPartition ssp, IncomingMessageEnvelope envelope) {
+    Preconditions.checkNotNull(envelope);
+    Preconditions.checkNotNull(envelope.getOffset());
+    List<IncomingMessageEnvelope> messages = bufferedMessages.get(ssp);
+    String offset = String.valueOf(messages.size());
+    if (!envelope.getOffset().equals(offset)) {
+      throw new SamzaException(
+          String.format("Offset mismatch for ssp %s, expected %s found %s, please set the correct offset", ssp, offset, envelope.getOffset()));
+    }
+    bufferedMessages.get(ssp).add(envelope);
+  }
+
 
   /**
    * Handles the poll request from {@link InMemorySystemConsumer}. It uses the input offset as the starting offset for
@@ -153,9 +180,10 @@ class InMemoryManager {
             .entrySet()
             .stream()
             .collect(Collectors.toMap(entry -> entry.getKey().getPartition(), entry -> {
-                String oldestOffset = "0";
-                String newestOffset = String.valueOf(entry.getValue().size());
-                String upcomingOffset = String.valueOf(entry.getValue().size() + 1);
+                List<IncomingMessageEnvelope> messages = entry.getValue();
+                String oldestOffset = messages.isEmpty() ? null : "0";
+                String newestOffset = messages.isEmpty() ? null : String.valueOf(messages.size() - 1);
+                String upcomingOffset = String.valueOf(messages.size());
 
                 return new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset);
 
@@ -172,6 +200,6 @@ class InMemoryManager {
       return new ArrayList<>();
     }
 
-    return messageEnvelopesForSSP.subList(startingOffset, messageEnvelopesForSSP.size());
+    return ImmutableList.copyOf(messageEnvelopesForSSP.subList(startingOffset, messageEnvelopesForSSP.size()));
   }
 }

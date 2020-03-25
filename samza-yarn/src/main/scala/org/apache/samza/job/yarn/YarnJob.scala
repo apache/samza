@@ -18,89 +18,62 @@
  */
 
 package org.apache.samza.job.yarn
+
+import java.lang.Boolean
+
+import com.google.common.annotations.VisibleForTesting
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.ApplicationConstants
 import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.samza.SamzaException
-import org.apache.samza.config.JobConfig.Config2Job
+import org.apache.samza.classloader.DependencyIsolationUtils
 import org.apache.samza.config.{Config, JobConfig, ShellCommandConfig, YarnConfig}
 import org.apache.samza.job.ApplicationStatus.{SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.{ApplicationStatus, StreamJob}
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.apache.samza.util.{CoordinatorStreamUtil, Util}
-import org.slf4j.LoggerFactory
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
+import org.apache.samza.util.{CoordinatorStreamUtil, Logging, Util}
 
 /**
  * Starts the application manager
  */
-class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
+class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob with Logging {
 
   val client = new ClientHelper(hadoopConfig)
   var appId: Option[ApplicationId] = None
   val yarnConfig = new YarnConfig(config)
-  val logger = LoggerFactory.getLogger(this.getClass)
 
   def submit: YarnJob = {
     try {
-      val cmdExec = buildAmCmd()
+      val jobConfig = new JobConfig(config)
+      val cmdExec = YarnJob.buildJobCoordinatorCmd(config, jobConfig)
+      val environment = YarnJob.buildEnvironment(config, this.yarnConfig, jobConfig)
 
       appId = client.submitApplication(
         config,
         List(
-          // we need something like this:
-          //"export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec <fwk_path>/bin/run-am.sh 1>logs/%s 2>logs/%s"
-
           "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s"
             format (ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR,
             cmdExec, ApplicationConstants.STDOUT, ApplicationConstants.STDERR)),
-        Some({
-          val coordinatorSystemConfig = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
-          val envMap = Map(
-            ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG -> Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString
-            (coordinatorSystemConfig)),
-            ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(yarnConfig.getAmOpts))
-          val amJavaHome = yarnConfig.getAMJavaHome
-          val envMapWithJavaHome = if (amJavaHome == null) {
-            envMap
-          } else {
-            envMap + (ShellCommandConfig.ENV_JAVA_HOME -> amJavaHome)
-          }
-          envMapWithJavaHome
-        }),
-        Some("%s_%s" format(config.getName.get, config.getJobId))
+        Some(environment),
+        Some("%s_%s" format(jobConfig.getName.get, jobConfig.getJobId))
       )
     } catch {
       case e: Throwable =>
-        client.cleanupStagingDir
-        throw e
+        logger.error("Exception submitting yarn job.", e )
+        try {
+          // try to clean up. this may throw an exception depending on how far into launching the job we got.
+          // we don't want to mask the original problem by throwing this.
+          client.cleanupStagingDir
+        } catch {
+          case ce: Throwable => logger.warn("Exception cleaning Staging Directory after failed launch attempt.", ce)
+        } finally {
+          throw e
+        }
     }
 
     this
   }
-
-  def buildAmCmd() =  {
-    // figure out if we have framework is deployed into a separate location
-    val fwkPath = config.get(JobConfig.SAMZA_FWK_PATH, "")
-    var fwkVersion = config.get(JobConfig.SAMZA_FWK_VERSION)
-    if (fwkVersion == null || fwkVersion.isEmpty()) {
-      fwkVersion = "STABLE"
-    }
-    logger.info("Inside YarnJob: fwk_path is %s, ver is %s use it directly " format(fwkPath, fwkVersion))
-
-    var cmdExec = "./__package/bin/run-jc.sh" // default location
-
-    if (!fwkPath.isEmpty()) {
-      // if we have framework installed as a separate package - use it
-      cmdExec = fwkPath + "/" + fwkVersion + "/bin/run-jc.sh"
-
-      logger.info("Using FWK path: " + "export SAMZA_LOG_DIR=%s && ln -sfn %s logs && exec %s 1>logs/%s 2>logs/%s".
-             format(ApplicationConstants.LOG_DIR_EXPANSION_VAR, ApplicationConstants.LOG_DIR_EXPANSION_VAR, cmdExec,
-                    ApplicationConstants.STDOUT, ApplicationConstants.STDERR))
-
-    }
-    cmdExec
-  }
-
 
   def waitForFinish(timeoutMs: Long): ApplicationStatus = {
     val startTimeMs = System.currentTimeMillis()
@@ -167,9 +140,10 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
        appId
       case None =>
         // Get by name
-        config.getName match {
+        val jobConfig = new JobConfig(config)
+        JavaOptionals.toRichOptional(jobConfig.getName).toOption match {
           case Some(jobName) =>
-            val applicationName = "%s_%s" format(jobName, config.getJobId)
+            val applicationName = "%s_%s" format(jobName, jobConfig.getJobId)
             logger.info("Fetching status from YARN for application name %s" format applicationName)
             val applicationIds = client.getActiveApplicationIds(applicationName)
 
@@ -188,5 +162,54 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob {
             None
         }
     }
+  }
+}
+
+object YarnJob extends Logging {
+  /**
+    * Build the environment variable map for the job coordinator execution.
+    * Passing multiple separate config objects so that they can be reused for other logic.
+    */
+  @VisibleForTesting
+  private[yarn] def buildEnvironment(config: Config, yarnConfig: YarnConfig,
+    jobConfig: JobConfig): Map[String, String] = {
+    val envMapBuilder = Map.newBuilder[String, String]
+    if (jobConfig.getConfigLoaderFactory.isPresent) {
+      envMapBuilder += ShellCommandConfig.ENV_SUBMISSION_CONFIG ->
+        Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(config))
+    } else {
+      // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
+      val coordinatorSystemConfig = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
+      envMapBuilder += ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG ->
+        Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(coordinatorSystemConfig))
+    }
+    envMapBuilder += ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(yarnConfig.getAmOpts)
+    val clusterBasedJobCoordinatorDependencyIsolationEnabled =
+      jobConfig.getClusterBasedJobCoordinatorDependencyIsolationEnabled
+    envMapBuilder += ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED ->
+      Util.envVarEscape(Boolean.toString(clusterBasedJobCoordinatorDependencyIsolationEnabled))
+    if (clusterBasedJobCoordinatorDependencyIsolationEnabled) {
+      // dependency isolation is enabled, so need to specify where the application lib directory is for app resources
+      envMapBuilder += ShellCommandConfig.ENV_APPLICATION_LIB_DIR ->
+        Util.envVarEscape(String.format("./%s/lib", DependencyIsolationUtils.APPLICATION_DIRECTORY))
+    }
+    Option.apply(yarnConfig.getAMJavaHome).foreach {
+      amJavaHome => envMapBuilder += ShellCommandConfig.ENV_JAVA_HOME -> amJavaHome
+    }
+    envMapBuilder.result()
+  }
+
+  /**
+    * Build the command for the job coordinator execution.
+    * Passing multiple separate config objects so that they can be reused in other places.
+    */
+  @VisibleForTesting
+  private[yarn] def buildJobCoordinatorCmd(config: Config, jobConfig: JobConfig): String = {
+    var cmdExec = "./__package/bin/run-jc.sh" // default location
+    if (jobConfig.getClusterBasedJobCoordinatorDependencyIsolationEnabled) {
+      cmdExec = "./%s/bin/run-jc.sh" format DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY
+      logger.info("Using isolated cluster-based job coordinator path: %s" format cmdExec)
+    }
+    cmdExec
   }
 }

@@ -63,7 +63,7 @@ class CheckpointSerde extends Serde[Checkpoint] with Logging {
         val partition = m.get("partition")
         require(partition != null, "Partition must be present in JSON-encoded SystemStreamPartition")
         val offset = m.get("offset")
-        require(offset != null, "Offset must be present in JSON-encoded SystemStreamPartition")
+        // allow null offsets, e.g. for changelog ssps
 
         new SystemStreamPartition(system, stream, new Partition(partition.toInt)) -> offset
       }

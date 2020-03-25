@@ -29,6 +29,7 @@ title: High Level Streams API
 - [Operators](#operators)
   - [Map](#map)
   - [FlatMap](#flatmap)
+  - [AsyncFlatMap](#asyncflatmap)
   - [Filter](#filter)
   - [PartitionBy](#partitionby)
   - [Merge](#merge)
@@ -55,7 +56,7 @@ Samza's flexible High Level Streams API lets you describe your complex stream pr
 
 - The [Filter example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/FilterExample.java) demonstrates how to perform stateless operations on a stream. 
 
-- The [Join example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/JoinExample.java]) demonstrates how you can join a Kafka stream of page-views with a stream of ad-clicks
+- The [Join example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/JoinExample.java) demonstrates how you can join a Kafka stream of page-views with a stream of ad-clicks
 
 - The [Stream-Table Join example](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/RemoteTableJoinExample.java) demonstrates how to use the Samza Table API. It joins a Kafka stream with a remote dataset accessed through a REST service.
 
@@ -141,6 +142,26 @@ Applies the provided 1:n [FlatMapFunction](javadocs/org/apache/samza/operators/f
         Arrays.asList(sentence.split(“ ”))
 
 {% endhighlight %}
+
+#### AsyncFlatMap
+Applies the provided 1:n [AsyncFlatMapFunction](javadocs/org/apache/samza/operators/functions/AsyncFlatMapFunction) to each element in the MessageStream and returns the transformed MessageStream. The AsyncFlatMapFunction takes in a single message and returns a future of zero or more messages.
+
+{% highlight java %}
+
+    RestClient restClient = ...
+    MessageStream<String> words = ...
+    // Transform each incoming word into its meaning using a dictionary look up service
+    MessageStream<String> meanings = words.asyncFlatMap(word -> {
+       // Builds a look up request to the dictionary service
+       Request<String> dictionaryRequest = buildDictionaryRequest(word);
+       CompletableFuture<DictionaryResponse> dictionaryResponseFuture = restClient.sendRequest(dictionaryRequest);
+       return dictionaryResponseFuture
+            .thenApply(response -> new Pair<>(word, response.getMeaning()));
+    });
+
+{% endhighlight %}
+
+For more details on asynchronous processing, see [Samza Async API and Multithreading User Guide](../../../tutorials/{{site.version}}/samza-async-user-guide)
 
 #### Filter
 Applies the provided [FilterFunction](javadocs/org/apache/samza/operators/functions/FilterFunction) to the MessageStream and returns the filtered MessageStream. The FilterFunction is a predicate that specifies whether a message should be retained in the filtered stream. Messages for which the FilterFunction returns false are filtered out.

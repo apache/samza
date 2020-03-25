@@ -20,23 +20,37 @@
 package org.apache.samza.test.performance
 
 import java.io.File
+import java.util
 import java.util.concurrent.TimeUnit
-import java.util.{Collections, UUID}
+import java.util.Collections
+import java.util.UUID
 
 import com.google.common.base.Stopwatch
-import org.apache.samza.config.Config
-import org.apache.samza.config.StorageConfig._
+import com.google.common.collect.ImmutableList
+import com.google.common.collect.ImmutableMap
+import org.apache.commons.lang.RandomStringUtils
+import org.apache.samza.config.{Config, JobConfig, MapConfig, StorageConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.context.{ContainerContextImpl, JobContextImpl}
-import org.apache.samza.job.model.{ContainerModel, TaskModel}
+import org.apache.samza.context.ContainerContextImpl
+import org.apache.samza.context.JobContextImpl
+import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.MetricsRegistryMap
-import org.apache.samza.serializers.{ByteSerde, SerdeManager, UUIDSerde}
+import org.apache.samza.serializers.ByteSerde
+import org.apache.samza.serializers.SerdeManager
+import org.apache.samza.serializers.UUIDSerde
 import org.apache.samza.storage.StorageEngineFactory
-import org.apache.samza.storage.kv.{KeyValueStorageEngine, KeyValueStore}
-import org.apache.samza.system.{SystemProducer, SystemProducers, SystemStreamPartition}
+import org.apache.samza.storage.StorageEngineFactory.StoreMode
+import org.apache.samza.storage.kv.KeyValueStorageEngine
+import org.apache.samza.storage.kv.KeyValueStore
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemProducers
+import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.task.TaskInstanceCollector
-import org.apache.samza.util.{CommandLine, FileUtil, Logging, Util}
-import org.apache.samza.{Partition, SamzaException}
+import org.apache.samza.util.{CommandLine, FileUtil, Logging, ReflectionUtil}
+import org.apache.samza.Partition
+import org.apache.samza.SamzaException
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.collection.JavaConverters._
 import scala.util.Random
@@ -59,6 +73,7 @@ import scala.util.Random
 
 object TestKeyValuePerformance extends Logging {
   val Encoding = "UTF-8"
+  val JobId = RandomStringUtils.random(10)
 
   val testMethods: Map[String, (KeyValueStorageEngine[Array[Byte], Array[Byte]], Config) => Unit] = Map(
     "all-with-deletes" -> runTestAllWithDeletes,
@@ -76,7 +91,10 @@ object TestKeyValuePerformance extends Logging {
     tests.foreach{ test =>
       info("Running test: %s" format test)
       if(testMethods.contains(test)) {
-        invokeTest(test, testMethods(test), config.subset("test." + test + ".", true))
+        val testConfig: util.Map[String, String] = new MapConfig(config.subset("test." + test + ".", true))
+        val jobConfig: util.Map[String, String] = ImmutableMap.of(JobConfig.JOB_NAME, test, JobConfig.JOB_ID, JobId)
+        val combinedConfig: Config = new MapConfig(ImmutableList.of(testConfig, jobConfig))
+        invokeTest(test, testMethods(test), combinedConfig)
       } else {
         error("Invalid test method. valid methods are: %s" format testMethods.keys)
         throw new SamzaException("Unknown test method: %s" format test)
@@ -98,18 +116,20 @@ object TestKeyValuePerformance extends Logging {
       Map[String, SystemProducer](),
       new SerdeManager
     )
+    val storageConfig = new StorageConfig(config)
     // Build a Map[String, StorageEngineFactory]. The key is the store name.
-    val storageEngineMappings = config
-      .getStoreNames
+    val storageEngineMappings = storageConfig
+      .getStoreNames.asScala
       .map(storeName => {
         val storageFactoryClassName =
-          config.getStorageFactoryClassName(storeName)
+          JavaOptionals.toRichOptional(storageConfig.getStorageFactoryClassName(storeName)).toOption
                 .getOrElse(throw new SamzaException("Missing storage factory for %s." format storeName))
-        (storeName, Util.getObj(storageFactoryClassName, classOf[StorageEngineFactory[Array[Byte], Array[Byte]]]))
+        (storeName, ReflectionUtil.getObj(storageFactoryClassName,
+          classOf[StorageEngineFactory[Array[Byte], Array[Byte]]]))
     })
 
     for((storeName, storageEngine) <- storageEngineMappings) {
-      val testSetCount = config.getInt("set.count", 1)
+      val testSetCount = storageConfig.getInt("set.count", 1)
       (1 to testSetCount).foreach(testSet => {
         //Create a new DB instance for each test set
         val output = new File("/tmp/" + UUID.randomUUID())
@@ -122,8 +142,8 @@ object TestKeyValuePerformance extends Logging {
           new TaskInstanceCollector(producerMultiplexer),
           new MetricsRegistryMap,
           null,
-          JobContextImpl.fromConfigWithDefaults(config),
-          new ContainerContextImpl(new ContainerModel("0", tasks.asJava), new MetricsRegistryMap)
+          JobContextImpl.fromConfigWithDefaults(storageConfig),
+          new ContainerContextImpl(new ContainerModel("0", tasks.asJava), new MetricsRegistryMap), StoreMode.ReadWrite
         )
 
         val db = if(!engine.isInstanceOf[KeyValueStorageEngine[_,_]]) {
@@ -133,9 +153,9 @@ object TestKeyValuePerformance extends Logging {
         }
 
         // Run the test method
-        testMethod(db, config.subset("set-" + testSet + ".", true))
+        testMethod(db, storageConfig.subset("set-" + testSet + ".", true))
 
-        FileUtil.rm(output)
+        new FileUtil().rm(output)
       })
     }
   }

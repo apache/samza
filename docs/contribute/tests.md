@@ -41,7 +41,7 @@ Samza's unit tests can also be run against all supported permutations of Scala a
 
 To run the tests against a specific combination:
 
-    ./gradlew -PscalaVersion=2.10 -PyarnVersion=2.4.0 clean check
+    ./gradlew -PscalaSuffix=2.11 -PyarnVersion=2.4.0 clean check
 
 To run Samza's unit tests against all permutations, run:
 
@@ -60,7 +60,7 @@ On Mac, check-all.sh will default to the appropriate path for each environment v
 
 Samza uses [Zopkio](https://github.com/linkedin/Zopkio) to deploy and execute its integration tests. Integration tests can be executed by running:
 
-    ./bin/integration-tests.sh /tmp/samza-tests
+    ./bin/integration-tests.sh /tmp/samza-tests [yarn-integration-tests|standalone-integration-tests]
 
 The parameter defines where the integration tests should install packages both locally and on remote systems. Executing this command will:
 
@@ -90,7 +90,7 @@ Zopkio supports public key authentication if you prefer to use it, or if your en
 
 Once this is done, you can run Zopkio with the \-\-nopassword parameter:
 
-    ./bin/integration-tests.sh /tmp/samza-tests --nopassword
+    ./bin/integration-tests.sh /tmp/samza-tests [yarn-integration-tests|standalone-integration-tests] --nopassword
 
 This will skip the password prompt, and force Zopkio to try public key authentication.
 
@@ -98,7 +98,7 @@ This will skip the password prompt, and force Zopkio to try public key authentic
 
 The integration-tests.sh script will set the console log level to INFO by default. The level can be changed with:
 
-    ./bin/integration-tests.sh /tmp/samza-tests --console-log-level DEBUG
+    ./bin/integration-tests.sh /tmp/samza-tests [yarn-integration-tests|standalone-integration-tests] --console-log-level DEBUG
 
 Changing this setting will define how verbose Zopkio is during test execution. It does not affect any of the log4j.xml settings in Samza, YARN, Kafka, or ZooKeeper.
 

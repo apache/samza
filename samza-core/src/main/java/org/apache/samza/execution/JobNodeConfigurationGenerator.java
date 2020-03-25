@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.JobConfig;
@@ -39,7 +41,6 @@ import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.spec.JoinOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
@@ -52,9 +53,9 @@ import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableConfigGenerator;
 import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.MathUtil;
 import org.apache.samza.util.StreamUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,7 +70,9 @@ import org.slf4j.LoggerFactory;
   static final String CONFIG_INTERNAL_EXECUTION_PLAN = "samza.internal.execution.plan";
 
   static Config mergeConfig(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    validateJobConfigs(originalConfig, generatedConfig);
     Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
+
     originalConfig.forEach((k, v) -> {
         if (generatedConfig.containsKey(k) && !Objects.equals(generatedConfig.get(k), v)) {
           LOG.info("Replacing generated config for key: {} value: {} with original config value: {}", k, generatedConfig.get(k), v);
@@ -77,7 +80,28 @@ import org.slf4j.LoggerFactory;
         mergedConfig.put(k, v);
       });
 
-    return Util.rewriteConfig(new MapConfig(mergedConfig));
+    return ConfigUtil.rewriteConfig(new MapConfig(mergedConfig));
+  }
+
+  static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
+    String userConfiguredJobId = originalConfig.get(JobConfig.JOB_ID);
+    String userConfiguredJobName = originalConfig.get(JobConfig.JOB_NAME);
+    String generatedJobId = generatedConfig.get(JobConfig.JOB_ID);
+    String generatedJobName = generatedConfig.get(JobConfig.JOB_NAME);
+
+    if (generatedJobName != null && userConfiguredJobName != null && !StringUtils.equals(generatedJobName,
+        userConfiguredJobName)) {
+      throw new SamzaException(String.format(
+          "Generated job.name = %s from app.name = %s does not match user configured job.name = %s, please configure job.name same as app.name",
+          generatedJobName, originalConfig.get(ApplicationConfig.APP_NAME), userConfiguredJobName));
+    }
+
+    if (generatedJobId != null && userConfiguredJobId != null && !StringUtils.equals(generatedJobId,
+        userConfiguredJobId)) {
+      throw new SamzaException(String.format(
+          "Generated job.id = %s from app.id = %s does not match user configured job.id = %s, please configure job.id same as app.id",
+          generatedJobId, originalConfig.get(ApplicationConfig.APP_ID), userConfiguredJobId));
+    }
   }
 
   JobConfig generateJobConfig(JobNode jobNode, String executionPlanJson) {
@@ -87,8 +111,8 @@ import org.slf4j.LoggerFactory;
 
     Map<String, String> generatedConfig = new HashMap<>();
     // set up job name and job ID
-    generatedConfig.put(JobConfig.JOB_NAME(), jobNode.getJobName());
-    generatedConfig.put(JobConfig.JOB_ID(), jobNode.getJobId());
+    generatedConfig.put(JobConfig.JOB_NAME, jobNode.getJobName());
+    generatedConfig.put(JobConfig.JOB_ID, jobNode.getJobId());
 
     Map<String, StreamEdge> inEdges = jobNode.getInEdges();
     Map<String, StreamEdge> outEdges = jobNode.getOutEdges();
@@ -139,7 +163,7 @@ import org.slf4j.LoggerFactory;
     configureTables(generatedConfig, originalConfig, reachableTables, inputs);
 
     // generate the task.inputs configuration
-    generatedConfig.put(TaskConfig.INPUT_STREAMS(), Joiner.on(',').join(inputs));
+    generatedConfig.put(TaskConfig.INPUT_STREAMS, Joiner.on(',').join(inputs));
 
     LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), generatedConfig);
 
@@ -157,11 +181,11 @@ import org.slf4j.LoggerFactory;
     if (broadcastStreams.isEmpty()) {
       return;
     }
-    String broadcastInputs = config.get(TaskConfigJava.BROADCAST_INPUT_STREAMS);
+    String broadcastInputs = config.get(TaskConfig.BROADCAST_INPUT_STREAMS);
     if (StringUtils.isNotBlank(broadcastInputs)) {
       broadcastStreams.add(broadcastInputs);
     }
-    configs.put(TaskConfigJava.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcastStreams));
+    configs.put(TaskConfig.BROADCAST_INPUT_STREAMS, Joiner.on(',').join(broadcastStreams));
   }
 
   private void configureWindowInterval(Map<String, String> configs, Config config,
@@ -175,7 +199,7 @@ import org.slf4j.LoggerFactory;
     long triggerInterval = computeTriggerInterval(reachableOperators);
     LOG.info("Using triggering interval: {}", triggerInterval);
 
-    configs.put(TaskConfig.WINDOW_MS(), String.valueOf(triggerInterval));
+    configs.put(TaskConfig.WINDOW_MS, String.valueOf(triggerInterval));
   }
 
   /**
@@ -227,7 +251,7 @@ import org.slf4j.LoggerFactory;
                 .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
                 .forEach(systemStream -> {
                     inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
-                    generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX() + StreamConfig.BOOTSTRAP(),
+                    generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX + StreamConfig.BOOTSTRAP,
                         systemStream.getSystem(), systemStream.getStream()), "true");
                   });
           }
@@ -284,31 +308,31 @@ import org.slf4j.LoggerFactory;
     serdes.forEach(serde -> {
         String serdeName = serdeUUIDs.computeIfAbsent(serde,
             s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE(), serdeName),
+        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
             base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
       });
 
     // set key and msg serdes for streams to the serde names generated above
     streamKeySerdes.forEach((streamId, serde) -> {
-        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
-        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE();
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
+        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE;
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     streamMsgSerdes.forEach((streamId, serde) -> {
-        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX(), streamId);
-        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE();
+        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
+        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE;
         configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     // set key and msg serdes for stores to the serde names generated above
     storeKeySerdes.forEach((storeName, serde) -> {
-        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE(), storeName);
+        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE, storeName);
         configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
       });
 
     storeMsgSerdes.forEach((storeName, serde) -> {
-        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE(), storeName);
+        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE, storeName);
         configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
       });
 

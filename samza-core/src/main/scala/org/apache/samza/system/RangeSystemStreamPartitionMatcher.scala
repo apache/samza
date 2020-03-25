@@ -23,13 +23,12 @@ import java.util
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config.{JobConfig, Config}
-import org.apache.samza.config.JobConfig.Config2Job
 import scala.collection.JavaConverters._
 
 class RangeSystemStreamPartitionMatcher extends SystemStreamPartitionMatcher {
 
   override def filter(systemStreamPartitions: util.Set[SystemStreamPartition], config: Config): util.Set[SystemStreamPartition] = {
-    val sspRanges = config.getSSPMatcherConfigRanges
+    val sspRanges = new JobConfig(config).getSSPMatcherConfigRanges
     val ranges: Array[String] = sspRanges.split(",")
     val rangeMap = collection.mutable.Map[Int, Int]()
 

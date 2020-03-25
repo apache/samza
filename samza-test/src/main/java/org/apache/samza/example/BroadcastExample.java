@@ -22,6 +22,7 @@ package org.apache.samza.example;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
+import org.apache.samza.example.models.PageViewEvent;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.runtime.ApplicationRunner;
@@ -41,7 +42,7 @@ import org.apache.samza.util.CommandLine;
 public class BroadcastExample implements StreamApplication {
 
   // local execution mode
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     CommandLine cmdLine = new CommandLine();
     Config config = cmdLine.loadConfig(cmdLine.parser().parse(args));
     ApplicationRunner runner = ApplicationRunners.getApplicationRunner(new BroadcastExample(), config);
@@ -66,15 +67,5 @@ public class BroadcastExample implements StreamApplication {
     inputStream.filter(m -> m.key.equals("key1")).sendTo(appDescriptor.getOutputStream(outStream1));
     inputStream.filter(m -> m.key.equals("key2")).sendTo(appDescriptor.getOutputStream(outStream2));
     inputStream.filter(m -> m.key.equals("key3")).sendTo(appDescriptor.getOutputStream(outStream3));
-  }
-
-  class PageViewEvent {
-    String key;
-    long timestamp;
-
-    public PageViewEvent(String key, long timestamp) {
-      this.key = key;
-      this.timestamp = timestamp;
-    }
   }
 }

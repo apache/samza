@@ -19,24 +19,37 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.annotations.VisibleForTesting;
+
+
 /**
  * Specification of a Samza Resource. A resource is identified by a unique resource ID.
  * A resource is currently comprised of CPUs and Memory resources on a host.
- *
  */
 public class SamzaResource {
   private final int numCores;
   private final int memoryMb;
   private final String host;
-  private final String resourceID;
+  private final String containerId;
+  private final long timestamp;
 
   //TODO: Investigate adding disk space. Mesos supports disk based reservations.
 
-  public SamzaResource(int numCores, int memoryMb, String host, String resourceID) {
+  public SamzaResource(int numCores, int memoryMb, String host, String containerId) {
     this.numCores = numCores;
     this.memoryMb = memoryMb;
     this.host = host;
-    this.resourceID = resourceID;
+    this.containerId = containerId;
+    this.timestamp = System.currentTimeMillis();
+  }
+
+  @VisibleForTesting
+  SamzaResource(int numCores, int memoryMb, String host, String containerId, long timestamp) {
+    this.numCores = numCores;
+    this.memoryMb = memoryMb;
+    this.host = host;
+    this.containerId = containerId;
+    this.timestamp = timestamp;
   }
 
   @Override
@@ -48,7 +61,7 @@ public class SamzaResource {
 
     if (numCores != resource.numCores) return false;
     if (memoryMb != resource.memoryMb) return false;
-    return resourceID.equals(resource.resourceID);
+    return containerId.equals(resource.containerId);
 
   }
 
@@ -56,7 +69,7 @@ public class SamzaResource {
   public int hashCode() {
     int result = numCores;
     result = 31 * result + memoryMb;
-    result = 31 * result + resourceID.hashCode();
+    result = 31 * result + containerId.hashCode();
     return result;
   }
 
@@ -64,7 +77,7 @@ public class SamzaResource {
   public String toString() {
     return "SamzaResource{" +
         "host='" + host + '\'' +
-        ", resourceID='" + resourceID + '\'' +
+        ", containerId='" + containerId + '\'' +
         '}';
   }
 
@@ -80,7 +93,11 @@ public class SamzaResource {
     return host;
   }
 
-  public String getResourceID() {
-    return resourceID;
+  public String getContainerId() {
+    return containerId;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
   }
 }

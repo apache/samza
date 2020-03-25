@@ -19,34 +19,60 @@
 
 package org.apache.samza.sql.client.cli;
 
+import org.apache.samza.sql.client.interfaces.CommandType;
+
 /**
- * A shell command containing command name and parameters.
+ * A shell command containing {@link CommandType} and parameters.
  */
-class CliCommand {
-  private CliCommandType commandType;
+public class CliCommand {
+  private CommandType commandType;
   private String parameters;
 
-  public CliCommand(CliCommandType cmdType) {
+  /**
+   * Constructor with empty parameters
+   * @param cmdType the given {@link CommandType}
+   */
+  public CliCommand(CommandType cmdType) {
     this.commandType = cmdType;
   }
 
-  public CliCommand(CliCommandType cmdType, String parameters) {
+  /**
+   * Constructor using both {@link CommandType} and parameters
+   * @param cmdType the given {@link CommandType}
+   * @param parameters the parameters as single String
+   */
+  public CliCommand(CommandType cmdType, String parameters) {
     this(cmdType);
     this.parameters = parameters;
   }
 
-  public CliCommandType getCommandType() {
+  /**
+   * get the {@link CommandType} of this Command
+   * @return {@link CommandType}
+   */
+  public CommandType getCommandType() {
     return commandType;
   }
 
+  /**
+   * @return the parameters of this command
+   */
   public String getParameters() {
     return parameters;
   }
 
+  /**
+   * Sets the parameters of this command
+   * @param parameters input parameters
+   */
   public void setParameters(String parameters) {
     this.parameters = parameters;
   }
 
+  /**
+   * Compose full command (i.e., name + parameters) for this command
+   * @return composed full command
+   */
   public String getFullCommand() {
     return commandType.getCommandName() + CliConstants.SPACE + parameters;
   }

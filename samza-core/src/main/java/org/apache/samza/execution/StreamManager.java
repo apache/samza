@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.checkpoint.CheckpointManagerFactory;
 import org.apache.samza.config.*;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.StreamSpec;
@@ -39,12 +38,9 @@ import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.util.StreamUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConversions;
 
-import static org.apache.samza.util.ScalaJavaUtil.defaultValue;
 
 public class StreamManager {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamManager.class);
@@ -116,7 +112,7 @@ public class StreamManager {
       StreamConfig streamConfig = new StreamConfig(prevConfig);
 
       //Find all intermediate streams and clean up
-      Set<StreamSpec> intStreams = JavaConversions.asJavaCollection(streamConfig.getStreamIds()).stream()
+      Set<StreamSpec> intStreams = streamConfig.getStreamIds().stream()
           .filter(streamConfig::getIsIntermediateStream)
           .map(id -> new StreamSpec(id, streamConfig.getPhysicalName(id), streamConfig.getSystem(id)))
           .collect(Collectors.toSet());
@@ -127,20 +123,12 @@ public class StreamManager {
 
       //Find checkpoint stream and clean up
       TaskConfig taskConfig = new TaskConfig(prevConfig);
-      String checkpointManagerFactoryClassName = taskConfig.getCheckpointManagerFactory()
-          .getOrElse(defaultValue(null));
-      if (checkpointManagerFactoryClassName != null) {
-        CheckpointManager checkpointManager =
-            Util.getObj(checkpointManagerFactoryClassName, CheckpointManagerFactory.class)
-                .getCheckpointManager(prevConfig, new MetricsRegistryMap());
-        checkpointManager.clearCheckpoints();
-      }
+      taskConfig.getCheckpointManager(new MetricsRegistryMap()).ifPresent(CheckpointManager::clearCheckpoints);
 
       //Find changelog streams and remove them
       StorageConfig storageConfig = new StorageConfig(prevConfig);
-      for (String store : JavaConversions.asJavaCollection(storageConfig.getStoreNames())) {
-        String changelog = storageConfig.getChangelogStream(store)
-            .getOrElse(defaultValue(null));
+      for (String store : storageConfig.getStoreNames()) {
+        String changelog = storageConfig.getChangelogStream(store).orElse(null);
         if (changelog != null) {
           LOGGER.info("Clear store {} changelog {}", store, changelog);
           SystemStream systemStream = StreamUtil.getSystemStreamFromNames(changelog);

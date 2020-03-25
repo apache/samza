@@ -32,14 +32,14 @@ public class TestBaseTableDescriptor {
 
   @Test
   public void testMinimal() {
-    Map<String, String> tableConfig = createTableDescriptor(TABLE_ID)
+    Map tableConfig = createTableDescriptor(TABLE_ID)
         .toConfig(new MapConfig());
     Assert.assertEquals(1, tableConfig.size());
   }
 
   @Test
   public void testProviderFactoryConfig() {
-    Map<String, String> tableConfig = createTableDescriptor(TABLE_ID)
+    Map tableConfig = createTableDescriptor(TABLE_ID)
         .toConfig(new MapConfig());
     Assert.assertEquals(1, tableConfig.size());
     assertEquals("my.factory", "provider.factory", TABLE_ID, tableConfig);
@@ -47,7 +47,7 @@ public class TestBaseTableDescriptor {
 
   @Test
   public void testCustomConfig() {
-    Map<String, String> tableConfig = createTableDescriptor(TABLE_ID)
+    Map tableConfig = createTableDescriptor(TABLE_ID)
         .withConfig("abc", "xyz")
         .toConfig(new MapConfig());
     Assert.assertEquals(2, tableConfig.size());
@@ -66,7 +66,7 @@ public class TestBaseTableDescriptor {
     };
   }
 
-  private void assertEquals(String expectedValue, String key, String tableId, Map<String, String> config) {
+  private void assertEquals(String expectedValue, String key, String tableId, Map config) {
     String realKey = JavaTableConfig.buildKey(tableId, key);
     Assert.assertEquals(expectedValue, config.get(realKey));
   }

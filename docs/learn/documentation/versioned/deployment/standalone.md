@@ -42,7 +42,7 @@ This mode allows you to bring any cluster-manager or hosting-environment of your
 The [Hello-samza](https://github.com/apache/samza-hello-samza/) project includes multiple examples of Samza standalone applications. Let us first check out the repository.
 
 ```bash
-git clone https://git.apache.org/samza-hello-samza.git hello-samza
+git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 cd hello-samza 
 ```
 
@@ -53,7 +53,7 @@ We will use the `./bin/grid` script from the `hello-samza` project to setup up Z
 
 ```bash
 ./bin/grid start zookeeper
-./bin/grid start zookeeper
+./bin/grid start kafka
 ```
 
 
@@ -64,7 +64,7 @@ Let us now build the `hello-samza` project from its sources.
 ```bash
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-1.0.0-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-1.1.0-dist.tar.gz -C deploy/samza
 ```
 
 #### Running the application

@@ -54,17 +54,17 @@ public class FaultInjectionTest extends StreamApplicationIntegrationTestHarness 
     CountDownLatch containerShutdownLatch = new CountDownLatch(1);
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.zk.ZkJobCoordinatorFactory");
-    configs.put(JobConfig.PROCESSOR_ID(), "0");
-    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    configs.put(JobConfig.PROCESSOR_ID, "0");
+    configs.put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put(FaultInjectionStreamApp.INPUT_TOPIC_NAME_PROP, "page-views");
-    configs.put(TaskConfig.INPUT_STREAMS(), "kafka.page-views");
+    configs.put(TaskConfig.INPUT_STREAMS, "kafka.page-views");
     configs.put(ZkConfig.ZK_CONNECT, zkConnect());
-    configs.put(JobConfig.JOB_DEBOUNCE_TIME_MS(), "5000");
+    configs.put(JobConfig.JOB_DEBOUNCE_TIME_MS, "5000");
 
     // we purposefully randomize the task.shutdown.ms to make sure we can consistently verify if status is unsuccessfulFinish
     // even though the reason for failure can either be container exception or container shutdown timing out.
     configs.put("task.shutdown.ms", Integer.toString(taskShutdownInMs));
-    configs.put(JobConfig.PROCESSOR_ID(), "0");
+    configs.put(JobConfig.PROCESSOR_ID, "0");
 
     createTopic(PAGE_VIEWS, 2);
 

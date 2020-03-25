@@ -43,15 +43,13 @@ public class BulkProcessorFactory {
     // This also means BulkProcessor#flush() is blocking as is also required.
     builder.setConcurrentRequests(0);
 
-    if (config.getBulkFlushMaxActions().isPresent()) {
-      builder.setBulkActions(config.getBulkFlushMaxActions().get());
-    }
-    if (config.getBulkFlushMaxSizeMB().isPresent()) {
-      builder.setBulkSize(new ByteSizeValue(config.getBulkFlushMaxSizeMB().get(), ByteSizeUnit.MB));
-    }
-    if (config.getBulkFlushIntervalMS().isPresent()) {
-      builder.setFlushInterval(TimeValue.timeValueMillis(config.getBulkFlushIntervalMS().get()));
-    }
+    config.getBulkFlushMaxActions().ifPresent(builder::setBulkActions);
+    config.getBulkFlushMaxSizeMB().ifPresent(size ->
+      builder.setBulkSize(new ByteSizeValue(size, ByteSizeUnit.MB))
+    );
+    config.getBulkFlushIntervalMS().ifPresent(interval ->
+      builder.setFlushInterval(TimeValue.timeValueMillis(interval))
+    );
 
     return builder.build();
   }

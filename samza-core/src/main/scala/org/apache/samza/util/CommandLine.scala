@@ -19,12 +19,10 @@
 
 package org.apache.samza.util
 
-import java.net.URI
-import joptsimple.{OptionParser, OptionSet}
 import joptsimple.util.KeyValuePair
-import org.apache.samza.config.{ConfigFactory, MapConfig}
-import org.apache.samza.config.factories.PropertiesConfigFactory
-import scala.collection.mutable.Buffer
+import joptsimple.{ArgumentAcceptingOptionSpec, OptionParser, OptionSet}
+import org.apache.samza.config.{Config, ConfigLoaderFactory, MapConfig}
+
 import scala.collection.JavaConverters._
 
 /**
@@ -33,41 +31,22 @@ import scala.collection.JavaConverters._
  */
 class CommandLine {
   val parser = new OptionParser()
-  val configFactoryOpt = 
-    parser.accepts("config-factory", "The config factory to use to read your config file.")
-          .withRequiredArg
-          .ofType(classOf[java.lang.String])
-          .describedAs("com.foo.bar.ClassName")
-          .defaultsTo(classOf[PropertiesConfigFactory].getName)
-  val configPathOpt =
-    parser.accepts("config-path", "URI location to a config file (e.g. file:///some/local/path.properties). " + 
-                                  "If multiple files are given they are all used with later files overriding any values that appear in earlier files.")
-          .withRequiredArg
-          .ofType(classOf[URI])
-          .describedAs("path")
-  val configOverrideOpt = 
+  val configOverrideOpt: ArgumentAcceptingOptionSpec[KeyValuePair] =
     parser.accepts("config", "A configuration value in the form key=value. Command line properties override any configuration values given.")
           .withRequiredArg
           .ofType(classOf[KeyValuePair])
           .describedAs("key=value")
 
-  var configFactory: ConfigFactory = null
+  var configLoaderFactory: ConfigLoaderFactory = _
 
-  def loadConfig(options: OptionSet) = {
-    // Verify legitimate parameters.
-    if (!options.has(configPathOpt)) {
-      parser.printHelpOn(System.err)
-      System.exit(-1)
-    }
+  def loadConfig(options: OptionSet): Config = {
+    ConfigUtil.loadConfig(new MapConfig(getConfigOverrides(options)))
+  }
 
-    // Set up the job parameters.
-    val configFactoryClassName = options.valueOf(configFactoryOpt)
-    val configPaths = options.valuesOf(configPathOpt)
-    configFactory = Util.getObj(configFactoryClassName, classOf[ConfigFactory])
-    val configOverrides = options.valuesOf(configOverrideOpt).asScala.map(kv => (kv.key, kv.value)).toMap
-
-    val configs: Buffer[java.util.Map[String, String]] = configPaths.asScala.map(configFactory.getConfig)
-    configs += configOverrides.asJava
-    new MapConfig(configs.asJava)
+  def getConfigOverrides(options: OptionSet): Config = {
+    new MapConfig(options.valuesOf(configOverrideOpt).asScala
+      .map(kv => (kv.key, kv.value))
+      .toMap
+      .asJava)
   }
 }

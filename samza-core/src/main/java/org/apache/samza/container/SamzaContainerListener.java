@@ -24,22 +24,22 @@ package org.apache.samza.container;
 public interface SamzaContainerListener {
 
   /**
-   * Method invoked when the {@link SamzaContainer} state is {@link org.apache.samza.SamzaContainerStatus#NOT_STARTED}
-   * and is about to transition to {@link org.apache.samza.SamzaContainerStatus#STARTING} to start the initialization sequence.
+   * Method invoked when the {@link SamzaContainer} state is {@link SamzaContainerStatus#NOT_STARTED}
+   * and is about to transition to {@link SamzaContainerStatus#STARTING} to start the initialization sequence.
    */
   void beforeStart();
 
   /**
    *  Method invoked after the {@link SamzaContainer} has successfully transitioned to
-   *  the {@link org.apache.samza.SamzaContainerStatus#STARTED} state and is about to start the
-   *  {@link org.apache.samza.container.RunLoop}
+   *  the {@link SamzaContainerStatus#STARTED} state and is about to start the
+   *  {@link RunLoop}
    */
   void afterStart();
 
   /**
    *  Method invoked after the {@link SamzaContainer} has successfully transitioned to
-   *  {@link org.apache.samza.SamzaContainerStatus#STOPPED} state. Details on state transitions can be found in
-   *  {@link org.apache.samza.SamzaContainerStatus}
+   *  {@link SamzaContainerStatus#STOPPED} state. Details on state transitions can be found in
+   *  {@link SamzaContainerStatus}
    *  <br>
    *  <b>Note</b>: This will be the last call after completely shutting down the SamzaContainer without any
    *  exceptions/errors.
@@ -48,8 +48,8 @@ public interface SamzaContainerListener {
 
   /**
    *  Method invoked after the {@link SamzaContainer} has  transitioned to
-   *  {@link org.apache.samza.SamzaContainerStatus#FAILED} state. Details on state transitions can be found in
-   *  {@link org.apache.samza.SamzaContainerStatus}
+   *  {@link SamzaContainerStatus#FAILED} state. Details on state transitions can be found in
+   *  {@link SamzaContainerStatus}
    *  <br>
    *  <b>Note</b>: {@link #afterFailure(Throwable)} is mutually exclusive to {@link #afterStop()}.
    *  @param t Throwable that caused the container failure.

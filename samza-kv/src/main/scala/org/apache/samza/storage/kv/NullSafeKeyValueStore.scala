@@ -19,6 +19,11 @@
 
 package org.apache.samza.storage.kv
 
+import java.nio.file.Path
+import java.util.Optional
+
+import org.apache.samza.checkpoint.CheckpointId
+
 import scala.collection.JavaConverters._
 
 object NullSafeKeyValueStore {
@@ -94,5 +99,9 @@ class NullSafeKeyValueStore[K, V](store: KeyValueStore[K, V]) extends KeyValueSt
     notNull(from, NullKeyErrorMessage)
     notNull(to, NullKeyErrorMessage)
     store.snapshot(from, to)
+  }
+
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
+    store.checkpoint(id)
   }
 }

@@ -21,6 +21,10 @@ package org.apache.samza.storage.kv
 
 import scala.collection.JavaConverters._
 import java.util
+import java.nio.file.Path
+import java.util.Optional
+
+import org.apache.samza.checkpoint.CheckpointId
 
 /**
  * A mock key-value store wrapper that handles serialization
@@ -72,5 +76,9 @@ class MockKeyValueStore extends KeyValueStore[String, String] {
 
   override def snapshot(from: String, to: String): KeyValueSnapshot[String, String] = {
     throw new UnsupportedOperationException("iterator() not supported")
+  }
+
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
+    Optional.empty()
   }
 }

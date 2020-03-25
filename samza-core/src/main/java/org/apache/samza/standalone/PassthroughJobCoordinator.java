@@ -19,21 +19,19 @@
 package org.apache.samza.standalone;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfigJava;
 import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.*;
@@ -74,7 +72,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
   public PassthroughJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
     this.processorId = processorId;
     this.config = config;
-    LocationIdProviderFactory locationIdProviderFactory = Util.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
+    LocationIdProviderFactory locationIdProviderFactory =
+        ReflectionUtil.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
     LocationIdProvider locationIdProvider = locationIdProviderFactory.getLocationIdProvider(config);
     this.locationId = locationIdProvider.getLocationId();
   }
@@ -85,12 +84,9 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     JobModel jobModel = null;
     try {
       jobModel = getJobModel();
-      CheckpointManager checkpointManager = new TaskConfigJava(jobModel.getConfig()).getCheckpointManager(null);
-      if (checkpointManager != null) {
-        checkpointManager.createResources();
-      }
-
-      ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
+      // TODO metrics registry has been null here for a while; is it safe?
+      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, config);
+      metadataResourceUtil.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
       if (coordinatorListener != null) {
@@ -128,7 +124,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
     systemAdmins.start();
     try {
-      String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID()));
+      String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID));
       GrouperMetadata grouperMetadata = new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
       return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
     } finally {

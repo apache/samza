@@ -18,9 +18,7 @@
  */
 package org.apache.samza.system.descriptors;
 
-
 import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.samza.serializers.Serde;
 
 /**
@@ -45,6 +43,16 @@ public final class DelegatingSystemDescriptor extends SystemDescriptor<Delegatin
   @VisibleForTesting
   public DelegatingSystemDescriptor(String systemName) {
     super(systemName, null, null, null);
+  }
+
+  /**
+   * Constructs and {@link DelegatingSystemDescriptor} instance with given transformer and no system
+   * level Serde. Serdes are to be provided at stream level when getting input/output descriptors.
+   * @param systemName
+   * @param transformer
+   */
+  public DelegatingSystemDescriptor(String systemName, InputTransformer transformer) {
+    super(systemName, null, transformer, null);
   }
 
   @Override

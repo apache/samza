@@ -61,8 +61,8 @@ public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHa
 
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
-    configs.put(JobConfig.PROCESSOR_ID(), "0");
-    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    configs.put(JobConfig.PROCESSOR_ID, "0");
+    configs.put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
 
     // run the application
     runApplication(new RepartitionWindowApp(), APP_NAME, configs);

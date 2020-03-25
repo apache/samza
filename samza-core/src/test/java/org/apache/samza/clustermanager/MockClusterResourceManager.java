@@ -19,8 +19,11 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import java.time.Duration;
 import org.apache.samza.job.CommandBuilder;
+import org.junit.Assert;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,11 +43,13 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   private final Semaphore requestCountSemaphore = new Semaphore(0);
   private final Semaphore launchCountSemaphore = new Semaphore(0);
+  private final SamzaApplicationState state;
 
   Throwable nextException = null;
 
-  MockClusterResourceManager(ClusterResourceManager.Callback callback) {
+  MockClusterResourceManager(ClusterResourceManager.Callback callback, SamzaApplicationState state) {
     super(callback);
+    this.state = state;
   }
 
   @Override
@@ -81,16 +86,39 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   @Override
   public void launchStreamProcessor(SamzaResource resource, CommandBuilder builder)  {
+    // assert that the resource is in "pending" state prior to invoking this method
+    Assert.assertTrue(state.pendingProcessors.values().contains(resource));
+
     if (nextException != null) {
-      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new SamzaContainerLaunchException(nextException));
+      clusterManagerCallback.onStreamProcessorLaunchFailure(resource, new ProcessorLaunchException(nextException));
     } else {
       launchedResources.add(resource);
       clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
     }
+
     for (MockContainerListener listener : mockContainerListeners) {
       listener.postRunContainer(launchedResources.size());
     }
     launchCountSemaphore.release();
+  }
+
+  @Override
+  public void stopStreamProcessor(SamzaResource resource) {
+    stopStreamProcessor(resource, SamzaResourceStatus.PREEMPTED);
+  }
+
+  @VisibleForTesting
+  void stopStreamProcessor(SamzaResource resource, int exitCode) {
+    SamzaResourceStatus status = new SamzaResourceStatus(resource.getContainerId(), "diagnostics", exitCode);
+    List<SamzaResourceStatus> statList = new ArrayList<>();
+    statList.add(status);
+    clusterManagerCallback.onResourcesCompleted(statList);
+  }
+
+  @Override
+  public boolean isResourceExpired(SamzaResource resource) {
+    Duration yarnAllocatedResourceExpiry = Duration.ofMinutes(10).minus(Duration.ofSeconds(30));
+    return System.currentTimeMillis() - resource.getTimestamp() > yarnAllocatedResourceExpiry.toMillis();
   }
 
   public void registerContainerListener(MockContainerListener listener) {
@@ -99,6 +127,10 @@ public class MockClusterResourceManager extends ClusterResourceManager {
 
   public void clearContainerListeners() {
     mockContainerListeners.clear();
+  }
+
+  public boolean containsReleasedResource(SamzaResource resource) {
+    return releasedResources.contains(resource);
   }
 
   @Override

@@ -29,7 +29,7 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.elasticsearch.client.ClientFactory;
 import org.apache.samza.system.elasticsearch.indexrequest.DefaultIndexRequestFactory;
 import org.apache.samza.system.elasticsearch.indexrequest.IndexRequestFactory;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.elasticsearch.client.Client;
 
 import java.lang.reflect.Constructor;
@@ -82,7 +82,7 @@ public class ElasticsearchSystemFactory implements SystemFactory {
 
   protected static IndexRequestFactory getIndexRequestFactory(ElasticsearchConfig config) {
     if (config.getIndexRequestFactoryClassName().isPresent()) {
-      return Util.getObj(config.getIndexRequestFactoryClassName().get(), IndexRequestFactory.class);
+      return ReflectionUtil.getObj(config.getIndexRequestFactoryClassName().get(), IndexRequestFactory.class);
     } else {
       return new DefaultIndexRequestFactory();
     }

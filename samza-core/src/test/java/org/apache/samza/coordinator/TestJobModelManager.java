@@ -19,38 +19,44 @@
 
 package org.apache.samza.coordinator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import java.util.HashSet;
-import java.util.Set;
+
+import java.util.*;
+
+import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.RegExTopicGenerator;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GroupByContainerCount;
+import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
+import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.testUtils.MockHttpServer;
+import org.apache.samza.util.ConfigUtil;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Collections;
-
-import static org.apache.samza.coordinator.JobModelManager.*;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.argThat;
@@ -68,7 +74,7 @@ import scala.collection.JavaConversions;
  * Unit tests for {@link JobModelManager}
  */
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({TaskAssignmentManager.class, GroupByContainerCount.class})
+@PrepareForTest({TaskAssignmentManager.class, GroupByContainerCount.class, ConfigUtil.class})
 public class TestJobModelManager {
   private final TaskAssignmentManager mockTaskManager = mock(TaskAssignmentManager.class);
   private final Map<String, Map<String, String>> localityMappings = new HashMap<>();
@@ -122,9 +128,11 @@ public class TestJobModelManager {
     when(mockLocalityManager.readContainerLocality()).thenReturn(this.localityMappings);
 
     Map<String, LocationId> containerLocality = ImmutableMap.of("0", new LocationId("abc-affinity"));
-    this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server, mockLocalityManager, containerLocality);
+    this.jobModelManager =
+        JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server,
+            mockLocalityManager, containerLocality);
 
-    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), new HashMap<String, String>() { { this.put("0", "abc-affinity"); } });
+    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), ImmutableMap.of("0", "abc-affinity"));
   }
 
   @Test
@@ -154,9 +162,11 @@ public class TestJobModelManager {
 
     Map<String, LocationId> containerLocality = ImmutableMap.of("0", new LocationId("abc-affinity"));
 
-    this.jobModelManager = JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server, mockLocalityManager, containerLocality);
+    this.jobModelManager =
+        JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server,
+            mockLocalityManager, containerLocality);
 
-    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), new HashMap<String, String>() { { this.put("0", null); } });
+    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), Collections.singletonMap("0", null));
   }
 
   @Test
@@ -164,42 +174,81 @@ public class TestJobModelManager {
     // Mocking setup.
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     TaskAssignmentManager mockTaskAssignmentManager = Mockito.mock(TaskAssignmentManager.class);
+    TaskPartitionAssignmentManager mockTaskPartitionAssignmentManager = Mockito.mock(TaskPartitionAssignmentManager.class);
+
+    SystemStreamPartition testSystemStreamPartition1 = new SystemStreamPartition(new SystemStream("test-system-0", "test-stream-0"), new Partition(1));
+    SystemStreamPartition testSystemStreamPartition2 = new SystemStreamPartition(new SystemStream("test-system-1", "test-stream-1"), new Partition(2));
 
     Map<String, Map<String, String>> localityMappings = new HashMap<>();
     localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
+
+    Map<SystemStreamPartition, List<String>> taskToSSPAssignments = ImmutableMap.of(testSystemStreamPartition1, ImmutableList.of("task-0", "task-1"),
+                                                                                    testSystemStreamPartition2, ImmutableList.of("task-2", "task-3"));
 
     Map<String, String> taskAssignment = ImmutableMap.of("task-0", "0");
 
     // Mock the container locality assignment.
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
 
+    // Mock the task to partition assignment.
+    when(mockTaskPartitionAssignmentManager.readTaskPartitionAssignments()).thenReturn(taskToSSPAssignments);
+
     // Mock the container to task assignment.
     when(mockTaskAssignmentManager.readTaskAssignment()).thenReturn(taskAssignment);
+    when(mockTaskAssignmentManager.readTaskModes()).thenReturn(ImmutableMap.of(new TaskName("task-0"), TaskMode.Active, new TaskName("task-1"), TaskMode.Active, new TaskName("task-2"), TaskMode.Active, new TaskName("task-3"), TaskMode.Active));
 
-    GrouperMetadataImpl grouperMetadata = JobModelManager.getGrouperMetadata(new MapConfig(), mockLocalityManager, mockTaskAssignmentManager);
+    GrouperMetadataImpl grouperMetadata = JobModelManager.getGrouperMetadata(new MapConfig(), mockLocalityManager, mockTaskAssignmentManager, mockTaskPartitionAssignmentManager);
 
     Mockito.verify(mockLocalityManager).readContainerLocality();
     Mockito.verify(mockTaskAssignmentManager).readTaskAssignment();
 
-    Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity"), "1", new LocationId("ANY_HOST")), grouperMetadata.getProcessorLocality());
+    Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity")), grouperMetadata.getProcessorLocality());
     Assert.assertEquals(ImmutableMap.of(new TaskName("task-0"), new LocationId("abc-affinity")), grouperMetadata.getTaskLocality());
+
+    Map<TaskName, List<SystemStreamPartition>> expectedTaskToSSPAssignments = ImmutableMap.of(new TaskName("task-0"), ImmutableList.of(testSystemStreamPartition1),
+                                                                                              new TaskName("task-1"), ImmutableList.of(testSystemStreamPartition1),
+                                                                                              new TaskName("task-2"), ImmutableList.of(testSystemStreamPartition2),
+                                                                                              new TaskName("task-3"), ImmutableList.of(testSystemStreamPartition2));
+    Assert.assertEquals(expectedTaskToSSPAssignments, grouperMetadata.getPreviousTaskToSSPAssignment());
   }
 
   @Test
-  public void testGetProcessorLocality() {
-    // Mock the dependencies.
-    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+  public void testGetProcessorLocalityAllEntriesExisting() {
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_CONTAINER_COUNT, "2"));
 
     Map<String, Map<String, String>> localityMappings = new HashMap<>();
-    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
-
-    // Mock the container locality assignment.
+    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "0-affinity"));
+    localityMappings.put("1", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "1-affinity"));
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
 
-    Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(new MapConfig(), mockLocalityManager);
+    Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(config, mockLocalityManager);
 
     Mockito.verify(mockLocalityManager).readContainerLocality();
-    Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity"), "1", new LocationId("ANY_HOST")), processorLocality);
+    ImmutableMap<String, LocationId> expected =
+        ImmutableMap.of("0", new LocationId("0-affinity"), "1", new LocationId("1-affinity"));
+    Assert.assertEquals(expected, processorLocality);
+  }
+
+  @Test
+  public void testGetProcessorLocalityNewContainer() {
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_CONTAINER_COUNT, "2"));
+
+    Map<String, Map<String, String>> localityMappings = new HashMap<>();
+    // 2 containers, but only return 1 existing mapping
+    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+    when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
+
+    Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(config, mockLocalityManager);
+
+    Mockito.verify(mockLocalityManager).readContainerLocality();
+    ImmutableMap<String, LocationId> expected = ImmutableMap.of(
+        // found entry in existing locality
+        "0", new LocationId("abc-affinity"),
+        // no entry in existing locality
+        "1", new LocationId("ANY_HOST"));
+    Assert.assertEquals(expected, processorLocality);
   }
 
   @Test
@@ -208,20 +257,26 @@ public class TestJobModelManager {
     JobModel mockJobModel = Mockito.mock(JobModel.class);
     GrouperMetadataImpl mockGrouperMetadata = Mockito.mock(GrouperMetadataImpl.class);
     TaskAssignmentManager mockTaskAssignmentManager = Mockito.mock(TaskAssignmentManager.class);
+    TaskPartitionAssignmentManager mockTaskPartitionAssignmentManager = Mockito.mock(TaskPartitionAssignmentManager.class);
+
+    SystemStreamPartition testSystemStreamPartition1 = new SystemStreamPartition(new SystemStream("test-system-0", "test-stream-0"), new Partition(1));
+    SystemStreamPartition testSystemStreamPartition2 = new SystemStreamPartition(new SystemStream("test-system-1", "test-stream-1"), new Partition(2));
+    SystemStreamPartition testSystemStreamPartition3 = new SystemStreamPartition(new SystemStream("test-system-2", "test-stream-2"), new Partition(1));
+    SystemStreamPartition testSystemStreamPartition4 = new SystemStreamPartition(new SystemStream("test-system-3", "test-stream-3"), new Partition(2));
 
     Map<TaskName, TaskModel> taskModelMap = new HashMap<>();
-    taskModelMap.put(new TaskName("task-1"), new TaskModel(new TaskName("task-1"), new HashSet<>(), new Partition(0)));
-    taskModelMap.put(new TaskName("task-2"), new TaskModel(new TaskName("task-2"), new HashSet<>(), new Partition(1)));
-    taskModelMap.put(new TaskName("task-3"), new TaskModel(new TaskName("task-3"), new HashSet<>(), new Partition(2)));
-    taskModelMap.put(new TaskName("task-4"), new TaskModel(new TaskName("task-4"), new HashSet<>(), new Partition(3)));
+    taskModelMap.put(new TaskName("task-1"), new TaskModel(new TaskName("task-1"), ImmutableSet.of(testSystemStreamPartition1), new Partition(0)));
+    taskModelMap.put(new TaskName("task-2"), new TaskModel(new TaskName("task-2"), ImmutableSet.of(testSystemStreamPartition2), new Partition(1)));
+    taskModelMap.put(new TaskName("task-3"), new TaskModel(new TaskName("task-3"), ImmutableSet.of(testSystemStreamPartition3), new Partition(2)));
+    taskModelMap.put(new TaskName("task-4"), new TaskModel(new TaskName("task-4"), ImmutableSet.of(testSystemStreamPartition4), new Partition(3)));
     ContainerModel containerModel = new ContainerModel("test-container-id", taskModelMap);
     Map<String, ContainerModel> containerMapping = ImmutableMap.of("test-container-id", containerModel);
 
     when(mockJobModel.getContainers()).thenReturn(containerMapping);
     when(mockGrouperMetadata.getPreviousTaskToProcessorAssignment()).thenReturn(new HashMap<>());
-    Mockito.doNothing().when(mockTaskAssignmentManager).writeTaskContainerMapping(Mockito.any(), Mockito.any());
+    Mockito.doNothing().when(mockTaskAssignmentManager).writeTaskContainerMappings(Mockito.any());
 
-    JobModelManager.updateTaskAssignments(mockJobModel, mockTaskAssignmentManager, mockGrouperMetadata);
+    JobModelManager.updateTaskAssignments(mockJobModel, mockTaskAssignmentManager, mockTaskPartitionAssignmentManager, mockGrouperMetadata);
 
     Set<String> taskNames = new HashSet<String>();
     taskNames.add("task-4");
@@ -229,12 +284,55 @@ public class TestJobModelManager {
     taskNames.add("task-3");
     taskNames.add("task-1");
 
+    Set<SystemStreamPartition> systemStreamPartitions = new HashSet<>();
+    systemStreamPartitions.add(new SystemStreamPartition(new SystemStream("test-system-0", "test-stream-0"), new Partition(1)));
+    systemStreamPartitions.add(new SystemStreamPartition(new SystemStream("test-system-1", "test-stream-1"), new Partition(2)));
+    systemStreamPartitions.add(new SystemStreamPartition(new SystemStream("test-system-2", "test-stream-2"), new Partition(1)));
+    systemStreamPartitions.add(new SystemStreamPartition(new SystemStream("test-system-3", "test-stream-3"), new Partition(2)));
+
     // Verifications
     Mockito.verify(mockJobModel, atLeast(1)).getContainers();
-    Mockito.verify(mockTaskAssignmentManager).deleteTaskContainerMappings((Iterable<String>) taskNames);
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-1", "test-container-id");
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-2", "test-container-id");
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-3", "test-container-id");
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMapping("task-4", "test-container-id");
+    Mockito.verify(mockTaskAssignmentManager).deleteTaskContainerMappings(Mockito.any());
+    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMappings(ImmutableMap.of("test-container-id",
+        ImmutableMap.of("task-1", TaskMode.Active, "task-2", TaskMode.Active, "task-3", TaskMode.Active, "task-4", TaskMode.Active)));
+
+    // Verify that the old, stale partition mappings had been purged in the coordinator stream.
+    Mockito.verify(mockTaskPartitionAssignmentManager).delete(systemStreamPartitions);
+
+    // Verify that the new task to partition assignment is stored in the coordinator stream.
+    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignments(ImmutableMap.of(
+        testSystemStreamPartition1, ImmutableList.of("task-1"),
+        testSystemStreamPartition2, ImmutableList.of("task-2"),
+        testSystemStreamPartition3, ImmutableList.of("task-3"),
+        testSystemStreamPartition4, ImmutableList.of("task-4")
+    ));
+  }
+
+  @Test
+  public void testJobModelContainsLatestTaskInputsWhenEnabledRegexTopicRewriter() {
+    ImmutableMap<String, String> rewriterConfig = ImmutableMap.of(
+        JobConfig.CONFIG_REWRITERS, "regexTopicRewriter",
+        String.format(JobConfig.CONFIG_REWRITER_CLASS, "regexTopicRewriter"), RegExTopicGenerator.class.getCanonicalName()
+    );
+
+    Config config = new MapConfig(rewriterConfig);
+    String taskInputMatchedRegex = inputStream.getSystem() + "." + inputStream.getStream();
+    Config refreshedConfig = new MapConfig(ImmutableMap.<String, String>builder()
+        .putAll(rewriterConfig)
+        .put(TaskConfig.INPUT_STREAMS, taskInputMatchedRegex)
+        .build()
+    );
+
+    PowerMockito.mockStatic(ConfigUtil.class);
+    PowerMockito.when(ConfigUtil.applyRewriter(config, "regexTopicRewriter")).thenReturn(refreshedConfig);
+
+    Map<TaskName, Integer> changeLogPartitionMapping = new HashMap<>();
+    GrouperMetadata grouperMetadata = mock(GrouperMetadata.class);
+
+    JobModel jobModel =
+        JobModelManager.readJobModel(config, changeLogPartitionMapping, mockStreamMetadataCache, grouperMetadata);
+
+    Assert.assertNotNull(jobModel);
+    Assert.assertEquals(taskInputMatchedRegex, jobModel.getConfig().get(TaskConfig.INPUT_STREAMS));
   }
 }

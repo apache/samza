@@ -55,7 +55,7 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
   private Integer cacheSize;
   private Integer writeBufferSize;
   private Integer blockSize;
-  private Integer ttl;
+  private Long ttl;
   private Integer numWriteBuffers;
   private Integer maxLogFileSize;
   private Integer numLogFilesToKeep;
@@ -198,7 +198,7 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
    * @param ttl the time to live in milliseconds
    * @return this table descriptor instance
    */
-  public RocksDbTableDescriptor<K, V> withTtl(int ttl) {
+  public RocksDbTableDescriptor<K, V> withTtl(long ttl) {
     this.ttl = ttl;
     return this;
   }
@@ -284,7 +284,7 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
     // Store factory configuration
-    tableConfig.put(String.format(StorageConfig.FACTORY(), tableId),
+    tableConfig.put(String.format(StorageConfig.FACTORY, tableId),
         RocksDbKeyValueStorageEngineFactory.class.getName());
 
     if (writeBatchSize != null) {

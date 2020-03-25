@@ -32,6 +32,14 @@ public class YarnConfig extends MapConfig {
   public static final String PACKAGE_PATH = "yarn.package.path";
 
   /**
+   * Type of Samza application submitted to YARN
+   * Can be used to distinguish between different job types/APIs (eg: HighLevel, LowLevel, SQL, Beam etc)
+   */
+  public static final String YARN_APPLICATION_TYPE = "yarn.application.type";
+  public static final String DEFAULT_SAMZA_APPLICATION_TYPE = "Samza";
+
+
+  /**
    * Name of YARN queue to run jobs on
    */
   public static final String QUEUE_NAME = "yarn.queue";
@@ -217,6 +225,10 @@ public class YarnConfig extends MapConfig {
 
   public String getYarnApplicationModifyAcl() {
     return get(YARN_APPLICATION_MODIFY_ACL, null);
+  }
+
+  public String getYarnApplicationType() {
+    return get(YARN_APPLICATION_TYPE, DEFAULT_SAMZA_APPLICATION_TYPE);
   }
 
   /**

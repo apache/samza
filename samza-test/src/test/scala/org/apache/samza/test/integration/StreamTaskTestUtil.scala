@@ -19,20 +19,20 @@
 
 package org.apache.samza.test.integration
 
+import java.io.File
+import java.time.Duration
 import java.util
-import java.util.Properties
+import java.util.{Collections, Properties, Random}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import javax.security.auth.login.Configuration
-import kafka.admin.AdminUtils
-import kafka.consumer.{Consumer, ConsumerConfig}
-import kafka.message.MessageAndMetadata
 import kafka.server.{KafkaConfig, KafkaServer}
-import kafka.utils.{CoreUtils, TestUtils, ZkUtils}
+import kafka.utils.{CoreUtils, TestUtils}
 import kafka.zk.EmbeddedZookeeper
+import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
+import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
-import org.apache.kafka.common.protocol.SecurityProtocol
-import org.apache.kafka.common.security.JaasUtils
+import org.apache.kafka.common.security.auth.SecurityProtocol
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config._
@@ -43,10 +43,9 @@ import org.apache.samza.job.model.{ContainerModel, JobModel}
 import org.apache.samza.job.{ApplicationStatus, JobRunner, StreamJob}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.system.kafka.TopicMetadataCache
 import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task._
-import org.apache.samza.util.{ClientUtilTopicMetadataStore, KafkaUtil, TopicMetadataStore}
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.junit.Assert._
 
 import scala.collection.JavaConverters._
@@ -67,17 +66,20 @@ object StreamTaskTestUtil {
   val zkConnectionTimeout = 6000
   val zkSessionTimeout = 6000
 
-  var zkUtils: ZkUtils = null
   var zookeeper: EmbeddedZookeeper = null
   var brokers: String = null
   def zkPort: Int = zookeeper.port
   def zkConnect: String = s"127.0.0.1:$zkPort"
 
   var producer: Producer[Array[Byte], Array[Byte]] = null
+  var adminClient: AdminClient = null
   val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123").asJava)
   val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345").asJava)
 
-  var metadataStore: TopicMetadataStore = null
+  // use a random store directory for each run. prevents test failures due to left over state from
+  // previously aborted test runs
+  val random = new Random()
+  val LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "logged-store-" + random.nextInt()).getAbsolutePath
 
   /*
    * This is the default job configuration. Each test class can override the default configuration below.
@@ -100,7 +102,9 @@ object StreamTaskTestUtil {
     "task.checkpoint.replication.factor" -> "1",
     // However, don't have the inputs use the checkpoint manager
     // since the second part of the test expects to replay the input streams.
-    "systems.kafka.streams.input.samza.reset.offset" -> "false")
+    "systems.kafka.streams.input.samza.reset.offset" -> "false",
+    JobConfig.JOB_LOGGED_STORE_BASE_DIR -> LOGGED_STORE_BASE_DIR
+  )
 
   def apply(map: Map[String, String]): Unit = {
     jobConfig ++= map
@@ -111,8 +115,6 @@ object StreamTaskTestUtil {
 
   def beforeSetupServers {
     zookeeper = new EmbeddedZookeeper()
-    zkUtils = ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled())
-
     val props = TestUtils.createBrokerConfigs(3, zkConnect, true)
 
     val configs = props.map(p => {
@@ -137,46 +139,36 @@ object StreamTaskTestUtil {
     config.put(ProducerConfig.LINGER_MS_CONFIG, "0")
     val producerConfig = new KafkaProducerConfig("kafka", "i001", config)
 
+    adminClient = AdminClient.create(config.asInstanceOf[util.Map[String, Object]])
     producer = new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
-    metadataStore = new ClientUtilTopicMetadataStore(brokers, "some-job-name")
 
     createTopics
     validateTopics
   }
 
   def createTopics {
-    AdminUtils.createTopic(
-      zkUtils,
-      INPUT_TOPIC,
-      TOTAL_TASK_NAMES,
-      REPLICATION_FACTOR)
+    adminClient.createTopics(Collections.singleton(new NewTopic(INPUT_TOPIC, TOTAL_TASK_NAMES, REPLICATION_FACTOR.shortValue())))
   }
 
   def validateTopics {
-    val topics = Set(INPUT_TOPIC)
     var done = false
     var retries = 0
 
-    while (!done && retries < 100) {
+    while (!done && retries < 10) {
       try {
-        val topicMetadataMap = TopicMetadataCache.getTopicMetadata(topics, "kafka", metadataStore.getTopicInfo)
+        val topicDescriptionFutures = adminClient.describeTopics(Collections.singleton(INPUT_TOPIC)).all()
+        val topicDescription = topicDescriptionFutures.get(500, TimeUnit.MILLISECONDS)
+          .get(INPUT_TOPIC)
 
-        topics.foreach(topic => {
-          val topicMetadata = topicMetadataMap(topic)
-
-          KafkaUtil.maybeThrowException(topicMetadata.error.exception())
-        })
-
-        done = true
+        done = topicDescription.partitions().size() == TOTAL_TASK_NAMES
+        retries += 1
       } catch {
         case e: Exception =>
-          System.err.println("Got exception while validating test topics. Waiting and retrying.", e)
-          retries += 1
-          Thread.sleep(500)
+          System.err.println("Interrupted during validating test topics", e)
       }
     }
 
-    if (retries >= 100) {
+    if (retries >= 10) {
       fail("Unable to successfully create topics. Tried to validate %s times." format retries)
     }
   }
@@ -185,10 +177,10 @@ object StreamTaskTestUtil {
     servers.foreach(_.shutdown())
     servers.foreach(server => CoreUtils.delete(server.config.logDirs))
 
-    if (zkUtils != null)
-      CoreUtils.swallow(zkUtils.close())
+    if (adminClient != null)
+      CoreUtils.swallow(adminClient.close(), null)
     if (zookeeper != null)
-      CoreUtils.swallow(zookeeper.shutdown())
+      CoreUtils.swallow(zookeeper.shutdown(), null)
     Configuration.setConfiguration(null)
 
   }
@@ -253,27 +245,33 @@ class StreamTaskTestUtil {
   def readAll(topic: String, maxOffsetInclusive: Int, group: String): List[String] = {
     val props = new Properties
 
-    props.put("zookeeper.connect", zkConnect)
+    props.put("bootstrap.servers", brokers)
     props.put("group.id", group)
-    props.put("auto.offset.reset", "smallest")
+    props.put("auto.offset.reset", "earliest")
+    props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+    props.put("value.deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer")
 
-    val consumerConfig = new ConsumerConfig(props)
-    val consumerConnector = Consumer.create(consumerConfig)
-    val stream = consumerConnector.createMessageStreams(Map(topic -> 1))(topic).head.iterator
-    var message: MessageAndMetadata[Array[Byte], Array[Byte]] = null
+    val consumerConnector = new KafkaConsumer(props)
+    consumerConnector.subscribe(Set(topic).asJava)
+
+    var stream = consumerConnector.poll(Duration.ofMillis(10000)).iterator()
+    var message: ConsumerRecord[Nothing, Nothing] = null
     var messages = ArrayBuffer[String]()
 
     while (message == null || message.offset < maxOffsetInclusive) {
-      message = stream.next
-      if (message.message == null) {
-        messages += null
+      if (stream.hasNext) {
+        message = stream.next
+        if (message.value() == null) {
+          messages += null
+        } else {
+          messages += new String(message.value, "UTF-8")
+        }
+        System.out.println("StreamTaskTestUtil.readAll(): offset=%s, message=%s" format (message.offset, messages.last))
       } else {
-        messages += new String(message.message, "UTF-8")
+        stream = consumerConnector.poll(Duration.ofMillis(100)).iterator()
       }
-      System.err.println("StreamTaskTestUtil.readAll(): offset=%s, message=%s" format (message.offset, messages.last))
-    }
 
-    consumerConnector.shutdown
+    }
 
     messages.toList
   }
@@ -285,13 +283,13 @@ class StreamTaskTestUtil {
     jobModel.maxChangeLogStreamPartitions = 1
 
     val taskConfig = new TaskConfig(jobModel.getConfig)
-    val checkpointManager = taskConfig.getCheckpointManager(new MetricsRegistryMap())
-    checkpointManager match {
-      case Some(checkpointManager) => {
-        checkpointManager.createResources
-        checkpointManager.stop
-      }
-      case _ => assert(checkpointManager != null, "No checkpoint manager factory configured")
+    val checkpointManagerOption =
+      JavaOptionals.toRichOptional(taskConfig.getCheckpointManager(new MetricsRegistryMap())).toOption
+    checkpointManagerOption match {
+      case Some(checkpointManager) =>
+        checkpointManager.createResources()
+        checkpointManager.stop()
+      case _ => throw new ConfigException("No checkpoint manager factory configured")
     }
 
     ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)

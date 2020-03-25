@@ -19,23 +19,29 @@
 package org.apache.samza.processor;
 
 import com.google.common.collect.ImmutableMap;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.samza.SamzaContainerStatus;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.RunLoop;
 import org.apache.samza.container.SamzaContainer;
+import org.apache.samza.container.SamzaContainerStatus;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.processor.StreamProcessor.State;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
@@ -50,6 +56,9 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
@@ -81,20 +90,34 @@ public class TestStreamProcessor {
     processorListenerState.clear();
   }
 
-  class TestableStreamProcessor extends StreamProcessor {
+  static class TestableStreamProcessor extends StreamProcessor {
     private final CountDownLatch containerStop = new CountDownLatch(1);
     private final CountDownLatch runLoopStartForMain = new CountDownLatch(1);
-    public SamzaContainer container = null;
+    private SamzaContainer container = null;
+    private final Duration runLoopShutdownDuration;
 
-    public TestableStreamProcessor(
-        Config config,
+    public TestableStreamProcessor(Config config,
         Map<String, MetricsReporter> customMetricsReporters,
         StreamTaskFactory streamTaskFactory,
         ProcessorLifecycleListener processorListener,
         JobCoordinator jobCoordinator,
         SamzaContainer container) {
-      super("TEST_PROCESSOR_ID", config,  customMetricsReporters, streamTaskFactory, processorListener, jobCoordinator);
+      this(config, customMetricsReporters, streamTaskFactory, processorListener, jobCoordinator, container,
+          Duration.ZERO);
+    }
+
+    public TestableStreamProcessor(Config config,
+        Map<String, MetricsReporter> customMetricsReporters,
+        StreamTaskFactory streamTaskFactory,
+        ProcessorLifecycleListener processorListener,
+        JobCoordinator jobCoordinator,
+        SamzaContainer container,
+        Duration runLoopShutdownDuration) {
+
+      super("TEST_PROCESSOR_ID", config, customMetricsReporters, streamTaskFactory, Optional.empty(), Optional.empty(), Optional.empty(), sp -> processorListener,
+          jobCoordinator, Mockito.mock(MetadataStore.class));
       this.container = container;
+      this.runLoopShutdownDuration = runLoopShutdownDuration;
     }
 
     @Override
@@ -103,13 +126,9 @@ public class TestStreamProcessor {
         RunLoop mockRunLoop = mock(RunLoop.class);
         doAnswer(invocation ->
           {
-            try {
-              runLoopStartForMain.countDown();
-              containerStop.await();
-            } catch (InterruptedException e) {
-              System.out.println("In exception" + e);
-              e.printStackTrace();
-            }
+            runLoopStartForMain.countDown();
+            containerStop.await();
+            Thread.sleep(this.runLoopShutdownDuration.toMillis());
             return null;
           }).when(mockRunLoop).run();
 
@@ -137,6 +156,7 @@ public class TestStreamProcessor {
     when(mockJobModel.getContainers()).thenReturn(containers);
     return mockJobModel;
   }
+
   /**
    * Tests stop() method when Container AND JobCoordinator are running
    */
@@ -203,7 +223,7 @@ public class TestStreamProcessor {
       }).when(mockJobCoordinator).start();
 
     processor.start();
-    processorListenerStart.await();
+    processorListenerStart.await(10, TimeUnit.SECONDS);
 
     assertEquals(SamzaContainerStatus.STARTED, processor.getContainerStatus());
 
@@ -216,10 +236,77 @@ public class TestStreamProcessor {
     processorListenerStop.await();
 
     // Assertions on which callbacks are expected to be invoked
-    Assert.assertTrue(processorListenerState.get(ListenerCallback.BEFORE_START));
-    Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_START));
-    Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_STOP));
+    assertTrue(processorListenerState.get(ListenerCallback.BEFORE_START));
+    assertTrue(processorListenerState.get(ListenerCallback.AFTER_START));
+    assertTrue(processorListenerState.get(ListenerCallback.AFTER_STOP));
     Assert.assertFalse(processorListenerState.get(ListenerCallback.AFTER_FAILURE));
+  }
+
+  /**
+   * Given that the job model expires, but the container takes too long to stop, a TimeoutException should be propagated
+   * to the processor lifecycle listener.
+   */
+  @Test
+  public void testJobModelExpiredContainerShutdownTimeout() throws InterruptedException {
+    JobCoordinator mockJobCoordinator = mock(JobCoordinator.class);
+    // use this to store the exception passed to afterFailure for the processor lifecycle listener
+    AtomicReference<Throwable> afterFailureException = new AtomicReference<>(null);
+    TestableStreamProcessor processor = new TestableStreamProcessor(
+        // set a small shutdown timeout so it triggers faster
+        new MapConfig(ImmutableMap.of(TaskConfig.TASK_SHUTDOWN_MS, "1")),
+        new HashMap<>(),
+        mock(StreamTaskFactory.class),
+        new ProcessorLifecycleListener() {
+          @Override
+          public void beforeStart() { }
+
+          @Override
+          public void afterStart() { }
+
+          @Override
+          public void afterFailure(Throwable t) {
+            afterFailureException.set(t);
+          }
+
+          @Override
+          public void afterStop() { }
+        },
+        mockJobCoordinator,
+        null,
+        // take an extra second to shut down so that task shutdown timeout gets reached
+        Duration.of(1, ChronoUnit.SECONDS));
+
+    Thread jcThread = new Thread(() -> {
+        // gets processor into rebalance mode so onNewJobModel creates a new container
+        processor.jobCoordinatorListener.onJobModelExpired();
+        processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
+        try {
+          // wait for the run loop to be ready before triggering rebalance
+          processor.runLoopStartForMain.await();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+        processor.jobCoordinatorListener.onJobModelExpired();
+      });
+    doAnswer(invocation -> {
+        jcThread.start();
+        return null;
+      }).when(mockJobCoordinator).start();
+
+    // ensure that the coordinator stop occurred before checking the exception being thrown
+    CountDownLatch coordinatorStop = new CountDownLatch(1);
+    doAnswer(invocation -> {
+        processor.jobCoordinatorListener.onCoordinatorStop();
+        coordinatorStop.countDown();
+        return null;
+      }).when(mockJobCoordinator).stop();
+
+    processor.start();
+
+    // make sure the job model expired callback completed
+    assertTrue("Job coordinator stop not called", coordinatorStop.await(10, TimeUnit.SECONDS));
+    assertNotNull(afterFailureException.get());
+    assertTrue(afterFailureException.get() instanceof TimeoutException);
   }
 
   /**
@@ -309,15 +396,15 @@ public class TestStreamProcessor {
     // This block is required for the mockRunloop is actually started.
     // Otherwise, processor.stop gets triggered before mockRunloop begins to block
     runLoopStartedLatch.await();
-    Assert.assertTrue(
+    assertTrue(
         "Container failed and processor listener failed was not invoked within timeout!",
         processorListenerFailed.await(30, TimeUnit.SECONDS));
     assertEquals(expectedThrowable, actualThrowable.get());
 
-    Assert.assertTrue(processorListenerState.get(ListenerCallback.BEFORE_START));
-    Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_START));
+    assertTrue(processorListenerState.get(ListenerCallback.BEFORE_START));
+    assertTrue(processorListenerState.get(ListenerCallback.AFTER_START));
     Assert.assertFalse(processorListenerState.get(ListenerCallback.AFTER_STOP));
-    Assert.assertTrue(processorListenerState.get(ListenerCallback.AFTER_FAILURE));
+    assertTrue(processorListenerState.get(ListenerCallback.AFTER_FAILURE));
   }
 
   @Test
@@ -325,7 +412,9 @@ public class TestStreamProcessor {
     JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
     Mockito.doNothing().when(mockJobCoordinator).start();
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
-    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", new MapConfig(), new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = Mockito.spy(new StreamProcessor("TestProcessorId", new MapConfig(),
+        new HashMap<>(), null, Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener,
+        mockJobCoordinator, Mockito.mock(MetadataStore.class)));
     assertEquals(State.NEW, streamProcessor.getState());
     streamProcessor.start();
 
@@ -344,7 +433,8 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
     /**
      * Without a SamzaContainer running in StreamProcessor and current StreamProcessor state is STARTED,
@@ -379,13 +469,67 @@ public class TestStreamProcessor {
     assertEquals(State.STOPPING, streamProcessor.getState());
     Mockito.verify(mockSamzaContainer, Mockito.times(1)).shutdown();
     Mockito.verify(mockJobCoordinator, Mockito.times(1)).stop();
+  }
 
-    // If StreamProcessor is in IN_REBALANCE state, onJobModelExpired should be a NO_OP.
-    streamProcessor.state = State.IN_REBALANCE;
+  @Test
+  public void testJobModelExpiredDuringAnExistingRebalance() {
+    JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
+    ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
+    ExecutorService mockExecutorService = Mockito.mock(ExecutorService.class);
+    MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
-    streamProcessor.jobCoordinatorListener.onJobModelExpired();
+    runJobModelExpireDuringRebalance(streamProcessor, mockExecutorService, false);
 
     assertEquals(State.IN_REBALANCE, streamProcessor.state);
+    assertNotEquals(mockExecutorService, streamProcessor.containerExecutorService);
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
+  }
+
+  @Test
+  public void testJobModelExpiredDuringAnExistingRebalanceWithContainerInterruptFailed() {
+    JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
+    ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
+    ExecutorService mockExecutorService = Mockito.mock(ExecutorService.class);
+    MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
+
+    runJobModelExpireDuringRebalance(streamProcessor, mockExecutorService, true);
+
+    assertEquals(State.STOPPING, streamProcessor.state);
+    assertEquals(mockExecutorService, streamProcessor.containerExecutorService);
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
+    Mockito.verify(mockJobCoordinator, Mockito.times(1)).stop();
+  }
+
+  private void runJobModelExpireDuringRebalance(StreamProcessor streamProcessor, ExecutorService executorService,
+      boolean failContainerInterrupt) {
+    SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
+    CountDownLatch shutdownLatch = new CountDownLatch(1);
+
+    /*
+     * When there is an initialized container that hasn't started and the stream processor is still in re-balance phase,
+     * subsequent job model expire request should attempt to interrupt the existing container to safely shut it down
+     * before proceeding to join the barrier. As part of safe shutdown sequence,  we want to ensure shutdownNow is invoked
+     * on the existing executorService to signal interrupt and make sure new executor service is created.
+     */
+
+    Mockito.when(executorService.shutdownNow()).thenAnswer(ctx -> {
+        if (!failContainerInterrupt) {
+          shutdownLatch.countDown();
+        }
+        return null;
+      });
+    Mockito.when(executorService.isShutdown()).thenReturn(true);
+
+    streamProcessor.state = State.IN_REBALANCE;
+    streamProcessor.container = mockSamzaContainer;
+    streamProcessor.containerExecutorService = executorService;
+    streamProcessor.containerShutdownLatch = shutdownLatch;
+
+    streamProcessor.jobCoordinatorListener.onJobModelExpired();
   }
 
   @Test
@@ -412,7 +556,9 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor("TestProcessorId", config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator));
+    StreamProcessor streamProcessor = PowerMockito.spy(new StreamProcessor("TestProcessorId", config, new HashMap<>(),
+        null, Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator,
+        Mockito.mock(MetadataStore.class)));
 
     Mockito.doNothing().when(mockJobCoordinator).stop();
     Mockito.doNothing().when(mockSamzaContainer).shutdown();
@@ -434,7 +580,8 @@ public class TestStreamProcessor {
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
     Exception failureException = new Exception("dummy exception");
 
@@ -455,7 +602,8 @@ public class TestStreamProcessor {
     JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
     ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
     MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
-    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null, lifecycleListener, mockJobCoordinator);
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
     streamProcessor.state = State.RUNNING;
     streamProcessor.jobCoordinatorListener.onCoordinatorStop();
@@ -468,10 +616,10 @@ public class TestStreamProcessor {
   public void testStreamProcessorWithStreamProcessorListenerFactory() {
     AtomicReference<MockStreamProcessorLifecycleListener> mockListener = new AtomicReference<>();
     StreamProcessor streamProcessor =
-        new StreamProcessor("TestProcessorId", mock(Config.class), new HashMap<>(), mock(TaskFactory.class), Optional.empty(),
-            Optional.empty(), Optional.empty(),
+        new StreamProcessor("TestProcessorId", mock(Config.class), new HashMap<>(), mock(TaskFactory.class),
+            Optional.empty(), Optional.empty(), Optional.empty(),
             sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)),
-            mock(JobCoordinator.class));
+            mock(JobCoordinator.class), Mockito.mock(MetadataStore.class));
     assertEquals(streamProcessor, mockListener.get().processor);
   }
 

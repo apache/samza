@@ -27,8 +27,6 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.util.RateLimiter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -43,10 +41,8 @@ import com.google.common.base.Preconditions;
  * @param <V> type of the table record
  */
 public class TableRateLimiter<K, V> {
-  private static final Logger LOG = LoggerFactory.getLogger(TableRateLimiter.class);
 
   private final String tag;
-  private final boolean rateLimited;
   private final CreditFunction<K, V> creditFn;
 
   @VisibleForTesting
@@ -62,14 +58,25 @@ public class TableRateLimiter<K, V> {
    * @param <V> the type of the value
    */
   @InterfaceStability.Unstable
-  public interface CreditFunction<K, V> extends Serializable {
+  public interface CreditFunction<K, V> extends TablePart, Serializable {
     /**
      * Get the number of credits required for the {@code key} and {@code value} pair.
      * @param key table key
      * @param value table record
+     * @param args additional arguments
      * @return number of credits
      */
-    int getCredits(K key, V value);
+    int getCredits(K key, V value, Object ... args);
+
+    /**
+     * Get the number of credits required for the {@code opId} and associated {@code args}.
+     * @param opId operation Id
+     * @param args additional arguments
+     * @return number of credits
+     */
+    default int getCredits(int opId, Object ... args) {
+      return 1;
+    }
   }
 
   /**
@@ -79,11 +86,12 @@ public class TableRateLimiter<K, V> {
    * @param tag tag to be used with the rate limiter
    */
   public TableRateLimiter(String tableId, RateLimiter rateLimiter, CreditFunction<K, V> creditFn, String tag) {
+    Preconditions.checkNotNull(rateLimiter);
+    Preconditions.checkArgument(rateLimiter.getSupportedTags().contains(tag),
+        String.format("Rate limiter for table %s doesn't support %s", tableId, tag));
     this.rateLimiter = rateLimiter;
     this.creditFn = creditFn;
     this.tag = tag;
-    this.rateLimited = rateLimiter != null && rateLimiter.getSupportedTags().contains(tag);
-    LOG.info("Rate limiting is {} for {}", rateLimited ? "enabled" : "disabled", tableId);
   }
 
   /**
@@ -95,31 +103,31 @@ public class TableRateLimiter<K, V> {
     this.waitTimeMetric = timer;
   }
 
-  int getCredits(K key, V value) {
-    return (creditFn == null) ? 1 : creditFn.getCredits(key, value);
+  int getCredits(K key, V value, Object ... args) {
+    return (creditFn == null) ? 1 : creditFn.getCredits(key, value, args);
   }
 
-  int getCredits(Collection<K> keys) {
+  int getCredits(Collection<K> keys, Object ... args) {
     if (creditFn == null) {
       return keys.size();
     } else {
-      return keys.stream().mapToInt(k -> creditFn.getCredits(k, null)).sum();
+      return keys.stream().mapToInt(k -> creditFn.getCredits(k, null, args)).sum();
     }
   }
 
-  int getEntryCredits(Collection<Entry<K, V>> entries) {
+  int getEntryCredits(Collection<Entry<K, V>> entries, Object ... args) {
     if (creditFn == null) {
       return entries.size();
     } else {
-      return entries.stream().mapToInt(e -> creditFn.getCredits(e.getKey(), e.getValue())).sum();
+      return entries.stream().mapToInt(e -> creditFn.getCredits(e.getKey(), e.getValue(), args)).sum();
     }
   }
 
-  private void throttle(int credits) {
-    if (!rateLimited) {
-      return;
-    }
+  int getCredits(int opId, Object ... args) {
+    return (creditFn == null) ? 1 : creditFn.getCredits(opId, args);
+  }
 
+  private void throttle(int credits) {
     long startNs = System.nanoTime();
     rateLimiter.acquire(Collections.singletonMap(tag, credits));
     if (waitTimeMetric != null) {
@@ -130,40 +138,46 @@ public class TableRateLimiter<K, V> {
   /**
    * Throttle a request with a key argument if necessary.
    * @param key key used for the table request
+   * @param args additional arguments
    */
-  public void throttle(K key) {
-    throttle(getCredits(key, null));
+  public void throttle(K key, Object ... args) {
+    throttle(getCredits(key, null, args));
   }
 
   /**
    * Throttle a request with both the key and value arguments if necessary.
    * @param key key used for the table request
    * @param value value used for the table request
+   * @param args additional arguments
    */
-  public void throttle(K key, V value) {
-    throttle(getCredits(key, value));
+  public void throttle(K key, V value, Object ... args) {
+    throttle(getCredits(key, value, args));
+  }
+
+  /**
+   * Throttle a request with opId and associated arguments
+   * @param opId operation Id
+   * @param args associated arguments
+   */
+  public void throttle(int opId, Object ... args) {
+    throttle(getCredits(opId, args));
   }
 
   /**
    * Throttle a request with a collection of keys as the argument if necessary.
    * @param keys collection of keys used for the table request
+   * @param args additional arguments
    */
-  public void throttle(Collection<K> keys) {
-    throttle(getCredits(keys));
+  public void throttle(Collection<K> keys, Object ... args) {
+    throttle(getCredits(keys, args));
   }
 
   /**
    * Throttle a request with a collection of table records as the argument if necessary.
    * @param records collection of records used for the table request
+   * @param args additional arguments
    */
-  public void throttleRecords(Collection<Entry<K, V>> records) {
-    throttle(getEntryCredits(records));
-  }
-
-  /**
-   * @return whether rate limiting is enabled for the associated table
-   */
-  public boolean isRateLimited() {
-    return rateLimited;
+  public void throttleRecords(Collection<Entry<K, V>> records, Object ... args) {
+    throttle(getEntryCredits(records, args));
   }
 }

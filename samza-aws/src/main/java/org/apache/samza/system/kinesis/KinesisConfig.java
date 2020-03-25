@@ -54,20 +54,20 @@ import com.amazonaws.ClientConfiguration;
 public class KinesisConfig extends MapConfig {
   private static final Logger LOG = LoggerFactory.getLogger(KinesisConfig.class.getName());
 
-  private static final String CONFIG_SYSTEM_REGION = "systems.%s.aws.region";
-  private static final String CONFIG_STREAM_REGION = "systems.%s.streams.%s.aws.region";
+  public static final String CONFIG_SYSTEM_REGION = "systems.%s.aws.region";
+  public static final String CONFIG_STREAM_REGION = "systems.%s.streams.%s.aws.region";
 
-  private static final String CONFIG_STREAM_ACCESS_KEY = "systems.%s.streams.%s.aws.accessKey";
-  private static final String CONFIG_STREAM_SECRET_KEY = "sensitive.systems.%s.streams.%s.aws.secretKey";
+  public static final String CONFIG_STREAM_ACCESS_KEY = "systems.%s.streams.%s.aws.accessKey";
+  public static final String CONFIG_STREAM_SECRET_KEY = "sensitive.systems.%s.streams.%s.aws.secretKey";
 
-  private static final String CONFIG_AWS_CLIENT_CONFIG = "systems.%s.aws.clientConfig.";
-  private static final String CONFIG_PROXY_HOST = CONFIG_AWS_CLIENT_CONFIG + "ProxyHost";
-  private static final String DEFAULT_CONFIG_PROXY_HOST = "";
-  private static final String CONFIG_PROXY_PORT = CONFIG_AWS_CLIENT_CONFIG + "ProxyPort";
-  private static final int DEFAULT_CONFIG_PROXY_PORT = 0;
+  public static final String CONFIG_AWS_CLIENT_CONFIG = "systems.%s.aws.clientConfig.";
+  public static final String CONFIG_PROXY_HOST = CONFIG_AWS_CLIENT_CONFIG + "ProxyHost";
+  public static final String DEFAULT_CONFIG_PROXY_HOST = "";
+  public static final String CONFIG_PROXY_PORT = CONFIG_AWS_CLIENT_CONFIG + "ProxyPort";
+  public static final int DEFAULT_CONFIG_PROXY_PORT = 0;
 
-  private static final String CONFIG_SYSTEM_KINESIS_CLIENT_LIB_CONFIG = "systems.%s.aws.kcl.";
-  private static final String CONFIG_STREAM_KINESIS_CLIENT_LIB_CONFIG = "systems.%s.streams.%s.aws.kcl.";
+  public static final String CONFIG_SYSTEM_KINESIS_CLIENT_LIB_CONFIG = "systems.%s.aws.kcl.";
+  public static final String CONFIG_STREAM_KINESIS_CLIENT_LIB_CONFIG = "systems.%s.streams.%s.aws.kcl.";
 
   public KinesisConfig(Config config) {
     super(config);

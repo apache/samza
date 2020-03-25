@@ -20,7 +20,6 @@
 package org.apache.samza.sql.translator;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,7 +40,7 @@ import org.apache.samza.sql.data.SamzaSqlExecutionContext;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
-import org.apache.samza.sql.testutil.TestMetricsRegistryImpl;
+import org.apache.samza.sql.util.TestMetricsRegistryImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.internal.util.reflection.Whitebox;
@@ -126,7 +125,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
 
     // Calling filterFn.apply() to verify the filter function is correctly applied to the input message
     SamzaSqlRelMessage mockInputMsg = new SamzaSqlRelMessage(new ArrayList<>(), new ArrayList<>(),
-        new SamzaSqlRelMsgMetadata("", "", ""));
+        new SamzaSqlRelMsgMetadata(0L, 0L));
     SamzaSqlExecutionContext executionContext = mock(SamzaSqlExecutionContext.class);
     DataContext dataContext = mock(DataContext.class);
     when(mockTranslatorContext.getExecutionContext()).thenReturn(executionContext);
@@ -134,18 +133,18 @@ public class TestFilterTranslator extends TranslatorTestBase {
     Object[] result = new Object[1];
 
     doAnswer( invocation -> {
-      Object[] retValue = invocation.getArgumentAt(3, Object[].class);
+      Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = new Boolean(true);
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertTrue(filterFn.apply(mockInputMsg));
 
     doAnswer( invocation -> {
-      Object[] retValue = invocation.getArgumentAt(3, Object[].class);
+      Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = new Boolean(false);
       return null;
-    }).when(mockExpr).execute(eq(executionContext), eq(dataContext),
+    }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertFalse(filterFn.apply(mockInputMsg));
 

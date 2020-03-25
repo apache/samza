@@ -21,10 +21,10 @@ package org.apache.samza.test.processor;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.Serializable;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -36,6 +36,7 @@ import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
+import org.apache.samza.test.util.TestKafkaEvent;
 
 
 /**
@@ -44,15 +45,15 @@ import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
 public class TestStreamApplication implements StreamApplication {
 
   private final String systemName;
-  private final String inputTopic;
+  private final List<String> inputTopics;
   private final String outputTopic;
   private final String appName;
   private final String processorName;
 
-  private TestStreamApplication(String systemName, String inputTopic, String outputTopic,
+  private TestStreamApplication(String systemName, List<String> inputTopics, String outputTopic,
       String appName, String processorName) {
     this.systemName = systemName;
-    this.inputTopic = inputTopic;
+    this.inputTopics = inputTopics;
     this.outputTopic = outputTopic;
     this.appName = appName;
     this.processorName = processorName;
@@ -61,11 +62,14 @@ public class TestStreamApplication implements StreamApplication {
   @Override
   public void describe(StreamApplicationDescriptor appDescriptor) {
     KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(systemName);
-    KafkaInputDescriptor<String> isd = ksd.getInputDescriptor(inputTopic, new NoOpSerde<>());
     KafkaOutputDescriptor<String> osd = ksd.getOutputDescriptor(outputTopic, new StringSerde());
-    MessageStream<String> inputStream = appDescriptor.getInputStream(isd);
     OutputStream<String> outputStream = appDescriptor.getOutputStream(osd);
-    inputStream.map(new TestMapFunction(appName, processorName)).sendTo(outputStream);
+
+    for (String inputTopic : inputTopics) {
+      KafkaInputDescriptor<String> isd = ksd.getInputDescriptor(inputTopic, new NoOpSerde<>());
+      MessageStream<String> inputStream = appDescriptor.getInputStream(isd);
+      inputStream.map(new TestMapFunction(appName, processorName)).sendTo(outputStream);
+    }
   }
 
   public interface StreamApplicationCallback {
@@ -110,51 +114,19 @@ public class TestStreamApplication implements StreamApplication {
     }
   }
 
-  public static class TestKafkaEvent implements Serializable {
-
-    // Actual content of the event.
-    private String eventData;
-
-    // Contains Integer value, which is greater than previous message id.
-    private String eventId;
-
-    TestKafkaEvent(String eventId, String eventData) {
-      this.eventData = eventData;
-      this.eventId = eventId;
-    }
-
-    String getEventId() {
-      return eventId;
-    }
-
-    String getEventData() {
-      return eventData;
-    }
-
-    @Override
-    public String toString() {
-      return eventId + "|" + eventData;
-    }
-
-    static TestKafkaEvent fromString(String message) {
-      String[] messageComponents = message.split("|");
-      return new TestKafkaEvent(messageComponents[0], messageComponents[1]);
-    }
-  }
-
   public static StreamApplication getInstance(
       String systemName,
-      String inputTopic,
+      List<String> inputTopics,
       String outputTopic,
       CountDownLatch processedMessageLatch,
       StreamApplicationCallback callback,
       CountDownLatch kafkaEventsConsumedLatch,
       Config config) {
     String appName = new ApplicationConfig(config).getGlobalAppId();
-    String processorName = config.get(JobConfig.PROCESSOR_ID());
+    String processorName = config.get(JobConfig.PROCESSOR_ID);
     registerLatches(processedMessageLatch, kafkaEventsConsumedLatch, callback, appName, processorName);
 
-    StreamApplication app = new TestStreamApplication(systemName, inputTopic, outputTopic, appName, processorName);
+    StreamApplication app = new TestStreamApplication(systemName, inputTopics, outputTopic, appName, processorName);
     return app;
   }
 

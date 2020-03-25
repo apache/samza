@@ -1,35 +1,33 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 package org.apache.samza.sql.translator;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.samza.SamzaException;
@@ -57,6 +55,7 @@ class ProjectTranslator {
   private static final Logger LOG = LoggerFactory.getLogger(ProjectTranslator.class);
   //private transient int messageIndex = 0;
   private final int queryId;
+
   ProjectTranslator(int queryId) {
     this.queryId = queryId;
   }
@@ -77,6 +76,7 @@ class ProjectTranslator {
     private final int queryId;
     private final int projectId;
     private final String logicalOpId;
+    private Context context;
 
     ProjectMapFunction(int projectId, int queryId, String logicalOpId) {
       this.projectId = projectId;
@@ -90,7 +90,9 @@ class ProjectTranslator {
      */
     @Override
     public void init(Context context) {
-      this.translatorContext = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
+      this.context = context;
+      this.translatorContext =
+          ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.project = (Project) this.translatorContext.getRelNode(projectId);
       this.expr = this.translatorContext.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
       ContainerContext containerContext = context.getContainerContext();
@@ -109,16 +111,22 @@ class ProjectTranslator {
      */
     @Override
     public SamzaSqlRelMessage apply(SamzaSqlRelMessage message) {
-      Instant arrivalTime = Instant.now();
+      long arrivalTime = System.nanoTime();
       RelDataType type = project.getRowType();
       Object[] output = new Object[type.getFieldCount()];
-      expr.execute(translatorContext.getExecutionContext(), translatorContext.getDataContext(),
-          message.getSamzaSqlRelRecord().getFieldValues().toArray(), output);
+      try {
+        expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
+            message.getSamzaSqlRelRecord().getFieldValues().toArray(), output);
+      } catch (Exception e) {
+        String errMsg = String.format("Handling the following rel message ran into an error. %s", message);
+        LOG.error(errMsg, e);
+        throw new SamzaException(errMsg, e);
+      }
       List<String> names = new ArrayList<>();
       for (int index = 0; index < output.length; index++) {
         names.add(index, project.getNamedProjects().get(index).getValue());
       }
-      updateMetrics(arrivalTime, Instant.now(), message.getSamzaSqlRelMsgMetadata().isNewInputMessage);
+      updateMetrics(arrivalTime, System.nanoTime(), message.getSamzaSqlRelMsgMetadata().isNewInputMessage);
       return new SamzaSqlRelMessage(names, Arrays.asList(output), message.getSamzaSqlRelMsgMetadata());
     }
 
@@ -128,14 +136,13 @@ class ProjectTranslator {
      * @param outputTime output message output time (=end of processing in this operator)
      * @param isNewInputMessage whether the input Message is from new input message or not
      */
-    private void updateMetrics(Instant arrivalTime, Instant outputTime, boolean isNewInputMessage) {
+    private void updateMetrics(long arrivalTime, long outputTime, boolean isNewInputMessage) {
       if (isNewInputMessage) {
         inputEvents.inc();
       }
       outputEvents.inc();
-      processingTime.update(Duration.between(arrivalTime, outputTime).toMillis());
+      processingTime.update(outputTime - arrivalTime);
     }
-
   }
 
   private MessageStream<SamzaSqlRelMessage> translateFlatten(Integer flattenIndex,
@@ -145,15 +152,16 @@ class ProjectTranslator {
       if (field != null && field instanceof List) {
         List<SamzaSqlRelMessage> outMessages = new ArrayList<>();
         SamzaSqlRelMsgMetadata messageMetadata = message.getSamzaSqlRelMsgMetadata();
-        SamzaSqlRelMsgMetadata newMetadata = new SamzaSqlRelMsgMetadata(messageMetadata.getEventTime(),
-            messageMetadata.getarrivalTime(), messageMetadata.getscanTime(), true);
+        SamzaSqlRelMsgMetadata newMetadata =
+            new SamzaSqlRelMsgMetadata(messageMetadata.getEventTime(), messageMetadata.getArrivalTime(),
+                messageMetadata.getScanTimeNanos(), messageMetadata.getScanTimeMillis());
         for (Object fieldValue : (List) field) {
           List<Object> newValues = new ArrayList<>(message.getSamzaSqlRelRecord().getFieldValues());
           newValues.set(flattenIndex, Collections.singletonList(fieldValue));
-          outMessages.add(new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues,
-              newMetadata));
-          newMetadata = new SamzaSqlRelMsgMetadata(newMetadata.getEventTime(), newMetadata.getarrivalTime(),
-              newMetadata.getscanTime(), false);
+          outMessages.add(
+              new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues, newMetadata));
+          newMetadata = new SamzaSqlRelMsgMetadata(newMetadata.getEventTime(), newMetadata.getArrivalTime(),
+              newMetadata.getScanTimeNanos(), newMetadata.getScanTimeMillis());
         }
         return outMessages;
       } else {
@@ -168,14 +176,19 @@ class ProjectTranslator {
         && ((RexCall) rexNode).op.getName().equalsIgnoreCase("flatten");
   }
 
-  private Integer getProjectIndex(RexNode rexNode) {
-    return ((RexInputRef) ((RexCall) rexNode).getOperands().get(0)).getIndex();
-  }
-
   void translate(final Project project, final String logicalOpId, final TranslatorContext context) {
     MessageStream<SamzaSqlRelMessage> messageStream = context.getMessageStream(project.getInput().getId());
-    List<Integer> flattenProjects =
-        project.getProjects().stream().filter(this::isFlatten).map(this::getProjectIndex).collect(Collectors.toList());
+
+    final int projectId = project.getId();
+
+    MessageStream<SamzaSqlRelMessage> outputStream =
+        messageStream.map(new ProjectMapFunction(projectId, queryId, logicalOpId));
+
+    List<RexNode> projects = project.getProjects();
+    List<Integer> flattenProjects = IntStream.range(0, projects.size())
+        .filter(i -> this.isFlatten(projects.get(i)))
+        .boxed()
+        .collect(Collectors.toList());
 
     if (flattenProjects.size() > 0) {
       if (flattenProjects.size() > 1) {
@@ -183,15 +196,10 @@ class ProjectTranslator {
         LOG.error(msg);
         throw new SamzaException(msg);
       }
-      messageStream = translateFlatten(flattenProjects.get(0), messageStream);
+      outputStream = translateFlatten(flattenProjects.get(0), outputStream);
     }
-
-    final int projectId = project.getId();
-
-    MessageStream<SamzaSqlRelMessage> outputStream = messageStream.map(new ProjectMapFunction(projectId, queryId, logicalOpId));
 
     context.registerMessageStream(project.getId(), outputStream);
     context.registerRelNode(project.getId(), project);
   }
-
 }

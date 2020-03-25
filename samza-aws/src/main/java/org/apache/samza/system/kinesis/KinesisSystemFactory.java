@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StreamConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.stream.AllSspToSingleTaskGrouperFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemAdmin;
@@ -31,7 +31,6 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
-
 import org.apache.samza.system.kinesis.consumer.KinesisSystemConsumer;
 
 
@@ -64,12 +63,12 @@ public class KinesisSystemFactory implements SystemFactory {
         AllSspToSingleTaskGrouperFactory.class.getCanonicalName())) {
       String errMsg = String.format("Incorrect Grouper %s used for KinesisSystemConsumer %s. Please set the %s config"
               + " to %s.", jobConfig.getSystemStreamPartitionGrouperFactory(), system,
-          JobConfig.SSP_GROUPER_FACTORY(), AllSspToSingleTaskGrouperFactory.class.getCanonicalName());
+          JobConfig.SSP_GROUPER_FACTORY, AllSspToSingleTaskGrouperFactory.class.getCanonicalName());
       throw new ConfigException(errMsg);
     }
 
     // Kinesis streams cannot be configured as broadcast streams
-    TaskConfigJava taskConfig = new TaskConfigJava(config);
+    TaskConfig taskConfig = new TaskConfig(config);
     if (taskConfig.getBroadcastSystemStreams().stream().anyMatch(ss -> system.equals(ss.getSystem()))) {
       throw new ConfigException("Kinesis streams cannot be configured as broadcast streams.");
     }

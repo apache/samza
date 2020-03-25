@@ -29,7 +29,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.TaskConfigJava;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -73,11 +73,11 @@ class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
 public class AllSspToSingleTaskGrouperFactory implements SystemStreamPartitionGrouperFactory {
   @Override
   public SystemStreamPartitionGrouper getSystemStreamPartitionGrouper(Config config) {
-    if (!(new TaskConfigJava(config).getBroadcastSystemStreams().isEmpty())) {
+    if (!(new TaskConfig(config).getBroadcastSystemStreams().isEmpty())) {
       throw new ConfigException("The job configured with AllSspToSingleTaskGrouper cannot have broadcast streams.");
     }
 
-    String processors = config.get(JobConfig.PROCESSOR_LIST());
+    String processors = config.get(JobConfig.PROCESSOR_LIST);
     List<String> processorList = Arrays.asList(processors.split(","));
     if (processorList.isEmpty()) {
       throw new SamzaException("processor list cannot be empty!");

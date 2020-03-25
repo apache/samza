@@ -19,13 +19,17 @@
 
 package org.apache.samza.storage.kv
 
+import java.nio.file.Path
+import java.util.Optional
+
+import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.util.Logging
 import org.apache.samza.system.{OutgoingMessageEnvelope, SystemStreamPartition}
 import org.apache.samza.task.MessageCollector
 
 /**
- * A key/value store decorator that adds a changelog for any changes made to the underlying store
- */
+  * A key/value store decorator that adds a changelog for any changes made to the underlying store
+  */
 class LoggedStore[K, V](
   val store: KeyValueStore[K, V],
   val systemStreamPartition: SystemStreamPartition,
@@ -57,8 +61,8 @@ class LoggedStore[K, V](
   }
 
   /**
-   * Perform the local update and log it out to the changelog
-   */
+    * Perform the local update and log it out to the changelog
+    */
   def put(key: K, value: V) {
     metrics.puts.inc
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, value))
@@ -66,8 +70,8 @@ class LoggedStore[K, V](
   }
 
   /**
-   * Perform multiple local updates and log out all changes to the changelog
-   */
+    * Perform multiple local updates and log out all changes to the changelog
+    */
   def putAll(entries: java.util.List[Entry[K, V]]) {
     metrics.puts.inc(entries.size)
     val iter = entries.iterator
@@ -79,8 +83,8 @@ class LoggedStore[K, V](
   }
 
   /**
-   * Perform the local delete and log it out to the changelog
-   */
+    * Perform the local delete and log it out to the changelog
+    */
   def delete(key: K) {
     metrics.deletes.inc
     collector.send(new OutgoingMessageEnvelope(systemStream, partitionId, key, null))
@@ -88,8 +92,8 @@ class LoggedStore[K, V](
   }
 
   /**
-   * Perform the local deletes and log them out to the changelog
-   */
+    * Perform the local deletes and log them out to the changelog
+    */
   override def deleteAll(keys: java.util.List[K]) = {
     metrics.deletes.inc(keys.size)
     val keysIterator = keys.iterator
@@ -116,5 +120,9 @@ class LoggedStore[K, V](
 
   override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     store.snapshot(from, to)
+  }
+
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
+    store.checkpoint(id)
   }
 }

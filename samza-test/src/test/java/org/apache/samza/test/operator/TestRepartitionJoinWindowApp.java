@@ -82,8 +82,8 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     String appName = "UserPageAdClickCounter";
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
-    configs.put(JobConfig.PROCESSOR_ID(), "0");
-    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    configs.put(JobConfig.PROCESSOR_ID, "0");
+    configs.put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put("systems.kafka.samza.delete.committed.messages", "false");
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_1_CONFIG_KEY, inputTopicName1);
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_2_CONFIG_KEY, inputTopicName2);
@@ -111,8 +111,8 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     final String appName = "UserPageAdClickCounter2";
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
-    configs.put(JobConfig.PROCESSOR_ID(), "0");
-    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    configs.put(JobConfig.PROCESSOR_ID, "0");
+    configs.put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put("systems.kafka.samza.delete.committed.messages", "true");
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_1_CONFIG_KEY, inputTopicName1);
     configs.put(RepartitionJoinWindowApp.INPUT_TOPIC_2_CONFIG_KEY, inputTopicName2);
@@ -160,8 +160,8 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     String outputTopicName = "user-ad-click-counts";
     Map<String, String> configs = new HashMap<>();
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
-    configs.put(JobConfig.PROCESSOR_ID(), "0");
-    configs.put(TaskConfig.GROUPER_FACTORY(), "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    configs.put(JobConfig.PROCESSOR_ID, "0");
+    configs.put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
     configs.put(BroadcastAssertApp.INPUT_TOPIC_NAME_PROP, inputTopicName1);
 
     initializeTopics(inputTopicName1, inputTopicName2, outputTopicName);

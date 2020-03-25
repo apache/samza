@@ -42,7 +42,7 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.test.controlmessages.TestData.PageView;
 import org.apache.samza.test.controlmessages.TestData.PageViewJsonSerdeFactory;
-import org.apache.samza.test.harness.AbstractIntegrationTestHarness;
+import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.util.ArraySystemFactory;
 import org.apache.samza.test.util.Base64Serializer;
 import org.junit.Test;
@@ -53,7 +53,7 @@ import static org.junit.Assert.assertEquals;
  * This test uses an array as a bounded input source, and does a partitionBy() and sink() after reading the input.
  * It verifies the pipeline will stop and the number of output messages should equal to the input.
  */
-public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
+public class EndOfStreamIntegrationTest extends IntegrationTestHarness {
 
   private static final String[] PAGEKEYS = {"inbox", "home", "search", "pymk", "group", "job"};
 
@@ -78,10 +78,10 @@ public class EndOfStreamIntegrationTest extends AbstractIntegrationTestHarness {
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageviews));
     configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
 
-    configs.put(JobConfig.JOB_NAME(), "test-eos-job");
-    configs.put(JobConfig.PROCESSOR_ID(), "1");
+    configs.put(JobConfig.JOB_NAME, "test-eos-job");
+    configs.put(JobConfig.PROCESSOR_ID, "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
-    configs.put(TaskConfig.GROUPER_FACTORY(), SingleContainerGrouperFactory.class.getName());
+    configs.put(TaskConfig.GROUPER_FACTORY, SingleContainerGrouperFactory.class.getName());
 
     configs.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");
     configs.put("systems.kafka.producer.bootstrap.servers", bootstrapUrl());

@@ -21,14 +21,19 @@ package org.apache.samza.storage.kv
 
 import java.io.File
 import java.util.Arrays
+import java.util.concurrent.{Callable, ExecutionException, ExecutorService, Executors}
 
 import org.apache.samza.Partition
-import org.apache.samza.container.TaskName
+import org.apache.samza.context.Context
 import org.apache.samza.storage.StoreProperties
-import org.apache.samza.system.{IncomingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.system.ChangelogSSPIterator.Mode
+import org.apache.samza.system.{ChangelogSSPIterator, IncomingMessageEnvelope, SystemStreamPartition}
+import org.apache.samza.task.MessageCollector
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 
 class TestKeyValueStorageEngine {
   var engine: KeyValueStorageEngine[String, String] = null
@@ -42,8 +47,11 @@ class TestKeyValueStorageEngine {
     val storeName = "test-storeName"
     val storeDir = mock(classOf[File])
     val properties = mock(classOf[StoreProperties])
+    val changelogSSP = mock(classOf[SystemStreamPartition])
+    val changelogCollector = mock(classOf[MessageCollector])
     metrics = new KeyValueStorageEngineMetrics
-    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv, metrics, clock = () => { getNextTimestamp() })
+    engine = new KeyValueStorageEngine[String, String](storeName, storeDir, properties, wrapperKv, rawKv,
+      changelogSSP, changelogCollector, metrics, clock = () => { getNextTimestamp() })
   }
 
   @After
@@ -138,15 +146,90 @@ class TestKeyValueStorageEngine {
   @Test
   def testRestoreMetrics(): Unit = {
     val changelogSSP = new SystemStreamPartition("TestSystem", "TestStream", new Partition(0))
-    val changelogEntries = java.util.Arrays asList(
-      new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)),
-      new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)),
-      new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
+    val iterator = mock(classOf[ChangelogSSPIterator])
+    when(iterator.hasNext)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenReturn(false)
+    when(iterator.next())
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
+    when(iterator.getMode)
+      .thenReturn(Mode.RESTORE)
+      .thenReturn(Mode.RESTORE)
+      .thenReturn(Mode.RESTORE)
 
-    engine.restore(changelogEntries.iterator())
+    engine.restore(iterator)
 
     assertEquals(3, metrics.restoredMessagesGauge.getValue)
     assertEquals(15, metrics.restoredBytesGauge.getValue) // 3 keys * 2 bytes/key +  3 msgs * 3 bytes/msg
+  }
+
+  @Test
+  def testRestoreInterruptedThrowsInterruptException(): Unit = {
+    val changelogSSP = new SystemStreamPartition("TestSystem", "TestStream", new Partition(0))
+    val iterator = mock(classOf[ChangelogSSPIterator])
+    val executorService = Executors.newSingleThreadExecutor()
+    val restore = new Callable[Void] {
+      override def call(): Void = {
+        engine.restore(iterator)
+        null
+      }
+    }
+
+    when(iterator.hasNext)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenAnswer(new Answer[Boolean] {
+        override def answer(invocation: InvocationOnMock): Boolean = {
+          executorService.shutdownNow()
+          true
+        }
+      })
+      .thenReturn(false)
+    when(iterator.next())
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
+    when(iterator.getMode)
+      .thenReturn(Mode.RESTORE)
+      .thenReturn(Mode.RESTORE)
+      .thenReturn(Mode.RESTORE)
+
+    try {
+      val restoreFuture = executorService.submit(restore)
+      restoreFuture.get()
+      fail("Expected execution exception during restoration")
+    } catch {
+      case e: ExecutionException => {
+        assertTrue(e.getCause.isInstanceOf[InterruptedException])
+        // Make sure we don't restore any more records and bail out
+        assertEquals(2, metrics.restoredMessagesGauge.getValue)
+      }
+    }
+  }
+
+  @Test(expected = classOf[IllegalStateException])
+  def testThrowsIfIteratorModeChangesFromTrimToRestore(): Unit = {
+    val changelogSSP = new SystemStreamPartition("TestSystem", "TestStream", new Partition(0))
+    val iterator = mock(classOf[ChangelogSSPIterator])
+    when(iterator.hasNext)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenReturn(true)
+      .thenReturn(false)
+    when(iterator.next())
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "0", Array[Byte](1, 2), Array[Byte](3, 4, 5)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "1", Array[Byte](2, 3), Array[Byte](4, 5, 6)))
+      .thenReturn(new IncomingMessageEnvelope(changelogSSP, "2", Array[Byte](3, 4), Array[Byte](5, 6, 7)))
+    when(iterator.getMode)
+      .thenReturn(Mode.RESTORE)
+      .thenReturn(Mode.TRIM)
+      .thenReturn(Mode.RESTORE)
+
+    engine.restore(iterator)
   }
 
   def getNextTimestamp(): Long = {

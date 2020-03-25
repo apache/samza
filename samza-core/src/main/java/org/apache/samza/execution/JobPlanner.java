@@ -26,12 +26,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
@@ -76,14 +79,15 @@ public abstract class JobPlanner {
     // TODO: This should all be consolidated with ExecutionPlanner after fixing SAMZA-1811
     // Don't generate any configurations for LegacyTaskApplications
     if (!LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
-      if (userConfig.containsKey(TaskConfig.INPUT_STREAMS())) {
-        LOG.warn("SamzaApplications should not specify task.inputs in configuration. " +
-            "Specify them using InputDescriptors instead. Ignoring configured task.inputs value of " +
-            userConfig.get(TaskConfig.INPUT_STREAMS()));
-        allowedUserConfig.remove(TaskConfig.INPUT_STREAMS());
+      // Don't allow overriding task.inputs to a blank string
+      if (StringUtils.isBlank(userConfig.get(TaskConfig.INPUT_STREAMS))) {
+        allowedUserConfig.remove(TaskConfig.INPUT_STREAMS);
       }
-
       generatedConfig.putAll(getGeneratedConfig(runId));
+    }
+
+    if (ApplicationConfig.ApplicationMode.BATCH.name().equals(generatedConfig.get(ApplicationConfig.APP_MODE))) {
+      allowedUserConfig.remove(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED);
     }
 
     // merge user-provided configuration with generated configuration. generated configuration has lower priority.
@@ -107,7 +111,7 @@ public abstract class JobPlanner {
   final void writePlanJsonFile(String planJson) {
     try {
       String content = "plan='" + planJson + "'";
-      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR());
+      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR);
       if (planPath != null && !planPath.isEmpty()) {
         // Write the plan json to plan path
         File file = new File(planPath + "/plan.json");
@@ -127,17 +131,23 @@ public abstract class JobPlanner {
       generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
     }
 
-    StreamConfig streamConfig = new StreamConfig(userConfig);
-    Set<String> inputStreamIds = new HashSet<>(appDesc.getInputStreamIds());
-    inputStreamIds.removeAll(appDesc.getOutputStreamIds()); // exclude intermediate streams
-    ApplicationConfig.ApplicationMode mode =
-        inputStreamIds.stream().allMatch(streamConfig::getIsBounded)
-            ? ApplicationConfig.ApplicationMode.BATCH
-            : ApplicationConfig.ApplicationMode.STREAM;
-    generatedConfig.put(ApplicationConfig.APP_MODE, mode.name());
-
     Map<String, String> systemStreamConfigs = generateSystemStreamConfigs(appDesc);
     generatedConfig.putAll(systemStreamConfigs);
+
+    StreamConfig streamConfig = new StreamConfig(new MapConfig(generatedConfig));
+    Set<String> inputStreamIds = new HashSet<>(appDesc.getInputStreamIds());
+    inputStreamIds.removeAll(appDesc.getOutputStreamIds()); // exclude intermediate streams
+
+    final ApplicationConfig.ApplicationMode mode;
+    if (inputStreamIds.isEmpty()) {
+      mode = ApplicationConfig.ApplicationMode.STREAM; // use stream by default
+    } else {
+      mode = inputStreamIds.stream().allMatch(streamConfig::getIsBounded)
+          ? ApplicationConfig.ApplicationMode.BATCH
+          : ApplicationConfig.ApplicationMode.STREAM;
+    }
+
+    generatedConfig.put(ApplicationConfig.APP_MODE, mode.name());
 
     // adding app.class in the configuration, unless it is LegacyTaskApplication
     if (!LegacyTaskApplication.class.getName().equals(appDesc.getAppClass().getName())) {
@@ -152,7 +162,46 @@ public abstract class JobPlanner {
     appDesc.getOutputDescriptors().forEach((key, value) -> systemStreamConfigs.putAll(value.toConfig()));
     appDesc.getSystemDescriptors().forEach(sd -> systemStreamConfigs.putAll(sd.toConfig()));
     appDesc.getDefaultSystemDescriptor().ifPresent(dsd ->
-        systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM(), dsd.getSystemName()));
+        systemStreamConfigs.put(JobConfig.JOB_DEFAULT_SYSTEM, dsd.getSystemName()));
     return systemStreamConfigs;
   }
+
+  /**
+   * Generates configs for a single job in app, job.id from app.id and job.name from app.name config
+   * If both job.id and app.id is defined, app.id takes precedence and job.id is set to value of app.id
+   * If both job.name and app.name is defined, app.name takes precedence and job.name is set to value of app.name
+   *
+   * @param userConfigs configs passed from user
+   *
+   */
+  public static MapConfig generateSingleJobConfig(Map<String, String> userConfigs) {
+    Map<String, String> generatedConfig = new HashMap<>(userConfigs);
+
+    if (!userConfigs.containsKey(JobConfig.JOB_NAME) && !userConfigs.containsKey(ApplicationConfig.APP_NAME)) {
+      throw new SamzaException("Samza app name should not be null, Please set either app.name (preferred) or job.name (deprecated) in configs");
+    }
+
+    if (userConfigs.containsKey(JobConfig.JOB_ID)) {
+      LOG.warn("{} is a deprecated configuration, use app.id instead.", JobConfig.JOB_ID);
+    }
+
+    if (userConfigs.containsKey(JobConfig.JOB_NAME)) {
+      LOG.warn("{} is a deprecated configuration, use use app.name instead.", JobConfig.JOB_NAME);
+    }
+
+    if (userConfigs.containsKey(ApplicationConfig.APP_NAME)) {
+      String appName =  userConfigs.get(ApplicationConfig.APP_NAME);
+      LOG.info("app.name is defined, generating job.name equal to app.name value: {}", appName);
+      generatedConfig.put(JobConfig.JOB_NAME, appName);
+    }
+
+    if (userConfigs.containsKey(ApplicationConfig.APP_ID)) {
+      String appId =  userConfigs.get(ApplicationConfig.APP_ID);
+      LOG.info("app.id is defined, generating job.id equal to app.name value: {}", appId);
+      generatedConfig.put(JobConfig.JOB_ID, appId);
+    }
+
+    return new MapConfig(generatedConfig);
+  }
+
 }

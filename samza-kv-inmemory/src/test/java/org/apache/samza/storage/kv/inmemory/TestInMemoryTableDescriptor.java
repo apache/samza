@@ -19,16 +19,18 @@
 package org.apache.samza.storage.kv.inmemory;
 
 import java.util.Map;
-import junit.framework.Assert;
+
 import org.apache.samza.config.Config;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.JavaTableConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.LocalTableProviderFactory;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
+
 import org.junit.Test;
+import org.junit.Assert;
 
 
 public class TestInMemoryTableDescriptor {
@@ -37,7 +39,7 @@ public class TestInMemoryTableDescriptor {
 
   @Test
   public void testMinimal() {
-    Map<String, String> tableConfig = createTableDescriptor()
+    Map tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertNotNull(tableConfig);
     Assert.assertEquals(2, tableConfig.size());
@@ -45,13 +47,13 @@ public class TestInMemoryTableDescriptor {
 
   @Test
   public void testTableProviderFactoryConfig() {
-    Map<String, String> tableConfig = createTableDescriptor()
+    Map tableConfig = createTableDescriptor()
         .toConfig(createJobConfig());
     Assert.assertEquals(2, tableConfig.size());
     Assert.assertEquals(LocalTableProviderFactory.class.getName(),
         tableConfig.get(String.format(JavaTableConfig.TABLE_PROVIDER_FACTORY, TABLE_ID)));
     Assert.assertEquals(InMemoryKeyValueStorageEngineFactory.class.getName(),
-        tableConfig.get(String.format(StorageConfig.FACTORY(), TABLE_ID)));
+        tableConfig.get(String.format(StorageConfig.FACTORY, TABLE_ID)));
   }
 
   private Config createJobConfig() {
@@ -59,7 +61,7 @@ public class TestInMemoryTableDescriptor {
   }
 
   private InMemoryTableDescriptor createTableDescriptor() {
-    return new InMemoryTableDescriptor(TABLE_ID,
-        new KVSerde(new NoOpSerde(), new NoOpSerde()));
+    return new InMemoryTableDescriptor<>(TABLE_ID,
+        KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
   }
 }

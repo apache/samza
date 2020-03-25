@@ -20,11 +20,13 @@
 package org.apache.samza.coordinator;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
 
 public class AzureJobCoordinatorFactory implements JobCoordinatorFactory {
   @Override
-  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
+  public JobCoordinator getJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry,
+      MetadataStore metadataStore) {
     return new AzureJobCoordinator(processorId, config, metricsRegistry);
   }
 }

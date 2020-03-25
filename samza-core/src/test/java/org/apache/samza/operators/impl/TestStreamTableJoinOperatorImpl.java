@@ -18,6 +18,8 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import junit.framework.Assert;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
@@ -26,15 +28,15 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.table.ReadableTable;
+import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
 
 import java.util.Collection;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestStreamTableJoinOperatorImpl {
@@ -45,6 +47,7 @@ public class TestStreamTableJoinOperatorImpl {
 
     StreamTableJoinOperatorSpec mockJoinOpSpec = mock(StreamTableJoinOperatorSpec.class);
     when(mockJoinOpSpec.getTableId()).thenReturn(tableId);
+    when(mockJoinOpSpec.getArgs()).thenReturn(new Object[0]);
     when(mockJoinOpSpec.getJoinFn()).thenReturn(
         new StreamTableJoinFunction<String, KV<String, String>, KV<String, String>, String>() {
           @Override
@@ -71,9 +74,9 @@ public class TestStreamTableJoinOperatorImpl {
             return record.getKey();
           }
         });
-    ReadableTable table = mock(ReadableTable.class);
-    when(table.get("1")).thenReturn("r1");
-    when(table.get("2")).thenReturn(null);
+    ReadWriteTable table = mock(ReadWriteTable.class);
+    when(table.getAsync("1")).thenReturn(CompletableFuture.completedFuture("r1"));
+    when(table.getAsync("2")).thenReturn(CompletableFuture.completedFuture(null));
     Context context = new MockContext();
     when(context.getTaskContext().getTable(tableId)).thenReturn(table);
 
@@ -90,6 +93,52 @@ public class TestStreamTableJoinOperatorImpl {
     // Table doesn't have the key
     result = streamTableJoinOperator.handleMessage(KV.of("2", "m2"), mockMessageCollector, mockTaskCoordinator);
     Assert.assertEquals(0, result.size());
+  }
+
+  /**
+   * Ensure join function is not invoked more than once when join function returns null on the first invocation
+   */
+  @Test
+  public void testJoinFunctionIsInvokedOnlyOnce() {
+    final String tableId = "testTable";
+    final CountDownLatch joinInvokedLatch = new CountDownLatch(1);
+
+    StreamTableJoinOperatorSpec mockJoinOpSpec = mock(StreamTableJoinOperatorSpec.class);
+    when(mockJoinOpSpec.getTableId()).thenReturn(tableId);
+    when(mockJoinOpSpec.getArgs()).thenReturn(new Object[0]);
+    when(mockJoinOpSpec.getJoinFn()).thenReturn(
+        new StreamTableJoinFunction<String, KV<String, String>, KV<String, String>, String>() {
+          @Override
+          public String apply(KV<String, String> message, KV<String, String> record) {
+            joinInvokedLatch.countDown();
+            return null;
+          }
+
+          @Override
+          public String getMessageKey(KV<String, String> message) {
+            return message.getKey();
+          }
+
+          @Override
+          public String getRecordKey(KV<String, String> record) {
+            return record.getKey();
+          }
+        });
+
+    ReadWriteTable table = mock(ReadWriteTable.class);
+    when(table.getAsync("1")).thenReturn(CompletableFuture.completedFuture("r1"));
+
+    Context context = new MockContext();
+    when(context.getTaskContext().getTable(tableId)).thenReturn(table);
+
+    MessageCollector mockMessageCollector = mock(MessageCollector.class);
+    TaskCoordinator mockTaskCoordinator = mock(TaskCoordinator.class);
+
+    StreamTableJoinOperatorImpl streamTableJoinOperator = new StreamTableJoinOperatorImpl(mockJoinOpSpec, context);
+
+    // Table has the key
+    streamTableJoinOperator.handleMessage(KV.of("1", "m1"), mockMessageCollector, mockTaskCoordinator);
+    assertEquals("Join function should only be invoked once", 0, joinInvokedLatch.getCount());
   }
 
 }

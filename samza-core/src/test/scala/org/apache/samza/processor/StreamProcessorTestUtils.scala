@@ -19,6 +19,7 @@
 package org.apache.samza.processor
 
 import java.util
+import java.util.Collections
 
 import org.apache.samza.Partition
 import org.apache.samza.config.MapConfig
@@ -31,6 +32,7 @@ import org.apache.samza.system._
 import org.apache.samza.system.chooser.RoundRobinChooser
 import org.apache.samza.task.{StreamTask, TaskInstanceCollector}
 import org.mockito.Mockito
+import org.mockito.Mockito.when
 
 
 object StreamProcessorTestUtils {
@@ -41,12 +43,15 @@ object StreamProcessorTestUtils {
     val adminMultiplexer = new SystemAdmins(config)
     val consumerMultiplexer = new SystemConsumers(
       new RoundRobinChooser,
-      Map[String, SystemConsumer]())
+      Map[String, SystemConsumer](), SystemAdmins.empty())
     val producerMultiplexer = new SystemProducers(
       Map[String, SystemProducer](),
       new SerdeManager)
     val collector = new TaskInstanceCollector(producerMultiplexer)
     val containerContext = Mockito.mock(classOf[ContainerContext])
+    val jobContext = Mockito.mock(classOf[JobContext])
+    when(jobContext.getConfig).thenReturn(
+      new MapConfig(Collections.singletonMap("task.commit.ms", "-1")))
     val taskInstance: TaskInstance = new TaskInstance(
       streamTask,
       taskModel,
@@ -54,7 +59,7 @@ object StreamProcessorTestUtils {
       adminMultiplexer,
       consumerMultiplexer,
       collector,
-      jobContext = Mockito.mock(classOf[JobContext]),
+      jobContext = jobContext,
       containerContext = containerContext,
       applicationContainerContextOption = None,
       applicationTaskContextFactoryOption = None,
@@ -63,6 +68,7 @@ object StreamProcessorTestUtils {
     val container = new SamzaContainer(
       config = config,
       taskInstances = Map(taskName -> taskInstance),
+      taskInstanceMetrics = Map(taskName -> new TaskInstanceMetrics),
       runLoop = mockRunloop,
       systemAdmins = adminMultiplexer,
       consumerMultiplexer = consumerMultiplexer,

@@ -41,7 +41,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
-import org.apache.samza.sql.impl.ConfigBasedUdfResolver;
+import org.apache.samza.sql.udf.ReflectionBasedUdfResolver;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.interfaces.DslConverterFactory;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
@@ -55,9 +55,9 @@ import org.apache.samza.sql.interfaces.SqlIOResolverFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.interfaces.UdfResolver;
-import org.apache.samza.sql.testutil.JsonUtil;
-import org.apache.samza.sql.testutil.ReflectionUtils;
-import org.apache.samza.sql.testutil.SamzaSqlQueryParser;
+import org.apache.samza.sql.util.JsonUtil;
+import org.apache.samza.sql.util.SamzaSqlQueryParser;
+import org.apache.samza.util.ReflectionUtil;
 import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,6 +89,7 @@ public class SamzaSqlApplicationConfig {
 
   public static final String CFG_METADATA_TOPIC_PREFIX = "samza.sql.metadataTopicPrefix";
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
+  public static final String CFG_SQL_PROCESS_SYSTEM_EVENTS = "samza.sql.processSystemEvents";
 
   public static final String SAMZA_SYSTEM_LOG = "log";
 
@@ -115,6 +116,7 @@ public class SamzaSqlApplicationConfig {
 
   private final String metadataTopicPrefix;
   private final long windowDurationMs;
+  private final boolean processSystemEvents;
 
   public SamzaSqlApplicationConfig(Config staticConfig, List<String> inputSystemStreams,
       List<String> outputSystemStreams) {
@@ -165,6 +167,8 @@ public class SamzaSqlApplicationConfig {
 
     metadataTopicPrefix =
         staticConfig.get(CFG_METADATA_TOPIC_PREFIX, DEFAULT_METADATA_TOPIC_PREFIX);
+
+    processSystemEvents = staticConfig.getBoolean(CFG_SQL_PROCESS_SYSTEM_EVENTS, true);
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
   }
 
@@ -174,8 +178,7 @@ public class SamzaSqlApplicationConfig {
     Config pluginConfig = staticConfig.subset(pluginDomain);
     String factoryName = pluginConfig.getOrDefault(CFG_FACTORY, "");
     Validate.notEmpty(factoryName, String.format("Factory is not set for %s", plugin));
-    Object factory = ReflectionUtils.createInstance(factoryName);
-    Validate.notNull(factory, String.format("Factory creation failed for %s", plugin));
+    Object factory = ReflectionUtil.getObj(factoryName, Object.class);
     LOG.info("Instantiating {} using factory {} with props {}", pluginName, factoryName, pluginConfig);
     return factoryInvoker.apply(factory, pluginConfig);
   }
@@ -211,7 +214,8 @@ public class SamzaSqlApplicationConfig {
     Properties props = new Properties();
     props.putAll(domainConfig);
     HashMap<String, String> udfConfig = getDomainProperties(config, CFG_UDF_CONFIG_DOMAIN, false);
-    return new ConfigBasedUdfResolver(props, new MapConfig(udfConfig));
+    // TODO: SAMZA-2355: Make the UDFResolver pluggable.
+    return new ReflectionBasedUdfResolver(new MapConfig(udfConfig));
   }
 
   private static HashMap<String, String> getDomainProperties(Map<String, String> props, String prefix,
@@ -305,6 +309,10 @@ public class SamzaSqlApplicationConfig {
     return outputSystemStreamConfigsBySource;
   }
 
+  public SqlIOConfig getOutputSqlIOConfig(String source) {
+    return outputSystemStreamConfigsBySource.get(source);
+  }
+
   public Map<String, SamzaRelConverter> getSamzaRelConverters() {
     return samzaRelConvertersBySource;
   }
@@ -323,5 +331,9 @@ public class SamzaSqlApplicationConfig {
 
   public long getWindowDurationMs() {
     return windowDurationMs;
+  }
+
+  public boolean isProcessSystemEvents() {
+    return processSystemEvents;
   }
 }

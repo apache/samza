@@ -31,6 +31,6 @@ public class CoordinatorStreamMetadataStoreFactory implements MetadataStoreFacto
 
   @Override
   public MetadataStore getMetadataStore(String namespace, Config config, MetricsRegistry metricsRegistry) {
-    return new CoordinatorStreamStore(namespace, config, metricsRegistry);
+    return new CoordinatorStreamStore(config, metricsRegistry);
   }
 }

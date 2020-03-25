@@ -33,7 +33,7 @@ import org.apache.samza.rest.proxy.job.JobInstance;
 import org.apache.samza.rest.proxy.task.TaskProxyFactory;
 import org.apache.samza.rest.proxy.task.TaskProxy;
 import org.apache.samza.rest.proxy.task.TaskResourceConfig;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +59,7 @@ public class TasksResource {
     Preconditions.checkArgument(StringUtils.isNotEmpty(taskProxyFactoryClassName),
                                 String.format("Missing config: %s", TaskResourceConfig.CONFIG_TASK_PROXY_FACTORY));
     try {
-      TaskProxyFactory factory = Util.getObj(taskProxyFactoryClassName, TaskProxyFactory.class);
+      TaskProxyFactory factory = ReflectionUtil.getObj(taskProxyFactoryClassName, TaskProxyFactory.class);
       taskProxy = factory.getTaskProxy(config);
     } catch (Exception e) {
       LOG.error(String.format("Exception in building TasksResource with config: %s.", config), e);

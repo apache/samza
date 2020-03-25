@@ -19,20 +19,53 @@
 package org.apache.samza.table;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
 
 /**
- *
- * A table that supports get, put and delete by one or more keys
+ * A table that supports synchronous and asynchronousget, put and delete by one or more keys
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
 @InterfaceStability.Unstable
-public interface ReadWriteTable<K, V> extends ReadableTable<K, V> {
+public interface ReadWriteTable<K, V> extends AsyncReadWriteTable<K, V> {
+
+  /**
+   * Gets the value associated with the specified {@code key}.
+   *
+   * @param key the key with which the associated value is to be fetched.
+   * @param args additional arguments
+   * @return if found, the value associated with the specified {@code key}; otherwise, {@code null}.
+   * @throws NullPointerException if the specified {@code key} is {@code null}.
+   */
+  V get(K key, Object ... args);
+
+  /**
+   * Gets the values with which the specified {@code keys} are associated.
+   *
+   * @param keys the keys with which the associated values are to be fetched.
+   * @param args additional arguments
+   * @return a map of the keys that were found and their respective values.
+   * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
+   */
+  Map<K, V> getAll(List<K> keys, Object ... args);
+
+  /**
+   * Executes a read operation. opId is used to allow tracking of different
+   * types of operation.
+   * @param opId operation identifier
+   * @param args additional arguments
+   * @param <T> return type
+   * @return read result
+   */
+
+  default <T> T read(int opId, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 
   /**
    * Updates the mapping of the specified key-value pair;
@@ -42,21 +75,10 @@ public interface ReadWriteTable<K, V> extends ReadableTable<K, V> {
    *
    * @param key the key with which the specified {@code value} is to be associated.
    * @param value the value with which the specified {@code key} is to be associated.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  void put(K key, V value);
-
-  /**
-   * Asynchronously updates the mapping of the specified key-value pair;
-   * Associates the specified {@code key} with the specified {@code value}.
-   * The key is deleted from the table if value is {@code null}.
-   *
-   * @param key the key with which the specified {@code value} is to be associated.
-   * @param value the value with which the specified {@code key} is to be associated.
-   * @throws NullPointerException if the specified {@code key} is {@code null}.
-   * @return CompletableFuture for the operation
-   */
-  CompletableFuture<Void> putAsync(K key, V value);
+  void put(K key, V value, Object ... args);
 
   /**
    * Updates the mappings of the specified key-value {@code entries}.
@@ -64,54 +86,38 @@ public interface ReadWriteTable<K, V> extends ReadableTable<K, V> {
    * A key is deleted from the table if its corresponding value is {@code null}.
    *
    * @param entries the updated mappings to put into this table.
+   * @param args additional arguments
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    */
-  void putAll(List<Entry<K, V>> entries);
-
-  /**
-   * Asynchronously updates the mappings of the specified key-value {@code entries}.
-   * A key is deleted from the table if its corresponding value is {@code null}.
-   *
-   * @param entries the updated mappings to put into this table.
-   * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
-   * @return CompletableFuture for the operation
-   */
-  CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries);
+  void putAll(List<Entry<K, V>> entries, Object ... args);
 
   /**
    * Deletes the mapping for the specified {@code key} from this table (if such mapping exists).
    *
    * @param key the key for which the mapping is to be deleted.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  void delete(K key);
-
-  /**
-   * Asynchronously deletes the mapping for the specified {@code key} from this table (if such mapping exists).
-   * @param key the key for which the mapping is to be deleted.
-   * @throws NullPointerException if the specified {@code key} is {@code null}.
-   * @return CompletableFuture for the operation
-   */
-  CompletableFuture<Void> deleteAsync(K key);
+  void delete(K key, Object ... args);
 
   /**
    * Deletes the mappings for the specified {@code keys} from this table.
    *
    * @param keys the keys for which the mappings are to be deleted.
+   * @param args additional arguments
    * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
    */
-  void deleteAll(List<K> keys);
+  void deleteAll(List<K> keys, Object ... args);
 
   /**
-   * Asynchronously deletes the mappings for the specified {@code keys} from this table.
-   * @param keys the keys for which the mappings are to be deleted.
-   * @throws NullPointerException if the specified {@code keys} list, or any of the keys, is {@code null}.
-   * @return CompletableFuture for the operation
+   * Executes a write operation. opId is used to allow tracking of different
+   * types of operation.
+   * @param opId operation identifier
+   * @param args additional arguments
+   * @param <T> return type
+   * @return write result
    */
-  CompletableFuture<Void> deleteAllAsync(List<K> keys);
-
-  /**
-   * Flushes the underlying store of this table, if applicable.
-   */
-  void flush();
+  default <T> T write(int opId, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
 }

@@ -18,17 +18,15 @@
  */
 package org.apache.samza.container.grouper.task;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
+
 
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
-import org.apache.samza.SamzaException;
 import org.junit.Test;
 
 import static org.apache.samza.container.mock.ContainerMocks.*;
@@ -644,16 +642,6 @@ public class TestGroupByContainerCount {
 
     Set<ContainerModel> containers = new GroupByContainerCount(2).group(taskModels, grouperMetadata);
     containers.remove(containers.iterator().next());
-  }
-
-  @Test(expected = SamzaException.class)
-  public void testBalancerThrowsOnNonIntegerContainerIds() {
-    Set<TaskModel> taskModels = generateTaskModels(3);
-    Set<ContainerModel> prevContainers = new HashSet<>();
-    taskModels.forEach(model -> prevContainers.add(new ContainerModel(UUID.randomUUID().toString(), Collections.singletonMap(model.getTaskName(), model))));
-    Map<TaskName, String> prevTaskToContainerMapping = generateTaskContainerMapping(prevContainers);
-    GrouperMetadataImpl grouperMetadata = new GrouperMetadataImpl(new HashMap<>(), new HashMap<>(), new HashMap<>(), prevTaskToContainerMapping);
-    new GroupByContainerCount(3).group(taskModels, grouperMetadata); //Should throw
   }
 
   @Test
