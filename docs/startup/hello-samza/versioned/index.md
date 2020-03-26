@@ -71,7 +71,7 @@ tar -xvf ./target/hello-samza-1.4.0-SNAPSHOT-dist.tar.gz -C deploy/samza
 After you've built your Samza package, you can start a job on the grid using the run-app.sh script.
 
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
+deploy/samza/bin/run-app.sh --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 
 The job will consume a feed of real-time edits from Wikipedia, and produce them to a Kafka topic called "wikipedia-raw". Give the job a minute to startup, and then tail the Kafka topic:
@@ -89,8 +89,8 @@ If you can not see any output from Kafka consumer, you may have connection probl
 Let's calculate some statistics based on the messages in the wikipedia-raw topic. Start two more jobs:
 
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-parser.properties
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-stats.properties
+deploy/samza/bin/run-app.sh --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-parser.properties
+deploy/samza/bin/run-app.sh --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-stats.properties
 {% endhighlight %}
 
 The first job (wikipedia-parser) parses the messages in wikipedia-raw, and extracts information about the size of the edit, who made the change, etc. You can take a look at its output with:
@@ -120,7 +120,7 @@ If you check the YARN UI, again, you'll see that all three jobs are now listed.
 
 To shutdown one of the jobs, use the same script with an extra '--operation=kill' argument
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties --operation=kill
+deploy/samza/bin/run-app.sh --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties --operation=kill
 {% endhighlight %}
 
 After you're done, you can clean everything up using the same grid script.

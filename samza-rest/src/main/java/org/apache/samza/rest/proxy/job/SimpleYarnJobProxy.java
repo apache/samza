@@ -40,8 +40,8 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
   private static final String START_SCRIPT_NAME = "run-job.sh";
   private static final String STOP_SCRIPT_NAME = "kill-yarn-job-by-name.sh";
 
-  private static final String CONFIG_FACTORY_PARAM = "--config-factory=org.apache.samza.config.factories.PropertiesConfigFactory";
-  private static final String CONFIG_PATH_PARAM_FORMAT = "--config-path=file://%s";
+  private static final String CONFIG_FACTORY_PARAM = "--config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory";
+  private static final String CONFIG_PATH_PARAM_FORMAT = "--config job.config.loader.properties.path=%s";
 
   private final JobStatusProvider statusProvider;
 
