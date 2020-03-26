@@ -182,8 +182,17 @@ class InMemoryManager {
             .collect(Collectors.toMap(entry -> entry.getKey().getPartition(), entry -> {
                 List<IncomingMessageEnvelope> messages = entry.getValue();
                 String oldestOffset = messages.isEmpty() ? null : "0";
-                String newestOffset = messages.isEmpty() ? null : String.valueOf(messages.size() - 1);
                 String upcomingOffset = String.valueOf(messages.size());
+                String newestOffset;
+                if (messages.isEmpty()) {
+                  newestOffset = null;
+                } else if (messages.get(messages.size() - 1).isEndOfStream()) {
+                  newestOffset = messages.size() > 1 ? String.valueOf(messages.size() - 2) : null;
+                  upcomingOffset = String.valueOf(messages.size() - 1);
+                } else {
+                  newestOffset = String.valueOf(messages.size() - 1);
+                  upcomingOffset = String.valueOf(messages.size());
+                }
 
                 return new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset);
 
