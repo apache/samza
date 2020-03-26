@@ -23,7 +23,7 @@ Samza jobs are started using a script called run-job.sh.
 
 {% highlight bash %}
 samza-example/target/bin/run-job.sh \
-  --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory \
+  --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory \
   --config job.config.loader.properties.path=$PWD/config/hello-world.properties
 {% endhighlight %}
 

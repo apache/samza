@@ -61,7 +61,7 @@ import org.slf4j.LoggerFactory;
  *
  * When running this tool, please provide the configuration URI of job. For example:
  *
- * deploy/samza/bin/validate-yarn-job.sh --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties [--metrics-validator=com.foo.bar.SomeMetricsValidator]
+ * deploy/samza/bin/validate-yarn-job.sh --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties [--metrics-validator=com.foo.bar.SomeMetricsValidator]
  *
  * The tool prints out the validation result in each step and throws an exception when the
  * validation fails.

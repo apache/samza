@@ -71,7 +71,7 @@ To deploy the service, run the run-samza-rest-service.sh script from the extract
 {% highlight bash %}
 cd deploy/samza-rest
 ./bin/run-samza-rest-service.sh  \
-  --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory \
+  --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory \
   --config job.config.loader.properties.path=$PWD/config/samza-rest.properties
 {% endhighlight %}
 

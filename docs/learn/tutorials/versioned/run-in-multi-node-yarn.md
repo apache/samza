@@ -167,7 +167,7 @@ cd /tmp/hello-samza && python -m SimpleHTTPServer
 Go back to the original terminal (not the one running the HTTP server):
 
 {% highlight bash %}
-deploy/samza/bin/run-job.sh --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties
+deploy/samza/bin/run-job.sh --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 
 Go to http://yourHostname:8088 and find the wikipedia-feed job. Click on the ApplicationMaster link to see that it's running.

@@ -72,7 +72,7 @@ tar -xvf ./target/hello-samza-1.1.0-dist.tar.gz -C deploy/samza
 We are ready to run the example application [WikipediaZkLocalApplication](https://github.com/apache/samza-hello-samza/blob/master/src/main/java/samza/examples/wikipedia/application/WikipediaZkLocalApplication.java). This application reads messages from the wikipedia-edits topic, and calculates counts, every ten seconds, for all edits that were made during that window. It emits these results to another topic named `wikipedia-stats`.
 
 ```bash
-./deploy/samza/bin/run-class.sh samza.examples.wikipedia.application.WikipediaZkLocalApplication  --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-application-local-runner.properties
+./deploy/samza/bin/run-class.sh samza.examples.wikipedia.application.WikipediaZkLocalApplication  --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-application-local-runner.properties
 ```
 
 You can run the above command again to spin up a new instance of your application.
