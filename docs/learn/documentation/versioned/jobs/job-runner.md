@@ -23,8 +23,8 @@ Samza jobs are started using a script called run-job.sh.
 
 {% highlight bash %}
 samza-example/target/bin/run-job.sh \
-  --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory \
-  --config-path=file://$PWD/config/hello-world.properties
+  --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory \
+  --config job.config.loader.properties.path=$PWD/config/hello-world.properties
 {% endhighlight %}
 
 You provide two parameters to the run-job.sh script. One is the config location, and the other is a factory class that is used to read your configuration file. The run-job.sh script is actually executing a Samza class called JobRunner. The JobRunner uses your ConfigFactory to get a Config object from the config path.

@@ -82,7 +82,8 @@ public class SamzaRestService {
    * Command line interface to run the server.
    *
    * @param args arguments supported by {@link org.apache.samza.util.CommandLine}.
-   *             In particular, --config-path and --config-factory are used to read the Samza REST config file.
+   *             In particular, --config job.config.loader.properties.path and
+   *             --config job.config.loader.factory are used to read the Samza REST config file.
    * @throws Exception if the server could not be successfully started.
    */
   public static void main(String[] args)

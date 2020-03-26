@@ -76,7 +76,7 @@ configuration file and submit it to a YARN cluster.
 
 
 ```bash
-./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/page-view-filter-sql.properties
+./deploy/samza/bin/run-app.sh --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/page-view-filter-sql.properties
 ```
 
  

@@ -76,7 +76,7 @@ def setup_suite():
 
   # Setup Samza job deployer.
   samza_job_deployer = SamzaJobYarnDeployer({
-    'config_factory': c('samza_config_factory'),
+    'config_factory': c('samza_config_loader_factory'),
     'yarn_site_template': c('yarn_site_template'),
     'yarn_driver_configs': c('yarn_driver_configs'),
     'yarn_nm_hosts': c('yarn_nm_hosts').values(),

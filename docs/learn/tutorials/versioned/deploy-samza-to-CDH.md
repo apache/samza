@@ -66,5 +66,5 @@ export HADOOP_CONF_DIR=/etc/hadoop/conf
 ### Run Samza Job
 
 {% highlight bash %}
-bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/config/wikipedia-parser.properties
+bin/run-job.sh --config job.config.loader.factory=org.apache.samza.config.factories.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/config/wikipedia-parser.properties
 {% endhighlight %}
