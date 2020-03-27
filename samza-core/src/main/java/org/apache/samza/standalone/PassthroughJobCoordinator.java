@@ -67,6 +67,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
   private final String processorId;
   private final Config config;
   private final LocationId locationId;
+  private MetadataResourceUtil metadataResourceUtil;
   private JobCoordinatorListener coordinatorListener = null;
 
   public PassthroughJobCoordinator(String processorId, Config config, MetricsRegistry metricsRegistry) {
@@ -85,7 +86,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     try {
       jobModel = getJobModel();
       // TODO metrics registry has been null here for a while; is it safe?
-      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, config);
+      metadataResourceUtil = new MetadataResourceUtil(jobModel, null, config);
       metadataResourceUtil.createResources();
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
@@ -111,6 +112,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
       coordinatorListener.onJobModelExpired();
       coordinatorListener.onCoordinatorStop();
     }
+    metadataResourceUtil.stop();
   }
 
   @Override
