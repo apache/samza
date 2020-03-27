@@ -19,6 +19,7 @@
 
 package org.apache.samza.container;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -33,16 +34,26 @@ import org.slf4j.LoggerFactory;
 public class ContainerHeartbeatMonitor {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatMonitor.class);
   private static final ThreadFactory THREAD_FACTORY = new HeartbeatThreadFactory();
-  private static final int SCHEDULE_MS = 60000;
-  private static final int SHUTDOWN_TIMOUT_MS = 120000;
-  private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY);
+  @VisibleForTesting
+  static final int SCHEDULE_MS = 60000;
+  @VisibleForTesting
+  static final int SHUTDOWN_TIMOUT_MS = 120000;
+
   private final Runnable onContainerExpired;
   private final ContainerHeartbeatClient containerHeartbeatClient;
+  private final ScheduledExecutorService scheduler;
   private boolean started = false;
 
   public ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient) {
+    this(onContainerExpired, containerHeartbeatClient, Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY));
+  }
+
+  @VisibleForTesting
+  ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient,
+      ScheduledExecutorService scheduler) {
     this.onContainerExpired = onContainerExpired;
     this.containerHeartbeatClient = containerHeartbeatClient;
+    this.scheduler = scheduler;
   }
 
   public void start() {
