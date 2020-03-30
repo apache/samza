@@ -20,9 +20,11 @@ package org.apache.samza.application;
 
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.classloader.IsolatingClassLoaderFactory;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 
 
@@ -31,18 +33,24 @@ import org.apache.samza.config.TaskConfig;
  */
 public class ApplicationUtil {
 
+  public static SamzaApplication fromConfig(Config config) {
+    return fromConfig(config, false);
+  }
+
   /**
    * Creates the {@link SamzaApplication} object from the task or application class name specified in {@code config}
    *
    * @param config the configuration of the application
    * @return the {@link SamzaApplication} object
    */
-  public static SamzaApplication fromConfig(Config config) {
+  public static SamzaApplication fromConfig(Config config, boolean canApplyFrameworkIsolationIfEnabled) {
     String appClassName = new ApplicationConfig(config).getAppClass();
     if (StringUtils.isNotBlank(appClassName)) {
       // app.class is configured
+      ClassLoader classLoader =
+          buildApplicationDescribeClassLoader(config, canApplyFrameworkIsolationIfEnabled, appClassName);
       try {
-        Class<SamzaApplication> appClass = (Class<SamzaApplication>) Class.forName(appClassName);
+        Class<SamzaApplication> appClass = (Class<SamzaApplication>) Class.forName(appClassName, true, classLoader);
         if (StreamApplication.class.isAssignableFrom(appClass) || TaskApplication.class.isAssignableFrom(appClass)) {
           return appClass.newInstance();
         }
@@ -59,5 +67,15 @@ public class ApplicationUtil {
       throw new ConfigException("Legacy task applications must set a non-empty task.class in configuration.");
     }
     return new LegacyTaskApplication(taskClassOption.get());
+  }
+
+  private static ClassLoader buildApplicationDescribeClassLoader(Config config,
+      boolean canApplyFrameworkIsolationIfEnabled, String appClassName) {
+    if (canApplyFrameworkIsolationIfEnabled && new JobConfig(
+        config).getClusterBasedJobCoordinatorDependencyIsolationEnabled()) {
+      return new IsolatingClassLoaderFactory().buildApplicationDescribeClassLoader(appClassName);
+    } else {
+      return ApplicationUtil.class.getClassLoader();
+    }
   }
 }

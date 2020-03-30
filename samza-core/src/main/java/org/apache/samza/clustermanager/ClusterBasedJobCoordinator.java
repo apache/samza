@@ -472,7 +472,7 @@ public class ClusterBasedJobCoordinator {
       // no isolation enabled, so can just execute runClusterBasedJobCoordinator directly
       runClusterBasedJobCoordinator(args);
     } else {
-      runWithClassLoader(new IsolatingClassLoaderFactory().buildClassLoader(), args);
+      runWithClassLoader(new IsolatingClassLoaderFactory().buildMainClassLoader(), args);
     }
     System.exit(0);
   }
@@ -581,7 +581,7 @@ public class ClusterBasedJobCoordinator {
         // load full job config with ConfigLoader
         Config originalConfig = ConfigUtil.loadConfig(submissionConfig);
 
-        JobCoordinatorLaunchUtil.run(ApplicationUtil.fromConfig(originalConfig), originalConfig);
+        JobCoordinatorLaunchUtil.run(ApplicationUtil.fromConfig(originalConfig, true), originalConfig);
       }
 
       LOG.info("Finished running ClusterBasedJobCoordinator");

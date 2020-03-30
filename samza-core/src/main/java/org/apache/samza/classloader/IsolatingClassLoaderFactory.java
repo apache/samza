@@ -121,16 +121,12 @@ public class IsolatingClassLoaderFactory {
    *   </li>
    * </ol>
    */
-  public ClassLoader buildClassLoader() {
-    // start at the user.dir to find the resources for the classpaths
-    File baseJobDirectory = new File(System.getProperty("user.dir"));
-    File apiLibDirectory = libDirectory(new File(baseJobDirectory, DependencyIsolationUtils.FRAMEWORK_API_DIRECTORY));
+  public ClassLoader buildMainClassLoader() {
+    File apiLibDirectory = buildApiLibDirectory();
     LOG.info("Using API lib directory: {}", apiLibDirectory);
-    File infrastructureLibDirectory =
-        libDirectory(new File(baseJobDirectory, DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY));
+    File infrastructureLibDirectory = buildInfrastructureLibDirectory();
     LOG.info("Using infrastructure lib directory: {}", infrastructureLibDirectory);
-    File applicationLibDirectory =
-        libDirectory(new File(baseJobDirectory, DependencyIsolationUtils.APPLICATION_DIRECTORY));
+    File applicationLibDirectory = buildApplicationLibDirectory();
     LOG.info("Using application lib directory: {}", applicationLibDirectory);
 
     ClassLoader apiClassLoader = buildApiClassLoader(apiLibDirectory);
@@ -138,14 +134,28 @@ public class IsolatingClassLoaderFactory {
         buildApplicationClassLoader(applicationLibDirectory, apiLibDirectory, apiClassLoader);
 
     // the classloader to return is the one with the infrastructure classpath
-    return buildInfrastructureClassLoader(infrastructureLibDirectory, baseJobDirectory, apiLibDirectory, apiClassLoader,
+    return buildInfrastructureClassLoader(infrastructureLibDirectory, apiLibDirectory, apiClassLoader,
         applicationClassLoader);
+  }
+
+  public ClassLoader buildApplicationDescribeClassLoader(String samzaApplicationClassName) {
+    File applicationLibDirectory = buildApplicationLibDirectory();
+    return LoaderBuilder.anIsolatingLoader()
+        .withClasspath(getClasspathAsURIs(applicationLibDirectory))
+        .withOriginRestriction(OriginRestriction.denyByDefault().allowingDirectory(applicationLibDirectory, false))
+        .withParentRelationship(DelegateRelationshipBuilder.builder()
+            .withDelegateClassLoader(getClass().getClassLoader())
+            .addBlacklistedClassPredicate(new GlobMatcher(samzaApplicationClassName))
+            .addDelegatePreferredClassPredicate(new GlobMatcher("*"))
+            .withIsolationLevel(IsolationLevel.NONE)
+            .build())
+        .build();
   }
 
   /**
    * Build the {@link ClassLoader} which can load framework API classes.
    *
-   * This sets up the link between the bootstrap classloader and the API classloader (see {@link #buildClassLoader()}.
+   * This sets up the link between the bootstrap classloader and the API classloader (see {@link #buildMainClassLoader()}.
    */
   private static ClassLoader buildApiClassLoader(File apiLibDirectory) {
     /*
@@ -160,7 +170,7 @@ public class IsolatingClassLoaderFactory {
   /**
    * Build the {@link ClassLoader} which can load application classes.
    *
-   * This sets up the link between the application classloader and the API classloader (see {@link #buildClassLoader()}.
+   * This sets up the link between the application classloader and the API classloader (see {@link #buildMainClassLoader()}.
    */
   private static ClassLoader buildApplicationClassLoader(File applicationLibDirectory, File apiLibDirectory,
       ClassLoader apiClassLoader) {
@@ -181,10 +191,9 @@ public class IsolatingClassLoaderFactory {
    * This may also fall back to loading application classes.
    *
    * This sets up two links: One link between the infrastructure classloader and the API and another link between the
-   * infrastructure classloader and the application classloader (see {@link #buildClassLoader()}.
+   * infrastructure classloader and the application classloader (see {@link #buildMainClassLoader()}.
    */
   private static ClassLoader buildInfrastructureClassLoader(File infrastructureLibDirectory,
-      File baseJobDirectory,
       File apiLibDirectory,
       ClassLoader apiClassLoader,
       ClassLoader applicationClassLoader) {
@@ -194,7 +203,7 @@ public class IsolatingClassLoaderFactory {
         // getClasspathAsURIs should only return JARs within infrastructureLibDirectory anyways, but doing it to be safe
         .allowingDirectory(infrastructureLibDirectory, false);
     File runtimeFrameworkResourcesPathingJar =
-        new File(baseJobDirectory, DependencyIsolationUtils.RUNTIME_FRAMEWORK_RESOURCES_PATHING_JAR_NAME);
+        new File(getBaseJobDirectory(), DependencyIsolationUtils.RUNTIME_FRAMEWORK_RESOURCES_PATHING_JAR_NAME);
     if (canAccess(runtimeFrameworkResourcesPathingJar)) {
       // if there is a runtime framework resources pathing JAR, then include that in the classpath as well
       classpathURIs.add(runtimeFrameworkResourcesPathingJar.toURI());
@@ -341,6 +350,23 @@ public class IsolatingClassLoaderFactory {
     } catch (URISyntaxException e) {
       throw new SamzaException("Unable to get URI for URL: " + url, e);
     }
+  }
+
+  private static File buildApiLibDirectory() {
+    return libDirectory(new File(getBaseJobDirectory(), DependencyIsolationUtils.FRAMEWORK_API_DIRECTORY));
+  }
+
+  private static File buildInfrastructureLibDirectory() {
+    return libDirectory(new File(getBaseJobDirectory(), DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY));
+  }
+
+  private static File buildApplicationLibDirectory() {
+    return libDirectory(new File(getBaseJobDirectory(), DependencyIsolationUtils.APPLICATION_DIRECTORY));
+  }
+
+  private static File getBaseJobDirectory() {
+    // start at the user.dir to find the resources for the classpaths
+    return new File(System.getProperty("user.dir"));
   }
 
   /**
