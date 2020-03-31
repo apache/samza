@@ -282,7 +282,7 @@ public class StartpointManager {
       Map<SystemStreamPartition, Optional<Startpoint>> startpointWithPrecedence = ssps.stream()
           .collect(Collectors.toMap(ssp -> ssp,
               ssp -> resolveStartpointPrecendence(startpoint.get(ssp), startpointForTask.get(ssp))));
-      startpointWithPrecedence.entrySet().stream().filter(x -> !x.getValue().isPresent()).forEach(x -> {
+      startpointWithPrecedence.entrySet().stream().filter(x -> x.getValue().isPresent()).forEach(x -> {
           fanOuts.putIfAbsent(taskName, new StartpointFanOutPerTask(now));
           fanOuts.get(taskName).getFanOuts().put(x.getKey(), x.getValue().get());
         });
