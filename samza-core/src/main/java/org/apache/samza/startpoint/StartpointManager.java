@@ -278,7 +278,11 @@ public class StartpointManager {
       }
 
       Map<SystemStreamPartition, Optional<Startpoint>> startpoint = startpointMap.get(taskName);
+      startpoint.entrySet().stream().filter(x -> x.getValue().isPresent()).forEach(x -> deleteKeys.put(x.getKey(), null));
+
       Map<SystemStreamPartition, Optional<Startpoint>> startpointForTask = startpointForTaskMap.get(taskName);
+      startpointForTask.entrySet().stream().filter(x -> x.getValue().isPresent()).forEach(x -> deleteKeys.put(x.getKey(), taskName));
+
       Map<SystemStreamPartition, Optional<Startpoint>> startpointWithPrecedence = ssps.stream()
           .collect(Collectors.toMap(ssp -> ssp,
               ssp -> resolveStartpointPrecendence(startpoint.get(ssp), startpointForTask.get(ssp))));
