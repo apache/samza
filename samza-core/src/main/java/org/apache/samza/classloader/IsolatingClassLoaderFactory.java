@@ -18,13 +18,6 @@
  */
 package org.apache.samza.classloader;
 
-import com.linkedin.cytodynamics.matcher.BootstrapClassPredicate;
-import com.linkedin.cytodynamics.matcher.GlobMatcher;
-import com.linkedin.cytodynamics.nucleus.DelegateRelationship;
-import com.linkedin.cytodynamics.nucleus.DelegateRelationshipBuilder;
-import com.linkedin.cytodynamics.nucleus.IsolationLevel;
-import com.linkedin.cytodynamics.nucleus.LoaderBuilder;
-import com.linkedin.cytodynamics.nucleus.OriginRestriction;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -41,6 +34,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.cytodynamics.matcher.BootstrapClassPredicate;
+import com.linkedin.cytodynamics.matcher.GlobMatcher;
+import com.linkedin.cytodynamics.nucleus.DelegateRelationship;
+import com.linkedin.cytodynamics.nucleus.DelegateRelationshipBuilder;
+import com.linkedin.cytodynamics.nucleus.IsolationLevel;
+import com.linkedin.cytodynamics.nucleus.LoaderBuilder;
+import com.linkedin.cytodynamics.nucleus.OriginRestriction;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.slf4j.Logger;
@@ -138,16 +138,47 @@ public class IsolatingClassLoaderFactory {
         applicationClassLoader);
   }
 
-  public ClassLoader buildApplicationDescribeClassLoader(String samzaApplicationClassName) {
+  /**
+   * Build a classloader for loading {@link org.apache.samza.application.SamzaApplication} when in isolation mode.
+   *
+   * It is not sufficient to use the classloader from {@link #buildMainClassLoader()} to load the
+   * {@link org.apache.samza.application.SamzaApplication}, because the describe method might need to use classes in the
+   * framework infrastructure classloader (e.g. framework descriptors). The classloader from
+   * {@link #buildMainClassLoader()} would not be able to delegate from the application classloader to the framework
+   * infrastructure classloader.
+   *
+   * If the classloader from {@link #buildMainClassLoader()} is passed as the {@code parentClassLoader}, then the
+   * describe method can use framework infrastructure components and application-specific components.
+   *
+   * Implementation notes:
+   *
+   * This classloader will only directly load the {@link org.apache.samza.application.SamzaApplication} class, and it
+   * will delegate all other classloading to the {@code parentClassLoader}. This allows framework descriptors to be
+   * loaded from the framework infrastructure classloader. In addition, this allows the application processing classes
+   * to be loaded from the initial application classloader when calling describe. This is desirable because the core
+   * processing flows will delegate to the initial application classloader as well, and it is necessary that the same
+   * application classloader is used for all classes in the application processing flows.
+   *
+   * @param samzaApplicationClassName Class name of the {@link org.apache.samza.application.SamzaApplication}
+   * @param parentClassLoader {@link ClassLoader} to delegate to. Should be the {@link #buildMainClassLoader()}.
+   * @return {@link ClassLoader} to use for loading the {@link org.apache.samza.application.SamzaApplication}
+   */
+  public ClassLoader buildSamzaApplicationClassLoader(String samzaApplicationClassName,
+      ClassLoader parentClassLoader) {
     File applicationLibDirectory = buildApplicationLibDirectory();
     return LoaderBuilder.anIsolatingLoader()
+        // SamzaApplication is in the application classpath
         .withClasspath(getClasspathAsURIs(applicationLibDirectory))
+        // getClasspathAsURIs should only return JARs within applicationLibDirectory anyways, but doing it to be safe
         .withOriginRestriction(OriginRestriction.denyByDefault().allowingDirectory(applicationLibDirectory, false))
         .withParentRelationship(DelegateRelationshipBuilder.builder()
-            .withDelegateClassLoader(getClass().getClassLoader())
-            .addBlacklistedClassPredicate(new GlobMatcher(samzaApplicationClassName))
+            .withDelegateClassLoader(parentClassLoader)
+            // almost everything should come from the parent classloader
             .addDelegatePreferredClassPredicate(new GlobMatcher("*"))
-            .withIsolationLevel(IsolationLevel.NONE)
+            // blacklisting the SamzaApplication class from the parent so that it gets loaded by this classloader
+            .addBlacklistedClassPredicate(new GlobMatcher(samzaApplicationClassName))
+            // combined with blacklisting, FULL ensures that the SamzaApplication directly comes from this classloader
+            .withIsolationLevel(IsolationLevel.FULL)
             .build())
         .build();
   }
@@ -352,18 +383,35 @@ public class IsolatingClassLoaderFactory {
     }
   }
 
+  /**
+   * Build the {@link File} which is a directory in which to look for framework API resources.
+   * @return {@link File} which is a directory in which to look for framework API resources
+   */
   private static File buildApiLibDirectory() {
     return libDirectory(new File(getBaseJobDirectory(), DependencyIsolationUtils.FRAMEWORK_API_DIRECTORY));
   }
 
+  /**
+   * Build the {@link File} which is a directory in which to look for framework infrastructure resources.
+   * @return {@link File} which is a directory in which to look for framework infrastructure resources
+   */
   private static File buildInfrastructureLibDirectory() {
     return libDirectory(new File(getBaseJobDirectory(), DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY));
   }
 
+  /**
+   * Build the {@link File} which is a directory in which to look for application resources.
+   * @return {@link File} which is a directory in which to look for application resources
+   */
   private static File buildApplicationLibDirectory() {
     return libDirectory(new File(getBaseJobDirectory(), DependencyIsolationUtils.APPLICATION_DIRECTORY));
   }
 
+  /**
+   * Build the {@link File} which is the parent directory to all of the directories that contain the resources to run
+   * the Samza application (directories for both framework resources and application resources).
+   * @return {@link File} which is the parent directory to all directories with resources for running the app
+   */
   private static File getBaseJobDirectory() {
     // start at the user.dir to find the resources for the classpaths
     return new File(System.getProperty("user.dir"));

@@ -33,14 +33,28 @@ import org.apache.samza.config.TaskConfig;
  */
 public class ApplicationUtil {
 
+  /**
+   * Creates the {@link SamzaApplication} object from the task or application class name specified in {@code config}.
+   *
+   * This will use the current classloader to load the {@link SamzaApplication}.
+   *
+   * @param config the configuration of the application
+   * @return the {@link SamzaApplication} object
+   */
   public static SamzaApplication fromConfig(Config config) {
     return fromConfig(config, false);
   }
 
   /**
-   * Creates the {@link SamzaApplication} object from the task or application class name specified in {@code config}
+   * Creates the {@link SamzaApplication} object from the task or application class name specified in {@code config}.
+   * If {@code canApplyFrameworkIsolationIfEnabled} is true and isolation is enabled (in the config), then this will
+   * build the {@link SamzaApplication} using a special isolating classloader. Otherwise, this will use the current
+   * classloader to load the {@link SamzaApplication}.
    *
    * @param config the configuration of the application
+   * @param canApplyFrameworkIsolationIfEnabled if this is enabled and isolation is enabled in the config, then this
+   *                                            will build the {@link SamzaApplication} using a special isolating
+   *                                            classloader
    * @return the {@link SamzaApplication} object
    */
   public static SamzaApplication fromConfig(Config config, boolean canApplyFrameworkIsolationIfEnabled) {
@@ -48,7 +62,7 @@ public class ApplicationUtil {
     if (StringUtils.isNotBlank(appClassName)) {
       // app.class is configured
       ClassLoader classLoader =
-          buildApplicationDescribeClassLoader(config, canApplyFrameworkIsolationIfEnabled, appClassName);
+          buildClassLoaderForSamzaApplication(config, canApplyFrameworkIsolationIfEnabled, appClassName);
       try {
         Class<SamzaApplication> appClass = (Class<SamzaApplication>) Class.forName(appClassName, true, classLoader);
         if (StreamApplication.class.isAssignableFrom(appClass) || TaskApplication.class.isAssignableFrom(appClass)) {
@@ -69,13 +83,25 @@ public class ApplicationUtil {
     return new LegacyTaskApplication(taskClassOption.get());
   }
 
-  private static ClassLoader buildApplicationDescribeClassLoader(Config config,
+  /**
+   * Build the {@link ClassLoader} for loading the {@link SamzaApplication}.
+   * This might be a special isolating classloader if {@code canApplyFrameworkIsolationIfEnabled} is true and if the
+   * app enabled isolation mode in the {@code config}.
+   *
+   * @param config config for the application
+   * @param canApplyFrameworkIsolationIfEnabled if this is enabled and isolation is enabled in the config, then this
+   *                                            will build a special isolating classloader
+   * @param appClassName class name of the {@link SamzaApplication}
+   * @return {@link ClassLoader} for loading the {@link SamzaApplication}
+   */
+  private static ClassLoader buildClassLoaderForSamzaApplication(Config config,
       boolean canApplyFrameworkIsolationIfEnabled, String appClassName) {
+    ClassLoader currentClassLoader = ApplicationUtil.class.getClassLoader();
     if (canApplyFrameworkIsolationIfEnabled && new JobConfig(
         config).getClusterBasedJobCoordinatorDependencyIsolationEnabled()) {
-      return new IsolatingClassLoaderFactory().buildApplicationDescribeClassLoader(appClassName);
+      return new IsolatingClassLoaderFactory().buildSamzaApplicationClassLoader(appClassName, currentClassLoader);
     } else {
-      return ApplicationUtil.class.getClassLoader();
+      return currentClassLoader;
     }
   }
 }
