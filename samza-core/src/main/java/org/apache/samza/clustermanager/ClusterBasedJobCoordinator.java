@@ -262,13 +262,15 @@ public class ClusterBasedJobCoordinator {
       MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, this.metrics, config);
       metadataResourceUtil.createResources();
 
-      // fan out the startpoints
-      StartpointManager startpointManager = createStartpointManager();
-      startpointManager.start();
-      try {
-        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
-      } finally {
-        startpointManager.stop();
+      // fan out the startpoints if startpoints is enabled
+      if (new JobConfig(config).getStartpointEnabled()) {
+        StartpointManager startpointManager = createStartpointManager();
+        startpointManager.start();
+        try {
+          startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+        } finally {
+          startpointManager.stop();
+        }
       }
 
       // Remap changelog partitions to tasks

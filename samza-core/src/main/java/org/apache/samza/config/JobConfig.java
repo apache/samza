@@ -146,6 +146,8 @@ public class JobConfig extends MapConfig {
   public static final String CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED =
       "samza.cluster.based.job.coordinator.dependency.isolation.enabled";
 
+  private static final String JOB_STARTPOINT_ENABLED = "job.startpoint.enabled";
+
   public JobConfig(Config config) {
     super(config);
   }
@@ -403,5 +405,9 @@ public class JobConfig extends MapConfig {
    */
   public Optional<String> getConfigLoaderFactory() {
     return Optional.ofNullable(get(CONFIG_LOADER_FACTORY));
+  }
+
+  public boolean getStartpointEnabled() {
+    return getBoolean(JOB_STARTPOINT_ENABLED, true);
   }
 }

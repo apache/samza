@@ -326,13 +326,15 @@ public class ZkJobCoordinator implements JobCoordinator {
         }
         configStore.flush();
 
-        // fan out the startpoints
-        StartpointManager startpointManager = createStartpointManager();
-        startpointManager.start();
-        try {
-          startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
-        } finally {
-          startpointManager.stop();
+        if (new JobConfig(config).getStartpointEnabled()) {
+          // fan out the startpoints
+          StartpointManager startpointManager = createStartpointManager();
+          startpointManager.start();
+          try {
+            startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+          } finally {
+            startpointManager.stop();
+          }
         }
       } else {
         LOG.warn("No metadata store registered to this job coordinator. Config not written to the metadata store and no Startpoints fan out.");
