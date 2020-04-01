@@ -175,7 +175,6 @@ public class StartpointManager {
   @VisibleForTesting
   public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp, TaskName taskName) {
     Map<String, byte[]> startpointBytes = readWriteStore.all();
-    // there is no task-name to use as key for the startpoint in this case (only the ssp), so we use a null task-name
     return readStartpoint(startpointBytes, ssp, taskName);
   }
 
