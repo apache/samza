@@ -160,13 +160,16 @@ public class StartpointManager {
    *         It is empty if it does not exist or if it is too stale.
    */
   public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp) {
-    return readStartpointMap(Collections.singletonMap(null, Collections.singleton(ssp)), false).get(null)
+    Map<String, byte[]> startpointBytes = readWriteStore.all();
+    // there is no task-name to use as key for the startpoint in this case (only the ssp), so we use a null task-name
+    return readStartpointMap(startpointBytes, Collections.singletonMap(null, Collections.singleton(ssp)), false).get(null)
         .get(ssp);
   }
 
   @VisibleForTesting
   public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp, TaskName taskName) {
-    return readStartpointMap(Collections.singletonMap(taskName, Collections.singleton(ssp)), false).get(taskName)
+    Map<String, byte[]> startpointBytes = readWriteStore.all();
+    return readStartpointMap(startpointBytes, Collections.singletonMap(taskName, Collections.singleton(ssp)), false).get(taskName)
         .get(ssp);
   }
 
@@ -178,11 +181,9 @@ public class StartpointManager {
    * It is empty if it does not exist or if it is too stale.
    */
   public Map<TaskName, Map<SystemStreamPartition, Optional<Startpoint>>> readStartpointMap(
-      Map<TaskName, Set<SystemStreamPartition>> taskToSSPs, boolean readSSPKeyOnly) {
+      Map<String, byte[]> startpointBytes, Map<TaskName, Set<SystemStreamPartition>> taskToSSPs, boolean readSSPKeyOnly) {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Map<TaskName, Map<SystemStreamPartition, Optional<Startpoint>>> retVal = new HashMap<>();
-
-    Map<String, byte[]> startpointBytes = readWriteStore.all();
 
     for (TaskName taskName : taskToSSPs.keySet()) {
       for (SystemStreamPartition ssp : taskToSSPs.get(taskName)) {
@@ -267,8 +268,9 @@ public class StartpointManager {
     HashMultimap<SystemStreamPartition, TaskName> deleteKeys = HashMultimap.create();
     HashMap<TaskName, StartpointFanOutPerTask> fanOuts = new HashMap<>();
 
-    Map<TaskName, Map<SystemStreamPartition, Optional<Startpoint>>> startpointMap = readStartpointMap(taskToSSPs, true); // Read SSP-only key
-    Map<TaskName, Map<SystemStreamPartition, Optional<Startpoint>>> startpointForTaskMap = readStartpointMap(taskToSSPs, false); // Read SSP+taskname key
+    Map<String, byte[]> startpointBytes = readWriteStore.all();
+    Map<TaskName, Map<SystemStreamPartition, Optional<Startpoint>>> startpointMap = readStartpointMap(startpointBytes, taskToSSPs, true); // Read SSP-only key
+    Map<TaskName, Map<SystemStreamPartition, Optional<Startpoint>>> startpointForTaskMap = readStartpointMap(startpointBytes, taskToSSPs, false); // Read SSP+taskname key
 
     for (TaskName taskName : taskToSSPs.keySet()) {
       Set<SystemStreamPartition> ssps = taskToSSPs.get(taskName);
