@@ -102,7 +102,10 @@ public class ContainerLaunchUtil {
       LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
 
       // StartpointManager wraps the coordinatorStreamStore in the namespaces internally
-      StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
+      StartpointManager startpointManager = null;
+      if (new JobConfig(config).getStartpointEnabled()) {
+        startpointManager = new StartpointManager(coordinatorStreamStore);
+      }
 
       Map<String, MetricsReporter> metricsReporters = loadMetricsReporters(appDesc, containerId, config);
 
