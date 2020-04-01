@@ -127,7 +127,7 @@ public class ClusterManagerConfig extends MapConfig {
    */
   private static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
   private static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
-  private static final String CLUSTER_MANAGER_STARTPOINT_FANOUT_DISABLED = "job.startpoint.fanout.disabled";
+  private static final String CLUSTER_MANAGER_STARTPOINT_FANOUT_ENABLED = "job.startpoint.fanout.enabled";
 
   public ClusterManagerConfig(Config config) {
       super(config);
@@ -265,7 +265,7 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
-  public boolean getStartpointFanoutDisabled() {
-    return getBoolean(CLUSTER_MANAGER_STARTPOINT_FANOUT_DISABLED, false);
+  public boolean getStartpointFanoutEnabled() {
+    return getBoolean(CLUSTER_MANAGER_STARTPOINT_FANOUT_ENABLED, true);
   }
 }
