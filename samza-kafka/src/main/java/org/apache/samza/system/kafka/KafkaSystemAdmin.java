@@ -344,6 +344,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
             return sspToSSPMetadata;
           }
         };
+
     Function2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit> onExceptionRetryOperation =
         new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
           @Override
