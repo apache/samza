@@ -138,7 +138,7 @@ object SamzaContainer extends Logging {
       // standby containers will need to continually poll checkpoint messages
       val newConfig = new util.HashMap[String, String]()
       newConfig.putAll(config)
-      newConfig.put(TaskConfig.CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, java.lang.Boolean.FALSE.toString)
+      newConfig.put(TaskConfig.INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, java.lang.Boolean.FALSE.toString)
     }
     val jobConfig = new JobConfig(config)
     val systemConfig = new SystemConfig(config)
