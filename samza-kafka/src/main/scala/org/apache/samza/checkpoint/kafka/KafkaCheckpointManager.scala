@@ -76,6 +76,9 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val producerRef: AtomicReference[SystemProducer] = new AtomicReference[SystemProducer](getSystemProducer())
   val producerCreationLock: Object = new Object
 
+  // if true, systemConsumer can be safely closed after the first call to readLastCheckpoint.
+  // if false, it must be left open until KafkaCheckpointManager::stop is called.
+  // for active containers, this will be set to true, while false for standby containers.
   val stopConsumerAfterFirstRead: Boolean = new TaskConfig(config).getCheckpointManagerConsumerStopAfterFirstRead
 
   /**
