@@ -48,7 +48,7 @@ Otherwise, you may have the connection problem.
 We provide an alternative to get wikipedia feed data. Instead of running
 
 {% highlight bash %}
-deploy/samza/bin/run-job.sh --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties
+deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 
 You will run
@@ -70,7 +70,7 @@ Now you can go back to Generate Wikipedia Statistics section in [Hello Samza](..
 The goal of
 
 {% highlight bash %}
-deploy/samza/bin/run-job.sh --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties
+deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 
 is to deploy a Samza job which listens to wikipedia API, receives the feed in realtime and produces the feed to the Kafka topic wikipedia-raw. The alternative in this tutorial is reading local wikipedia feed in an infinite loop and producing the data to Kafka wikipedia-raw. The follow-up job, wikipedia-parser is getting data from Kafka topic wikipedia-raw, so as long as we have correct data in Kafka topic wikipedia-raw, we are fine. All Samza jobs are connected by the Kafka and do not depend on each other.

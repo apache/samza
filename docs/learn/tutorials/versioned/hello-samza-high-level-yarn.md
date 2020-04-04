@@ -71,7 +71,7 @@ tar -xvf ./target/hello-samza-1.4.0-SNAPSHOT-dist.tar.gz -C deploy/samza
 After you've built your Samza package, you can start the app on the grid using the run-app.sh script.
 
 {% highlight bash %}
-./deploy/samza/bin/run-app.sh --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-application.properties
+./deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-application.properties
 {% endhighlight %}
 
 The app will do all of the following:
@@ -115,7 +115,7 @@ This plan will make more sense after the [code walkthrough](hello-samza-high-lev
 
 To shutdown the app, use the same _run-app.sh_ script with an extra _--operation=kill_ argument
 {% highlight bash %}
-./deploy/samza/bin/run-app.sh --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-application.properties --operation=kill
+./deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-application.properties --operation=kill
 {% endhighlight %}
 
 After you're done, you can clean everything up using the same grid script.
