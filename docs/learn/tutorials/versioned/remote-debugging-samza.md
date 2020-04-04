@@ -84,7 +84,7 @@ Once the grid starts, you can start the wikipedia-feed Samza job.
 mvn clean package
 mkdir -p deploy/samza
 tar -xvf ./target/hello-samza-1.1.0-dist.tar.gz -C deploy/samza
-deploy/samza/bin/run-job.sh --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties
+deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 
 When the wikipedia-feed job starts up, a single Samza container will be created to process all incoming messages. This is the container that we'll want to connect to from the remote debugger.
