@@ -133,12 +133,13 @@ object SamzaContainer extends Logging {
     localityManager: LocalityManager = null,
     startpointManager: StartpointManager = null,
     diagnosticsManager: Option[DiagnosticsManager] = Option.empty) = {
-    val config = jobContext.getConfig
-    if (StandbyTaskUtil.isStandbyContainer(containerId)) {
+    val config = if (StandbyTaskUtil.isStandbyContainer(containerId)) {
       // standby containers will need to continually poll checkpoint messages
-      val newConfig = new util.HashMap[String, String]()
-      newConfig.putAll(config)
+      val newConfig = new util.HashMap[String, String](jobContext.getConfig)
       newConfig.put(TaskConfig.INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, java.lang.Boolean.FALSE.toString)
+      new MapConfig(newConfig)
+    } else {
+      jobContext.getConfig
     }
     val jobConfig = new JobConfig(config)
     val systemConfig = new SystemConfig(config)

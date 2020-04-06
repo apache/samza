@@ -129,18 +129,13 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   def testWriteCheckpointShouldRetryFiniteTimesOnFailure(): Unit = {
     val checkpointTopic = "checkpoint-topic-2"
     val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
-
-    class MockSystemFactory extends KafkaSystemFactory {
-      override def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
-        mockKafkaProducer
-      }
-    }
+    val mockKafkaSystemConsumer: SystemConsumer = Mockito.mock(classOf[SystemConsumer])
 
     Mockito.doThrow(new RuntimeException()).when(mockKafkaProducer).flush(taskName.getTaskName)
 
     val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
     val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, props)
-    val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry)
+    val checkPointManager = new KafkaCheckpointManager(spec, new MockSystemFactory(mockKafkaSystemConsumer, mockKafkaProducer), false, config, new NoOpMetricsRegistry)
     checkPointManager.MaxRetryDurationInMillis = 1
 
     try {
@@ -184,6 +179,50 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kcm.createResources()
     kcm.start()
     kcm.stop()
+  }
+
+  @Test
+  def testConsumerStopsAfterInitialReadIfConfigSetTrue(): Unit = {
+    val mockKafkaSystemConsumer: SystemConsumer = Mockito.mock(classOf[SystemConsumer])
+
+    val checkpointTopic = "checkpoint-topic-test"
+    val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
+    val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, props)
+
+    val configMapWithOverride = new java.util.HashMap[String, String](config)
+    configMapWithOverride.put(TaskConfig.INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, "true")
+    val kafkaCheckpointManager = new KafkaCheckpointManager(spec, new MockSystemFactory(mockKafkaSystemConsumer), false, new MapConfig(configMapWithOverride), new NoOpMetricsRegistry)
+
+    kafkaCheckpointManager.register(taskName)
+    kafkaCheckpointManager.start()
+    kafkaCheckpointManager.readLastCheckpoint(taskName)
+
+    Mockito.verify(mockKafkaSystemConsumer, Mockito.times(1)).stop()
+
+    kafkaCheckpointManager.stop()
+  }
+
+  @Test
+  def testConsumerDoesNotStopAfterInitialReadIfConfigSetFalse(): Unit = {
+    val mockKafkaSystemConsumer: SystemConsumer = Mockito.mock(classOf[SystemConsumer])
+
+    val checkpointTopic = "checkpoint-topic-test"
+    val props = new org.apache.samza.config.KafkaConfig(config).getCheckpointTopicProperties()
+    val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, props)
+
+    val configMapWithOverride = new java.util.HashMap[String, String](config)
+    configMapWithOverride.put(TaskConfig.INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, "false")
+    val kafkaCheckpointManager = new KafkaCheckpointManager(spec, new MockSystemFactory(mockKafkaSystemConsumer), false, new MapConfig(configMapWithOverride), new NoOpMetricsRegistry)
+
+    kafkaCheckpointManager.register(taskName)
+    kafkaCheckpointManager.start()
+    kafkaCheckpointManager.readLastCheckpoint(taskName)
+
+    Mockito.verify(mockKafkaSystemConsumer, Mockito.times(0)).stop()
+
+    kafkaCheckpointManager.stop()
+
+    Mockito.verify(mockKafkaSystemConsumer, Mockito.times(1)).stop()
   }
 
   @After
@@ -241,6 +280,18 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
   private def createTopic(cpTopic: String, partNum: Int, props: Properties) {
     adminZkClient.createTopic(cpTopic, partNum, 1, props)
+  }
+
+  class MockSystemFactory(
+    mockKafkaSystemConsumer: SystemConsumer = Mockito.mock(classOf[SystemConsumer]),
+    mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])) extends KafkaSystemFactory {
+    override def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
+      mockKafkaProducer
+    }
+
+    override def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
+      mockKafkaSystemConsumer
+    }
   }
 
 }
