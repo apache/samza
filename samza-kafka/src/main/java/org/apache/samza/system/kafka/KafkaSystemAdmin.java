@@ -313,7 +313,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
    * @param retryBackoff retry backoff strategy
    * @return a map from ssp to sspMetadata which has offsets
    */
-  public Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> getSSPMetadata(
+  private Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> getSSPMetadata(
       Set<SystemStreamPartition> ssps, ExponentialSleepStrategy retryBackoff) {
 
     LOG.info("Fetching SSP metadata for: {}", ssps);
@@ -653,7 +653,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
       Map<TopicPartition, RecordsToDelete> recordsToDelete = offsets.entrySet()
           .stream()
           .collect(Collectors.toMap(entry ->
-                  new TopicPartition(entry.getKey().getStream(), entry.getKey().getPartition().getPartitionId()),
+              new TopicPartition(entry.getKey().getStream(), entry.getKey().getPartition().getPartitionId()),
               entry -> RecordsToDelete.beforeOffset(Long.parseLong(entry.getValue()) + 1)));
 
       adminClient.deleteRecords(recordsToDelete).all().whenComplete((ignored, exception) -> {
