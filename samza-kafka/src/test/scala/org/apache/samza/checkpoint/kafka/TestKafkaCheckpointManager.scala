@@ -38,6 +38,7 @@ import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit._
 import org.mockito.Mockito
+import org.mockito.Matchers
 
 class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
@@ -197,9 +198,14 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     kafkaCheckpointManager.start()
     kafkaCheckpointManager.readLastCheckpoint(taskName)
 
+    Mockito.verify(mockKafkaSystemConsumer, Mockito.times(1)).register(Matchers.any(), Matchers.any())
+    Mockito.verify(mockKafkaSystemConsumer, Mockito.times(1)).start()
+    Mockito.verify(mockKafkaSystemConsumer, Mockito.times(1)).poll(Matchers.any(), Matchers.any())
     Mockito.verify(mockKafkaSystemConsumer, Mockito.times(1)).stop()
 
     kafkaCheckpointManager.stop()
+
+    Mockito.verifyNoMoreInteractions(mockKafkaSystemConsumer)
   }
 
   @Test
