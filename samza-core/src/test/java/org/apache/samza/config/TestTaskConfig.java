@@ -24,6 +24,7 @@ import static org.junit.Assert.*;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -331,6 +332,30 @@ public class TestTaskConfig {
 
     // config not specified
     assertEquals(TaskConfig.DEFAULT_TASK_SHUTDOWN_MS, new TaskConfig(new MapConfig()).getShutdownMs());
+  }
+
+  @Test
+  public void testGetTransactionalStateRestoreEnabled() {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED, "true");
+
+    // standby and async commit both off; transactional state restore returned as enabled
+    assertTrue(new TaskConfig(new MapConfig(configMap)).getTransactionalStateRestoreEnabled());
+
+    // standby off and async commit on; transactional state restore returned as disabled
+    configMap.put(TaskConfig.ASYNC_COMMIT, "true");
+    configMap.put(JobConfig.STANDBY_TASKS_REPLICATION_FACTOR, "1");
+    assertFalse(new TaskConfig(new MapConfig(configMap)).getTransactionalStateRestoreEnabled());
+
+    // standby on and async commit off; transactional state restore returned as disabled
+    configMap.put(TaskConfig.ASYNC_COMMIT, "false");
+    configMap.put(JobConfig.STANDBY_TASKS_REPLICATION_FACTOR, "2");
+    assertFalse(new TaskConfig(new MapConfig(configMap)).getTransactionalStateRestoreEnabled());
+
+    // standby on and async commit on; transactional state restore returned as disabled
+    configMap.put(TaskConfig.ASYNC_COMMIT, "true");
+    configMap.put(JobConfig.STANDBY_TASKS_REPLICATION_FACTOR, "2");
+    assertFalse(new TaskConfig(new MapConfig(configMap)).getTransactionalStateRestoreEnabled());
   }
 
   /**

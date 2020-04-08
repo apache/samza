@@ -320,7 +320,15 @@ public class TaskConfig extends MapConfig {
   }
 
   public boolean getTransactionalStateRestoreEnabled() {
-    return getBoolean(TRANSACTIONAL_STATE_RESTORE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED);
+    JobConfig jobConfig = new JobConfig(this);
+
+    boolean standByEnabled = jobConfig.getStandbyTasksEnabled();
+    boolean asyncCommitEnabled = getAsyncCommit();
+
+    // TODO remove check of standby enabled when SAMZA-2353 is completed
+    // TODO remove check of async commit when SAMZA-2505 is completed
+    // transactional state restore must remain disabled until it is supported in the above use cases
+    return !standByEnabled && !asyncCommitEnabled && getBoolean(TRANSACTIONAL_STATE_RESTORE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED);
   }
 
   public boolean getTransactionalStateRetainExistingState() {
