@@ -43,6 +43,7 @@ import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.ExponentialSleepStrategy;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -325,7 +326,8 @@ public class TestKafkaSystemAdminWithMock {
     when(mockKafkaConsumer.beginningOffsets(topicPartitions)).thenThrow(new RuntimeException())
         .thenReturn(testBeginningOffsets);
     Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspMetadata =
-        kafkaSystemAdmin.getSSPMetadata(ssps);
+        kafkaSystemAdmin.getSSPMetadata(ssps, new ExponentialSleepStrategy(2,
+            1, 1));
 
     assertEquals("metadata should return for 2 topics", sspMetadata.size(), 2);
 
@@ -344,11 +346,9 @@ public class TestKafkaSystemAdminWithMock {
         .collect(Collectors.toList());
 
     when(mockKafkaConsumer.beginningOffsets(topicPartitions)).thenThrow(new RuntimeException())
-        .thenThrow(new RuntimeException())
-        .thenThrow(new RuntimeException())
-        .thenThrow(new RuntimeException())
         .thenThrow(new RuntimeException());
 
-    kafkaSystemAdmin.getSSPMetadata(ssps);
+    kafkaSystemAdmin.getSSPMetadata(ssps, new ExponentialSleepStrategy(2,
+        1, 1));
   }
 }

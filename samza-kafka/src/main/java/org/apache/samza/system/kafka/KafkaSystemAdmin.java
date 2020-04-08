@@ -313,7 +313,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
    * @param retryBackoff retry backoff strategy
    * @return a map from ssp to sspMetadata which has offsets
    */
-  private Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> getSSPMetadata(
+  Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> getSSPMetadata(
       Set<SystemStreamPartition> ssps, ExponentialSleepStrategy retryBackoff) {
 
     LOG.info("Fetching SSP metadata for: {}", ssps);
