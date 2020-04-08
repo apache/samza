@@ -298,24 +298,78 @@ public class KafkaSystemAdmin implements SystemAdmin {
   @Override
   public Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> getSSPMetadata(
       Set<SystemStreamPartition> ssps) {
+    return getSSPMetadata(ssps,
+        new ExponentialSleepStrategy(DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER,
+            DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS, DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS));
+  }
+
+  /**
+   * Given a set of SystemStreamPartition, fetch metadata from Kafka for each
+   * of them, and return a map from ssp to SystemStreamPartitionMetadata for
+   * each of them. This method will return null for oldest and newest offsets
+   * if a given SystemStreamPartition is empty. This method will block and
+   * retry indefinitely until it gets a successful response from Kafka.
+   * @param ssps a set of strings of SSP
+   * @param retryBackoff retry backoff strategy
+   * @return a map from ssp to sspMetadata which has offsets
+   */
+  Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> getSSPMetadata(
+      Set<SystemStreamPartition> ssps, ExponentialSleepStrategy retryBackoff) {
 
     LOG.info("Fetching SSP metadata for: {}", ssps);
     List<TopicPartition> topicPartitions = ssps.stream()
         .map(ssp -> new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId()))
         .collect(Collectors.toList());
 
-    OffsetsMaps topicPartitionsMetadata = fetchTopicPartitionsMetadata(topicPartitions);
+    Function1<ExponentialSleepStrategy.RetryLoop, Map<SystemStreamPartition,
+        SystemStreamMetadata.SystemStreamPartitionMetadata>> fetchTopicPartitionMetadataOperation =
+        new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<SystemStreamPartition,
+            SystemStreamMetadata.SystemStreamPartitionMetadata>>() {
 
-    Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspToSSPMetadata = new HashMap<>();
-    for (SystemStreamPartition ssp : ssps) {
-      String oldestOffset = topicPartitionsMetadata.getOldestOffsets().get(ssp);
-      String newestOffset = topicPartitionsMetadata.getNewestOffsets().get(ssp);
-      String upcomingOffset = topicPartitionsMetadata.getUpcomingOffsets().get(ssp);
+          @Override
+          public Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> apply(
+              ExponentialSleepStrategy.RetryLoop loop) {
+            OffsetsMaps topicPartitionsMetadata = fetchTopicPartitionsMetadata(topicPartitions);
 
-      sspToSSPMetadata.put(ssp,
-          new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset));
-    }
-    return sspToSSPMetadata;
+            Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspToSSPMetadata = new HashMap<>();
+            for (SystemStreamPartition ssp : ssps) {
+              String oldestOffset = topicPartitionsMetadata.getOldestOffsets().get(ssp);
+              String newestOffset = topicPartitionsMetadata.getNewestOffsets().get(ssp);
+              String upcomingOffset = topicPartitionsMetadata.getUpcomingOffsets().get(ssp);
+
+              sspToSSPMetadata.put(ssp,
+                  new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset));
+            }
+            loop.done();
+            return sspToSSPMetadata;
+          }
+        };
+
+    Function2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit> onExceptionRetryOperation =
+        new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
+          @Override
+          public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
+            if (loop.sleepCount() < MAX_RETRIES_ON_EXCEPTION) {
+              LOG.warn(
+                  String.format("Fetching SSP metadata for: %s threw an exception. Retrying.", ssps), exception);
+            } else {
+              LOG.error(String.format("Fetching SSP metadata for: %s threw an exception.", ssps), exception);
+              loop.done();
+              throw new SamzaException(exception);
+            }
+            return null;
+          }
+        };
+
+    Function0<Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata>> fallbackOperation =
+        new AbstractFunction0<Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata>>() {
+          @Override
+          public Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> apply() {
+            throw new SamzaException("Failed to get SSP metadata");
+          }
+        };
+
+    return retryBackoff.run(fetchTopicPartitionMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
   }
 
   /**
