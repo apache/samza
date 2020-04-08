@@ -1052,7 +1052,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndStreamTableTableJoinWithPrimaryKeys() throws Exception {
+  public void testEndToEndStreamTableNestedJoinWithPrimaryKeys() throws Exception {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -1086,7 +1086,42 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndStreamTableTableJoinWithCompositeKey() throws Exception {
+  public void testEndToEndStreamTableNestedJoinWithSubQuery() throws Exception {
+    int numMessages = 20;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+    String sql =
+      "Insert into testavro.enrichedPageViewTopic "
+            + "select t.pageKey as __key__, t.pageKey as pageKey, c.name as companyName, t.profileName as profileName,"
+            + "       address as profileAddress "
+            + "from (select p.companyId as companyId, p.name as profileName, p.address as address, pv.pageKey as pageKey"
+            + "      from testavro.PAGEVIEW as pv "
+            + "      join testavro.PROFILE.`$table` as p "
+            + "      on MyTest(p.__key__) = MyTest(pv.profileId)) as t "
+            + "join testavro.COMPANY.`$table` as c "
+            + "on MyTest(t.companyId) = MyTest(c.__key__)";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
+
+    List<String> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
+            + ((GenericRecord) x.getMessage()).get("profileName").toString() + ","
+            + ((GenericRecord) x.getMessage()).get("companyName").toString())
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages, outMessages.size());
+    List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(numMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
+  }
+
+  @Test
+  public void testEndToEndStreamTableNestedJoinWithCompositeKey() throws Exception {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
