@@ -181,21 +181,26 @@ class InMemoryManager {
             .stream()
             .collect(Collectors.toMap(entry -> entry.getKey().getPartition(), entry -> {
                 List<IncomingMessageEnvelope> messages = entry.getValue();
-                String oldestOffset = messages.isEmpty() ? null : "0";
-                String upcomingOffset = String.valueOf(messages.size());
-                String newestOffset;
-                if (messages.isEmpty()) {
-                  newestOffset = null;
-                } else if (messages.get(messages.size() - 1).isEndOfStream()) {
-                  newestOffset = messages.size() > 1 ? String.valueOf(messages.size() - 2) : null;
-                  upcomingOffset = String.valueOf(messages.size() - 1);
-                } else {
-                  newestOffset = String.valueOf(messages.size() - 1);
-                  upcomingOffset = String.valueOf(messages.size());
+                Integer oldestOffset = null;
+                Integer newestOffset = null;
+                int upcomingOffset = 0;
+
+                if (!messages.isEmpty() && !messages.get(messages.size() - 1).isEndOfStream()) {
+                  // offsets correspond strictly to numeric indices
+                  oldestOffset = 0;
+                  newestOffset = messages.size() - 1;
+                  upcomingOffset = messages.size();
+                } else if (messages.size() > 1 && messages.get(messages.size() - 1).isEndOfStream()) {
+                  // end of stream should not be included when calculating offset metadata
+                  oldestOffset = 0;
+                  newestOffset = messages.size() - 2;
+                  upcomingOffset = messages.size() - 1;
                 }
 
-                return new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset);
-
+                return new SystemStreamMetadata.SystemStreamPartitionMetadata(
+                    oldestOffset == null ? null : oldestOffset.toString(),
+                    newestOffset == null ? null : newestOffset.toString(),
+                    Integer.toString(upcomingOffset));
               }));
 
     return new SystemStreamMetadata(streamName, partitionMetadata);
