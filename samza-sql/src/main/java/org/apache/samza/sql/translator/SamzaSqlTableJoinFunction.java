@@ -22,7 +22,7 @@ package org.apache.samza.sql.translator;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.rel.core.JoinRelType;
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
