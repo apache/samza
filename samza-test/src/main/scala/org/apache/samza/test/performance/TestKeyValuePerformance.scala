@@ -28,7 +28,7 @@ import java.util.UUID
 import com.google.common.base.Stopwatch
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableMap
-import org.apache.commons.lang.RandomStringUtils
+import org.apache.commons.lang3.RandomStringUtils
 import org.apache.samza.config.{Config, JobConfig, MapConfig, StorageConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.context.ContainerContextImpl
