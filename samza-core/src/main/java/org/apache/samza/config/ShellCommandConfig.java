@@ -58,16 +58,14 @@ public class ShellCommandConfig extends MapConfig {
   public static final String ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID";
 
   /**
-   * Set to "true" if cluster-based job coordinator dependency isolation is enabled. Otherwise, will be considered
-   * false.
+   * Set to "true" if split deployment feature is enabled. Otherwise, will be considered false.
    *
-   * The launch process for the cluster-based job coordinator depends on the value of this, since it needs to be known
-   * if the cluster-based job coordinator should be launched in an isolated mode. This needs to be an environment
-   * variable, because the value needs to be known before the full configs can be read from the metadata store (full
-   * configs are only read after launch is complete).
+   * The launch process for the cluster-based job coordinator and job container depends on the value of this, since it
+   * needs to be known if the cluster-based job coordinator and job container should be launched in an isolated mode.
+   * This needs to be an environment variable, because the value needs to be known before the full configs can be read
+   * from the metadata store (full configs are only read after launch is complete).
    */
-  public static final String ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED =
-      "CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED";
+  public static final String ENV_SPLIT_DEPLOYMENT_ENABLED = "ENV_SPLIT_DEPLOYMENT_ENABLED";
 
   /**
    * When running the cluster-based job coordinator in an isolated mode, it uses JARs and resources from a lib directory

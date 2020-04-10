@@ -184,12 +184,10 @@ object YarnJob extends Logging {
         Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(coordinatorSystemConfig))
     }
     envMapBuilder += ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(yarnConfig.getAmOpts)
-    val clusterBasedJobCoordinatorDependencyIsolationEnabled =
-      jobConfig.getClusterBasedJobCoordinatorDependencyIsolationEnabled
-    envMapBuilder += ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED ->
-      Util.envVarEscape(Boolean.toString(clusterBasedJobCoordinatorDependencyIsolationEnabled))
-    if (clusterBasedJobCoordinatorDependencyIsolationEnabled) {
-      // dependency isolation is enabled, so need to specify where the application lib directory is for app resources
+    val splitDeploymentEnabled = jobConfig.isSplitDeploymentEnabled
+    envMapBuilder += ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED -> Util.envVarEscape(Boolean.toString(splitDeploymentEnabled))
+    if (splitDeploymentEnabled) {
+      //split deployment is enabled, so need to specify where the application lib directory is for app resources
       envMapBuilder += ShellCommandConfig.ENV_APPLICATION_LIB_DIR ->
         Util.envVarEscape(String.format("./%s/lib", DependencyIsolationUtils.APPLICATION_DIRECTORY))
     }
@@ -206,7 +204,7 @@ object YarnJob extends Logging {
   @VisibleForTesting
   private[yarn] def buildJobCoordinatorCmd(config: Config, jobConfig: JobConfig): String = {
     var cmdExec = "./__package/bin/run-jc.sh" // default location
-    if (jobConfig.getClusterBasedJobCoordinatorDependencyIsolationEnabled) {
+    if (jobConfig.isSplitDeploymentEnabled) {
       cmdExec = "./%s/bin/run-jc.sh" format DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY
       logger.info("Using isolated cluster-based job coordinator path: %s" format cmdExec)
     }

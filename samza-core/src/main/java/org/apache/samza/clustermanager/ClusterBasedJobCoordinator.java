@@ -465,7 +465,7 @@ public class ClusterBasedJobCoordinator {
    */
   public static void main(String[] args) {
     boolean dependencyIsolationEnabled = Boolean.parseBoolean(
-        System.getenv(ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED));
+        System.getenv(ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED));
     Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
         LOG.error("Uncaught exception in ClusterBasedJobCoordinator::main. Exiting job coordinator", exception);
         System.exit(1);
