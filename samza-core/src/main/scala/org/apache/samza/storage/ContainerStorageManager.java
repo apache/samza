@@ -48,6 +48,7 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.clustermanager.StandbyTaskUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
@@ -71,6 +72,7 @@ import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemConsumers;
@@ -853,7 +855,29 @@ public class ContainerStorageManager {
     sideInputCheckpointRefreshFuture = sideInputCheckpointRefreshExecutor.scheduleWithFixedDelay(new Runnable() {
       @Override
       public void run() {
+        getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
+            TaskName activeTaskName = StandbyTaskUtil.getActiveTaskName(taskName);
+            Checkpoint checkpoint = checkpointManager.readLastCheckpoint(activeTaskName);
+            if (checkpoint != null) {
+              checkpoint.getOffsets().forEach((ssp, latestOffset) -> {
+                  if (taskSideInputStoreSSPs.get(taskName).values().stream().flatMap(Set::stream).anyMatch(ssp::equals)) {
+                    Optional<String> currentOffsetOpt = sideInputSSPCheckpointOffsets.get(ssp);
+                    Optional<String> latestOffsetOpt = Optional.ofNullable(latestOffset);
+                    SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(ssp.getSystem());
 
+                    // if current isn't present and latest is, or
+                    // current is present and latest > current
+                    if ((!currentOffsetOpt.isPresent() && latestOffsetOpt.isPresent())
+                        || (currentOffsetOpt.isPresent() && systemAdmin.offsetComparator(latestOffset, currentOffsetOpt.get()) > 0)) {
+                      synchronized (sideInputSSPLocks.get(ssp)) {
+                        sideInputSSPCheckpointOffsets.put(ssp, latestOffsetOpt);
+                        sideInputSSPLocks.get(ssp).notifyAll();
+                      }
+                    }
+                  }
+                });
+            }
+          });
       }
     }, 0, new TaskConfig(config).getCommitMs(), TimeUnit.MILLISECONDS);
   }
