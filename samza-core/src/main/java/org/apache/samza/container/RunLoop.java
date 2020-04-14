@@ -648,6 +648,8 @@ public class RunLoop implements Runnable, Throttleable {
     @Override
     public void onFailure(TaskCallback callback, Throwable t) {
       try {
+        // set the exception code ahead of marking the message as processed to make sure the exception
+        // is visible to the run loop thread promptly. Refer SAMZA-2510 for more details.
         abort(t);
         state.doneProcess();
         // update pending count, but not offset

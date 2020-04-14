@@ -211,6 +211,10 @@ public class TestRunLoop {
       coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
     }
 
+    void setCallbackHandler(TestCode callbackHandler) {
+      this.callbackHandler = callbackHandler;
+    }
+
     void setShutdownRequest(TaskCoordinator.RequestScope shutdownRequest) {
       this.shutdownRequest = shutdownRequest;
     }
@@ -784,7 +788,7 @@ public class TestRunLoop {
   }
 
   @Test(expected = SamzaException.class)
-  public void testExceptionIsPropagatedAfterShutdown() {
+  public void testExceptionIsPropagated() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
     when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
@@ -801,6 +805,32 @@ public class TestRunLoop {
     when(consumerMultiplexer.choose(false))
         .thenReturn(envelope0)
         .thenReturn(ssp0EndOfStream)
+        .thenReturn(null);
+
+    runLoop.run();
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testShutdownAndCallbackFailureRace() {
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
+    OffsetManager offsetManager = mock(OffsetManager.class);
+
+    TestTask task0 = new TestTask(false, false, false, null);
+    TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
+
+    Map<TaskName, TaskInstance> tasks = ImmutableMap.of(taskName0, t0);
+    int maxMessagesInFlight = 1;
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
+        () -> 0L, false);
+
+    // Issue a shutdown request to the run loop ahead of executing onFailure process callback.
+    TestCode requestShutdown = ignored -> runLoop.shutdown();
+    task0.setCallbackHandler(requestShutdown);
+
+    when(consumerMultiplexer.choose(false))
+        .thenReturn(envelope0)
         .thenReturn(null);
 
     runLoop.run();
