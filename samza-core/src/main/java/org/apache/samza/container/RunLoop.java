@@ -155,12 +155,7 @@ public class RunLoop implements Runnable, Throttleable {
 
       long prevNs = clock.nanoTime();
 
-      while (!shutdownNow) {
-        if (throwable != null) {
-          log.error("Caught throwable and stopping run loop", throwable);
-          throw new SamzaException(throwable);
-        }
-
+      while (!shutdownNow && throwable == null) {
         long startNs = clock.nanoTime();
 
         IncomingMessageEnvelope envelope = chooseEnvelope();
@@ -184,6 +179,11 @@ public class RunLoop implements Runnable, Throttleable {
           // totalNs is not 0 if timer metrics are enabled
           containerMetrics.utilization().set(((double) activeNs) / totalNs);
         }
+      }
+
+      if (throwable != null) {
+        log.error("Caught throwable and stopping run loop", throwable);
+        throw new SamzaException(throwable);
       }
     } finally {
       workerTimer.shutdown();
@@ -648,8 +648,8 @@ public class RunLoop implements Runnable, Throttleable {
     @Override
     public void onFailure(TaskCallback callback, Throwable t) {
       try {
-        state.doneProcess();
         abort(t);
+        state.doneProcess();
         // update pending count, but not offset
         TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
         log.error("Got callback failure for task {}", callbackImpl.getTaskName(), t);
