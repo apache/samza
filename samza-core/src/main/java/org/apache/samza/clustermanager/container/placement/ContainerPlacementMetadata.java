@@ -71,6 +71,10 @@ public class ContainerPlacementMetadata {
     return resourceRequests.contains(samzaResourceRequest);
   }
 
+  public synchronized Set<SamzaResourceRequest> getResourceRequests() {
+    return new HashSet<>(this.resourceRequests);
+  }
+
   public synchronized void setActionStatus(ContainerPlacementMessage.StatusCode statusCode, String responseMessage) {
     this.actionStatus = statusCode;
     this.responseMessage = responseMessage;

@@ -249,6 +249,8 @@ public class ContainerManager {
       ContainerPlacementMetadata metaData = getPlacementActionMetadata(processorId).get();
       markContainerPlacementActionFailed(metaData,
           String.format("failed to stop container on current host %s", metaData.getSourceHost()));
+
+      metaData.getResourceRequests().forEach(request -> containerAllocator.cancelResourceRequest(request));
     } else if (processorId != null && standbyContainerManager.isPresent()) {
       standbyContainerManager.get().handleContainerStopFail(processorId, containerId, containerAllocator);
     } else {
