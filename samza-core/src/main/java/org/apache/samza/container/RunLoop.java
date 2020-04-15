@@ -19,7 +19,6 @@
 
 package org.apache.samza.container;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -212,11 +211,6 @@ public class RunLoop implements Runnable, Throttleable {
   public void shutdown() {
     shutdownNow = true;
     resume();
-  }
-
-  @VisibleForTesting
-  Throwable getThrowable() {
-    return throwable;
   }
 
   /**
