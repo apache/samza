@@ -132,7 +132,6 @@ public class TestRunLoop {
     private AtomicInteger completed = new AtomicInteger(0);
     private TestCode callbackHandler = null;
     private TestCode commitHandler = null;
-    private Runnable endOfStreamHandler = null;
     private TaskCoordinator.RequestScope commitRequest = null;
     private TaskCoordinator.RequestScope shutdownRequest = TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER;
 
@@ -210,14 +209,7 @@ public class TestRunLoop {
 
     @Override
     public void onEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
-      if (endOfStreamHandler != null) {
-        endOfStreamHandler.run();
-      }
       coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-    }
-
-    void setEndOfStreamHandler(Runnable endOfStreamHandler) {
-      this.endOfStreamHandler = endOfStreamHandler;
     }
 
     void setShutdownRequest(TaskCoordinator.RequestScope shutdownRequest) {
@@ -808,9 +800,6 @@ public class TestRunLoop {
         callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
         () -> 0L, false);
 
-    // Verify if the throwable flag is set ahead of issuing a shutdown request due to end of stream.
-    Runnable checkThrowableBeforeShutdown = () -> assertNotNull(runLoop.getThrowable());
-    task0.setEndOfStreamHandler(checkThrowableBeforeShutdown);
     when(consumerMultiplexer.choose(false))
         .thenReturn(envelope0)
         .thenReturn(ssp0EndOfStream)
