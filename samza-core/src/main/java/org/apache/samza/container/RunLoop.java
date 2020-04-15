@@ -19,6 +19,7 @@
 
 package org.apache.samza.container;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -181,6 +182,12 @@ public class RunLoop implements Runnable, Throttleable {
         }
       }
 
+      /*
+       * The current semantics of external shutdown request (RunLoop.shutdown()) is loosely defined and run loop doesn't
+       * wait for inflight messages to complete and triggers shutdown as soon as it notices the shutdown request.
+       * Hence, it is possible that the exception may or may not propagated based on order of execution
+       * between process callback and run loop thread.
+       */
       if (throwable != null) {
         log.error("Caught throwable and stopping run loop", throwable);
         throw new SamzaException(throwable);
@@ -205,6 +212,11 @@ public class RunLoop implements Runnable, Throttleable {
   public void shutdown() {
     shutdownNow = true;
     resume();
+  }
+
+  @VisibleForTesting
+  Throwable getThrowable() {
+    return throwable;
   }
 
   /**
