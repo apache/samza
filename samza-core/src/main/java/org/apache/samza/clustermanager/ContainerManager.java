@@ -134,6 +134,12 @@ public class ContainerManager {
       } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS) {
         LOG.info("Waiting for running container to shutdown due to existing ContainerPlacement action {}", actionMetaData);
         return false;
+      } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOP_FAILED) {
+        LOG.info("Shutdown on running container failed for action {}", actionMetaData);
+        markContainerPlacementActionFailed(actionMetaData,
+            String.format("failed to stop container on current host %s", actionMetaData.getSourceHost()));
+        resourceRequestState.cancelResourceRequest(request);
+        return true;
       } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOPPED) {
         // If the job has standby containers enabled, always check standby constraints before issuing a start on container
         // Note: Always check constraints against allocated resource, since preferred host can be ANY_HOST as well
@@ -244,13 +250,9 @@ public class ContainerManager {
       ContainerAllocator containerAllocator) {
     if (processorId != null && hasActiveContainerPlacementAction(processorId)) {
       // Assuming resource acquired on destination host will be relinquished by the containerAllocator,
-      // we mark the placement action as failed, and return.
-
+      // We mark the placement action as failed, and return.
       ContainerPlacementMetadata metaData = getPlacementActionMetadata(processorId).get();
-      markContainerPlacementActionFailed(metaData,
-          String.format("failed to stop container on current host %s", metaData.getSourceHost()));
-
-      metaData.getResourceRequests().forEach(request -> containerAllocator.cancelResourceRequest(request));
+      metaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOP_FAILED);
     } else if (processorId != null && standbyContainerManager.isPresent()) {
       standbyContainerManager.get().handleContainerStopFail(processorId, containerId, containerAllocator);
     } else {

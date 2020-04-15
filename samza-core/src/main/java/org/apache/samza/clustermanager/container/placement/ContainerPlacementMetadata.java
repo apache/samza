@@ -40,7 +40,7 @@ public class ContainerPlacementMetadata {
   /**
    * State to track container failover
    */
-  public enum ContainerStatus { RUNNING, STOP_IN_PROGRESS, STOPPED }
+  public enum ContainerStatus { RUNNING, STOP_IN_PROGRESS, STOP_FAILED, STOPPED }
   // Container Placement request message
   private final ContainerPlacementRequestMessage requestMessage;
   // Host where the container is actively running
@@ -69,10 +69,6 @@ public class ContainerPlacementMetadata {
 
   public synchronized boolean containsResourceRequest(SamzaResourceRequest samzaResourceRequest) {
     return resourceRequests.contains(samzaResourceRequest);
-  }
-
-  public synchronized Set<SamzaResourceRequest> getResourceRequests() {
-    return new HashSet<>(this.resourceRequests);
   }
 
   public synchronized void setActionStatus(ContainerPlacementMessage.StatusCode statusCode, String responseMessage) {

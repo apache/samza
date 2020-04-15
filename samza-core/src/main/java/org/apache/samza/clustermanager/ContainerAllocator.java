@@ -433,10 +433,6 @@ public class ContainerAllocator implements Runnable {
     resourceRequestState.releaseResource(containerId);
   }
 
-  public void cancelResourceRequest(SamzaResourceRequest samzaResourceRequest) {
-    resourceRequestState.cancelResourceRequest(samzaResourceRequest);
-  }
-
   /**
    * Stops the Allocator. Setting this flag to false exits the allocator loop.
    */
