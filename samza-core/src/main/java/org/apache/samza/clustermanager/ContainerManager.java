@@ -234,6 +234,30 @@ public class ContainerManager {
   }
 
   /**
+   * Handle the container stop failure for active containers and standby (if enabled).
+   * @param processorId logical id of the container eg 1,2,3
+   * @param containerId last known id of the container deployed
+   * @param containerHost host on which container is requested to be deployed
+   * @param containerAllocator allocator for requesting resources
+   */
+  void handleContainerStopFail(String processorId, String containerId, String containerHost,
+      ContainerAllocator containerAllocator) {
+    if (processorId != null && hasActiveContainerPlacementAction(processorId)) {
+      // Assuming resource acquired on destination host will be relinquished by the containerAllocator,
+      // we mark the placement action as failed, and return.
+
+      ContainerPlacementMetadata metaData = getPlacementActionMetadata(processorId).get();
+      markContainerPlacementActionFailed(metaData,
+          String.format("failed to stop container on current host %s", metaData.getSourceHost()));
+    } else if (processorId != null && standbyContainerManager.isPresent()) {
+      standbyContainerManager.get().handleContainerStopFail(processorId, containerId, containerAllocator);
+    } else {
+      LOG.warn("Did not find a running Processor ID for Container ID: {} on host: {}. "
+          + "Ignoring invalid/redundant notification.", containerId, containerHost);
+    }
+  }
+
+  /**
    * Handles the state update on successful launch of a container, if this launch is due to a container placement action updates the
    * related metadata to report success
    *

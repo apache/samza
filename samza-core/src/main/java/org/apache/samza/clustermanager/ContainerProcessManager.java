@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
@@ -299,17 +300,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   public void onResourceCompleted(SamzaResourceStatus resourceStatus) {
     String containerId = resourceStatus.getContainerId();
-    String processorId = null;
-    String hostName = null;
-    for (Map.Entry<String, SamzaResource> entry: state.runningProcessors.entrySet()) {
-      if (entry.getValue().getContainerId().equals(resourceStatus.getContainerId())) {
-        LOG.info("Container ID: {} matched running Processor ID: {} on host: {}", containerId, entry.getKey(), entry.getValue().getHost());
+    Pair<String, String> runningProcessorIdHostname = getRunningProcessor(containerId);
+    String processorId = runningProcessorIdHostname.getKey();
+    String hostName = runningProcessorIdHostname.getValue();
 
-        processorId = entry.getKey();
-        hostName = entry.getValue().getHost();
-        break;
-      }
-    }
     if (processorId == null) {
       LOG.info("No running Processor ID found for Container ID: {} with Status: {}. Ignoring redundant notification.", containerId, resourceStatus.toString());
       state.redundantNotifications.incrementAndGet();
@@ -429,6 +423,18 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // 3. Re-request resources on ANY_HOST in case of launch failures on the preferred host, if standby are not enabled
     // otherwise calling standbyContainerManager
     containerManager.handleContainerLaunchFail(processorId, containerId, containerHost, containerAllocator);
+  }
+
+  @Override
+  public void onStreamProcessorStopFailure(SamzaResource resource, Throwable t) {
+    String containerId = resource.getContainerId();
+    String containerHost = resource.getHost();
+    String processorId = getRunningProcessor(containerId).getKey();
+    LOG.warn("Stop failed for running Processor ID: {} on Container ID: {} on host: {} with exception: {}",
+        processorId, containerId, containerHost, t);
+
+    // Notify container-manager of the failed container-stop request
+    containerManager.handleContainerStopFail(processorId, containerId, containerHost, containerAllocator);
   }
 
   /**
@@ -621,6 +627,20 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       }
     }
     return null;
+  }
+
+  private Pair<String, String> getRunningProcessor(String containerId) {
+    for (Map.Entry<String, SamzaResource> entry: state.runningProcessors.entrySet()) {
+      if (entry.getValue().getContainerId().equals(containerId)) {
+        LOG.info("Container ID: {} matched running Processor ID: {} on host: {}", containerId, entry.getKey(), entry.getValue().getHost());
+
+        String processorId = entry.getKey();
+        String hostName = entry.getValue().getHost();
+        return new ImmutablePair<>(processorId, hostName);
+      }
+    }
+
+    return new ImmutablePair<>(null, null);
   }
 
   /**

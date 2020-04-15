@@ -570,6 +570,9 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     if (processorId != null) {
       log.info("Got stop error notification for Container ID: {} for Processor ID: {}", containerId, processorId, t);
       YarnContainer container = state.runningProcessors.get(processorId);
+      SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
+          container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
+      clusterManagerCallback.onStreamProcessorStopFailure(resource, t);
     } else {
       log.warn("Did not find the running Processor ID for the stop error notification for Container ID: {}. " +
           "Ignoring notification", containerId);
