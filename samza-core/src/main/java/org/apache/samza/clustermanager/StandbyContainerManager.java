@@ -129,8 +129,9 @@ public class StandbyContainerManager {
   /**
    *  Handle the failed stop for a container, based on
    *  Case 1. If it is standby container, continue the failover
-   *  Case 2. If it is an active container, then log a warning and return.
-   * @param containerID the ID of the container that has failed
+   *  Case 2. If it is an active container, then this is in invalid state and throw an exception to alarm/restart.
+   * @param containerID the ID (e.g., 0, 1, 2) of the container that has failed
+   * @param resourceID id of the resource used for the failed container
    */
   public void handleContainerStopFail(String containerID, String resourceID,
       ContainerAllocator containerAllocator) {

@@ -245,6 +245,7 @@ public class ContainerManager {
    * @param containerId last known id of the container deployed
    * @param containerHost host on which container is requested to be deployed
    * @param containerAllocator allocator for requesting resources
+   * TODO: SAMZA-2512 Add integ test for handleContainerStopFail
    */
   void handleContainerStopFail(String processorId, String containerId, String containerHost,
       ContainerAllocator containerAllocator) {
