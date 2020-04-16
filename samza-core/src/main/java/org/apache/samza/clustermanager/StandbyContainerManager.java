@@ -127,6 +127,31 @@ public class StandbyContainerManager {
   }
 
   /**
+   *  Handle the failed stop for a container, based on
+   *  Case 1. If it is standby container, continue the failover
+   *  Case 2. If it is an active container, then this is in invalid state and throw an exception to alarm/restart.
+   * @param containerID the ID (e.g., 0, 1, 2) of the container that has failed
+   * @param resourceID id of the resource used for the failed container
+   */
+  public void handleContainerStopFail(String containerID, String resourceID,
+      ContainerAllocator containerAllocator) {
+    if (StandbyTaskUtil.isStandbyContainer(containerID)) {
+      log.info("Handling stop fail for standby-container {}, continuing the failover (if present)", containerID);
+
+      // if this standbyContainerResource was stopped for a failover, we will find a metadata entry
+      Optional<StandbyContainerManager.FailoverMetadata> failoverMetadata = this.checkIfUsedForFailover(resourceID);
+
+      // if we find a metadata entry, we continue with the failover (select another standby or any-host appropriately)
+      failoverMetadata.ifPresent(
+          metadata -> initiateStandbyAwareAllocation(metadata.activeContainerID, metadata.activeContainerResourceID,
+              containerAllocator));
+    } else {
+      // If this class receives a callback for stop-fail on an active container, throw an exception
+      throw new SamzaException("Invalid State. Received stop container fail for container Id: " + containerID);
+    }
+  }
+
+  /**
    *  If a standby container has stopped, then there are two possible cases
    *    Case 1. during a failover, the standby container was stopped for an active's start, then we
    *       1. request a resource on the standby's host to place the activeContainer, and

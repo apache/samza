@@ -40,7 +40,7 @@ public class ContainerPlacementMetadata {
   /**
    * State to track container failover
    */
-  public enum ContainerStatus { RUNNING, STOP_IN_PROGRESS, STOPPED }
+  public enum ContainerStatus { RUNNING, STOP_IN_PROGRESS, STOP_FAILED, STOPPED }
   // Container Placement request message
   private final ContainerPlacementRequestMessage requestMessage;
   // Host where the container is actively running
