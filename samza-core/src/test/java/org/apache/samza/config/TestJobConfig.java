@@ -547,15 +547,13 @@ public class TestJobConfig {
 
   @Test
   public void testGetClusterBasedJobCoordinatorDependencyIsolationEnabled() {
-    Config config =
-        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true"));
-    assertTrue(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_SPLIT_DEPLOYMENT_ENABLED, "true"));
+    assertTrue(new JobConfig(config).isSplitDeploymentEnabled());
 
-    config =
-        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false"));
-    assertFalse(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
+    config = new MapConfig(ImmutableMap.of(JobConfig.JOB_SPLIT_DEPLOYMENT_ENABLED, "false"));
+    assertFalse(new JobConfig(config).isSplitDeploymentEnabled());
 
-    assertFalse(new JobConfig(new MapConfig()).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
+    assertFalse(new JobConfig(new MapConfig()).isSplitDeploymentEnabled());
   }
 
   @Test
