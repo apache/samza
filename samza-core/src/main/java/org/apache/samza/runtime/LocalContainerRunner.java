@@ -67,9 +67,6 @@ public class LocalContainerRunner {
     String jobName = jobConfig.getName()
         .orElseThrow(() -> new SamzaException(String.format("Config %s is missing", JobConfig.JOB_NAME)));
     String jobId = jobConfig.getJobId();
-    MDC.put("containerName", "samza-container-" + containerId);
-    MDC.put("jobName", jobName);
-    MDC.put("jobId", jobId);
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
