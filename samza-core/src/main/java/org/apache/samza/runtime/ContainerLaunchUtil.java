@@ -52,6 +52,7 @@ import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import scala.Option;
 
 
@@ -77,6 +78,12 @@ public class ContainerLaunchUtil {
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
       String jobName, String jobId, String containerId, Optional<String> execEnvContainerId,
       JobModel jobModel) {
+
+    // populate MDC for logging
+    MDC.put("containerName", "samza-container-" + containerId);
+    MDC.put("jobName", jobName);
+    MDC.put("jobId", jobId);
+
 
     Config config = jobModel.getConfig();
     DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
