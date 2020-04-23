@@ -66,6 +66,11 @@ public class IsolatingClassLoaderFactory {
    * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} which is in the lib directory which is in the
    * API package. The file needs to be generated when building the framework API package. This class will not generate
    * the file.
+   * There are also some concrete implementations of classes which are used during application description (e.g.
+   * concrete system descriptors, concrete table functions) and need to be loaded from the framework. These should be
+   * specified in a file called {@link DependencyIsolationUtils#FRAMEWORK_DESCRIPTORS_FILE_NAME} which is in the lib
+   * directory which is in the API package. The file needs to be generated when building the framework API package. This
+   * class will not generate the file.
    *
    * Implementation notes:
    *
@@ -76,16 +81,23 @@ public class IsolatingClassLoaderFactory {
    * In order to share objects between classes loaded by different classloaders, the classes for the shared objects must
    * be loaded by a common classloader. Those common classes will be loaded through a common API classloader. The
    * cytodynamics classloader can be set up to only use the common API classloader for an explicit set of classes. The
-   * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} file should include the framework API classes.
-   * Also, bootstrap classes (e.g. java.lang.String) need to be loaded by a common classloader, since objects of those
-   * types need to be shared across different framework and application. There are also some static bootstrap classes
-   * which should be shared (e.g. java.lang.System). Bootstrap classes will be loaded through a common classloader by
-   * default.
+   * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} file and the
+   * {@link DependencyIsolationUtils#FRAMEWORK_DESCRIPTORS_FILE_NAME} file specify these classes. Also, bootstrap
+   * classes (e.g. java.lang.String) need to be loaded by a common classloader, since objects of those types need to be
+   * shared across different framework and application. There are also some static bootstrap classes which should be
+   * shared (e.g. java.lang.System). Bootstrap classes will be loaded through a common classloader by default.
+   *
+   * The classes in {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} and
+   * {@link DependencyIsolationUtils#FRAMEWORK_DESCRIPTORS_FILE_NAME} are specified separately, because only the
+   * application classloader (not the infrastructure classloader) should delegate to the framework API for the concrete
+   * descriptors and table functions (while describing the application). The descriptor information will get serialized
+   * after application description and deserialized through the infrastructure classloader, so the infrastructure can
+   * use them for message processing.
    *
    * These are the classloaders which are used to make up the final classloader.
    * <ul>
    *   <li>bootstrap classloader: Built-in Java classes (e.g. java.lang.String)</li>
-   *   <li>API classloader: Common Samza framework API classes</li>
+   *   <li>API classloader: Common Samza framework API classes and concrete descriptors for application description</li>
    *   <li>infrastructure classloader: Core Samza framework classes and plugins that are included in the framework</li>
    *   <li>
    *     application classloader: Application code and plugins that are needed in the app but are not included in the
@@ -169,8 +181,8 @@ public class IsolatingClassLoaderFactory {
         .withClasspath(getClasspathAsURIs(applicationLibDirectory))
         // getClasspathAsURIs should only return JARs within applicationLibDirectory anyways, but doing it to be safe
         .withOriginRestriction(OriginRestriction.denyByDefault().allowingDirectory(applicationLibDirectory, false))
-        // delegate to the api classloader for API classes
-        .withParentRelationship(buildApiParentRelationship(apiLibDirectory, apiClassLoader))
+        // delegate to the api classloader for API classes and framework descriptors
+        .withParentRelationship(buildApiParentRelationship(apiLibDirectory, apiClassLoader, true))
         .build();
   }
 
@@ -207,7 +219,8 @@ public class IsolatingClassLoaderFactory {
     return LoaderBuilder.anIsolatingLoader()
         .withClasspath(Collections.unmodifiableList(classpathURIs))
         .withOriginRestriction(originRestriction)
-        .withParentRelationship(buildApiParentRelationship(apiLibDirectory, apiClassLoader))
+        // infrastructure classloader will directly load descriptors instead of delegating to the API classloader
+        .withParentRelationship(buildApiParentRelationship(apiLibDirectory, apiClassLoader, false))
         /*
          * Fall back to the application classloader for certain classes. For example, the application might implement
          * some pluggable classes (e.g. SystemFactory). Another example is message schemas that are supplied by the
@@ -230,7 +243,8 @@ public class IsolatingClassLoaderFactory {
    * Delegation will only happen for classes specified in
    * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} and the Java bootstrap classes.
    */
-  private static DelegateRelationship buildApiParentRelationship(File apiLibDirectory, ClassLoader apiClassLoader) {
+  private static DelegateRelationship buildApiParentRelationship(File apiLibDirectory, ClassLoader apiClassLoader,
+      boolean includeDescriptorsAsApi) {
     DelegateRelationshipBuilder apiParentRelationshipBuilder = DelegateRelationshipBuilder.builder()
         // needs to load API classes from the API classloader
         .withDelegateClassLoader(apiClassLoader)
@@ -245,25 +259,34 @@ public class IsolatingClassLoaderFactory {
     // the classes which are Samza framework API classes are added here
     getFrameworkApiClassGlobs(apiLibDirectory).forEach(
         apiClassName -> apiParentRelationshipBuilder.addDelegatePreferredClassPredicate(new GlobMatcher(apiClassName)));
+    if (includeDescriptorsAsApi) {
+      // also add the framework descriptors if necessary
+      getFrameworkDescriptorsClassGlobs(apiLibDirectory).forEach(
+          apiClassName -> apiParentRelationshipBuilder.addDelegatePreferredClassPredicate(
+              new GlobMatcher(apiClassName)));
+    }
     return apiParentRelationshipBuilder.build();
   }
 
+  private static List<String> getFrameworkApiClassGlobs(File apiLibDirectory) {
+    return readClassListFile(new File(apiLibDirectory, DependencyIsolationUtils.FRAMEWORK_API_CLASS_LIST_FILE_NAME));
+  }
+
+  private static List<String> getFrameworkDescriptorsClassGlobs(File apiLibDirectory) {
+    return readClassListFile(new File(apiLibDirectory, DependencyIsolationUtils.FRAMEWORK_DESCRIPTORS_FILE_NAME));
+  }
+
   /**
-   * Gets the globs for matching against classes to load from the framework API classloader. This will read the
-   * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} file in {@code directoryWithClassList} to get
-   * the globs.
+   * Gets the globs for matching against classes to load from the framework API classloader.
    *
-   * @param directoryWithClassList Directory in which
-   * {@link DependencyIsolationUtils#FRAMEWORK_API_CLASS_LIST_FILE_NAME} lives
+   * @param classListFile File which contains the classes to load from the framework API classloader
    * @return {@link List} of globs for matching against classes to load from the framework API classloader
    */
   @VisibleForTesting
-  static List<String> getFrameworkApiClassGlobs(File directoryWithClassList) {
-    File parentPreferredFile =
-        new File(directoryWithClassList, DependencyIsolationUtils.FRAMEWORK_API_CLASS_LIST_FILE_NAME);
-    validateCanAccess(parentPreferredFile);
+  static List<String> readClassListFile(File classListFile) {
+    validateCanAccess(classListFile);
     try {
-      return Files.readAllLines(Paths.get(parentPreferredFile.toURI()), StandardCharsets.UTF_8)
+      return Files.readAllLines(Paths.get(classListFile.toURI()), StandardCharsets.UTF_8)
           .stream()
           .filter(StringUtils::isNotBlank)
           .collect(Collectors.toList());

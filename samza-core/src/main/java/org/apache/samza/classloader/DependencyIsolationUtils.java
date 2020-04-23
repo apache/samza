@@ -42,9 +42,18 @@ public class DependencyIsolationUtils {
 
   /**
    * Name of the file which contains the class names (or globs) which should be loaded from the framework API
-   * classloader.
+   * classloader by all classloaders.
+   * See {@link IsolatingClassLoaderFactory} for more context about what this is used for.
    */
   public static final String FRAMEWORK_API_CLASS_LIST_FILE_NAME = "samza-framework-api-classes.txt";
+
+  /**
+   * Name of the file which contains the class names (or globs) of pluggable components used during the application
+   * description step (e.g. system descriptors, table functions), which should be loaded from the framework API
+   * classloader for the application classloader.
+   * See {@link IsolatingClassLoaderFactory} for more context about what this is used for.
+   */
+  public static final String FRAMEWORK_DESCRIPTORS_FILE_NAME = "samza-framework-descriptors-classes.txt";
 
   public static final String RUNTIME_FRAMEWORK_RESOURCES_PATHING_JAR_NAME = "runtime-framework-resources-pathing.jar";
 }

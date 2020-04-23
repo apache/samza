@@ -37,8 +37,9 @@ import static org.junit.Assert.assertTrue;
 public class TestIsolatingClassLoaderFactory {
   @Test
   public void testGetApiClasses() throws URISyntaxException {
-    File apiClassListFile = Paths.get(getClass().getResource("/classloader").toURI()).toFile();
-    List<String> apiClassNames = IsolatingClassLoaderFactory.getFrameworkApiClassGlobs(apiClassListFile);
+    File apiClassListFile =
+        new File(Paths.get(getClass().getResource("/classloader").toURI()).toFile(), "samza-framework-api-classes.txt");
+    List<String> apiClassNames = IsolatingClassLoaderFactory.readClassListFile(apiClassListFile);
     List<String> expected = ImmutableList.of(
         "org.apache.samza.JavaClass",
         "org.apache.samza.JavaClass$InnerJavaClass",
@@ -51,9 +52,9 @@ public class TestIsolatingClassLoaderFactory {
 
   @Test(expected = SamzaException.class)
   public void testGetApiClassesFileDoesNotExist() throws URISyntaxException {
-    File nonExistentDirectory =
-        new File(Paths.get(getClass().getResource("/classloader").toURI()).toFile(), "doesNotExist");
-    IsolatingClassLoaderFactory.getFrameworkApiClassGlobs(nonExistentDirectory);
+    File nonExistentFile =
+        new File(Paths.get(getClass().getResource("/classloader").toURI()).toFile(), "doesNotExist.txt");
+    IsolatingClassLoaderFactory.readClassListFile(nonExistentFile);
   }
 
   @Test
