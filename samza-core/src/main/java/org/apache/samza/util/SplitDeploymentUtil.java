@@ -82,7 +82,7 @@ public final class SplitDeploymentUtil {
       // wrapping args in object array so that args is passed as a single argument to the method
       runMethod.invoke(null, new Object[]{runMethodArgs});
     } catch (IllegalAccessException | InvocationTargetException e) {
-      throw new SamzaException("Exception while executing runClusterBasedJobCoordinator method", e);
+      throw new SamzaException(String.format("Exception while executing %s method", runMethodName), e);
     }
   }
 }
