@@ -179,7 +179,7 @@ public class KafkaConsumerProxy<K, V> {
       endOffsets = kafkaConsumer.endOffsets(topicPartitionToSSP.keySet());
     }
     if (endOffsets == null) {
-      throw new SamzaException("Failed to fetch endoffsets for system " + systemName);
+      throw new SamzaException("Failed to fetch kafka consumer endoffsets for system " + systemName);
     }
     endOffsets.forEach((tp, offset) -> {
       SystemStreamPartition ssp = topicPartitionToSSP.get(tp);
