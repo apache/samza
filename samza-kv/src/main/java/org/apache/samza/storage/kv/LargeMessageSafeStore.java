@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
@@ -154,5 +155,10 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
         }
       });
     return largeMessageSafeEntries;
+  }
+
+  @VisibleForTesting
+  KeyValueStore<byte[], byte[]> getStore() {
+    return this.store;
   }
 }

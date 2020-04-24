@@ -24,6 +24,7 @@ import java.nio.file.Path
 import java.util
 import java.util.Optional
 
+import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.config.StorageConfig
 import org.apache.samza.task.MessageCollector
@@ -166,5 +167,10 @@ class AccessLoggedStore[K, V](
 
   override def checkpoint(id: CheckpointId): Optional[Path] = {
     store.checkpoint(id)
+  }
+
+  @VisibleForTesting
+  private[kv] def getStore: KeyValueStore[K, V] = {
+    store
   }
 }
