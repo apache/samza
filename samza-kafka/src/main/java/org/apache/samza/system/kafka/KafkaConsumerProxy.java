@@ -21,6 +21,7 @@
 
 package org.apache.samza.system.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -170,7 +171,8 @@ public class KafkaConsumerProxy<K, V> {
     return failureCause;
   }
 
-  private void initializeLags() {
+  @VisibleForTesting
+  void initializeLags() {
     // This is expensive, so only do it once at the beginning. After the first poll, we can rely on metrics for lag.
 
     Map<TopicPartition, Long> endOffsets;
