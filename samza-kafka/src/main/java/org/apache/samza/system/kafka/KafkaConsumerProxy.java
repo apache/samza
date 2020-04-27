@@ -21,7 +21,6 @@
 
 package org.apache.samza.system.kafka;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
