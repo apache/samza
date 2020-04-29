@@ -346,7 +346,8 @@ public class TaskSideInputStorageManager {
    *   3. Fetches the partition metadata for each system stream and fetch the corresponding partition metadata
    *      and populates the oldest offset for SSPs belonging to the system stream.
    *
-   * @return a {@link Map} of {@link SystemStreamPartition} to their oldest offset.
+   * @return a {@link Map} of {@link SystemStreamPartition} to their oldest offset. If partitionMetadata could not be
+   * obtained for any {@link SystemStreamPartition} the offset for it is populated as null.
    */
   @VisibleForTesting
   Map<SystemStreamPartition, String> getOldestOffsets() {
@@ -363,15 +364,22 @@ public class TaskSideInputStorageManager {
 
     // Step 3
     metadata.forEach((systemStream, systemStreamMetadata) -> {
+
         // get the partition metadata for each system stream
         Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata =
           systemStreamMetadata.getSystemStreamPartitionMetadata();
 
         // For SSPs belonging to the system stream, use the partition metadata to get the oldest offset
-        Map<SystemStreamPartition, String> offsets = systemStreamToSsp.get(systemStream).stream()
-          .collect(
-              Collectors.toMap(Function.identity(), ssp -> partitionMetadata.get(ssp.getPartition()).getOldestOffset()));
-
+        // if partitionMetadata was not obtained for any SSP, populate oldest-offset as null
+        // Because of https://bugs.openjdk.java.net/browse/JDK-8148463 using lambda will NPE when getOldestOffset() is null
+        Map<SystemStreamPartition, String> offsets = new HashMap<>();
+        for (SystemStreamPartition ssp : systemStreamToSsp.get(systemStream)) {
+          if (partitionMetadata == null || partitionMetadata.get(ssp.getPartition()) == null) {
+            offsets.put(ssp, null);
+          } else {
+            offsets.put(ssp, partitionMetadata.get(ssp.getPartition()).getOldestOffset());
+          }
+        }
         oldestOffsets.putAll(offsets);
       });
 

@@ -21,6 +21,7 @@ package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -34,9 +35,12 @@ import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.ScalaJavaUtil;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -182,6 +186,36 @@ public class TestTaskSideInputStorageManager {
       });
   }
 
+  /**
+   * This test is for cases, when calls to systemAdmin (e.g., KafkaSystemAdmin's) get-stream-metadata method return null.
+   */
+  @Test
+  public void testGetStartingOffsetsWhenStreamMetadataIsNull() {
+    final String storeName = "test-get-starting-offset-store";
+    final String taskName = "test-get-starting-offset-task";
+
+    Set<SystemStreamPartition> ssps = IntStream.range(1, 6)
+        .mapToObj(idx -> new SystemStreamPartition("test-system", "test-stream", new Partition(idx)))
+        .collect(Collectors.toSet());
+    Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = ssps.stream()
+        .collect(Collectors.toMap(SystemStreamPartition::getPartition,
+            x -> new SystemStreamMetadata.SystemStreamPartitionMetadata(null, "1", "2")));
+
+
+    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
+        .addLoggedStore(storeName, ssps)
+        .addStreamMetadata(Collections.singletonMap(new SystemStream("test-system", "test-stream"),
+            new SystemStreamMetadata("test-stream", partitionMetadata)))
+        .build();
+
+    initializeSideInputStorageManager(testSideInputStorageManager);
+    ssps.forEach(ssp -> {
+        String startingOffset = testSideInputStorageManager.getStartingOffset(
+            new SystemStreamPartition("test-system", "test-stream", ssp.getPartition()));
+        Assert.assertNull("Starting offset should be null", startingOffset);
+      });
+  }
+
   @Test
   public void testGetStartingOffsets() {
     final String storeName = "test-get-starting-offset-store";
@@ -273,6 +307,11 @@ public class TestTaskSideInputStorageManager {
       storeToProcessor.put(storeName, mock(SideInputsProcessor.class));
       storeToSSps.put(storeName, ssps);
 
+      return this;
+    }
+
+    MockTaskSideInputStorageManagerBuilder addStreamMetadata(Map<SystemStream, SystemStreamMetadata> streamMetadata) {
+      doReturn(ScalaJavaUtil.toScalaMap(streamMetadata)).when(streamMetadataCache).getStreamMetadata(any(), anyBoolean());
       return this;
     }
 
