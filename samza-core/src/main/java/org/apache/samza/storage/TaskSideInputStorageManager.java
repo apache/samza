@@ -118,10 +118,10 @@ public class TaskSideInputStorageManager {
     LOG.info("Initializing side input stores.");
 
     Map<SystemStreamPartition, String> fileOffsets = getFileOffsets();
-    LOG.info("File offsets for the task {}: ", taskName, fileOffsets);
+    LOG.info("File offsets for the task {}: {}", taskName, fileOffsets);
 
     Map<SystemStreamPartition, String> oldestOffsets = getOldestOffsets();
-    LOG.info("Oldest offsets for the task {}: ", taskName, fileOffsets);
+    LOG.info("Oldest offsets for the task {}: {}", taskName, oldestOffsets);
 
     startingOffsets = getStartingOffsets(fileOffsets, oldestOffsets);
     LOG.info("Starting offsets for the task {}: {}", taskName, startingOffsets);
@@ -372,15 +372,9 @@ public class TaskSideInputStorageManager {
         // For SSPs belonging to the system stream, use the partition metadata to get the oldest offset
         // if partitionMetadata was not obtained for any SSP, populate oldest-offset as null
         // Because of https://bugs.openjdk.java.net/browse/JDK-8148463 using lambda will NPE when getOldestOffset() is null
-        Map<SystemStreamPartition, String> offsets = new HashMap<>();
         for (SystemStreamPartition ssp : systemStreamToSsp.get(systemStream)) {
-          if (partitionMetadata == null || partitionMetadata.get(ssp.getPartition()) == null) {
-            offsets.put(ssp, null);
-          } else {
-            offsets.put(ssp, partitionMetadata.get(ssp.getPartition()).getOldestOffset());
-          }
+          oldestOffsets.put(ssp, partitionMetadata.get(ssp.getPartition()).getOldestOffset());
         }
-        oldestOffsets.putAll(offsets);
       });
 
     return oldestOffsets;
