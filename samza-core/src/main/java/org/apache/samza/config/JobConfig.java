@@ -143,8 +143,9 @@ public class JobConfig extends MapConfig {
   public static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
   public static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
 
-  public static final String CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED =
-      "samza.cluster.based.job.coordinator.dependency.isolation.enabled";
+  public static final String JOB_SPLIT_DEPLOYMENT_ENABLED = "job.split.deployment.enabled";
+
+  private static final String JOB_STARTPOINT_ENABLED = "job.startpoint.enabled";
 
   public JobConfig(Config config) {
     super(config);
@@ -370,8 +371,8 @@ public class JobConfig extends MapConfig {
     return getStandbyTaskReplicationFactor() > 1;
   }
 
-  public boolean getClusterBasedJobCoordinatorDependencyIsolationEnabled() {
-    return getBoolean(CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, false);
+  public boolean isSplitDeploymentEnabled() {
+    return getBoolean(JOB_SPLIT_DEPLOYMENT_ENABLED, false);
   }
 
   /**
@@ -403,5 +404,9 @@ public class JobConfig extends MapConfig {
    */
   public Optional<String> getConfigLoaderFactory() {
     return Optional.ofNullable(get(CONFIG_LOADER_FACTORY));
+  }
+
+  public boolean getStartpointEnabled() {
+    return getBoolean(JOB_STARTPOINT_ENABLED, true);
   }
 }

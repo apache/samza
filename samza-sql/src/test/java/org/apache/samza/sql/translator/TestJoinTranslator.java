@@ -24,11 +24,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalTableScan;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
@@ -79,7 +79,7 @@ import static org.mockito.Mockito.when;
  * Tests for {@link JoinTranslator}
  */
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({LogicalJoin.class, EnumerableTableScan.class})
+@PrepareForTest({LogicalJoin.class, LogicalTableScan.class})
 public class TestJoinTranslator extends TranslatorTestBase {
 
   @Test
@@ -98,7 +98,7 @@ public class TestJoinTranslator extends TranslatorTestBase {
     final int queryId = 0;
     LogicalJoin mockJoin = PowerMockito.mock(LogicalJoin.class);
     TranslatorContext mockTranslatorContext = mock(TranslatorContext.class);
-    RelNode mockLeftInput = PowerMockito.mock(EnumerableTableScan.class);
+    RelNode mockLeftInput = PowerMockito.mock(LogicalTableScan.class);
     RelNode mockRightInput = mock(RelNode.class);
     List<RelNode> inputs = new ArrayList<>();
     inputs.add(mockLeftInput);

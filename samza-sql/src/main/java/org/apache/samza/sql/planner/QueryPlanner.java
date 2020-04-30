@@ -131,7 +131,11 @@ public class QueryPlanner {
 
       // Using lenient so that !=,%,- are allowed.
       FrameworkConfig frameworkConfig = Frameworks.newConfigBuilder()
-          .parserConfig(SqlParser.configBuilder().setLex(Lex.JAVA).setConformance(SqlConformanceEnum.LENIENT).build())
+          .parserConfig(SqlParser.configBuilder()
+              .setLex(Lex.JAVA)
+              .setConformance(SqlConformanceEnum.LENIENT)
+              .setCaseSensitive(false) // Make Udfs case insensitive
+              .build())
           .defaultSchema(rootSchema)
           .operatorTable(new ChainedSqlOperatorTable(sqlOperatorTables))
           .sqlToRelConverterConfig(SqlToRelConverter.Config.DEFAULT)

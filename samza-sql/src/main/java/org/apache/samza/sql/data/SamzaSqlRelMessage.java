@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.codehaus.jackson.annotate.JsonProperty;
 

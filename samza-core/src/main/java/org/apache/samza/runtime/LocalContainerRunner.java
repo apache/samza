@@ -34,7 +34,6 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.util.SamzaUncaughtExceptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 
 /**
@@ -67,9 +66,6 @@ public class LocalContainerRunner {
     String jobName = jobConfig.getName()
         .orElseThrow(() -> new SamzaException(String.format("Config %s is missing", JobConfig.JOB_NAME)));
     String jobId = jobConfig.getJobId();
-    MDC.put("containerName", "samza-container-" + containerId);
-    MDC.put("jobName", jobName);
-    MDC.put("jobId", jobId);
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);

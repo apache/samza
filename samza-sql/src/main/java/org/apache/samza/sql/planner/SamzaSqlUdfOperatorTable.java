@@ -29,6 +29,7 @@ import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.util.ListSqlOperatorTable;
+import org.apache.calcite.sql.validate.SqlNameMatcher;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 
@@ -71,13 +72,8 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
 
   @Override
   public void lookupOperatorOverloads(SqlIdentifier opName, SqlFunctionCategory category, SqlSyntax syntax,
-      List<SqlOperator> operatorList) {
-    SqlIdentifier upperCaseOpName = opName;
-    // Only udfs are case insensitive
-    if (category != null && category.equals(SqlFunctionCategory.USER_DEFINED_FUNCTION)) {
-      upperCaseOpName = new SqlIdentifier(opName.names.get(0).toUpperCase(), opName.getComponentParserPosition(0));
-    }
-    operatorTable.lookupOperatorOverloads(upperCaseOpName, category, syntax, operatorList);
+      List<SqlOperator> operatorList, SqlNameMatcher nameMatcher) {
+    operatorTable.lookupOperatorOverloads(opName, category, syntax, operatorList, nameMatcher);
   }
 
   @Override
