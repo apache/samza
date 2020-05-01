@@ -124,7 +124,7 @@ object CoordinatorStreamUtil extends Logging {
       val config = readConfigFromCoordinatorStream(metadataStore)
       val launchConfig: util.Map[String, String] = new util.HashMap[String, String]()
       for ((key:String, value:String) <- config.asScala) {
-        if (key.startsWith(JobConfig.JOB_AUTOSIZING_CONFIG_PREFIX)) {
+        if (JobConfig.isAutosizingConfig(key)) {
           launchConfig.put(key, value)
         }
       }
@@ -190,7 +190,7 @@ object CoordinatorStreamUtil extends Logging {
       val jobConfig = new JobConfig(config)
       if (jobConfig.getAutosizingEnabled) {
         // If autosizing is enabled, we retain auto-sizing related configs
-        keysToRemove = keysToRemove.filter(configKey => !jobConfig.isAutosizingConfig(configKey))
+        keysToRemove = keysToRemove.filter(configKey => !JobConfig.isAutosizingConfig(configKey))
       }
 
       info("Deleting old configs that are no longer defined: %s".format(keysToRemove))
