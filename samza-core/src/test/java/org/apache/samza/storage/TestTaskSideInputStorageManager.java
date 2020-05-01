@@ -194,7 +194,7 @@ public class TestTaskSideInputStorageManager {
     final String storeName = "test-get-starting-offset-store";
     final String taskName = "test-get-starting-offset-task";
 
-    Set<SystemStreamPartition> ssps = IntStream.range(1, 6)
+    Set<SystemStreamPartition> ssps = IntStream.range(1, 2)
         .mapToObj(idx -> new SystemStreamPartition("test-system", "test-stream", new Partition(idx)))
         .collect(Collectors.toSet());
     Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = ssps.stream()
