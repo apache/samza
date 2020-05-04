@@ -122,12 +122,8 @@ object CoordinatorStreamUtil extends Logging {
       new MapConfig()
     } else {
       val config = readConfigFromCoordinatorStream(metadataStore)
-      val launchConfig: util.Map[String, String] = new util.HashMap[String, String]()
-      for ((key:String, value:String) <- config.asScala) {
-        if (JobConfig.isAutosizingConfig(key)) {
-          launchConfig.put(key, value)
-        }
-      }
+      val launchConfig = config.asScala.filterKeys(key => JobConfig.isAutosizingConfig(key)).asJava
+
       new MapConfig(launchConfig)
     }
   }
