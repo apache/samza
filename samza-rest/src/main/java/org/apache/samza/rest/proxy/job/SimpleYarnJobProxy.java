@@ -37,11 +37,10 @@ import org.slf4j.LoggerFactory;
 public class SimpleYarnJobProxy extends ScriptJobProxy {
   private static final Logger log = LoggerFactory.getLogger(SimpleYarnJobProxy.class);
 
-  private static final String START_SCRIPT_NAME = "run-job.sh";
+  private static final String START_SCRIPT_NAME = "run-app.sh";
   private static final String STOP_SCRIPT_NAME = "kill-yarn-job-by-name.sh";
 
-  private static final String CONFIG_FACTORY_PARAM = "--config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory";
-  private static final String CONFIG_PATH_PARAM_FORMAT = "--config job.config.loader.properties.path=%s";
+  private static final String CONFIG_PATH_PARAM_FORMAT = "--config-path=%s";
 
   private final JobStatusProvider statusProvider;
 
@@ -64,7 +63,7 @@ public class SimpleYarnJobProxy extends ScriptJobProxy {
     }
 
     String scriptPath = getScriptPath(jobInstance, START_SCRIPT_NAME);
-    int resultCode = scriptRunner.runScript(scriptPath, CONFIG_FACTORY_PARAM,
+    int resultCode = scriptRunner.runScript(scriptPath,
         generateConfigPathParameter(jobInstance));
     if (resultCode != 0) {
       throw new SamzaException("Failed to start job. Result code: " + resultCode);
