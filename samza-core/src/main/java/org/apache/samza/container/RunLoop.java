@@ -155,12 +155,7 @@ public class RunLoop implements Runnable, Throttleable {
 
       long prevNs = clock.nanoTime();
 
-      while (!shutdownNow) {
-        if (throwable != null) {
-          log.error("Caught throwable and stopping run loop", throwable);
-          throw new SamzaException(throwable);
-        }
-
+      while (!shutdownNow && throwable == null) {
         long startNs = clock.nanoTime();
 
         IncomingMessageEnvelope envelope = chooseEnvelope();
@@ -184,6 +179,17 @@ public class RunLoop implements Runnable, Throttleable {
           // totalNs is not 0 if timer metrics are enabled
           containerMetrics.utilization().set(((double) activeNs) / totalNs);
         }
+      }
+
+      /*
+       * The current semantics of external shutdown request (RunLoop.shutdown()) is loosely defined and run loop doesn't
+       * wait for inflight messages to complete and triggers shutdown as soon as it notices the shutdown request.
+       * Hence, it is possible that the exception may or may not propagated based on order of execution
+       * between process callback and run loop thread.
+       */
+      if (throwable != null) {
+        log.error("Caught throwable and stopping run loop", throwable);
+        throw new SamzaException(throwable);
       }
     } finally {
       workerTimer.shutdown();
@@ -648,8 +654,10 @@ public class RunLoop implements Runnable, Throttleable {
     @Override
     public void onFailure(TaskCallback callback, Throwable t) {
       try {
-        state.doneProcess();
+        // set the exception code ahead of marking the message as processed to make sure the exception
+        // is visible to the run loop thread promptly. Refer SAMZA-2510 for more details.
         abort(t);
+        state.doneProcess();
         // update pending count, but not offset
         TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
         log.error("Got callback failure for task {}", callbackImpl.getTaskName(), t);

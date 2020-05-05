@@ -52,6 +52,7 @@ import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import scala.Option;
 
 
@@ -78,6 +79,12 @@ public class ContainerLaunchUtil {
       String jobName, String jobId, String containerId, Optional<String> execEnvContainerId,
       JobModel jobModel) {
 
+    // populate MDC for logging
+    MDC.put("containerName", "samza-container-" + containerId);
+    MDC.put("jobName", jobName);
+    MDC.put("jobId", jobId);
+
+
     Config config = jobModel.getConfig();
     DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
     run(appDesc, jobName, jobId, containerId, execEnvContainerId, jobModel, config, buildExternalContext(config));
@@ -102,7 +109,10 @@ public class ContainerLaunchUtil {
       LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
 
       // StartpointManager wraps the coordinatorStreamStore in the namespaces internally
-      StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
+      StartpointManager startpointManager = null;
+      if (new JobConfig(config).getStartpointEnabled()) {
+        startpointManager = new StartpointManager(coordinatorStreamStore);
+      }
 
       Map<String, MetricsReporter> metricsReporters = loadMetricsReporters(appDesc, containerId, config);
 

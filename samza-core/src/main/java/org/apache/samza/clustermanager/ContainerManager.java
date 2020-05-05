@@ -134,6 +134,12 @@ public class ContainerManager {
       } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS) {
         LOG.info("Waiting for running container to shutdown due to existing ContainerPlacement action {}", actionMetaData);
         return false;
+      } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOP_FAILED) {
+        LOG.info("Shutdown on running container failed for action {}", actionMetaData);
+        markContainerPlacementActionFailed(actionMetaData,
+            String.format("failed to stop container on current host %s", actionMetaData.getSourceHost()));
+        resourceRequestState.cancelResourceRequest(request);
+        return true;
       } else if (actionStatus == ContainerPlacementMetadata.ContainerStatus.STOPPED) {
         // If the job has standby containers enabled, always check standby constraints before issuing a start on container
         // Note: Always check constraints against allocated resource, since preferred host can be ANY_HOST as well
@@ -230,6 +236,29 @@ public class ContainerManager {
     } else {
       LOG.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. "
           + "Ignoring invalid/redundant notification.", containerId, preferredHost);
+    }
+  }
+
+  /**
+   * Handle the container stop failure for active containers and standby (if enabled).
+   * @param processorId logical id of the container eg 1,2,3
+   * @param containerId last known id of the container deployed
+   * @param containerHost host on which container is requested to be deployed
+   * @param containerAllocator allocator for requesting resources
+   * TODO: SAMZA-2512 Add integ test for handleContainerStopFail
+   */
+  void handleContainerStopFail(String processorId, String containerId, String containerHost,
+      ContainerAllocator containerAllocator) {
+    if (processorId != null && hasActiveContainerPlacementAction(processorId)) {
+      // Assuming resource acquired on destination host will be relinquished by the containerAllocator,
+      // We mark the placement action as failed, and return.
+      ContainerPlacementMetadata metaData = getPlacementActionMetadata(processorId).get();
+      metaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOP_FAILED);
+    } else if (processorId != null && standbyContainerManager.isPresent()) {
+      standbyContainerManager.get().handleContainerStopFail(processorId, containerId, containerAllocator);
+    } else {
+      LOG.warn("Did not find a running Processor ID for Container ID: {} on host: {}. "
+          + "Ignoring invalid/redundant notification.", containerId, containerHost);
     }
   }
 

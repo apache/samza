@@ -20,7 +20,6 @@ package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,6 +70,7 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.DiagnosticsUtil;
+import org.apache.samza.util.SplitDeploymentUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -262,13 +262,15 @@ public class ClusterBasedJobCoordinator {
       MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, this.metrics, config);
       metadataResourceUtil.createResources();
 
-      // fan out the startpoints
-      StartpointManager startpointManager = createStartpointManager();
-      startpointManager.start();
-      try {
-        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
-      } finally {
-        startpointManager.stop();
+      // fan out the startpoints if startpoints is enabled
+      if (new JobConfig(config).getStartpointEnabled()) {
+        StartpointManager startpointManager = createStartpointManager();
+        startpointManager.start();
+        try {
+          startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+        } finally {
+          startpointManager.stop();
+        }
       }
 
       // Remap changelog partitions to tasks
@@ -462,70 +464,18 @@ public class ClusterBasedJobCoordinator {
    * The entry point for the {@link ClusterBasedJobCoordinator}.
    */
   public static void main(String[] args) {
-    boolean dependencyIsolationEnabled = Boolean.parseBoolean(
-        System.getenv(ShellCommandConfig.ENV_CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED));
-    if (!dependencyIsolationEnabled) {
+    Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
+        LOG.error("Uncaught exception in ClusterBasedJobCoordinator::main. Exiting job coordinator", exception);
+        System.exit(1);
+      });
+    if (!SplitDeploymentUtil.isSplitDeploymentEnabled()) {
       // no isolation enabled, so can just execute runClusterBasedJobCoordinator directly
       runClusterBasedJobCoordinator(args);
     } else {
-      runWithClassLoader(new IsolatingClassLoaderFactory().buildClassLoader(), args);
+      SplitDeploymentUtil.runWithClassLoader(new IsolatingClassLoaderFactory().buildClassLoader(),
+          ClusterBasedJobCoordinator.class, "runClusterBasedJobCoordinator", args);
     }
-  }
-
-  /**
-   * Execute the coordinator using a separate isolated classloader.
-   * @param classLoader {@link ClassLoader} to use to load the {@link ClusterBasedJobCoordinator} which will run
-   * @param args arguments to pass when running the {@link ClusterBasedJobCoordinator}
-   */
-  @VisibleForTesting
-  static void runWithClassLoader(ClassLoader classLoader, String[] args) {
-    // need to use the isolated classloader to load ClusterBasedJobCoordinator and then run using that new class
-    Class<?> clusterBasedJobCoordinatorClass;
-    try {
-      clusterBasedJobCoordinatorClass = classLoader.loadClass(ClusterBasedJobCoordinator.class.getName());
-    } catch (ClassNotFoundException e) {
-      throw new SamzaException(
-          "Isolation was enabled, but unable to find ClusterBasedJobCoordinator in isolated classloader", e);
-    }
-
-    // save the current context classloader so it can be reset after finishing the call to runClusterBasedJobCoordinator
-    ClassLoader previousContextClassLoader = Thread.currentThread().getContextClassLoader();
-    // this is needed because certain libraries (e.g. log4j) use the context classloader
-    Thread.currentThread().setContextClassLoader(classLoader);
-
-    try {
-      executeRunClusterBasedJobCoordinatorForClass(clusterBasedJobCoordinatorClass, args);
-    } finally {
-      // reset the context class loader; it's good practice, and could be important when running a test suite
-      Thread.currentThread().setContextClassLoader(previousContextClassLoader);
-    }
-  }
-
-  /**
-   * Runs the {@link ClusterBasedJobCoordinator#runClusterBasedJobCoordinator(String[])} method of the given
-   * {@code clusterBasedJobCoordinatorClass} using reflection.
-   * @param clusterBasedJobCoordinatorClass {@link ClusterBasedJobCoordinator} {@link Class} for which to execute
-   * {@link ClusterBasedJobCoordinator#runClusterBasedJobCoordinator(String[])}
-   * @param args arguments to pass to {@link ClusterBasedJobCoordinator#runClusterBasedJobCoordinator(String[])}
-   */
-  private static void executeRunClusterBasedJobCoordinatorForClass(Class<?> clusterBasedJobCoordinatorClass,
-      String[] args) {
-    Method runClusterBasedJobCoordinatorMethod;
-    try {
-      runClusterBasedJobCoordinatorMethod =
-          clusterBasedJobCoordinatorClass.getDeclaredMethod("runClusterBasedJobCoordinator", String[].class);
-    } catch (NoSuchMethodException e) {
-      throw new SamzaException("Isolation was enabled, but unable to find runClusterBasedJobCoordinator method", e);
-    }
-    // only sets accessible flag for this Method instance, not other Method instances for runClusterBasedJobCoordinator
-    runClusterBasedJobCoordinatorMethod.setAccessible(true);
-
-    try {
-      // wrapping args in object array so that args is passed as a single argument to the method
-      runClusterBasedJobCoordinatorMethod.invoke(null, new Object[]{args});
-    } catch (IllegalAccessException | InvocationTargetException e) {
-      throw new SamzaException("Exception while executing runClusterBasedJobCoordinator method", e);
-    }
+    System.exit(0);
   }
 
   /**

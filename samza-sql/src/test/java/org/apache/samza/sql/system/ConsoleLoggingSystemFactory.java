@@ -19,7 +19,7 @@
 
 package org.apache.samza.sql.system;
 
-import org.apache.commons.lang.NotImplementedException;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -41,7 +41,7 @@ public class ConsoleLoggingSystemFactory implements SystemFactory {
 
   @Override
   public SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry) {
-    throw new NotImplementedException();
+    throw new NotImplementedException("Not Implemented");
   }
 
   @Override

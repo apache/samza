@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -39,7 +38,7 @@ import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -328,10 +327,10 @@ class JoinTranslator {
 
     // NOTE: Any intermediate form of a join is always a stream. Eg: For the second level join of
     // stream-table-table join, the left side of the join is join output, which we always
-    // assume to be a stream. The intermediate stream won't be an instance of EnumerableTableScan.
+    // assume to be a stream. The intermediate stream won't be an instance of TableScan.
     // The join key(s) for the table could be an udf in which case the relNode would be LogicalProject.
 
-    if (relNode instanceof EnumerableTableScan || relNode instanceof LogicalProject) {
+    if (relNode instanceof TableScan || relNode instanceof LogicalProject) {
       SqlIOConfig sourceTableConfig = resolveSQlIOForTable(relNode, context);
       if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
         return JoinInputNode.InputType.STREAM;

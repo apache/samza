@@ -396,8 +396,10 @@ public class StreamProcessor {
     // Metadata store lifecycle managed outside of the SamzaContainer.
     // All manager lifecycles are managed in the SamzaContainer including startpointManager
     StartpointManager startpointManager = null;
-    if (metadataStore != null) {
+    if (metadataStore != null && new JobConfig(config).getStartpointEnabled()) {
       startpointManager = new StartpointManager(metadataStore);
+    } else if (!new JobConfig(config).getStartpointEnabled()) {
+      LOGGER.warn("StartpointManager not instantiated because startpoints is not enabled");
     } else {
       LOGGER.warn("StartpointManager cannot be instantiated because no metadata store defined for this stream processor");
     }

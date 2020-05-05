@@ -180,6 +180,13 @@ public abstract class ClusterResourceManager {
      */
     void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t);
 
+    /**
+     * Callback invoked when there is a failure in stopping a processor on the provided {@link SamzaResource}.
+     * @param resource the resource on which the processor was running
+     * @param t the error in stopping the processor
+     */
+    void onStreamProcessorStopFailure(SamzaResource resource, Throwable t);
+
     /***
      * This callback is invoked when there is an error in the ClusterResourceManager. This is
      * guaranteed to be invoked when there is an uncaught exception in any other

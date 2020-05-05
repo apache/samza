@@ -26,6 +26,7 @@ import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -57,14 +58,17 @@ public class JobCoordinatorLaunchUtil {
       throw new SamzaException("Only support single remote job is supported.");
     }
 
-    Config finalConfig = jobConfigs.get(0);
+    Config fullConfig = jobConfigs.get(0);
+    MetricsRegistryMap metrics = new MetricsRegistryMap();
+    MetadataStore
+        metadataStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(fullConfig), metrics);
+    // Reads extra launch config from metadata store.
+    Config launchConfig = CoordinatorStreamUtil.readLaunchConfigFromCoordinatorStream(fullConfig, metadataStore);
+    Config finalConfig = new MapConfig(launchConfig, fullConfig);
 
     // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
     CoordinatorStreamUtil.writeConfigToCoordinatorStream(finalConfig, true);
     DiagnosticsUtil.createDiagnosticsStream(finalConfig);
-    MetricsRegistryMap metrics = new MetricsRegistryMap();
-    MetadataStore
-        metadataStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(finalConfig), metrics);
     // MetadataStore will be closed in ClusterBasedJobCoordinator#onShutDown
     // initialization of MetadataStore can be moved to ClusterBasedJobCoordinator after we clean up
     // ClusterBasedJobCoordinator#createFromMetadataStore

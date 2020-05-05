@@ -738,7 +738,8 @@ public class ContainerStorageManager {
       String startingOffset = sideInputStorageManagers.get(ssp).getStartingOffset(ssp);
 
       if (startingOffset == null) {
-        throw new SamzaException("No offset defined for SideInput SystemStreamPartition : " + ssp);
+        throw new SamzaException(
+            "No starting offset could be obtained for SideInput SystemStreamPartition : " + ssp + ". Consumer cannot start.");
       }
 
       // register startingOffset with the sysConsumer and register a metric for it

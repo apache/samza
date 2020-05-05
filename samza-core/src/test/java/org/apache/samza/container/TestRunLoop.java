@@ -19,6 +19,7 @@
 
 package org.apache.samza.container;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.context.ContainerContext;
@@ -779,5 +781,29 @@ public class TestRunLoop {
     runLoop.run();
 
     commitLatch.await();
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testExceptionIsPropagated() {
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
+    OffsetManager offsetManager = mock(OffsetManager.class);
+
+    TestTask task0 = new TestTask(false, false, false, null);
+    TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
+
+    Map<TaskName, TaskInstance> tasks = ImmutableMap.of(taskName0, t0);
+
+    int maxMessagesInFlight = 2;
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
+        () -> 0L, false);
+
+    when(consumerMultiplexer.choose(false))
+        .thenReturn(envelope0)
+        .thenReturn(ssp0EndOfStream)
+        .thenReturn(null);
+
+    runLoop.run();
   }
 }

@@ -21,7 +21,7 @@ package org.apache.samza.tools.json;
 
 import java.io.IOException;
 import java.util.List;
-import org.apache.commons.lang.NotImplementedException;
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.operators.KV;
@@ -51,7 +51,7 @@ public class JsonRelConverterFactory implements SamzaRelConverterFactory {
 
     @Override
     public SamzaSqlRelMessage convertToRelMessage(KV<Object, Object> kv) {
-      throw new NotImplementedException();
+      throw new NotImplementedException("Not implemented.");
     }
 
     @Override

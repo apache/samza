@@ -28,18 +28,10 @@ import java.util.function.Supplier;
 import org.apache.samza.table.ReadWriteTable;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
 
 import static java.lang.Thread.*;
 import static org.mockito.Mockito.*;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses({
-    TestBatchProcessor.TestCreate.class,
-    TestBatchProcessor.TestUpdatesAndLookup.class,
-    TestBatchProcessor.TestBatchTriggered.class
-  })
 public class TestBatchProcessor {
   private static final int SLOW_OPERATION_TIME_MS = 500;
   private static final Supplier<Void> SLOW_UPDATE_SUPPLIER = () -> {
