@@ -181,20 +181,31 @@ class InMemoryManager {
             .stream()
             .collect(Collectors.toMap(entry -> entry.getKey().getPartition(), entry -> {
                 List<IncomingMessageEnvelope> messages = entry.getValue();
-                Integer oldestOffset = null;
-                Integer newestOffset = null;
-                int upcomingOffset = 0;
+                Integer oldestOffset;
+                Integer newestOffset;
+                int upcomingOffset;
 
-                if (!messages.isEmpty() && !messages.get(messages.size() - 1).isEndOfStream()) {
+                if (messages.isEmpty()) {
+                  oldestOffset = null;
+                  newestOffset = null;
+                  upcomingOffset = 0;
+                } else if (messages.get(messages.size() - 1).isEndOfStream()) {
+                  if (messages.size() > 1) {
+                    // don't count end of stream in offset indices
+                    oldestOffset = 0;
+                    newestOffset = messages.size() - 2;
+                    upcomingOffset = messages.size() - 1;
+                  } else {
+                    // end of stream is the only message, treat the same as empty
+                    oldestOffset = null;
+                    newestOffset = null;
+                    upcomingOffset = 0;
+                  }
+                } else {
                   // offsets correspond strictly to numeric indices
                   oldestOffset = 0;
                   newestOffset = messages.size() - 1;
                   upcomingOffset = messages.size();
-                } else if (messages.size() > 1 && messages.get(messages.size() - 1).isEndOfStream()) {
-                  // end of stream should not be included when calculating offset metadata
-                  oldestOffset = 0;
-                  newestOffset = messages.size() - 2;
-                  upcomingOffset = messages.size() - 1;
                 }
 
                 return new SystemStreamMetadata.SystemStreamPartitionMetadata(
