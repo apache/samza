@@ -110,7 +110,6 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
   private final long maxRecordsPerBlob;
   private final boolean useRandomStringInBlobName;
   private final Object currentDataFileWriterLock = new Object();
-  private volatile long blobNumber = 0;
   private volatile long recordsInCurrentBlob = 0;
   private BlobMetadataGeneratorFactory blobMetadataGeneratorFactory;
   private Config blobMetadataGeneratorConfig;
