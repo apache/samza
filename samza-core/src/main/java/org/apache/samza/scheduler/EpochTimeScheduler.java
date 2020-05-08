@@ -81,7 +81,7 @@ public class EpochTimeScheduler {
       if (scheduledFuture != null
           && !scheduledFuture.cancel(false)
           && !scheduledFuture.isDone()) {
-        LOG.debug("Failed to cancel the previous callback successfully. Ignoring the current request to register new callback");
+        LOG.warn("Failed to cancel the previous callback successfully. Ignoring the current request to register new callback");
         return;
       }
     }
