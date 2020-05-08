@@ -21,6 +21,8 @@ package org.apache.samza.scheduler;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import org.apache.samza.task.MessageCollector;
@@ -54,6 +56,125 @@ public class TestEpochTimeScheduler {
     factory.removeReadyTimers().entrySet().forEach(entry -> {
         entry.getValue().onCallback(entry.getKey().getKey(), mock(MessageCollector.class), mock(TaskCoordinator.class));
       });
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testDuplicateTimerWithCancelableCallback() {
+    final String timerKey = "timer-1";
+    ScheduledFuture mockScheduledFuture1 = mock(ScheduledFuture.class);
+    ScheduledFuture mockScheduledFuture2 = mock(ScheduledFuture.class);
+    ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+
+    when(mockScheduledFuture1.cancel(anyBoolean())).thenReturn(true);
+    when(executor.schedule((Runnable) anyObject(), anyLong(), anyObject()))
+        .thenReturn(mockScheduledFuture1)
+        .thenAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            Runnable runnable = (Runnable) args[0];
+            runnable.run();
+            return mockScheduledFuture2;
+          });
+
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(executor);
+    long timestamp = System.currentTimeMillis() + 10000;
+
+    ScheduledCallback<String> expectedScheduledCallback = mock(ScheduledCallback.class);
+    scheduler.setTimer(timerKey, timestamp, mock(ScheduledCallback.class));
+    scheduler.setTimer(timerKey, timestamp, expectedScheduledCallback);
+
+    // verify the interactions with the scheduled future and the scheduler
+    verify(executor, times(2)).schedule((Runnable) anyObject(), anyLong(), anyObject());
+    verify(mockScheduledFuture1, times(1)).cancel(anyBoolean());
+
+    // verify the ready timer and its callback contents to ensure the second invocation callback overwrites the
+    // first callback
+    Set<Map.Entry<EpochTimeScheduler.TimerKey<?>, ScheduledCallback>> readyTimers =
+        scheduler.removeReadyTimers().entrySet();
+    assertEquals("Only one timer should be ready to be fired", readyTimers.size(), 1);
+
+    Map.Entry<EpochTimeScheduler.TimerKey<?>, ScheduledCallback> timerEntry = readyTimers.iterator().next();
+    assertEquals("Expected the scheduled callback from the second invocation",
+        timerEntry.getValue(),
+        expectedScheduledCallback);
+    assertEquals("Expected timer-1 as the key for ready timer",
+        timerEntry.getKey().getKey(),
+        timerKey);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testDuplicateTimerWithUnsuccessfulCancellation() {
+    final String timerKey = "timer-1";
+    ScheduledFuture mockScheduledFuture1 = mock(ScheduledFuture.class);
+    ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+
+    when(mockScheduledFuture1.cancel(anyBoolean())).thenReturn(false);
+    when(mockScheduledFuture1.isDone()).thenReturn(false);
+    when(executor.schedule((Runnable) anyObject(), anyLong(), anyObject()))
+        .thenReturn(mockScheduledFuture1);
+
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(executor);
+    long timestamp = System.currentTimeMillis() + 10000;
+
+    scheduler.setTimer(timerKey, timestamp, mock(ScheduledCallback.class));
+    scheduler.setTimer(timerKey, timestamp, mock(ScheduledCallback.class));
+
+    // verify the interactions with the scheduled future and the scheduler
+    verify(executor, times(1)).schedule((Runnable) anyObject(), anyLong(), anyObject());
+    verify(mockScheduledFuture1, times(1)).cancel(anyBoolean());
+    verify(mockScheduledFuture1, times(1)).isDone();
+
+    Map<Object, ScheduledFuture> scheduledFutures = scheduler.getScheduledFutures();
+    assertTrue("Expected the timer to be in the queue", scheduledFutures.containsKey(timerKey));
+    assertEquals("Expected the scheduled callback from the first invocation",
+        scheduledFutures.get(timerKey),
+        mockScheduledFuture1);
+  }
+
+  @Test
+  public void testDuplicateTimerWithFinishedCallbacks() {
+    final String timerKey = "timer-1";
+    ScheduledFuture mockScheduledFuture1 = mock(ScheduledFuture.class);
+    ScheduledFuture mockScheduledFuture2 = mock(ScheduledFuture.class);
+    ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+
+    when(mockScheduledFuture1.cancel(anyBoolean())).thenReturn(false);
+    when(mockScheduledFuture1.isDone()).thenReturn(true);
+    when(executor.schedule((Runnable) anyObject(), anyLong(), anyObject()))
+        .thenReturn(mockScheduledFuture1)
+        .thenAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            Runnable runnable = (Runnable) args[0];
+            runnable.run();
+            return mockScheduledFuture2;
+          });
+
+    EpochTimeScheduler scheduler = EpochTimeScheduler.create(executor);
+    long timestamp = System.currentTimeMillis() + 10000;
+
+    ScheduledCallback<String> expectedScheduledCallback = mock(ScheduledCallback.class);
+    scheduler.setTimer(timerKey, timestamp, mock(ScheduledCallback.class));
+    scheduler.setTimer(timerKey, timestamp, expectedScheduledCallback);
+
+    // verify the interactions with the scheduled future and the scheduler
+    verify(executor, times(2)).schedule((Runnable) anyObject(), anyLong(), anyObject());
+    verify(mockScheduledFuture1, times(1)).cancel(anyBoolean());
+    verify(mockScheduledFuture1, times(1)).isDone();
+
+    // verify the ready timer and its callback contents to ensure the second invocation callback overwrites the
+    // first callback
+    Set<Map.Entry<EpochTimeScheduler.TimerKey<?>, ScheduledCallback>> readyTimers =
+        scheduler.removeReadyTimers().entrySet();
+    assertEquals("Only one timer should be ready to be fired", readyTimers.size(), 1);
+
+    Map.Entry<EpochTimeScheduler.TimerKey<?>, ScheduledCallback> timerEntry = readyTimers.iterator().next();
+    assertEquals("Expected the scheduled callback from the second invocation",
+        timerEntry.getValue(),
+        expectedScheduledCallback);
+    assertEquals("Expected timer-1 as the key for ready timer",
+        timerEntry.getKey().getKey(),
+        timerKey);
   }
 
   @Test
