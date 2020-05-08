@@ -39,7 +39,8 @@ public class AzureBlobConfig extends MapConfig {
   public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME_DEFAULT = "org.apache.samza.system.azureblob.avro.AzureBlobAvroWriterFactory";
 
   // Azure Storage Account name under which the Azure container representing this system is.
-  // System name = Azure container name (https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata#container-names)
+  // System name = Azure container name
+  // (https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata#container-names)
   public static final String SYSTEM_AZURE_ACCOUNT_NAME = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "account.name";
 
   // Azure Storage Account key associated with the Azure Storage Account
@@ -93,6 +94,18 @@ public class AzureBlobConfig extends MapConfig {
   // when more than one Samza tasks are writing to the same SSP.
   public static final String SYSTEM_SUFFIX_RANDOM_STRING_TO_BLOB_NAME = SYSTEM_AZUREBLOB_PREFIX + "suffixRandomStringToBlobName";
   private static final boolean SYSTEM_SUFFIX_RANDOM_STRING_TO_BLOB_NAME_DEFAULT = true;
+
+  // full class name of an implementation of org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory
+  // this factory should return an implementation of org.apache.samza.system.azureblob.utils.BlobMetadataGenerator
+  // this generator will be invoked when a blob is committed to add metadata properties to it
+  public static final String SYSTEM_BLOB_METADATA_PROPERTIES_GENERATOR_FACTORY = SYSTEM_AZUREBLOB_PREFIX + "metadataPropertiesGeneratorFactory";
+  private static final String SYSTEM_BLOB_METADATA_PROPERTIES_GENERATOR_FACTORY_DEFAULT =
+      "org.apache.samza.system.azureblob.utils.NullBlobMetadataGeneratorFactory";
+
+  // Additional configs for the metadata generator should be prefixed with this string which is passed to the generator.
+  // for example, to pass a "key":"value" pair to the metadata generator, add config like
+  // systems.<system-name>.azureblob.metadataGeneratorConfig.<key> with value <value>
+  public static final String SYSTEM_BLOB_METADATA_GENERATOR_CONFIG_PREFIX = SYSTEM_AZUREBLOB_PREFIX + "metadataGeneratorConfig";
 
   public AzureBlobConfig(Config config) {
     super(config);
@@ -184,5 +197,14 @@ public class AzureBlobConfig extends MapConfig {
 
   public long getMaxMessagesPerBlob(String systemName) {
     return getLong(String.format(SYSTEM_MAX_MESSAGES_PER_BLOB, systemName), SYSTEM_MAX_MESSAGES_PER_BLOB_DEFAULT);
+  }
+
+  public String getSystemMetadataPropertiesGeneratorFactory(String systemName) {
+    return get(String.format(SYSTEM_BLOB_METADATA_PROPERTIES_GENERATOR_FACTORY, systemName),
+        SYSTEM_BLOB_METADATA_PROPERTIES_GENERATOR_FACTORY_DEFAULT);
+  }
+
+  public Config getSystemMetadataGeneratorConfigs(String systemName) {
+    return subset(String.format(SYSTEM_BLOB_METADATA_GENERATOR_CONFIG_PREFIX, systemName));
   }
 }

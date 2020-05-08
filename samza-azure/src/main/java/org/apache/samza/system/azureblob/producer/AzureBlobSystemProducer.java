@@ -50,10 +50,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemProducerException;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,6 +138,9 @@ public class AzureBlobSystemProducer implements SystemProducer {
   private final Map<String, Object> sourceWriterCreationLockMap = new ConcurrentHashMap<>();
   private final Map<String, ReadWriteLock> sourceSendFlushLockMap = new ConcurrentHashMap<>();
 
+  private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory;
+  private final Config blobMetadataGeneratorConfig;
+
   public AzureBlobSystemProducer(String systemName, AzureBlobConfig config, MetricsRegistry metricsRegistry) {
     Preconditions.checkNotNull(systemName, "System name can not be null when creating AzureBlobSystemProducer");
     Preconditions.checkNotNull(config, "Config can not be null when creating AzureBlobSystemProducer");
@@ -171,6 +176,14 @@ public class AzureBlobSystemProducer implements SystemProducer {
     this.writerMap = new ConcurrentHashMap<>();
 
     this.metrics = new AzureBlobSystemProducerMetrics(systemName, config.getAzureAccountName(systemName), metricsRegistry);
+
+    String blobMetadataGeneratorFactoryClassName = this.config.getSystemMetadataPropertiesGeneratorFactory(this.systemName);
+    try {
+      blobMetadataGeneratorFactory = (BlobMetadataGeneratorFactory) Class.forName(blobMetadataGeneratorFactoryClassName).newInstance();
+    } catch (Exception e) {
+      throw new SystemProducerException("Could not create blob metadata generator factory with name " + blobMetadataGeneratorFactoryClassName, e);
+    }
+    blobMetadataGeneratorConfig = this.config.getSystemMetadataGeneratorConfigs(systemName);
   }
 
   /**
@@ -423,7 +436,7 @@ public class AzureBlobSystemProducer implements SystemProducer {
         if (writer == null) {
           AzureBlobWriterMetrics writerMetrics =
               new AzureBlobWriterMetrics(metrics.getAggregateMetrics(), metrics.getSystemMetrics(), metrics.getSourceMetrics(source));
-          writer = createNewWriter(blobURLPrefix, writerMetrics);
+          writer = createNewWriter(blobURLPrefix, writerMetrics, messageEnvelope.getSystemStream().getStream());
           sourceWriterMap.put(writerMapKey, writer);
         }
       }
@@ -502,9 +515,10 @@ public class AzureBlobSystemProducer implements SystemProducer {
   }
 
   @VisibleForTesting
-  AzureBlobWriter createNewWriter(String blobURL, AzureBlobWriterMetrics writerMetrics) {
+  AzureBlobWriter createNewWriter(String blobURL, AzureBlobWriterMetrics writerMetrics, String streamName) {
     try {
       return writerFactory.getWriterInstance(containerAsyncClient, blobURL, asyncBlobThreadPool, writerMetrics,
+          blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName,
           blockFlushThresholdSize, flushTimeoutMs,
           CompressionFactory.getInstance().getCompression(config.getCompressionType(systemName)),
           config.getSuffixRandomStringToBlobName(systemName),
