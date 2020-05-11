@@ -45,7 +45,11 @@ public class Util {
    * Make an environment variable string safe to pass.
    */
   public static String envVarEscape(String str) {
-    return str.replace("\"", "\\\"").replace("'", "\\'");
+    return str
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("'", "\\'")
+        .replace("`", "\\`");
   }
 
   public static String getSamzaVersion() {
