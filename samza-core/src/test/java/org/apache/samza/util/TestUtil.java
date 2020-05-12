@@ -50,8 +50,8 @@ public class TestUtil {
     String noSpecialCharacters = "hello world 123 .?!";
     assertEquals(noSpecialCharacters, Util.envVarEscape(noSpecialCharacters));
 
-    String withSpecialCharacters = "quotation \" apostrophe '";
-    String escaped = "quotation \\\" apostrophe \\'";
+    String withSpecialCharacters = "quotation \" apostrophe ' backslash \\ grave accent `";
+    String escaped = "quotation \\\" apostrophe \\' backslash \\\\ grave accent \\`";
     assertEquals(escaped, Util.envVarEscape(withSpecialCharacters));
   }
 
