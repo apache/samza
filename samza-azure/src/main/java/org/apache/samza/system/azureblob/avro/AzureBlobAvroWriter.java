@@ -46,7 +46,9 @@ import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.avro.specific.SpecificRecord;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.system.OutgoingMessageEnvelope;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,9 +111,13 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
   private final boolean useRandomStringInBlobName;
   private final Object currentDataFileWriterLock = new Object();
   private volatile long recordsInCurrentBlob = 0;
+  private BlobMetadataGeneratorFactory blobMetadataGeneratorFactory;
+  private Config blobMetadataGeneratorConfig;
+  private String streamName;
 
   public AzureBlobAvroWriter(BlobContainerAsyncClient containerAsyncClient, String blobURLPrefix,
       Executor blobThreadPool, AzureBlobWriterMetrics metrics,
+      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
       long maxBlobSize, long maxRecordsPerBlob) {
 
@@ -125,6 +131,9 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     this.useRandomStringInBlobName = useRandomStringInBlobName;
     this.maxBlobSize = maxBlobSize;
     this.maxRecordsPerBlob = maxRecordsPerBlob;
+    this.blobMetadataGeneratorFactory = blobMetadataGeneratorFactory;
+    this.blobMetadataGeneratorConfig = blobMetadataGeneratorConfig;
+    this.streamName = streamName;
   }
 
   /**
@@ -217,6 +226,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
       Executor blobThreadPool, int maxBlockFlushThresholdSize, int flushTimeoutMs, String blobURLPrefix,
       DataFileWriter<IndexedRecord> dataFileWriter,
       AzureBlobOutputStream azureBlobOutputStream, BlockBlobAsyncClient blockBlobAsyncClient,
+      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       long maxBlobSize, long maxRecordsPerBlob, Compression compression, boolean useRandomStringInBlobName) {
     if (dataFileWriter == null || azureBlobOutputStream == null || blockBlobAsyncClient == null) {
       this.currentBlobWriterComponents = null;
@@ -235,6 +245,9 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     this.useRandomStringInBlobName = useRandomStringInBlobName;
     this.maxBlobSize = maxBlobSize;
     this.maxRecordsPerBlob = maxRecordsPerBlob;
+    this.blobMetadataGeneratorFactory = blobMetadataGeneratorFactory;
+    this.blobMetadataGeneratorConfig = blobMetadataGeneratorConfig;
+    this.streamName = streamName;
   }
 
   @VisibleForTesting
@@ -318,8 +331,14 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     BlockBlobAsyncClient blockBlobAsyncClient = containerAsyncClient.getBlobAsyncClient(blobURL).getBlockBlobAsyncClient();
 
     DataFileWriter<IndexedRecord> dataFileWriter = new DataFileWriter<>(datumWriter);
-    AzureBlobOutputStream azureBlobOutputStream = new AzureBlobOutputStream(blockBlobAsyncClient, blobThreadPool, metrics,
-            flushTimeoutMs, maxBlockFlushThresholdSize, compression);
+    AzureBlobOutputStream azureBlobOutputStream;
+    try {
+      azureBlobOutputStream = new AzureBlobOutputStream(blockBlobAsyncClient, blobThreadPool, metrics,
+          blobMetadataGeneratorFactory, blobMetadataGeneratorConfig,
+          streamName, flushTimeoutMs, maxBlockFlushThresholdSize, compression);
+    } catch (Exception e) {
+      throw new SamzaException("Unable to create AzureBlobOutputStream", e);
+    }
     dataFileWriter.create(schema, azureBlobOutputStream);
     dataFileWriter.setFlushOnEveryBlock(false);
     this.currentBlobWriterComponents = new BlobWriterComponents(dataFileWriter, azureBlobOutputStream, blockBlobAsyncClient);
