@@ -48,7 +48,6 @@ public class Util {
     return str
         .replace("\\", "\\\\")
         .replace("\"", "\\\"")
-        .replace("'", "\\'")
         .replace("`", "\\`");
   }
 
