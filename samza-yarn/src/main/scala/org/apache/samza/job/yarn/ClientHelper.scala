@@ -301,8 +301,8 @@ class ClientHelper(conf: Configuration) extends Logging {
   }
 
   private def isActiveApplication(applicationReport: ApplicationReport): Boolean = {
-    (Running.equals(toAppStatus(applicationReport).get)
-    || New.equals(toAppStatus(applicationReport).get))
+    val status = toAppStatus(applicationReport).get
+    Running.equals(status) || New.equals(status)
   }
 
   def toAppStatus(applicationReport: ApplicationReport): Option[ApplicationStatus] = {
