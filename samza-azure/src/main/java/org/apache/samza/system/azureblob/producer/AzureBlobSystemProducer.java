@@ -177,13 +177,13 @@ public class AzureBlobSystemProducer implements SystemProducer {
 
     this.metrics = new AzureBlobSystemProducerMetrics(systemName, config.getAzureAccountName(systemName), metricsRegistry);
 
-    String blobMetadataGeneratorFactoryClassName = this.config.getSystemMetadataPropertiesGeneratorFactory(this.systemName);
+    String blobMetadataGeneratorFactoryClassName = this.config.getSystemBlobMetadataPropertiesGeneratorFactory(this.systemName);
     try {
       blobMetadataGeneratorFactory = (BlobMetadataGeneratorFactory) Class.forName(blobMetadataGeneratorFactoryClassName).newInstance();
     } catch (Exception e) {
       throw new SystemProducerException("Could not create blob metadata generator factory with name " + blobMetadataGeneratorFactoryClassName, e);
     }
-    blobMetadataGeneratorConfig = this.config.getSystemMetadataGeneratorConfigs(systemName);
+    blobMetadataGeneratorConfig = this.config.getSystemBlobMetadataGeneratorConfigs(systemName);
   }
 
   /**

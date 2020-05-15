@@ -105,7 +105,7 @@ public class AzureBlobConfig extends MapConfig {
   // Additional configs for the metadata generator should be prefixed with this string which is passed to the generator.
   // for example, to pass a "key":"value" pair to the metadata generator, add config like
   // systems.<system-name>.azureblob.metadataGeneratorConfig.<key> with value <value>
-  public static final String SYSTEM_BLOB_METADATA_GENERATOR_CONFIG_PREFIX = SYSTEM_AZUREBLOB_PREFIX + "metadataGeneratorConfig";
+  public static final String SYSTEM_BLOB_METADATA_GENERATOR_CONFIG_PREFIX = SYSTEM_AZUREBLOB_PREFIX + "metadataGeneratorConfig.";
 
   public AzureBlobConfig(Config config) {
     super(config);
@@ -199,12 +199,12 @@ public class AzureBlobConfig extends MapConfig {
     return getLong(String.format(SYSTEM_MAX_MESSAGES_PER_BLOB, systemName), SYSTEM_MAX_MESSAGES_PER_BLOB_DEFAULT);
   }
 
-  public String getSystemMetadataPropertiesGeneratorFactory(String systemName) {
+  public String getSystemBlobMetadataPropertiesGeneratorFactory(String systemName) {
     return get(String.format(SYSTEM_BLOB_METADATA_PROPERTIES_GENERATOR_FACTORY, systemName),
         SYSTEM_BLOB_METADATA_PROPERTIES_GENERATOR_FACTORY_DEFAULT);
   }
 
-  public Config getSystemMetadataGeneratorConfigs(String systemName) {
+  public Config getSystemBlobMetadataGeneratorConfigs(String systemName) {
     return subset(String.format(SYSTEM_BLOB_METADATA_GENERATOR_CONFIG_PREFIX, systemName));
   }
 }
