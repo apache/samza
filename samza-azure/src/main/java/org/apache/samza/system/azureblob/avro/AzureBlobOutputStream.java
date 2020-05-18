@@ -85,6 +85,7 @@ public class AzureBlobOutputStream extends OutputStream {
 
   private volatile boolean isClosed = false;
   private long totalUploadedBlockSize = 0;
+  private long totalNumberOfRecordsInBlob = 0;
   private int blockNum;
   private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory;
   private final Config blobMetadataGeneratorConfig;
@@ -194,7 +195,7 @@ public class AzureBlobOutputStream extends OutputStream {
       LOG.info("For blob: {} committing blockList size:{}", blobAsyncClient.getBlobUrl().toString(), blockList.size());
       metrics.updateAzureCommitMetrics();
       BlobMetadataGenerator blobMetadataGenerator = getBlobMetadataGenerator();
-      commitBlob(blockList, blobMetadataGenerator.getBlobMetadata(new BlobMetadataContext(streamName, totalUploadedBlockSize)));
+      commitBlob(blockList, blobMetadataGenerator.getBlobMetadata(new BlobMetadataContext(streamName, totalUploadedBlockSize, totalNumberOfRecordsInBlob)));
     } catch (Exception e) {
       String msg = String.format("Close blob %s failed with exception. Total pending sends %d",
           blobAsyncClient.getBlobUrl().toString(), pendingUpload.size());
@@ -228,6 +229,10 @@ public class AzureBlobOutputStream extends OutputStream {
       LOG.info("Internal buffer has been released for blob " + blobAsyncClient.getBlobUrl().toString()
           + ". Writes are no longer entertained.");
     }
+  }
+
+  public synchronized void incrementNumberOfRecordsInBlob() {
+    totalNumberOfRecordsInBlob++;
   }
 
   @VisibleForTesting

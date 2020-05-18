@@ -178,6 +178,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
       }
       currentBlobWriterComponents.dataFileWriter.appendEncoded(ByteBuffer.wrap(encodedRecord));
       recordsInCurrentBlob++;
+      currentBlobWriterComponents.azureBlobOutputStream.incrementNumberOfRecordsInBlob();
     }
   }
   /**
