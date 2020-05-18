@@ -477,7 +477,7 @@ public class AzureBlobSystemProducer implements SystemProducer {
             public void run() {
               try {
                 writer.close();
-              } catch (Throwable e) {
+              } catch (Exception e) {
                 throw new SystemProducerException("Close failed for topic " + stream, e);
               }
             }
