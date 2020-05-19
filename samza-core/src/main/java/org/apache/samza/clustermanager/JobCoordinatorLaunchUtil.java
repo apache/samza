@@ -62,6 +62,10 @@ public class JobCoordinatorLaunchUtil {
     MetricsRegistryMap metrics = new MetricsRegistryMap();
     MetadataStore
         metadataStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(fullConfig), metrics);
+    // MetadataStore will be closed in ClusterBasedJobCoordinator#onShutDown
+    // initialization of MetadataStore can be moved to ClusterBasedJobCoordinator after we clean up
+    // ClusterBasedJobCoordinator#createFromMetadataStore
+    metadataStore.init();
     // Reads extra launch config from metadata store.
     Config launchConfig = CoordinatorStreamUtil.readLaunchConfigFromCoordinatorStream(fullConfig, metadataStore);
     Config finalConfig = new MapConfig(launchConfig, fullConfig);
@@ -69,10 +73,6 @@ public class JobCoordinatorLaunchUtil {
     // This needs to be consistent with RemoteApplicationRunner#run where JobRunner#submit to be called instead of JobRunner#run
     CoordinatorStreamUtil.writeConfigToCoordinatorStream(finalConfig, true);
     DiagnosticsUtil.createDiagnosticsStream(finalConfig);
-    // MetadataStore will be closed in ClusterBasedJobCoordinator#onShutDown
-    // initialization of MetadataStore can be moved to ClusterBasedJobCoordinator after we clean up
-    // ClusterBasedJobCoordinator#createFromMetadataStore
-    metadataStore.init();
 
     ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(
         metrics,
