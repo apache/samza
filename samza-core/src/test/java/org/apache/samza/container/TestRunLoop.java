@@ -236,7 +236,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
 
@@ -271,7 +271,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
 
@@ -333,7 +333,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
 
@@ -366,7 +366,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
 
@@ -396,7 +396,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
 
@@ -437,7 +437,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
     int maxMessagesInFlight = 1;
@@ -476,7 +476,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
 
@@ -517,7 +517,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
 
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
@@ -562,7 +562,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
 
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
@@ -601,7 +601,7 @@ public class TestRunLoop {
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
     TaskInstance t1 = createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
 
     tasks.put(taskName0, t0);
     tasks.put(taskName1, t1);
@@ -667,7 +667,7 @@ public class TestRunLoop {
 
     TaskInstance taskInstance1 = createTaskInstance(mockStreamTask1, taskName1, ssp1, offsetManager, consumers);
     TaskInstance taskInstance2 = createTaskInstance(mockStreamTask2, taskName2, ssp2, offsetManager, consumers);
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName1, taskInstance1);
     tasks.put(taskName2, taskInstance2);
 
@@ -717,7 +717,7 @@ public class TestRunLoop {
       }
     };
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
 
     tasks.put(taskName0, createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer));
     tasks.put(taskName1, createTaskInstance(task1, taskName1, ssp1, offsetManager, consumerMultiplexer));
@@ -770,7 +770,7 @@ public class TestRunLoop {
       }
     };
 
-    Map<TaskName, TaskInstance> tasks = new HashMap<>();
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
 
     tasks.put(taskName0, createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer));
     when(consumerMultiplexer.choose(false)).thenReturn(envelope3).thenReturn(envelope0).thenReturn(ssp0EndOfStream).thenReturn(null);
@@ -792,7 +792,7 @@ public class TestRunLoop {
     TestTask task0 = new TestTask(false, false, false, null);
     TaskInstance t0 = createTaskInstance(task0, taskName0, ssp0, offsetManager, consumerMultiplexer);
 
-    Map<TaskName, TaskInstance> tasks = ImmutableMap.of(taskName0, t0);
+    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, t0);
 
     int maxMessagesInFlight = 2;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,

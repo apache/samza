@@ -88,7 +88,7 @@ public class RunLoop implements Runnable, Throttleable {
   private final boolean isAsyncCommitEnabled;
   private volatile boolean runLoopResumedSinceLastChecked;
 
-  public RunLoop(Map<TaskName, TaskInstance> taskInstances,
+  public RunLoop(Map<TaskName, RunLoopTask> runLoopTasks,
       ExecutorService threadPool,
       SystemConsumers consumerMultiplexer,
       int maxConcurrency,
@@ -111,16 +111,16 @@ public class RunLoop implements Runnable, Throttleable {
     this.maxIdleMs = maxIdleMs;
     this.callbackTimer = (callbackTimeoutMs > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
     this.callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
-    this.coordinatorRequests = new CoordinatorRequests(taskInstances.keySet());
+    this.coordinatorRequests = new CoordinatorRequests(runLoopTasks.keySet());
     this.latch = new Object();
     this.workerTimer = Executors.newSingleThreadScheduledExecutor();
     this.clock = clock;
     Map<TaskName, AsyncTaskWorker> workers = new HashMap<>();
-    for (TaskInstance task : taskInstances.values()) {
+    for (RunLoopTask task : runLoopTasks.values()) {
       workers.put(task.taskName(), new AsyncTaskWorker(task));
     }
     // Partions and tasks assigned to the container will not change during the run loop life time
-    this.sspToTaskWorkerMapping = Collections.unmodifiableMap(getSspToAsyncTaskWorkerMap(taskInstances, workers));
+    this.sspToTaskWorkerMapping = Collections.unmodifiableMap(getSspToAsyncTaskWorkerMap(runLoopTasks, workers));
     this.taskWorkers = Collections.unmodifiableList(new ArrayList<>(workers.values()));
     this.isAsyncCommitEnabled = isAsyncCommitEnabled;
   }
@@ -129,9 +129,9 @@ public class RunLoop implements Runnable, Throttleable {
    * Returns mapping of the SystemStreamPartition to the AsyncTaskWorkers to efficiently route the envelopes
    */
   private static Map<SystemStreamPartition, List<AsyncTaskWorker>> getSspToAsyncTaskWorkerMap(
-      Map<TaskName, TaskInstance> taskInstances, Map<TaskName, AsyncTaskWorker> taskWorkers) {
+      Map<TaskName, RunLoopTask> runLoopTasks, Map<TaskName, AsyncTaskWorker> taskWorkers) {
     Map<SystemStreamPartition, List<AsyncTaskWorker>> sspToWorkerMap = new HashMap<>();
-    for (TaskInstance task : taskInstances.values()) {
+    for (RunLoopTask task : runLoopTasks.values()) {
       Set<SystemStreamPartition> ssps = JavaConverters.setAsJavaSetConverter(task.systemStreamPartitions()).asJava();
       for (SystemStreamPartition ssp : ssps) {
         sspToWorkerMap.putIfAbsent(ssp, new ArrayList<>());
@@ -361,11 +361,11 @@ public class RunLoop implements Runnable, Throttleable {
    * will run the task asynchronously. It runs window and commit in the provided thread pool.
    */
   private class AsyncTaskWorker implements TaskCallbackListener {
-    private final TaskInstance task;
+    private final RunLoopTask task;
     private final TaskCallbackManager callbackManager;
     private volatile AsyncTaskState state;
 
-    AsyncTaskWorker(TaskInstance task) {
+    AsyncTaskWorker(RunLoopTask task) {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
       Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
@@ -409,7 +409,7 @@ public class RunLoop implements Runnable, Throttleable {
      * @param task
      * @return a Set of SSPs such that all SSPs are not at end of stream.
      */
-    private Set<SystemStreamPartition> getWorkingSSPSet(TaskInstance task) {
+    private Set<SystemStreamPartition> getWorkingSSPSet(RunLoopTask task) {
 
       Set<SystemStreamPartition> allPartitions = new HashSet<>(JavaConverters.setAsJavaSetConverter(task.systemStreamPartitions()).asJava());
 
@@ -631,7 +631,9 @@ public class RunLoop implements Runnable, Throttleable {
               log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
 
               // update offset
-              task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
+              if (task.offsetManager() != null) {
+                task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
+              }
 
               // update coordinator
               coordinatorRequests.update(callbackToUpdate.getCoordinator());

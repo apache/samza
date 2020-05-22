@@ -47,7 +47,7 @@ class TaskInstance(
   systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
-  val offsetManager: OffsetManager = new OffsetManager,
+  override val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   tableManager: TableManager = null,
   val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
@@ -60,16 +60,17 @@ class TaskInstance(
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
   applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-  externalContextOption: Option[ExternalContext]) extends Logging {
+  externalContextOption: Option[ExternalContext]) extends Logging with RunLoopTask {
 
   val taskName: TaskName = taskModel.getTaskName
   val isInitableTask = task.isInstanceOf[InitableTask]
-  val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
-  val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
+  override val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
+  override val isWindowableTask = task.isInstanceOf[WindowableTask]
+
+  override val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
 
   private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
@@ -99,7 +100,7 @@ class TaskInstance(
   private val config: Config = jobContext.getConfig
 
   val streamConfig: StreamConfig = new StreamConfig(config)
-  val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
+  override val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
 
   val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
 
