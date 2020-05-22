@@ -21,6 +21,7 @@ package org.apache.samza.container
 
 import java.util.Collections
 
+import com.google.common.collect.ImmutableSet
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointedChangelogOffset, OffsetManager}
 import org.apache.samza.config.MapConfig
@@ -48,7 +49,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   private val TASK_NAME = new TaskName("taskName")
   private val SYSTEM_STREAM_PARTITION =
     new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-stream"), new Partition(0))
-  private val SYSTEM_STREAM_PARTITIONS = Set(SYSTEM_STREAM_PARTITION)
+  private val SYSTEM_STREAM_PARTITIONS = ImmutableSet.of(SYSTEM_STREAM_PARTITION)
 
   @Mock
   private var task: AllTask = null
@@ -403,7 +404,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       offsetManager = offsetManagerMock,
       storageManager = this.taskStorageManager,
       tableManager = this.taskTableManager,
-      systemStreamPartitions = Set(ssp),
+      systemStreamPartitions = ImmutableSet.of(ssp),
       exceptionHandler = this.taskInstanceExceptionHandler,
       streamMetadataCache = cacheMock,
       inputStreamMetadata = Map.empty ++ inputStreamMetadata,

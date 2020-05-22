@@ -20,7 +20,7 @@
 package org.apache.samza.container
 
 
-import java.util.{Objects, Optional}
+import java.util.{Collections, Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
@@ -38,7 +38,7 @@ import org.apache.samza.util.{Logging, ScalaJavaUtil}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import scala.collection.Map
+import scala.collection.{JavaConverters, Map}
 
 class TaskInstance(
   val task: Any,
@@ -50,7 +50,7 @@ class TaskInstance(
   override val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   tableManager: TableManager = null,
-  val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
+  val systemStreamPartitions: java.util.Set[SystemStreamPartition] = Collections.emptySet(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
   jobModel: JobModel = null,
   streamMetadataCache: StreamMetadataCache = null,
@@ -100,7 +100,7 @@ class TaskInstance(
   private val config: Config = jobContext.getConfig
 
   val streamConfig: StreamConfig = new StreamConfig(config)
-  override val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
+  override val intermediateStreams: java.util.Set[String] = JavaConverters.setAsJavaSetConverter(streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream)).asJava
 
   val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
 

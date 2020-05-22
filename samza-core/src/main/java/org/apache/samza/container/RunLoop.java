@@ -23,7 +23,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,7 +50,6 @@ import org.apache.samza.util.Throttleable;
 import org.apache.samza.util.ThrottlingScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.collection.JavaConverters;
 
 
 /**
@@ -132,7 +130,7 @@ public class RunLoop implements Runnable, Throttleable {
       Map<TaskName, RunLoopTask> runLoopTasks, Map<TaskName, AsyncTaskWorker> taskWorkers) {
     Map<SystemStreamPartition, List<AsyncTaskWorker>> sspToWorkerMap = new HashMap<>();
     for (RunLoopTask task : runLoopTasks.values()) {
-      Set<SystemStreamPartition> ssps = JavaConverters.setAsJavaSetConverter(task.systemStreamPartitions()).asJava();
+      Set<SystemStreamPartition> ssps = task.systemStreamPartitions();
       for (SystemStreamPartition ssp : ssps) {
         sspToWorkerMap.putIfAbsent(ssp, new ArrayList<>());
         sspToWorkerMap.get(ssp).add(taskWorkers.get(task.taskName()));
@@ -369,7 +367,7 @@ public class RunLoop implements Runnable, Throttleable {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
       Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
-      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet, task.intermediateStreams().nonEmpty());
+      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet, !task.intermediateStreams().isEmpty());
     }
 
     private void init() {
@@ -411,7 +409,7 @@ public class RunLoop implements Runnable, Throttleable {
      */
     private Set<SystemStreamPartition> getWorkingSSPSet(RunLoopTask task) {
 
-      Set<SystemStreamPartition> allPartitions = new HashSet<>(JavaConverters.setAsJavaSetConverter(task.systemStreamPartitions()).asJava());
+      Set<SystemStreamPartition> allPartitions = task.systemStreamPartitions();
 
       // filter only those SSPs that are not at end of stream.
       Set<SystemStreamPartition> workingSSPSet = allPartitions.stream()

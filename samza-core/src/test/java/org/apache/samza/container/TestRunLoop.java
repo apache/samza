@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -57,7 +58,6 @@ import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.mockito.Mockito;
 import scala.Option;
-import scala.collection.JavaConverters;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.any;
@@ -95,7 +95,7 @@ public class TestRunLoop {
     TaskModel taskModel = mock(TaskModel.class);
     when(taskModel.getTaskName()).thenReturn(taskName);
     TaskInstanceMetrics taskInstanceMetrics = new TaskInstanceMetrics("task", new MetricsRegistryMap());
-    scala.collection.immutable.Set<SystemStreamPartition> sspSet = JavaConverters.asScalaSetConverter(Collections.singleton(ssp)).asScala().toSet();
+    Set<SystemStreamPartition> sspSet = Collections.singleton(ssp);
     return new TaskInstance(task,
         taskModel,
         taskInstanceMetrics,

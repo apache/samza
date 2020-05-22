@@ -19,18 +19,35 @@
 package org.apache.samza.container;
 
 import java.util.Collections;
+import java.util.Set;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.scheduler.EpochTimeScheduler;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.ReadableCoordinator;
 import org.apache.samza.task.TaskCallbackFactory;
-import scala.collection.JavaConversions;
 
 
+/**
+ * The interface required for a task's execution to be managed within {@link RunLoop}.
+ */
 public interface RunLoopTask {
 
   TaskName taskName();
+
+  Set<SystemStreamPartition> systemStreamPartitions();
+
+  TaskInstanceMetrics metrics();
+
+  void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator, TaskCallbackFactory callbackFactory);
+
+  void endOfStream(ReadableCoordinator coordinator);
+
+  void window(ReadableCoordinator coordinator);
+
+  void scheduler(ReadableCoordinator coordinator);
+
+  void commit();
 
   default boolean isWindowableTask() {
     return false;
@@ -44,23 +61,9 @@ public interface RunLoopTask {
     return null;
   }
 
-  default scala.collection.immutable.Set<String> intermediateStreams() {
-    return JavaConversions.asScalaSet(Collections.emptySet()).toSet();
+  default Set<String> intermediateStreams() {
+    return Collections.emptySet();
   }
-
-  scala.collection.immutable.Set<SystemStreamPartition> systemStreamPartitions();
-
-  TaskInstanceMetrics metrics();
-
-  void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator, TaskCallbackFactory callbackFactory);
-
-  void endOfStream(ReadableCoordinator coordinator);
-
-  void window(ReadableCoordinator coordinator);
-
-  void scheduler(ReadableCoordinator coordinator);
-
-  void commit();
 
   default OffsetManager offsetManager() {
     return null;
