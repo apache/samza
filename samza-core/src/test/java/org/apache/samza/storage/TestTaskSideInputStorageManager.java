@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.util.Collections;
@@ -29,18 +30,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.samza.Partition;
-import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
-import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
-import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
-import org.apache.samza.util.ScalaJavaUtil;
-import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -72,6 +65,7 @@ public class TestTaskSideInputStorageManager {
     final String taskName = "test-flush-task";
     final SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
     final String offset = "123";
+    final ImmutableMap<SystemStreamPartition, String> processedOffsets = ImmutableMap.of(ssp, offset);
 
     TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
         .addLoggedStore(storeName, ImmutableSet.of(ssp))
@@ -79,14 +73,13 @@ public class TestTaskSideInputStorageManager {
     Map<String, StorageEngine> stores = new HashMap<>();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.updateLastProcessedOffset(ssp, offset);
-    testSideInputStorageManager.flush();
+    testSideInputStorageManager.flush(processedOffsets);
 
     for (StorageEngine storageEngine : stores.values()) {
       verify(storageEngine).flush();
     }
 
-    verify(testSideInputStorageManager).writeOffsetFiles();
+    verify(testSideInputStorageManager).writeOffsetFiles(eq(processedOffsets));
 
     File storeDir = testSideInputStorageManager.getStoreLocation(storeName);
     assertTrue("Store directory: " + storeDir.getPath() + " is missing.", storeDir.exists());
@@ -100,16 +93,19 @@ public class TestTaskSideInputStorageManager {
   public void testStop() {
     final String storeName = "test-stop-store";
     final String taskName = "test-stop-task";
+    final SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
+    final String offset = "123";
+    final ImmutableMap<SystemStreamPartition, String> processedOffsets = ImmutableMap.of(ssp, offset);
 
     TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, NON_LOGGED_STORE_DIR)
         .addInMemoryStore(storeName, ImmutableSet.of())
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.stop();
+    testSideInputStorageManager.stop(processedOffsets);
 
     verify(testSideInputStorageManager.getStore(storeName)).stop();
-    verify(testSideInputStorageManager).writeOffsetFiles();
+    verify(testSideInputStorageManager).writeOffsetFiles(eq(processedOffsets));
   }
 
   @Test
@@ -122,7 +118,7 @@ public class TestTaskSideInputStorageManager {
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.writeOffsetFiles(); // should be no-op
+    testSideInputStorageManager.writeOffsetFiles(Collections.emptyMap()); // should be no-op
     File storeDir = testSideInputStorageManager.getStoreLocation(storeName);
 
     assertFalse("Store directory: " + storeDir.getPath() + " should not be created for non-persisted store", storeDir.exists());
@@ -138,15 +134,15 @@ public class TestTaskSideInputStorageManager {
     final SystemStreamPartition ssp = new SystemStreamPartition("test-system", "test-stream", new Partition(0));
     final SystemStreamPartition ssp2 = new SystemStreamPartition("test-system2", "test-stream2", new Partition(0));
 
+    Map<SystemStreamPartition, String> processedOffsets = ImmutableMap.of(ssp, offset, ssp2, offset);
+
     TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
         .addLoggedStore(storeName, ImmutableSet.of(ssp))
         .addLoggedStore(storeName2, ImmutableSet.of(ssp2))
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.updateLastProcessedOffset(ssp, offset);
-    testSideInputStorageManager.updateLastProcessedOffset(ssp2, offset);
-    testSideInputStorageManager.writeOffsetFiles();
+    testSideInputStorageManager.writeOffsetFiles(processedOffsets);
     File storeDir = testSideInputStorageManager.getStoreLocation(storeName);
 
     assertTrue("Store directory: " + storeDir.getPath() + " is missing.", storeDir.exists());
@@ -175,87 +171,19 @@ public class TestTaskSideInputStorageManager {
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    ssps.forEach(ssp -> testSideInputStorageManager.updateLastProcessedOffset(ssp, offset));
-    testSideInputStorageManager.writeOffsetFiles();
+    Map<SystemStreamPartition, String> processedOffsets = ssps.stream()
+        .collect(Collectors.toMap(Function.identity(), ssp -> offset));
+
+    testSideInputStorageManager.writeOffsetFiles(processedOffsets);
 
     Map<SystemStreamPartition, String> fileOffsets = testSideInputStorageManager.getFileOffsets();
-
     ssps.forEach(ssp -> {
         assertTrue("Failed to get offset for ssp: " + ssp.toString() + " from file.", fileOffsets.containsKey(ssp));
         assertEquals("Mismatch between last processed offset and file offset.", fileOffsets.get(ssp), offset);
       });
   }
 
-  /**
-   * This test is for cases, when calls to systemAdmin (e.g., KafkaSystemAdmin's) get-stream-metadata method return null.
-   */
-  @Test
-  public void testGetStartingOffsetsWhenStreamMetadataIsNull() {
-    final String storeName = "test-get-starting-offset-store";
-    final String taskName = "test-get-starting-offset-task";
-
-    Set<SystemStreamPartition> ssps = IntStream.range(1, 2)
-        .mapToObj(idx -> new SystemStreamPartition("test-system", "test-stream", new Partition(idx)))
-        .collect(Collectors.toSet());
-    Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = ssps.stream()
-        .collect(Collectors.toMap(SystemStreamPartition::getPartition,
-            x -> new SystemStreamMetadata.SystemStreamPartitionMetadata(null, "1", "2")));
-
-
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
-        .addLoggedStore(storeName, ssps)
-        .addStreamMetadata(Collections.singletonMap(new SystemStream("test-system", "test-stream"),
-            new SystemStreamMetadata("test-stream", partitionMetadata)))
-        .build();
-
-    initializeSideInputStorageManager(testSideInputStorageManager);
-    ssps.forEach(ssp -> {
-        String startingOffset = testSideInputStorageManager.getStartingOffset(
-            new SystemStreamPartition("test-system", "test-stream", ssp.getPartition()));
-        Assert.assertNull("Starting offset should be null", startingOffset);
-      });
-  }
-
-  @Test
-  public void testGetStartingOffsets() {
-    final String storeName = "test-get-starting-offset-store";
-    final String taskName = "test-get-starting-offset-task";
-
-    Set<SystemStreamPartition> ssps = IntStream.range(1, 6)
-        .mapToObj(idx -> new SystemStreamPartition("test-system", "test-stream", new Partition(idx)))
-        .collect(Collectors.toSet());
-
-
-    TaskSideInputStorageManager testSideInputStorageManager = new MockTaskSideInputStorageManagerBuilder(taskName, LOGGED_STORE_DIR)
-        .addLoggedStore(storeName, ssps)
-        .build();
-
-    initializeSideInputStorageManager(testSideInputStorageManager);
-    Map<SystemStreamPartition, String> fileOffsets = ssps.stream()
-        .collect(Collectors.toMap(Function.identity(), ssp -> {
-            int partitionId = ssp.getPartition().getPartitionId();
-            int offset = partitionId % 2 == 0 ? partitionId + 10 : partitionId;
-            return String.valueOf(offset);
-          }));
-
-    Map<SystemStreamPartition, String> oldestOffsets = ssps.stream()
-        .collect(Collectors.toMap(Function.identity(), ssp -> {
-            int partitionId = ssp.getPartition().getPartitionId();
-            int offset = partitionId % 2 == 0 ? partitionId : partitionId + 10;
-
-            return String.valueOf(offset);
-          }));
-
-    doCallRealMethod().when(testSideInputStorageManager).getStartingOffsets(fileOffsets, oldestOffsets);
-
-    Map<SystemStreamPartition, String> startingOffsets =
-        testSideInputStorageManager.getStartingOffsets(fileOffsets, oldestOffsets);
-
-    assertTrue("Failed to get starting offsets for all ssps", startingOffsets.size() == 5);
-  }
-
   private void initializeSideInputStorageManager(TaskSideInputStorageManager testSideInputStorageManager) {
-    doReturn(new HashMap<>()).when(testSideInputStorageManager).getStartingOffsets(any(), any());
     testSideInputStorageManager.init();
   }
 
@@ -263,39 +191,13 @@ public class TestTaskSideInputStorageManager {
     private final TaskName taskName;
     private final String storeBaseDir;
 
-    private Clock clock = mock(Clock.class);
-    private Map<String, SideInputsProcessor> storeToProcessor = new HashMap<>();
     private Map<String, StorageEngine> stores = new HashMap<>();
     private Map<String, Set<SystemStreamPartition>> storeToSSps = new HashMap<>();
-    private StreamMetadataCache streamMetadataCache = mock(StreamMetadataCache.class);
-    private SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    private Clock clock = mock(Clock.class);
 
     public MockTaskSideInputStorageManagerBuilder(String taskName, String storeBaseDir) {
       this.taskName = new TaskName(taskName);
       this.storeBaseDir = storeBaseDir;
-
-      initializeMocks();
-    }
-
-    private void initializeMocks() {
-      SystemAdmin admin = mock(SystemAdmin.class);
-      doAnswer(invocation -> {
-          String offset1 = invocation.getArgumentAt(0, String.class);
-          String offset2 = invocation.getArgumentAt(1, String.class);
-
-          return Long.compare(Long.parseLong(offset1), Long.parseLong(offset2));
-        }).when(admin).offsetComparator(any(), any());
-      doAnswer(invocation -> {
-          Map<SystemStreamPartition, String> sspToOffsets = invocation.getArgumentAt(0, Map.class);
-
-          return sspToOffsets.entrySet()
-              .stream()
-              .collect(Collectors.toMap(Map.Entry::getKey,
-                  entry -> String.valueOf(Long.parseLong(entry.getValue()) + 1)));
-        }).when(admin).getOffsetsAfter(any());
-      doReturn(admin).when(systemAdmins).getSystemAdmin("test-system");
-
-      doReturn(ScalaJavaUtil.toScalaMap(new HashMap<>())).when(streamMetadataCache).getStreamMetadata(any(), anyBoolean());
     }
 
     MockTaskSideInputStorageManagerBuilder addInMemoryStore(String storeName, Set<SystemStreamPartition> ssps) {
@@ -304,14 +206,8 @@ public class TestTaskSideInputStorageManager {
           new StoreProperties.StorePropertiesBuilder().setLoggedStore(false).setPersistedToDisk(false).build());
 
       stores.put(storeName, storageEngine);
-      storeToProcessor.put(storeName, mock(SideInputsProcessor.class));
       storeToSSps.put(storeName, ssps);
 
-      return this;
-    }
-
-    MockTaskSideInputStorageManagerBuilder addStreamMetadata(Map<SystemStream, SystemStreamMetadata> streamMetadata) {
-      doReturn(ScalaJavaUtil.toScalaMap(streamMetadata)).when(streamMetadataCache).getStreamMetadata(any(), anyBoolean());
       return this;
     }
 
@@ -321,15 +217,14 @@ public class TestTaskSideInputStorageManager {
           new StoreProperties.StorePropertiesBuilder().setLoggedStore(false).setPersistedToDisk(true).build());
 
       stores.put(storeName, storageEngine);
-      storeToProcessor.put(storeName, mock(SideInputsProcessor.class));
       storeToSSps.put(storeName, ssps);
 
       return this;
     }
 
     TaskSideInputStorageManager build() {
-      return spy(new TaskSideInputStorageManager(taskName, TaskMode.Active, streamMetadataCache, new File(storeBaseDir), stores,
-          storeToProcessor, storeToSSps, systemAdmins, mock(Config.class), clock));
+      return spy(new TaskSideInputStorageManager(taskName, TaskMode.Active, new File(storeBaseDir), stores, storeToSSps,
+          clock));
     }
   }
 }
