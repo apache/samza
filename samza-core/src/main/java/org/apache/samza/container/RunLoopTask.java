@@ -41,9 +41,9 @@ import org.apache.samza.task.TaskCallbackFactory;
  * take care to ensure that any objects shared between commit and process are thread safe.
  *
  * Be aware that {@link #commit}, {@link #window} and {@link #scheduler} can be run in their own thread pool outside
- * the main RunLoop thread so may run concurrently between tasks. For example, one task may be executing a commit while
- * another is executing window. For this reason, implementers of this class must ensure that objects shared between
- * instances of RunLoopTask are thread safe.
+ * the main RunLoop thread (which executes {@link #process}) so may run concurrently between tasks. For example, one
+ * task may be executing a commit while another is executing window. For this reason, implementers of this class must
+ * ensure that objects shared between instances of RunLoopTask are thread safe.
  */
 public interface RunLoopTask {
 
