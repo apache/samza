@@ -19,14 +19,12 @@
 
 package org.apache.samza.container;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.JavaConverters;
-import scala.runtime.AbstractFunction1;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -51,18 +49,6 @@ public class RunLoopFactory {
     long taskCommitMs = taskConfig.getCommitMs();
 
     log.info("Got commit milliseconds: {}.", taskCommitMs);
-
-    int asyncTaskCount = taskInstances.values().count(new AbstractFunction1<RunLoopTask, Object>() {
-      @Override
-      public Boolean apply(RunLoopTask t) {
-        return t.isAsyncTask();
-      }
-    });
-
-    // asyncTaskCount should be either 0 or the number of all taskInstances
-    if (asyncTaskCount > 0 && asyncTaskCount < taskInstances.size()) {
-      throw new SamzaException("Mixing StreamTask and AsyncStreamTask is not supported");
-    }
 
     int taskMaxConcurrency = taskConfig.getMaxConcurrency();
     log.info("Got taskMaxConcurrency: {}.", taskMaxConcurrency);

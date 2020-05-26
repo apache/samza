@@ -67,7 +67,6 @@ class TaskInstance(
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
 
-  override val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
   override val isWindowableTask = task.isInstanceOf[WindowableTask]
 
   override val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
@@ -166,7 +165,7 @@ class TaskInstance(
   }
 
   def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
-    callbackFactory: TaskCallbackFactory = null) {
+    callbackFactory: TaskCallbackFactory) {
     metrics.processes.inc
 
     val incomingMessageSsp = envelope.getSystemStreamPartition
@@ -182,22 +181,10 @@ class TaskInstance(
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
         format (taskName, incomingMessageSsp))
 
-      if (isAsyncTask) {
-        exceptionHandler.maybeHandle {
-          val callback = callbackFactory.createCallback()
-          task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
-        }
-      } else {
-        exceptionHandler.maybeHandle {
-          task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
-        }
-
-        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
-          format(taskName, incomingMessageSsp, envelope.getOffset))
-
-        offsetManager.update(taskName, incomingMessageSsp, envelope.getOffset)
+      exceptionHandler.maybeHandle {
+        val callback = callbackFactory.createCallback()
+        task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
       }
-
     }
   }
 
