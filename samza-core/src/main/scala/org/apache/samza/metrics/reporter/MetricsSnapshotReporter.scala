@@ -181,7 +181,7 @@ class MetricsSnapshotReporter(
     if (isBlacklisted && !blacklistedMetrics.contains(fullMetricName)) {
       if (fullMetricName.matches(blacklist.get)) {
         blacklistedMetrics += fullMetricName
-        info("Blacklisted metric %s because it matched blacklist regex: %s" format(fullMetricName, blacklist.get))
+        debug("Blacklisted metric %s because it matched blacklist regex: %s" format(fullMetricName, blacklist.get))
       } else {
         isBlacklisted = false
       }
