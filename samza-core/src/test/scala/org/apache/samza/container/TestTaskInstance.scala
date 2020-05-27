@@ -111,9 +111,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("0"))
     val envelope = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "0", null, null)
     val coordinator = mock[ReadableCoordinator]
-    this.taskInstance.process(envelope, coordinator)
+    val callbackFactory = mock[TaskCallbackFactory]
+    val callback = mock[TaskCallback]
+    when(callbackFactory.createCallback()).thenReturn(callback)
+    this.taskInstance.process(envelope, coordinator, callbackFactory)
     assertEquals(1, this.taskInstanceExceptionHandler.numTimesCalled)
-    verify(this.task).process(envelope, this.collector, coordinator)
+    verify(this.task).processAsync(envelope, this.collector, coordinator, callback)
     verify(processesCounter).inc()
     verify(messagesActuallyProcessedCounter).inc()
   }
@@ -153,16 +156,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(this.task).close()
   }
 
-  @Test
-  def testOffsetsAreUpdatedOnProcess() {
-    when(this.metrics.processes).thenReturn(mock[Counter])
-    when(this.metrics.messagesActuallyProcessed).thenReturn(mock[Counter])
-    when(this.offsetManager.getStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION)).thenReturn(Some("2"))
-    this.taskInstance.process(new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "4", null, null),
-      mock[ReadableCoordinator])
-    verify(this.offsetManager).update(TASK_NAME, SYSTEM_STREAM_PARTITION, "4")
-  }
-
   /**
    * Tests that the init() method of task can override the existing offset assignment.
    * This helps verify wiring for the task context (i.e. offset manager).
@@ -200,12 +193,17 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val newEnvelope0 = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "5", null, null)
     val newEnvelope1 = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "7", null, null)
 
-    this.taskInstance.process(oldEnvelope, mock[ReadableCoordinator])
-    this.taskInstance.process(newEnvelope0, mock[ReadableCoordinator])
-    this.taskInstance.process(newEnvelope1, mock[ReadableCoordinator])
-    verify(this.task).process(Matchers.eq(newEnvelope0), Matchers.eq(this.collector), any())
-    verify(this.task).process(Matchers.eq(newEnvelope1), Matchers.eq(this.collector), any())
-    verify(this.task, never()).process(Matchers.eq(oldEnvelope), any(), any())
+    val mockCoordinator = mock[ReadableCoordinator]
+    val mockCallback = mock[TaskCallback]
+    val mockCallbackFactory = mock[TaskCallbackFactory]
+    when(mockCallbackFactory.createCallback()).thenReturn(mockCallback)
+
+    this.taskInstance.process(oldEnvelope, mockCoordinator, mockCallbackFactory)
+    this.taskInstance.process(newEnvelope0, mockCoordinator, mockCallbackFactory)
+    this.taskInstance.process(newEnvelope1, mockCoordinator, mockCallbackFactory)
+    verify(this.task).processAsync(Matchers.eq(newEnvelope0), Matchers.eq(this.collector), Matchers.eq(mockCoordinator), Matchers.eq(mockCallback))
+    verify(this.task).processAsync(Matchers.eq(newEnvelope1), Matchers.eq(this.collector), Matchers.eq(mockCoordinator), Matchers.eq(mockCallback))
+    verify(this.task, never()).processAsync(Matchers.eq(oldEnvelope), any(), any(), any())
     verify(processesCounter, times(3)).inc()
     verify(messagesActuallyProcessedCounter, times(2)).inc()
   }
@@ -442,7 +440,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   /**
     * Task type which has all task traits, which can be mocked.
     */
-  trait AllTask extends StreamTask with InitableTask with ClosableTask with WindowableTask {}
+  trait AllTask extends AsyncStreamTask with InitableTask with ClosableTask with WindowableTask {}
 
   /**
     * Mock version of [TaskInstanceExceptionHandler] which just does a passthrough execution and keeps track of the
