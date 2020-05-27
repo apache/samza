@@ -85,6 +85,7 @@ public class AzureBlobOutputStream extends OutputStream {
 
   private volatile boolean isClosed = false;
   private long totalUploadedBlockSize = 0;
+  private long totalNumberOfRecordsInBlob = 0;
   private int blockNum;
   private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory;
   private final Config blobMetadataGeneratorConfig;
@@ -161,6 +162,7 @@ public class AzureBlobOutputStream extends OutputStream {
   /**
    * This api waits for all pending upload (stageBlock task) futures to finish.
    * It then synchronously commits the list of blocks to persist the actual blob on storage.
+   * Note: this method does not invoke flush and flush has to be explicitly called before close.
    * @throws IllegalStateException when
    *       - when closing an already closed stream
    * @throws RuntimeException when
@@ -194,7 +196,7 @@ public class AzureBlobOutputStream extends OutputStream {
       LOG.info("For blob: {} committing blockList size:{}", blobAsyncClient.getBlobUrl().toString(), blockList.size());
       metrics.updateAzureCommitMetrics();
       BlobMetadataGenerator blobMetadataGenerator = getBlobMetadataGenerator();
-      commitBlob(blockList, blobMetadataGenerator.getBlobMetadata(new BlobMetadataContext(streamName, totalUploadedBlockSize)));
+      commitBlob(blockList, blobMetadataGenerator.getBlobMetadata(new BlobMetadataContext(streamName, totalUploadedBlockSize, totalNumberOfRecordsInBlob)));
     } catch (Exception e) {
       String msg = String.format("Close blob %s failed with exception. Total pending sends %d",
           blobAsyncClient.getBlobUrl().toString(), pendingUpload.size());
@@ -228,6 +230,20 @@ public class AzureBlobOutputStream extends OutputStream {
       LOG.info("Internal buffer has been released for blob " + blobAsyncClient.getBlobUrl().toString()
           + ". Writes are no longer entertained.");
     }
+  }
+
+  /**
+   * This method is to be used for tracking the number of records written to the outputstream.
+   * However, since records are written in chunks through write(byte[],int,int) method,
+   * it is possible that all records are not completely written until flush is invoked.
+   *
+   * Additionally, the count of number of records is intended to be used only as part of
+   * blob's metadata at blob commit time which happens at close.
+   * Thus, the totalNumberOfRecordsInBlob is not fetched until close method.
+   * Since flush is called before close, this totalNumberOfRecordsInBlob is accurate.
+   */
+  public synchronized void incrementNumberOfRecordsInBlob() {
+    totalNumberOfRecordsInBlob++;
   }
 
   @VisibleForTesting

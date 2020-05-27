@@ -34,16 +34,16 @@ public class TestNullBlobMetadataGenerator {
 
   @Test
   public void testGetBlobMetadata() {
-    Assert.assertNull(nullBlobMetadataGenerator.getBlobMetadata(new BlobMetadataContext("fake_stream", 100)));
+    Assert.assertNull(nullBlobMetadataGenerator.getBlobMetadata(new BlobMetadataContext("fake_stream", 100, 10)));
   }
 
   @Test
   public void testGetBlobMetadataEmptyInput() {
-    Assert.assertNull(nullBlobMetadataGenerator.getBlobMetadata(new BlobMetadataContext("", 0)));
+    Assert.assertNull(nullBlobMetadataGenerator.getBlobMetadata(new BlobMetadataContext("", 0, 0)));
   }
 
   @Test
   public void testGetBlobMetadataNullInput() {
-    Assert.assertNull(nullBlobMetadataGenerator.getBlobMetadata(new BlobMetadataContext(null, 0)));
+    Assert.assertNull(nullBlobMetadataGenerator.getBlobMetadata(new BlobMetadataContext(null, 0, 0)));
   }
 }

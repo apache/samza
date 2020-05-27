@@ -25,10 +25,12 @@ package org.apache.samza.system.azureblob.utils;
 public class BlobMetadataContext {
   private final String streamName;
   private final long blobSize;
+  private final long numberOfMessagesInBlob;
 
-  public BlobMetadataContext(String streamName, long blobSize) {
+  public BlobMetadataContext(String streamName, long blobSize, long numberOfMessagesInBlob) {
     this.streamName = streamName;
     this.blobSize = blobSize;
+    this.numberOfMessagesInBlob = numberOfMessagesInBlob;
   }
 
   public String getStreamName() {
@@ -37,5 +39,9 @@ public class BlobMetadataContext {
 
   public long getBlobSize() {
     return blobSize;
+  }
+
+  public long getNumberOfMessagesInBlob() {
+    return numberOfMessagesInBlob;
   }
 }

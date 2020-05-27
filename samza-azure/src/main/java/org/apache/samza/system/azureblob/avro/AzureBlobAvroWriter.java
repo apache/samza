@@ -178,6 +178,9 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
       }
       currentBlobWriterComponents.dataFileWriter.appendEncoded(ByteBuffer.wrap(encodedRecord));
       recordsInCurrentBlob++;
+      // incrementNumberOfRecordsInBlob should always be invoked every time appendEncoded above is invoked.
+      // this is to count the number records in a blob and then use that count as a metadata of the blob.
+      currentBlobWriterComponents.azureBlobOutputStream.incrementNumberOfRecordsInBlob();
     }
   }
   /**

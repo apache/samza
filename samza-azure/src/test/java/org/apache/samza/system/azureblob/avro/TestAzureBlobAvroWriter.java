@@ -164,6 +164,7 @@ public class TestAzureBlobAvroWriter {
       azureBlobAvroWriter.write(ome);
     }
     verify(mockDataFileWriter, times(numberOfMessages)).appendEncoded(ByteBuffer.wrap(encodedRecord));
+    verify(mockAzureBlobOutputStream, times(numberOfMessages)).incrementNumberOfRecordsInBlob();
   }
 
   @Test
@@ -175,6 +176,7 @@ public class TestAzureBlobAvroWriter {
       azureBlobAvroWriter.write(omeGenericRecord);
     }
     verify(mockDataFileWriter, times(numberOfMessages)).appendEncoded(ByteBuffer.wrap(encodedRecord));
+    verify(mockAzureBlobOutputStream, times(numberOfMessages)).incrementNumberOfRecordsInBlob();
   }
 
   @Test
@@ -187,6 +189,7 @@ public class TestAzureBlobAvroWriter {
     }
     verify(mockDataFileWriter).appendEncoded(ByteBuffer.wrap(encodedRecord));
     verify(mockDataFileWriter, times(numberOfMessages)).appendEncoded(ByteBuffer.wrap((byte[]) omeEncoded.getMessage()));
+    verify(mockAzureBlobOutputStream, times(numberOfMessages + 1)).incrementNumberOfRecordsInBlob(); // +1 to account for first ome which is not encoded
   }
 
   @Test(expected = IllegalStateException.class)
@@ -422,6 +425,7 @@ public class TestAzureBlobAvroWriter {
 
     verify(mockDataFileWriter, times(10)).appendEncoded(ByteBuffer.wrap(encodedRecord));
     verify(mockDataFileWriter, times(10)).appendEncoded(ByteBuffer.wrap(encodeRecord((IndexedRecord) ome2.getMessage())));
+    verify(mockAzureBlobOutputStream, times(20)).incrementNumberOfRecordsInBlob();
   }
 
   @Test
@@ -435,6 +439,7 @@ public class TestAzureBlobAvroWriter {
     t2.join(60000);
 
     verify(mockDataFileWriter, times(10)).appendEncoded(ByteBuffer.wrap(encodedRecord));
+    verify(mockAzureBlobOutputStream, times(10)).incrementNumberOfRecordsInBlob();
     verify(mockDataFileWriter).flush();
   }
 
@@ -452,6 +457,7 @@ public class TestAzureBlobAvroWriter {
     verify(mockDataFileWriter, times(10)).appendEncoded(ByteBuffer.wrap(encodedRecord));
     verify(mockDataFileWriter, times(10)).appendEncoded(ByteBuffer.wrap(encodeRecord((IndexedRecord) ome2.getMessage())));
     verify(mockDataFileWriter, times(2)).flush();
+    verify(mockAzureBlobOutputStream, times(20)).incrementNumberOfRecordsInBlob();
   }
 
   @Test
@@ -470,6 +476,7 @@ public class TestAzureBlobAvroWriter {
     verify(mockDataFileWriter, times(10)).appendEncoded(ByteBuffer.wrap(encodeRecord((IndexedRecord) ome2.getMessage())));
     verify(mockDataFileWriter, times(2)).flush();
     verify(mockDataFileWriter).close();
+    verify(mockAzureBlobOutputStream, times(20)).incrementNumberOfRecordsInBlob();
   }
 
   private byte[] encodeRecord(IndexedRecord record) throws Exception {
