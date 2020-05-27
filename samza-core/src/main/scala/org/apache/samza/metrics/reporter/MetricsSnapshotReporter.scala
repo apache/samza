@@ -19,15 +19,19 @@
 
 package org.apache.samza.metrics.reporter
 
-import java.util.concurrent.{Executors, TimeUnit}
-import java.util.{HashMap, Map}
-
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import org.apache.samza.config.ShellCommandConfig
 import org.apache.samza.metrics._
 import org.apache.samza.serializers.Serializer
-import org.apache.samza.system.{OutgoingMessageEnvelope, SystemProducer, SystemStream}
+import org.apache.samza.system.OutgoingMessageEnvelope
+import org.apache.samza.system.SystemProducer
+import org.apache.samza.system.SystemStream
 import org.apache.samza.util.Logging
+import java.util.HashMap
+import java.util.Map
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
+import org.apache.samza.config.ShellCommandConfig
 
 import scala.collection.JavaConverters._
 
@@ -117,66 +121,60 @@ class MetricsSnapshotReporter(
   def innerRun(): Unit = {
     debug("Begin flushing metrics.")
     for ((source, registry) <- registries) {
-      publishMetricsForRegistry(source, registry)
+      debug("Flushing metrics for %s." format source)
+
+      val metricsMsg = new HashMap[String, Map[String, Object]]
+
+      // metrics
+      registry.getGroups.asScala.foreach(group => {
+        val groupMsg = new HashMap[String, Object]
+
+        registry.getGroup(group).asScala.foreach {
+          case (name, metric) =>
+            if (!shouldIgnore(group, name)) {
+              metric.visit(new MetricsVisitor {
+                def counter(counter: Counter) = groupMsg.put(name, counter.getCount: java.lang.Long)
+                def gauge[T](gauge: Gauge[T]) = groupMsg.put(name, gauge.getValue.asInstanceOf[Object])
+                def timer(timer: Timer) = groupMsg.put(name, timer.getSnapshot().getAverage(): java.lang.Double)
+              })
+            }
+        }
+
+        // dont emit empty groups
+        if (!groupMsg.isEmpty) {
+          metricsMsg.put(group, groupMsg)
+        }
+      })
+
+      // publish to Kafka only if the metricsMsg carries any metrics
+      if (!metricsMsg.isEmpty) {
+        val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
+        val metrics = new Metrics(metricsMsg)
+
+        debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format(source, out, header.getAsMap, metrics.getAsMap()))
+
+        val metricsSnapshot = new MetricsSnapshot(header, metrics)
+        val maybeSerialized = if (serializer != null) {
+          serializer.toBytes(metricsSnapshot)
+        } else {
+          metricsSnapshot
+        }
+
+        try {
+
+          producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
+
+          // Always flush, since we don't want metrics to get batched up.
+          producer.flush(source)
+        } catch {
+          case e: Exception => error("Exception when flushing metrics for source %s " format (source), e)
+        }
+      }
     }
     debug("Finished flushing metrics.")
   }
 
-  def publishMetricsForRegistry(source: String, registry: ReadableMetricsRegistry): Unit = {
-    debug("Flushing metrics for %s." format source)
-
-    val metricsMsg = new HashMap[String, Map[String, Object]]
-
-    // metrics
-    registry.getGroups.asScala.foreach(group => {
-      val groupMsg = new HashMap[String, Object]
-
-      registry.getGroup(group).asScala.foreach {
-        case (name, metric) =>
-          if (!shouldIgnore(group, name)) {
-            metric.visit(new MetricsVisitor {
-              def counter(counter: Counter): Unit = groupMsg.put(name, counter.getCount: java.lang.Long)
-
-              def gauge[T](gauge: Gauge[T]): Unit = groupMsg.put(name, gauge.getValue.asInstanceOf[Object])
-
-              def timer(timer: Timer): Unit = groupMsg.put(name, timer.getSnapshot.getAverage(): java.lang.Double)
-            })
-          }
-      }
-
-      // dont emit empty groups
-      if (!groupMsg.isEmpty) {
-        metricsMsg.put(group, groupMsg)
-      }
-    })
-
-    // publish to Kafka only if the metricsMsg carries any metrics
-    if (!metricsMsg.isEmpty) {
-      val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
-      val metrics = new Metrics(metricsMsg)
-
-      debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format(source, out, header.getAsMap, metrics.getAsMap()))
-
-      val metricsSnapshot = new MetricsSnapshot(header, metrics)
-      val maybeSerialized = if (serializer != null) {
-        serializer.toBytes(metricsSnapshot)
-      } else {
-        metricsSnapshot
-      }
-
-      try {
-
-        producer.send(source, new OutgoingMessageEnvelope(out, host, null, maybeSerialized))
-
-        // Always flush, since we don't want metrics to get batched up.
-        producer.flush(source)
-      } catch {
-        case e: Exception => error("Exception when flushing metrics for source %s " format (source), e)
-      }
-    }
-  }
-
-  def shouldIgnore(group: String, metricName: String): Boolean = {
+  def shouldIgnore(group: String, metricName: String) = {
     var isBlacklisted = blacklist.isDefined
     val fullMetricName = group + "." + metricName
 
