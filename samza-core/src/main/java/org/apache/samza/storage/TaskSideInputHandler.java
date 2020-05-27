@@ -98,19 +98,38 @@ public class TaskSideInputHandler {
     validateProcessorConfiguration();
   }
 
+  /**
+   * The {@link TaskName} associated with this {@link TaskSideInputHandler}
+   *
+   * @return the task name for this handler
+   */
   public TaskName getTaskName() {
     return this.taskName;
   }
 
+  /**
+   * Initializes the underlying {@link TaskSideInputStorageManager} and determines starting offsets for each SSP.
+   */
   public void init() {
     this.taskSideInputStorageManager.init();
 
-    Map<SystemStreamPartition, String> fileOffsets = taskSideInputStorageManager.getFileOffsets();
+    Map<SystemStreamPartition, String> fileOffsets = this.taskSideInputStorageManager.getFileOffsets();
+    LOG.info("File offsets for the task {}: {}", taskName, fileOffsets);
+
     this.lastProcessedOffsets.putAll(fileOffsets);
+    LOG.info("Last processed offsets for the task {}: {}", taskName, lastProcessedOffsets);
+
     this.startingOffsets = getStartingOffsets(fileOffsets, getOldestOffsets());
+    LOG.info("Starting offsets for the task {}: {}", taskName, startingOffsets);
   }
 
-  public void process(IncomingMessageEnvelope envelope) {
+  /**
+   * Processes the incoming side input message envelope and updates the last processed offset for its SSP.
+   * Synchronized inorder to be exclusive with flush().
+   *
+   * @param envelope incoming envelope to be processed
+   */
+  public synchronized void process(IncomingMessageEnvelope envelope) {
     SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
     String envelopeOffset = envelope.getOffset();
 
@@ -135,18 +154,41 @@ public class TaskSideInputHandler {
     this.lastProcessedOffsets.put(envelopeSSP, envelopeOffset);
   }
 
-  public void flush() {
+  /**
+   * Flushes the underlying {@link TaskSideInputStorageManager}
+   * Synchronized inorder to be exclusive with process()
+   */
+  public synchronized void flush() {
     this.taskSideInputStorageManager.flush(this.lastProcessedOffsets);
   }
 
+  /**
+   * Gets the starting offset for the given side input {@link SystemStreamPartition}.
+   *
+   * Note: The method doesn't respect {@link org.apache.samza.config.StreamConfig#CONSUMER_OFFSET_DEFAULT} and
+   * {@link org.apache.samza.config.StreamConfig#CONSUMER_RESET_OFFSET} configurations. It will use the local offset
+   * file if it is valid, else it will fall back to oldest offset in the stream.
+   *
+   * @param ssp side input system stream partition to get the starting offset for
+   * @return the starting offset
+   */
   public String getStartingOffset(SystemStreamPartition ssp) {
     return this.startingOffsets.get(ssp);
   }
 
+  /**
+   * Gets the last processed offset for the given side input {@link SystemStreamPartition}.
+   *
+   * @param ssp side input system stream partition to get the last processed offset for
+   * @return the last processed offset
+   */
   public String getLastProcessedOffset(SystemStreamPartition ssp) {
     return this.lastProcessedOffsets.get(ssp);
   }
 
+  /**
+   * Stops the underlying storage manager at the last processed offsets.
+   */
   public void stop() {
     this.taskSideInputStorageManager.stop(this.lastProcessedOffsets);
   }
@@ -197,7 +239,7 @@ public class TaskSideInputHandler {
 
     // Step 2
     Map<SystemStream, SystemStreamMetadata> metadata = JavaConverters.mapAsJavaMapConverter(
-        streamMetadataCache.getStreamMetadata(
+        this.streamMetadataCache.getStreamMetadata(
             JavaConverters.asScalaSetConverter(systemStreamToSsp.keySet()).asScala().toSet(), false)).asJava();
 
     // Step 3
@@ -218,13 +260,16 @@ public class TaskSideInputHandler {
     return oldestOffsets;
   }
 
+  /**
+   * Validates that each store has an associated {@link SideInputsProcessor}
+   */
   private void validateProcessorConfiguration() {
     Set<String> stores = this.sspToStores.values().stream()
         .flatMap(Collection::stream)
         .collect(Collectors.toSet());
 
     stores.forEach(storeName -> {
-        if (!storeToProcessor.containsKey(storeName)) {
+        if (!this.storeToProcessor.containsKey(storeName)) {
           throw new SamzaException(
               String.format("Side inputs processor missing for store: %s.", storeName));
         }
