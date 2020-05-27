@@ -162,6 +162,7 @@ public class AzureBlobOutputStream extends OutputStream {
   /**
    * This api waits for all pending upload (stageBlock task) futures to finish.
    * It then synchronously commits the list of blocks to persist the actual blob on storage.
+   * Note: this method does not invoke flush and flush has to be explicitly called before close.
    * @throws IllegalStateException when
    *       - when closing an already closed stream
    * @throws RuntimeException when
@@ -231,6 +232,16 @@ public class AzureBlobOutputStream extends OutputStream {
     }
   }
 
+  /**
+   * This method is to be used for tracking the number of records written to the outputstream.
+   * However, since records are written in chunks through write(byte[],int,int) method,
+   * it is possible that all records are not completely written until flush is invoked.
+   *
+   * Additionally, the count of number of records is intended to be used only as part of
+   * blob's metadata at blob commit time which happens at close.
+   * Thus, the totalNumberOfRecordsInBlob is not fetched until close method.
+   * Since flush is called before close, this totalNumberOfRecordsInBlob is accurate.
+   */
   public synchronized void incrementNumberOfRecordsInBlob() {
     totalNumberOfRecordsInBlob++;
   }
