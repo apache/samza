@@ -351,7 +351,7 @@ public class JobConfig extends MapConfig {
    * @param configParam the config param to determine
    * @return true if the config is related to autosizing, false otherwise
    */
-  public boolean isAutosizingConfig(String configParam) {
+  public static boolean isAutosizingConfig(String configParam) {
     return configParam.startsWith(JOB_AUTOSIZING_CONFIG_PREFIX);
   }
 

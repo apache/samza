@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.MockStreamApplication;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory;
@@ -57,8 +58,10 @@ public class TestJobCoordinatorLaunchUtil {
     config.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getName());
     config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path",
         getClass().getResource("/test.properties").getPath());
-    JobConfig originalConfig = new JobConfig(ConfigUtil.loadConfig(new MapConfig(config)));
-    JobConfig fullJobConfig = new JobConfig(new MapConfig(originalConfig, Collections.singletonMap("isAfterPlanning", "true")));
+    Config originalConfig = new JobConfig(ConfigUtil.loadConfig(new MapConfig(config)));
+    Config fullConfig = new MapConfig(originalConfig, Collections.singletonMap("isAfterPlanning", "true"));
+    Config autoSizingConfig = new MapConfig(Collections.singletonMap(JobConfig.JOB_AUTOSIZING_CONTAINER_COUNT, "10"));
+    Config finalConfig = new MapConfig(autoSizingConfig, fullConfig);
 
     RemoteJobPlanner mockJobPlanner = mock(RemoteJobPlanner.class);
     CoordinatorStreamStore mockCoordinatorStreamStore = mock(CoordinatorStreamStore.class);
@@ -66,14 +69,15 @@ public class TestJobCoordinatorLaunchUtil {
 
     PowerMockito.mockStatic(CoordinatorStreamUtil.class);
     PowerMockito.doReturn(new MapConfig()).when(CoordinatorStreamUtil.class, "buildCoordinatorStreamConfig", any());
+    PowerMockito.doReturn(autoSizingConfig).when(CoordinatorStreamUtil.class, "readLaunchConfigFromCoordinatorStream", any(), any());
     PowerMockito.whenNew(CoordinatorStreamStore.class).withAnyArguments().thenReturn(mockCoordinatorStreamStore);
     PowerMockito.whenNew(RemoteJobPlanner.class).withAnyArguments().thenReturn(mockJobPlanner);
     PowerMockito.whenNew(ClusterBasedJobCoordinator.class).withAnyArguments().thenReturn(mockJC);
-    when(mockJobPlanner.prepareJobs()).thenReturn(Collections.singletonList(fullJobConfig));
+    when(mockJobPlanner.prepareJobs()).thenReturn(Collections.singletonList(new JobConfig(fullConfig)));
 
     JobCoordinatorLaunchUtil.run(new MockStreamApplication(), originalConfig);
 
-    verifyNew(ClusterBasedJobCoordinator.class).withArguments(any(MetricsRegistryMap.class), eq(mockCoordinatorStreamStore), eq(fullJobConfig));
+    verifyNew(ClusterBasedJobCoordinator.class).withArguments(any(MetricsRegistryMap.class), eq(mockCoordinatorStreamStore), eq(finalConfig));
     verify(mockJC, times(1)).run();
   }
 }

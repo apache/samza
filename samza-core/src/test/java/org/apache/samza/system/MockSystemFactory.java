@@ -154,14 +154,14 @@ public class MockSystemFactory implements SystemFactory {
 
       @Override
       public Integer offsetComparator(String offset1, String offset2) {
-        return null;
+        return offset1.compareTo(offset2);
       }
 
       @Override
       public Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL) {
         return getSystemStreamMetadata(streamNames);
       }
-      
+
       @Override
       public boolean createStream(StreamSpec streamSpec) {
         return true;

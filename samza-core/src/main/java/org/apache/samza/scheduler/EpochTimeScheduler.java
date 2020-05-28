@@ -19,14 +19,15 @@
 
 package org.apache.samza.scheduler;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
-import static com.google.common.base.Preconditions.checkState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Per-task scheduler for keyed timers.
@@ -36,7 +37,7 @@ import static com.google.common.base.Preconditions.checkState;
  * 3) triggers listener whenever a timer fires.
  */
 public class EpochTimeScheduler {
-
+  private static final Logger LOG = LoggerFactory.getLogger(EpochTimeScheduler.class);
   /**
    * For run loop to listen to timer firing so it can schedule the callbacks.
    */
@@ -57,9 +58,33 @@ public class EpochTimeScheduler {
     this.executor = executor;
   }
 
+  @VisibleForTesting
+  Map<Object, ScheduledFuture> getScheduledFutures() {
+    return scheduledFutures;
+  }
+
   public <K> void setTimer(K key, long timestamp, ScheduledCallback<K> callback) {
-    checkState(!scheduledFutures.containsKey(key),
-        String.format("Duplicate key %s registration for the same timer", key));
+    if (scheduledFutures.containsKey(key)) {
+      LOG.warn("Registering duplicate callback for key: {}. Attempting to cancel the previous callback", key);
+      ScheduledFuture<?> scheduledFuture = scheduledFutures.get(key);
+
+      /*
+       * We can have a race between the time we check for the presence of the key and the time we attempt to cancel;
+       * Hence we check for non-null criteria to ensure the executor hasn't kicked off the callback for the key which
+       * removes the future from the map before invoking onTimer.
+       *  1. In the event that callback is running then we will not attempt to interrupt the action and
+       *     cancel will return as unsuccessful.
+       *  2. In case of the callback successfully executed, we want to allow duplicate registration to keep the
+       *     behavior consistent with the scenario where the callback is already executed or in progress even before
+       *     we entered this condition.
+       */
+      if (scheduledFuture != null
+          && !scheduledFuture.cancel(false)
+          && !scheduledFuture.isDone()) {
+        LOG.warn("Failed to cancel the previous callback successfully. Ignoring the current request to register new callback");
+        return;
+      }
+    }
 
     final long delay = timestamp - System.currentTimeMillis();
     final ScheduledFuture<?> scheduledFuture = executor.schedule(() -> {

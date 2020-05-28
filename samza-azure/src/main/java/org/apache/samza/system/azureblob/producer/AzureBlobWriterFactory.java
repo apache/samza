@@ -23,6 +23,8 @@ import org.apache.samza.system.azureblob.compression.Compression;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import java.io.IOException;
 import java.util.concurrent.Executor;
+import org.apache.samza.config.Config;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 
 
 public interface AzureBlobWriterFactory {
@@ -32,6 +34,8 @@ public interface AzureBlobWriterFactory {
    * @param blobURL Azure blob url
    * @param blobUploadThreadPool thread pool to be used by writer for uploading
    * @param metrics metrics to measure the number of bytes written by writer
+   * @param blobMetadataGeneratorFactory factory to get generator for metadata properties for a blob
+   * @param streamName name of the stream that this AzureBlobWriter is associated with
    * @param maxBlockFlushThresholdSize threshold at which to upload
    * @param flushTimeoutMs timeout after which the flush is abandoned
    * @return AzureBlobWriter instance
@@ -39,6 +43,7 @@ public interface AzureBlobWriterFactory {
    */
   AzureBlobWriter getWriterInstance(BlobContainerAsyncClient containerAsyncClient, String blobURL,
       Executor blobUploadThreadPool, AzureBlobWriterMetrics metrics,
+      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
       long maxBlobSize, long maxMessagesPerBlob) throws IOException;
 }

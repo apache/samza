@@ -172,7 +172,15 @@ public class KafkaConsumerProxy<K, V> {
 
   private void initializeLags() {
     // This is expensive, so only do it once at the beginning. After the first poll, we can rely on metrics for lag.
-    Map<TopicPartition, Long> endOffsets = kafkaConsumer.endOffsets(topicPartitionToSSP.keySet());
+
+    Map<TopicPartition, Long> endOffsets;
+    // Synchronize, in case the consumer is used in some other thread (metadata or something else)
+    synchronized (kafkaConsumer) {
+      endOffsets = kafkaConsumer.endOffsets(topicPartitionToSSP.keySet());
+    }
+    if (endOffsets == null) {
+      throw new SamzaException("Failed to fetch kafka consumer endoffsets for system " + systemName);
+    }
     endOffsets.forEach((tp, offset) -> {
       SystemStreamPartition ssp = topicPartitionToSSP.get(tp);
       long startingOffset = nextOffsets.get(ssp);

@@ -30,7 +30,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -38,6 +37,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.Config;
+import org.apache.samza.system.azureblob.utils.BlobMetadataContext;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGenerator;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -68,7 +71,6 @@ public class AzureBlobOutputStream extends OutputStream {
   private static final Logger LOG = LoggerFactory.getLogger(AzureBlobOutputStream.class);
   private static final int MAX_ATTEMPT = 3;
   private static final int MAX_BLOCKS_IN_AZURE_BLOB = 50000;
-  public static final String BLOB_RAW_SIZE_BYTES_METADATA = "rawSizeBytes";
   private final long flushTimeoutMs;
   private final BlockBlobAsyncClient blobAsyncClient;
   private final Executor blobThreadPool;
@@ -83,11 +85,29 @@ public class AzureBlobOutputStream extends OutputStream {
 
   private volatile boolean isClosed = false;
   private long totalUploadedBlockSize = 0;
+  private long totalNumberOfRecordsInBlob = 0;
   private int blockNum;
+  private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory;
+  private final Config blobMetadataGeneratorConfig;
+  private String streamName;
 
+  /**
+   *
+   * @param blobAsyncClient Client to communicate with Azure Blob Storage.
+   * @param blobThreadPool threads to be used for uploading blocks to Azure Blob Storage.
+   * @param metrics needed for emitting metrics about bytes written, blocks uploaded, blobs committed.
+   * @param blobMetadataGeneratorFactory impl of {@link org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory}
+   *                                   to be used for generating metadata properties for a blob
+   * @param streamName name of the stream to which the blob generated corresponds to. Used in metadata properties.
+   * @param flushTimeoutMs timeout for uploading a block
+   * @param maxBlockFlushThresholdSize max block size
+   * @param compression type of compression to be used before uploading a block
+   */
   public AzureBlobOutputStream(BlockBlobAsyncClient blobAsyncClient, Executor blobThreadPool, AzureBlobWriterMetrics metrics,
+      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       long flushTimeoutMs, int maxBlockFlushThresholdSize, Compression compression) {
-    this(blobAsyncClient, blobThreadPool, metrics, flushTimeoutMs, maxBlockFlushThresholdSize,
+    this(blobAsyncClient, blobThreadPool, metrics, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName,
+        flushTimeoutMs, maxBlockFlushThresholdSize,
         new ByteArrayOutputStream(maxBlockFlushThresholdSize), compression);
   }
 
@@ -142,12 +162,15 @@ public class AzureBlobOutputStream extends OutputStream {
   /**
    * This api waits for all pending upload (stageBlock task) futures to finish.
    * It then synchronously commits the list of blocks to persist the actual blob on storage.
+   * Note: this method does not invoke flush and flush has to be explicitly called before close.
    * @throws IllegalStateException when
    *       - when closing an already closed stream
    * @throws RuntimeException when
    *       - byteArrayOutputStream.close fails or
    *       - any of the pending uploads fails or
    *       - blob's commitBlockList fails
+   * throws ClassNotFoundException or IllegalAccessException or InstantiationException
+   *       - while creating an instance of BlobMetadataGenerator
    */
   @Override
   public synchronized void close() {
@@ -172,8 +195,8 @@ public class AzureBlobOutputStream extends OutputStream {
       future.get((long) flushTimeoutMs, TimeUnit.MILLISECONDS);
       LOG.info("For blob: {} committing blockList size:{}", blobAsyncClient.getBlobUrl().toString(), blockList.size());
       metrics.updateAzureCommitMetrics();
-      Map<String, String> blobMetadata = Collections.singletonMap(BLOB_RAW_SIZE_BYTES_METADATA, Long.toString(totalUploadedBlockSize));
-      commitBlob(blockList, blobMetadata);
+      BlobMetadataGenerator blobMetadataGenerator = getBlobMetadataGenerator();
+      commitBlob(blockList, blobMetadataGenerator.getBlobMetadata(new BlobMetadataContext(streamName, totalUploadedBlockSize, totalNumberOfRecordsInBlob)));
     } catch (Exception e) {
       String msg = String.format("Close blob %s failed with exception. Total pending sends %d",
           blobAsyncClient.getBlobUrl().toString(), pendingUpload.size());
@@ -209,8 +232,23 @@ public class AzureBlobOutputStream extends OutputStream {
     }
   }
 
+  /**
+   * This method is to be used for tracking the number of records written to the outputstream.
+   * However, since records are written in chunks through write(byte[],int,int) method,
+   * it is possible that all records are not completely written until flush is invoked.
+   *
+   * Additionally, the count of number of records is intended to be used only as part of
+   * blob's metadata at blob commit time which happens at close.
+   * Thus, the totalNumberOfRecordsInBlob is not fetched until close method.
+   * Since flush is called before close, this totalNumberOfRecordsInBlob is accurate.
+   */
+  public synchronized void incrementNumberOfRecordsInBlob() {
+    totalNumberOfRecordsInBlob++;
+  }
+
   @VisibleForTesting
   AzureBlobOutputStream(BlockBlobAsyncClient blobAsyncClient, Executor blobThreadPool, AzureBlobWriterMetrics metrics,
+      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       long flushTimeoutMs, int maxBlockFlushThresholdSize,
       ByteArrayOutputStream byteArrayOutputStream, Compression compression) {
     this.byteArrayOutputStream = Optional.of(byteArrayOutputStream);
@@ -222,6 +260,9 @@ public class AzureBlobOutputStream extends OutputStream {
     this.maxBlockFlushThresholdSize = maxBlockFlushThresholdSize;
     this.metrics = metrics;
     this.compression = compression;
+    this.blobMetadataGeneratorFactory = blobMetadataGeneratorFactory;
+    this.blobMetadataGeneratorConfig = blobMetadataGeneratorConfig;
+    this.streamName = streamName;
   }
 
   // SAMZA-2476 stubbing BlockBlobAsyncClient.commitBlockListWithResponse was causing flaky tests.
@@ -243,6 +284,11 @@ public class AzureBlobOutputStream extends OutputStream {
     pendingUpload.stream().forEach(future -> future.cancel(true));
     pendingUpload.clear();
     isClosed = true;
+  }
+
+  @VisibleForTesting
+  BlobMetadataGenerator getBlobMetadataGenerator() throws Exception {
+    return blobMetadataGeneratorFactory.getBlobMetadataGeneratorInstance(blobMetadataGeneratorConfig);
   }
 
   /**
