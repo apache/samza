@@ -248,7 +248,6 @@ public class TestRunLoop {
     CountDownLatch task0ProcessedMessages = new CountDownLatch(1);
     CountDownLatch task1ProcessedMessages = new CountDownLatch(1);
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = createTestTask(true, true, false, task0ProcessedMessages, 0, taskName0, ssp0, offsetManager);
@@ -281,7 +280,6 @@ public class TestRunLoop {
     CountDownLatch task0ProcessedMessages = new CountDownLatch(2);
     CountDownLatch task1ProcessedMessages = new CountDownLatch(1);
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = createTestTask(true, true, false, task0ProcessedMessages, 0, taskName0, ssp0, offsetManager);
@@ -341,7 +339,6 @@ public class TestRunLoop {
     CountDownLatch task1ProcessedMessagesLatch = new CountDownLatch(1);
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = createTestTask(true, true, false, task0ProcessedMessagesLatch, maxMessagesInFlight, taskName0, ssp0, offsetManager);
@@ -371,7 +368,6 @@ public class TestRunLoop {
   @Test
   public void testWindow() throws Exception {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = createTestTask(true, true, false, null, 0, taskName0, ssp0, offsetManager);
@@ -398,7 +394,6 @@ public class TestRunLoop {
     CountDownLatch task1ProcessedMessagesLatch = new CountDownLatch(1);
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = spy(createTestTask(true, true, false, task0ProcessedMessagesLatch, 0, taskName0, ssp0, offsetManager));
@@ -414,17 +409,14 @@ public class TestRunLoop {
                                             callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     //have a null message in between to make sure task0 finishes processing and invoke the commit
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0)
-        .thenAnswer(x -> {
-//            task0ProcessedMessagesLatch.await();
-            return null;
-          }).thenReturn(envelope1).thenReturn(null);
+        .thenReturn(null).thenReturn(envelope1).thenReturn(null);
 
     runLoop.run();
 
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(task0, times(1)).commit();
+    verify(task0).commit();
     verify(task1, never()).commit();
   }
 
@@ -434,7 +426,6 @@ public class TestRunLoop {
     CountDownLatch task1ProcessedMessagesLatch = new CountDownLatch(1);
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = spy(createTestTask(true, true, false, task0ProcessedMessagesLatch, 0, taskName0, ssp0, offsetManager));
@@ -449,17 +440,14 @@ public class TestRunLoop {
                                             callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     //have a null message in between to make sure task0 finishes processing and invoke the commit
     when(consumerMultiplexer.choose(false)).thenReturn(envelope0)
-        .thenAnswer(x -> {
-            task0ProcessedMessagesLatch.await();
-            return null;
-          }).thenReturn(envelope1).thenReturn(null);
+        .thenReturn(null).thenReturn(envelope1).thenReturn(null);
     runLoop.run();
 
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(task0, times(1)).commit();
-    verify(task1, times(1)).commit();
+    verify(task0).commit();
+    verify(task1).commit();
   }
 
   @Test
@@ -468,7 +456,6 @@ public class TestRunLoop {
     CountDownLatch task1ProcessedMessagesLatch = new CountDownLatch(1);
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = createTestTask(true, true, true, task0ProcessedMessagesLatch, 0, taskName0, ssp0, offsetManager);
@@ -506,7 +493,6 @@ public class TestRunLoop {
     CountDownLatch task1ProcessedMessagesLatch = new CountDownLatch(1);
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = spy(createTestTask(true, true, false, task0ProcessedMessagesLatch, 0, taskName0, ssp0, offsetManager));
@@ -533,8 +519,8 @@ public class TestRunLoop {
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(task0, times(1)).endOfStream(any());
-    verify(task1, times(1)).endOfStream(any());
+    verify(task0).endOfStream(any());
+    verify(task1).endOfStream(any());
 
     assertEquals(1, task0.processed);
     assertEquals(1, task0.completed.get());
@@ -552,7 +538,6 @@ public class TestRunLoop {
     CountDownLatch task1ProcessedMessagesLatch = new CountDownLatch(1);
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = spy(createTestTask(true, true, false, task0ProcessedMessagesLatch, maxMessagesInFlight, taskName0, ssp0, offsetManager));
@@ -573,8 +558,8 @@ public class TestRunLoop {
     task0ProcessedMessagesLatch.await();
     task1ProcessedMessagesLatch.await();
 
-    verify(task0, times(1)).endOfStream(any());
-    verify(task1, times(1)).endOfStream(any());
+    verify(task0).endOfStream(any());
+    verify(task1).endOfStream(any());
 
     assertEquals(2, task0.processed);
     assertEquals(2, task0.completed.get());
@@ -590,7 +575,6 @@ public class TestRunLoop {
     CountDownLatch task1ProcessedMessagesLatch = new CountDownLatch(1);
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     //explicitly configure to disable commits inside process or window calls and invoke commit from end of stream
@@ -613,10 +597,10 @@ public class TestRunLoop {
 
     InOrder inOrder = inOrder(task0, task1);
 
-    inOrder.verify(task0, times(1)).endOfStream(any());
-    inOrder.verify(task0, times(1)).commit();
-    inOrder.verify(task1, times(1)).endOfStream(any());
-    inOrder.verify(task1, times(1)).commit();
+    inOrder.verify(task0).endOfStream(any());
+    inOrder.verify(task0).commit();
+    inOrder.verify(task1).endOfStream(any());
+    inOrder.verify(task1).commit();
   }
 
   @Test
@@ -678,7 +662,6 @@ public class TestRunLoop {
   //@Test
   public void testCommitBehaviourWhenAsyncCommitIsEnabled() throws InterruptedException {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     int maxMessagesInFlight = 3;
@@ -737,7 +720,6 @@ public class TestRunLoop {
     int maxMessagesInFlight = 2;
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = createTestTask(true, true, false, null, maxMessagesInFlight, taskName0, ssp0, offsetManager);
@@ -779,7 +761,6 @@ public class TestRunLoop {
   @Test(expected = SamzaException.class)
   public void testExceptionIsPropagated() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.pollIntervalMs()).thenReturn(10);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
     TestTask task0 = createTestTask(false, false, false, null, 0, taskName0, ssp0, offsetManager);
