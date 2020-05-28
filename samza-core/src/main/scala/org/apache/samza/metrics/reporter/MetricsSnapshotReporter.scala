@@ -48,7 +48,7 @@ import scala.collection.JavaConverters._
 class MetricsSnapshotReporter(
   producer: SystemProducer,
   out: SystemStream,
-  pollingInterval: Int,
+  reportingInterval: Int,
   jobName: String,
   jobId: String,
   containerName: String,
@@ -67,8 +67,8 @@ class MetricsSnapshotReporter(
   var registries = List[(String, ReadableMetricsRegistry)]()
   var blacklistedMetrics = Set[String]()
 
-  info("got metrics snapshot reporter properties [job name: %s, job id: %s, containerName: %s, version: %s, samzaVersion: %s, host: %s, pollingInterval %s]"
-    format(jobName, jobId, containerName, version, samzaVersion, host, pollingInterval))
+  info("got metrics snapshot reporter properties [job name: %s, job id: %s, containerName: %s, version: %s, samzaVersion: %s, host: %s, reportingInterval %s]"
+    format(jobName, jobId, containerName, version, samzaVersion, host, reportingInterval))
 
   def start {
     info("Starting producer.")
@@ -77,7 +77,7 @@ class MetricsSnapshotReporter(
 
     info("Starting reporter timer.")
 
-    executor.scheduleWithFixedDelay(this, 0, pollingInterval, TimeUnit.SECONDS)
+    executor.scheduleWithFixedDelay(this, 0, reportingInterval, TimeUnit.SECONDS)
   }
 
   def register(source: String, registry: ReadableMetricsRegistry) {
@@ -113,7 +113,7 @@ class MetricsSnapshotReporter(
       case e: Exception =>
         // Ignore all exceptions - because subsequent executions of this scheduled task will be suppressed
         // by the executor if the current task throws an unhandled exception.
-        warn("Error while reporting metrics. Will retry in " + pollingInterval + " seconds.", e)
+        warn("Error while reporting metrics. Will retry in " + reportingInterval + " seconds.", e)
     }
 
   }

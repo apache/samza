@@ -83,11 +83,11 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     blacklist
   }
 
-  def getPollingInterval(reporterName: String, config: Config): Int = {
+  def getReportingInterval(reporterName: String, config: Config): Int = {
     val metricsConfig = new MetricsConfig(config)
-    val pollingInterval = metricsConfig.getMetricsSnapshotReporterInterval(reporterName)
-    info("Got polling interval: %d" format pollingInterval)
-    pollingInterval
+    val reportingInterval = metricsConfig.getMetricsSnapshotReporterInterval(reporterName)
+    info("Got reporting interval: %d" format reportingInterval)
+    reportingInterval
   }
 
   def getJobId(config: Config): String = {
@@ -108,7 +108,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
 
     val systemStream = getSystemStream(reporterName, config)
     val producer = getProducer(reporterName, config, registry)
-    val pollingInterval = getPollingInterval(reporterName, config);
+    val reportingInterval = getReportingInterval(reporterName, config);
     val jobName = getJobName(config)
     val jobId = getJobId(config)
     val serde = getSerde(reporterName, config)
@@ -117,7 +117,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     val reporter = new MetricsSnapshotReporter(
       producer,
       systemStream,
-      pollingInterval,
+      reportingInterval,
       jobName,
       jobId,
       containerName,
