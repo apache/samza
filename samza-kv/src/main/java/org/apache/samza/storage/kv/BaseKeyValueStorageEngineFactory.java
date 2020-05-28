@@ -46,6 +46,10 @@ import org.apache.samza.util.ScalaJavaUtil;
 public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageEngineFactory<K, V> {
   private static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
       "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
+  private static final String WRITE_BATCH_SIZE = "write.batch.size";
+  private static final int DEFAULT_WRITE_BATCH_SIZE = 500;
+  private static final String OBJECT_CACHE_SIZE = "object.cache.size";
+  private static final int DEFAULT_OBJECT_CACHE_SIZE = 1000;
 
   /**
    * Implement this to return a KeyValueStore instance for the given store name, which will be used as the underlying
@@ -94,22 +98,26 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     Optional<String> storeFactory = storageConfig.getStorageFactoryClassName(storeName);
     StoreProperties.StorePropertiesBuilder storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder();
     if (!storeFactory.isPresent() || StringUtils.isBlank(storeFactory.get())) {
-      throw new SamzaException("Store factory not defined. Cannot proceed with KV store creation!");
+      throw new SamzaException(
+          String.format("Store factory not defined for store %s. Cannot proceed with KV store creation!", storeName));
     }
     if (!storeFactory.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY)) {
       storePropertiesBuilder.setPersistedToDisk(true);
     }
-    int batchSize = storageConfigSubset.getInt("write.batch.size", 500);
-    int cacheSize = storageConfigSubset.getInt("object.cache.size", Math.max(batchSize, 1000));
+    int batchSize = storageConfigSubset.getInt(WRITE_BATCH_SIZE, DEFAULT_WRITE_BATCH_SIZE);
+    int cacheSize = storageConfigSubset.getInt(OBJECT_CACHE_SIZE, Math.max(batchSize, DEFAULT_OBJECT_CACHE_SIZE));
     if (cacheSize > 0 && cacheSize < batchSize) {
       throw new SamzaException(
-          "A store's cache.size cannot be less than batch.size as batched values reside in cache.");
+          String.format("cache.size for store %s cannot be less than batch.size as batched values reside in cache.",
+              storeName));
     }
     if (keySerde == null) {
-      throw new SamzaException("Must define a key serde when using key value storage.");
+      throw new SamzaException(
+          String.format("Must define a key serde when using key value storage for store %s.", storeName));
     }
     if (msgSerde == null) {
-      throw new SamzaException("Must define a message serde when using key value storage.");
+      throw new SamzaException(
+          String.format("Must define a message serde when using key value storage for store %s.", storeName));
     }
 
     KeyValueStore<byte[], byte[]> rawStore =
@@ -117,7 +125,7 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     KeyValueStore<byte[], byte[]> maybeLoggedStore = buildMaybeLoggedStore(changelogSSP,
         storeName, registry, storePropertiesBuilder, rawStore, changelogCollector);
     // this also applies serialization and caching layers
-    KeyValueStore<K, V> toBeAccessLoggedStore = applyLargeMessageHandling(storeName, registry,
+    KeyValueStore<K, V> toBeAccessLoggedStore = buildStoreWithLargeMessageHandling(storeName, registry,
         maybeLoggedStore, storageConfig, cacheSize, batchSize, keySerde, msgSerde);
     KeyValueStore<K, V> maybeAccessLoggedStore =
         buildMaybeAccessLoggedStore(storeName, toBeAccessLoggedStore, changelogCollector, changelogSSP, storageConfig,
@@ -131,6 +139,10 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
         ScalaJavaUtil.toScalaFunction(clock::nanoTime));
   }
 
+  /**
+   * Wraps {@code storeToWrap} into a {@link LoggedStore} if {@code changelogSSP} is defined.
+   * Otherwise, returns the original {@code storeToWrap}.
+   */
   private static KeyValueStore<byte[], byte[]> buildMaybeLoggedStore(SystemStreamPartition changelogSSP,
       String storeName,
       MetricsRegistry registry,
@@ -146,7 +158,14 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     }
   }
 
-  private static <T, U> KeyValueStore<T, U> applyLargeMessageHandling(String storeName,
+  /**
+   * Wraps {@code storeToWrap} with the proper layers to handle large messages.
+   * If "disallow.large.messages" is enabled, then the message will be serialized and the size will be checked before
+   * storing in the serialized message in the cache.
+   * If "disallow.large.messages" is disabled, then the deserialized message will be stored in the cache. If
+   * "drop.large.messages" is enabled, then large messages will not be sent to the logged store.
+   */
+  private static <T, U> KeyValueStore<T, U> buildStoreWithLargeMessageHandling(String storeName,
       MetricsRegistry registry,
       KeyValueStore<byte[], byte[]> storeToWrap,
       StorageConfig storageConfig,
@@ -157,11 +176,13 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     int maxMessageSize = storageConfig.getChangelogMaxMsgSizeBytes(storeName);
     if (storageConfig.getDisallowLargeMessages(storeName)) {
       /*
-       * If large messages are disallowed in config, then this creates a LargeMessageSafeKeyValueStore that throws a
-       * RecordTooLargeException when a large message is encountered.
+       * The store wrapping ordering is done this way so that a large message cannot end up in the cache. However, it
+       * also means that serialized data is in the cache, so performance will be worse since the data needs to be
+       * deserialized even when cached.
        */
       KeyValueStore<byte[], byte[]> maybeCachedStore =
           buildMaybeCachedStore(storeName, registry, storeToWrap, cacheSize, batchSize);
+      // this will throw a RecordTooLargeException when a large message is encountered
       LargeMessageSafeStore largeMessageSafeKeyValueStore =
           new LargeMessageSafeStore(maybeCachedStore, storeName, false, maxMessageSize);
       return buildSerializedStore(storeName, registry, largeMessageSafeKeyValueStore, keySerde, msgSerde);
@@ -174,10 +195,18 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
       }
       KeyValueStore<T, U> serializedStore =
           buildSerializedStore(storeName, registry, toBeSerializedStore, keySerde, msgSerde);
+      /*
+       * Allows deserialized entries to be stored in the cache, but it means that a large message may end up in the
+       * cache even though it was not persisted to the logged store.
+       */
       return buildMaybeCachedStore(storeName, registry, serializedStore, cacheSize, batchSize);
     }
   }
 
+  /**
+   * Wraps {@code storeToWrap} with a {@link CachedStore} if caching is enabled.
+   * Otherwise, returns the {@code storeToWrap}.
+   */
   private static <T, U> KeyValueStore<T, U> buildMaybeCachedStore(String storeName, MetricsRegistry registry,
       KeyValueStore<T, U> storeToWrap, int cacheSize, int batchSize) {
     if (cacheSize > 0) {
@@ -188,6 +217,9 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     }
   }
 
+  /**
+   * Wraps {@code storeToWrap} with a {@link SerializedKeyValueStore}.
+   */
   private static <T, U> KeyValueStore<T, U> buildSerializedStore(String storeName,
       MetricsRegistry registry,
       KeyValueStore<byte[], byte[]> storeToWrap,
@@ -197,6 +229,10 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     return new SerializedKeyValueStore<>(storeToWrap, keySerde, msgSerde, serializedMetrics);
   }
 
+  /**
+   * Wraps {@code storeToWrap} with an {@link AccessLoggedStore} if enabled.
+   * Otherwise, returns the {@code storeToWrap}.
+   */
   private static <T, U> KeyValueStore<T, U> buildMaybeAccessLoggedStore(String storeName,
       KeyValueStore<T, U> storeToWrap,
       MessageCollector changelogCollector,
@@ -210,6 +246,11 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     }
   }
 
+  /**
+   * If "metrics.timer.enabled" is enabled, then returns a {@link HighResolutionClock} that uses
+   * {@link System#nanoTime}.
+   * Otherwise, returns a clock which always returns 0.
+   */
   private static HighResolutionClock buildClock(Config config) {
     MetricsConfig metricsConfig = new MetricsConfig(config);
     if (metricsConfig.getMetricsTimerEnabled()) {
