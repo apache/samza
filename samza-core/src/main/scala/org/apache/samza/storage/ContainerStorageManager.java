@@ -195,6 +195,11 @@ public class ContainerStorageManager {
     this.checkpointManager = checkpointManager;
     this.containerModel = containerModel;
     this.taskSideInputStoreSSPs = getTaskSideInputSSPs(containerModel, sideInputSystemStreams);
+    this.hasSideInputs = this.taskSideInputStoreSSPs.values().stream()
+        .flatMap(m -> m.values().stream())
+        .flatMap(Collection::stream)
+        .findAny()
+        .isPresent();
     this.sspMetadataCache = sspMetadataCache;
     this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams); // handling standby tasks
 
@@ -250,14 +255,9 @@ public class ContainerStorageManager {
     this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock, this.samzaContainerMetrics);
 
     this.sspSideInputHandlers = createSideInputHandlers(clock);
-    this.hasSideInputs = this.taskSideInputStoreSSPs.values().stream()
-        .flatMap(m -> m.values().stream())
-        .flatMap(Collection::stream)
-        .findAny()
-        .isPresent();
 
     // create SystemConsumers for consuming from taskSideInputSSPs, if sideInputs are being used
-    if (sideInputsPresent()) {
+    if (this.hasSideInputs) {
       Set<SystemStream> containerSideInputSystemStreams = this.taskSideInputStoreSSPs.values().stream()
           .flatMap(map -> map.values().stream())
           .flatMap(Set::stream)
@@ -601,7 +601,7 @@ public class ContainerStorageManager {
 
     Map<SystemStreamPartition, TaskSideInputHandler> handlers = new HashMap<>();
 
-    if (sideInputsPresent()) {
+    if (this.hasSideInputs) {
       containerModel.getTasks().forEach((taskName, taskModel) -> {
 
           Map<String, StorageEngine> sideInputStores = getSideInputStores(taskName);
@@ -666,7 +666,7 @@ public class ContainerStorageManager {
     }
     LOG.info("Checkpointed changelog ssp offsets: {}", checkpointedChangelogSSPOffsets);
     restoreStores(checkpointedChangelogSSPOffsets);
-    if (sideInputsPresent()) {
+    if (this.hasSideInputs) {
       startSideInputs();
     }
   }
@@ -827,10 +827,6 @@ public class ContainerStorageManager {
     LOG.info("SideInput Restore complete");
   }
 
-  private boolean sideInputsPresent() {
-    return this.hasSideInputs;
-  }
-
   // Method to check if the given offset means the stream is caught up for reads
   private void checkSideInputCaughtUp(SystemStreamPartition ssp, String offset, SystemStreamMetadata.OffsetType offsetType, boolean isEndOfStream) {
 
@@ -907,7 +903,7 @@ public class ContainerStorageManager {
     this.shouldShutdown = true;
 
     // stop all sideinput consumers and stores
-    if (sideInputsPresent()) {
+    if (this.hasSideInputs) {
       sideInputsReadExecutor.shutdownNow();
 
       this.sideInputSystemConsumers.stop();
