@@ -43,7 +43,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     producer
   }
 
-  def getSystemStream(reporterName: String, config: Config): SystemStream = {
+  protected def getSystemStream(reporterName: String, config: Config): SystemStream = {
     val metricsConfig = new MetricsConfig(config)
     val metricsSystemStreamName = JavaOptionals.toRichOptional(metricsConfig.getMetricsSnapshotReporterStream(reporterName))
       .toOption
@@ -53,7 +53,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
     systemStream
   }
 
-  def getSerde(reporterName: String, config: Config): Serde[MetricsSnapshot] = {
+  protected def getSerde(reporterName: String, config: Config): Serde[MetricsSnapshot] = {
     val streamConfig = new StreamConfig(config)
     val systemConfig = new SystemConfig(config)
     val systemStream = getSystemStream(reporterName, config)
@@ -76,26 +76,26 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
   }
 
 
-  def getBlacklist(reporterName: String, config: Config): Option[String] = {
+  protected def getBlacklist(reporterName: String, config: Config): Option[String] = {
     val metricsConfig = new MetricsConfig(config)
     val blacklist = JavaOptionals.toRichOptional(metricsConfig.getMetricsSnapshotReporterBlacklist(reporterName)).toOption
     info("Got blacklist as: %s" format blacklist)
     blacklist
   }
 
-  def getReportingInterval(reporterName: String, config: Config): Int = {
+  protected def getReportingInterval(reporterName: String, config: Config): Int = {
     val metricsConfig = new MetricsConfig(config)
     val reportingInterval = metricsConfig.getMetricsSnapshotReporterInterval(reporterName)
     info("Got reporting interval: %d" format reportingInterval)
     reportingInterval
   }
 
-  def getJobId(config: Config): String = {
+  protected def getJobId(config: Config): String = {
     val jobConfig = new JobConfig(config)
     jobConfig.getJobId
   }
 
-  def getJobName(config: Config): String = {
+  protected def getJobName(config: Config): String = {
     val jobConfig = new JobConfig(config)
     JavaOptionals.toRichOptional(jobConfig.getName).toOption
       .getOrElse(throw new SamzaException("Job name must be defined in config."))
