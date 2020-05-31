@@ -55,13 +55,13 @@ public class TestMetricsSnapshotReporter {
   private static final String HOSTNAME = "test host";
   private static final int REPORTING_INTERVAL = 60000;
 
-  private Serializer<MetricsSnapshot> SERIALIZER;
-  private SystemProducer PRODUCER;
+  private Serializer<MetricsSnapshot> serializer;
+  private SystemProducer producer;
 
   @Before
   public void setup() {
-    PRODUCER = mock(SystemProducer.class);
-    SERIALIZER = new MetricsSnapshotSerdeV2();
+    producer = mock(SystemProducer.class);
+    serializer = new MetricsSnapshotSerdeV2();
   }
 
   @Test
@@ -132,15 +132,15 @@ public class TestMetricsSnapshotReporter {
   @Test
   public void testMetricsEmission() {
     // setup
-    SERIALIZER = null;
-    String SOURCE = "testSource";
-    String GROUP = "someGroup";
-    String METRIC_NAME = "someName";
+    serializer = null;
+    String source = "testSource";
+    String group = "someGroup";
+    String metricName = "someName";
     MetricsRegistryMap registry = new MetricsRegistryMap();
 
     metricsSnapshotReporter = getMetricsSnapshotReporter(TestMetricsSnapshotReporter.BLACKLIST_NONE);
-    registry.newGauge(GROUP, METRIC_NAME, 42);
-    metricsSnapshotReporter.register(SOURCE, registry);
+    registry.newGauge(group, metricName, 42);
+    metricsSnapshotReporter.register(source, registry);
 
     ArgumentCaptor<OutgoingMessageEnvelope> outgoingMessageEnvelopeArgumentCaptor =
         ArgumentCaptor.forClass(OutgoingMessageEnvelope.class);
@@ -149,33 +149,33 @@ public class TestMetricsSnapshotReporter {
     metricsSnapshotReporter.run();
 
     // assert
-    verify(PRODUCER, times(1)).send(eq(SOURCE), outgoingMessageEnvelopeArgumentCaptor.capture());
-    verify(PRODUCER, times(1)).flush(eq(SOURCE));
+    verify(producer, times(1)).send(eq(source), outgoingMessageEnvelopeArgumentCaptor.capture());
+    verify(producer, times(1)).flush(eq(source));
 
     List<OutgoingMessageEnvelope> envelopes = outgoingMessageEnvelopeArgumentCaptor.getAllValues();
 
     Assert.assertEquals(1, envelopes.size());
 
-    MetricsSnapshot metricsSnapshot = ((MetricsSnapshot) envelopes.get(0).getMessage());
+    MetricsSnapshot metricsSnapshot = (MetricsSnapshot) envelopes.get(0).getMessage();
 
     Assert.assertEquals(JOB_NAME, metricsSnapshot.getHeader().getJobName());
     Assert.assertEquals(JOB_ID, metricsSnapshot.getHeader().getJobId());
     Assert.assertEquals(CONTAINER_NAME, metricsSnapshot.getHeader().getContainerName());
-    Assert.assertEquals(SOURCE, metricsSnapshot.getHeader().getSource());
+    Assert.assertEquals(source, metricsSnapshot.getHeader().getSource());
     Assert.assertEquals(SAMZA_VERSION, metricsSnapshot.getHeader().getSamzaVersion());
     Assert.assertEquals(TASK_VERSION, metricsSnapshot.getHeader().getVersion());
     Assert.assertEquals(HOSTNAME, metricsSnapshot.getHeader().getHost());
 
     Map<String, Map<String, Object>> metricMap = metricsSnapshot.getMetrics().getAsMap();
     Assert.assertEquals(1, metricMap.size());
-    Assert.assertTrue(metricMap.containsKey(GROUP));
-    Assert.assertTrue(metricMap.get(GROUP).containsKey(METRIC_NAME));
-    Assert.assertEquals(42, metricMap.get(GROUP).get(METRIC_NAME));
+    Assert.assertTrue(metricMap.containsKey(group));
+    Assert.assertTrue(metricMap.get(group).containsKey(metricName));
+    Assert.assertEquals(42, metricMap.get(group).get(metricName));
   }
 
   private MetricsSnapshotReporter getMetricsSnapshotReporter(String blacklist) {
-    return new MetricsSnapshotReporter(PRODUCER, SYSTEM_STREAM, REPORTING_INTERVAL, JOB_NAME, JOB_ID, CONTAINER_NAME,
-        TASK_VERSION, SAMZA_VERSION, HOSTNAME, SERIALIZER, new Some<>(blacklist), getClock());
+    return new MetricsSnapshotReporter(producer, SYSTEM_STREAM, REPORTING_INTERVAL, JOB_NAME, JOB_ID, CONTAINER_NAME,
+        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, new Some<>(blacklist), getClock());
   }
 
   private AbstractFunction0<Object> getClock() {
