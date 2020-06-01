@@ -49,14 +49,13 @@ object CoordinatorStreamUtil extends Logging {
   }
 
   /**
-   * Creates coordinator stream from config.
+   * Creates coordinator stream from config if it does not exist, otherwise no-op.
    *
    * @param config to create coordinator stream.
    */
   def createCoordinatorStream(config: Config): Unit = {
     val systemAdmins = new SystemAdmins(config)
 
-    // Create the coordinator stream if it doesn't exist
     info("Creating coordinator stream")
     val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
     val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
