@@ -59,6 +59,8 @@ public class JobCoordinatorLaunchUtil {
     }
 
     Config fullConfig = jobConfigs.get(0);
+    // Create coordinator stream if does not exist before fetching launch config from it.
+    CoordinatorStreamUtil.createCoordinatorStream(fullConfig);
     MetricsRegistryMap metrics = new MetricsRegistryMap();
     MetadataStore
         metadataStore = new CoordinatorStreamStore(CoordinatorStreamUtil.buildCoordinatorStreamConfig(fullConfig), metrics);
