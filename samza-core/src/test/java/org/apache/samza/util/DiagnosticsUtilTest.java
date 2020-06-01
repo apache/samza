@@ -54,7 +54,7 @@ public class DiagnosticsUtilTest {
   public static final String REPORTER_FACTORY = "org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory";
 
   @Test
-  public void testBuildDiagnosticsManagerUsesConfiguredReporter() {
+  public void testBuildDiagnosticsManagerReturnsConfiguredReporter() {
     Config config = new MapConfig(buildTestConfigs());
     JobModel mockJobModel = mock(JobModel.class);
     SystemProducer mockProducer = mock(SystemProducer.class);
