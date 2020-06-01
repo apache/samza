@@ -27,10 +27,13 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
+import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.junit.Assert;
 import org.junit.Test;
@@ -52,20 +55,23 @@ public class DiagnosticsUtilTest {
   private static final String CONTAINER_ID = "someContainerId";
   private static final String ENV_ID = "someEnvID";
   public static final String REPORTER_FACTORY = "org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory";
+  public static final String SYSTEM_FACTORY = "com.foo.system.SomeSystemFactory";
 
   @Test
   public void testBuildDiagnosticsManagerReturnsConfiguredReporter() {
     Config config = new MapConfig(buildTestConfigs());
     JobModel mockJobModel = mock(JobModel.class);
+    SystemFactory systemFactory = mock(SystemFactory.class);
     SystemProducer mockProducer = mock(SystemProducer.class);
     MetricsReporterFactory metricsReporterFactory = mock(MetricsReporterFactory.class);
     MetricsSnapshotReporter mockReporter = mock(MetricsSnapshotReporter.class);
 
+    when(systemFactory.getProducer(anyString(), any(Config.class), any(MetricsRegistry.class))).thenReturn(mockProducer);
     when(metricsReporterFactory.getMetricsReporter(anyString(), anyString(), any(Config.class))).thenReturn(
         mockReporter);
     PowerMockito.mockStatic(ReflectionUtil.class);
     when(ReflectionUtil.getObj(REPORTER_FACTORY, MetricsReporterFactory.class)).thenReturn(metricsReporterFactory);
-    when(mockReporter.getProducer()).thenReturn(mockProducer);
+    when(ReflectionUtil.getObj(SYSTEM_FACTORY, SystemFactory.class)).thenReturn(systemFactory);
 
     Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> managerReporterPair =
         DiagnosticsUtil.buildDiagnosticsManager(JOB_NAME, JOB_ID, mockJobModel, CONTAINER_ID, Optional.of(ENV_ID),
@@ -83,6 +89,8 @@ public class DiagnosticsUtilTest {
     configs.put(String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM,
         MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS),
         MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS + "." + STREAM_NAME);
+    configs.put(String.format(SystemConfig.SYSTEM_FACTORY_FORMAT, MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS),
+        SYSTEM_FACTORY);
 
     return configs;
   }

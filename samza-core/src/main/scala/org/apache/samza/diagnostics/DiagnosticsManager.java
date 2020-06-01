@@ -142,6 +142,7 @@ public class DiagnosticsManager {
     this.autosizingEnabled = autosizingEnabled;
 
     resetTime = Instant.now();
+    this.systemProducer.register(getClass().getSimpleName());
 
     try {
       ReflectionUtil.getObjWithArgs("org.apache.samza.logging.log4j.SimpleDiagnosticsAppender",
@@ -161,6 +162,7 @@ public class DiagnosticsManager {
   }
 
   public void start() {
+    this.systemProducer.start();
     this.scheduler.scheduleWithFixedDelay(new DiagnosticsStreamPublisher(), 0, DEFAULT_PUBLISH_PERIOD.getSeconds(),
         TimeUnit.SECONDS);
   }
@@ -175,6 +177,7 @@ public class DiagnosticsManager {
       LOG.warn("Unable to terminate scheduler");
       scheduler.shutdownNow();
     }
+    this.systemProducer.stop();
   }
 
   public void addExceptionEvent(DiagnosticsExceptionEvent diagnosticsExceptionEvent) {

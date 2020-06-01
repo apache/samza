@@ -165,9 +165,6 @@ class MetricsSnapshotReporter(
     debug("Finished flushing metrics.")
   }
 
-  def getProducer: SystemProducer = {
-    producer
-  }
 
   def shouldIgnore(group: String, metricName: String) = {
     var isBlacklisted = blacklist.isDefined

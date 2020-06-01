@@ -31,9 +31,11 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.SystemConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
@@ -45,6 +47,8 @@ import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.system.SystemFactory;
+import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,11 +135,22 @@ public class DiagnosticsUtil {
       }
       SystemStream diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(diagnosticsReporterStreamName.get());
 
+      // Create a SystemProducer for DiagnosticsManager. This producer is used by the DiagnosticsManager
+      // to write to the same stream as the MetricsSnapshotReporter called `diagnosticsreporter`.
+      Optional<String> diagnosticsSystemFactoryName =
+          new SystemConfig(config).getSystemFactory(diagnosticsSystemStream.getSystem());
+      if (!diagnosticsSystemFactoryName.isPresent()) {
+        throw new SamzaException("Missing factory in config for system " + diagnosticsSystemStream.getSystem());
+      }
+      SystemFactory systemFactory = ReflectionUtil.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
+      SystemProducer systemProducer =
+          systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
+
       DiagnosticsManager diagnosticsManager =
           new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
               new StorageConfig(config).getNumPersistentStores(), maxHeapSizeBytes, containerThreadPoolSize,
               containerId, execEnvContainerId.orElse(""), taskClassVersion, samzaVersion, hostName,
-              diagnosticsSystemStream, diagnosticsReporter.getProducer(),
+              diagnosticsSystemStream, systemProducer,
               Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled());
 
       diagnosticsManagerReporterPair = Optional.of(new ImmutablePair<>(diagnosticsManager, diagnosticsReporter));
