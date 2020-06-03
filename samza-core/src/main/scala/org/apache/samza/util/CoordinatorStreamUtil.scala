@@ -49,6 +49,22 @@ object CoordinatorStreamUtil extends Logging {
   }
 
   /**
+   * Creates coordinator stream from config if it does not exist, otherwise no-op.
+   *
+   * @param config to create coordinator stream.
+   */
+  def createCoordinatorStream(config: Config): Unit = {
+    val systemAdmins = new SystemAdmins(config)
+
+    info("Creating coordinator stream")
+    val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
+    val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
+    coordinatorSystemAdmin.start()
+    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin)
+    coordinatorSystemAdmin.stop()
+  }
+
+  /**
     * Creates a coordinator stream.
     * @param coordinatorSystemStream the {@see SystemStream} that describes the stream to create.
     * @param coordinatorSystemAdmin the {@see SystemAdmin} used to create the stream.
@@ -157,15 +173,7 @@ object CoordinatorStreamUtil extends Logging {
     debug("config: %s" format config)
     val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
     val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
-    val systemAdmins = new SystemAdmins(config)
-
-    // Create the coordinator stream if it doesn't exist
-    info("Creating coordinator stream")
-    val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
-    val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
-    coordinatorSystemAdmin.start()
-    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin)
-    coordinatorSystemAdmin.stop()
+    CoordinatorStreamUtil.createCoordinatorStream(config)
 
     if (resetJobConfig) {
       info("Storing config in coordinator stream.")
