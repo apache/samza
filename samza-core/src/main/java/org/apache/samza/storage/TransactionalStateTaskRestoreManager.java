@@ -214,15 +214,18 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           return;
         }
 
-        // persistent but non-logged stores are always deleted
-        if (storageEngine.getStoreProperties().isPersistedToDisk() &&
-            !storageEngine.getStoreProperties().isLoggedStore()) {
-          File currentDir = storageManagerUtil.getTaskStoreDir(
-              nonLoggedStoreBaseDirectory, storeName, taskName, taskMode);
-          LOG.info("Marking current directory: {} for store: {} in task: {} for deletion since it is not a logged store.",
-              currentDir, storeName, taskName);
-          storeDirsToDelete.put(storeName, currentDir);
-          // persistent but non-logged stores should not have checkpoint dirs
+        // persistent but non-logged stores are always deleted unless retain.on.container.start config is set
+        if (storageEngine.getStoreProperties().isPersistedToDisk() && !storageEngine.getStoreProperties().isLoggedStore()) {
+          File currentDir = storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskName, taskMode);
+
+          if (!new StorageConfig(config).getRetainNonloggedStoreDirsOnStart(storeName)) {
+            LOG.info("Marking current directory: {} for store: {} in task: {} for deletion since it is not a logged store.",
+                currentDir, storeName, taskName);
+            storeDirsToDelete.put(storeName, currentDir);
+            // persistent but non-logged stores should not have checkpoint dirs
+          } else {
+            LOG.info("Retaining current directory: {} for store: {} in task: {}", currentDir, storeName, taskName);
+          }
           return;
         }
 

@@ -132,7 +132,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
               storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
           LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
 
-          if (nonLoggedStorePartitionDir.exists()) {
+          if (nonLoggedStorePartitionDir.exists() || !storageConfig.getRetainNonloggedStoreDirsOnStart(storeName)) {
             LOG.info("Deleting non logged storage partition directory " + nonLoggedStorePartitionDir.toPath().toString());
             fileUtil.rm(nonLoggedStorePartitionDir);
           }
