@@ -29,7 +29,7 @@ import org.apache.samza.util.{Logging, ReflectionUtil, StreamUtil, Util}
 
 class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging {
 
-  def getProducer(reporterName: String, config: Config, registry: MetricsRegistryMap): SystemProducer = {
+  protected def getProducer(reporterName: String, config: Config, registry: MetricsRegistryMap): SystemProducer = {
     val systemConfig = new SystemConfig(config)
     val systemName = getSystemStream(reporterName, config).getSystem
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
