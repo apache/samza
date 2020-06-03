@@ -114,7 +114,7 @@ The coordinator stream messages that are currently supported are listed below:
 Samza provides a command line tool to write Job Configuration messages to the coordinator stream. The tool can be used as follows:
 {% highlight bash %}
 samza-example/target/bin/run-coordinator-stream-writer.sh \
-  --config-path=file:///path/to/job/config.properties \
+  --config-path=/path/to/job/config.properties \
   --type set-config \
   --key job.container.count \
   --value 8

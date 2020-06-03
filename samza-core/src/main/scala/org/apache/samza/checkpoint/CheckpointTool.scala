@@ -20,7 +20,6 @@
 package org.apache.samza.checkpoint
 
 import java.io.FileInputStream
-import java.net.URI
 import java.util
 import java.util.Properties
 import java.util.regex.Pattern
@@ -82,12 +81,12 @@ object CheckpointTool {
   type TaskNameToCheckpointMap = Map[TaskName, Map[SystemStreamPartition, String]]
 
   class CheckpointToolCommandLine extends CommandLine with Logging {
-    val newOffsetsOpt: ArgumentAcceptingOptionSpec[URI] =
-      parser.accepts("new-offsets", "URI of file (e.g. file:///some/local/path.properties) " +
+    val newOffsetsOpt: ArgumentAcceptingOptionSpec[String] =
+      parser.accepts("new-offsets", "Location of file (e.g. /some/local/path.properties) " +
                                     "containing offsets to write to the job's checkpoint topic. " +
                                     "If not given, this tool prints out the current offsets.")
             .withRequiredArg
-            .ofType(classOf[URI])
+            .ofType(classOf[String])
             .describedAs("path")
 
     var newOffsets: TaskNameToCheckpointMap = _
@@ -121,7 +120,7 @@ object CheckpointTool {
     override def loadConfig(options: OptionSet): Config = {
       val config = super.loadConfig(options)
       if (options.has(newOffsetsOpt)) {
-        val newOffsetsInputStream = new FileInputStream(options.valueOf(newOffsetsOpt).getPath)
+        val newOffsetsInputStream = new FileInputStream(options.valueOf(newOffsetsOpt))
         val properties = new Properties()
 
         properties.load(newOffsetsInputStream)

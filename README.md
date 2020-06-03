@@ -62,15 +62,15 @@ To run standalone integration tests:
 
 To run a job (defined in a properties file):
 
-    ./gradlew samza-shell:runJob -PconfigPath=file:///path/to/job/config.properties
+    ./gradlew samza-shell:runJob -PconfigPath=/path/to/job/config.properties
 
 To inspect a job's latest checkpoint:
 
-    ./gradlew samza-shell:checkpointTool -PconfigPath=file:///path/to/job/config.properties
+    ./gradlew samza-shell:checkpointTool -PconfigPath=/path/to/job/config.properties
 
 To modify a job's checkpoint (assumes that the job is not currently running), give it a file with the new offset for each partition, in the format `systems.<system>.streams.<topic>.partitions.<partition>=<offset>`:
 
-    ./gradlew samza-shell:checkpointTool -PconfigPath=file:///path/to/job/config.properties \
+    ./gradlew samza-shell:checkpointTool -PconfigPath=/path/to/job/config.properties \
         -PnewOffsets=file:///path/to/new/offsets.properties
 
 ### Developers
