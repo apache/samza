@@ -35,7 +35,10 @@ import org.mockito.ArgumentCaptor;
 import scala.Some;
 import scala.runtime.AbstractFunction0;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.eq;
 
 
 public class TestMetricsSnapshotReporter {
