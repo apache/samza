@@ -90,6 +90,13 @@ public abstract class JobPlanner {
       allowedUserConfig.remove(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED);
     }
 
+    // APP_RUN_ID should be generated for both LegacyTaskApplications & descriptor based applications
+    // This config is used in BATCH mode to create new intermediate streams on runs and in stream mode use by
+    // Container Placements to identify a deployment of Samza
+    if (StringUtils.isNoneEmpty(runId)) {
+      generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
+    }
+
     // merge user-provided configuration with generated configuration. generated configuration has lower priority.
     Config mergedConfig = JobNodeConfigurationGenerator.mergeConfig(allowedUserConfig, generatedConfig);
 
@@ -127,9 +134,6 @@ public abstract class JobPlanner {
 
   private Map<String, String> getGeneratedConfig(String runId) {
     Map<String, String> generatedConfig = new HashMap<>();
-    if (StringUtils.isNoneEmpty(runId)) {
-      generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
-    }
 
     Map<String, String> systemStreamConfigs = generateSystemStreamConfigs(appDesc);
     generatedConfig.putAll(systemStreamConfigs);
