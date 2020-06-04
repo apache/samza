@@ -67,10 +67,6 @@ public abstract class JobPlanner {
     return streamManager;
   }
 
-  ExecutionPlan getExecutionPlan() {
-    return getExecutionPlan(null);
-  }
-
   /* package private */
   ExecutionPlan getExecutionPlan(String runId) {
     Map<String, String> allowedUserConfig = new HashMap<>(userConfig);
@@ -83,7 +79,7 @@ public abstract class JobPlanner {
       if (StringUtils.isBlank(userConfig.get(TaskConfig.INPUT_STREAMS))) {
         allowedUserConfig.remove(TaskConfig.INPUT_STREAMS);
       }
-      generatedConfig.putAll(getGeneratedConfig(runId));
+      generatedConfig.putAll(getGeneratedConfig());
     }
 
     if (ApplicationConfig.ApplicationMode.BATCH.name().equals(generatedConfig.get(ApplicationConfig.APP_MODE))) {
@@ -132,7 +128,7 @@ public abstract class JobPlanner {
     }
   }
 
-  private Map<String, String> getGeneratedConfig(String runId) {
+  private Map<String, String> getGeneratedConfig() {
     Map<String, String> generatedConfig = new HashMap<>();
 
     Map<String, String> systemStreamConfigs = generateSystemStreamConfigs(appDesc);
