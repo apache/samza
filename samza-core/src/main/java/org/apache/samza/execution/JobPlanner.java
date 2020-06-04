@@ -67,6 +67,10 @@ public abstract class JobPlanner {
     return streamManager;
   }
 
+  ExecutionPlan getExecutionPlan() {
+    return getExecutionPlan(null);
+  }
+
   /* package private */
   ExecutionPlan getExecutionPlan(String runId) {
     Map<String, String> allowedUserConfig = new HashMap<>(userConfig);
