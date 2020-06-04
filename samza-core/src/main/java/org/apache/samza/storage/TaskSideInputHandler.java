@@ -55,6 +55,7 @@ public class TaskSideInputHandler {
   private static final Logger LOG = LoggerFactory.getLogger(TaskSideInputHandler.class);
 
   private final StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
+  private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
 
   private final TaskName taskName;
   private final TaskSideInputStorageManager taskSideInputStorageManager;
@@ -62,20 +63,15 @@ public class TaskSideInputHandler {
   private final Map<String, SideInputsProcessor> storeToProcessor;
   private final SystemAdmins systemAdmins;
   private final StreamMetadataCache streamMetadataCache;
-  private final Map<SystemStreamPartition, String> lastProcessedOffsets = new ConcurrentHashMap<>();
 
   private Map<SystemStreamPartition, String> startingOffsets;
 
-  public TaskSideInputHandler(
-      TaskName taskName,
-      TaskMode taskMode,
-      File storeBaseDir,
-      Map<String, StorageEngine> storeToStorageEngines,
-      Map<String, Set<SystemStreamPartition>> storeToSSPs,
-      Map<String, SideInputsProcessor> storeToProcessor,
-      SystemAdmins systemAdmins,
-      StreamMetadataCache streamMetadataCache,
-      Clock clock) {
+  public TaskSideInputHandler(TaskName taskName, TaskMode taskMode, File storeBaseDir,
+      Map<String, StorageEngine> storeToStorageEngines, Map<String, Set<SystemStreamPartition>> storeToSSPs,
+      Map<String, SideInputsProcessor> storeToProcessor, SystemAdmins systemAdmins,
+      StreamMetadataCache streamMetadataCache, Clock clock) {
+    validateProcessorConfiguration(storeToSSPs.keySet(), storeToProcessor);
+
     this.taskName = taskName;
     this.systemAdmins = systemAdmins;
     this.streamMetadataCache = streamMetadataCache;
@@ -94,8 +90,6 @@ public class TaskSideInputHandler {
         storeToStorageEngines,
         storeToSSPs,
         clock);
-
-    validateProcessorConfiguration();
   }
 
   /**
@@ -263,13 +257,9 @@ public class TaskSideInputHandler {
   /**
    * Validates that each store has an associated {@link SideInputsProcessor}
    */
-  private void validateProcessorConfiguration() {
-    Set<String> stores = this.sspToStores.values().stream()
-        .flatMap(Collection::stream)
-        .collect(Collectors.toSet());
-
+  private void validateProcessorConfiguration(Set<String> stores, Map<String, SideInputsProcessor> storeToProcessor) {
     stores.forEach(storeName -> {
-        if (!this.storeToProcessor.containsKey(storeName)) {
+        if (!storeToProcessor.containsKey(storeName)) {
           throw new SamzaException(
               String.format("Side inputs processor missing for store: %s.", storeName));
         }

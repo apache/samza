@@ -345,24 +345,21 @@ public class ContainerStorageManager {
   /**
    *  Creates SystemConsumer objects for store restoration, creating one consumer per system.
    */
-  private static Map<String, SystemConsumer> createConsumers(Set<String> systems,
+  private static Map<String, SystemConsumer> createConsumers(Set<String> storeSystems,
       Map<String, SystemFactory> systemFactories, Config config, MetricsRegistry registry) {
     // Create one consumer for each system in use, map with one entry for each such system
-    Map<String, SystemConsumer> storeSystemConsumers = new HashMap<>();
-
+    Map<String, SystemConsumer> consumers = new HashMap<>();
 
     // Iterate over the list of storeSystems and create one sysConsumer per system
-    for (String storeSystemName : systems) {
+    for (String storeSystemName : storeSystems) {
       SystemFactory systemFactory = systemFactories.get(storeSystemName);
       if (systemFactory == null) {
-        throw new SamzaException("Changelog system " + storeSystemName + " does not exist in config");
+        throw new SamzaException("System " + storeSystemName + " does not exist in config");
       }
-      storeSystemConsumers.put(storeSystemName,
-          systemFactory.getConsumer(storeSystemName, config, registry));
+      consumers.put(storeSystemName, systemFactory.getConsumer(storeSystemName, config, registry));
     }
 
-    return storeSystemConsumers;
-
+    return consumers;
   }
 
   private static Map<String, SystemConsumer> createStoreIndexedMap(Map<String, SystemStream> changelogSystemStreams,
@@ -729,7 +726,7 @@ public class ContainerStorageManager {
     LOG.info("SideInput Restore started");
 
     // initialize the sideInputStorageManagers
-    getSideInputHandlers().forEach(handler -> handler.init());
+    getSideInputHandlers().forEach(TaskSideInputHandler::init);
 
     // start the checkpointing thread at the commit-ms frequency
     TaskConfig taskConfig = new TaskConfig(config);
@@ -737,7 +734,7 @@ public class ContainerStorageManager {
       @Override
       public void run() {
         try {
-          getSideInputHandlers().forEach(handler -> handler.flush());
+          getSideInputHandlers().forEach(TaskSideInputHandler::flush);
         } catch (Exception e) {
           LOG.error("Exception during flushing sideInputs", e);
           sideInputException = e;
@@ -918,7 +915,7 @@ public class ContainerStorageManager {
       }
 
       // stop all sideInputStores -- this will perform one last flush on the KV stores, and write the offset file
-      this.getSideInputHandlers().forEach(handler -> handler.stop());
+      this.getSideInputHandlers().forEach(TaskSideInputHandler::stop);
     }
     LOG.info("Shutdown complete");
   }

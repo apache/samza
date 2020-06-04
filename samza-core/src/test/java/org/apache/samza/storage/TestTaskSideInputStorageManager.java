@@ -79,7 +79,7 @@ public class TestTaskSideInputStorageManager {
       verify(storageEngine).flush();
     }
 
-    verify(testSideInputStorageManager).writeOffsetFiles(eq(processedOffsets));
+    verify(testSideInputStorageManager).writeFileOffsets(eq(processedOffsets));
 
     File storeDir = testSideInputStorageManager.getStoreLocation(storeName);
     assertTrue("Store directory: " + storeDir.getPath() + " is missing.", storeDir.exists());
@@ -105,7 +105,7 @@ public class TestTaskSideInputStorageManager {
     testSideInputStorageManager.stop(processedOffsets);
 
     verify(testSideInputStorageManager.getStore(storeName)).stop();
-    verify(testSideInputStorageManager).writeOffsetFiles(eq(processedOffsets));
+    verify(testSideInputStorageManager).writeFileOffsets(eq(processedOffsets));
   }
 
   @Test
@@ -118,7 +118,7 @@ public class TestTaskSideInputStorageManager {
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.writeOffsetFiles(Collections.emptyMap()); // should be no-op
+    testSideInputStorageManager.writeFileOffsets(Collections.emptyMap()); // should be no-op
     File storeDir = testSideInputStorageManager.getStoreLocation(storeName);
 
     assertFalse("Store directory: " + storeDir.getPath() + " should not be created for non-persisted store", storeDir.exists());
@@ -142,7 +142,7 @@ public class TestTaskSideInputStorageManager {
         .build();
 
     initializeSideInputStorageManager(testSideInputStorageManager);
-    testSideInputStorageManager.writeOffsetFiles(processedOffsets);
+    testSideInputStorageManager.writeFileOffsets(processedOffsets);
     File storeDir = testSideInputStorageManager.getStoreLocation(storeName);
 
     assertTrue("Store directory: " + storeDir.getPath() + " is missing.", storeDir.exists());
@@ -174,7 +174,7 @@ public class TestTaskSideInputStorageManager {
     Map<SystemStreamPartition, String> processedOffsets = ssps.stream()
         .collect(Collectors.toMap(Function.identity(), ssp -> offset));
 
-    testSideInputStorageManager.writeOffsetFiles(processedOffsets);
+    testSideInputStorageManager.writeFileOffsets(processedOffsets);
 
     Map<SystemStreamPartition, String> fileOffsets = testSideInputStorageManager.getFileOffsets();
     ssps.forEach(ssp -> {

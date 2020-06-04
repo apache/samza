@@ -57,14 +57,14 @@ public class TaskSideInputStorageManager {
 
   public TaskSideInputStorageManager(TaskName taskName, TaskMode taskMode, File storeBaseDir, Map<String, StorageEngine> sideInputStores,
       Map<String, Set<SystemStreamPartition>> storesToSSPs, Clock clock) {
+    validateStoreConfiguration(sideInputStores);
+
     this.clock = clock;
     this.stores = sideInputStores;
     this.storeBaseDir = storeBaseDir;
     this.storeToSSps = storesToSSPs;
     this.taskName = taskName;
     this.taskMode = taskMode;
-
-    validateStoreConfiguration();
   }
 
   // Get the taskName associated with this instance.
@@ -91,7 +91,7 @@ public class TaskSideInputStorageManager {
   public void flush(Map<SystemStreamPartition, String> lastProcessedOffsets) {
     LOG.info("Flushing the side input stores.");
     stores.values().forEach(StorageEngine::flush);
-    writeOffsetFiles(lastProcessedOffsets);
+    writeFileOffsets(lastProcessedOffsets);
   }
 
   /**
@@ -103,7 +103,7 @@ public class TaskSideInputStorageManager {
   public void stop(Map<SystemStreamPartition, String> lastProcessedOffsets) {
     LOG.info("Stopping the side input stores.");
     stores.values().forEach(StorageEngine::stop);
-    writeOffsetFiles(lastProcessedOffsets);
+    writeFileOffsets(lastProcessedOffsets);
   }
 
   /**
@@ -145,7 +145,7 @@ public class TaskSideInputStorageManager {
    *
    * @param lastProcessedOffsets The offset per SSP to write
    */
-  public void writeOffsetFiles(Map<SystemStreamPartition, String> lastProcessedOffsets) {
+  public void writeFileOffsets(Map<SystemStreamPartition, String> lastProcessedOffsets) {
     storeToSSps.entrySet().stream()
         .filter(entry -> isPersistedStore(entry.getKey())) // filter out in-memory side input stores
         .forEach((entry) -> {
@@ -164,8 +164,7 @@ public class TaskSideInputStorageManager {
   }
 
   /**
-   * Gets the side input SSP offsets for all stores from their local offset files. This method should be executed only
-   * once at class initialization.
+   * Gets the side input SSP offsets for all stores from their local offset files.
    *
    * @return a {@link Map} of {@link SystemStreamPartition} to offset in the offset files.
    */
@@ -210,7 +209,7 @@ public class TaskSideInputStorageManager {
         .orElse(false);
   }
 
-  private void validateStoreConfiguration() {
+  private void validateStoreConfiguration(Map<String, StorageEngine> stores) {
     stores.forEach((storeName, storageEngine) -> {
         if (storageEngine.getStoreProperties().isLoggedStore()) {
           throw new SamzaException(
