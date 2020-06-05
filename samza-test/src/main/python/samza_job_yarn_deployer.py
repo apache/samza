@@ -107,7 +107,6 @@ class SamzaJobYarnDeployer(Deployer):
     package_id: The package_id for the package that contains the code for job_id.
     Usually, the package_id refers to the .tgz job tarball that contains the
     code necessary to run job_id.
-    config_loader_factory: The config loader factory to use to decode the config_file.
     config_file: Path to the config file for the job to be run.
     install_path: Path where the package for the job has been installed on remote NMs.
     properties: (optional) [(property-name,property-value)] Optional override
@@ -115,18 +114,17 @@ class SamzaJobYarnDeployer(Deployer):
     config_file's properties.
     """
     configs = self._get_merged_configs(configs)
-    self._validate_configs(configs, ['package_id', 'config_loader_factory', 'config_file', 'install_path'])
+    self._validate_configs(configs, ['package_id', 'config_file', 'install_path'])
 
     # Get configs.
     package_id = configs.get('package_id')
-    config_loader_factory = configs.get('config_loader_factory')
     config_file = configs.get('config_file')
     install_path = configs.get('install_path')
     properties = configs.get('properties', {})
     properties['yarn.package.path'] = 'file:' + os.path.join(install_path, self._get_package_tgz_name(package_id))
 
     # Execute bin/run-job.sh locally from driver machine.
-    command = "{0} --config job.config.loader.factory={1} --config job.config.loader.properties.path={2}".format(os.path.join(package_id, "bin/run-job.sh"), config_loader_factory, os.path.join(package_id, config_file))
+    command = "{0} --config-path={1}".format(os.path.join(package_id, "bin/run-app.sh"), os.path.join(package_id, config_file))
     env = self._get_env_vars(package_id)
     for property_name, property_value in properties.iteritems():
       command += " --config {0}={1}".format(property_name, property_value)
