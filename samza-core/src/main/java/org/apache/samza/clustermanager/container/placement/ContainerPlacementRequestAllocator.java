@@ -70,14 +70,14 @@ public class ContainerPlacementRequestAllocator implements Runnable {
    * Should only get used for testing, cannot make it package private because end to end integeration test
    * need package private methods which live in org.apache.samza.clustermanager
    */
-  public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager, ApplicationConfig config, int clusterManagerContainerPlacementHandlerSleepMs) {
+  public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager, ApplicationConfig config, int containerPlacementHandlerSleepMs) {
     Preconditions.checkNotNull(containerPlacementMetadataStore, "containerPlacementMetadataStore cannot be null");
     Preconditions.checkNotNull(manager, "ContainerProcessManager cannot be null");
     this.containerProcessManager = manager;
     this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     this.isRunning = true;
     this.appRunId = config.getRunId();
-    this.containerPlacementHandlerSleepMs = clusterManagerContainerPlacementHandlerSleepMs;
+    this.containerPlacementHandlerSleepMs = containerPlacementHandlerSleepMs;
   }
 
   @Override
