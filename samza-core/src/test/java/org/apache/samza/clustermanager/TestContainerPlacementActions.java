@@ -64,6 +64,10 @@ import static org.mockito.Mockito.*;
 
 /**
  * Set of Integration tests for container placement actions
+ *
+ * Please note that semaphores are used wherever possible, there are some Thread.sleep used for the main thread to check
+ * on state changes to atomic variables or synchroized metadata objects because of difficulty of plugging semaphores to
+ * those pieces of logic
  */
 @RunWith(MockitoJUnitRunner.class)
 public class TestContainerPlacementActions {
@@ -275,7 +279,7 @@ public class TestContainerPlacementActions {
   public void testActionQueuingForConsecutivePlacementActions() throws Exception {
     // Spawn a Request Allocator Thread
     ContainerPlacementRequestAllocator requestAllocator =
-        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config));
+        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config), 100);
     Thread requestAllocatorThread = new Thread(requestAllocator, "ContainerPlacement Request Allocator Thread");
 
     requestAllocatorThread.start();
@@ -345,7 +349,7 @@ public class TestContainerPlacementActions {
               == ContainerPlacementMessage.StatusCode.SUCCEEDED) {
         break;
       }
-      Thread.sleep(Duration.ofSeconds(5).toMillis());
+      Thread.sleep(100);
     }
 
     assertEquals(state.preferredHostRequests.get(), 4);
@@ -647,8 +651,9 @@ public class TestContainerPlacementActions {
       fail("timed out waiting for the containers to start");
     }
 
-    // Wait for both the containers to be in running state
-    while (state.runningProcessors.size() != 2) {
+    // Wait for both the containers to be in running state & control action metadata to succeed
+    while (state.runningProcessors.size() != 2
+        && metadata.getActionStatus() != ContainerPlacementMessage.StatusCode.SUCCEEDED) {
       Thread.sleep(100);
     }
 
@@ -660,8 +665,6 @@ public class TestContainerPlacementActions {
     assertEquals(state.anyHostRequests.get(), 0);
     // Failed processors must be empty
     assertEquals(state.failedProcessors.size(), 0);
-    // Control Action should be success in this case
-    assertEquals(metadata.getActionStatus(), ContainerPlacementMessage.StatusCode.SUCCEEDED);
   }
 
   @Test(timeout = 10000)
@@ -850,8 +853,9 @@ public class TestContainerPlacementActions {
 
     // Spawn a Request Allocator Thread
     ContainerPlacementRequestAllocator requestAllocator =
-        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config));
+        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config), 100);
     Thread requestAllocatorThread = new Thread(requestAllocator, "ContainerPlacement Request Allocator Thread");
+
     requestAllocatorThread.start();
 
     doAnswer(new Answer<Void>() {
@@ -923,7 +927,7 @@ public class TestContainerPlacementActions {
               == ContainerPlacementMessage.StatusCode.BAD_REQUEST) {
         break;
       }
-      Thread.sleep(Duration.ofSeconds(5).toMillis());
+      Thread.sleep(100);
     }
 
     // App running state should remain the same
@@ -960,7 +964,7 @@ public class TestContainerPlacementActions {
               == ContainerPlacementMessage.StatusCode.SUCCEEDED) {
         break;
       }
-      Thread.sleep(Duration.ofSeconds(5).toMillis());
+      Thread.sleep(100);
     }
 
     assertEquals(4, state.runningProcessors.size());
