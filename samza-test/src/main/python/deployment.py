@@ -17,7 +17,6 @@
 
 import os
 import logging
-import shutil
 import urllib
 import zopkio.runtime as runtime
 import zopkio.adhoc_deployer as adhoc_deployer
@@ -76,7 +75,6 @@ def setup_suite():
 
   # Setup Samza job deployer.
   samza_job_deployer = SamzaJobYarnDeployer({
-    'config_loader_factory': c('samza_config_loader_factory'),
     'yarn_site_template': c('yarn_site_template'),
     'yarn_driver_configs': c('yarn_driver_configs'),
     'yarn_nm_hosts': c('yarn_nm_hosts').values(),

@@ -51,6 +51,7 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -168,6 +169,13 @@ public class TestContainerPlacementActions {
             clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager);
   }
 
+  @After
+  public void teardown() {
+    containerPlacementMetadataStore.stop();
+    cpm.stop();
+    coordinatorStreamStore.close();
+  }
+
   public void setupStandby() throws Exception {
     state = new SamzaApplicationState(getJobModelManagerWithHostAffinityWithStandby(ImmutableMap.of("0", "host-1", "1", "host-2", "0-0", "host-2", "1-0", "host-1")));
     callback = mock(ClusterResourceManager.Callback.class);
@@ -270,9 +278,10 @@ public class TestContainerPlacementActions {
   @Test(timeout = 30000)
   public void testActionQueuingForConsecutivePlacementActions() throws Exception {
     // Spawn a Request Allocator Thread
-    Thread requestAllocatorThread = new Thread(
-        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config), 100),
-        "ContainerPlacement Request Allocator Thread");
+    ContainerPlacementRequestAllocator requestAllocator =
+        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config), 100);
+    Thread requestAllocatorThread = new Thread(requestAllocator, "ContainerPlacement Request Allocator Thread");
+
     requestAllocatorThread.start();
 
     doAnswer(new Answer<Void>() {
@@ -368,6 +377,9 @@ public class TestContainerPlacementActions {
     // Requests from Previous deploy must be cleaned
     assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestUUIDMoveBad).isPresent());
     assertFalse(containerPlacementMetadataStore.readContainerPlacementResponseMessage(requestUUIDMoveBad).isPresent());
+
+    // Cleanup Request Allocator Thread
+    cleanUpRequestAllocatorThread(requestAllocator, requestAllocatorThread);
   }
 
   @Test(timeout = 10000)
@@ -840,9 +852,10 @@ public class TestContainerPlacementActions {
     setupStandby();
 
     // Spawn a Request Allocator Thread
-    Thread requestAllocatorThread = new Thread(
-        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config), 100),
-        "ContainerPlacement Request Allocator Thread");
+    ContainerPlacementRequestAllocator requestAllocator =
+        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, cpm, new ApplicationConfig(config), 100);
+    Thread requestAllocatorThread = new Thread(requestAllocator, "ContainerPlacement Request Allocator Thread");
+
     requestAllocatorThread.start();
 
     doAnswer(new Answer<Void>() {
@@ -979,6 +992,9 @@ public class TestContainerPlacementActions {
     // Request should be deleted as soon as ita accepted / being acted upon
     assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(standbyMoveRequest).isPresent());
     assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(activeMoveRequest).isPresent());
+
+    // Cleanup Request Allocator Thread
+    cleanUpRequestAllocatorThread(requestAllocator, requestAllocatorThread);
   }
 
   private void assertResponseMessage(ContainerPlacementResponseMessage responseMessage,
@@ -1015,4 +1031,12 @@ public class TestContainerPlacementActions {
     assertFalse(containerPlacementMetadataStore.readContainerPlacementRequestMessage(requestMessage.getUuid()).isPresent());
   }
 
+  private void cleanUpRequestAllocatorThread(ContainerPlacementRequestAllocator requestAllocator, Thread containerPlacementRequestAllocatorThread) {
+    requestAllocator.stop();
+    try {
+      containerPlacementRequestAllocatorThread.join();
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
+    }
+  }
 }
