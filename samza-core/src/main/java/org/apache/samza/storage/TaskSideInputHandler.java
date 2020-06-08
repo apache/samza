@@ -22,7 +22,6 @@ package org.apache.samza.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
-import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -80,14 +79,14 @@ public class TaskSideInputHandler {
 
     this.sspToStores = new HashMap<>();
     storeToSSPs.forEach((store, ssps) -> {
-      for (SystemStreamPartition ssp: ssps) {
-        this.sspToStores.computeIfAbsent(ssp, key -> new HashSet<>());
-        this.sspToStores.computeIfPresent(ssp, (key, value) -> {
-          value.add(store);
-          return value;
-        });
-      }
-    });
+        for (SystemStreamPartition ssp: ssps) {
+          this.sspToStores.computeIfAbsent(ssp, key -> new HashSet<>());
+          this.sspToStores.computeIfPresent(ssp, (key, value) -> {
+              value.add(store);
+              return value;
+            });
+        }
+      });
 
     this.taskSideInputStorageManager = new TaskSideInputStorageManager(taskName,
         taskMode,
