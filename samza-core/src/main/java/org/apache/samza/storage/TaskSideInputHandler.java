@@ -25,6 +25,7 @@ import java.io.File;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -77,12 +78,16 @@ public class TaskSideInputHandler {
     this.streamMetadataCache = streamMetadataCache;
     this.storeToProcessor = storeToProcessor;
 
-    this.sspToStores = storeToSSPs.entrySet().stream()
-        .flatMap(storeAndSSPs -> storeAndSSPs.getValue().stream()
-            .map(ssp -> new AbstractMap.SimpleImmutableEntry<>(ssp, storeAndSSPs.getKey())))
-        .collect(Collectors.groupingBy(
-            Map.Entry::getKey,
-            Collectors.mapping(Map.Entry::getValue, Collectors.toSet())));
+    this.sspToStores = new HashMap<>();
+    storeToSSPs.forEach((store, ssps) -> {
+      for (SystemStreamPartition ssp: ssps) {
+        this.sspToStores.computeIfAbsent(ssp, key -> new HashSet<>());
+        this.sspToStores.computeIfPresent(ssp, (key, value) -> {
+          value.add(store);
+          return value;
+        });
+      }
+    });
 
     this.taskSideInputStorageManager = new TaskSideInputStorageManager(taskName,
         taskMode,
@@ -181,7 +186,8 @@ public class TaskSideInputHandler {
   }
 
   /**
-   * Stops the underlying storage manager at the last processed offsets.
+   * Stops the underlying storage manager at the last processed offsets. Any pending and upcoming invocations
+   * of {@link #process} and {@link #flush} are assumed to have completed or ceased prior to calling this method.
    */
   public void stop() {
     this.taskSideInputStorageManager.stop(this.lastProcessedOffsets);
