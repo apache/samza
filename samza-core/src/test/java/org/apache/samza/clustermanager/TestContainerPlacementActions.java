@@ -63,6 +63,10 @@ import static org.mockito.Mockito.*;
 
 /**
  * Set of Integration tests for container placement actions
+ *
+ * Please note that semaphores are used wherever possible, there are some Thread.sleep used for the main thread to check
+ * on state changes to atomic variables or synchroized metadata objects because of difficulty of plugging semaphores to
+ * those pieces of logic
  */
 @RunWith(MockitoJUnitRunner.class)
 public class TestContainerPlacementActions {

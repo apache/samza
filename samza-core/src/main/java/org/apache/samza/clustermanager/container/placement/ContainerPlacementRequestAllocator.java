@@ -54,7 +54,7 @@ public class ContainerPlacementRequestAllocator implements Runnable {
   /**
    * Sleep time for container placement handler thread
    */
-  private final int clusterManagerContainerPlacementHandlerSleepMs;
+  private final int containerPlacementHandlerSleepMs;
   public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager, ApplicationConfig config) {
     Preconditions.checkNotNull(containerPlacementMetadataStore, "containerPlacementMetadataStore cannot be null");
     Preconditions.checkNotNull(manager, "ContainerProcessManager cannot be null");
@@ -62,7 +62,7 @@ public class ContainerPlacementRequestAllocator implements Runnable {
     this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     this.isRunning = true;
     this.appRunId = config.getRunId();
-    this.clusterManagerContainerPlacementHandlerSleepMs = DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS;
+    this.containerPlacementHandlerSleepMs = DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS;
   }
 
   @VisibleForTesting
@@ -77,7 +77,7 @@ public class ContainerPlacementRequestAllocator implements Runnable {
     this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     this.isRunning = true;
     this.appRunId = config.getRunId();
-    this.clusterManagerContainerPlacementHandlerSleepMs = clusterManagerContainerPlacementHandlerSleepMs;
+    this.containerPlacementHandlerSleepMs = clusterManagerContainerPlacementHandlerSleepMs;
   }
 
   @Override
@@ -95,7 +95,7 @@ public class ContainerPlacementRequestAllocator implements Runnable {
             containerPlacementMetadataStore.deleteAllContainerPlacementMessages(message.getUuid());
           }
         }
-        Thread.sleep(clusterManagerContainerPlacementHandlerSleepMs);
+        Thread.sleep(containerPlacementHandlerSleepMs);
       } catch (InterruptedException e) {
         LOG.warn("Got InterruptedException in ContainerPlacementRequestAllocator thread.", e);
         Thread.currentThread().interrupt();
