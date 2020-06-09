@@ -35,14 +35,13 @@ import org.apache.samza.rest.resources.mock.MockTaskProxyFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
-import org.glassfish.jersey.test.JerseyTest;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 
-public class TestTasksResource extends JerseyTest {
+public class TestTasksResource extends BaseJerseyTest {
   private ObjectMapper objectMapper = SamzaObjectMapper.getObjectMapper();
 
   @Override

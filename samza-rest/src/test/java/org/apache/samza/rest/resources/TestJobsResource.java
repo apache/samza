@@ -36,7 +36,6 @@ import org.apache.samza.rest.resources.mock.MockResourceFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
-import org.glassfish.jersey.test.JerseyTest;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -45,7 +44,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 
-public class TestJobsResource extends JerseyTest {
+public class TestJobsResource extends BaseJerseyTest {
   ObjectMapper objectMapper = SamzaObjectMapper.getObjectMapper();
 
   @Override
