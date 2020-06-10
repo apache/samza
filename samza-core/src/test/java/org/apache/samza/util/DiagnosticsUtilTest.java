@@ -36,6 +36,7 @@ import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.api.mockito.PowerMockito;
@@ -57,6 +58,7 @@ public class DiagnosticsUtilTest {
   public static final String REPORTER_FACTORY = "org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory";
   public static final String SYSTEM_FACTORY = "com.foo.system.SomeSystemFactory";
 
+  @Ignore("Check to see if tests cause OOM")
   @Test
   public void testBuildDiagnosticsManagerReturnsConfiguredReporter() {
     Config config = new MapConfig(buildTestConfigs());

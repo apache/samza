@@ -37,6 +37,7 @@ import org.apache.samza.system.SystemStream;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -88,6 +89,7 @@ public class TestDiagnosticsManager {
     this.diagnosticsManager.addProcessorStopEvent("0", executionEnvContainerId, hostname, 101);
   }
 
+  @Ignore("Check to see if tests cause OOM")
   @Test
   public void testDiagnosticsManagerStart() {
     SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
@@ -105,6 +107,7 @@ public class TestDiagnosticsManager {
             Mockito.any(TimeUnit.class));
   }
 
+  @Ignore("Check to see if tests cause OOM")
   @Test
   public void testDiagnosticsManagerStop() throws InterruptedException {
     SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
@@ -125,6 +128,7 @@ public class TestDiagnosticsManager {
     Mockito.verify(mockSystemProducer, Mockito.times(1)).stop();
   }
 
+  @Ignore("Check to see if tests cause OOM")
   @Test
   public void testDiagnosticsManagerForceStop() throws InterruptedException {
     SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
