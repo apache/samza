@@ -31,6 +31,11 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.operators.functions.StreamTableJoinFunction;
+import org.apache.samza.operators.spec.OperatorSpec;
+import org.apache.samza.operators.spec.OperatorSpecs;
+import org.apache.samza.operators.spec.SendToTableOperatorSpec;
+import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.system.descriptors.GenericOutputDescriptor;
 import org.apache.samza.system.descriptors.GenericSystemDescriptor;
@@ -368,4 +373,41 @@ public class TestJobGraphJsonGenerator {
       return "";
     }
   }
+
+  @Test
+  public void testOperatorToMapForTable() {
+    JobGraphJsonGenerator jsonGenerator = new JobGraphJsonGenerator();
+    Map<String, Object> map;
+    SendToTableOperatorSpec<Object, Object> sendToTableOperatorSpec =
+        OperatorSpecs.createSendToTableOperatorSpec("test-sent-to-table", "test-sent-to");
+    map = jsonGenerator.operatorToMap(sendToTableOperatorSpec);
+    assertTrue(map.containsKey("tableId"));
+    assertEquals(map.get("tableId"), "test-sent-to-table");
+    assertEquals(map.get("opCode"), OperatorSpec.OpCode.SEND_TO.name());
+    assertEquals(map.get("opId"), "test-sent-to");
+    StreamTableJoinOperatorSpec<String, String, String, String> streamTableJoinOperatorSpec =
+        OperatorSpecs.createStreamTableJoinOperatorSpec("test-join-table", new TestStreamTableJoinFunction(),
+            "test-join");
+    map = jsonGenerator.operatorToMap(streamTableJoinOperatorSpec);
+    assertTrue(map.containsKey("tableId"));
+    assertEquals(map.get("tableId"), "test-join-table");
+    assertEquals(map.get("opCode"), OperatorSpec.OpCode.JOIN.name());
+    assertEquals(map.get("opId"), "test-join");
+  }
+
+  private class TestStreamTableJoinFunction implements StreamTableJoinFunction<String, String, String, String> {
+    @Override
+    public String apply(String message, String record) {
+      return null;
+    }
+    @Override
+    public String getMessageKey(String message) {
+      return null;
+    }
+    @Override
+    public String getRecordKey(String record) {
+      return null;
+    }
+  }
+
 }
