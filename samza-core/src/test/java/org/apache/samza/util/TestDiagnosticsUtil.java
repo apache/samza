@@ -48,7 +48,7 @@ import static org.mockito.Mockito.*;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ReflectionUtil.class})
-public class DiagnosticsUtilTest {
+public class TestDiagnosticsUtil {
 
   private static final String STREAM_NAME = "someStreamName";
   private static final String JOB_NAME = "someJob";
@@ -58,7 +58,6 @@ public class DiagnosticsUtilTest {
   public static final String REPORTER_FACTORY = "org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory";
   public static final String SYSTEM_FACTORY = "com.foo.system.SomeSystemFactory";
 
-  @Ignore("Check to see if tests cause OOM")
   @Test
   public void testBuildDiagnosticsManagerReturnsConfiguredReporter() {
     Config config = new MapConfig(buildTestConfigs());
