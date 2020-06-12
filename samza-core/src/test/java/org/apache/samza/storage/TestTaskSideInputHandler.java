@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -192,6 +193,7 @@ public class TestTaskSideInputHandler {
           storeToProcessor,
           systemAdmins,
           streamMetadataCache,
+          new CountDownLatch(1),
           clock));
     }
   }

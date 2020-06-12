@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -38,6 +39,7 @@ import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -63,19 +65,23 @@ public class TaskSideInputHandler {
   private final Map<String, SideInputsProcessor> storeToProcessor;
   private final SystemAdmins systemAdmins;
   private final StreamMetadataCache streamMetadataCache;
+  // indicates to container that all side input ssps in this task are caught up
+  private final CountDownLatch taskCaughtUpLatch;
 
+  private Map<SystemStreamPartition, String> sspOffsetsToBlockUntil;
   private Map<SystemStreamPartition, String> startingOffsets;
 
   public TaskSideInputHandler(TaskName taskName, TaskMode taskMode, File storeBaseDir,
       Map<String, StorageEngine> storeToStorageEngines, Map<String, Set<SystemStreamPartition>> storeToSSPs,
       Map<String, SideInputsProcessor> storeToProcessor, SystemAdmins systemAdmins,
-      StreamMetadataCache streamMetadataCache, Clock clock) {
+      StreamMetadataCache streamMetadataCache, CountDownLatch taskCaughtUpLatch, Clock clock) {
     validateProcessorConfiguration(storeToSSPs.keySet(), storeToProcessor);
 
     this.taskName = taskName;
     this.systemAdmins = systemAdmins;
     this.streamMetadataCache = streamMetadataCache;
     this.storeToProcessor = storeToProcessor;
+    this.taskCaughtUpLatch = taskCaughtUpLatch;
 
     this.sspToStores = new HashMap<>();
     storeToSSPs.forEach((store, ssps) -> {
@@ -119,6 +125,17 @@ public class TaskSideInputHandler {
 
     this.startingOffsets = getStartingOffsets(fileOffsets, getOldestOffsets());
     LOG.info("Starting offsets for the task {}: {}", taskName, startingOffsets);
+
+    this.sspOffsetsToBlockUntil = new HashMap<>();
+    for (SystemStreamPartition ssp : this.sspToStores.keySet()) {
+      SystemStreamMetadata metadata = this.streamMetadataCache.getSystemStreamMetadata(ssp.getSystemStream(), false);
+      if (metadata != null) {
+        String offset = metadata.getSystemStreamPartitionMetadata().get(ssp.getPartition()).getNewestOffset();
+        this.sspOffsetsToBlockUntil.put(ssp, offset);
+      }
+    }
+
+    this.startingOffsets.forEach((ssp, offset) -> checkCaughtUp(ssp, offset, true));
   }
 
   /**
@@ -150,6 +167,7 @@ public class TaskSideInputHandler {
     }
 
     this.lastProcessedOffsets.put(envelopeSSP, envelopeOffset);
+    checkCaughtUp(envelopeSSP, envelopeOffset, false);
   }
 
   /**
@@ -257,6 +275,44 @@ public class TaskSideInputHandler {
       });
 
     return oldestOffsets;
+  }
+
+  /**
+   * Checks if whether the given offset for the SSP has reached the latest offset (determined at init),
+   * removing it from the list of SSPs to catch up. Once the set of SSPs to catch up becomes empty, the latch for the
+   * task will count down, notifying {@link ContainerStorageManager} that it is caught up.
+   *
+   * @param ssp The SSP to be checked
+   * @param currentOffset The offset to be checked
+   * @param isStartingOffset Indicates whether the offset being checked is the starting offset of the SSP (and thus has
+   *                         not yet been processed). This will be set to true when each SSP's starting offset is checked
+   *                         on init, and false when checking if an ssp is caught up after processing an envelope.
+   */
+  private void checkCaughtUp(SystemStreamPartition ssp, String currentOffset, boolean isStartingOffset) {
+    String offsetToBlockUntil = this.sspOffsetsToBlockUntil.get(ssp);
+
+    LOG.trace("Checking offset {} against {} for {}. isStartingOffset: {}", currentOffset, offsetToBlockUntil, ssp, isStartingOffset);
+
+    Integer comparatorResult;
+    if (currentOffset == null || offsetToBlockUntil == null) {
+      comparatorResult = -1;
+    } else {
+      SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(ssp.getSystem());
+      comparatorResult = systemAdmin.offsetComparator(currentOffset, offsetToBlockUntil);
+    }
+
+    // If the starting offset, it must be greater (since the envelope at the starting offset will not yet have been processed)
+    // If not the starting offset, it must be greater than OR equal
+    if (comparatorResult != null && ((isStartingOffset && comparatorResult > 0) || (!isStartingOffset && comparatorResult >= 0))) {
+      LOG.info("Side input ssp {} has caught up to offset {}.", ssp, offsetToBlockUntil);
+      // if its caught up, we remove the ssp from the map
+      this.sspOffsetsToBlockUntil.remove(ssp);
+      if (this.sspOffsetsToBlockUntil.isEmpty()) {
+        // if the metadata list is now empty, all SSPs in the task are caught up so count down the latch
+        // this will only happen once, when the last ssp catches up
+        this.taskCaughtUpLatch.countDown();
+      }
+    }
   }
 
   /**

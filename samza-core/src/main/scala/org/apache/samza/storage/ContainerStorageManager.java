@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -34,14 +33,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.SamzaException;
@@ -50,6 +47,8 @@ import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.container.RunLoop;
+import org.apache.samza.container.RunLoopTask;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
@@ -68,7 +67,6 @@ import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
-import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemConsumers;
@@ -111,13 +109,10 @@ public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
   private static final String SIDEINPUTS_READ_THREAD_NAME = "SideInputs Read Thread";
-  private static final String SIDEINPUTS_FLUSH_THREAD_NAME = "SideInputs Flush Thread";
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
   // We use a prefix to differentiate the SystemConsumersMetrics for sideInputs from the ones in SamzaContainer
 
   private static final int SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS = 10; // Timeout with which sideinput read thread checks for exceptions
-  private static final Duration SIDE_INPUT_FLUSH_TIMEOUT = Duration.ofMinutes(1); // Period with which sideinputs are flushed
-
 
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
@@ -154,17 +149,13 @@ public class ContainerStorageManager {
   private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputStoreSSPs;
   private final Map<SystemStreamPartition, TaskSideInputHandler> sspSideInputHandlers;
   private SystemConsumers sideInputSystemConsumers;
-  private final Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata
-      = new ConcurrentHashMap<>(); // Recorded sspMetadata of the taskSideInputSSPs recorded at start, used to determine when sideInputs are caughtup and container init can proceed
-  private volatile CountDownLatch sideInputsCaughtUp; // Used by the sideInput-read thread to signal to the main thread
+  private volatile Map<TaskName, CountDownLatch> sideInputTaskLatches; // Used by the sideInput-read thread to signal to the main thread
   private volatile boolean shouldShutdown = false;
+  private RunLoop sideInputRunLoop;
 
   private final ExecutorService sideInputsReadExecutor = Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_READ_THREAD_NAME).build());
 
-  private final ScheduledExecutorService sideInputsFlushExecutor = Executors.newSingleThreadScheduledExecutor(
-      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_FLUSH_THREAD_NAME).build());
-  private ScheduledFuture sideInputsFlushFuture;
   private volatile Throwable sideInputException = null;
 
   private final Config config;
@@ -195,6 +186,7 @@ public class ContainerStorageManager {
     this.checkpointManager = checkpointManager;
     this.containerModel = containerModel;
     this.taskSideInputStoreSSPs = getTaskSideInputSSPs(containerModel, sideInputSystemStreams);
+    this.sideInputTaskLatches = new HashMap<>();
     this.hasSideInputs = this.taskSideInputStoreSSPs.values().stream()
         .flatMap(m -> m.values().stream())
         .flatMap(Collection::stream)
@@ -604,6 +596,9 @@ public class ContainerStorageManager {
           Map<String, StorageEngine> sideInputStores = getSideInputStores(taskName);
           Map<String, Set<SystemStreamPartition>> sideInputStoresToSSPs = new HashMap<>();
 
+          CountDownLatch taskCountDownLatch = new CountDownLatch(1);
+          this.sideInputTaskLatches.put(taskName, taskCountDownLatch);
+
           for (String storeName : sideInputStores.keySet()) {
             Set<SystemStreamPartition> storeSSPs = this.taskSideInputStoreSSPs.get(taskName).get(storeName);
             sideInputStoresToSSPs.put(storeName, storeSSPs);
@@ -617,6 +612,7 @@ public class ContainerStorageManager {
               taskSideInputProcessors.get(taskName),
               this.systemAdmins,
               this.streamMetadataCache,
+              taskCountDownLatch,
               clock);
 
           sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
@@ -728,22 +724,12 @@ public class ContainerStorageManager {
     // initialize the sideInputStorageManagers
     getSideInputHandlers().forEach(TaskSideInputHandler::init);
 
-    // start the checkpointing thread at the commit-ms frequency
-    TaskConfig taskConfig = new TaskConfig(config);
-    sideInputsFlushFuture = sideInputsFlushExecutor.scheduleWithFixedDelay(new Runnable() {
-      @Override
-      public void run() {
-        try {
-          getSideInputHandlers().forEach(TaskSideInputHandler::flush);
-        } catch (Exception e) {
-          LOG.error("Exception during flushing sideInputs", e);
-          sideInputException = e;
-        }
-      }
-    }, 0, taskConfig.getCommitMs(), TimeUnit.MILLISECONDS);
-
-    // set the latch to the number of sideInput SSPs
-    this.sideInputsCaughtUp = new CountDownLatch(this.sspSideInputHandlers.keySet().size());
+    Map<TaskName, TaskInstanceMetrics> sideInputTaskMetrics = new HashMap<>();
+    this.taskInstanceMetrics.forEach((taskName, metrics) -> {
+        String sideInputSource = SIDEINPUTS_METRICS_PREFIX + metrics.source();
+        TaskInstanceMetrics sideInputMetrics = new TaskInstanceMetrics(sideInputSource, metrics.registry());
+        sideInputTaskMetrics.put(taskName, sideInputMetrics);
+      });
 
     // register all sideInput SSPs with the consumers
     for (SystemStreamPartition ssp : this.sspSideInputHandlers.keySet()) {
@@ -758,41 +744,50 @@ public class ContainerStorageManager {
       sideInputSystemConsumers.register(ssp, startingOffset);
       taskInstanceMetrics.get(this.sspSideInputHandlers.get(ssp).getTaskName()).addOffsetGauge(
           ssp, ScalaJavaUtil.toScalaFunction(() -> this.sspSideInputHandlers.get(ssp).getLastProcessedOffset(ssp)));
-
-      SystemStreamMetadata systemStreamMetadata = streamMetadataCache.getSystemStreamMetadata(ssp.getSystemStream(), false);
-      SystemStreamMetadata.SystemStreamPartitionMetadata sspMetadata =
-          (systemStreamMetadata == null) ? null : systemStreamMetadata.getSystemStreamPartitionMetadata().get(ssp.getPartition());
-
-      // record a copy of the sspMetadata, to later check if its caught up
-      initialSideInputSSPMetadata.put(ssp, sspMetadata);
-
-      // check if the ssp is caught to upcoming, even at start
-      checkSideInputCaughtUp(ssp, startingOffset, SystemStreamMetadata.OffsetType.UPCOMING, false);
+      sideInputTaskMetrics.get(this.sspSideInputHandlers.get(ssp).getTaskName()).addOffsetGauge(
+          ssp, ScalaJavaUtil.toScalaFunction(() -> this.sspSideInputHandlers.get(ssp).getLastProcessedOffset(ssp)));
     }
+
+    Map<TaskName, TaskSideInputHandler> taskSideInputHandlers = this.sspSideInputHandlers.values().stream()
+        .distinct()
+        .collect(Collectors.toMap(TaskSideInputHandler::getTaskName, Function.identity()));
+
+    Map<TaskName, RunLoopTask> sideInputTasks = new HashMap<>();
+    this.taskSideInputStoreSSPs.forEach((taskName, storesToSSPs) -> {
+        Set<SystemStreamPartition> taskSSPs = this.taskSideInputStoreSSPs.get(taskName).values().stream()
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
+
+        RunLoopTask sideInputTask = new SideInputTask(taskName, taskSSPs, taskSideInputHandlers.get(taskName), sideInputTaskMetrics.get(taskName));
+
+        sideInputTasks.put(taskName, sideInputTask);
+      });
 
     // start the systemConsumers for consuming input
     this.sideInputSystemConsumers.start();
 
+    TaskConfig taskConfig = new TaskConfig(this.config);
+    SamzaContainerMetrics sideInputContainerMetrics =
+        new SamzaContainerMetrics(SIDEINPUTS_METRICS_PREFIX + this.samzaContainerMetrics.source(),
+            this.samzaContainerMetrics.registry());
+
+    this.sideInputRunLoop = new RunLoop(sideInputTasks,
+        null, // all operations are executed in the main runloop thread
+        this.sideInputSystemConsumers,
+        1, // single message in flight per task
+        -1, // no windowing
+        taskConfig.getCommitMs(),
+        taskConfig.getCallbackTimeoutMs(),
+        1, // default taken from SamzaContainer
+        taskConfig.getMaxIdleMs(),
+        sideInputContainerMetrics,
+        System::nanoTime,
+        false); // commit must be synchronous to ensure integrity of state flush
 
     try {
-
-    // submit the sideInput read runnable
       sideInputsReadExecutor.submit(() -> {
           try {
-            while (!shouldShutdown) {
-              IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
-
-              if (envelope != null) {
-                if (!envelope.isEndOfStream()) {
-                  this.sspSideInputHandlers.get(envelope.getSystemStreamPartition()).process(envelope);
-                }
-
-                checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
-                    SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
-              } else {
-                LOG.trace("No incoming message was available");
-              }
-            }
+            sideInputRunLoop.run();
           } catch (Exception e) {
             LOG.error("Exception in reading sideInputs", e);
             sideInputException = e;
@@ -801,7 +796,7 @@ public class ContainerStorageManager {
 
       // Make the main thread wait until all sideInputs have been caughtup or an exception was thrown
       while (!shouldShutdown && sideInputException == null &&
-          !this.sideInputsCaughtUp.await(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+          !awaitSideInputTasks()) {
         LOG.debug("Waiting for SideInput bootstrap to complete");
       }
 
@@ -824,39 +819,22 @@ public class ContainerStorageManager {
     LOG.info("SideInput Restore complete");
   }
 
-  // Method to check if the given offset means the stream is caught up for reads
-  private void checkSideInputCaughtUp(SystemStreamPartition ssp, String offset, SystemStreamMetadata.OffsetType offsetType, boolean isEndOfStream) {
-
-    if (isEndOfStream) {
-      this.initialSideInputSSPMetadata.remove(ssp);
-      this.sideInputsCaughtUp.countDown();
-      LOG.info("Side input ssp {} has caught up to offset {} ({}).", ssp, offset, offsetType);
-      return;
+  /**
+   * Waits for all side input tasks to catch up until a timeout.
+   *
+   * @return False if waiting on any latch timed out, true otherwise
+   *
+   * @throws InterruptedException if waiting any of the latches is interrupted
+   */
+  private boolean awaitSideInputTasks() throws InterruptedException {
+    long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS);
+    for (CountDownLatch latch : this.sideInputTaskLatches.values()) {
+      long remainingMillisToWait = endTime - System.currentTimeMillis();
+      if (remainingMillisToWait <= 0 || !latch.await(remainingMillisToWait, TimeUnit.MILLISECONDS)) {
+        return false;
+      }
     }
-
-    SystemStreamMetadata.SystemStreamPartitionMetadata sspMetadata = this.initialSideInputSSPMetadata.get(ssp);
-    String offsetToCheck = sspMetadata == null ? null : sspMetadata.getOffset(offsetType);
-    LOG.trace("Checking {} offset {} against {} for {}.", offsetType, offset, offsetToCheck, ssp);
-
-    // Let's compare offset of the chosen message with offsetToCheck.
-    Integer comparatorResult;
-    if (offset == null || offsetToCheck == null) {
-      comparatorResult = -1;
-    } else {
-      SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(ssp.getSystem());
-      comparatorResult = systemAdmin.offsetComparator(offset, offsetToCheck);
-    }
-
-    // The SSP is no longer lagging if the envelope's offset is greater than or equal to the
-    // latest offset.
-    if (comparatorResult != null && comparatorResult.intValue() >= 0) {
-
-      LOG.info("Side input ssp {} has caught up to offset {} ({}).", ssp, offset, offsetType);
-      // if its caught up, we remove the ssp from the map, and countDown the latch
-      this.initialSideInputSSPMetadata.remove(ssp);
-      this.sideInputsCaughtUp.countDown();
-      return;
-    }
+    return true;
   }
 
   /**
@@ -901,18 +879,15 @@ public class ContainerStorageManager {
 
     // stop all sideinput consumers and stores
     if (this.hasSideInputs) {
-      sideInputsReadExecutor.shutdownNow();
-
-      this.sideInputSystemConsumers.stop();
-
-      // cancel all future sideInput flushes, shutdown the executor, and await for finish
-      sideInputsFlushFuture.cancel(false);
-      sideInputsFlushExecutor.shutdown();
+      this.sideInputRunLoop.shutdown();
+      this.sideInputsReadExecutor.shutdown();
       try {
-        sideInputsFlushExecutor.awaitTermination(SIDE_INPUT_FLUSH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+        this.sideInputsReadExecutor.awaitTermination(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         throw new SamzaException("Exception while shutting down sideInputs", e);
       }
+
+      this.sideInputSystemConsumers.stop();
 
       // stop all sideInputStores -- this will perform one last flush on the KV stores, and write the offset file
       this.getSideInputHandlers().forEach(TaskSideInputHandler::stop);
