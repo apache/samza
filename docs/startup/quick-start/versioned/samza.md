@@ -211,7 +211,7 @@ Let’s kick off our application and use gradle to run it. Alternately, you can 
 
 {% highlight bash %}
 > export BASE_DIR=`pwd`
-> ./gradlew run --args="--config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$BASE_DIR/src/main/config/word-count.properties"
+> ./gradlew run --args="--config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$BASE_DIR/src/main/config/word-count.properties"
 {% endhighlight %}
 
 

@@ -38,12 +38,15 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.verifyNew;
+import static org.powermock.api.mockito.PowerMockito.verifyStatic;
+
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({
@@ -68,6 +71,7 @@ public class TestJobCoordinatorLaunchUtil {
     ClusterBasedJobCoordinator mockJC = mock(ClusterBasedJobCoordinator.class);
 
     PowerMockito.mockStatic(CoordinatorStreamUtil.class);
+    PowerMockito.doNothing().when(CoordinatorStreamUtil.class, "createCoordinatorStream", any());
     PowerMockito.doReturn(new MapConfig()).when(CoordinatorStreamUtil.class, "buildCoordinatorStreamConfig", any());
     PowerMockito.doReturn(autoSizingConfig).when(CoordinatorStreamUtil.class, "readLaunchConfigFromCoordinatorStream", any(), any());
     PowerMockito.whenNew(CoordinatorStreamStore.class).withAnyArguments().thenReturn(mockCoordinatorStreamStore);
@@ -79,5 +83,9 @@ public class TestJobCoordinatorLaunchUtil {
 
     verifyNew(ClusterBasedJobCoordinator.class).withArguments(any(MetricsRegistryMap.class), eq(mockCoordinatorStreamStore), eq(finalConfig));
     verify(mockJC, times(1)).run();
+    verifyStatic(times(1));
+    CoordinatorStreamUtil.createCoordinatorStream(any());
+    verifyStatic(times(1));
+    CoordinatorStreamUtil.writeConfigToCoordinatorStream(any(), anyBoolean());
   }
 }

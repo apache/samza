@@ -43,12 +43,12 @@ import scala.collection.JavaConverters._
  * taskName // container_567890
  * host // eat1-app128.gird
  * version // 0.0.1
-  * blacklist // Regex of metrics to ignore when flushing
+ * blacklist // Regex of metrics to ignore when flushing
  */
 class MetricsSnapshotReporter(
   producer: SystemProducer,
   out: SystemStream,
-  pollingInterval: Int,
+  reportingInterval: Int,
   jobName: String,
   jobId: String,
   containerName: String,
@@ -67,8 +67,8 @@ class MetricsSnapshotReporter(
   var registries = List[(String, ReadableMetricsRegistry)]()
   var blacklistedMetrics = Set[String]()
 
-  info("got metrics snapshot reporter properties [job name: %s, job id: %s, containerName: %s, version: %s, samzaVersion: %s, host: %s, pollingInterval %s]"
-    format (jobName, jobId, containerName, version, samzaVersion, host, pollingInterval))
+  info("got metrics snapshot reporter properties [job name: %s, job id: %s, containerName: %s, version: %s, samzaVersion: %s, host: %s, reportingInterval %s]"
+    format(jobName, jobId, containerName, version, samzaVersion, host, reportingInterval))
 
   def start {
     info("Starting producer.")
@@ -77,7 +77,7 @@ class MetricsSnapshotReporter(
 
     info("Starting reporter timer.")
 
-    executor.scheduleWithFixedDelay(this, 0, pollingInterval, TimeUnit.SECONDS)
+    executor.scheduleWithFixedDelay(this, 0, reportingInterval, TimeUnit.SECONDS)
   }
 
   def register(source: String, registry: ReadableMetricsRegistry) {
@@ -91,7 +91,7 @@ class MetricsSnapshotReporter(
   def stop = {
 
     // Scheduling an event with 0 delay to ensure flushing of metrics one last time before shutdown
-    executor.schedule(this,0, TimeUnit.SECONDS)
+    executor.schedule(this, 0, TimeUnit.SECONDS)
 
     info("Stopping reporter timer.")
     // Allow the scheduled task above to finish, and block for termination (for max 60 seconds)
@@ -106,9 +106,20 @@ class MetricsSnapshotReporter(
     }
   }
 
-  def run {
-    debug("Begin flushing metrics.")
+  def run() {
+    try {
+      innerRun()
+    } catch {
+      case e: Exception =>
+        // Ignore all exceptions - because subsequent executions of this scheduled task will be suppressed
+        // by the executor if the current task throws an unhandled exception.
+        warn("Error while reporting metrics. Will retry in " + reportingInterval + " seconds.", e)
+    }
 
+  }
+
+  def innerRun(): Unit = {
+    debug("Begin flushing metrics.")
     for ((source, registry) <- registries) {
       debug("Flushing metrics for %s." format source)
 
@@ -140,7 +151,7 @@ class MetricsSnapshotReporter(
         val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
         val metrics = new Metrics(metricsMsg)
 
-        debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format(source, out, header.getAsMap, metrics.getAsMap))
+        debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format(source, out, header.getAsMap, metrics.getAsMap()))
 
         val metricsSnapshot = new MetricsSnapshot(header, metrics)
         val maybeSerialized = if (serializer != null) {
@@ -160,11 +171,8 @@ class MetricsSnapshotReporter(
         }
       }
     }
-
-
     debug("Finished flushing metrics.")
   }
-
 
   def shouldIgnore(group: String, metricName: String) = {
     var isBlacklisted = blacklist.isDefined
@@ -173,7 +181,7 @@ class MetricsSnapshotReporter(
     if (isBlacklisted && !blacklistedMetrics.contains(fullMetricName)) {
       if (fullMetricName.matches(blacklist.get)) {
         blacklistedMetrics += fullMetricName
-        info("Blacklisted metric %s because it matched blacklist regex: %s" format(fullMetricName, blacklist.get))
+        debug("Blacklisted metric %s because it matched blacklist regex: %s" format(fullMetricName, blacklist.get))
       } else {
         isBlacklisted = false
       }

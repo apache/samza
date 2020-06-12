@@ -97,7 +97,7 @@ samza-job-name-folder
 Once the archive is built, the `run-app.sh` script can be used to submit the application to YARN's resource manager. The script takes 2 CLI parameters - the config factory and the config file for the application. As an example, lets run our [FilterExample](https://github.com/apache/samza-hello-samza/blob/latest/src/main/java/samza/examples/cookbook/FilterExample.java) on YARN as follows:
 
 ```bash
-$ ./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path ./deploy/samza/config/filter-example.properties
+$ ./deploy/samza/bin/run-app.sh --config-path=./deploy/samza/config/filter-example.properties
 ```
 
 Congratulations, you've successfully submitted your first job to YARN! You can view the YARN Web UI to view its status. 

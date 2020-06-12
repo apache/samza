@@ -575,33 +575,39 @@ project(":samza-shell") {
   }
 
   // Usage: ./gradlew samza-shell:runJob \
-  //  -PconfigPath=file:///path/to/job/config.properties
+  //  -PconfigPath=/path/to/job/config.properties
   task runJob(type:JavaExec) {
     description 'To run a job (defined in a properties file)'
     main = 'org.apache.samza.job.JobRunner'
     classpath = configurations.gradleShell
-    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    if (project.hasProperty('configPath')) args += [
+        '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+        '--config', 'job.config.loader.properties.path=' + configPath]
     jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 
   // Usage: ./gradlew samza-shell:checkpointTool \
-  //  -PconfigPath=file:///path/to/job/config.properties -PnewOffsets=file:///path/to/new/offsets.properties
+  //  -PconfigPath=/path/to/job/config.properties -PnewOffsets=/path/to/new/offsets.properties
   task checkpointTool(type:JavaExec) {
     description 'Command-line tool to inspect and manipulate the job’s checkpoint'
     main = 'org.apache.samza.checkpoint.CheckpointTool'
     classpath = configurations.gradleShell
-    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    if (project.hasProperty('configPath')) args += [
+        '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+        '--config', 'job.config.loader.properties.path=' + configPath]
     if (project.hasProperty('newOffsets')) args += ['--new-offsets', newOffsets]
     jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 
   // Usage: ./gradlew samza-shell:kvPerformanceTest
-  //  -PconfigPath=file:///path/to/job/config.properties
+  //  -PconfigPath=/path/to/job/config.properties
   task kvPerformanceTest(type:JavaExec) {
     description 'Command-line tool to run key-value performance tests'
     main = 'org.apache.samza.test.performance.TestKeyValuePerformance'
     classpath = configurations.gradleShell
-    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    if (project.hasProperty('configPath')) args += [
+        '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+        '--config', 'job.config.loader.properties.path=' + configPath]
     jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 }

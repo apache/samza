@@ -197,7 +197,7 @@ class KeyValueStorageEngine[K, V](
       }
       lastBatchFlushed = true
     }
-    info(restoredMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + ".")
+    info(trimmedMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + ".")
 
     // flush the store and the changelog producer
     flush() // TODO HIGH pmaheshw SAMZA-2338: Need a way to flush changelog producers. This only flushes the stores.
