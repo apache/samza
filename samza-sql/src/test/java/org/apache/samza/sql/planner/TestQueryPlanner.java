@@ -20,7 +20,6 @@
 package org.apache.samza.sql.planner;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -32,19 +31,14 @@ import org.apache.calcite.rel.logical.LogicalTableScan;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.context.ContainerContext;
-import org.apache.samza.context.Context;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
 import org.apache.samza.sql.interfaces.DslConverter;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationRunner;
 import org.apache.samza.sql.util.SamzaSqlTestConfig;
-import org.apache.samza.sql.util.TestMetricsRegistryImpl;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
 
 
 public class TestQueryPlanner {
@@ -63,26 +57,26 @@ public class TestQueryPlanner {
   }
 
   @Test
-  public void testRemoteJoinEndToEndWithFilter() throws SamzaSqlValidatorException {
-    testRemoteJoinEndToEndWithFilterHelper(false);
+  public void testRemoteJoinWithFilter() throws SamzaSqlValidatorException {
+    testRemoteJoinWithFilterHelper(false);
   }
 
   @Test
-  public void testRemoteJoinEndToEndWithUdfAndFilter() throws SamzaSqlValidatorException {
-    testRemoteJoinEndToEndWithUdfAndFilterHelper(false);
+  public void testRemoteJoinWithUdfAndFilter() throws SamzaSqlValidatorException {
+    testRemoteJoinWithUdfAndFilterHelper(false);
   }
 
   @Test
-  public void testRemoteJoinEndToEndWithFilterAndOptimizer() throws SamzaSqlValidatorException {
-    testRemoteJoinEndToEndWithFilterHelper(true);
+  public void testRemoteJoinWithFilterAndOptimizer() throws SamzaSqlValidatorException {
+    testRemoteJoinWithFilterHelper(true);
   }
 
   @Test
-  public void testRemoteJoinEndToEndWithUdfAndFilterAndOptimizer() throws SamzaSqlValidatorException {
-    testRemoteJoinEndToEndWithUdfAndFilterHelper(true);
+  public void testRemoteJoinWithUdfAndFilterAndOptimizer() throws SamzaSqlValidatorException {
+    testRemoteJoinWithUdfAndFilterHelper(true);
   }
 
-  void testRemoteJoinEndToEndWithFilterHelper(boolean enableOptimizer) throws SamzaSqlValidatorException {
+  void testRemoteJoinWithFilterHelper(boolean enableOptimizer) throws SamzaSqlValidatorException {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
 
     String sql =
@@ -145,7 +139,7 @@ public class TestQueryPlanner {
     }
   }
 
-  void testRemoteJoinEndToEndWithUdfAndFilterHelper(boolean enableOptimizer) throws SamzaSqlValidatorException {
+  void testRemoteJoinWithUdfAndFilterHelper(boolean enableOptimizer) throws SamzaSqlValidatorException {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
 
     String sql =
@@ -245,6 +239,102 @@ public class TestQueryPlanner {
     samzaConfig = new MapConfig(staticConfigs);
     dslConverter = new SamzaSqlDslConverterFactory().create(samzaConfig);
     Collection<RelRoot> relRootsWithoutOptimization = dslConverter.convertDsl(sql);
+
+    // We do not yet have any join filter optimizations for local joins. Hence the plans with and without optimization
+    // should be the same.
+    assertEquals(RelOptUtil.toString(relRootsWithOptimization.iterator().next().rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES),
+        RelOptUtil.toString(relRootsWithoutOptimization.iterator().next().rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
+  }
+
+  @Test
+  public void testRemoteJoinFilterPushDownWithUdfInFilterAndOptimizer() throws SamzaSqlValidatorException {
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+            + "       p.name as profileName, p.address as profileAddress "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId"
+            + " where p.name = pv.pageKey AND p.name = 'Mike' AND pv.profileId = MyTest(pv.profileId)";
+
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_ENABLE_PLAN_OPTIMIZER, Boolean.toString(true));
+
+    Config samzaConfig = new MapConfig(staticConfigs);
+    DslConverter dslConverter = new SamzaSqlDslConverterFactory().create(samzaConfig);
+    Collection<RelRoot> relRoots = dslConverter.convertDsl(sql);
+
+    /*
+      Query plan without optimization:
+      LogicalProject(__key__=[$9], pageKey=[$9], companyName=['N/A'], profileName=[$2], profileAddress=[$4])
+        LogicalFilter(condition=[AND(=($2, $9), =($2, 'Mike'), =($10, CAST(MyTest($10)):INTEGER))])
+          LogicalJoin(condition=[=($0, $10)], joinType=[inner])
+            LogicalTableScan(table=[[testRemoteStore, Profile, $table]])
+            LogicalTableScan(table=[[testavro, PAGEVIEW]])
+
+      Query plan with optimization:
+      LogicalProject(__key__=[$9], pageKey=[$9], companyName=['N/A'], profileName=[$2], profileAddress=[$4])
+        LogicalFilter(condition=[AND(=($2, $9), =($2, 'Mike'))])
+          LogicalJoin(condition=[=($0, $10)], joinType=[inner])
+            LogicalTableScan(table=[[testRemoteStore, Profile, $table]])
+            LogicalFilter(condition=[=($2, CAST(MyTest($2)):INTEGER)])
+              LogicalTableScan(table=[[testavro, PAGEVIEW]])
+     */
+
+    assertEquals(1, relRoots.size());
+    RelRoot relRoot = relRoots.iterator().next();
+    RelNode relNode = relRoot.rel;
+    assertTrue(relNode instanceof LogicalProject);
+    relNode = relNode.getInput(0);
+    assertTrue(relNode instanceof LogicalFilter);
+    assertEquals("AND(=($2, $9), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
+    relNode = relNode.getInput(0);
+    assertTrue(relNode instanceof LogicalJoin);
+    assertEquals(2, relNode.getInputs().size());
+    LogicalJoin join = (LogicalJoin) relNode;
+    RelNode left = join.getLeft();
+    RelNode right = join.getRight();
+    assertTrue(left instanceof LogicalTableScan);
+    assertTrue(right instanceof LogicalFilter);
+    assertEquals("=($2, CAST(MyTestPoly($2)):INTEGER)", ((LogicalFilter) right).getCondition().toString());
+    assertTrue(right.getInput(0) instanceof LogicalTableScan);
+  }
+
+  @Test
+  public void testRemoteJoinNoFilterPushDownWithUdfInFilterAndOptimizer() throws SamzaSqlValidatorException {
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(1);
+
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+            + "       p.name as profileName, p.address as profileAddress "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId"
+            + " where p.name = pv.pageKey AND p.name = 'Mike' AND pv.profileId = MyTestPoly(p.name)";
+
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_ENABLE_PLAN_OPTIMIZER, Boolean.toString(true));
+
+    Config samzaConfig = new MapConfig(staticConfigs);
+    DslConverter dslConverter = new SamzaSqlDslConverterFactory().create(samzaConfig);
+    Collection<RelRoot> relRootsWithOptimization = dslConverter.convertDsl(sql);
+
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_ENABLE_PLAN_OPTIMIZER, Boolean.toString(false));
+
+    samzaConfig = new MapConfig(staticConfigs);
+    dslConverter = new SamzaSqlDslConverterFactory().create(samzaConfig);
+    Collection<RelRoot> relRootsWithoutOptimization = dslConverter.convertDsl(sql);
+
+    /*
+      LogicalProject(__key__=[$9], pageKey=[$9], companyName=['N/A'], profileName=[$2], profileAddress=[$4])
+        LogicalFilter(condition=[AND(=($2, $9), =($2, 'Mike'), =($10, CAST(MyTestPoly($10)):INTEGER))])
+          LogicalJoin(condition=[=($0, $10)], joinType=[inner])
+            LogicalTableScan(table=[[testRemoteStore, Profile, $table]])
+            LogicalTableScan(table=[[testavro, PAGEVIEW]])
+     */
 
     // We do not yet have any join filter optimizations for local joins. Hence the plans with and without optimization
     // should be the same.

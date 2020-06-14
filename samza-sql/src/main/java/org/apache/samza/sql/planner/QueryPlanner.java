@@ -205,7 +205,8 @@ public class QueryPlanner {
       SqlNode sql = planner.parse(query);
       SqlNode validatedSql = planner.validate(sql);
       RelRoot relRoot = planner.rel(validatedSql);
-      LOG.info("query plan without optimization:\n" + RelOptUtil.toString(relRoot.rel, SqlExplainLevel.ALL_ATTRIBUTES));
+      LOG.info("query plan without optimization:\n"
+          + RelOptUtil.toString(relRoot.rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
       if (!isQueryPlanOptimizerEnabled) {
         return relRoot;
       }
