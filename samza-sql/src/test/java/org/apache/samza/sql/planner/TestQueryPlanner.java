@@ -298,7 +298,7 @@ public class TestQueryPlanner {
     RelNode right = join.getRight();
     assertTrue(left instanceof LogicalTableScan);
     assertTrue(right instanceof LogicalFilter);
-    assertEquals("=($2, CAST(MyTestPoly($2)):INTEGER)", ((LogicalFilter) right).getCondition().toString());
+    assertEquals("=($2, CAST(MyTest($2)):INTEGER)", ((LogicalFilter) right).getCondition().toString());
     assertTrue(right.getInput(0) instanceof LogicalTableScan);
   }
 
