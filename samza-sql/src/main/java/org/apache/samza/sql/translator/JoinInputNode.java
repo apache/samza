@@ -89,29 +89,6 @@ public class JoinInputNode {
     // assume to be a stream. The intermediate stream won't be an instance of TableScan.
     // The join key(s) for the table could be an udf in which case the relNode would be LogicalProject.
 
-    if (relNode instanceof TableScan || relNode instanceof LogicalProject || relNode instanceof LogicalFilter) {
-      SqlIOConfig sourceTableConfig = JoinTranslator.resolveSQlIOForTable(relNode, systemStreamConfigBySource);
-      if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
-        return JoinInputNode.InputType.STREAM;
-      } else if (sourceTableConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor ||
-          sourceTableConfig.getTableDescriptor().get() instanceof CachingTableDescriptor) {
-        return JoinInputNode.InputType.REMOTE_TABLE;
-      } else {
-        return JoinInputNode.InputType.LOCAL_TABLE;
-      }
-    } else {
-      return JoinInputNode.InputType.STREAM;
-    }
-  }
-
-  public static JoinInputNode.InputType getInputTypeByVertex(
-      RelNode relNode, Map<String, SqlIOConfig> systemStreamConfigBySource) {
-
-    // NOTE: Any intermediate form of a join is always a stream. Eg: For the second level join of
-    // stream-table-table join, the left side of the join is join output, which we always
-    // assume to be a stream. The intermediate stream won't be an instance of TableScan.
-    // The join key(s) for the table could be an udf in which case the relNode would be LogicalProject.
-
     // If the relNode is a vertex in a DAG, get the real relNode. This happens due to query optimization.
     if (relNode instanceof HepRelVertex) {
       relNode = ((HepRelVertex)relNode).getCurrentRel();

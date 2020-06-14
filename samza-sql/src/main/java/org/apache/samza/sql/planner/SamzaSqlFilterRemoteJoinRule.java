@@ -77,9 +77,9 @@ public abstract class SamzaSqlFilterRemoteJoinRule extends RelOptRule {
     boolean donotOptimizeRight = false;
 
     JoinInputNode.InputType inputTypeOnLeft =
-        JoinInputNode.getInputTypeByVertex(join.getLeft(), systemStreamConfigBySource);
+        JoinInputNode.getInputType(join.getLeft(), systemStreamConfigBySource);
     JoinInputNode.InputType inputTypeOnRight =
-        JoinInputNode.getInputTypeByVertex(join.getRight(), systemStreamConfigBySource);
+        JoinInputNode.getInputType(join.getRight(), systemStreamConfigBySource);
 
     // Disable this optimnization for queries using local table.
     if (inputTypeOnLeft == InputType.LOCAL_TABLE || inputTypeOnRight == InputType.LOCAL_TABLE) {
