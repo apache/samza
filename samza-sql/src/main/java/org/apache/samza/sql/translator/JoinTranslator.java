@@ -26,7 +26,9 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Map;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.plan.hep.HepRelVertex;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.TableScan;
@@ -54,8 +56,6 @@ import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
 import org.apache.samza.table.Table;
-import org.apache.samza.table.descriptors.CachingTableDescriptor;
-import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,8 +94,10 @@ class JoinTranslator {
   }
 
   void translate(final LogicalJoin join, final TranslatorContext translatorContext) {
-    JoinInputNode.InputType inputTypeOnLeft = getInputType(join.getLeft(), translatorContext);
-    JoinInputNode.InputType inputTypeOnRight = getInputType(join.getRight(), translatorContext);
+    JoinInputNode.InputType inputTypeOnLeft = JoinInputNode.getInputType(join.getLeft(),
+        translatorContext.getExecutionContext().getSamzaSqlApplicationConfig().getInputSystemStreamConfigBySource());
+    JoinInputNode.InputType inputTypeOnRight = JoinInputNode.getInputType(join.getRight(),
+        translatorContext.getExecutionContext().getSamzaSqlApplicationConfig().getInputSystemStreamConfigBySource());
 
     // Do the validation of join query
     validateJoinQuery(join, inputTypeOnLeft, inputTypeOnRight);
@@ -358,14 +360,18 @@ class JoinTranslator {
         SqlExplainLevel.EXPPLAN_ATTRIBUTES);
   }
 
-  private SqlIOConfig resolveSQlIOForTable(RelNode relNode, TranslatorContext context) {
+  static SqlIOConfig resolveSQlIOForTable(RelNode relNode, Map<String, SqlIOConfig> systemStreamConfigBySource) {
     // Let's recursively get to the TableScan node to identify IO for the table.
+
+    if (relNode instanceof HepRelVertex) {
+      return resolveSQlIOForTable(((HepRelVertex)relNode).getCurrentRel(), systemStreamConfigBySource);
+    }
     if (relNode instanceof LogicalProject) {
-      return resolveSQlIOForTable(((LogicalProject) relNode).getInput(), context);
+      return resolveSQlIOForTable(((LogicalProject) relNode).getInput(), systemStreamConfigBySource);
     }
 
     if (relNode instanceof LogicalFilter) {
-      return resolveSQlIOForTable(((LogicalFilter) relNode).getInput(), context);
+      return resolveSQlIOForTable(((LogicalFilter) relNode).getInput(), systemStreamConfigBySource);
     }
 
     // We return null for table IO as the table seems to be involved in another join. The output of stream-table join
@@ -380,39 +386,17 @@ class JoinTranslator {
     }
 
     String sourceName = SqlIOConfig.getSourceFromSourceParts(relNode.getTable().getQualifiedName());
-    SqlIOConfig sourceConfig =
-        context.getExecutionContext().getSamzaSqlApplicationConfig().getInputSystemStreamConfigBySource().get(sourceName);
+    SqlIOConfig sourceConfig = systemStreamConfigBySource.get(sourceName);
     if (sourceConfig == null) {
       throw new SamzaException("Unsupported source found in join statement: " + sourceName);
     }
     return sourceConfig;
   }
 
-  private JoinInputNode.InputType getInputType(RelNode relNode, TranslatorContext context) {
-
-    // NOTE: Any intermediate form of a join is always a stream. Eg: For the second level join of
-    // stream-table-table join, the left side of the join is join output, which we always
-    // assume to be a stream. The intermediate stream won't be an instance of TableScan.
-    // The join key(s) for the table could be an udf in which case the relNode would be LogicalProject.
-
-    if (relNode instanceof TableScan || relNode instanceof LogicalProject) {
-      SqlIOConfig sourceTableConfig = resolveSQlIOForTable(relNode, context);
-      if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
-        return JoinInputNode.InputType.STREAM;
-      } else if (sourceTableConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor ||
-          sourceTableConfig.getTableDescriptor().get() instanceof CachingTableDescriptor) {
-        return JoinInputNode.InputType.REMOTE_TABLE;
-      } else {
-        return JoinInputNode.InputType.LOCAL_TABLE;
-      }
-    } else {
-      return JoinInputNode.InputType.STREAM;
-    }
-  }
-
   private Table getTable(JoinInputNode tableNode, TranslatorContext context) {
 
-    SqlIOConfig sourceTableConfig = resolveSQlIOForTable(tableNode.getRelNode(), context);
+    SqlIOConfig sourceTableConfig = resolveSQlIOForTable(tableNode.getRelNode(),
+        context.getExecutionContext().getSamzaSqlApplicationConfig().getInputSystemStreamConfigBySource());
 
     if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
       String errMsg = "Failed to resolve table source in join operation: node=" + tableNode.getRelNode();

@@ -90,6 +90,7 @@ public class SamzaSqlApplicationConfig {
   public static final String CFG_METADATA_TOPIC_PREFIX = "samza.sql.metadataTopicPrefix";
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
   public static final String CFG_SQL_PROCESS_SYSTEM_EVENTS = "samza.sql.processSystemEvents";
+  public static final String CFG_SQL_ENABLE_PLAN_OPTIMIZER = "samza.sql.enablePlanOptimizer";
 
   public static final String SAMZA_SYSTEM_LOG = "log";
 
@@ -117,6 +118,7 @@ public class SamzaSqlApplicationConfig {
   private final String metadataTopicPrefix;
   private final long windowDurationMs;
   private final boolean processSystemEvents;
+  private final boolean enableQueryPlanOptimizer;
 
   public SamzaSqlApplicationConfig(Config staticConfig, List<String> inputSystemStreams,
       List<String> outputSystemStreams) {
@@ -170,6 +172,7 @@ public class SamzaSqlApplicationConfig {
 
     processSystemEvents = staticConfig.getBoolean(CFG_SQL_PROCESS_SYSTEM_EVENTS, true);
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
+    enableQueryPlanOptimizer = staticConfig.getBoolean(CFG_SQL_ENABLE_PLAN_OPTIMIZER, false);
   }
 
   public static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
@@ -335,5 +338,9 @@ public class SamzaSqlApplicationConfig {
 
   public boolean isProcessSystemEvents() {
     return processSystemEvents;
+  }
+
+  public boolean isQueryPlanOptimizerEnabled() {
+    return enableQueryPlanOptimizer;
   }
 }

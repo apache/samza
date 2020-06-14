@@ -48,6 +48,7 @@ import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.Planner;
+import org.apache.calcite.tools.Programs;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.interfaces.SamzaSqlDriver;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
@@ -165,6 +166,7 @@ public class SamzaSqlQueryParser {
         .traitDefs(traitDefs)
         .context(Contexts.EMPTY_CONTEXT)
         .costFactory(null)
+        //.programs(Programs.CALC_PROGRAM)
         .build();
     return Frameworks.getPlanner(frameworkConfig);
   }
