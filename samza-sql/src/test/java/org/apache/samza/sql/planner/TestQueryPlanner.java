@@ -336,8 +336,8 @@ public class TestQueryPlanner {
             LogicalTableScan(table=[[testavro, PAGEVIEW]])
      */
 
-    // We do not yet have any join filter optimizations for local joins. Hence the plans with and without optimization
-    // should be the same.
+    // None of the conditions in the filter could be pushed down as they all require a remote call. Hence the plans
+    // with and without optimization should be the same.
     assertEquals(RelOptUtil.toString(relRootsWithOptimization.iterator().next().rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES),
         RelOptUtil.toString(relRootsWithoutOptimization.iterator().next().rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
   }
