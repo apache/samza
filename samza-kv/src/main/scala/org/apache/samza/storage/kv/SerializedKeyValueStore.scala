@@ -22,6 +22,7 @@ package org.apache.samza.storage.kv
 import java.nio.file.Path
 import java.util.Optional
 
+import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.util.Logging
 import org.apache.samza.serializers._
@@ -201,5 +202,10 @@ class SerializedKeyValueStore[K, V](
 
   override def checkpoint(id: CheckpointId): Optional[Path] = {
     store.checkpoint(id)
+  }
+
+  @VisibleForTesting
+  private[kv] def getStore: KeyValueStore[Array[Byte], Array[Byte]] = {
+    store
   }
 }

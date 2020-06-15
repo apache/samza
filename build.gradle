@@ -630,6 +630,7 @@ project(":samza-kv_$scalaSuffix") {
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
+    testCompile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
