@@ -83,8 +83,8 @@ public class TestQueryPlanner {
         "Insert into testavro.enrichedPageViewTopic "
             + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
             + "       p.name as profileName, p.address as profileAddress "
-            + "from testRemoteStore.Profile.`$table` as p "
-            + "join testavro.PAGEVIEW as pv "
+            + "from testavro.PAGEVIEW as pv "
+            + "join testRemoteStore.Profile.`$table` as p "
             + " on p.__key__ = pv.profileId"
             + " where p.name = pv.pageKey AND p.name = 'Mike' AND pv.profileId = 1";
 

@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.config.Lex;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.plan.ConventionTraitDef;
@@ -40,10 +39,6 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
 import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
-import org.apache.calcite.rel.rules.JoinExtractFilterRule;
-import org.apache.calcite.rel.rules.JoinProjectTransposeRule;
-import org.apache.calcite.rel.rules.JoinPushTransitivePredicatesRule;
-import org.apache.calcite.rel.rules.ProjectJoinRemoveRule;
 import org.apache.calcite.rel.rules.ProjectMergeRule;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -184,7 +179,6 @@ public class QueryPlanner {
 
   private RelRoot optimize(RelRoot relRoot) {
     RelTraitSet relTraitSet = RelTraitSet.createEmpty();
-    relTraitSet = relTraitSet.plus(EnumerableConvention.INSTANCE);
     try {
       RelRoot optimizedRelRoot =
           RelRoot.of(getPlanner().transform(0, relTraitSet, relRoot.project()), SqlKind.SELECT);
