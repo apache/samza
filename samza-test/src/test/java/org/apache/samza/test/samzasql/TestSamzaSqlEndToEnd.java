@@ -499,7 +499,6 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()), outMessages);
   }
 
-  @Ignore
   @Test
   public void testEndToEndNestedRecord() throws SamzaSqlValidatorException {
     int numMessages = 10;
@@ -507,9 +506,11 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
     String sql1 =
-        "Insert into testavro.outputTopic"
-            + " select `phoneNumbers`[0].`kind`"
-            + " from testavro.PROFILE as p";
+        "Insert into testavro.outputTopic (id, bool_value)"
+            + " select `phoneNumbers`[1].`kind` as string_value, p.address.streetnum.number as id, "
+            + " `phoneNumbers`[1].`kind` = 'Home' as bool_value, cast(p.address.zip as bigint) as long_value"
+            + " from testavro.PROFILE as p where p.address.zip > 0 and p.address.zip < 100003 ";
+
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
 
@@ -520,6 +521,33 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
+    Assert.assertEquals(numMessages, outMessages.size());
+  }
+
+
+  @Test
+  public void testEndToEndNestedRecordProjectFilter() throws SamzaSqlValidatorException {
+    int numMessages = 10;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+
+    String sql1 = " Insert into testavro.PROFILE1 select (p.address.streetnum.number * p.address.zip) as id , "
+        + " p.address, `phoneNumbers`[1].`kind` = 'Home' as selfEmployed, "
+        + " MAP[cast(id as varchar), `phoneNumbers`[1].number] as mapValues, phoneNumbers, "
+        + " cast(companyId as varchar) || name ||`phoneNumbers`[1].number || 'concat' as name , "
+        + " 100 * ((companyId + 122) / 3 ) as companyId "
+        + " from testavro.PROFILE as p where p.address.zip > 0 "
+        + " and p.address.zip < 100003 and p.address.streetnum.number > 0 ";
+
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
+
+    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
     Assert.assertEquals(numMessages, outMessages.size());
   }
 
@@ -647,7 +675,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.PROFILE1(id, address) "
-        + "select id, BuildOutputRecord('key', GetNestedField(address, 'zip')) as address from testavro.PROFILE";
+        + "select id, BuildOutputRecord('key', p.address.zip) as address from testavro.PROFILE as p";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     runApplication(new MapConfig(staticConfigs));

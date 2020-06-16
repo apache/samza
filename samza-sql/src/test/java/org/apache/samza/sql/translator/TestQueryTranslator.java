@@ -656,9 +656,9 @@ public class TestQueryTranslator {
 
     Assert.assertEquals(3, specGraph.getOutputStreams().size());
     Assert.assertEquals("kafka", output1System);
-    Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_table_sql_0_join_2", output1PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_table_sql_0_join_3", output1PhysicalName);
     Assert.assertEquals("kafka", output2System);
-    Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_stream_sql_0_join_2", output2PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_stream_sql_0_join_3", output2PhysicalName);
     Assert.assertEquals("testavro", output3System);
     Assert.assertEquals("enrichedPageViewTopic", output3PhysicalName);
 
@@ -668,9 +668,9 @@ public class TestQueryTranslator {
     Assert.assertEquals("testavro", input2System);
     Assert.assertEquals("PROFILE", input2PhysicalName);
     Assert.assertEquals("kafka", input3System);
-    Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_table_sql_0_join_2", input3PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_table_sql_0_join_3", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);
-    Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_stream_sql_0_join_2", input4PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-sampleAppv1_stream_sql_0_join_3", input4PhysicalName);
   }
 
   @Test
@@ -724,9 +724,9 @@ public class TestQueryTranslator {
 
     Assert.assertEquals(3, specGraph.getOutputStreams().size());
     Assert.assertEquals("kafka", output1System);
-    Assert.assertEquals("sql-job-1-partition_by-table_sql_0_join_2", output1PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-table_sql_0_join_3", output1PhysicalName);
     Assert.assertEquals("kafka", output2System);
-    Assert.assertEquals("sql-job-1-partition_by-stream_sql_0_join_2", output2PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-stream_sql_0_join_3", output2PhysicalName);
     Assert.assertEquals("testavro", output3System);
     Assert.assertEquals("enrichedPageViewTopic", output3PhysicalName);
 
@@ -736,9 +736,9 @@ public class TestQueryTranslator {
     Assert.assertEquals("testavro", input2System);
     Assert.assertEquals("PROFILE", input2PhysicalName);
     Assert.assertEquals("kafka", input3System);
-    Assert.assertEquals("sql-job-1-partition_by-table_sql_0_join_2", input3PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-table_sql_0_join_3", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);
-    Assert.assertEquals("sql-job-1-partition_by-stream_sql_0_join_2", input4PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-stream_sql_0_join_3", input4PhysicalName);
   }
 
   @Test
@@ -791,9 +791,9 @@ public class TestQueryTranslator {
 
     Assert.assertEquals(3, specGraph.getOutputStreams().size());
     Assert.assertEquals("kafka", output1System);
-    Assert.assertEquals("sql-job-1-partition_by-table_sql_0_join_2", output1PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-table_sql_0_join_3", output1PhysicalName);
     Assert.assertEquals("kafka", output2System);
-    Assert.assertEquals("sql-job-1-partition_by-stream_sql_0_join_2", output2PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-stream_sql_0_join_3", output2PhysicalName);
     Assert.assertEquals("testavro", output3System);
     Assert.assertEquals("enrichedPageViewTopic", output3PhysicalName);
 
@@ -803,9 +803,9 @@ public class TestQueryTranslator {
     Assert.assertEquals("testavro", input2System);
     Assert.assertEquals("PAGEVIEW", input2PhysicalName);
     Assert.assertEquals("kafka", input3System);
-    Assert.assertEquals("sql-job-1-partition_by-table_sql_0_join_2", input3PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-table_sql_0_join_3", input3PhysicalName);
     Assert.assertEquals("kafka", input4System);
-    Assert.assertEquals("sql-job-1-partition_by-stream_sql_0_join_2", input4PhysicalName);
+    Assert.assertEquals("sql-job-1-partition_by-stream_sql_0_join_3", input4PhysicalName);
   }
 
   @Test
