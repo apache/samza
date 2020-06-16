@@ -97,19 +97,19 @@ public class TestQueryPlanner {
 
     /*
       Query plan without optimization:
-      LogicalProject(__key__=[$9], pageKey=[$9], companyName=[CAST('N/A'):CHAR(3)], profileName=[$2], profileAddress=[$4])
-        LogicalFilter(condition=[AND(=($2, $9), =($2, 'Mike'), =($10, 1))])
-          LogicalJoin(condition=[=($0, $10)], joinType=[inner])
-            LogicalTableScan(table=[[testRemoteStore, Profile, $table]])
+      LogicalProject(__key__=[$1], pageKey=[$1], companyName=['N/A'], profileName=[$5], profileAddress=[$7])
+        LogicalFilter(condition=[AND(=($5, $1), =($5, 'Mike'), =($2, 1))])
+          LogicalJoin(condition=[=($3, $2)], joinType=[inner])
             LogicalTableScan(table=[[testavro, PAGEVIEW]])
+            LogicalTableScan(table=[[testRemoteStore, Profile, $table]])
 
       Query plan with optimization:
-      LogicalProject(__key__=[$9], pageKey=[$9], companyName=['N/A'], profileName=[$2], profileAddress=[$4])
-        LogicalFilter(condition=[AND(=($2, $9), =($2, 'Mike'))])  ===> Not pushed down as it can be compared only after the remote join.
-          LogicalJoin(condition=[=($0, $10)], joinType=[inner])
-            LogicalTableScan(table=[[testRemoteStore, Profile, $table]])
+      LogicalProject(__key__=[$1], pageKey=[$1], companyName=['N/A'], profileName=[$5], profileAddress=[$7])
+        LogicalFilter(condition=[AND(=($5, $1), =($5, 'Mike'))])
+          LogicalJoin(condition=[=($3, $2)], joinType=[inner])
             LogicalFilter(condition=[=($2, 1)])
               LogicalTableScan(table=[[testavro, PAGEVIEW]])
+            LogicalTableScan(table=[[testRemoteStore, Profile, $table]])
      */
 
     assertEquals(1, relRoots.size());
@@ -119,9 +119,9 @@ public class TestQueryPlanner {
     relNode = relNode.getInput(0);
     assertTrue(relNode instanceof LogicalFilter);
     if (enableOptimizer) {
-      assertEquals("AND(=($2, $9), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
+      assertEquals("AND(=($1, $5), =($5, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
     } else {
-      assertEquals("AND(=($2, $9), =(1, $10), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
+      assertEquals("AND(=(1, $2), =($1, $5), =($5, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
     }
     relNode = relNode.getInput(0);
     assertTrue(relNode instanceof LogicalJoin);
@@ -129,13 +129,13 @@ public class TestQueryPlanner {
     LogicalJoin join = (LogicalJoin) relNode;
     RelNode left = join.getLeft();
     RelNode right = join.getRight();
-    assertTrue(left instanceof LogicalTableScan);
+    assertTrue(right instanceof LogicalTableScan);
     if (enableOptimizer) {
-      assertTrue(right instanceof LogicalFilter);
-      assertEquals("=(1, $2)", ((LogicalFilter) right).getCondition().toString());
-      assertTrue(right.getInput(0) instanceof LogicalTableScan);
+      assertTrue(left instanceof LogicalFilter);
+      assertEquals("=(1, $2)", ((LogicalFilter) left).getCondition().toString());
+      assertTrue(left.getInput(0) instanceof LogicalTableScan);
     } else {
-      assertTrue(right instanceof LogicalTableScan);
+      assertTrue(left instanceof LogicalTableScan);
     }
   }
 
