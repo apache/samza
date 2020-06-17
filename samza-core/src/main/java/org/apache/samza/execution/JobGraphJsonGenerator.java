@@ -39,6 +39,7 @@ import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
+import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -49,6 +50,9 @@ import org.codehaus.jackson.map.ObjectMapper;
  */
 public class JobGraphJsonGenerator {
 
+  /**
+   * The json representation for stream specification {@link StreamSpec}
+   */
   public static final class StreamSpecJson {
     @JsonProperty("id")
     String id;
@@ -76,6 +80,9 @@ public class JobGraphJsonGenerator {
     }
   }
 
+  /**
+   * The json representation for table specification.
+   */
   public static final class TableSpecJson {
     @JsonProperty("id")
     String id;
@@ -91,6 +98,9 @@ public class JobGraphJsonGenerator {
     }
   }
 
+  /**
+   * The json representation for the edge {@link StreamEdge} connecting with source jobs and target jobs
+   */
   public static final class StreamEdgeJson {
     @JsonProperty("streamSpec")
     StreamSpecJson streamSpec;
@@ -112,6 +122,9 @@ public class JobGraphJsonGenerator {
     }
   }
 
+  /**
+   * The json representation for the operator graph between input streams and output streams.
+   */
   public static final class OperatorGraphJson {
     @JsonProperty("inputStreams")
     List<StreamJson> inputStreams;
@@ -133,6 +146,9 @@ public class JobGraphJsonGenerator {
     }
   }
 
+  /**
+   * The json representation for stream.
+   */
   public static final class StreamJson {
     @JsonProperty("streamId")
     String streamId;
@@ -148,6 +164,9 @@ public class JobGraphJsonGenerator {
     }
   }
 
+  /**
+   * The json representation for the job node {@link JobNode}
+   */
   public static final class JobNodeJson {
     @JsonProperty("jobName")
     String jobName;
@@ -169,6 +188,9 @@ public class JobGraphJsonGenerator {
     }
   }
 
+  /**
+   * The json representation for the job graph {@link JobGraph}
+   */
   public static final class JobGraphJson {
     @JsonProperty("jobs")
     List<JobNodeJson> jobs;
