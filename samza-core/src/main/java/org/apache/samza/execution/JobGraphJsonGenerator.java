@@ -39,7 +39,6 @@ import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.system.StreamSpec;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -51,7 +50,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 public class JobGraphJsonGenerator {
 
   /**
-   * The json representation for stream specification {@link StreamSpec}
+   * The json representation for stream specification {@link org.apache.samza.system.StreamSpec}
    */
   public static final class StreamSpecJson {
     @JsonProperty("id")
