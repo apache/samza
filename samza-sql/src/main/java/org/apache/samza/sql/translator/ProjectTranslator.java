@@ -86,7 +86,7 @@ public class ProjectTranslator {
         continue;
       }
       final RelDataType valueType = rowType.getFieldList().get(i).getType();
-      values.add(asSamzaRecord(val, valueType));
+      values.add(convertToSamzaSqlType(val, valueType));
     }
     return new SamzaSqlRelRecord(names, values);
   }
@@ -99,7 +99,7 @@ public class ProjectTranslator {
    * @return SamzaRelRecord or primitive SamzaRelRecord field.
    *
    */
-  private static Object asSamzaRecord(Object value, RelDataType dataType) {
+  private static Object convertToSamzaSqlType(Object value, RelDataType dataType) {
     if (value == null) {
       return null;
     }
@@ -110,19 +110,19 @@ public class ProjectTranslator {
         Object[] row = (Object[]) value;
         List<Object> values = new ArrayList<>(row.length);
         for (int i = 0; i < row.length; i++) {
-          values.add(asSamzaRecord(row[i], dataType.getFieldList().get(i).getType()));
+          values.add(convertToSamzaSqlType(row[i], dataType.getFieldList().get(i).getType()));
         }
         return new SamzaSqlRelRecord(names, values);
       case MAP:
         Map<Object, Object> objectMap = (Map<Object, Object>) value;
         Map<Object, Object> resultMap = new HashMap<>();
         final RelDataType valuesType = dataType.getValueType();
-        objectMap.forEach((key, v) -> resultMap.put(key, asSamzaRecord(v, valuesType)));
+        objectMap.forEach((key, v) -> resultMap.put(key, convertToSamzaSqlType(v, valuesType)));
         return resultMap;
       case ARRAY:
         List<Object> objectList = (List<Object>) value;
         final RelDataType elementsType = dataType.getComponentType();
-        return objectList.stream().map(e -> asSamzaRecord(e, elementsType)).collect(Collectors.toList());
+        return objectList.stream().map(e -> convertToSamzaSqlType(e, elementsType)).collect(Collectors.toList());
       case BOOLEAN:
       case BIGINT:
       case BINARY:
@@ -137,7 +137,8 @@ public class ProjectTranslator {
       case ANY:
       case OTHER:
         // today we treat everything else as Type Any or Other, this is not ideal.
-        // This will have to change when adding timestamps support
+        // this will change when adding timestamps support or more complex non java primitive types.
+        // @TODO in a better world we need to add type factory that can do the conversion between calcite and samza.
         return value;
       default:
         // As of today we treat everything else as type ANY

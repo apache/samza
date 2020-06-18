@@ -165,8 +165,16 @@ class JoinTranslator {
 
     if (tableNode.isRemoteTable()) {
       String remoteTableName = tableNode.getSourceName();
-      StreamTableJoinFunction joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
-          context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId);
+      MessageStream operatorStack = context.getMessageStream(tableNode.getRelNode().getId());
+      final StreamTableJoinFunction joinFn;
+      if (operatorStack != null && operatorStack instanceof MessageStreamCollector) {
+        joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
+            context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId,
+            (MessageStreamCollector) operatorStack);
+      } else {
+        joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
+            context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId);
+      }
 
       return inputStream
           .map(inputMetricsMF)

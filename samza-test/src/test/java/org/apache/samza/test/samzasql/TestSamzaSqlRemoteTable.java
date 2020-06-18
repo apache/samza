@@ -138,7 +138,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
             + "       p.name as profileName, p.address as profileAddress "
             + "from testRemoteStore.Profile.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
-            + " on p.__key__ = pv.profileId";
+            + " on p.__key__ = pv.profileId where p.name is not null";
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
@@ -336,7 +336,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
             + "       p.name as profileName, p.address as profileAddress "
             + "from testRemoteStore.Profile.`$table` as p "
             + "right join testavro.PAGEVIEW as pv "
-            + " on p.__key__ = pv.profileId";
+            + " on p.__key__ = pv.profileId where p.name is null or  p.name <> '0'";
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
@@ -398,6 +398,43 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     runApplication(config);
   }
 
+
+  @Test
+  public void testSourceEndToEndWithFilterAndInnerJoin() throws SamzaSqlValidatorException {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    RemoteStoreIOResolverTestFactory.records.clear();
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+    populateProfileTable(staticConfigs, numMessages);
+
+    String sql = "Insert into testavro.enrichedPageViewTopic "
+        + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+        + "       p.name as profileName, p.address as profileAddress "
+        + "from testavro.PAGEVIEW as pv  "
+        + "join testRemoteStore.Profile.`$table` as p "
+        + " on p.__key__ = pv.profileId"
+        + "  where p.name <> 'Mike' ";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
+
+    List<String> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + "," + (
+            ((GenericRecord) x.getMessage()).get("profileName") == null ? "null"
+                : ((GenericRecord) x.getMessage()).get("profileName").toString()))
+        .collect(Collectors.toList());
+    List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameJoinWithNullForeignKeys(numMessages)
+        .stream()
+        .filter(x -> !x.contains("Mike"))
+        .collect(Collectors.toList());
+    Assert.assertEquals(expectedOutMessages, outMessages);
+  }
 
   @Test
   public void testSameJoinTargetSinkEndToEndRightOuterJoin() throws SamzaSqlValidatorException {

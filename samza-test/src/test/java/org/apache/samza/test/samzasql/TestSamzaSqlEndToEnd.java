@@ -507,6 +507,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     String sql1 =
         "Insert into testavro.outputTopic (id, bool_value)"
+            // SQL array is one indexed.
             + " select `phoneNumbers`[1].`kind` as string_value, p.address.streetnum.number as id, "
             + " `phoneNumbers`[1].`kind` = 'Home' as bool_value, cast(p.address.zip as bigint) as long_value"
             + " from testavro.PROFILE as p where p.address.zip > 0 and p.address.zip < 100003 ";
@@ -752,7 +753,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
             + "       p.name as profileName, p.address as profileAddress "
             + "from testavro.PROFILE.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
-            + " on p.id = pv.profileId";
+            + " on p.id = pv.profileId where p.name = 'Mike' or p.name is not null";
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
