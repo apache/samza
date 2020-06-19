@@ -1149,9 +1149,9 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
             + ((GenericRecord) x.getMessage()).get("profileName").toString() + ","
             + ((GenericRecord) x.getMessage()).get("companyName").toString())
         .collect(Collectors.toList());
-    Assert.assertEquals(TestAvroSystemFactory.companies.length, outMessages.size());
+    Assert.assertEquals(TestAvroSystemFactory.COMPANIES.length, outMessages.size());
     List<String> expectedOutMessages =
-        TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(TestAvroSystemFactory.companies.length);
+        TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(TestAvroSystemFactory.COMPANIES.length);
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
@@ -1194,7 +1194,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     HashMap<String, Integer> pageKeyCountMap = new HashMap<>();
     pageKeyCountListMap.forEach((key, list) -> {
         // Check that the number of windows per key is non-zero but less than the number of input messages per key.
-        Assert.assertTrue(list.size() > 1 && list.size() < numMessages / TestAvroSystemFactory.pageKeys.length);
+        Assert.assertTrue(list.size() > 1 && list.size() < numMessages / TestAvroSystemFactory.PAGE_KEYS.length);
         // Collapse the count of messages per key
         pageKeyCountMap.put(key, list.stream().mapToInt(Integer::parseInt).sum());
       });
