@@ -437,6 +437,44 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
+  public void testSourceEndToEndWithFilterAndLeftOuterJoin() throws SamzaSqlValidatorException {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    RemoteStoreIOResolverTestFactory.records.clear();
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+    populateProfileTable(staticConfigs, numMessages);
+
+    String sql = "Insert into testavro.enrichedPageViewTopic "
+        + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+        + "       p.name as profileName, p.address as profileAddress "
+        + "from testavro.PAGEVIEW as pv  "
+        + " LEFT Join testRemoteStore.Profile.`$table` as p "
+        + " on  pv.profileId = p.id "
+        + "  where p.name <> 'Mary' or p.name is null";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
+
+    List<String> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + "," + (
+            ((GenericRecord) x.getMessage()).get("profileName") == null ? "null"
+                : ((GenericRecord) x.getMessage()).get("profileName").toString()))
+        .collect(Collectors.toList());
+    List<String> expectedOutMessages =
+        TestAvroSystemFactory.getPageKeyProfileNameOuterJoinWithNullForeignKeys(numMessages)
+            .stream()
+            .filter(x -> !x.contains("Mary")).collect(Collectors.toList());
+
+    Assert.assertEquals(expectedOutMessages, outMessages);
+  }
+
+  @Test
   public void testSameJoinTargetSinkEndToEndRightOuterJoin() throws SamzaSqlValidatorException {
     int numMessages = 21;
 
