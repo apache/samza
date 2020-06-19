@@ -25,7 +25,10 @@
   <suppress checks="ConstantName"
             files="ApplicationStatus.java"
             lines="26-29"/>
+  <!-- don't require FQDNs to be used in API javadocs -->
   <suppress id="preventJavadocUnusedImports"
             files=".*samza-api.*"/>
+  <!-- don't require FQDNs to be used in descriptor javadocs -->
+  <suppress files="samza-kafka/src/main/java/org/apache/samza/system/kafka/descriptors" id="preventJavadocUnusedImports" />
 </suppressions>
 

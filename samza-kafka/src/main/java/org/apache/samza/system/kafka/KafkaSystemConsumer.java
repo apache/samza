@@ -1,6 +1,4 @@
-
 /*
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,9 +15,7 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- *
  */
-
 package org.apache.samza.system.kafka;
 
 import java.util.HashMap;
@@ -158,7 +154,7 @@ public class KafkaSystemConsumer<K, V> extends BlockingEnvelopeMap implements Sy
   void startConsumer() {
     // set the offset for each TopicPartition
     if (topicPartitionsToOffset.size() <= 0) {
-      LOG.error ("{}: Consumer is not subscribed to any SSPs", this);
+      LOG.error("{}: Consumer is not subscribed to any SSPs", this);
     }
 
     topicPartitionsToOffset.forEach((topicPartition, startingOffsetString) -> {
