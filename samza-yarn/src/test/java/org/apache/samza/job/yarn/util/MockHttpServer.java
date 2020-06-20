@@ -43,7 +43,7 @@ public class MockHttpServer extends HttpServer {
 
   @Override
   public URL getUrl() {
-    if(running()) {
+    if (running()) {
       try {
         return new URL("http://localhost:12345/");
       } catch (MalformedURLException mue) {

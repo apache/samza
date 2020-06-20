@@ -18,8 +18,6 @@
  */
 package org.apache.samza.rest.proxy.task;
 
-import org.apache.samza.config.Config;
-
 
 /**
  * Factory interface that will be used to create {@link TaskProxy}
@@ -33,8 +31,7 @@ import org.apache.samza.config.Config;
 public interface TaskProxyFactory {
 
   /**
-   *
-   * @param config the {@link Config} to pass to the proxy.
+   * @param config the config to pass to the proxy.
    * @return the created proxy.
    */
   TaskProxy getTaskProxy(TaskResourceConfig config);

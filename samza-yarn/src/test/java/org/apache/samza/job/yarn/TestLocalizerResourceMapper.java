@@ -37,7 +37,7 @@ import static org.junit.Assert.assertNull;
 public class TestLocalizerResourceMapper {
 
   @Rule
-  public ExpectedException thrown= ExpectedException.none();
+  public ExpectedException thrown = ExpectedException.none();
 
   @Test
   public void testResourceMapSuccess() {

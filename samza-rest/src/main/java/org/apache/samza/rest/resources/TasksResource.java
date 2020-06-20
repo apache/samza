@@ -28,7 +28,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.apache.commons.lang.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.rest.model.Task;
 import org.apache.samza.rest.proxy.job.JobInstance;
 import org.apache.samza.rest.proxy.task.TaskProxyFactory;
 import org.apache.samza.rest.proxy.task.TaskProxy;
@@ -68,11 +67,11 @@ public class TasksResource {
   }
 
   /**
-   * Gets the list of {@link Task} for the job instance specified by jobName and jobId.
+   * Gets the list of {@link org.apache.samza.rest.model.Task} for the job instance specified by jobName and jobId.
    * @param jobName the name of the job as configured in {@link org.apache.samza.config.JobConfig#JOB_NAME}
    * @param jobId the id of the job as configured in {@link org.apache.samza.config.JobConfig#JOB_ID}.
    * @return a {@link javax.ws.rs.core.Response.Status#OK} {@link javax.ws.rs.core.Response}
-   *         contains a list of {@link Task}, where each task belongs to
+   *         contains a list of {@link org.apache.samza.rest.model.Task}, where each task belongs to
    *         the samza job. {@link javax.ws.rs.core.Response.Status#BAD_REQUEST} is returned for invalid
    *         job instances.
    */
