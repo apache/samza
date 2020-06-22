@@ -213,13 +213,13 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
         throw new IllegalStateException("Attempting to close an already closed AzureBlobAvroWriter");
       }
       allBlobWriterComponents.forEach(blobWriterComponents -> {
-          try {
-            closeDataFileWriter(blobWriterComponents.dataFileWriter, blobWriterComponents.azureBlobOutputStream,
-                blobWriterComponents.blockBlobAsyncClient);
-          } catch (IOException e) {
-            throw new SamzaException(e);
-          }
-        });
+        try {
+          closeDataFileWriter(blobWriterComponents.dataFileWriter, blobWriterComponents.azureBlobOutputStream,
+              blobWriterComponents.blockBlobAsyncClient);
+        } catch (IOException e) {
+          throw new SamzaException(e);
+        }
+      });
       isClosed = true;
     }
   }

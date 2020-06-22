@@ -94,11 +94,11 @@ public class RepartitionJoinWindowApp implements StreamApplication {
             new StringSerde(), new JsonSerdeV2<>(UserPageAdClick.class)), "userAdClickWindow")
         .map(windowPane -> KV.of(windowPane.getKey().getKey(), String.valueOf(windowPane.getMessage().size())))
         .sink((message, messageCollector, taskCoordinator) -> {
-            taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
-            messageCollector.send(
-                new OutgoingMessageEnvelope(
-                    new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
-          });
+          taskCoordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
+          messageCollector.send(
+              new OutgoingMessageEnvelope(
+                  new SystemStream("kafka", outputTopic), null, message.getKey(), message.getValue()));
+        });
 
 
     intermediateStreamIds.add(((IntermediateMessageStreamImpl) pageViewsRepartitionedByViewId).getStreamId());

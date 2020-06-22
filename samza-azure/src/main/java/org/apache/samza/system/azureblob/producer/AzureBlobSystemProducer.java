@@ -471,41 +471,41 @@ public class AzureBlobSystemProducer implements SystemProducer {
 
   private void flushWriters(Map<String, AzureBlobWriter> sourceWriterMap) {
     sourceWriterMap.forEach((stream, writer) -> {
-        try {
-          LOG.info("Flushing topic:{}", stream);
-          writer.flush();
-        } catch (IOException e) {
-          throw new SystemProducerException("Close failed for topic " + stream, e);
-        }
-      });
+      try {
+        LOG.info("Flushing topic:{}", stream);
+        writer.flush();
+      } catch (IOException e) {
+        throw new SystemProducerException("Close failed for topic " + stream, e);
+      }
+    });
   }
 
   private void closeWriters(String source, Map<String, AzureBlobWriter> sourceWriterMap) throws Exception {
     Set<CompletableFuture<Void>> pendingClose = ConcurrentHashMap.newKeySet();
     try {
       sourceWriterMap.forEach((stream, writer) -> {
-          LOG.info("Closing topic:{}", stream);
-          CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
-            @Override
-            public void run() {
-              try {
-                writer.close();
-              } catch (IOException e) {
-                throw new SystemProducerException("Close failed for topic " + stream, e);
-              }
+        LOG.info("Closing topic:{}", stream);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              writer.close();
+            } catch (IOException e) {
+              throw new SystemProducerException("Close failed for topic " + stream, e);
             }
-          }, asyncBlobThreadPool);
-          pendingClose.add(future);
-          future.handle((aVoid, throwable) -> {
-              sourceWriterMap.remove(writer);
-              if (throwable != null) {
-                throw new SystemProducerException("Close failed for topic " + stream, throwable);
-              } else {
-                LOG.info("Blob close finished for stream " + stream);
-                return aVoid;
-              }
-            });
+          }
+        }, asyncBlobThreadPool);
+        pendingClose.add(future);
+        future.handle((aVoid, throwable) -> {
+          sourceWriterMap.remove(writer);
+          if (throwable != null) {
+            throw new SystemProducerException("Close failed for topic " + stream, throwable);
+          } else {
+            LOG.info("Blob close finished for stream " + stream);
+            return aVoid;
+          }
         });
+      });
       CompletableFuture<Void> future = CompletableFuture.allOf(pendingClose.toArray(new CompletableFuture[0]));
       LOG.info("Flush source: {} has pending closes: {} ", source, pendingClose.size());
       future.get((long) closeTimeout, TimeUnit.MILLISECONDS);

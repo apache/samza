@@ -209,8 +209,7 @@ project(":samza-core_$scalaSuffix") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    // temporarily hardcode 6.11.2 until all other modules are upgraded
-    toolVersion = "6.11.2"
+    toolVersion = "$checkstyleVersion"
   }
 
   test {
