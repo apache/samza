@@ -125,9 +125,9 @@ public class TestContainerPlacementActions {
   private JobModelManager getJobModelManagerWithHostAffinity(Map<String, String> containerIdToHost) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
     containerIdToHost.forEach((containerId, host) -> {
-        localityMap.put(containerId,
-            ImmutableMap.of(SetContainerHostMapping.HOST_KEY, containerIdToHost.get(containerId)));
-      });
+      localityMap.put(containerId,
+          ImmutableMap.of(SetContainerHostMapping.HOST_KEY, containerIdToHost.get(containerId)));
+    });
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMap);
 
@@ -138,9 +138,9 @@ public class TestContainerPlacementActions {
   private JobModelManager getJobModelManagerWithHostAffinityWithStandby(Map<String, String> containerIdToHost) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
     containerIdToHost.forEach((containerId, host) -> {
-        localityMap.put(containerId,
-            ImmutableMap.of(SetContainerHostMapping.HOST_KEY, containerIdToHost.get(containerId)));
-      });
+      localityMap.put(containerId,
+          ImmutableMap.of(SetContainerHostMapping.HOST_KEY, containerIdToHost.get(containerId)));
+    });
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMap);
     // Generate JobModel for standby containers
@@ -193,9 +193,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesAvailable(anyList());
@@ -203,9 +203,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onStreamProcessorLaunchSuccess(any());
@@ -213,9 +213,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesCompleted(anyList());
@@ -287,9 +287,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesAvailable(anyList());
@@ -297,9 +297,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onStreamProcessorLaunchSuccess(any());
@@ -307,9 +307,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesCompleted(anyList());
@@ -389,12 +389,12 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            List<SamzaResource> resources = (List<SamzaResource>) args[0];
-            if (resources.get(0).getHost().equals("host-1") || resources.get(0).getHost().equals("host-2")) {
-              cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
-            }
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          List<SamzaResource> resources = (List<SamzaResource>) args[0];
+          if (resources.get(0).getHost().equals("host-1") || resources.get(0).getHost().equals("host-2")) {
+            cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
+          }
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesAvailable(anyList());
@@ -402,9 +402,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onStreamProcessorLaunchSuccess(any());
@@ -467,9 +467,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesAvailable(anyList());
@@ -478,14 +478,14 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            SamzaResource host3Resource = (SamzaResource) args[0];
-            if (host3Resource.getHost().equals("host-3")) {
-              cpm.onStreamProcessorLaunchFailure(host3Resource, new Throwable("Custom Exception for Host-3"));
-            } else {
-              cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
-            }
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          SamzaResource host3Resource = (SamzaResource) args[0];
+          if (host3Resource.getHost().equals("host-3")) {
+            cpm.onStreamProcessorLaunchFailure(host3Resource, new Throwable("Custom Exception for Host-3"));
+          } else {
+            cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
+          }
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onStreamProcessorLaunchSuccess(any());
@@ -493,9 +493,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesCompleted(anyList());
@@ -689,14 +689,14 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            List<SamzaResource> resources = (List<SamzaResource>) args[0];
-            SamzaResource preferredResource = resources.get(0);
-            SamzaResource anyResource =
-                new SamzaResource(preferredResource.getNumCores(), preferredResource.getMemoryMb(),
-                    "host-" + RandomStringUtils.randomAlphanumeric(5), preferredResource.getContainerId());
-            cpm.onResourcesAvailable(ImmutableList.of(anyResource));
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          List<SamzaResource> resources = (List<SamzaResource>) args[0];
+          SamzaResource preferredResource = resources.get(0);
+          SamzaResource anyResource =
+              new SamzaResource(preferredResource.getNumCores(), preferredResource.getMemoryMb(),
+                  "host-" + RandomStringUtils.randomAlphanumeric(5), preferredResource.getContainerId());
+          cpm.onResourcesAvailable(ImmutableList.of(anyResource));
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesAvailable(anyList());
@@ -861,9 +861,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onResourcesAvailable((List<SamzaResource>) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onResourcesAvailable(anyList());
@@ -871,9 +871,9 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
-          }, "AMRMClientAsync").start();
+          Object[] args = invocation.getArguments();
+          cpm.onStreamProcessorLaunchSuccess((SamzaResource) args[0]);
+        }, "AMRMClientAsync").start();
         return null;
       }
     }).when(callback).onStreamProcessorLaunchSuccess(any());
@@ -881,10 +881,10 @@ public class TestContainerPlacementActions {
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
         new Thread(() -> {
-            Object[] args = invocation.getArguments();
-            cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
-          }, "AMRMClientAsync").start();
-          return null;
+          Object[] args = invocation.getArguments();
+          cpm.onResourcesCompleted((List<SamzaResourceStatus>) args[0]);
+        }, "AMRMClientAsync").start();
+        return null;
       }
     }).when(callback).onResourcesCompleted(anyList());
 

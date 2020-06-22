@@ -77,10 +77,10 @@ public class RemoteApplicationRunner implements ApplicationRunner {
 
       // 3. submit jobs for remote execution
       jobConfigs.forEach(jobConfig -> {
-          LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
-          JobRunner runner = new JobRunner(jobConfig);
-          runner.run(true);
-        });
+        LOG.info("Starting job {} with config {}", jobConfig.getName(), jobConfig);
+        JobRunner runner = new JobRunner(jobConfig);
+        runner.run(true);
+      });
     } catch (Throwable t) {
       throw new SamzaException("Failed to run application", t);
     }

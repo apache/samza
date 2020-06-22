@@ -118,13 +118,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        listener.afterStop();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      listener.afterStop();
+      return null;
+    }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -157,13 +156,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        listener.afterStop();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      listener.afterStop();
+      return null;
+    }).when(sp).start();
 
     doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(),
         captor.capture(), eq(Optional.empty()), any(CoordinatorStreamStore.class));
@@ -195,13 +193,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        listener.afterStop();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      listener.afterStop();
+      return null;
+    }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -233,13 +230,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        listener.afterStop();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      listener.afterStop();
+      return null;
+    }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -269,10 +265,9 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        throw new Exception("test failure");
-      }).when(sp).start();
+    doAnswer(i -> {
+      throw new Exception("test failure");
+    }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -310,19 +305,17 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      return null;
+    }).when(sp).start();
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStop();
-        return null;
-      }).when(sp).stop();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStop();
+      return null;
+    }).when(sp).stop();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -354,19 +347,17 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      return null;
+    }).when(sp).start();
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStop();
-        return null;
-      }).when(sp).stop();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStop();
+      return null;
+    }).when(sp).stop();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)

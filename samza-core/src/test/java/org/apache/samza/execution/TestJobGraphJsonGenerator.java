@@ -179,43 +179,43 @@ public class TestJobGraphJsonGenerator {
     StreamManager streamManager = new StreamManager(systemAdmins);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        KVSerde<Object, Object> kvSerde = new KVSerde<>(new NoOpSerde(), new NoOpSerde());
-        String mockSystemFactoryClass = "factory.class.name";
-        GenericSystemDescriptor system1 = new GenericSystemDescriptor("system1", mockSystemFactoryClass);
-        GenericSystemDescriptor system2 = new GenericSystemDescriptor("system2", mockSystemFactoryClass);
-        GenericInputDescriptor<KV<Object, Object>> input1Descriptor = system1.getInputDescriptor("input1", kvSerde);
-        GenericInputDescriptor<KV<Object, Object>> input2Descriptor = system2.getInputDescriptor("input2", kvSerde);
-        GenericInputDescriptor<KV<Object, Object>> input3Descriptor = system2.getInputDescriptor("input3", kvSerde);
-        GenericOutputDescriptor<KV<Object, Object>>  output1Descriptor = system1.getOutputDescriptor("output1", kvSerde);
-        GenericOutputDescriptor<KV<Object, Object>> output2Descriptor = system2.getOutputDescriptor("output2", kvSerde);
+      KVSerde<Object, Object> kvSerde = new KVSerde<>(new NoOpSerde(), new NoOpSerde());
+      String mockSystemFactoryClass = "factory.class.name";
+      GenericSystemDescriptor system1 = new GenericSystemDescriptor("system1", mockSystemFactoryClass);
+      GenericSystemDescriptor system2 = new GenericSystemDescriptor("system2", mockSystemFactoryClass);
+      GenericInputDescriptor<KV<Object, Object>> input1Descriptor = system1.getInputDescriptor("input1", kvSerde);
+      GenericInputDescriptor<KV<Object, Object>> input2Descriptor = system2.getInputDescriptor("input2", kvSerde);
+      GenericInputDescriptor<KV<Object, Object>> input3Descriptor = system2.getInputDescriptor("input3", kvSerde);
+      GenericOutputDescriptor<KV<Object, Object>>  output1Descriptor = system1.getOutputDescriptor("output1", kvSerde);
+      GenericOutputDescriptor<KV<Object, Object>> output2Descriptor = system2.getOutputDescriptor("output2", kvSerde);
 
-        MessageStream<KV<Object, Object>> messageStream1 =
-            appDesc.getInputStream(input1Descriptor)
-                .map(m -> m);
-        MessageStream<KV<Object, Object>> messageStream2 =
-            appDesc.getInputStream(input2Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
-                .filter(m -> true);
-        MessageStream<KV<Object, Object>> messageStream3 =
-            appDesc.getInputStream(input3Descriptor)
-                .filter(m -> true)
-                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
-                .map(m -> m);
-        OutputStream<KV<Object, Object>> outputStream1 = appDesc.getOutputStream(output1Descriptor);
-        OutputStream<KV<Object, Object>> outputStream2 = appDesc.getOutputStream(output2Descriptor);
+      MessageStream<KV<Object, Object>> messageStream1 =
+          appDesc.getInputStream(input1Descriptor)
+              .map(m -> m);
+      MessageStream<KV<Object, Object>> messageStream2 =
+          appDesc.getInputStream(input2Descriptor)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
+              .filter(m -> true);
+      MessageStream<KV<Object, Object>> messageStream3 =
+          appDesc.getInputStream(input3Descriptor)
+              .filter(m -> true)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
+              .map(m -> m);
+      OutputStream<KV<Object, Object>> outputStream1 = appDesc.getOutputStream(output1Descriptor);
+      OutputStream<KV<Object, Object>> outputStream2 = appDesc.getOutputStream(output2Descriptor);
 
-        messageStream1
-            .join(messageStream2,
-                (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
-            .sendTo(outputStream1);
-        messageStream2.sink((message, collector, coordinator) -> { });
-        messageStream3
-            .join(messageStream2,
-                (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
-                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
-            .sendTo(outputStream2);
-      }, config);
+      messageStream1
+          .join(messageStream2,
+              (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
+              mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+          .sendTo(outputStream1);
+      messageStream2.sink((message, collector, coordinator) -> { });
+      messageStream3
+          .join(messageStream2,
+              (JoinFunction<Object, KV<Object, Object>, KV<Object, Object>, KV<Object, Object>>) mock(JoinFunction.class),
+              mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+          .sendTo(outputStream2);
+    }, config);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     ExecutionPlan plan = planner.plan(graphSpec);
@@ -255,27 +255,24 @@ public class TestJobGraphJsonGenerator {
     StreamManager streamManager = new StreamManager(systemAdmins);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        KVSerde<String, PageViewEvent> pvSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class));
-        GenericSystemDescriptor isd = new GenericSystemDescriptor("hdfs", "mockSystemFactoryClass");
-        GenericInputDescriptor<KV<String, PageViewEvent>> pageView = isd.getInputDescriptor("PageView", pvSerde);
+      KVSerde<String, PageViewEvent> pvSerde = KVSerde.of(new StringSerde(), new JsonSerdeV2<>(PageViewEvent.class));
+      GenericSystemDescriptor isd = new GenericSystemDescriptor("hdfs", "mockSystemFactoryClass");
+      GenericInputDescriptor<KV<String, PageViewEvent>> pageView = isd.getInputDescriptor("PageView", pvSerde);
 
-        KVSerde<String, Long> pvcSerde = KVSerde.of(new StringSerde(), new LongSerde());
-        GenericSystemDescriptor osd = new GenericSystemDescriptor("kafka", "mockSystemFactoryClass");
-        GenericOutputDescriptor<KV<String, Long>> pageViewCount = osd.getOutputDescriptor("PageViewCount", pvcSerde);
+      KVSerde<String, Long> pvcSerde = KVSerde.of(new StringSerde(), new LongSerde());
+      GenericSystemDescriptor osd = new GenericSystemDescriptor("kafka", "mockSystemFactoryClass");
+      GenericOutputDescriptor<KV<String, Long>> pageViewCount = osd.getOutputDescriptor("PageViewCount", pvcSerde);
 
-        MessageStream<KV<String, PageViewEvent>> inputStream = appDesc.getInputStream(pageView);
-        OutputStream<KV<String, Long>> outputStream = appDesc.getOutputStream(pageViewCount);
-        inputStream
-            .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), pvSerde, "keyed-by-country")
-            .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
-                Duration.ofSeconds(10L),
-                () -> 0L,
-                (m, c) -> c + 1L,
-                new StringSerde(),
-                new LongSerde()), "count-by-country")
-            .map(pane -> new KV<>(pane.getKey().getKey(), pane.getMessage()))
-            .sendTo(outputStream);
-      }, config);
+      MessageStream<KV<String, PageViewEvent>> inputStream = appDesc.getInputStream(pageView);
+      OutputStream<KV<String, Long>> outputStream = appDesc.getOutputStream(pageViewCount);
+      inputStream
+          .partitionBy(kv -> kv.getValue().getCountry(), kv -> kv.getValue(), pvSerde, "keyed-by-country")
+          .window(Windows.keyedTumblingWindow(kv -> kv.getValue().getCountry(),
+              Duration.ofSeconds(10L), () -> 0L, (m, c) -> c + 1L, new StringSerde(), new LongSerde()),
+              "count-by-country")
+          .map(pane -> new KV<>(pane.getKey().getKey(), pane.getMessage()))
+          .sendTo(outputStream);
+    }, config);
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     ExecutionPlan plan = planner.plan(graphSpec);

@@ -148,13 +148,13 @@ public class BatchProcessor<K, V> {
     final long maxDelay = batch.getMaxBatchDelay().toMillis();
     if (maxDelay != Integer.MAX_VALUE) {
       scheduledFuture = scheduledExecutorService.schedule(() -> {
-          lock.lock();
-          try {
-            processBatch(false);
-          } finally {
-            lock.unlock();
-          }
-        }, maxDelay, TimeUnit.MILLISECONDS);
+        lock.lock();
+        try {
+          processBatch(false);
+        } finally {
+          lock.unlock();
+        }
+      }, maxDelay, TimeUnit.MILLISECONDS);
     }
   }
 

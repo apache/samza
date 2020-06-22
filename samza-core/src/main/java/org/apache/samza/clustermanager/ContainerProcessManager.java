@@ -187,8 +187,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.containerManager = containerManager;
     this.diagnosticsManager = Option.empty();
     this.containerAllocator = allocator.orElseGet(
-        () -> new ContainerAllocator(this.clusterResourceManager, clusterManagerConfig, state,
-            hostAffinityEnabled, this.containerManager));
+      () -> new ContainerAllocator(this.clusterResourceManager, clusterManagerConfig, state,
+          hostAffinityEnabled, this.containerManager));
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
     LOG.info("Finished container process manager initialization");
   }

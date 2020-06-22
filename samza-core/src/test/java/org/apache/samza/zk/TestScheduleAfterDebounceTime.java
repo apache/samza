@@ -59,9 +59,9 @@ public class TestScheduleAfterDebounceTime {
 
     final TestObj testObj = new TestScheduleAfterDebounceTime.TestObj();
     scheduledQueue.scheduleAfterDebounceTime("TEST1", WAIT_TIME, () -> {
-        testObj.inc();
-        latch.countDown();
-      });
+      testObj.inc();
+      latch.countDown();
+    });
     // action is delayed
     Assert.assertEquals(0, testObj.get());
 
@@ -105,14 +105,13 @@ public class TestScheduleAfterDebounceTime {
     final Throwable[] taskCallbackException = new Exception[1];
     ScheduleAfterDebounceTime scheduledQueue = new ScheduleAfterDebounceTime(TEST_PROCESSOR_ID);
     scheduledQueue.setScheduledTaskCallback(throwable -> {
-        taskCallbackException[0] = throwable;
-        latch.countDown();
-      });
+      taskCallbackException[0] = throwable;
+      latch.countDown();
+    });
 
-    scheduledQueue.scheduleAfterDebounceTime("TEST1", WAIT_TIME, () ->
-      {
-        throw new RuntimeException("From the runnable!");
-      });
+    scheduledQueue.scheduleAfterDebounceTime("TEST1", WAIT_TIME, () -> {
+      throw new RuntimeException("From the runnable!");
+    });
 
     final TestObj testObj = new TestObj();
     scheduledQueue.scheduleAfterDebounceTime("TEST2", WAIT_TIME * 2, testObj::inc);

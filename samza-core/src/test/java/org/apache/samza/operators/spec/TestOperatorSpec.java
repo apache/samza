@@ -164,7 +164,7 @@ public class TestOperatorSpec {
   @Test
   public void testStreamOperatorSpecWithMap() {
     MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mapFn =
-        m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode());
+      m -> new TestOutputMessageEnvelope(m.getKey(), m.getMessage().hashCode());
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
@@ -381,7 +381,7 @@ public class TestOperatorSpec {
     List<String> keys = new ArrayList<>(1);
     keys.add(0, "test-1");
     MapFunction<TestMessageEnvelope, TestOutputMessageEnvelope> mapFn =
-        m -> new TestOutputMessageEnvelope(keys.get(m.getKey().hashCode() % 1), integers.get(m.getMessage().hashCode() % 1));
+      m -> new TestOutputMessageEnvelope(keys.get(m.getKey().hashCode() % 1), integers.get(m.getMessage().hashCode() % 1));
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> streamOperatorSpec =
         OperatorSpecs.createMapOperatorSpec(mapFn, "op0");
     StreamOperatorSpec<TestMessageEnvelope, TestOutputMessageEnvelope> cloneOperatorSpec =
