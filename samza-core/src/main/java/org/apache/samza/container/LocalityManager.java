@@ -61,13 +61,13 @@ public class LocalityManager {
   public Map<String, Map<String, String>> readContainerLocality() {
     Map<String, Map<String, String>> allMappings = new HashMap<>();
     metadataStore.all().forEach((containerId, valueBytes) -> {
-        if (valueBytes != null) {
-          String locationId = valueSerde.fromBytes(valueBytes);
-          Map<String, String> values = new HashMap<>();
-          values.put(SetContainerHostMapping.HOST_KEY, locationId);
-          allMappings.put(containerId, values);
-        }
-      });
+      if (valueBytes != null) {
+        String locationId = valueSerde.fromBytes(valueBytes);
+        Map<String, String> values = new HashMap<>();
+        values.put(SetContainerHostMapping.HOST_KEY, locationId);
+        allMappings.put(containerId, values);
+      }
+    });
     if (LOG.isDebugEnabled()) {
       for (Map.Entry<String, Map<String, String>> entry : allMappings.entrySet()) {
         LOG.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));

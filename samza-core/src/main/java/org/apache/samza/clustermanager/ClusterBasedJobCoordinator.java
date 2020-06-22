@@ -382,13 +382,13 @@ public class ClusterBasedJobCoordinator {
     return Optional.of(new StreamPartitionCountMonitor(inputStreamsToMonitor, streamMetadata, metrics,
         new JobConfig(config).getMonitorPartitionChangeFrequency(), streamsChanged -> {
       // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
-        if (hasDurableStores) {
-          LOG.error("Input topic partition count changed in a job with durable state. Failing the job. " +
-              "Changed topics: {}", streamsChanged.toString());
-          state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-        }
-        coordinatorException = new PartitionChangeException("Input topic partition count changes detected for topics: " + streamsChanged.toString());
-      }));
+      if (hasDurableStores) {
+        LOG.error("Input topic partition count changed in a job with durable state. Failing the job. " +
+            "Changed topics: {}", streamsChanged.toString());
+        state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+      }
+      coordinatorException = new PartitionChangeException("Input topic partition count changes detected for topics: " + streamsChanged.toString());
+    }));
   }
 
   private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins, Set<SystemStream> inputStreamsToMonitor) {
@@ -465,9 +465,9 @@ public class ClusterBasedJobCoordinator {
    */
   public static void main(String[] args) {
     Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
-        LOG.error("Uncaught exception in ClusterBasedJobCoordinator::main. Exiting job coordinator", exception);
-        System.exit(1);
-      });
+      LOG.error("Uncaught exception in ClusterBasedJobCoordinator::main. Exiting job coordinator", exception);
+      System.exit(1);
+    });
     if (!SplitDeploymentUtil.isSplitDeploymentEnabled()) {
       // no isolation enabled, so can just execute runClusterBasedJobCoordinator directly
       runClusterBasedJobCoordinator(args);
@@ -579,21 +579,21 @@ public class ClusterBasedJobCoordinator {
     List<String> args = new ArrayList<>(config.size() * 2);
 
     config.forEach((key, value) -> {
-        if (key.equals(ApplicationConfig.APP_MAIN_ARGS)) {
-          /*
-           * Converts native beam pipeline options such as
-           * --runner=SamzaRunner --maxSourceParallelism=1024
-           */
-          args.addAll(Arrays.asList(value.split("\\s")));
-        } else {
-          /*
-           * Converts native Samza configs to config override format such as
-           * --config job.name=test
-           */
-          args.add("--config");
-          args.add(String.format("%s=%s", key, value));
-        }
-      });
+      if (key.equals(ApplicationConfig.APP_MAIN_ARGS)) {
+        /*
+         * Converts native beam pipeline options such as
+         * --runner=SamzaRunner --maxSourceParallelism=1024
+         */
+        args.addAll(Arrays.asList(value.split("\\s")));
+      } else {
+        /*
+         * Converts native Samza configs to config override format such as
+         * --config job.name=test
+         */
+        args.add("--config");
+        args.add(String.format("%s=%s", key, value));
+      }
+    });
 
     return args.toArray(new String[0]);
   }

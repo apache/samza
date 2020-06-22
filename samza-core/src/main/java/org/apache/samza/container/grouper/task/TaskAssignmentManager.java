@@ -74,24 +74,24 @@ public class TaskAssignmentManager {
   public Map<String, String> readTaskAssignment() {
     taskNameToContainerId.clear();
     taskContainerMappingMetadataStore.all().forEach((taskName, valueBytes) -> {
-        String containerId = containerIdSerde.fromBytes(valueBytes);
-        if (containerId != null) {
-          taskNameToContainerId.put(taskName, containerId);
-        }
-        LOG.debug("Assignment for task {}: {}", taskName, containerId);
-      });
+      String containerId = containerIdSerde.fromBytes(valueBytes);
+      if (containerId != null) {
+        taskNameToContainerId.put(taskName, containerId);
+      }
+      LOG.debug("Assignment for task {}: {}", taskName, containerId);
+    });
     return Collections.unmodifiableMap(new HashMap<>(taskNameToContainerId));
   }
 
   public Map<TaskName, TaskMode> readTaskModes() {
     Map<TaskName, TaskMode> taskModeMap = new HashMap<>();
     taskModeMappingMetadataStore.all().forEach((taskName, valueBytes) -> {
-        String taskMode = taskModeSerde.fromBytes(valueBytes);
-        if (taskMode != null) {
-          taskModeMap.put(new TaskName(taskName), TaskMode.valueOf(taskMode));
-        }
-        LOG.debug("Task mode assignment for task {}: {}", taskName, taskMode);
-      });
+      String taskMode = taskModeSerde.fromBytes(valueBytes);
+      if (taskMode != null) {
+        taskModeMap.put(new TaskName(taskName), TaskMode.valueOf(taskMode));
+      }
+      LOG.debug("Task mode assignment for task {}: {}", taskName, taskMode);
+    });
     return Collections.unmodifiableMap(new HashMap<>(taskModeMap));
   }
 

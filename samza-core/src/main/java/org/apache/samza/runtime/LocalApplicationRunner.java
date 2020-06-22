@@ -226,15 +226,15 @@ public class LocalApplicationRunner implements ApplicationRunner {
         throw new SamzaException("No jobs to run.");
       }
       jobConfigs.forEach(jobConfig -> {
-          LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
-          if (coordinatorStreamStore != null) {
-            coordinatorStreamStore.init();
-          }
-          StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
-              sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig), Optional.ofNullable(externalContext), coordinatorStreamStore);
-          processors.add(Pair.of(processor, coordinatorStreamStore));
-        });
+        LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+        MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
+        if (coordinatorStreamStore != null) {
+          coordinatorStreamStore.init();
+        }
+        StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
+          sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig), Optional.ofNullable(externalContext), coordinatorStreamStore);
+        processors.add(Pair.of(processor, coordinatorStreamStore));
+      });
       numProcessorsToStart.set(processors.size());
 
       // start the StreamProcessors
@@ -251,13 +251,13 @@ public class LocalApplicationRunner implements ApplicationRunner {
   @Override
   public void kill() {
     processors.forEach(sp -> {
-        sp.getLeft().stop();    // Stop StreamProcessor
+      sp.getLeft().stop();    // Stop StreamProcessor
 
-        // Coordinator stream isn't required so a null check is necessary
-        if (sp.getRight() != null) {
-          sp.getRight().close();  // Close associated coordinator metadata store
-        }
-      });
+      // Coordinator stream isn't required so a null check is necessary
+      if (sp.getRight() != null) {
+        sp.getRight().close();  // Close associated coordinator metadata store
+      }
+    });
     cleanup();
   }
 
@@ -448,9 +448,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
       if (failure.compareAndSet(null, t)) {
         // shutdown the other processors
         processors.forEach(sp -> {
-            sp.getLeft().stop();    // Stop StreamProcessor
-            sp.getRight().close();  // Close associated coordinator metadata store
-          });
+          sp.getLeft().stop();    // Stop StreamProcessor
+          sp.getRight().close();  // Close associated coordinator metadata store
+        });
       }
 
       // handle the current processor's shutdown failure.

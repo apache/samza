@@ -87,8 +87,8 @@ public class TestContainerStorageManager {
   private void addMockedTask(String taskname, int changelogPartition) {
     TaskInstance mockTaskInstance = mock(TaskInstance.class);
     doAnswer(invocation -> {
-        return new TaskName(taskname);
-      }).when(mockTaskInstance).taskName();
+      return new TaskName(taskname);
+    }).when(mockTaskInstance).taskName();
 
     Gauge testGauge = mock(Gauge.class);
     this.tasks.put(new TaskName(taskname),
@@ -126,33 +126,33 @@ public class TestContainerStorageManager {
     when(mockStorageEngine.getStoreProperties())
         .thenReturn(new StoreProperties.StorePropertiesBuilder().setLoggedStore(true).setPersistedToDisk(true).build());
     doAnswer(invocation -> {
-        return mockStorageEngine;
-      }).when(mockStorageEngineFactory).getStorageEngine(anyString(), any(), any(), any(), any(),
-            any(), any(), any(), any(), any());
+      return mockStorageEngine;
+    }).when(mockStorageEngineFactory).getStorageEngine(anyString(), any(), any(), any(), any(),
+        any(), any(), any(), any(), any());
 
     storageEngineFactories.put(STORE_NAME, mockStorageEngineFactory);
 
     // Add instrumentation to mocked storage engine, to record the number of store.restore() calls
     doAnswer(invocation -> {
-        storeRestoreCallCount++;
-        return null;
-      }).when(mockStorageEngine).restore(any());
+      storeRestoreCallCount++;
+      return null;
+    }).when(mockStorageEngine).restore(any());
 
     // Set the mocked stores' properties to be persistent
     doAnswer(invocation -> {
-        return new StoreProperties.StorePropertiesBuilder().setLoggedStore(true).build();
-      }).when(mockStorageEngine).getStoreProperties();
+      return new StoreProperties.StorePropertiesBuilder().setLoggedStore(true).build();
+    }).when(mockStorageEngine).getStoreProperties();
 
     // Mock and setup sysconsumers
     SystemConsumer mockSystemConsumer = mock(SystemConsumer.class);
     doAnswer(invocation -> {
-        systemConsumerStartCount++;
-        return null;
-      }).when(mockSystemConsumer).start();
+      systemConsumerStartCount++;
+      return null;
+    }).when(mockSystemConsumer).start();
     doAnswer(invocation -> {
-        systemConsumerStopCount++;
-        return null;
-      }).when(mockSystemConsumer).stop();
+      systemConsumerStopCount++;
+      return null;
+    }).when(mockSystemConsumer).stop();
 
     // Create mocked system factories
     Map<String, SystemFactory> systemFactories = new HashMap<>();
@@ -160,9 +160,9 @@ public class TestContainerStorageManager {
     // Count the number of sysConsumers created
     SystemFactory mockSystemFactory = mock(SystemFactory.class);
     doAnswer(invocation -> {
-        this.systemConsumerCreationCount++;
-        return mockSystemConsumer;
-      }).when(mockSystemFactory).getConsumer(anyString(), any(), any());
+      this.systemConsumerCreationCount++;
+      return mockSystemConsumer;
+    }).when(mockSystemFactory).getConsumer(anyString(), any(), any());
 
     systemFactories.put(SYSTEM_NAME, mockSystemFactory);
 

@@ -148,9 +148,9 @@ public class InMemorySystemConsumer implements SystemConsumer {
 
     for (Map.Entry<SystemStreamPartition, List<IncomingMessageEnvelope>> sspToMessage : result.entrySet()) {
       sspToOffset.computeIfPresent(sspToMessage.getKey(), (ssp, offset) -> {
-          int newOffset = Integer.parseInt(offset) + sspToMessage.getValue().size();
-          return String.valueOf(newOffset);
-        });
+        int newOffset = Integer.parseInt(offset) + sspToMessage.getValue().size();
+        return String.valueOf(newOffset);
+      });
       // absent should never be the case
     }
 

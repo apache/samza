@@ -61,10 +61,10 @@ class AllSspToSingleTaskGrouper implements SystemStreamPartitionGrouper {
     }
 
     processorList.forEach(processor -> {
-        // Create a task name for each processor and assign all partitions to each task name.
-        final TaskName taskName = new TaskName(String.format("Task-%s", processor));
-        groupedMap.put(taskName, ssps);
-      });
+      // Create a task name for each processor and assign all partitions to each task name.
+      final TaskName taskName = new TaskName(String.format("Task-%s", processor));
+      groupedMap.put(taskName, ssps);
+    });
 
     return groupedMap;
   }

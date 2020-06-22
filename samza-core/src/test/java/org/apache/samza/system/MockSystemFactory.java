@@ -54,13 +54,13 @@ public class MockSystemFactory implements SystemFactory {
       public Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Set<SystemStreamPartition> systemStreamPartitions, long timeout) {
         Map<SystemStreamPartition, List<IncomingMessageEnvelope>> retQueues = new HashMap<>();
         systemStreamPartitions.forEach(ssp -> {
-            List<IncomingMessageEnvelope> msgs = MSG_QUEUES.get(ssp);
-            if (msgs == null) {
-              retQueues.put(ssp, new ArrayList<>());
-            } else {
-              retQueues.put(ssp, MSG_QUEUES.remove(ssp));
-            }
-          });
+          List<IncomingMessageEnvelope> msgs = MSG_QUEUES.get(ssp);
+          if (msgs == null) {
+            retQueues.put(ssp, new ArrayList<>());
+          } else {
+            retQueues.put(ssp, MSG_QUEUES.remove(ssp));
+          }
+        });
         return retQueues;
       }
     };
@@ -124,30 +124,32 @@ public class MockSystemFactory implements SystemFactory {
         Map<String, Set<Partition>> partitionMap = MSG_QUEUES.entrySet()
             .stream()
             .filter(entry -> streamNames.contains(entry.getKey().getSystemStream().getStream()))
-            .map(e -> e.getKey()).<Map<String, Set<Partition>>>collect(HashMap::new, (m, ssp) -> {
+            .map(e -> e.getKey())
+            .<Map<String, Set<Partition>>>collect(HashMap::new,
+              (m, ssp) -> {
                 if (m.get(ssp.getStream()) == null) {
                   m.put(ssp.getStream(), new HashSet<>());
                 }
                 m.get(ssp.getStream()).add(ssp.getPartition());
               }, (m1, m2) -> {
                 m2.forEach((k, v) -> {
-                    if (m1.get(k) == null) {
-                      m1.put(k, v);
-                    } else {
-                      m1.get(k).addAll(v);
-                    }
-                  });
+                  if (m1.get(k) == null) {
+                    m1.put(k, v);
+                  } else {
+                    m1.get(k).addAll(v);
+                  }
+                });
               });
 
         partitionMap.forEach((k, v) -> {
-            Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetaMap =
-                v.stream().<Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata>>collect(HashMap::new,
-                  (m, p) -> {
-                    m.put(p, new SystemStreamMetadata.SystemStreamPartitionMetadata("", "", ""));
-                  }, (m1, m2) -> m1.putAll(m2));
+          Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetaMap =
+              v.stream().<Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata>>collect(HashMap::new,
+                (m, p) -> {
+                  m.put(p, new SystemStreamMetadata.SystemStreamPartitionMetadata("", "", ""));
+                }, (m1, m2) -> m1.putAll(m2));
 
-            metadataMap.put(k, new SystemStreamMetadata(k, partitionMetaMap));
-          });
+          metadataMap.put(k, new SystemStreamMetadata(k, partitionMetaMap));
+        });
 
         return metadataMap;
       }

@@ -87,8 +87,8 @@ public class TestStreamApplicationDescriptorImpl {
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
     GenericInputDescriptor isd = sd.getInputDescriptor(streamId, mockValueSerde);
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd);
-      }, getConfig());
+      appDesc.getInputStream(isd);
+    }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(streamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -110,8 +110,8 @@ public class TestStreamApplicationDescriptorImpl {
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
     GenericInputDescriptor isd = sd.getInputDescriptor(streamId, mockKVSerde);
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd);
-      }, getConfig());
+      appDesc.getInputStream(isd);
+    }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(streamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -126,8 +126,8 @@ public class TestStreamApplicationDescriptorImpl {
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
     GenericInputDescriptor isd = sd.getInputDescriptor("mockStreamId", null);
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd);
-      }, getConfig());
+      appDesc.getInputStream(isd);
+    }, getConfig());
   }
 
   @Test
@@ -138,8 +138,8 @@ public class TestStreamApplicationDescriptorImpl {
     MockTransformingSystemDescriptor sd = new MockTransformingSystemDescriptor("mockSystem", transformer);
     MockInputDescriptor isd = sd.getInputDescriptor(streamId, mockValueSerde);
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd);
-      }, getConfig());
+      appDesc.getInputStream(isd);
+    }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(streamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -164,8 +164,8 @@ public class TestStreamApplicationDescriptorImpl {
     MockExpandingSystemDescriptor sd = new MockExpandingSystemDescriptor("mock-system", expander);
     MockInputDescriptor isd = sd.getInputDescriptor(streamId, new IntegerSerde());
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd);
-      }, getConfig());
+      appDesc.getInputStream(isd);
+    }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(expandedStreamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -182,8 +182,8 @@ public class TestStreamApplicationDescriptorImpl {
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
     GenericInputDescriptor isd = sd.getInputDescriptor(streamId, mock(Serde.class));
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd);
-      }, getConfig());
+      appDesc.getInputStream(isd);
+    }, getConfig());
 
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(streamId);
     assertEquals(OpCode.INPUT, inputOpSpec.getOpCode());
@@ -200,9 +200,9 @@ public class TestStreamApplicationDescriptorImpl {
     GenericInputDescriptor isd2 = sd.getInputDescriptor(streamId2, mock(Serde.class));
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd1);
-        appDesc.getInputStream(isd2);
-      }, getConfig());
+      appDesc.getInputStream(isd1);
+      appDesc.getInputStream(isd2);
+    }, getConfig());
 
     InputOperatorSpec inputOpSpec1 = streamAppDesc.getInputOperators().get(streamId1);
     InputOperatorSpec inputOpSpec2 = streamAppDesc.getInputOperators().get(streamId2);
@@ -222,10 +222,10 @@ public class TestStreamApplicationDescriptorImpl {
     GenericInputDescriptor isd1 = sd.getInputDescriptor(streamId, mock(Serde.class));
     GenericInputDescriptor isd2 = sd.getInputDescriptor(streamId, mock(Serde.class));
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd1);
-        // should throw exception
-        appDesc.getInputStream(isd2);
-      }, getConfig());
+      appDesc.getInputStream(isd1);
+      // should throw exception
+      appDesc.getInputStream(isd2);
+    }, getConfig());
   }
 
   @Test
@@ -237,25 +237,25 @@ public class TestStreamApplicationDescriptorImpl {
     GenericOutputDescriptor osd1 = sd2.getOutputDescriptor("test-stream-3", mock(Serde.class));
 
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd1);
-        try {
-          appDesc.getInputStream(isd2);
-          fail("Adding input stream with the same system name but different SystemDescriptor should have failed");
-        } catch (IllegalStateException e) { }
+      appDesc.getInputStream(isd1);
+      try {
+        appDesc.getInputStream(isd2);
+        fail("Adding input stream with the same system name but different SystemDescriptor should have failed");
+      } catch (IllegalStateException e) { }
 
-        try {
-          appDesc.getOutputStream(osd1);
-          fail("adding output stream with the same system name but different SystemDescriptor should have failed");
-        } catch (IllegalStateException e) { }
-      }, getConfig());
+      try {
+        appDesc.getOutputStream(osd1);
+        fail("adding output stream with the same system name but different SystemDescriptor should have failed");
+      } catch (IllegalStateException e) { }
+    }, getConfig());
 
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.withDefaultSystem(sd2);
-        try {
-          appDesc.getInputStream(isd1);
-          fail("Adding input stream with the same system name as the default system but different SystemDescriptor should have failed");
-        } catch (IllegalStateException e) { }
-      }, getConfig());
+      appDesc.withDefaultSystem(sd2);
+      try {
+        appDesc.getInputStream(isd1);
+        fail("Adding input stream with the same system name as the default system but different SystemDescriptor should have failed");
+      } catch (IllegalStateException e) { }
+    }, getConfig());
   }
 
   @Test
@@ -270,8 +270,8 @@ public class TestStreamApplicationDescriptorImpl {
     GenericOutputDescriptor osd = sd.getOutputDescriptor(streamId, mockKVSerde);
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getOutputStream(osd);
-      }, getConfig());
+      appDesc.getOutputStream(osd);
+    }, getConfig());
 
     OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = streamAppDesc.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
@@ -286,8 +286,8 @@ public class TestStreamApplicationDescriptorImpl {
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
     GenericOutputDescriptor osd = sd.getOutputDescriptor(streamId, null);
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getOutputStream(osd);
-      }, getConfig());
+      appDesc.getOutputStream(osd);
+    }, getConfig());
   }
 
   @Test
@@ -298,8 +298,8 @@ public class TestStreamApplicationDescriptorImpl {
     GenericOutputDescriptor osd = sd.getOutputDescriptor(streamId, mockValueSerde);
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getOutputStream(osd);
-      }, getConfig());
+      appDesc.getOutputStream(osd);
+    }, getConfig());
 
     OutputStreamImpl<TestMessageEnvelope> outputStreamImpl = streamAppDesc.getOutputStreams().get(streamId);
     assertEquals(streamId, outputStreamImpl.getStreamId());
@@ -315,9 +315,9 @@ public class TestStreamApplicationDescriptorImpl {
     GenericInputDescriptor isd = sd.getInputDescriptor(streamId, mock(Serde.class));
 
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(isd);
-        appDesc.withDefaultSystem(sd); // should throw exception
-      }, getConfig());
+      appDesc.getInputStream(isd);
+      appDesc.withDefaultSystem(sd); // should throw exception
+    }, getConfig());
   }
 
   @Test(expected = IllegalStateException.class)
@@ -326,9 +326,9 @@ public class TestStreamApplicationDescriptorImpl {
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
     GenericOutputDescriptor osd = sd.getOutputDescriptor(streamId, mock(Serde.class));
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getOutputStream(osd);
-        appDesc.withDefaultSystem(sd); // should throw exception
-      }, getConfig());
+      appDesc.getOutputStream(osd);
+      appDesc.withDefaultSystem(sd); // should throw exception
+    }, getConfig());
   }
 
   @Test(expected = IllegalStateException.class)
@@ -346,9 +346,9 @@ public class TestStreamApplicationDescriptorImpl {
     GenericOutputDescriptor osd1 = sd.getOutputDescriptor(streamId, mock(Serde.class));
     GenericOutputDescriptor osd2 = sd.getOutputDescriptor(streamId, mock(Serde.class));
     new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getOutputStream(osd1);
-        appDesc.getOutputStream(osd2); // should throw exception
-      }, getConfig());
+      appDesc.getOutputStream(osd1);
+      appDesc.getOutputStream(osd2); // should throw exception
+    }, getConfig());
   }
 
   @Test
@@ -497,10 +497,10 @@ public class TestStreamApplicationDescriptorImpl {
 
     GenericSystemDescriptor sd = new GenericSystemDescriptor("mockSystem", "mockSystemFactoryClass");
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        appDesc.getInputStream(sd.getInputDescriptor(testStreamId1, mock(Serde.class)));
-        appDesc.getInputStream(sd.getInputDescriptor(testStreamId2, mock(Serde.class)));
-        appDesc.getInputStream(sd.getInputDescriptor(testStreamId3, mock(Serde.class)));
-      }, mockConfig);
+      appDesc.getInputStream(sd.getInputDescriptor(testStreamId1, mock(Serde.class)));
+      appDesc.getInputStream(sd.getInputDescriptor(testStreamId2, mock(Serde.class)));
+      appDesc.getInputStream(sd.getInputDescriptor(testStreamId3, mock(Serde.class)));
+    }, mockConfig);
 
     List<InputOperatorSpec> inputSpecs = new ArrayList<>(streamAppDesc.getInputOperators().values());
     assertEquals(inputSpecs.size(), 3);
@@ -518,8 +518,8 @@ public class TestStreamApplicationDescriptorImpl {
     when(mockTableDescriptor.getTableId()).thenReturn(tableId);
     AtomicReference<TableImpl> table = new AtomicReference<>();
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        table.set((TableImpl) appDesc.getTable(mockTableDescriptor));
-      }, mockConfig);
+      table.set((TableImpl) appDesc.getTable(mockTableDescriptor));
+    }, mockConfig);
     assertEquals(tableId, table.get().getTableId());
   }
 
@@ -567,10 +567,10 @@ public class TestStreamApplicationDescriptorImpl {
   public void testGetTableWithBadId() {
     Config mockConfig = getConfig();
     new StreamApplicationDescriptorImpl(appDesc -> {
-        BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
-        when(mockTableDescriptor.getTableId()).thenReturn("my.table");
-        appDesc.getTable(mockTableDescriptor);
-      }, mockConfig);
+      BaseTableDescriptor mockTableDescriptor = mock(BaseTableDescriptor.class);
+      when(mockTableDescriptor.getTableId()).thenReturn("my.table");
+      appDesc.getTable(mockTableDescriptor);
+    }, mockConfig);
   }
 
   private Config getConfig() {

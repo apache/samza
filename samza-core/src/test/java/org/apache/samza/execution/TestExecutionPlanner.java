@@ -144,13 +144,13 @@ public class TestExecutionPlanner {
      *
      */
     return new StreamApplicationDescriptorImpl(appDesc-> {
-        MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input1Descriptor);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
-        input1
-            .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
-            .map(kv -> kv)
-            .sendTo(output1);
-      }, config);
+      MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input1Descriptor);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      input1
+          .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
+          .map(kv -> kv)
+          .sendTo(output1);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithStreamStreamJoin() {
@@ -166,30 +166,30 @@ public class TestExecutionPlanner {
      *
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream1 =
-            appDesc.getInputStream(input1Descriptor)
-                .map(m -> m);
-        MessageStream<KV<Object, Object>> messageStream2 =
-            appDesc.getInputStream(input2Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
-                .filter(m -> true);
-        MessageStream<KV<Object, Object>> messageStream3 =
-            appDesc.getInputStream(input3Descriptor)
-                .filter(m -> true)
-                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
-                .map(m -> m);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
-        OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream(output2Descriptor);
+      MessageStream<KV<Object, Object>> messageStream1 =
+          appDesc.getInputStream(input1Descriptor)
+              .map(m -> m);
+      MessageStream<KV<Object, Object>> messageStream2 =
+          appDesc.getInputStream(input2Descriptor)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
+              .filter(m -> true);
+      MessageStream<KV<Object, Object>> messageStream3 =
+          appDesc.getInputStream(input3Descriptor)
+              .filter(m -> true)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
+              .map(m -> m);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream(output2Descriptor);
 
-        messageStream1
-            .join(messageStream2,
-                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
-            .sendTo(output1);
-        messageStream3
-            .join(messageStream2,
-                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
-            .sendTo(output2);
-      }, config);
+      messageStream1
+          .join(messageStream2,
+              mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+          .sendTo(output1);
+      messageStream3
+          .join(messageStream2,
+              mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+          .sendTo(output2);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithInvalidStreamStreamJoin() {
@@ -204,45 +204,45 @@ public class TestExecutionPlanner {
      *   input3 (32) --
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
-        MessageStream<KV<Object, Object>> messageStream3 = appDesc.getInputStream(input3Descriptor);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream3 = appDesc.getInputStream(input3Descriptor);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        messageStream1
-            .join(messageStream3,
-                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
-            .sendTo(output1);
-      }, config);
+      messageStream1
+          .join(messageStream3,
+              mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+          .sendTo(output1);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithJoinAndWindow() {
 
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor).map(m -> m);
-        MessageStream<KV<Object, Object>> messageStream2 =
-          appDesc.getInputStream(input2Descriptor)
-              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
-              .filter(m -> true);
-        MessageStream<KV<Object, Object>> messageStream3 =
-          appDesc.getInputStream(input3Descriptor)
-              .filter(m -> true)
-              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
-              .map(m -> m);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
-        OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream(output2Descriptor);
-
-        messageStream1.map(m -> m)
+      MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor).map(m -> m);
+      MessageStream<KV<Object, Object>> messageStream2 =
+        appDesc.getInputStream(input2Descriptor)
+            .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
+            .filter(m -> true);
+      MessageStream<KV<Object, Object>> messageStream3 =
+        appDesc.getInputStream(input3Descriptor)
             .filter(m -> true)
-            .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8), (Serde<KV<Object, Object>>) mock(Serde.class), (Serde<KV<Object, Object>>) mock(Serde.class)), "w1");
+            .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
+            .map(m -> m);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      OutputStream<KV<Object, Object>> output2 = appDesc.getOutputStream(output2Descriptor);
 
-        messageStream2.map(m -> m)
-            .filter(m -> true)
-            .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), (Serde<KV<Object, Object>>) mock(Serde.class), (Serde<KV<Object, Object>>) mock(Serde.class)), "w2");
+      messageStream1.map(m -> m)
+          .filter(m -> true)
+          .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(8), (Serde<KV<Object, Object>>) mock(Serde.class), (Serde<KV<Object, Object>>) mock(Serde.class)), "w1");
 
-        messageStream1.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600), "j1").sendTo(output1);
-        messageStream3.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100), "j2").sendTo(output2);
-        messageStream3.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252), "j3").sendTo(output2);
-      }, config);
+      messageStream2.map(m -> m)
+          .filter(m -> true)
+          .window(Windows.keyedTumblingWindow(m -> m, Duration.ofMillis(16), (Serde<KV<Object, Object>>) mock(Serde.class), (Serde<KV<Object, Object>>) mock(Serde.class)), "w2");
+
+      messageStream1.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(1600), "j1").sendTo(output1);
+      messageStream3.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(100), "j2").sendTo(output2);
+      messageStream3.join(messageStream2, mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofMillis(252), "j3").sendTo(output2);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithStreamTableJoin() {
@@ -261,26 +261,26 @@ public class TestExecutionPlanner {
      *
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
-        MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
-        MessageStream<KV<Object, Object>> messageStream3 = appDesc.getInputStream(input3Descriptor);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
+      MessageStream<KV<Object, Object>> messageStream3 = appDesc.getInputStream(input3Descriptor);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
-            "table-id", new KVSerde(new StringSerde(), new StringSerde()));
-        Table table = appDesc.getTable(tableDescriptor);
+      TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+          "table-id", new KVSerde(new StringSerde(), new StringSerde()));
+      Table table = appDesc.getTable(tableDescriptor);
 
-        messageStream2
-            .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
-            .sendTo(table);
+      messageStream2
+          .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
+          .sendTo(table);
 
-        messageStream1
-            .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
-            .join(table, mock(StreamTableJoinFunction.class))
-            .join(messageStream3,
-                  mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
-            .sendTo(output1);
-      }, config);
+      messageStream1
+          .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2")
+          .join(table, mock(StreamTableJoinFunction.class))
+          .join(messageStream3,
+                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+          .sendTo(output1);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithComplexStreamStreamJoin() {
@@ -305,37 +305,37 @@ public class TestExecutionPlanner {
      *
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
 
-        MessageStream<KV<Object, Object>> messageStream2 =
-            appDesc.getInputStream(input2Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2");
+      MessageStream<KV<Object, Object>> messageStream2 =
+          appDesc.getInputStream(input2Descriptor)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p2");
 
-        MessageStream<KV<Object, Object>> messageStream3 =
-            appDesc.getInputStream(input3Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p3");
+      MessageStream<KV<Object, Object>> messageStream3 =
+          appDesc.getInputStream(input3Descriptor)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p3");
 
-        MessageStream<KV<Object, Object>> messageStream4 =
-            appDesc.getInputStream(input4Descriptor)
-                .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p4");
+      MessageStream<KV<Object, Object>> messageStream4 =
+          appDesc.getInputStream(input4Descriptor)
+              .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p4");
 
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        messageStream1
-            .join(messageStream2,
-                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1")
-            .sendTo(output1);
+      messageStream1
+          .join(messageStream2,
+              mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1")
+          .sendTo(output1);
 
-        messageStream3
-            .join(messageStream4,
-                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
-            .sendTo(output1);
+      messageStream3
+          .join(messageStream4,
+              mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+          .sendTo(output1);
 
-        messageStream2
-            .join(messageStream3,
-                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j3")
-            .sendTo(output1);
-      }, config);
+      messageStream2
+          .join(messageStream3,
+              mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j3")
+          .sendTo(output1);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithInvalidStreamTableJoin() {
@@ -351,22 +351,22 @@ public class TestExecutionPlanner {
      *
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
-        MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
-          "table-id", new KVSerde(new StringSerde(), new StringSerde()));
-        Table table = appDesc.getTable(tableDescriptor);
+      TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+        "table-id", new KVSerde(new StringSerde(), new StringSerde()));
+      Table table = appDesc.getTable(tableDescriptor);
 
-        messageStream1.sendTo(table);
+      messageStream1.sendTo(table);
 
-        messageStream1
-            .join(table, mock(StreamTableJoinFunction.class))
-            .join(messageStream2,
-                mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
-            .sendTo(output1);
-      }, config);
+      messageStream1
+          .join(table, mock(StreamTableJoinFunction.class))
+          .join(messageStream2,
+              mock(JoinFunction.class), mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+          .sendTo(output1);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithStreamTableJoinWithSideInputs() {
@@ -379,20 +379,20 @@ public class TestExecutionPlanner {
      *
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream2 = appDesc.getInputStream(input2Descriptor);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
-          "table-id", new KVSerde(new StringSerde(), new StringSerde()))
-            .withSideInputs(Arrays.asList("input1"))
-            .withSideInputsProcessor(mock(SideInputsProcessor.class));
-        Table table = appDesc.getTable(tableDescriptor);
+      TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+        "table-id", new KVSerde(new StringSerde(), new StringSerde()))
+          .withSideInputs(Arrays.asList("input1"))
+          .withSideInputsProcessor(mock(SideInputsProcessor.class));
+      Table table = appDesc.getTable(tableDescriptor);
 
-        messageStream2
-            .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
-            .join(table, mock(StreamTableJoinFunction.class))
-            .sendTo(output1);
-      }, config);
+      messageStream2
+          .partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1")
+          .join(table, mock(StreamTableJoinFunction.class))
+          .sendTo(output1);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithInvalidStreamTableJoinWithSideInputs() {
@@ -407,19 +407,19 @@ public class TestExecutionPlanner {
      *
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
-          "table-id", new KVSerde(new StringSerde(), new StringSerde()))
-            .withSideInputs(Arrays.asList("input2"))
-            .withSideInputsProcessor(mock(SideInputsProcessor.class));
-        Table table = appDesc.getTable(tableDescriptor);
+      TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+        "table-id", new KVSerde(new StringSerde(), new StringSerde()))
+          .withSideInputs(Arrays.asList("input2"))
+          .withSideInputsProcessor(mock(SideInputsProcessor.class));
+      Table table = appDesc.getTable(tableDescriptor);
 
-        messageStream1
-            .join(table, mock(StreamTableJoinFunction.class))
-            .sendTo(output1);
-      }, config);
+      messageStream1
+          .join(table, mock(StreamTableJoinFunction.class))
+          .sendTo(output1);
+    }, config);
   }
 
   private StreamApplicationDescriptorImpl createStreamGraphWithStreamTableJoinAndSendToSameTable() {
@@ -433,17 +433,17 @@ public class TestExecutionPlanner {
      * streams participating in stream-table joins. Please, refer to SAMZA SEP-16 for more details.
      */
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
+      MessageStream<KV<Object, Object>> messageStream1 = appDesc.getInputStream(input1Descriptor);
 
-        TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
-          "table-id", new KVSerde(new StringSerde(), new StringSerde()));
-        Table table = appDesc.getTable(tableDescriptor);
+      TableDescriptor tableDescriptor = new TestLocalTableDescriptor.MockLocalTableDescriptor(
+        "table-id", new KVSerde(new StringSerde(), new StringSerde()));
+      Table table = appDesc.getTable(tableDescriptor);
 
-        messageStream1
-          .join(table, mock(StreamTableJoinFunction.class))
-          .sendTo(table);
+      messageStream1
+        .join(table, mock(StreamTableJoinFunction.class))
+        .sendTo(table);
 
-      }, config);
+    }, config);
   }
 
   @Before
@@ -535,8 +535,8 @@ public class TestExecutionPlanner {
     assertTrue(jobGraph.getOrCreateStreamEdge(output2Spec).getPartitionCount() == 16);
 
     jobGraph.getIntermediateStreamEdges().forEach(edge -> {
-        assertTrue(edge.getPartitionCount() == -1);
-      });
+      assertTrue(edge.getPartitionCount() == -1);
+    });
   }
 
   @Test
@@ -547,8 +547,8 @@ public class TestExecutionPlanner {
 
     // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertEquals(64, edge.getPartitionCount());
-      });
+      assertEquals(64, edge.getPartitionCount());
+    });
   }
 
   @Test
@@ -569,8 +569,8 @@ public class TestExecutionPlanner {
 
     // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertEquals(64, edge.getPartitionCount());
-      });
+      assertEquals(64, edge.getPartitionCount());
+    });
   }
 
   @Test
@@ -582,8 +582,8 @@ public class TestExecutionPlanner {
 
     // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertEquals(64, edge.getPartitionCount()); // max of input1 and output1
-      });
+      assertEquals(64, edge.getPartitionCount()); // max of input1 and output1
+    });
   }
 
   @Test
@@ -595,8 +595,8 @@ public class TestExecutionPlanner {
 
     // Partitions should be the same as input3
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertEquals(32, edge.getPartitionCount());
-      });
+      assertEquals(32, edge.getPartitionCount());
+    });
   }
 
   @Test
@@ -608,8 +608,8 @@ public class TestExecutionPlanner {
 
     // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertEquals(64, edge.getPartitionCount());
-      });
+      assertEquals(64, edge.getPartitionCount());
+    });
   }
 
   @Test
@@ -633,8 +633,8 @@ public class TestExecutionPlanner {
 
     // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertTrue(edge.getPartitionCount() == DEFAULT_PARTITIONS);
-      });
+      assertTrue(edge.getPartitionCount() == DEFAULT_PARTITIONS);
+    });
   }
 
   @Test
@@ -659,17 +659,17 @@ public class TestExecutionPlanner {
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input4Descriptor);
-        OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
-        input1.partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1").map(kv -> kv).sendTo(output1);
-      }, config);
+      MessageStream<KV<Object, Object>> input1 = appDesc.getInputStream(input4Descriptor);
+      OutputStream<KV<Object, Object>> output1 = appDesc.getOutputStream(output1Descriptor);
+      input1.partitionBy(m -> m.key, m -> m.value, mock(KVSerde.class), "p1").map(kv -> kv).sendTo(output1);
+    }, config);
 
     JobGraph jobGraph = (JobGraph) planner.plan(graphSpec);
 
     // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-        assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
-      });
+      assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
+    });
   }
 
   @Test(expected = SamzaException.class)
@@ -836,10 +836,10 @@ public class TestExecutionPlanner {
         .filter(streamId -> inputDescriptors.containsKey(streamId)).collect(Collectors.toList()).isEmpty());
     Set<String> intermediateStreams = new HashSet<>(inputDescriptors.keySet());
     jobGraph.getInputStreams().forEach(edge -> {
-        if (intermediateStreams.contains(edge.getStreamSpec().getId())) {
-          intermediateStreams.remove(edge.getStreamSpec().getId());
-        }
-      });
+      if (intermediateStreams.contains(edge.getStreamSpec().getId())) {
+        intermediateStreams.remove(edge.getStreamSpec().getId());
+      }
+    });
     assertEquals(new HashSet<>(Arrays.asList(intermediateStream1, intermediateBroadcast)), intermediateStreams);
   }
 

@@ -99,10 +99,10 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     List<K> missKeys = new ArrayList<>();
     records.putAll(cache.getAll(keys, args));
     keys.forEach(k -> {
-        if (!records.containsKey(k)) {
-          missKeys.add(k);
-        }
-      });
+      if (!records.containsKey(k)) {
+        missKeys.add(k);
+      }
+    });
     return missKeys;
   }
 
@@ -128,16 +128,16 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     missCount.incrementAndGet();
 
     return table.getAsync(key, args).handle((result, e) -> {
-        if (e != null) {
-          throw new SamzaException("Failed to get the record for " + key, e);
-        } else {
-          if (result != null) {
-            cache.put(key, result, args);
-          }
-          updateTimer(metrics.getNs, clock.nanoTime() - startNs);
-          return result;
+      if (e != null) {
+        throw new SamzaException("Failed to get the record for " + key, e);
+      } else {
+        if (result != null) {
+          cache.put(key, result, args);
         }
-      });
+        updateTimer(metrics.getNs, clock.nanoTime() - startNs);
+        return result;
+      }
+    });
   }
 
   @Override
@@ -162,19 +162,19 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
 
     long startNs = clock.nanoTime();
     return table.getAllAsync(missingKeys, args).handle((records, e) -> {
-        if (e != null) {
-          throw new SamzaException("Failed to get records for " + keys, e);
-        } else {
-          if (records != null) {
-            cache.putAll(records.entrySet().stream()
-                .map(r -> new Entry<>(r.getKey(), r.getValue()))
-                .collect(Collectors.toList()), args);
-            getAllResult.putAll(records);
-          }
-          updateTimer(metrics.getAllNs, clock.nanoTime() - startNs);
-          return getAllResult;
+      if (e != null) {
+        throw new SamzaException("Failed to get records for " + keys, e);
+      } else {
+        if (records != null) {
+          cache.putAll(records.entrySet().stream()
+              .map(r -> new Entry<>(r.getKey(), r.getValue()))
+              .collect(Collectors.toList()), args);
+          getAllResult.putAll(records);
         }
-      });
+        updateTimer(metrics.getAllNs, clock.nanoTime() - startNs);
+        return getAllResult;
+      }
+    });
   }
 
   @Override
@@ -193,18 +193,18 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
 
     long startNs = clock.nanoTime();
     return table.putAsync(key, value, args).handle((result, e) -> {
-        if (e != null) {
-          throw new SamzaException(String.format("Failed to put a record, key=%s, value=%s", key, value), e);
-        } else if (!isWriteAround) {
-          if (value == null) {
-            cache.delete(key, args);
-          } else {
-            cache.put(key, value, args);
-          }
+      if (e != null) {
+        throw new SamzaException(String.format("Failed to put a record, key=%s, value=%s", key, value), e);
+      } else if (!isWriteAround) {
+        if (value == null) {
+          cache.delete(key, args);
+        } else {
+          cache.put(key, value, args);
         }
-        updateTimer(metrics.putNs, clock.nanoTime() - startNs);
-        return result;
-      });
+      }
+      updateTimer(metrics.putNs, clock.nanoTime() - startNs);
+      return result;
+    });
   }
 
   @Override
@@ -222,15 +222,15 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot write to a read-only table: " + table);
     return table.putAllAsync(records, args).handle((result, e) -> {
-        if (e != null) {
-          throw new SamzaException("Failed to put records " + records, e);
-        } else if (!isWriteAround) {
-          cache.putAll(records, args);
-        }
+      if (e != null) {
+        throw new SamzaException("Failed to put records " + records, e);
+      } else if (!isWriteAround) {
+        cache.putAll(records, args);
+      }
 
-        updateTimer(metrics.putAllNs, clock.nanoTime() - startNs);
-        return result;
-      });
+      updateTimer(metrics.putAllNs, clock.nanoTime() - startNs);
+      return result;
+    });
   }
 
   @Override
@@ -248,14 +248,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot delete from a read-only table: " + table);
     return table.deleteAsync(key, args).handle((result, e) -> {
-        if (e != null) {
-          throw new SamzaException("Failed to delete the record for " + key, e);
-        } else if (!isWriteAround) {
-          cache.delete(key, args);
-        }
-        updateTimer(metrics.deleteNs, clock.nanoTime() - startNs);
-        return result;
-      });
+      if (e != null) {
+        throw new SamzaException("Failed to delete the record for " + key, e);
+      } else if (!isWriteAround) {
+        cache.delete(key, args);
+      }
+      updateTimer(metrics.deleteNs, clock.nanoTime() - startNs);
+      return result;
+    });
   }
 
   @Override
@@ -273,14 +273,14 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     long startNs = clock.nanoTime();
     Preconditions.checkNotNull(table, "Cannot delete from a read-only table: " + table);
     return table.deleteAllAsync(keys, args).handle((result, e) -> {
-        if (e != null) {
-          throw new SamzaException("Failed to delete the record for " + keys, e);
-        } else if (!isWriteAround) {
-          cache.deleteAll(keys, args);
-        }
-        updateTimer(metrics.deleteAllNs, clock.nanoTime() - startNs);
-        return result;
-      });
+      if (e != null) {
+        throw new SamzaException("Failed to delete the record for " + keys, e);
+      } else if (!isWriteAround) {
+        cache.deleteAll(keys, args);
+      }
+      updateTimer(metrics.deleteAllNs, clock.nanoTime() - startNs);
+      return result;
+    });
   }
 
   @Override
@@ -288,12 +288,12 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     incCounter(metrics.numReads);
     long startNs = clock.nanoTime();
     return table.readAsync(opId, args).handle((result, e) -> {
-        if (e != null) {
-          throw new SamzaException("Failed to read, opId=" + opId, e);
-        }
-        updateTimer(metrics.readNs, clock.nanoTime() - startNs);
-        return (T) result;
-      });
+      if (e != null) {
+        throw new SamzaException("Failed to read, opId=" + opId, e);
+      }
+      updateTimer(metrics.readNs, clock.nanoTime() - startNs);
+      return (T) result;
+    });
   }
 
   @Override
@@ -301,12 +301,12 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     incCounter(metrics.numWrites);
     long startNs = clock.nanoTime();
     return table.writeAsync(opId, args).handle((result, e) -> {
-        if (e != null) {
-          throw new SamzaException("Failed to write, opId=" + opId, e);
-        }
-        updateTimer(metrics.writeNs, clock.nanoTime() - startNs);
-        return (T) result;
-      });
+      if (e != null) {
+        throw new SamzaException("Failed to write, opId=" + opId, e);
+      }
+      updateTimer(metrics.writeNs, clock.nanoTime() - startNs);
+      return (T) result;
+    });
   }
 
   @Override
