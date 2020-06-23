@@ -774,7 +774,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndStreamTableInnerJoinWithPrimaryKey() throws Exception {
+  public void testEndToEndStreamTableInnerJoinWithPrimaryKey() {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();

@@ -138,7 +138,7 @@ public class ProjectTranslator {
       case OTHER:
         // today we treat everything else as Type Any or Other, this is not ideal.
         // this will change when adding timestamps support or more complex non java primitive types.
-        // @TODO in a better world we need to add type factory that can do the conversion between calcite and samza.
+        // TODO in a better world we need to add type factory that can do the conversion between calcite and samza.
         return value;
       default:
         // As of today we treat everything else as type ANY

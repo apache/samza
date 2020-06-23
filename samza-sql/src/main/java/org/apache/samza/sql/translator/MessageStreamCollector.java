@@ -47,16 +47,25 @@ import org.apache.samza.table.Table;
 
 
 /**
- * Collector of Map and Filter Samza Function, used to collect current call stack and trigger it when applying the join function.
+ * Collector of Map and Filter Samza Functions to collect call stack on the top of Remote table.
+ * This Collector will be used by Join operator and trigger it when applying the join function post lookup.
  *
- * @TODO This class is a work around here to minimize the amount of code changes, but in an ideal world,
- * @TODO where we use Calcite planner in conventional way we can combine function when via translation of RelNodes.
+ * Note that this is needed because the Remote Table can not expose a proper {@code MessageStream}.
+ * It is a work around to minimize the amount of code changes of the current Query Translator {@link org.apache.samza.sql.translator.QueryTranslator},
+ * But in an ideal world, we should use Calcite planner in conventional way we can combine function when via translation of RelNodes.
  */
 class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Serializable, Closeable {
 
+  /**
+   * Queue First in First to be Fired order of the operators on the top of Remote Table Scan.
+   */
   private final Deque<MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage>> _mapFnCallQueue =
       new ArrayDeque<>();
-  private final Deque<ClosableFunction> _closingStack = new ArrayDeque<>();
+
+  /**
+   * Function to chain the call to close from each operator.
+   */
+  private transient Function<Void, Void> closeFn = aVoid -> null;
 
   @Override
   public <OM> MessageStream<OM> map(MapFunction<? super SamzaSqlRelMessage, ? extends OM> mapFn) {
@@ -70,35 +79,54 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
     return this;
   }
 
-   Function<SamzaSqlRelMessage, SamzaSqlRelMessage> getFunction(Context context) {
+  /**
+   * This function is called by the join operator on run time to apply filter and projects post join lookup.
+   *
+   * @param context Samza Execution Context
+   * @return {code null} case filter reject the row, Samza Relational Record as it goes via Projects.
+   */
+  Function<SamzaSqlRelMessage, SamzaSqlRelMessage> getFunction(Context context) {
     Function<SamzaSqlRelMessage, SamzaSqlRelMessage> tailFn = null;
+    Function<Void, Void> intFn = aVoid -> null; // Projects and Filters both need to be initialized.
+    closeFn = aVoid -> null;
+    // At this point we have a the queue of operator, where first in is the first operator on top of TableScan.
     while (!_mapFnCallQueue.isEmpty()) {
       MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage> f = _mapFnCallQueue.poll();
-      f.init(context);
-      _closingStack.push(f);
-      Function<SamzaSqlRelMessage, SamzaSqlRelMessage> current = x -> {
-        if (x != null) {
-          return f.apply(x);
-        }
+      intFn = intFn.andThen((aVoid) -> {
+        f.init(context);
         return null;
-      };
+      });
+      closeFn.andThen((aVoid) -> {
+        f.close();
+        return null;
+      });
+
+      Function<SamzaSqlRelMessage, SamzaSqlRelMessage> current = x -> x == null ? null : f.apply(x);
       if (tailFn == null) {
         tailFn = current;
       } else {
         tailFn = current.compose(tailFn);
       }
     }
+    // TODO TBH not sure about this need to check if Samza Framework will be okay with late init call.
+    intFn.apply(null); // Init call has to happen here.
     return tailFn == null ? Function.identity() : tailFn;
   }
 
+  /**
+   * Filter adapter is used to compose filters with {@code MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage>}
+   * Filter function will return {@code null} when input is {@null} or filter condition reject current row.
+   */
   private static class FilterMapAdapter implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
     private final FilterFunction<? super SamzaSqlRelMessage> filterFn;
+
     private FilterMapAdapter(FilterFunction<? super SamzaSqlRelMessage> filterFn) {
       this.filterFn = filterFn;
     }
+
     @Override
     public SamzaSqlRelMessage apply(SamzaSqlRelMessage message) {
-      if (filterFn.apply(message)) {
+      if (message != null && filterFn.apply(message)) {
         return message;
       }
       // null on case no match
@@ -114,13 +142,12 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
     public void init(Context context) {
       filterFn.init(context);
     }
-
   }
 
   @Override
   public void close() {
-    while (!_closingStack.isEmpty()) {
-      _closingStack.poll().close();
+    if (closeFn != null) {
+      closeFn.apply(null);
     }
   }
 
@@ -134,8 +161,6 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
       AsyncFlatMapFunction<? super SamzaSqlRelMessage, ? extends OM> asyncFlatMapFn) {
     return null;
   }
-
-
 
   @Override
   public void sink(SinkFunction<? super SamzaSqlRelMessage> sinkFn) {

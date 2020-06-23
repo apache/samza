@@ -202,7 +202,7 @@ public class AvroRelConverter implements SamzaRelConverter {
         return avroList;
       case MAP:
         // If you ask why not using String and that is because some strings are Wrapped into org.apache.avro.util.Utf8
-        // @TODO looking at the Utf8 code base it is not immutable, having it as a key is calling for trouble!
+        // TODO looking at the Utf8 code base it is not immutable, having it as a key is calling for trouble!
         final Map<Object, Object> outputMap = new HashMap<>();
         ((Map<Object, Object>) relObj).forEach((key, aValue) -> outputMap.put(key,
             convertToAvroObject(aValue, getNonNullUnionSchema(schema).getValueType())));
