@@ -108,11 +108,12 @@ import scala.collection.JavaConversions;
 public class ContainerStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerStorageManager.class);
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
-  private static final String SIDEINPUTS_READ_THREAD_NAME = "SideInputs Read Thread";
+  private static final String SIDEINPUTS_THREAD_NAME = "SideInputs Thread";
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
   // We use a prefix to differentiate the SystemConsumersMetrics for sideInputs from the ones in SamzaContainer
 
-  private static final int SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS = 10; // Timeout with which sideinput read thread checks for exceptions
+  private static final int SIDE_INPUT_LATCH_TIMEOUT_SECONDS = 10; // Timeout with which sideinput thread checks for exceptions
+  private static final int SIDE_INPUT_SHUTDOWN_TIMEOUT_SECONDS = 60;
 
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, Map<String, StorageEngine>> taskStores;
@@ -153,8 +154,8 @@ public class ContainerStorageManager {
   private volatile boolean shouldShutdown = false;
   private RunLoop sideInputRunLoop;
 
-  private final ExecutorService sideInputsReadExecutor = Executors.newSingleThreadExecutor(
-      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_READ_THREAD_NAME).build());
+  private final ExecutorService sideInputsExecutor = Executors.newSingleThreadExecutor(
+      new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_THREAD_NAME).build());
 
   private volatile Throwable sideInputException = null;
 
@@ -778,14 +779,14 @@ public class ContainerStorageManager {
         -1, // no windowing
         taskConfig.getCommitMs(),
         taskConfig.getCallbackTimeoutMs(),
-        1, // default taken from SamzaContainer
+        this.config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1)),
         taskConfig.getMaxIdleMs(),
         sideInputContainerMetrics,
         System::nanoTime,
         false); // commit must be synchronous to ensure integrity of state flush
 
     try {
-      sideInputsReadExecutor.submit(() -> {
+      sideInputsExecutor.submit(() -> {
           try {
             sideInputRunLoop.run();
           } catch (Exception e) {
@@ -827,7 +828,7 @@ public class ContainerStorageManager {
    * @throws InterruptedException if waiting any of the latches is interrupted
    */
   private boolean awaitSideInputTasks() throws InterruptedException {
-    long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS);
+    long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(SIDE_INPUT_LATCH_TIMEOUT_SECONDS);
     for (CountDownLatch latch : this.sideInputTaskLatches.values()) {
       long remainingMillisToWait = endTime - System.currentTimeMillis();
       if (remainingMillisToWait <= 0 || !latch.await(remainingMillisToWait, TimeUnit.MILLISECONDS)) {
@@ -880,9 +881,9 @@ public class ContainerStorageManager {
     // stop all sideinput consumers and stores
     if (this.hasSideInputs) {
       this.sideInputRunLoop.shutdown();
-      this.sideInputsReadExecutor.shutdown();
+      this.sideInputsExecutor.shutdown();
       try {
-        this.sideInputsReadExecutor.awaitTermination(SIDE_INPUT_READ_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        this.sideInputsExecutor.awaitTermination(SIDE_INPUT_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         throw new SamzaException("Exception while shutting down sideInputs", e);
       }

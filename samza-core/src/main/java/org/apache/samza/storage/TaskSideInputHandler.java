@@ -126,16 +126,27 @@ public class TaskSideInputHandler {
     this.startingOffsets = getStartingOffsets(fileOffsets, getOldestOffsets());
     LOG.info("Starting offsets for the task {}: {}", taskName, startingOffsets);
 
-    this.sspOffsetsToBlockUntil = new HashMap<>();
+    this.sspOffsetsToBlockUntil = getOffsetsToBlockUntil();
+    LOG.info("Task {} will catch up to offsets {}", this.taskName, this.sspOffsetsToBlockUntil);
+
+    this.startingOffsets.forEach((ssp, offset) -> checkCaughtUp(ssp, offset, true));
+  }
+
+  /**
+   * Retrieves the newest offset for each SSP
+   *
+   * @return a map of SSP to newest offset
+   */
+  private Map<SystemStreamPartition, String> getOffsetsToBlockUntil() {
+    Map<SystemStreamPartition, String> offsetsToBlockUntil = new HashMap<>();
     for (SystemStreamPartition ssp : this.sspToStores.keySet()) {
       SystemStreamMetadata metadata = this.streamMetadataCache.getSystemStreamMetadata(ssp.getSystemStream(), false);
       if (metadata != null) {
         String offset = metadata.getSystemStreamPartitionMetadata().get(ssp.getPartition()).getNewestOffset();
-        this.sspOffsetsToBlockUntil.put(ssp, offset);
+        offsetsToBlockUntil.put(ssp, offset);
       }
     }
-
-    this.startingOffsets.forEach((ssp, offset) -> checkCaughtUp(ssp, offset, true));
+    return offsetsToBlockUntil;
   }
 
   /**
@@ -211,9 +222,9 @@ public class TaskSideInputHandler {
   }
 
   /**
-   * Gets the starting offsets for the {@link SystemStreamPartition}s belonging to all the side input stores.
-   * If the local file offset is available and is greater than the oldest available offset from source, uses it,
-   * else falls back to oldest offset in the source.
+   * Gets the starting offsets for the {@link SystemStreamPartition}s belonging to all the side input stores. See doc
+   * of {@link StorageManagerUtil#getStartingOffset} for how file offsets and oldest offsets for each SSP are
+   * reconciled.
    *
    * @param fileOffsets offsets from the local offset file
    * @param oldestOffsets oldest offsets from the source
@@ -278,9 +289,9 @@ public class TaskSideInputHandler {
   }
 
   /**
-   * Checks if whether the given offset for the SSP has reached the latest offset (determined at init),
-   * removing it from the list of SSPs to catch up. Once the set of SSPs to catch up becomes empty, the latch for the
-   * task will count down, notifying {@link ContainerStorageManager} that it is caught up.
+   * An SSP is considered caught up once the offset indicated for it in {@link #sspOffsetsToBlockUntil} has been
+   * processed. Once the set of SSPs to catch up becomes empty, the latch for the task will count down, notifying
+   * {@link ContainerStorageManager} that it is caught up.
    *
    * @param ssp The SSP to be checked
    * @param currentOffset The offset to be checked
