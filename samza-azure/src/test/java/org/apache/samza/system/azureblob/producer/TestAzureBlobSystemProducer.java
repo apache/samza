@@ -596,11 +596,11 @@ public class TestAzureBlobSystemProducer {
   private void setupWriterForProducer(AzureBlobSystemProducer azureBlobSystemProducer,
       AzureBlobWriter mockAzureBlobWriter, String stream) {
     doAnswer(invocation -> {
-        String blobUrl = invocation.getArgumentAt(0, String.class);
-        String streamName = invocation.getArgumentAt(2, String.class);
-        Assert.assertEquals(stream, streamName);
-        Assert.assertEquals(stream, blobUrl);
-        return mockAzureBlobWriter;
-      }).when(azureBlobSystemProducer).createNewWriter(anyString(), any(), anyString());
+      String blobUrl = invocation.getArgumentAt(0, String.class);
+      String streamName = invocation.getArgumentAt(2, String.class);
+      Assert.assertEquals(stream, streamName);
+      Assert.assertEquals(stream, blobUrl);
+      return mockAzureBlobWriter;
+    }).when(azureBlobSystemProducer).createNewWriter(anyString(), any(), anyString());
   }
 }

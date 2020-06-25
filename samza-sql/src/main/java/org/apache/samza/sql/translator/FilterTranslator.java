@@ -104,6 +104,11 @@ class FilterTranslator {
         LOG.error(errMsg, e);
         throw new SamzaException(errMsg, e);
       }
+      if (result[0] == null) {
+        // Case filter is applied on a null value -> result is neither true or false.
+        // Samza Filter operator supports primitive return types only, return false as per current convention.
+        return false;
+      }
       if (result[0] instanceof Boolean) {
         boolean retVal = (Boolean) result[0];
         LOG.debug(

@@ -61,9 +61,9 @@ public class InMemorySystemAdmin implements SystemAdmin {
     return offsets.entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
-            String offset = entry.getValue();
-            return String.valueOf(Integer.valueOf(offset) + 1);
-          }));
+          String offset = entry.getValue();
+          return String.valueOf(Integer.valueOf(offset) + 1);
+        }));
   }
 
   /**

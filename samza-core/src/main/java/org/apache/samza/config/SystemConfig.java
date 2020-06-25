@@ -92,8 +92,8 @@ public class SystemConfig extends MapConfig {
     return getSystemFactories().entrySet()
         .stream()
         .collect(Collectors.toMap(Entry::getKey,
-            systemNameToFactoryEntry -> systemNameToFactoryEntry.getValue()
-                .getAdmin(systemNameToFactoryEntry.getKey(), this)));
+          systemNameToFactoryEntry -> systemNameToFactoryEntry.getValue()
+              .getAdmin(systemNameToFactoryEntry.getKey(), this)));
   }
 
   /**

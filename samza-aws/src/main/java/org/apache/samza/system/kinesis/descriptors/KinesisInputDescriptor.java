@@ -110,12 +110,11 @@ public class KinesisInputDescriptor<StreamMessageType>
     String clientConfigPrefix =
         String.format(KinesisConfig.CONFIG_STREAM_KINESIS_CLIENT_LIB_CONFIG, systemName, streamId);
 
-    region.ifPresent(
-        val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_REGION, systemName, streamId), val));
+    region.ifPresent(val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_REGION, systemName, streamId), val));
     accessKey.ifPresent(
-        val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_ACCESS_KEY, systemName, streamId), val));
+      val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_ACCESS_KEY, systemName, streamId), val));
     secretKey.ifPresent(
-        val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_SECRET_KEY, systemName, streamId), val));
+      val -> config.put(String.format(KinesisConfig.CONFIG_STREAM_SECRET_KEY, systemName, streamId), val));
     kclConfig.forEach((k, v) -> config.put(clientConfigPrefix + k, v));
 
     return config;

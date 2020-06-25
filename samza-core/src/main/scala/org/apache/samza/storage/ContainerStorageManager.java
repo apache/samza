@@ -300,12 +300,12 @@ public class ContainerStorageManager {
     Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputSSPs = new HashMap<>();
 
     containerModel.getTasks().forEach((taskName, taskModel) -> {
-        taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
-        sideInputSystemStreams.keySet().forEach(storeName -> {
-            Set<SystemStreamPartition> taskSideInputs = taskModel.getSystemStreamPartitions().stream().filter(ssp -> sideInputSystemStreams.get(storeName).contains(ssp.getSystemStream())).collect(Collectors.toSet());
-            taskSideInputSSPs.get(taskName).put(storeName, taskSideInputs);
-          });
+      taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
+      sideInputSystemStreams.keySet().forEach(storeName -> {
+        Set<SystemStreamPartition> taskSideInputs = taskModel.getSystemStreamPartitions().stream().filter(ssp -> sideInputSystemStreams.get(storeName).contains(ssp.getSystemStream())).collect(Collectors.toSet());
+        taskSideInputSSPs.get(taskName).put(storeName, taskSideInputs);
       });
+    });
     return taskSideInputSSPs;
   }
 
@@ -329,13 +329,13 @@ public class ContainerStorageManager {
     );
 
     getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
-        this.taskSideInputStoreSSPs.putIfAbsent(taskName, new HashMap<>());
-        changelogSystemStreams.forEach((storeName, systemStream) -> {
-            SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
-            changelogSSPToStore.remove(ssp);
-            this.taskSideInputStoreSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
-          });
+      this.taskSideInputStoreSSPs.putIfAbsent(taskName, new HashMap<>());
+      changelogSystemStreams.forEach((storeName, systemStream) -> {
+        SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
+        changelogSSPToStore.remove(ssp);
+        this.taskSideInputStoreSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
       });
+    });
 
     // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to sideInputs above)
     return MapUtils.invertMap(changelogSSPToStore).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getSystemStream()));
@@ -377,13 +377,13 @@ public class ContainerStorageManager {
   private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(SystemAdmins systemAdmins, Clock clock, SamzaContainerMetrics samzaContainerMetrics) {
     Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
     containerModel.getTasks().forEach((taskName, taskModel) -> {
-        taskRestoreManagers.put(taskName,
-            TaskRestoreManagerFactory.create(
-                taskModel, changelogSystemStreams, getNonSideInputStores(taskName), systemAdmins,
-                streamMetadataCache, sspMetadataCache, storeConsumers, maxChangeLogStreamPartitions,
-                loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock));
-        samzaContainerMetrics.addStoresRestorationGauge(taskName);
-      });
+      taskRestoreManagers.put(taskName,
+          TaskRestoreManagerFactory.create(
+              taskModel, changelogSystemStreams, getNonSideInputStores(taskName), systemAdmins,
+              streamMetadataCache, sspMetadataCache, storeConsumers, maxChangeLogStreamPartitions,
+              loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock));
+      samzaContainerMetrics.addStoresRestorationGauge(taskName);
+    });
     return taskRestoreManagers;
   }
 
@@ -535,57 +535,57 @@ public class ContainerStorageManager {
 
     Map<TaskName, Map<String, SideInputsProcessor>> sideInputStoresToProcessors = new HashMap<>();
     containerModel.getTasks().forEach((taskName, taskModel) -> {
-        sideInputStoresToProcessors.put(taskName, new HashMap<>());
-        TaskMode taskMode = taskModel.getTaskMode();
+      sideInputStoresToProcessors.put(taskName, new HashMap<>());
+      TaskMode taskMode = taskModel.getTaskMode();
 
-        for (String storeName : this.taskSideInputStoreSSPs.get(taskName).keySet()) {
+      for (String storeName : this.taskSideInputStoreSSPs.get(taskName).keySet()) {
 
-          SideInputsProcessor sideInputsProcessor;
-          Optional<String> sideInputsProcessorSerializedInstance =
-              config.getSideInputsProcessorSerializedInstance(storeName);
+        SideInputsProcessor sideInputsProcessor;
+        Optional<String> sideInputsProcessorSerializedInstance =
+            config.getSideInputsProcessorSerializedInstance(storeName);
 
-          if (sideInputsProcessorSerializedInstance.isPresent()) {
+        if (sideInputsProcessorSerializedInstance.isPresent()) {
 
-            sideInputsProcessor = SerdeUtils.deserialize("Side Inputs Processor", sideInputsProcessorSerializedInstance.get());
-            LOG.info("Using serialized side-inputs-processor for store: {}, task: {}", storeName, taskName);
+          sideInputsProcessor = SerdeUtils.deserialize("Side Inputs Processor", sideInputsProcessorSerializedInstance.get());
+          LOG.info("Using serialized side-inputs-processor for store: {}, task: {}", storeName, taskName);
 
-          } else if (config.getSideInputsProcessorFactory(storeName).isPresent()) {
-            String sideInputsProcessorFactoryClassName = config.getSideInputsProcessorFactory(storeName).get();
-            SideInputsProcessorFactory sideInputsProcessorFactory =
-                ReflectionUtil.getObj(sideInputsProcessorFactoryClassName, SideInputsProcessorFactory.class);
-            sideInputsProcessor = sideInputsProcessorFactory.getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry());
-            LOG.info("Using side-inputs-processor from factory: {} for store: {}, task: {}", config.getSideInputsProcessorFactory(storeName).get(), storeName, taskName);
+        } else if (config.getSideInputsProcessorFactory(storeName).isPresent()) {
+          String sideInputsProcessorFactoryClassName = config.getSideInputsProcessorFactory(storeName).get();
+          SideInputsProcessorFactory sideInputsProcessorFactory =
+              ReflectionUtil.getObj(sideInputsProcessorFactoryClassName, SideInputsProcessorFactory.class);
+          sideInputsProcessor = sideInputsProcessorFactory.getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry());
+          LOG.info("Using side-inputs-processor from factory: {} for store: {}, task: {}", config.getSideInputsProcessorFactory(storeName).get(), storeName, taskName);
 
-          } else {
-            // if this is a active-task with a side-input store but no sideinput-processor-factory defined in config, we rely on upstream validations to fail the deploy
+        } else {
+          // if this is a active-task with a side-input store but no sideinput-processor-factory defined in config, we rely on upstream validations to fail the deploy
 
-            // if this is a standby-task and the store is a non-side-input changelog store
-            // we creating identity sideInputProcessor for stores of standbyTasks
-            // have to use the right serde because the sideInput stores are created
+          // if this is a standby-task and the store is a non-side-input changelog store
+          // we creating identity sideInputProcessor for stores of standbyTasks
+          // have to use the right serde because the sideInput stores are created
 
-            Serde keySerde = serdes.get(config.getStorageKeySerde(storeName)
-                .orElseThrow(() -> new SamzaException("Could not find storage key serde for store: " + storeName)));
-            Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName)
-                .orElseThrow(() -> new SamzaException("Could not find storage msg serde for store: " + storeName)));
-            sideInputsProcessor = new SideInputsProcessor() {
-              @Override
-              public Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store) {
-                // Ignore message if the key is null
-                if (message.getKey() == null) {
-                  return ImmutableList.of();
-                } else {
-                  // Skip serde if the message is null
-                  return ImmutableList.of(new Entry<>(keySerde.fromBytes((byte[]) message.getKey()),
-                      message.getMessage() == null ? null : msgSerde.fromBytes((byte[]) message.getMessage())));
-                }
+          Serde keySerde = serdes.get(config.getStorageKeySerde(storeName)
+              .orElseThrow(() -> new SamzaException("Could not find storage key serde for store: " + storeName)));
+          Serde msgSerde = serdes.get(config.getStorageMsgSerde(storeName)
+              .orElseThrow(() -> new SamzaException("Could not find storage msg serde for store: " + storeName)));
+          sideInputsProcessor = new SideInputsProcessor() {
+            @Override
+            public Collection<Entry<?, ?>> process(IncomingMessageEnvelope message, KeyValueStore store) {
+              // Ignore message if the key is null
+              if (message.getKey() == null) {
+                return ImmutableList.of();
+              } else {
+                // Skip serde if the message is null
+                return ImmutableList.of(new Entry<>(keySerde.fromBytes((byte[]) message.getKey()),
+                    message.getMessage() == null ? null : msgSerde.fromBytes((byte[]) message.getMessage())));
               }
-            };
-            LOG.info("Using identity side-inputs-processor for store: {}, task: {}", storeName, taskName);
-          }
-
-          sideInputStoresToProcessors.get(taskName).put(storeName, sideInputsProcessor);
+            }
+          };
+          LOG.info("Using identity side-inputs-processor for store: {}, task: {}", storeName, taskName);
         }
-      });
+
+        sideInputStoresToProcessors.get(taskName).put(storeName, sideInputsProcessor);
+      }
+    });
 
     return sideInputStoresToProcessors;
   }
@@ -601,31 +601,31 @@ public class ContainerStorageManager {
     if (this.hasSideInputs) {
       containerModel.getTasks().forEach((taskName, taskModel) -> {
 
-          Map<String, StorageEngine> sideInputStores = getSideInputStores(taskName);
-          Map<String, Set<SystemStreamPartition>> sideInputStoresToSSPs = new HashMap<>();
+        Map<String, StorageEngine> sideInputStores = getSideInputStores(taskName);
+        Map<String, Set<SystemStreamPartition>> sideInputStoresToSSPs = new HashMap<>();
 
-          for (String storeName : sideInputStores.keySet()) {
-            Set<SystemStreamPartition> storeSSPs = this.taskSideInputStoreSSPs.get(taskName).get(storeName);
-            sideInputStoresToSSPs.put(storeName, storeSSPs);
-          }
+        for (String storeName : sideInputStores.keySet()) {
+          Set<SystemStreamPartition> storeSSPs = this.taskSideInputStoreSSPs.get(taskName).get(storeName);
+          sideInputStoresToSSPs.put(storeName, storeSSPs);
+        }
 
-          TaskSideInputHandler taskSideInputHandler = new TaskSideInputHandler(taskName,
-              taskModel.getTaskMode(),
-              loggedStoreBaseDirectory,
-              sideInputStores,
-              sideInputStoresToSSPs,
-              taskSideInputProcessors.get(taskName),
-              this.systemAdmins,
-              this.streamMetadataCache,
-              clock);
+        TaskSideInputHandler taskSideInputHandler = new TaskSideInputHandler(taskName,
+            taskModel.getTaskMode(),
+            loggedStoreBaseDirectory,
+            sideInputStores,
+            sideInputStoresToSSPs,
+            taskSideInputProcessors.get(taskName),
+            this.systemAdmins,
+            this.streamMetadataCache,
+            clock);
 
-          sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
-              handlers.put(ssp, taskSideInputHandler);
-            });
-
-          LOG.info("Created TaskSideInputHandler for task {}, sideInputStores {} and loggedStoreBaseDirectory {}",
-              taskName, sideInputStores, loggedStoreBaseDirectory);
+        sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
+          handlers.put(ssp, taskSideInputHandler);
         });
+
+        LOG.info("Created TaskSideInputHandler for task {}, sideInputStores {} and loggedStoreBaseDirectory {}",
+            taskName, sideInputStores, loggedStoreBaseDirectory);
+      });
     }
     return handlers;
   }
@@ -648,18 +648,18 @@ public class ContainerStorageManager {
     Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets = new HashMap<>();
     if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
       getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
-          if (checkpointManager != null) {
-            Set<SystemStream> changelogSystemStreams = new HashSet<>(this.changelogSystemStreams.values());
-            Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
-            if (checkpoint != null) {
-              checkpoint.getOffsets().forEach((ssp, offset) -> {
-                  if (changelogSystemStreams.contains(new SystemStream(ssp.getSystem(), ssp.getStream()))) {
-                    checkpointedChangelogSSPOffsets.put(ssp, offset);
-                  }
-                });
-            }
+        if (checkpointManager != null) {
+          Set<SystemStream> changelogSystemStreams = new HashSet<>(this.changelogSystemStreams.values());
+          Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
+          if (checkpoint != null) {
+            checkpoint.getOffsets().forEach((ssp, offset) -> {
+              if (changelogSystemStreams.contains(new SystemStream(ssp.getSystem(), ssp.getStream()))) {
+                checkpointedChangelogSSPOffsets.put(ssp, offset);
+              }
+            });
           }
-        });
+        }
+      });
     }
     LOG.info("Checkpointed changelog ssp offsets: {}", checkpointedChangelogSSPOffsets);
     restoreStores(checkpointedChangelogSSPOffsets);
@@ -688,9 +688,9 @@ public class ContainerStorageManager {
 
     // Submit restore callable for each taskInstance
     this.taskRestoreManagers.forEach((taskInstance, taskRestoreManager) -> {
-        taskRestoreFutures.add(executorService.submit(
-            new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskRestoreManager)));
-      });
+      taskRestoreFutures.add(executorService.submit(
+          new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskRestoreManager)));
+    });
 
     // loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
     // as samza exceptions
@@ -778,26 +778,26 @@ public class ContainerStorageManager {
 
     // submit the sideInput read runnable
       sideInputsReadExecutor.submit(() -> {
-          try {
-            while (!shouldShutdown) {
-              IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
+        try {
+          while (!shouldShutdown) {
+            IncomingMessageEnvelope envelope = sideInputSystemConsumers.choose(true);
 
-              if (envelope != null) {
-                if (!envelope.isEndOfStream()) {
-                  this.sspSideInputHandlers.get(envelope.getSystemStreamPartition()).process(envelope);
-                }
-
-                checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
-                    SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
-              } else {
-                LOG.trace("No incoming message was available");
+            if (envelope != null) {
+              if (!envelope.isEndOfStream()) {
+                this.sspSideInputHandlers.get(envelope.getSystemStreamPartition()).process(envelope);
               }
+
+              checkSideInputCaughtUp(envelope.getSystemStreamPartition(), envelope.getOffset(),
+                  SystemStreamMetadata.OffsetType.NEWEST, envelope.isEndOfStream());
+            } else {
+              LOG.trace("No incoming message was available");
             }
-          } catch (Exception e) {
-            LOG.error("Exception in reading sideInputs", e);
-            sideInputException = e;
           }
-        });
+        } catch (Exception e) {
+          LOG.error("Exception in reading sideInputs", e);
+          sideInputException = e;
+        }
+      });
 
       // Make the main thread wait until all sideInputs have been caughtup or an exception was thrown
       while (!shouldShutdown && sideInputException == null &&

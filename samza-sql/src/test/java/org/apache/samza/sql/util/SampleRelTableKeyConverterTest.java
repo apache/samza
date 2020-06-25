@@ -16,32 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.serializers;
 
-import java.util.HashMap;
-import java.util.Map;
+package org.apache.samza.sql.util;
+
+import com.google.common.collect.ImmutableList;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.samza.sql.SamzaSqlRelRecord;
+import org.junit.Assert;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
+public class SampleRelTableKeyConverterTest {
 
-public class TestJsonSerdeV2 {
   @Test
-  public void testJsonSerdeV2ShouldWork() {
-    JsonSerdeV2<HashMap<String, Object>> serde = new JsonSerdeV2<>();
-    HashMap<String, Object> obj = new HashMap<>();
-    obj.put("hi", "bye");
-    obj.put("why", 2);
-    byte[] bytes = serde.toBytes(obj);
-    assertEquals(obj, serde.fromBytes(bytes));
-    JsonSerdeV2<Map.Entry<String, Object>> serdeHashMapEntry = new JsonSerdeV2<>();
-    obj.entrySet().forEach(entry -> {
-      try {
-        serdeHashMapEntry.toBytes(entry);
-      } catch (Exception e) {
-        fail("HashMap Entry serialization failed!");
-      }
-    });
+  public void testNullValue() {
+    SampleRelTableKeyConverter sampleRelTableKeyConverter = new SampleRelTableKeyConverter();
+    List<Object> values = new ArrayList<>();
+    values.add(null);
+    SamzaSqlRelRecord samzaSqlRelRecord = new SamzaSqlRelRecord(ImmutableList.of("c1"), values);
+    Object key = sampleRelTableKeyConverter.convertToTableKeyFormat(samzaSqlRelRecord);
+    Assert.assertNull(key);
   }
 }

@@ -84,8 +84,7 @@ public class TestRunLoop {
 
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
-                                            () -> 0L, false);
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope11).thenReturn(ssp0EndOfStream).thenReturn(ssp1EndOfStream).thenReturn(null);
     runLoop.run();
 
@@ -124,29 +123,29 @@ public class TestRunLoop {
     when(task0.offsetManager()).thenReturn(offsetManager);
     CountDownLatch firstMessageBarrier = new CountDownLatch(1);
     doAnswer(invocation -> {
-        ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        TaskCallback callback = callbackFactory.createCallback();
-        taskExecutor.submit(() -> {
-            firstMessageBarrier.await();
-            coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-            coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-            callback.complete();
-            return null;
-          });
+      ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      taskExecutor.submit(() -> {
+        firstMessageBarrier.await();
+        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+        callback.complete();
         return null;
-      }).when(task0).process(eq(envelope00), any(), any());
+      });
+      return null;
+    }).when(task0).process(eq(envelope00), any(), any());
 
     doAnswer(invocation -> {
-        assertEquals(1, task0.metrics().messagesInFlight().getValue());
-        assertEquals(0, task0.metrics().asyncCallbackCompleted().getCount());
+      assertEquals(1, task0.metrics().messagesInFlight().getValue());
+      assertEquals(0, task0.metrics().asyncCallbackCompleted().getCount());
 
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        TaskCallback callback = callbackFactory.createCallback();
-        callback.complete();
-        firstMessageBarrier.countDown();
-        return null;
-      }).when(task0).process(eq(envelope01), any(), any());
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      callback.complete();
+      firstMessageBarrier.countDown();
+      return null;
+    }).when(task0).process(eq(envelope01), any(), any());
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, task0);
@@ -176,19 +175,18 @@ public class TestRunLoop {
 
     final AtomicInteger windowCount = new AtomicInteger(0);
     doAnswer(x -> {
-        windowCount.incrementAndGet();
-        if (windowCount.get() == 4) {
-          x.getArgumentAt(0, ReadableCoordinator.class).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-        }
-        return null;
-      }).when(task).window(any());
+      windowCount.incrementAndGet();
+      if (windowCount.get() == 4) {
+        x.getArgumentAt(0, ReadableCoordinator.class).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+      }
+      return null;
+    }).when(task).window(any());
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, task);
 
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
-                                            () -> 0L, false);
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     when(consumerMultiplexer.choose(false)).thenReturn(null);
     runLoop.run();
 
@@ -201,16 +199,16 @@ public class TestRunLoop {
 
     RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
     doAnswer(invocation -> {
-        ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        TaskCallback callback = callbackFactory.createCallback();
+      ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
 
-        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-        coordinator.shutdown(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
+      coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+      coordinator.shutdown(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
 
-        callback.complete();
-        return null;
-      }).when(task0).process(eq(envelope00), any(), any());
+      callback.complete();
+      return null;
+    }).when(task0).process(eq(envelope00), any(), any());
 
     RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
 
@@ -239,16 +237,16 @@ public class TestRunLoop {
 
     RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
     doAnswer(invocation -> {
-        ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        TaskCallback callback = callbackFactory.createCallback();
+      ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
 
-        coordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
-        coordinator.shutdown(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
+      coordinator.commit(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
+      coordinator.shutdown(TaskCoordinator.RequestScope.ALL_TASKS_IN_CONTAINER);
 
-        callback.complete();
-        return null;
-      }).when(task0).process(eq(envelope00), any(), any());
+      callback.complete();
+      return null;
+    }).when(task0).process(eq(envelope00), any(), any());
 
     RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
 
@@ -278,33 +276,32 @@ public class TestRunLoop {
     int maxMessagesInFlight = 1;
     RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
     doAnswer(invocation -> {
-        ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
 
-        TaskCallback callback = callbackFactory.createCallback();
-        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-        callback.complete();
-        return null;
-      }).when(task0).process(eq(envelope00), any(), any());
+      TaskCallback callback = callbackFactory.createCallback();
+      coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+      callback.complete();
+      return null;
+    }).when(task0).process(eq(envelope00), any(), any());
 
     RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
     doAnswer(invocation -> {
-        ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
 
-        TaskCallback callback = callbackFactory.createCallback();
-        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-        callback.complete();
-        return null;
-      }).when(task1).process(eq(envelope11), any(), any());
+      TaskCallback callback = callbackFactory.createCallback();
+      coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+      callback.complete();
+      return null;
+    }).when(task1).process(eq(envelope11), any(), any());
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, task0);
     tasks.put(taskName1, task1);
 
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
-                                            () -> 0L, false);
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     // consensus is reached after envelope1 is processed.
     when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope11).thenReturn(null);
     runLoop.run();
@@ -330,8 +327,7 @@ public class TestRunLoop {
 
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-                                            callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
-                                            () -> 0L, false);
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     when(consumerMultiplexer.choose(false))
       .thenReturn(envelope00)
       .thenReturn(envelope11)
@@ -361,32 +357,32 @@ public class TestRunLoop {
     when(task0.offsetManager()).thenReturn(offsetManager);
     CountDownLatch firstMessageBarrier = new CountDownLatch(2);
     doAnswer(invocation -> {
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        TaskCallback callback = callbackFactory.createCallback();
-        taskExecutor.submit(() -> {
-            firstMessageBarrier.await();
-            callback.complete();
-            return null;
-          });
-        return null;
-      }).when(task0).process(eq(envelope00), any(), any());
-
-    doAnswer(invocation -> {
-        assertEquals(1, task0.metrics().messagesInFlight().getValue());
-
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        TaskCallback callback = callbackFactory.createCallback();
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      taskExecutor.submit(() -> {
+        firstMessageBarrier.await();
         callback.complete();
-        firstMessageBarrier.countDown();
         return null;
-      }).when(task0).process(eq(envelope01), any(), any());
+      });
+      return null;
+    }).when(task0).process(eq(envelope00), any(), any());
 
     doAnswer(invocation -> {
-        assertEquals(0, task0.metrics().messagesInFlight().getValue());
-        assertEquals(2, task0.metrics().asyncCallbackCompleted().getCount());
+      assertEquals(1, task0.metrics().messagesInFlight().getValue());
 
-        return null;
-      }).when(task0).endOfStream(any());
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      callback.complete();
+      firstMessageBarrier.countDown();
+      return null;
+    }).when(task0).process(eq(envelope01), any(), any());
+
+    doAnswer(invocation -> {
+      assertEquals(0, task0.metrics().messagesInFlight().getValue());
+      assertEquals(2, task0.metrics().asyncCallbackCompleted().getCount());
+
+      return null;
+    }).when(task0).endOfStream(any());
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, task0);
@@ -395,10 +391,10 @@ public class TestRunLoop {
                                             callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(ssp0EndOfStream)
         .thenAnswer(invocation -> {
-            // this ensures that the end of stream message has passed through run loop BEFORE the last remaining in flight message completes
-            firstMessageBarrier.countDown();
-            return null;
-          });
+          // this ensures that the end of stream message has passed through run loop BEFORE the last remaining in flight message completes
+          firstMessageBarrier.countDown();
+          return null;
+        });
 
     runLoop.run();
 
@@ -411,11 +407,11 @@ public class TestRunLoop {
 
     RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
     doAnswer(invocation -> {
-        ReadableCoordinator coordinator = invocation.getArgumentAt(0, ReadableCoordinator.class);
+      ReadableCoordinator coordinator = invocation.getArgumentAt(0, ReadableCoordinator.class);
 
-        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-        return null;
-      }).when(task0).endOfStream(any());
+      coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+      return null;
+    }).when(task0).endOfStream(any());
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
 
@@ -445,44 +441,44 @@ public class TestRunLoop {
     when(task0.offsetManager()).thenReturn(offsetManager);
     CountDownLatch firstMessageBarrier = new CountDownLatch(1);
     doAnswer(invocation -> {
-        ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        TaskCallback callback = callbackFactory.createCallback();
+      ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
 
-        taskExecutor.submit(() -> {
-            firstMessageBarrier.await();
-            coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-            callback.complete();
-            return null;
-          });
+      taskExecutor.submit(() -> {
+        firstMessageBarrier.await();
+        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+        callback.complete();
         return null;
-      }).when(task0).process(eq(envelope00), any(), any());
+      });
+      return null;
+    }).when(task0).process(eq(envelope00), any(), any());
 
     CountDownLatch secondMessageBarrier = new CountDownLatch(1);
     doAnswer(invocation -> {
-        ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        TaskCallback callback = callbackFactory.createCallback();
+      ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
 
-        taskExecutor.submit(() -> {
-            // let the first message proceed to ask for a commit
-            firstMessageBarrier.countDown();
-            // block this message until commit is executed
-            secondMessageBarrier.await();
-            coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-            callback.complete();
-            return null;
-          });
+      taskExecutor.submit(() -> {
+        // let the first message proceed to ask for a commit
+        firstMessageBarrier.countDown();
+        // block this message until commit is executed
+        secondMessageBarrier.await();
+        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+        callback.complete();
         return null;
-      }).when(task0).process(eq(envelope01), any(), any());
+      });
+      return null;
+    }).when(task0).process(eq(envelope01), any(), any());
 
     doAnswer(invocation -> {
-        assertEquals(1, task0.metrics().asyncCallbackCompleted().getCount());
-        assertEquals(1, task0.metrics().messagesInFlight().getValue());
+      assertEquals(1, task0.metrics().asyncCallbackCompleted().getCount());
+      assertEquals(1, task0.metrics().messagesInFlight().getValue());
 
-        secondMessageBarrier.countDown();
-        return null;
-      }).when(task0).commit();
+      secondMessageBarrier.countDown();
+      return null;
+    }).when(task0).commit();
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, task0);
@@ -504,17 +500,16 @@ public class TestRunLoop {
 
     RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
     doAnswer(invocation -> {
-        TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
-        callbackFactory.createCallback().failure(new Exception("Intentional failure"));
-        return null;
-      }).when(task0).process(eq(envelope00), any(), any());
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      callbackFactory.createCallback().failure(new Exception("Intentional failure"));
+      return null;
+    }).when(task0).process(eq(envelope00), any(), any());
 
     Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
 
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics,
-        () -> 0L, false);
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
 
     when(consumerMultiplexer.choose(false))
         .thenReturn(envelope00)

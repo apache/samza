@@ -204,11 +204,11 @@ public class TestStreamAppender {
     // Set up latch
     final CountDownLatch allMessagesSent = new CountDownLatch(messages.size());
     MockSystemProducer.listeners.add((source, envelope) -> {
-        allMessagesSent.countDown();
-        if (allMessagesSent.getCount() == messages.size() - 1) {
-          throw new RuntimeException(); // Throw on the first message
-        }
-      });
+      allMessagesSent.countDown();
+      if (allMessagesSent.getCount() == messages.size() - 1) {
+        throw new RuntimeException(); // Throw on the first message
+      }
+    });
 
     // Log the messages
     messages.forEach((message) -> log.info(message));
@@ -241,13 +241,13 @@ public class TestStreamAppender {
     final CountDownLatch allMessagesSent = new CountDownLatch(expectedMessagesSent); // We expect to drop all but the extra messages
     final CountDownLatch waitForTimeout = new CountDownLatch(1);
     MockSystemProducer.listeners.add((source, envelope) -> {
-        allMessagesSent.countDown();
-        try {
-          waitForTimeout.await();
-        } catch (InterruptedException e) {
-          fail("Test could not run properly because of a thread interrupt.");
-        }
-      });
+      allMessagesSent.countDown();
+      try {
+        waitForTimeout.await();
+      } catch (InterruptedException e) {
+        fail("Test could not run properly because of a thread interrupt.");
+      }
+    });
 
     // Log the messages. This is where the timeout will happen!
     messages.forEach((message) -> log.info(message));

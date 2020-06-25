@@ -152,14 +152,14 @@ public class TestAsyncFlatMap extends IntegrationTestHarness {
     private static CompletionStage<Collection<PageView>> filterGuestPageViews(PageView pageView,
         Predicate<PageView> shouldFailProcess, Supplier<Long> processJitter) {
       CompletableFuture<Collection<PageView>> filteredPageViews = CompletableFuture.supplyAsync(() -> {
-          try {
-            Thread.sleep(processJitter.get());
-          } catch (InterruptedException ex) {
-            System.out.println("Interrupted during sleep.");
-          }
+        try {
+          Thread.sleep(processJitter.get());
+        } catch (InterruptedException ex) {
+          System.out.println("Interrupted during sleep.");
+        }
 
-          return Long.valueOf(pageView.getUserId()) < 1 ? Collections.emptyList() : Collections.singleton(pageView);
-        });
+        return Long.valueOf(pageView.getUserId()) < 1 ? Collections.emptyList() : Collections.singleton(pageView);
+      });
 
       if (shouldFailProcess.test(pageView)) {
         filteredPageViews.completeExceptionally(new RuntimeException("Remote service threw an exception"));

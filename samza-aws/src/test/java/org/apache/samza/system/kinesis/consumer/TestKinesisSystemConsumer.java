@@ -103,9 +103,9 @@ public class TestKinesisSystemConsumer {
     List<SystemStreamPartition> ssps = new LinkedList<>();
     IntStream.range(0, numShards)
         .forEach(p -> {
-            SystemStreamPartition ssp = new SystemStreamPartition(system, stream, new Partition(p));
-            ssps.add(ssp);
-          });
+          SystemStreamPartition ssp = new SystemStreamPartition(system, stream, new Partition(p));
+          ssps.add(ssp);
+        });
     ssps.forEach(ssp -> consumer.register(ssp, SYSTEM_CONSUMER_REGISTER_OFFSET));
 
     // Create Kinesis record processor factory
@@ -133,47 +133,47 @@ public class TestKinesisSystemConsumer {
 
     Map<SystemStreamPartition, KinesisRecordProcessor> sspToProcessorMap = getProcessorMap(consumer);
     ssps.forEach(ssp -> {
-        try {
-          KinesisRecordProcessor processor = sspToProcessorMap.get(ssp);
+      try {
+        KinesisRecordProcessor processor = sspToProcessorMap.get(ssp);
 
-          // Verify that the read messages are received in order and are the same as input records
-          Assert.assertEquals(messages.get(ssp).size(), numRecordsPerShard);
-          List<IncomingMessageEnvelope> envelopes = messages.get(ssp);
-          List<Record> inputRecords = inputRecordMap.get(processor);
-          verifyRecords(envelopes, inputRecords, processor.getShardId());
+        // Verify that the read messages are received in order and are the same as input records
+        Assert.assertEquals(messages.get(ssp).size(), numRecordsPerShard);
+        List<IncomingMessageEnvelope> envelopes = messages.get(ssp);
+        List<Record> inputRecords = inputRecordMap.get(processor);
+        verifyRecords(envelopes, inputRecords, processor.getShardId());
 
-          // Call checkpoint on consumer and verify that the checkpoint is called with the right offset
-          IncomingMessageEnvelope lastEnvelope = envelopes.get(envelopes.size() - 1);
-          consumer.afterCheckpoint(Collections.singletonMap(ssp, lastEnvelope.getOffset()));
-          ArgumentCaptor<String> argument = ArgumentCaptor.forClass(String.class);
-          verify(getCheckpointer(processor)).checkpoint(argument.capture());
-          Assert.assertEquals(inputRecords.get(inputRecords.size() - 1).getSequenceNumber(), argument.getValue());
+        // Call checkpoint on consumer and verify that the checkpoint is called with the right offset
+        IncomingMessageEnvelope lastEnvelope = envelopes.get(envelopes.size() - 1);
+        consumer.afterCheckpoint(Collections.singletonMap(ssp, lastEnvelope.getOffset()));
+        ArgumentCaptor<String> argument = ArgumentCaptor.forClass(String.class);
+        verify(getCheckpointer(processor)).checkpoint(argument.capture());
+        Assert.assertEquals(inputRecords.get(inputRecords.size() - 1).getSequenceNumber(), argument.getValue());
 
-          // Call shutdown (with ZOMBIE reason) on processor and verify if shutdown freed the ssp mapping
-          shutDownProcessor(processor, ShutdownReason.ZOMBIE);
-          Assert.assertFalse(sspToProcessorMap.containsValue(processor));
-          Assert.assertTrue(isSspAvailable(consumer, ssp));
-        } catch (NoSuchFieldException | IllegalAccessException | InvalidStateException | ShutdownException ex) {
-          throw new RuntimeException(ex);
-        }
-      });
+        // Call shutdown (with ZOMBIE reason) on processor and verify if shutdown freed the ssp mapping
+        shutDownProcessor(processor, ShutdownReason.ZOMBIE);
+        Assert.assertFalse(sspToProcessorMap.containsValue(processor));
+        Assert.assertTrue(isSspAvailable(consumer, ssp));
+      } catch (NoSuchFieldException | IllegalAccessException | InvalidStateException | ShutdownException ex) {
+        throw new RuntimeException(ex);
+      }
+    });
   }
 
   private Map<String, KinesisRecordProcessor> createAndInitProcessors(IRecordProcessorFactory factory, int numShards) {
     Map<String, KinesisRecordProcessor> processorMap = new HashMap<>();
     IntStream.range(0, numShards)
         .forEach(p -> {
-            String shardId = String.format("shard-%05d", p);
-            // Create Kinesis processor
-            KinesisRecordProcessor processor = (KinesisRecordProcessor) factory.createProcessor();
+          String shardId = String.format("shard-%05d", p);
+          // Create Kinesis processor
+          KinesisRecordProcessor processor = (KinesisRecordProcessor) factory.createProcessor();
 
-            // Initialize the shard
-            ExtendedSequenceNumber seqNum = new ExtendedSequenceNumber("0000");
-            InitializationInput initializationInput =
-                new InitializationInput().withShardId(shardId).withExtendedSequenceNumber(seqNum);
-            processor.initialize(initializationInput);
-            processorMap.put(shardId, processor);
-          });
+          // Initialize the shard
+          ExtendedSequenceNumber seqNum = new ExtendedSequenceNumber("0000");
+          InitializationInput initializationInput =
+              new InitializationInput().withShardId(shardId).withExtendedSequenceNumber(seqNum);
+          processor.initialize(initializationInput);
+          processorMap.put(shardId, processor);
+        });
     return processorMap;
   }
 
@@ -186,12 +186,12 @@ public class TestKinesisSystemConsumer {
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> receivedMessages =
           consumer.poll(ssps, Duration.ofSeconds(1).toMillis());
       receivedMessages.forEach((key, value) -> {
-          if (messages.containsKey(key)) {
-            messages.get(key).addAll(value);
-          } else {
-            messages.put(key, new ArrayList<>(value));
-          }
-        });
+        if (messages.containsKey(key)) {
+          messages.get(key).addAll(value);
+        } else {
+          messages.put(key, new ArrayList<>(value));
+        }
+      });
       totalEventsConsumed = messages.values().stream().mapToInt(List::size).sum();
     }
 
@@ -205,19 +205,19 @@ public class TestKinesisSystemConsumer {
   private void verifyRecords(List<IncomingMessageEnvelope> outputRecords, List<Record> inputRecords, String shardId) {
     Iterator outputRecordsIter = outputRecords.iterator();
     inputRecords.forEach(record -> {
-        IncomingMessageEnvelope envelope = (IncomingMessageEnvelope) outputRecordsIter.next();
-        String outputKey = (String) envelope.getKey();
-        KinesisIncomingMessageEnvelope kinesisMessageEnvelope = (KinesisIncomingMessageEnvelope) envelope;
-        Assert.assertEquals(outputKey, record.getPartitionKey());
-        Assert.assertEquals(kinesisMessageEnvelope.getSequenceNumber(), record.getSequenceNumber());
-        Assert.assertEquals(kinesisMessageEnvelope.getApproximateArrivalTimestamp(),
-            record.getApproximateArrivalTimestamp());
-        Assert.assertEquals(kinesisMessageEnvelope.getShardId(), shardId);
-        ByteBuffer outputData = ByteBuffer.wrap((byte[]) kinesisMessageEnvelope.getMessage());
-        record.getData().rewind();
-        Assert.assertEquals(outputData, record.getData());
-        verifyOffset(envelope.getOffset(), record, shardId);
-      });
+      IncomingMessageEnvelope envelope = (IncomingMessageEnvelope) outputRecordsIter.next();
+      String outputKey = (String) envelope.getKey();
+      KinesisIncomingMessageEnvelope kinesisMessageEnvelope = (KinesisIncomingMessageEnvelope) envelope;
+      Assert.assertEquals(outputKey, record.getPartitionKey());
+      Assert.assertEquals(kinesisMessageEnvelope.getSequenceNumber(), record.getSequenceNumber());
+      Assert.assertEquals(kinesisMessageEnvelope.getApproximateArrivalTimestamp(),
+          record.getApproximateArrivalTimestamp());
+      Assert.assertEquals(kinesisMessageEnvelope.getShardId(), shardId);
+      ByteBuffer outputData = ByteBuffer.wrap((byte[]) kinesisMessageEnvelope.getMessage());
+      record.getData().rewind();
+      Assert.assertEquals(outputData, record.getData());
+      verifyOffset(envelope.getOffset(), record, shardId);
+    });
   }
 
   private void verifyOffset(String offset, Record inputRecord, String shardId) {

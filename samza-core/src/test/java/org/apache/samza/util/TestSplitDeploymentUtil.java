@@ -49,11 +49,11 @@ public class TestSplitDeploymentUtil {
     // stub the private static method which is called by reflection
     PowerMockito.doAnswer(invocation -> {
         // make sure the only calls to this method has the expected arguments
-        assertArrayEquals(args, invocation.getArgumentAt(0, String[].class));
-        // checks that the context classloader is set correctly
-        assertEquals(classLoader, Thread.currentThread().getContextClassLoader());
-        return null;
-      }).when(ClusterBasedJobCoordinator.class, "runClusterBasedJobCoordinator", any());
+      assertArrayEquals(args, invocation.getArgumentAt(0, String[].class));
+      // checks that the context classloader is set correctly
+      assertEquals(classLoader, Thread.currentThread().getContextClassLoader());
+      return null;
+    }).when(ClusterBasedJobCoordinator.class, "runClusterBasedJobCoordinator", any());
 
     try {
       SplitDeploymentUtil.runWithClassLoader(classLoader,

@@ -66,57 +66,57 @@ public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
   @Override
   public CompletableFuture<V> getAsync(K key, Object ... args) {
     return doRead(
-        () -> readRateLimiter.throttle(key, args),
-        () -> table.getAsync(key, args));
+      () -> readRateLimiter.throttle(key, args),
+      () -> table.getAsync(key, args));
   }
 
   @Override
   public CompletableFuture<Map<K, V>> getAllAsync(List<K> keys, Object ... args) {
     return doRead(
-        () -> readRateLimiter.throttle(keys, args),
-        () -> table.getAllAsync(keys, args));
+      () -> readRateLimiter.throttle(keys, args),
+      () -> table.getAllAsync(keys, args));
   }
 
   @Override
   public <T> CompletableFuture<T> readAsync(int opId, Object ... args) {
     return doRead(
-        () -> readRateLimiter.throttle(opId, args),
-        () -> table.readAsync(opId, args));
+      () -> readRateLimiter.throttle(opId, args),
+      () -> table.readAsync(opId, args));
   }
 
   @Override
   public CompletableFuture<Void> putAsync(K key, V value, Object ... args) {
     return doWrite(
-        () -> writeRateLimiter.throttle(key, value, args),
-        () -> table.putAsync(key, value, args));
+      () -> writeRateLimiter.throttle(key, value, args),
+      () -> table.putAsync(key, value, args));
   }
 
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
     return doWrite(
-        () -> writeRateLimiter.throttleRecords(entries),
-        () -> table.putAllAsync(entries, args));
+      () -> writeRateLimiter.throttleRecords(entries),
+      () -> table.putAllAsync(entries, args));
   }
 
   @Override
   public CompletableFuture<Void> deleteAsync(K key, Object ... args) {
     return doWrite(
-        () -> writeRateLimiter.throttle(key, args),
-        () -> table.deleteAsync(key, args));
+      () -> writeRateLimiter.throttle(key, args),
+      () -> table.deleteAsync(key, args));
   }
 
   @Override
   public CompletableFuture<Void> deleteAllAsync(List<K> keys, Object ... args) {
     return doWrite(
-        () -> writeRateLimiter.throttle(keys, args),
-        () -> table.deleteAllAsync(keys, args));
+      () -> writeRateLimiter.throttle(keys, args),
+      () -> table.deleteAllAsync(keys, args));
   }
 
   @Override
   public <T> CompletableFuture<T> writeAsync(int opId, Object ... args) {
     return doWrite(
-        () -> writeRateLimiter.throttle(opId, args),
-        () -> table.writeAsync(opId, args));
+      () -> writeRateLimiter.throttle(opId, args),
+      () -> table.writeAsync(opId, args));
   }
 
   @Override
