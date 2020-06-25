@@ -37,11 +37,11 @@ public class TestJsonSerdeV2 {
     assertEquals(obj, serde.fromBytes(bytes));
     JsonSerdeV2<Map.Entry<String, Object>> serdeHashMapEntry = new JsonSerdeV2<>();
     obj.entrySet().forEach(entry -> {
-        try {
-          serdeHashMapEntry.toBytes(entry);
-        } catch (Exception e) {
-          fail("HashMap Entry serialization failed!");
-        }
-      });
+      try {
+        serdeHashMapEntry.toBytes(entry);
+      } catch (Exception e) {
+        fail("HashMap Entry serialization failed!");
+      }
+    });
   }
 }

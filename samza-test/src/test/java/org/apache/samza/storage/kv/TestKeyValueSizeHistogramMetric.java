@@ -105,26 +105,26 @@ public class TestKeyValueSizeHistogramMetric {
     }
 
     metricsRegistry.getGroups().forEach(group -> metricsRegistry.getGroup(group.toString()).forEach((name, metric) -> {
-        if (names.contains(name)) {
-          metric.visit(new MetricsVisitor() {
-            @Override
-            public void counter(Counter counter) {
+      if (names.contains(name)) {
+        metric.visit(new MetricsVisitor() {
+          @Override
+          public void counter(Counter counter) {
 
-            }
+          }
 
-            @Override
-            public <T> void gauge(Gauge<T> gauge) {
-              Double num = (Double) gauge.getValue();
-              Assert.assertNotEquals(0D, (Double) gauge.getValue(), 0.0001);
-            }
+          @Override
+          public <T> void gauge(Gauge<T> gauge) {
+            Double num = (Double) gauge.getValue();
+            Assert.assertNotEquals(0D, (Double) gauge.getValue(), 0.0001);
+          }
 
-            @Override
-            public void timer(Timer timer) {
+          @Override
+          public void timer(Timer timer) {
 
-            }
-          });
-        }
-      }));
+          }
+        });
+      }
+    }));
   }
 
   private String getRandomString() {

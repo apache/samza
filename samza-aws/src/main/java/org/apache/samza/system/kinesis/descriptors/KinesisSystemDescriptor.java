@@ -121,12 +121,10 @@ public class KinesisSystemDescriptor extends SystemDescriptor<KinesisSystemDescr
     Map<String, String> config = new HashMap<>(super.toConfig());
     String systemName = getSystemName();
 
-    region.ifPresent(
-        val -> config.put(String.format(KinesisConfig.CONFIG_SYSTEM_REGION, systemName), val));
-    proxyHost.ifPresent(
-        val -> config.put(String.format(KinesisConfig.CONFIG_PROXY_HOST, systemName), val));
+    region.ifPresent(val -> config.put(String.format(KinesisConfig.CONFIG_SYSTEM_REGION, systemName), val));
+    proxyHost.ifPresent(val -> config.put(String.format(KinesisConfig.CONFIG_PROXY_HOST, systemName), val));
     proxyPort.ifPresent(
-        val -> config.put(String.format(KinesisConfig.CONFIG_PROXY_PORT, systemName), String.valueOf(val)));
+      val -> config.put(String.format(KinesisConfig.CONFIG_PROXY_PORT, systemName), String.valueOf(val)));
 
     String kclConfigPrefix = String.format(KinesisConfig.CONFIG_SYSTEM_KINESIS_CLIENT_LIB_CONFIG, systemName);
     kclConfig.forEach((k, v) -> config.put(kclConfigPrefix + k, v));

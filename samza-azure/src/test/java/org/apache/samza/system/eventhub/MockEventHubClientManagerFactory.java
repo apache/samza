@@ -98,12 +98,12 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
       // Consumer mocks
       PartitionReceiver mockPartitionReceiver = PowerMockito.mock(PartitionReceiver.class);
       PowerMockito.when(mockPartitionReceiver.setReceiveHandler(any())).then((Answer<Void>) invocationOnMock -> {
-          PartitionReceiveHandler handler = invocationOnMock.getArgumentAt(0, PartitionReceiveHandler.class);
-          if (handler == null) {
-            Assert.fail("Handler for setReceiverHandler was null");
-          }
-          return null;
-        });
+        PartitionReceiveHandler handler = invocationOnMock.getArgumentAt(0, PartitionReceiveHandler.class);
+        if (handler == null) {
+          Assert.fail("Handler for setReceiverHandler was null");
+        }
+        return null;
+      });
       PartitionRuntimeInformation mockPartitionRuntimeInfo = PowerMockito.mock(PartitionRuntimeInformation.class);
       PowerMockito.when(mockPartitionRuntimeInfo.getLastEnqueuedOffset())
               .thenReturn(EventHubSystemConsumer.START_OF_STREAM);
@@ -114,16 +114,16 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
       PartitionSender mockPartitionSender1 = PowerMockito.mock(PartitionSender.class);
       PowerMockito.when(mockPartitionSender0.send(any(EventData.class)))
               .then((Answer<CompletableFuture<Void>>) invocationOnMock -> {
-                  EventData data = invocationOnMock.getArgumentAt(0, EventData.class);
-                  receivedData.get(systemName).get(streamName).get(0).add(data);
-                  return new CompletableFuture<>();
-                });
+                EventData data = invocationOnMock.getArgumentAt(0, EventData.class);
+                receivedData.get(systemName).get(streamName).get(0).add(data);
+                return new CompletableFuture<>();
+              });
       PowerMockito.when(mockPartitionSender1.send(any(EventData.class)))
               .then((Answer<CompletableFuture<Void>>) invocationOnMock -> {
-                  EventData data = invocationOnMock.getArgumentAt(0, EventData.class);
-                  receivedData.get(systemName).get(streamName).get(1).add(data);
-                  return new CompletableFuture<>();
-                });
+                EventData data = invocationOnMock.getArgumentAt(0, EventData.class);
+                receivedData.get(systemName).get(streamName).get(1).add(data);
+                return new CompletableFuture<>();
+              });
 
       EventHubRuntimeInformation mockRuntimeInfo = PowerMockito.mock(EventHubRuntimeInformation.class);
       CompletableFuture<EventHubRuntimeInformation> future =  new MockFuture(mockRuntimeInfo);
@@ -133,18 +133,18 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
         // Consumer calls
         PowerMockito.when(mockEventHubClient.createReceiver(anyString(), anyString(), anyObject()))
               .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
-                  String partitionId = invocationOnMock.getArgumentAt(1, String.class);
-                  startingOffsets.put(partitionId, EventPosition.fromEndOfStream());
-                  return CompletableFuture.completedFuture(mockPartitionReceiver);
-                });
+                String partitionId = invocationOnMock.getArgumentAt(1, String.class);
+                startingOffsets.put(partitionId, EventPosition.fromEndOfStream());
+                return CompletableFuture.completedFuture(mockPartitionReceiver);
+              });
 
         PowerMockito.when(mockEventHubClient.createReceiver(anyString(), anyString(), anyObject()))
               .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
-                  String partitionId = invocationOnMock.getArgumentAt(1, String.class);
-                  EventPosition offset = invocationOnMock.getArgumentAt(2, EventPosition.class);
-                  startingOffsets.put(partitionId, offset);
-                  return CompletableFuture.completedFuture(mockPartitionReceiver);
-                });
+                String partitionId = invocationOnMock.getArgumentAt(1, String.class);
+                EventPosition offset = invocationOnMock.getArgumentAt(2, EventPosition.class);
+                startingOffsets.put(partitionId, offset);
+                return CompletableFuture.completedFuture(mockPartitionReceiver);
+              });
 
         PowerMockito.when(mockEventHubClient.getPartitionRuntimeInformation(anyString())).thenReturn(partitionFuture);
 
@@ -156,12 +156,12 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
 
         PowerMockito.when(mockEventHubClient.send(any(EventData.class), anyString()))
                 .then((Answer<CompletableFuture<Void>>) invocationOnMock -> {
-                    EventData data = invocationOnMock.getArgumentAt(0, EventData.class);
-                    String key = invocationOnMock.getArgumentAt(1, String.class);
-                    Integer intKey = Integer.valueOf(key);
-                    receivedData.get(systemName).get(streamName).get(intKey % 2).add(data);
-                    return new CompletableFuture<>();
-                  });
+                  EventData data = invocationOnMock.getArgumentAt(0, EventData.class);
+                  String key = invocationOnMock.getArgumentAt(1, String.class);
+                  Integer intKey = Integer.valueOf(key);
+                  receivedData.get(systemName).get(streamName).get(intKey % 2).add(data);
+                  return new CompletableFuture<>();
+                });
       } catch (Exception e) {
         Assert.fail("Failed to create create mock methods for EventHubClient");
       }

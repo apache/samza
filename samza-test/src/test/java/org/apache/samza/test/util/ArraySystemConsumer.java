@@ -61,11 +61,11 @@ public class ArraySystemConsumer implements SystemConsumer {
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> envelopeMap = new HashMap<>();
       final AtomicInteger offset = new AtomicInteger(0);
       set.forEach(ssp -> {
-          List<IncomingMessageEnvelope> envelopes = Arrays.stream(getArrayObjects(ssp.getSystemStream().getStream(), config))
-              .map(object -> new IncomingMessageEnvelope(ssp, String.valueOf(offset.incrementAndGet()), null, object)).collect(Collectors.toList());
-          envelopes.add(IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp));
-          envelopeMap.put(ssp, envelopes);
-        });
+        List<IncomingMessageEnvelope> envelopes = Arrays.stream(getArrayObjects(ssp.getSystemStream().getStream(), config))
+            .map(object -> new IncomingMessageEnvelope(ssp, String.valueOf(offset.incrementAndGet()), null, object)).collect(Collectors.toList());
+        envelopes.add(IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp));
+        envelopeMap.put(ssp, envelopes);
+      });
       done = true;
       return envelopeMap;
     } else {
