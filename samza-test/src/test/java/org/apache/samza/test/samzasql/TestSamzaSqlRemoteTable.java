@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.planner.SamzaSqlValidator;
@@ -244,6 +245,49 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameOuterJoinWithNullForeignKeys(numMessages);
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
+
+  @Test(expected = SamzaException.class)
+  public void testJoinConditionWithMoreThanOneConjunction() throws SamzaSqlValidatorException {
+    int numMessages = 20;
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+            + "       p.name as profileName, p.address as profileAddress "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "right join testavro.PAGEVIEW as pv "
+            + " on p.__key__ = pv.profileId and p.__key__ = pv.pageKey where p.name is null or  p.name <> '0'";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+    runApplication(config);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testJoinConditionMissing__key__() throws SamzaSqlValidatorException {
+    int numMessages = 20;
+    Map<String, String> staticConfigs =
+        SamzaSqlTestConfig.fetchStaticConfigsWithFactories(new HashMap<>(), numMessages, true);
+    String sql =
+        "Insert into testavro.enrichedPageViewTopic "
+            + "select pv.pageKey as __key__, pv.pageKey as pageKey, coalesce(null, 'N/A') as companyName,"
+            + "       p.name as profileName, p.address as profileAddress "
+            + "from testRemoteStore.Profile.`$table` as p "
+            + "right join testavro.PAGEVIEW as pv "
+            + " on p.id = pv.profileId where p.name is null or  p.name <> '0'";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+    runApplication(config);
+  }
+
 
   @Test
   public void testSameJoinTargetSinkEndToEndRightOuterJoin() throws SamzaSqlValidatorException {
