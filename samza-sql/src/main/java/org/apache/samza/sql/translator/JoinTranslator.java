@@ -35,6 +35,7 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlExplainFormat;
@@ -231,6 +232,14 @@ class JoinTranslator {
       throw new SamzaException("Query results in a cross join, which is not supported. Please optimize the query."
           + " It is expected that the joins should include JOIN ON operator in the sql query.");
     }
+    //TODO Not sure why we can not allow literal as part of the join condition will revisit this in another scope
+    conjunctionList.forEach(rexNode -> rexNode.accept(new RexShuttle(){
+      @Override
+      public RexNode visitLiteral(RexLiteral literal) {
+        throw new SamzaException(
+            "Join Condition can not allow literal " + literal.toString() + " join node" + join.getDigest());
+      }
+    }));
     final JoinInputNode.InputType rootTableInput = isTablePosOnRight ? inputTypeOnRight : inputTypeOnLeft;
     if (rootTableInput.compareTo(JoinInputNode.InputType.REMOTE_TABLE) != 0) {
       // it is not a remote table all is good we do not have to validate the project on key Column
