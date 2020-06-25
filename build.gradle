@@ -324,8 +324,7 @@ project(":samza-sql_$scalaSuffix") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    // temporarily hardcode to 6.11.2 until all other modules can be upgraded to 6.11.2
-    toolVersion = "6.11.2"
+    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -354,8 +353,7 @@ project(":samza-sql-shell_$scalaSuffix") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    // temporarily hardcode to 6.11.2 until all other modules can be upgraded to 6.11.2
-    toolVersion = "6.11.2"
+    toolVersion = "$checkstyleVersion"
   }
 
   tasks.create(name: "releaseSqlShellTarGz", dependsOn: configurations.archives.artifacts, type: Tar) {
