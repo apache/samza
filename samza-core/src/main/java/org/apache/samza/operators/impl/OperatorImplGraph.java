@@ -108,8 +108,8 @@ public class OperatorImplGraph {
                 getIntermediateToInputStreamsMap(specGraph, streamConfig))
             : Collections.EMPTY_MAP;
     producerTaskCounts.forEach((stream, count) -> {
-        LOG.info("{} has {} producer tasks.", stream, count);
-      });
+      LOG.info("{} has {} producer tasks.", stream, count);
+    });
 
     // set states for end-of-stream
     internalTaskContext.registerObject(EndOfStreamStates.class.getName(),
@@ -124,11 +124,11 @@ public class OperatorImplGraph {
                 context.getContainerContext().getContainerMetricsRegistry()));
 
     specGraph.getInputOperators().forEach((streamId, inputOpSpec) -> {
-        SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
-        InputOperatorImpl inputOperatorImpl =
-            (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, context);
-        this.inputOperators.put(systemStream, inputOperatorImpl);
-      });
+      SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);
+      InputOperatorImpl inputOperatorImpl =
+          (InputOperatorImpl) createAndRegisterOperatorImpl(null, inputOpSpec, systemStream, context);
+      this.inputOperators.put(systemStream, inputOperatorImpl);
+    });
   }
 
   /**
@@ -187,10 +187,10 @@ public class OperatorImplGraph {
 
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(registeredSpec -> {
-          LOG.debug("Creating operator {} with opCode: {}", registeredSpec.getOpId(), registeredSpec.getOpCode());
-          OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, context);
-          operatorImpl.registerNextOperator(nextImpl);
-        });
+        LOG.debug("Creating operator {} with opCode: {}", registeredSpec.getOpId(), registeredSpec.getOpCode());
+        OperatorImpl nextImpl = createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, context);
+        operatorImpl.registerNextOperator(nextImpl);
+      });
       return operatorImpl;
     } else {
       // the implementation corresponding to operatorSpec has already been instantiated and registered.
@@ -200,7 +200,7 @@ public class OperatorImplGraph {
       // We still need to traverse the DAG further to register the input streams.
       Collection<OperatorSpec> registeredSpecs = operatorSpec.getRegisteredOperatorSpecs();
       registeredSpecs.forEach(
-          registeredSpec -> createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, context));
+        registeredSpec -> createAndRegisterOperatorImpl(operatorSpec, registeredSpec, inputStream, context));
       return operatorImpl;
     }
   }
@@ -255,7 +255,7 @@ public class OperatorImplGraph {
       Clock clock) {
     // get the per task pair of PartialJoinOperatorImpl for the corresponding {@code joinOpSpec}
     KV<PartialJoinOperatorImpl, PartialJoinOperatorImpl> partialJoinOpImpls = joinOpImpls.computeIfAbsent(joinOpSpec.getOpId(),
-        joinOpId -> {
+      joinOpId -> {
         PartialJoinFunction leftJoinFn = createLeftJoinFn(joinOpSpec);
         PartialJoinFunction rightJoinFn = createRightJoinFn(joinOpSpec);
         return new KV(new PartialJoinOperatorImpl(joinOpSpec, true, leftJoinFn, rightJoinFn, clock),
@@ -365,12 +365,12 @@ public class OperatorImplGraph {
   static Multimap<SystemStream, String> getStreamToConsumerTasks(JobModel jobModel) {
     Multimap<SystemStream, String> streamToConsumerTasks = HashMultimap.create();
     jobModel.getContainers().values().forEach(containerModel -> {
-        containerModel.getTasks().values().forEach(taskModel -> {
-            taskModel.getSystemStreamPartitions().forEach(ssp -> {
-                streamToConsumerTasks.put(ssp.getSystemStream(), taskModel.getTaskName().getTaskName());
-              });
-          });
+      containerModel.getTasks().values().forEach(taskModel -> {
+        taskModel.getSystemStreamPartitions().forEach(ssp -> {
+          streamToConsumerTasks.put(ssp.getSystemStream(), taskModel.getTaskName().getTaskName());
+        });
       });
+    });
     return streamToConsumerTasks;
   }
 
@@ -384,9 +384,9 @@ public class OperatorImplGraph {
     Multimap<SystemStream, SystemStream> outputToInputStreams = HashMultimap.create();
     specGraph.getInputOperators().entrySet().stream()
         .forEach(entry -> {
-            SystemStream systemStream = streamConfig.streamIdToSystemStream(entry.getKey());
-            computeOutputToInput(systemStream, entry.getValue(), outputToInputStreams, streamConfig);
-          });
+          SystemStream systemStream = streamConfig.streamIdToSystemStream(entry.getKey());
+          computeOutputToInput(systemStream, entry.getValue(), outputToInputStreams, streamConfig);
+        });
     return outputToInputStreams;
   }
 

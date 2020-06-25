@@ -126,9 +126,9 @@ public class TestLocalTableEndToEnd extends IntegrationTestHarness {
       GenericInputDescriptor<PageView> pageViewISD = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
       appDesc.getInputStream(pageViewISD)
           .map(pv -> {
-              received.add(pv);
-              return pv;
-            })
+            received.add(pv);
+            return pv;
+          })
           .partitionBy(PageView::getMemberId, v -> v, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
           .join(table, new PageViewToProfileJoinFunction())
           .sink((m, collector, coordinator) -> joined.add(m));
@@ -188,15 +188,15 @@ public class TestLocalTableEndToEnd extends IntegrationTestHarness {
 
       profileStream1
           .map(m -> {
-              sentToProfileTable1.add(m);
-              return new KV(m.getMemberId(), m);
-            })
+            sentToProfileTable1.add(m);
+            return new KV(m.getMemberId(), m);
+          })
           .sendTo(profileTable);
       profileStream2
           .map(m -> {
-              sentToProfileTable2.add(m);
-              return new KV(m.getMemberId(), m);
-            })
+            sentToProfileTable2.add(m);
+            return new KV(m.getMemberId(), m);
+          })
           .sendTo(profileTable);
 
       GenericInputDescriptor<PageView> pageViewISD1 = ksd.getInputDescriptor("PageView1", new NoOpSerde<PageView>());

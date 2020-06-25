@@ -49,11 +49,11 @@ public class TestStreamConfig {
   public void testGetStreamMsgSerde() {
     String value = "my.msg.serde";
     doTestSamzaProperty(StreamConfig.MSG_SERDE, value,
-        (config, systemStream) -> assertEquals(Optional.of(value), config.getStreamMsgSerde(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.of(value), config.getStreamMsgSerde(systemStream)));
     doTestSamzaProperty(StreamConfig.MSG_SERDE, "",
-        (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamMsgSerde(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamMsgSerde(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.MSG_SERDE,
-        (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamMsgSerde(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamMsgSerde(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::getStreamMsgSerde);
   }
 
@@ -61,39 +61,39 @@ public class TestStreamConfig {
   public void testGetStreamKeySerde() {
     String value = "my.key.serde";
     doTestSamzaProperty(StreamConfig.KEY_SERDE, value,
-        (config, systemStream) -> assertEquals(Optional.of(value), config.getStreamKeySerde(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.of(value), config.getStreamKeySerde(systemStream)));
     doTestSamzaProperty(StreamConfig.KEY_SERDE, "",
-        (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamKeySerde(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamKeySerde(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.KEY_SERDE,
-        (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamKeySerde(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.empty(), config.getStreamKeySerde(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::getStreamKeySerde);
   }
 
   @Test
   public void testGetResetOffset() {
     doTestSamzaProperty(StreamConfig.CONSUMER_RESET_OFFSET, "true",
-        (config, systemStream) -> assertTrue(config.getResetOffset(systemStream)));
+      (config, systemStream) -> assertTrue(config.getResetOffset(systemStream)));
     doTestSamzaProperty(StreamConfig.CONSUMER_RESET_OFFSET, "false",
-        (config, systemStream) -> assertFalse(config.getResetOffset(systemStream)));
+      (config, systemStream) -> assertFalse(config.getResetOffset(systemStream)));
     // if not true/false, then use false
     doTestSamzaProperty(StreamConfig.CONSUMER_RESET_OFFSET, "unknown_value",
-        (config, systemStream) -> assertFalse(config.getResetOffset(systemStream)));
+      (config, systemStream) -> assertFalse(config.getResetOffset(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.CONSUMER_RESET_OFFSET,
-        (config, systemStream) -> assertFalse(config.getResetOffset(systemStream)));
+      (config, systemStream) -> assertFalse(config.getResetOffset(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::getResetOffset);
   }
 
   @Test
   public void testIsResetOffsetConfigured() {
     doTestSamzaProperty(StreamConfig.CONSUMER_RESET_OFFSET, "true",
-        (config, systemStream) -> assertTrue(config.isResetOffsetConfigured(systemStream)));
+      (config, systemStream) -> assertTrue(config.isResetOffsetConfigured(systemStream)));
     doTestSamzaProperty(StreamConfig.CONSUMER_RESET_OFFSET, "false",
-        (config, systemStream) -> assertTrue(config.isResetOffsetConfigured(systemStream)));
+      (config, systemStream) -> assertTrue(config.isResetOffsetConfigured(systemStream)));
     // if not true/false, then use false
     doTestSamzaProperty(StreamConfig.CONSUMER_RESET_OFFSET, "unknown_value",
-        (config, systemStream) -> assertTrue(config.isResetOffsetConfigured(systemStream)));
+      (config, systemStream) -> assertTrue(config.isResetOffsetConfigured(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.CONSUMER_RESET_OFFSET,
-        (config, systemStream) -> assertFalse(config.isResetOffsetConfigured(systemStream)));
+      (config, systemStream) -> assertFalse(config.isResetOffsetConfigured(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::isResetOffsetConfigured);
   }
 
@@ -101,12 +101,12 @@ public class TestStreamConfig {
   public void testGetDefaultStreamOffset() {
     String value = "my_offset_default";
     doTestSamzaProperty(StreamConfig.CONSUMER_OFFSET_DEFAULT, value,
-        (config, systemStream) -> assertEquals(Optional.of(value), config.getDefaultStreamOffset(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.of(value), config.getDefaultStreamOffset(systemStream)));
     doTestSamzaProperty(StreamConfig.CONSUMER_OFFSET_DEFAULT, "",
-        (config, systemStream) -> assertEquals(Optional.of(""), config.getDefaultStreamOffset(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.of(""), config.getDefaultStreamOffset(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.CONSUMER_OFFSET_DEFAULT,
-        (config, systemStream) -> assertEquals(Optional.empty(),
-            new StreamConfig(config).getDefaultStreamOffset(systemStream)));
+      (config, systemStream) -> assertEquals(Optional.empty(),
+          new StreamConfig(config).getDefaultStreamOffset(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::getDefaultStreamOffset);
   }
 
@@ -114,52 +114,52 @@ public class TestStreamConfig {
   public void testIsDefaultStreamOffsetConfigured() {
     String value = "my_offset_default";
     doTestSamzaProperty(StreamConfig.CONSUMER_OFFSET_DEFAULT, value,
-        (config, systemStream) -> assertTrue(config.isDefaultStreamOffsetConfigured(systemStream)));
+      (config, systemStream) -> assertTrue(config.isDefaultStreamOffsetConfigured(systemStream)));
     doTestSamzaProperty(StreamConfig.CONSUMER_OFFSET_DEFAULT, "",
-        (config, systemStream) -> assertTrue(config.isDefaultStreamOffsetConfigured(systemStream)));
+      (config, systemStream) -> assertTrue(config.isDefaultStreamOffsetConfigured(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.CONSUMER_OFFSET_DEFAULT,
-        (config, systemStream) -> assertFalse(config.isDefaultStreamOffsetConfigured(systemStream)));
+      (config, systemStream) -> assertFalse(config.isDefaultStreamOffsetConfigured(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::isDefaultStreamOffsetConfigured);
   }
 
   @Test
   public void testGetBootstrapEnabled() {
     doTestSamzaProperty(StreamConfig.BOOTSTRAP, "true",
-        (config, systemStream) -> assertTrue(config.getBootstrapEnabled(systemStream)));
+      (config, systemStream) -> assertTrue(config.getBootstrapEnabled(systemStream)));
     doTestSamzaProperty(StreamConfig.BOOTSTRAP, "false",
-        (config, systemStream) -> assertFalse(config.getBootstrapEnabled(systemStream)));
+      (config, systemStream) -> assertFalse(config.getBootstrapEnabled(systemStream)));
     // if not true/false, then use false
     doTestSamzaProperty(StreamConfig.BOOTSTRAP, "unknown_value",
-        (config, systemStream) -> assertFalse(config.getBootstrapEnabled(systemStream)));
+      (config, systemStream) -> assertFalse(config.getBootstrapEnabled(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.BOOTSTRAP,
-        (config, systemStream) -> assertFalse(config.getBootstrapEnabled(systemStream)));
+      (config, systemStream) -> assertFalse(config.getBootstrapEnabled(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::getBootstrapEnabled);
   }
 
   @Test
   public void testGetBroadcastEnabled() {
     doTestSamzaProperty(StreamConfig.BROADCAST, "true",
-        (config, systemStream) -> assertTrue(config.getBroadcastEnabled(systemStream)));
+      (config, systemStream) -> assertTrue(config.getBroadcastEnabled(systemStream)));
     doTestSamzaProperty(StreamConfig.BROADCAST, "false",
-        (config, systemStream) -> assertFalse(config.getBroadcastEnabled(systemStream)));
+      (config, systemStream) -> assertFalse(config.getBroadcastEnabled(systemStream)));
     // if not true/false, then use false
     doTestSamzaProperty(StreamConfig.BROADCAST, "unknown_value",
-        (config, systemStream) -> assertFalse(config.getBroadcastEnabled(systemStream)));
+      (config, systemStream) -> assertFalse(config.getBroadcastEnabled(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.BROADCAST,
-        (config, systemStream) -> assertFalse(config.getBroadcastEnabled(systemStream)));
+      (config, systemStream) -> assertFalse(config.getBroadcastEnabled(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::getBroadcastEnabled);
   }
 
   @Test
   public void testGetPriority() {
     doTestSamzaProperty(StreamConfig.PRIORITY, "0",
-        (config, systemStream) -> assertEquals(0, config.getPriority(systemStream)));
+      (config, systemStream) -> assertEquals(0, config.getPriority(systemStream)));
     doTestSamzaProperty(StreamConfig.PRIORITY, "100",
-        (config, systemStream) -> assertEquals(100, config.getPriority(systemStream)));
+      (config, systemStream) -> assertEquals(100, config.getPriority(systemStream)));
     doTestSamzaProperty(StreamConfig.PRIORITY, "-1",
-        (config, systemStream) -> assertEquals(-1, config.getPriority(systemStream)));
+      (config, systemStream) -> assertEquals(-1, config.getPriority(systemStream)));
     doTestSamzaPropertyDoesNotExist(StreamConfig.PRIORITY,
-        (config, systemStream) -> assertEquals(-1, config.getPriority(systemStream)));
+      (config, systemStream) -> assertEquals(-1, config.getPriority(systemStream)));
     doTestSamzaPropertyInvalidConfig(StreamConfig::getPriority);
   }
 

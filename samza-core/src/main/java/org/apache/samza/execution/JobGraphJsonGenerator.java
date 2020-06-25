@@ -225,19 +225,19 @@ import org.codehaus.jackson.map.ObjectMapper;
     OperatorGraphJson opGraph = new OperatorGraphJson();
     opGraph.inputStreams = new ArrayList<>();
     jobNode.getInEdges().values().forEach(inStream -> {
-        StreamJson inputJson = new StreamJson();
-        opGraph.inputStreams.add(inputJson);
-        inputJson.streamId = inStream.getStreamSpec().getId();
-        inputJson.nextOperatorIds = jobNode.getNextOperatorIds(inputJson.streamId);
-        updateOperatorGraphJson(jobNode.getInputOperator(inputJson.streamId), opGraph);
-      });
+      StreamJson inputJson = new StreamJson();
+      opGraph.inputStreams.add(inputJson);
+      inputJson.streamId = inStream.getStreamSpec().getId();
+      inputJson.nextOperatorIds = jobNode.getNextOperatorIds(inputJson.streamId);
+      updateOperatorGraphJson(jobNode.getInputOperator(inputJson.streamId), opGraph);
+    });
 
     opGraph.outputStreams = new ArrayList<>();
     jobNode.getOutEdges().values().forEach(outStream -> {
-        StreamJson outputJson = new StreamJson();
-        outputJson.streamId = outStream.getStreamSpec().getId();
-        opGraph.outputStreams.add(outputJson);
-      });
+      StreamJson outputJson = new StreamJson();
+      outputJson.streamId = outStream.getStreamSpec().getId();
+      opGraph.outputStreams.add(outputJson);
+    });
     return opGraph;
   }
 

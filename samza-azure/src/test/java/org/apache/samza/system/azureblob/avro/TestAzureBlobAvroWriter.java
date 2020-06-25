@@ -294,8 +294,8 @@ public class TestAzureBlobAvroWriter {
     ArgumentCaptor<String> argument = ArgumentCaptor.forClass(String.class);
     verify(mockContainerClient, times(2)).getBlobAsyncClient(argument.capture());
     argument.getAllValues().forEach(blobName -> {
-        Assert.assertTrue(blobName.contains(blobUrlPrefix));
-      });
+      Assert.assertTrue(blobName.contains(blobUrlPrefix));
+    });
     List<String> allBlobNames = argument.getAllValues();
     Assert.assertNotEquals(allBlobNames.get(0), allBlobNames.get(1));
 
@@ -359,8 +359,8 @@ public class TestAzureBlobAvroWriter {
     ArgumentCaptor<String> argument = ArgumentCaptor.forClass(String.class);
     verify(mockContainerClient, times(2)).getBlobAsyncClient(argument.capture());
     argument.getAllValues().forEach(blobName -> {
-        Assert.assertTrue(blobName.contains(blobUrlPrefix));
-      });
+      Assert.assertTrue(blobName.contains(blobUrlPrefix));
+    });
     List<String> allBlobNames = argument.getAllValues();
     Assert.assertNotEquals(allBlobNames.get(0), allBlobNames.get(1));
 

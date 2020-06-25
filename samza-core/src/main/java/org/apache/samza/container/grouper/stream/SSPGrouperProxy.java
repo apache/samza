@@ -166,11 +166,11 @@ public class SSPGrouperProxy {
   private Map<SystemStream, Integer> getSystemStreamToPartitionCount(Map<TaskName, List<SystemStreamPartition>> taskToSSPAssignment) {
     Map<SystemStream, Integer> systemStreamToPartitionCount = new HashMap<>();
     taskToSSPAssignment.forEach((taskName, systemStreamPartitions) -> {
-        systemStreamPartitions.forEach(systemStreamPartition -> {
-            SystemStream systemStream = systemStreamPartition.getSystemStream();
-            systemStreamToPartitionCount.put(systemStream, systemStreamToPartitionCount.getOrDefault(systemStream, 0) + 1);
-          });
+      systemStreamPartitions.forEach(systemStreamPartition -> {
+        SystemStream systemStream = systemStreamPartition.getSystemStream();
+        systemStreamToPartitionCount.put(systemStream, systemStreamToPartitionCount.getOrDefault(systemStream, 0) + 1);
       });
+    });
 
     return systemStreamToPartitionCount;
   }
@@ -185,12 +185,12 @@ public class SSPGrouperProxy {
     Map<SystemStreamPartition, TaskName> sspToTaskMapping = new HashMap<>();
     Map<TaskName, List<SystemStreamPartition>> previousTaskToSSPAssignment = grouperMetadata.getPreviousTaskToSSPAssignment();
     previousTaskToSSPAssignment.forEach((taskName, systemStreamPartitions) -> {
-        systemStreamPartitions.forEach(systemStreamPartition -> {
-            if (!broadcastSystemStreamPartitions.contains(systemStreamPartition)) {
-              sspToTaskMapping.put(systemStreamPartition, taskName);
-            }
-          });
+      systemStreamPartitions.forEach(systemStreamPartition -> {
+        if (!broadcastSystemStreamPartitions.contains(systemStreamPartition)) {
+          sspToTaskMapping.put(systemStreamPartition, taskName);
+        }
       });
+    });
     return sspToTaskMapping;
   }
 

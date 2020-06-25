@@ -282,9 +282,9 @@ public class StreamConfig extends MapConfig {
     Set<SystemStream> legacySystemStreams = subConf.keySet().stream()
       .filter(k -> k.endsWith(MSG_SERDE) || k.endsWith(KEY_SERDE))
       .map(k -> {
-          String streamName = k.substring(0, k.length() - 16 /* .samza.XXX.serde length */);
-          return new SystemStream(systemName, streamName);
-        })
+        String streamName = k.substring(0, k.length() - 16 /* .samza.XXX.serde length */);
+        return new SystemStream(systemName, streamName);
+      })
       .collect(Collectors.toSet());
 
     Set<SystemStream> systemStreams = subset(STREAMS_PREFIX).keySet().stream()

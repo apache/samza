@@ -34,6 +34,10 @@ public class SampleRelTableKeyConverter implements SamzaRelTableKeyConverter {
     if (relRecord.getFieldValues().get(0) instanceof SamzaSqlRelRecord) {
       relRecord = (SamzaSqlRelRecord) relRecord.getFieldValues().get(0);
     }
-    return relRecord.getFieldValues().stream().map(Object::toString).collect(Collectors.toList()).get(0);
+    return relRecord.getFieldValues()
+        .stream()
+        .map(x -> x == null ? null : x.toString())
+        .collect(Collectors.toList())
+        .get(0);
   }
 }

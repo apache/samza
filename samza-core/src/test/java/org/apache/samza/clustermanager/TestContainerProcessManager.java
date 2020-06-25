@@ -112,8 +112,8 @@ public class TestContainerProcessManager {
   private JobModelManager getJobModelManagerWithHostAffinity(Map<String, String> containerIdToHost) {
     Map<String, Map<String, String>> localityMap = new HashMap<>();
     containerIdToHost.forEach((containerId, host) -> {
-        localityMap.put(containerId, ImmutableMap.of(SetContainerHostMapping.HOST_KEY, containerIdToHost.get(containerId)));
-      });
+      localityMap.put(containerId, ImmutableMap.of(SetContainerHostMapping.HOST_KEY, containerIdToHost.get(containerId)));
+    });
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readContainerLocality()).thenReturn(localityMap);
 

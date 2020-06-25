@@ -88,13 +88,13 @@ public class EpochTimeScheduler {
 
     final long delay = timestamp - System.currentTimeMillis();
     final ScheduledFuture<?> scheduledFuture = executor.schedule(() -> {
-        scheduledFutures.remove(key);
-        readyTimers.put(TimerKey.of(key, timestamp), callback);
+      scheduledFutures.remove(key);
+      readyTimers.put(TimerKey.of(key, timestamp), callback);
 
-        if (timerListener != null) {
-          timerListener.onTimer();
-        }
-      }, delay > 0 ? delay : 0, TimeUnit.MILLISECONDS);
+      if (timerListener != null) {
+        timerListener.onTimer();
+      }
+    }, delay > 0 ? delay : 0, TimeUnit.MILLISECONDS);
     scheduledFutures.put(key, scheduledFuture);
   }
 

@@ -258,10 +258,10 @@ public class ResourceRequestState {
 
     synchronized (lock) {
       allocatedResources.values().forEach(resources -> {
-          if (resources != null) {
-            resources.removeIf(r -> containerId.equals(r.getContainerId()));
-          }
-        });
+        if (resources != null) {
+          resources.removeIf(r -> containerId.equals(r.getContainerId()));
+        }
+      });
     }
   }
 

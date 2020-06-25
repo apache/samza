@@ -103,16 +103,16 @@ public class TestContainerHeartbeatMonitor {
     ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
     when(scheduler.scheduleAtFixedRate(any(), eq(0L), eq((long) ContainerHeartbeatMonitor.SCHEDULE_MS),
         eq(TimeUnit.MILLISECONDS))).thenAnswer(invocation -> {
-            Runnable command = invocation.getArgumentAt(0, Runnable.class);
-            (new Thread(() -> {
-                // just need to invoke the command once for these tests
-                command.run();
-                // notify that the execution is done, so verifications can begin
-                schedulerFixedRateExecutionLatch.countDown();
-              })).start();
-            // return value is not used by ContainerHeartbeatMonitor
-            return null;
-          });
+          Runnable command = invocation.getArgumentAt(0, Runnable.class);
+          (new Thread(() -> {
+            // just need to invoke the command once for these tests
+            command.run();
+            // notify that the execution is done, so verifications can begin
+            schedulerFixedRateExecutionLatch.countDown();
+          })).start();
+          // return value is not used by ContainerHeartbeatMonitor
+          return null;
+        });
     return scheduler;
   }
 }

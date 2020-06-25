@@ -140,25 +140,25 @@ public abstract class AsyncSystemProducer implements SystemProducer {
 
     // Auto update the metrics and possible throwable when futures are complete.
     sendResult.handle((aVoid, throwable) -> {
-        long callbackLatencyMs = System.currentTimeMillis() - afterSendTimeMs;
-        sendCallbackLatency.get(streamId).update(callbackLatencyMs);
-        aggSendCallbackLatency.update(callbackLatencyMs);
-        if (throwable != null) {
-          sendErrors.get(streamId).inc();
-          aggSendErrors.inc();
-          LOG.error("Send message to event hub: {} failed with exception: ", streamId, throwable);
-          sendExceptionOnCallback.compareAndSet(null, throwable);
-        }
-        return aVoid;
-      });
+      long callbackLatencyMs = System.currentTimeMillis() - afterSendTimeMs;
+      sendCallbackLatency.get(streamId).update(callbackLatencyMs);
+      aggSendCallbackLatency.update(callbackLatencyMs);
+      if (throwable != null) {
+        sendErrors.get(streamId).inc();
+        aggSendErrors.inc();
+        LOG.error("Send message to event hub: {} failed with exception: ", streamId, throwable);
+        sendExceptionOnCallback.compareAndSet(null, throwable);
+      }
+      return aVoid;
+    });
   }
 
   public void start() {
     streamIds.forEach(streamId -> {
-        sendCallbackLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_CALLBACK_LATENCY));
-        sendLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_LATENCY));
-        sendErrors.put(streamId, metricsRegistry.newCounter(streamId, SEND_ERRORS));
-      });
+      sendCallbackLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_CALLBACK_LATENCY));
+      sendLatency.put(streamId, new SamzaHistogram(metricsRegistry, streamId, SEND_LATENCY));
+      sendErrors.put(streamId, metricsRegistry.newCounter(streamId, SEND_ERRORS));
+    });
 
     if (aggSendLatency == null) {
       aggSendLatency = new SamzaHistogram(metricsRegistry, AGGREGATE, SEND_LATENCY);
