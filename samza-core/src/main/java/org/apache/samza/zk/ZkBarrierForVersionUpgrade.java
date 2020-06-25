@@ -194,17 +194,17 @@ public class ZkBarrierForVersionUpgrade {
       // check if all the expected participants are in
       if (participantIds.size() == expectedParticipantIds.size() && CollectionUtils.containsAll(participantIds, expectedParticipantIds)) {
         debounceTimer.scheduleAfterDebounceTime(ACTION_NAME, 0, () -> {
-            String barrierStatePath = keyBuilder.getBarrierStatePath(barrierVersion);
-            State barrierState = State.valueOf(zkUtils.getZkClient().readData(barrierStatePath));
-            if (Objects.equals(barrierState, State.NEW)) {
-              LOG.info(String.format("Expected participants has joined the barrier version: %s. Marking the barrier state: %s as %s.", barrierVersion, barrierStatePath, State.DONE));
-              zkUtils.writeData(barrierStatePath, State.DONE.toString()); // this will trigger notifications
-            } else {
-              LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", barrierVersion, barrierState, State.DONE));
-            }
-            LOG.info("Unsubscribing child changes on the path: {} for barrier version: {}.", barrierParticipantPath, barrierVersion);
-            zkUtils.unsubscribeChildChanges(barrierParticipantPath, this);
-          });
+          String barrierStatePath = keyBuilder.getBarrierStatePath(barrierVersion);
+          State barrierState = State.valueOf(zkUtils.getZkClient().readData(barrierStatePath));
+          if (Objects.equals(barrierState, State.NEW)) {
+            LOG.info(String.format("Expected participants has joined the barrier version: %s. Marking the barrier state: %s as %s.", barrierVersion, barrierStatePath, State.DONE));
+            zkUtils.writeData(barrierStatePath, State.DONE.toString()); // this will trigger notifications
+          } else {
+            LOG.debug(String.format("Barrier version: %s is at: %s state. Not marking barrier as %s.", barrierVersion, barrierState, State.DONE));
+          }
+          LOG.info("Unsubscribing child changes on the path: {} for barrier version: {}.", barrierParticipantPath, barrierVersion);
+          zkUtils.unsubscribeChildChanges(barrierParticipantPath, this);
+        });
       }
     }
   }

@@ -72,10 +72,10 @@ public class TestDiagnosticsManager {
     mockExecutorService = Mockito.mock(ScheduledExecutorService.class);
     Mockito.when(mockExecutorService.scheduleWithFixedDelay(Mockito.any(), Mockito.anyLong(), Mockito.anyLong(),
         Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
-            ((Runnable) invocation.getArguments()[0]).run();
-            return Mockito.
-                mock(ScheduledFuture.class);
-          });
+          ((Runnable) invocation.getArguments()[0]).run();
+          return Mockito
+              .mock(ScheduledFuture.class);
+        });
 
     this.diagnosticsManager =
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores, maxHeapSize, containerThreadPoolSize,
@@ -83,7 +83,7 @@ public class TestDiagnosticsManager {
             mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, autosizingEnabled);
 
     exceptionEventList.forEach(
-        diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
+      diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
 
     this.diagnosticsManager.addProcessorStopEvent("0", executionEnvContainerId, hostname, 101);
   }

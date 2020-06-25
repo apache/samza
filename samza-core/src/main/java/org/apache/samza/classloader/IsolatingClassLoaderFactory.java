@@ -244,7 +244,7 @@ public class IsolatingClassLoaderFactory {
     apiParentRelationshipBuilder.addDelegatePreferredClassPredicate(new BootstrapClassPredicate());
     // the classes which are Samza framework API classes are added here
     getFrameworkApiClassGlobs(apiLibDirectory).forEach(
-        apiClassName -> apiParentRelationshipBuilder.addDelegatePreferredClassPredicate(new GlobMatcher(apiClassName)));
+      apiClassName -> apiParentRelationshipBuilder.addDelegatePreferredClassPredicate(new GlobMatcher(apiClassName)));
     return apiParentRelationshipBuilder.build();
   }
 

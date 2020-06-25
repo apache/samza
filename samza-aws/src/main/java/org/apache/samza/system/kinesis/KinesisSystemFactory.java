@@ -76,11 +76,11 @@ public class KinesisSystemFactory implements SystemFactory {
     // Kinesis streams cannot be configured as bootstrap streams
     KinesisConfig kConfig = new KinesisConfig(config);
     kConfig.getKinesisStreams(system).forEach(stream -> {
-        StreamConfig streamConfig = new StreamConfig(kConfig);
-        SystemStream ss = new SystemStream(system, stream);
-        if (streamConfig.getBootstrapEnabled(ss)) {
-          throw new ConfigException("Kinesis streams cannot be configured as bootstrap streams.");
-        }
-      });
+      StreamConfig streamConfig = new StreamConfig(kConfig);
+      SystemStream ss = new SystemStream(system, stream);
+      if (streamConfig.getBootstrapEnabled(ss)) {
+        throw new ConfigException("Kinesis streams cannot be configured as bootstrap streams.");
+      }
+    });
   }
 }

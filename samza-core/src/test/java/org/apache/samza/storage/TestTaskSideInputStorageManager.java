@@ -178,9 +178,9 @@ public class TestTaskSideInputStorageManager {
 
     Map<SystemStreamPartition, String> fileOffsets = testSideInputStorageManager.getFileOffsets();
     ssps.forEach(ssp -> {
-        assertTrue("Failed to get offset for ssp: " + ssp.toString() + " from file.", fileOffsets.containsKey(ssp));
-        assertEquals("Mismatch between last processed offset and file offset.", fileOffsets.get(ssp), offset);
-      });
+      assertTrue("Failed to get offset for ssp: " + ssp.toString() + " from file.", fileOffsets.containsKey(ssp));
+      assertEquals("Mismatch between last processed offset and file offset.", fileOffsets.get(ssp), offset);
+    });
   }
 
   private void initializeSideInputStorageManager(TaskSideInputStorageManager testSideInputStorageManager) {

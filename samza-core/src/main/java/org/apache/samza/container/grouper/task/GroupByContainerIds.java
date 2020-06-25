@@ -172,11 +172,11 @@ public class GroupByContainerIds implements TaskNameGrouper {
 
     // Generate the {@see LocationId} to processors mapping and processorId to {@see TaskGroup} mapping.
     processorLocality.forEach((processorId, locationId) -> {
-        List<String> processorIds = locationIdToProcessors.getOrDefault(locationId, new ArrayList<>());
-        processorIds.add(processorId);
-        locationIdToProcessors.put(locationId, processorIds);
-        processorIdToTaskGroup.put(processorId, new TaskGroup(processorId, new ArrayList<>()));
-      });
+      List<String> processorIds = locationIdToProcessors.getOrDefault(locationId, new ArrayList<>());
+      processorIds.add(processorId);
+      locationIdToProcessors.put(locationId, processorIds);
+      processorIdToTaskGroup.put(processorId, new TaskGroup(processorId, new ArrayList<>()));
+    });
 
     int numTasksPerProcessor = taskModels.size() / processorLocality.size();
     Set<TaskName> assignedTasks = new HashSet<>();

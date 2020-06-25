@@ -375,10 +375,10 @@ public class TestContainerAllocatorWithHostAffinity {
         new ContainerManager(containerPlacementMetadataStore, state, mockClusterResourceManager, true, false);
     // Mock the callback from ClusterManager to add resources to the allocator
     doAnswer((InvocationOnMock invocation) -> {
-        SamzaResource resource = (SamzaResource) invocation.getArgumentAt(0, List.class).get(0);
-        spyAllocator.addResource(resource);
-        return null;
-      }).when(mockCPM).onResourcesAvailable(anyList());
+      SamzaResource resource = (SamzaResource) invocation.getArgumentAt(0, List.class).get(0);
+      spyAllocator.addResource(resource);
+      return null;
+    }).when(mockCPM).onResourcesAvailable(anyList());
 
     spyAllocator = Mockito.spy(
         new ContainerAllocator(mockClusterResourceManager, config, state, true, containerManager));
