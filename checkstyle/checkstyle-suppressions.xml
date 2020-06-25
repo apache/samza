@@ -25,10 +25,17 @@
   <suppress checks="ConstantName"
             files="ApplicationStatus.java"
             lines="26-29"/>
-  <!-- don't require FQDNs to be used in API javadocs -->
+  <!--
+    API javadocs (including descriptors) may reference classes (using '{@link <className>}') which
+    aren't directly used in the API class. In order to help the API javadoc look cleaner, we can use
+    the simple class name in the javadoc and then import that class. However, for non-API code, we
+    want checkstyle prevent an import just for documentation purposes. The
+    "preventJavadocUnusedImports" id includes processing of javadocs when checking unused imports.
+    We will apply that to the API classes only.
+  -->
   <suppress id="preventJavadocUnusedImports"
             files=".*samza-api.*"/>
-  <!-- don't require FQDNs to be used in descriptor javadocs -->
-  <suppress files="samza-kafka/src/main/java/org/apache/samza/system/kafka/descriptors" id="preventJavadocUnusedImports" />
+  <suppress id="preventJavadocUnusedImports"
+            files="samza-kafka/src/main/java/org/apache/samza/system/kafka/descriptors" />
 </suppressions>
 
