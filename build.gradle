@@ -532,7 +532,7 @@ project(":samza-yarn_$scalaSuffix") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "6.11.2"
+    toolVersion = "$checkstyleVersion"
   }
 
   repositories {
@@ -782,7 +782,7 @@ project(":samza-rest_$scalaSuffix") {
 
   checkstyle {
     configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "6.11.2"
+    toolVersion = "$checkstyleVersion"
   }
 
   tasks.create(name: "releaseRestServiceTar", type: Tar) {
