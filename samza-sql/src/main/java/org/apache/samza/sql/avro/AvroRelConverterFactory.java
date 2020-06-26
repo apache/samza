@@ -20,7 +20,6 @@
 package org.apache.samza.sql.avro;
 
 import java.util.HashMap;
-import java.util.Properties;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
@@ -39,6 +38,6 @@ public class AvroRelConverterFactory implements SamzaRelConverterFactory {
   @Override
   public SamzaRelConverter create(SystemStream systemStream, RelSchemaProvider schemaProvider, Config config) {
     return relConverters.computeIfAbsent(systemStream,
-        ss -> new AvroRelConverter(ss, (AvroRelSchemaProvider) schemaProvider, config));
+      ss -> new AvroRelConverter(ss, (AvroRelSchemaProvider) schemaProvider, config));
   }
 }

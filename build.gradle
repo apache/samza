@@ -293,6 +293,7 @@ project(":samza-elasticsearch_$scalaSuffix") {
 
 project(":samza-sql_$scalaSuffix") {
   apply plugin: 'java'
+  apply plugin: 'checkstyle'
 
   // Disabling assertions while running test because of a calcite bug in {@link RelOptUtil#eq} method
   // it checks for the type1 != type2 rather than !type1.equals(type2)
@@ -320,10 +321,16 @@ project(":samza-sql_$scalaSuffix") {
 
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
+  }
 }
 
 project(":samza-sql-shell_$scalaSuffix") {
   apply plugin: 'java'
+  apply plugin: 'checkstyle'
 
   jar {
     manifest {
@@ -342,6 +349,11 @@ project(":samza-sql-shell_$scalaSuffix") {
     compile "org.jline:jline:$jlineVersion"
 
     testCompile "junit:junit:$junitVersion"
+  }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 
   tasks.create(name: "releaseSqlShellTarGz", dependsOn: configurations.archives.artifacts, type: Tar) {

@@ -73,7 +73,7 @@ public class GetSqlFieldUdf implements ScalarUdf {
 
   public Object getSqlField(Object currentFieldOrValue, String fieldName) {
     if (currentFieldOrValue != null) {
-      String[] fieldNameChain = (fieldName).split("\\.");
+      String[] fieldNameChain = fieldName.split("\\.");
       for (int i = 0; i < fieldNameChain.length && currentFieldOrValue != null; i++) {
         currentFieldOrValue = extractField(fieldNameChain[i], currentFieldOrValue, true);
       }

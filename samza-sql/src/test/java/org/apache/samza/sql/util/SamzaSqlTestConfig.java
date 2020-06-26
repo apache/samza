@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.util;
 
-import com.google.common.base.Joiner;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.JobConfig;
@@ -35,10 +34,6 @@ import org.apache.samza.sql.avro.schemas.PageView;
 import org.apache.samza.sql.avro.schemas.PageViewCount;
 import org.apache.samza.sql.avro.schemas.Profile;
 import org.apache.samza.sql.avro.schemas.SimpleRecord;
-import org.apache.samza.sql.fn.BuildOutputRecordUdf;
-import org.apache.samza.sql.fn.FlattenUdf;
-import org.apache.samza.sql.fn.GetNestedFieldUdf;
-import org.apache.samza.sql.fn.RegexMatchUdf;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;

@@ -31,7 +31,9 @@ public interface CommandType {
   /**
    * @return list of names of all commands in this enumeration
    */
-  static List<String> getAllCommands() { return new ArrayList<>(); }
+  static List<String> getAllCommands() {
+    return new ArrayList<>();
+  }
 
   /**
    * returns the name of the command

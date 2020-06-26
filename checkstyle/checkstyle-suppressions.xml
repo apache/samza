@@ -37,5 +37,8 @@
             files=".*samza-api.*"/>
   <suppress id="preventJavadocUnusedImports"
             files="samza-kafka/src/main/java/org/apache/samza/system/kafka/descriptors" />
+
+  <!-- suppress avro schema classes since they are based on auto-generated code -->
+  <suppress files="samza-sql/src/test/java/org/apache/samza/sql/avro/schemas" checks=".*" />
 </suppressions>
 

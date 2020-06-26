@@ -40,7 +40,9 @@ class TranslatorOutputMetricsMapFunction implements MapFunction<SamzaSqlRelMessa
 
   private final String logicalOpId;
 
-  TranslatorOutputMetricsMapFunction(String logicalOpId) { this.logicalOpId = logicalOpId; }
+  TranslatorOutputMetricsMapFunction(String logicalOpId) {
+    this.logicalOpId = logicalOpId;
+  }
 
   /**
    * initializes the TranslatorOutputMetricsMapFunction before any message is processed
