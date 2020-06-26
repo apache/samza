@@ -197,7 +197,7 @@ public class AvroRelConverter implements SamzaRelConverter {
         return ((Map<String, ?>) relObj).entrySet()
             .stream()
             .collect(Collectors.toMap(Map.Entry::getKey,
-                e -> convertToAvroObject(e.getValue(), getNonNullUnionSchema(schema).getValueType())));
+              e -> convertToAvroObject(e.getValue(), getNonNullUnionSchema(schema).getValueType())));
       case UNION:
         for (Schema unionSchema : schema.getTypes()) {
           if (isSchemaCompatibleWithRelObj(relObj, unionSchema)) {
@@ -246,7 +246,7 @@ public class AvroRelConverter implements SamzaRelConverter {
         retVal.putAll(((Map<String, ?>) avroObj).entrySet()
             .stream()
             .collect(Collectors.toMap(Map.Entry::getKey,
-                e -> convertToJavaObject(e.getValue(), getNonNullUnionSchema(schema).getValueType()))));
+              e -> convertToJavaObject(e.getValue(), getNonNullUnionSchema(schema).getValueType()))));
         return retVal;
       }
       case UNION:
@@ -321,7 +321,7 @@ public class AvroRelConverter implements SamzaRelConverter {
       if (types.size() == 2) {
         if (types.get(0).getType() == Schema.Type.NULL) {
           return types.get(1);
-        } else if ((types.get(1).getType() == Schema.Type.NULL)) {
+        } else if (types.get(1).getType() == Schema.Type.NULL) {
           return types.get(0);
         }
       }

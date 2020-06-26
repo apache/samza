@@ -27,5 +27,7 @@
             lines="26-29"/>
   <suppress id="preventJavadocUnusedImports"
             files=".*samza-api.*"/>
+  <!-- suppress avro schema classes since they are based on auto-generated code -->
+  <suppress files="samza-sql/src/test/java/org/apache/samza/sql/avro/schemas" checks=".*" />
 </suppressions>
 

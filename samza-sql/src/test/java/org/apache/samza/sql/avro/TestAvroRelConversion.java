@@ -71,7 +71,7 @@ public class TestAvroRelConversion {
 
   private static final Logger LOG = LoggerFactory.getLogger(TestAvroRelConversion.class);
   private static final byte[] DEFAULT_TRACKING_ID_BYTES =
-      {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
+    {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
 
   private final AvroRelConverter simpleRecordAvroRelConverter;
   private final AvroRelConverter complexRecordAvroRelConverter;
@@ -89,11 +89,11 @@ public class TestAvroRelConversion {
   private MyFixed fixedBytes = new MyFixed();
   private long longValue = 200L;
 
-  private HashMap<String, String> mapValue = new HashMap<String, String>() {{
-    put("key1", "val1");
-    put("key2", "val2");
-    put("key3", "val3");
-  }};
+  private HashMap<String, String> mapValue = new HashMap<String, String>() { {
+      put("key1", "val1");
+      put("key2", "val2");
+      put("key3", "val3");
+    } };
   private List<String> arrayValue = Arrays.asList("val1", "val2", "val3");
   RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
 

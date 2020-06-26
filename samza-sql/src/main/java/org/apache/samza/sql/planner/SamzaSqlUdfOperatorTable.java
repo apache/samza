@@ -46,7 +46,7 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
     List<UdfMetadata> udfMetadataList = new ArrayList<>();
     scalarFunctions.forEach(samzaSqlScalarFunction -> {
       udfMetadataList.add(samzaSqlScalarFunction.getUdfMetadata());
-      });
+    });
     return scalarFunctions.stream().map(scalarFunction -> getSqlOperator(scalarFunction, udfMetadataList)).collect(Collectors.toList());
   }
 
@@ -54,19 +54,13 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
     int numArguments = scalarFunction.numberOfArguments();
     UdfMetadata udfMetadata = scalarFunction.getUdfMetadata();
 
-    if(udfMetadata.isDisableArgCheck()) {
+    if (udfMetadata.isDisableArgCheck()) {
       return new SqlUserDefinedFunction(new SqlIdentifier(scalarFunction.getUdfName(), SqlParserPos.ZERO),
-          o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.ANY_CHECKER,
-          null, scalarFunction);
+        o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.ANY_CHECKER, null, scalarFunction);
     } else {
-      return new SqlUserDefinedFunction(
-              new SqlIdentifier(scalarFunction.getUdfName(),
-                                SqlParserPos.ZERO),
-          o -> scalarFunction.getReturnType(o.getTypeFactory()),
-          null,
-          Checker.getChecker(numArguments, numArguments, udfMetadata),
-          null,
-              scalarFunction);
+      return new SqlUserDefinedFunction(new SqlIdentifier(scalarFunction.getUdfName(), SqlParserPos.ZERO),
+        o -> scalarFunction.getReturnType(o.getTypeFactory()), null,
+        Checker.getChecker(numArguments, numArguments, udfMetadata), null, scalarFunction);
     }
   }
 

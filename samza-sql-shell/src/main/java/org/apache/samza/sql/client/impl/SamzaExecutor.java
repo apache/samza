@@ -19,7 +19,6 @@
 
 package org.apache.samza.sql.client.impl;
 
-import com.google.common.base.Joiner;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -38,8 +37,6 @@ import org.apache.samza.sql.client.util.Pair;
 import org.apache.samza.sql.client.util.RandomAccessQueue;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverter;
 import org.apache.samza.sql.dsl.SamzaSqlDslConverterFactory;
-import org.apache.samza.sql.fn.FlattenUdf;
-import org.apache.samza.sql.fn.RegexMatchUdf;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.RelSchemaProviderFactory;
@@ -119,7 +116,7 @@ public class SamzaExecutor implements SqlExecutor {
   @Override
   public List<String> listTables(ExecutionContext context) throws ExecutorException {
     String address = environmentVariableHandler.getEnvironmentVariable(SAMZA_SQL_SYSTEM_KAFKA_ADDRESS);
-    if(address == null || address.isEmpty()) {
+    if (address == null || address.isEmpty()) {
       address = DEFAULT_SERVER_ADDRESS;
     }
     try {
@@ -147,9 +144,9 @@ public class SamzaExecutor implements SqlExecutor {
       SqlIOResolver ioResolver = SamzaSqlApplicationConfig.createIOResolver(samzaSqlConfig);
       SqlIOConfig sourceInfo = ioResolver.fetchSourceInfo(tableName);
       RelSchemaProvider schemaProvider =
-              SamzaSqlApplicationConfig.initializePlugin("RelSchemaProvider", sourceInfo.getRelSchemaProviderName(),
-                      samzaSqlConfig, SamzaSqlApplicationConfig.CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
-                      (o, c) -> ((RelSchemaProviderFactory) o).create(sourceInfo.getSystemStream(), c));
+        SamzaSqlApplicationConfig.initializePlugin("RelSchemaProvider", sourceInfo.getRelSchemaProviderName(),
+          samzaSqlConfig, SamzaSqlApplicationConfig.CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
+          (o, c) -> ((RelSchemaProviderFactory) o).create(sourceInfo.getSystemStream(), c));
       sqlSchema =  schemaProvider.getSqlSchema();
     } catch (SamzaException ex) {
       throw new ExecutorException(ex);
@@ -158,7 +155,7 @@ public class SamzaExecutor implements SqlExecutor {
   }
 
   @Override
-  public QueryResult executeQuery(ExecutionContext context, String statement) throws ExecutorException{
+  public QueryResult executeQuery(ExecutionContext context, String statement) throws ExecutorException {
     outputData.clear();
 
     int execId = execIdSeq.incrementAndGet();
@@ -206,7 +203,7 @@ public class SamzaExecutor implements SqlExecutor {
   }
 
   @Override
-  public NonQueryResult executeNonQuery(ExecutionContext context, File sqlFile) throws ExecutorException{
+  public NonQueryResult executeNonQuery(ExecutionContext context, File sqlFile) throws ExecutorException {
     LOG.info("Sql file path: " + sqlFile.getPath());
     List<String> executedStmts;
     try {
@@ -246,7 +243,7 @@ public class SamzaExecutor implements SqlExecutor {
   }
 
   @Override
-  public void stopExecution(ExecutionContext context, int exeId) throws ExecutorException{
+  public void stopExecution(ExecutionContext context, int exeId) throws ExecutorException {
     SamzaSqlApplicationRunner runner = executions.get(exeId);
     if (runner != null) {
       LOG.debug("Stopping execution ", exeId);
@@ -376,7 +373,7 @@ public class SamzaExecutor implements SqlExecutor {
         "/tmp/schemas/");
 
     List<Pair<String, String>> allEnvironmentVariables = environmentVariableHandler.getAllEnvironmentVariables();
-    for(Pair<String, String> p : allEnvironmentVariables) {
+    for (Pair<String, String> p : allEnvironmentVariables) {
       staticConfigs.put(p.getL(), p.getR());
     }
 
@@ -448,7 +445,7 @@ public class SamzaExecutor implements SqlExecutor {
       case UnsuccessfulFinish:
         return ExecutionStatus.UnsuccessfulFinish;
     }
-    throw new ExecutorException("Unsupported status code: "+ code);
+    throw new ExecutorException("Unsupported status code: " + code);
   }
 
   private String getPrettyFormat(OutgoingMessageEnvelope envelope) {
