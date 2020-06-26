@@ -173,6 +173,7 @@ public class QueryPlanner {
     } catch (Exception e) {
       String errorMsg = "Failed to create planner.";
       LOG.error(errorMsg, e);
+      planner.close();
       throw new SamzaException(errorMsg, e);
     }
   }
@@ -189,6 +190,7 @@ public class QueryPlanner {
       String errorMsg =
           "Error while optimizing query plan:\n" + RelOptUtil.toString(relRoot.rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES);
       LOG.error(errorMsg, e);
+      planner.close();
       throw new SamzaException(errorMsg, e);
     }
   }

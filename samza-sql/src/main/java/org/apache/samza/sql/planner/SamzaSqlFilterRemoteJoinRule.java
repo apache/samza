@@ -56,7 +56,7 @@ public abstract class SamzaSqlFilterRemoteJoinRule extends RelOptRule {
   //~ Constructors -----------------------------------------------------------
 
   /**
-   * Creates a FilterJoinRule with an explicit root operand and
+   * Creates a SamzaSqlFilterRemoteJoinRule with an explicit root operand and
    * factories.
    */
   protected SamzaSqlFilterRemoteJoinRule(RelOptRuleOperand operand, String id,
