@@ -84,8 +84,6 @@ public class QueryPlanner {
   // Mapping between the source to the SqlIOConfig corresponding to the source.
   private final Map<String, SqlIOConfig> systemStreamConfigBySource;
 
-  private Planner planner;
-
   private final boolean isQueryPlanOptimizerEnabled;
 
   public QueryPlanner(Map<String, RelSchemaProvider> relSchemaProviders,
@@ -94,7 +92,6 @@ public class QueryPlanner {
     this.relSchemaProviders = relSchemaProviders;
     this.systemStreamConfigBySource = systemStreamConfigBySource;
     this.udfMetadata = udfMetadata;
-    this.planner = null;
     this.isQueryPlanOptimizerEnabled = isQueryPlanOptimizerEnabled;
   }
 
@@ -125,10 +122,7 @@ public class QueryPlanner {
   }
 
   private Planner getPlanner() {
-    if (planner != null) {
-      return planner;
-    }
-
+    Planner planner = null;
     try {
       Connection connection = DriverManager.getConnection("jdbc:calcite:");
       CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
@@ -173,16 +167,18 @@ public class QueryPlanner {
     } catch (Exception e) {
       String errorMsg = "Failed to create planner.";
       LOG.error(errorMsg, e);
-      planner.close();
+      if (planner != null) {
+        planner.close();
+      }
       throw new SamzaException(errorMsg, e);
     }
   }
 
-  private RelRoot optimize(RelRoot relRoot) {
+  private RelRoot optimize(Planner planner, RelRoot relRoot) {
     RelTraitSet relTraitSet = RelTraitSet.createEmpty();
     try {
       RelRoot optimizedRelRoot =
-          RelRoot.of(getPlanner().transform(0, relTraitSet, relRoot.project()), SqlKind.SELECT);
+          RelRoot.of(planner.transform(0, relTraitSet, relRoot.project()), SqlKind.SELECT);
       LOG.info("query plan with optimization:\n"
           + RelOptUtil.toString(optimizedRelRoot.rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
       return optimizedRelRoot;
@@ -196,8 +192,9 @@ public class QueryPlanner {
   }
 
   public RelRoot plan(String query) {
+    Planner planner = null;
     try {
-      Planner planner = getPlanner();
+      planner = getPlanner();
       SqlNode sql = planner.parse(query);
       SqlNode validatedSql = planner.validate(sql);
       RelRoot relRoot = planner.rel(validatedSql);
@@ -206,10 +203,13 @@ public class QueryPlanner {
       if (!isQueryPlanOptimizerEnabled) {
         return relRoot;
       }
-      return optimize(relRoot);
+      return optimize(planner, relRoot);
     } catch (Exception e) {
       String errorMsg = SamzaSqlValidator.formatErrorString(query, e);
       LOG.error(errorMsg, e);
+      if (planner != null) {
+        planner.close();
+      }
       throw new SamzaException(errorMsg, e);
     }
   }
