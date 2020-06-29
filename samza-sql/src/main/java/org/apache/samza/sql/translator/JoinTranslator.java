@@ -97,7 +97,7 @@ class JoinTranslator {
     validateJoinQuery(join, inputTypeOnLeft, inputTypeOnRight);
 
     // At this point, one of the sides is a table. Let's figure out if it is on left or right side.
-    boolean isTablePosOnRight = (inputTypeOnRight != JoinInputNode.InputType.STREAM);
+    boolean isTablePosOnRight = inputTypeOnRight != JoinInputNode.InputType.STREAM;
 
     // stream and table keyIds are used to extract the join condition field (key) names and values out of the stream
     // and table records.
@@ -180,8 +180,8 @@ class JoinTranslator {
       throw new SamzaException("Query with only INNER and LEFT/RIGHT OUTER join are supported.");
     }
 
-    boolean isTablePosOnLeft = (inputTypeOnLeft != JoinInputNode.InputType.STREAM);
-    boolean isTablePosOnRight = (inputTypeOnRight != JoinInputNode.InputType.STREAM);
+    boolean isTablePosOnLeft = inputTypeOnLeft != JoinInputNode.InputType.STREAM;
+    boolean isTablePosOnRight = inputTypeOnRight != JoinInputNode.InputType.STREAM;
 
     if (!isTablePosOnLeft && !isTablePosOnRight) {
       throw new SamzaException("Invalid query with both sides of join being denoted as 'stream'. "
@@ -391,9 +391,13 @@ class JoinTranslator {
   }
 
   @VisibleForTesting
-  public TranslatorInputMetricsMapFunction getInputMetricsMF() { return this.inputMetricsMF; }
+  public TranslatorInputMetricsMapFunction getInputMetricsMF() {
+    return this.inputMetricsMF;
+  }
 
   @VisibleForTesting
-  public TranslatorOutputMetricsMapFunction getOutputMetricsMF() { return this.outputMetricsMF; }
+  public TranslatorOutputMetricsMapFunction getOutputMetricsMF() {
+    return this.outputMetricsMF;
+  }
 
 }

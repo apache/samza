@@ -196,7 +196,7 @@ public class TestKafkaCheckpointManagerJava {
 
     // mock out a consumer that returns ten checkpoint IMEs for the same ssp
     List<List<IncomingMessageEnvelope>> pollOutputs = new ArrayList<>();
-    for(int offset = oldestOffset; offset <= newestOffset; offset++) {
+    for (int offset = oldestOffset; offset <= newestOffset; offset++) {
       pollOutputs.add(ImmutableList.of(newCheckpointEnvelope(TASK1, ssp, Integer.toString(offset))));
     }
 

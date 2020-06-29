@@ -145,22 +145,22 @@ public class SamzaSqlApplicationConfig {
 
     relSchemaProvidersBySource = systemStreamConfigs.stream()
         .collect(Collectors.toMap(SqlIOConfig::getSource,
-            x -> initializePlugin("RelSchemaProvider", x.getRelSchemaProviderName(), staticConfig,
-                CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
-                (o, c) -> ((RelSchemaProviderFactory) o).create(x.getSystemStream(), c))));
+          x -> initializePlugin("RelSchemaProvider", x.getRelSchemaProviderName(), staticConfig,
+            CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
+            (o, c) -> ((RelSchemaProviderFactory) o).create(x.getSystemStream(), c))));
 
     samzaRelConvertersBySource = systemStreamConfigs.stream()
         .collect(Collectors.toMap(SqlIOConfig::getSource,
-            x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
-                CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
-                    relSchemaProvidersBySource.get(x.getSource()), c))));
+          x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
+            CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
+              relSchemaProvidersBySource.get(x.getSource()), c))));
 
     samzaRelTableKeyConvertersBySource = systemStreamConfigs.stream()
         .filter(SqlIOConfig::isRemoteTable)
         .collect(Collectors.toMap(SqlIOConfig::getSource,
-            x -> initializePlugin("SamzaRelTableKeyConverter", x.getSamzaRelTableKeyConverterName(),
-                staticConfig, CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN,
-                (o, c) -> ((SamzaRelTableKeyConverterFactory) o).create(x.getSystemStream(), c))));
+          x -> initializePlugin("SamzaRelTableKeyConverter", x.getSamzaRelTableKeyConverterName(),
+            staticConfig, CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN,
+            (o, c) -> ((SamzaRelTableKeyConverterFactory) o).create(x.getSystemStream(), c))));
 
     udfResolver = createUdfResolver(staticConfig);
     udfMetadata = udfResolver.getUdfs();
@@ -203,7 +203,7 @@ public class SamzaSqlApplicationConfig {
     Config newConfig = new MapConfig(Arrays.asList(config, metadataPrefixProperties));
     Validate.notEmpty(sourceResolveValue, "ioResolver config is not set or empty");
     return initializePlugin("SqlIOResolver", sourceResolveValue, newConfig, CFG_FMT_SOURCE_RESOLVER_DOMAIN,
-        (o, c) -> ((SqlIOResolverFactory) o).create(c, newConfig));
+      (o, c) -> ((SqlIOResolverFactory) o).create(c, newConfig));
   }
 
   private UdfResolver createUdfResolver(Map<String, String> config) {
@@ -282,7 +282,7 @@ public class SamzaSqlApplicationConfig {
         }
       }
     }
-     List<RelNode> relNodes = relNode.getInputs();
+    List<RelNode> relNodes = relNode.getInputs();
     if (relNodes == null || relNodes.isEmpty()) {
       return;
     }

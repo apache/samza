@@ -19,8 +19,6 @@
 
 package org.apache.samza.sql.client.interfaces;
 
-import java.util.Map;
-
 /**
  * Whenever the shell calls the executor to execute a SQL statement, an object of ExecutionContext is passed.
  */

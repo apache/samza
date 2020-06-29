@@ -152,7 +152,7 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
     if (types.size() == 2) {
       if (types.get(0).getType() == Schema.Type.NULL) {
         return convertField(types.get(1), true, true);
-      } else if ((types.get(1).getType() == Schema.Type.NULL)) {
+      } else if (types.get(1).getType() == Schema.Type.NULL) {
         return convertField(types.get(0), true, true);
       }
     } else if (types.size() > 2) {

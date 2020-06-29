@@ -1,5 +1,4 @@
 /*
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,9 +15,7 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- *
  */
-
 package org.apache.samza.system.kafka;
 
 import java.time.Instant;
@@ -124,12 +121,12 @@ public class KafkaConsumerProxy<K, V> {
 
     isRunning = false;
     try {
-      consumerPollThread.join(timeoutMs/2);
+      consumerPollThread.join(timeoutMs / 2);
       // join() may timeout
       // in this case we should interrupt it and wait again
       if (consumerPollThread.isAlive()) {
         consumerPollThread.interrupt();
-        consumerPollThread.join(timeoutMs/2);
+        consumerPollThread.join(timeoutMs / 2);
       }
     } catch (InterruptedException e) {
       LOG.warn("Join in KafkaConsumerProxy has failed", e);
@@ -452,12 +449,10 @@ public class KafkaConsumerProxy<K, V> {
     }
   }
 
-   @Override
+  @Override
   public String toString() {
     return String.format("consumerProxy-%s-%s", systemName, clientId);
   }
-
-
 
   /**
    * Used to create an instance of {@link KafkaConsumerProxy}. This can be overridden in case an extension of

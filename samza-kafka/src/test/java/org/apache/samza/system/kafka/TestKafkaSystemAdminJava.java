@@ -22,12 +22,10 @@ package org.apache.samza.system.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.kafka.clients.admin.DescribeConfigsResult;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -93,7 +91,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
     configResourceConfigMap.values().forEach(configEntry -> {
       configEntry.entries().forEach(config -> {
-          kafkaTopicConfig.put(config.name(), config.value());
+        kafkaTopicConfig.put(config.name(), config.value());
       });
     });
 
@@ -229,7 +227,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
   @Test
   public void testCreateCoordinatorStreamWithSpecialCharsInTopicName() {
-    final String STREAM = "test.coordinator_test.Stream";
+    final String stream = "test.coordinator_test.Stream";
 
     Map<String, String> map = new HashMap<>();
     map.put("job.coordinator.segment.bytes", "123");
@@ -239,14 +237,14 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
         String.valueOf(coordReplicatonFactor));
 
     KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(SYSTEM, map));
-    StreamSpec spec = StreamSpec.createCoordinatorStreamSpec(STREAM, SYSTEM);
+    StreamSpec spec = StreamSpec.createCoordinatorStreamSpec(stream, SYSTEM);
 
     Mockito.doAnswer(invocationOnMock -> {
       StreamSpec internalSpec = (StreamSpec) invocationOnMock.callRealMethod();
       assertTrue(internalSpec instanceof KafkaStreamSpec);  // KafkaStreamSpec is used to carry replication factor
       assertTrue(internalSpec.isCoordinatorStream());
       assertEquals(SYSTEM, internalSpec.getSystemName());
-      assertEquals(STREAM, internalSpec.getPhysicalName());
+      assertEquals(stream, internalSpec.getPhysicalName());
       assertEquals(1, internalSpec.getPartitionCount());
       Assert.assertEquals(coordReplicatonFactor, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
       Assert.assertEquals("123", ((KafkaStreamSpec) internalSpec).getProperties().getProperty("segment.bytes"));
@@ -272,16 +270,16 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   }
 
   public void testCreateChangelogStreamHelp(final String topic) {
-    final int PARTITIONS = 12;
-    final int REP_FACTOR = 2;
+    final int partitions = 12;
+    final int repFactor = 2;
 
     Map<String, String> map = new HashMap<>();
     map.put(JobConfig.JOB_DEFAULT_SYSTEM, SYSTEM);
     map.put(String.format("stores.%s.changelog", "fakeStore"), topic);
-    map.put(String.format("stores.%s.changelog.replication.factor", "fakeStore"), String.valueOf(REP_FACTOR));
+    map.put(String.format("stores.%s.changelog.replication.factor", "fakeStore"), String.valueOf(repFactor));
     map.put(String.format("stores.%s.changelog.kafka.segment.bytes", "fakeStore"), "139");
     KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(SYSTEM, map));
-    StreamSpec spec = StreamSpec.createChangeLogStreamSpec(topic, SYSTEM, PARTITIONS);
+    StreamSpec spec = StreamSpec.createChangeLogStreamSpec(topic, SYSTEM, partitions);
 
     Mockito.doAnswer(invocationOnMock -> {
       StreamSpec internalSpec = (StreamSpec) invocationOnMock.callRealMethod();
@@ -289,8 +287,8 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
       assertTrue(internalSpec.isChangeLogStream());
       assertEquals(SYSTEM, internalSpec.getSystemName());
       assertEquals(topic, internalSpec.getPhysicalName());
-      assertEquals(REP_FACTOR, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
-      assertEquals(PARTITIONS, internalSpec.getPartitionCount());
+      assertEquals(repFactor, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
+      assertEquals(partitions, internalSpec.getPartitionCount());
       assertEquals("139", ((KafkaStreamSpec) internalSpec).getProperties().getProperty("segment.bytes"));
       assertEquals("compact", ((KafkaStreamSpec) internalSpec).getProperties().getProperty("cleanup.policy"));
 
@@ -366,7 +364,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   }
 
   @Test
-  public void testShouldAssembleMetadata () {
+  public void testShouldAssembleMetadata() {
     Map<SystemStreamPartition, String> oldestOffsets = new ImmutableMap.Builder<SystemStreamPartition, String>()
         .put(new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)), "o1")
         .put(new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)), "o2")

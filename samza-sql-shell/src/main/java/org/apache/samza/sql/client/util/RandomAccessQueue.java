@@ -79,7 +79,7 @@ public class RandomAccessQueue<T> {
     List<T> rets = get(start, end);
     int upperBound = Math.min(end, size - 1);
     head = (end + 1) % capacity;
-    size -= (upperBound + 1);
+    size -= upperBound + 1;
     return rets;
   }
 

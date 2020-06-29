@@ -158,7 +158,7 @@ public class TestSamzaSqlLocalTableJoinFunction {
     List<String> expectedFieldNames = new ArrayList<>(streamFieldNames);
     expectedFieldNames.addAll(tableFieldNames);
     List<Object> expectedFieldValues = new ArrayList<>(streamFieldValues);
-    expectedFieldValues.addAll(tableFieldNames.stream().map( name -> null ).collect(Collectors.toList()));
+    expectedFieldValues.addAll(tableFieldNames.stream().map(name -> null).collect(Collectors.toList()));
     Assert.assertEquals(outMsg.getSamzaSqlRelRecord().getFieldValues(), expectedFieldValues);
   }
 }
