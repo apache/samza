@@ -23,7 +23,7 @@ import org.apache.samza.rest.proxy.job.JobProxyFactory;
 import org.apache.samza.rest.resources.JobsResourceConfig;
 
 
-public class MockJobProxyFactory implements JobProxyFactory{
+public class MockJobProxyFactory implements JobProxyFactory {
   @Override
   public JobProxy getJobProxy(JobsResourceConfig config) {
     return new MockJobProxy(config);

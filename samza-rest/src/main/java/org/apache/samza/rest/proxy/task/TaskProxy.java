@@ -22,8 +22,6 @@ import java.io.IOException;
 import java.util.List;
 import org.apache.samza.rest.model.Task;
 import org.apache.samza.rest.proxy.job.JobInstance;
-import org.apache.samza.rest.proxy.job.JobProxy;
-import org.apache.samza.rest.resources.JobsResourceConfig;
 
 
 /**

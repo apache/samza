@@ -21,7 +21,6 @@ package org.apache.samza.rest.resources;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.factories.PropertiesConfigFactory;
-import org.apache.samza.rest.proxy.installation.InstallationRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +40,8 @@ public class BaseResourceConfig extends MapConfig {
 
   /**
    * The path where all the Samza jobs are installed (unzipped). Each subdirectory of this path
-   * is expected to be a Samza job installation and corresponds to one {@link InstallationRecord}.
+   * is expected to be a Samza job installation and corresponds to one
+   * {@link org.apache.samza.rest.proxy.installation.InstallationRecord}.
    */
   public static final String CONFIG_JOB_INSTALLATIONS_PATH = "job.installations.path";
 

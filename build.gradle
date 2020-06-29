@@ -496,6 +496,7 @@ project(":samza-log4j2_$scalaSuffix") {
 project(":samza-yarn_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'lesscss'
+  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -545,6 +546,11 @@ project(":samza-yarn_$scalaSuffix") {
     testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile project(":samza-core_$scalaSuffix").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
+  }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 
   repositories {
@@ -764,6 +770,7 @@ project(":samza-hdfs_$scalaSuffix") {
 
 project(":samza-rest_$scalaSuffix") {
   apply plugin: 'java'
+  apply plugin: 'checkstyle'
 
   dependencies {
     compile project(":samza-shell")
@@ -789,6 +796,11 @@ project(":samza-rest_$scalaSuffix") {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.glassfish.jersey.test-framework.providers:jersey-test-framework-provider-grizzly2:$jerseyVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
+  }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 
   tasks.create(name: "releaseRestServiceTar", type: Tar) {

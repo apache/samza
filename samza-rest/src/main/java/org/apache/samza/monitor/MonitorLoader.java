@@ -28,15 +28,14 @@ import org.apache.samza.util.ReflectionUtil;
 public class MonitorLoader {
 
   public static Monitor instantiateMonitor(String monitorName, MonitorConfig monitorConfig,
-      MetricsRegistry metricsRegistry)
-      throws InstantiationException {
-      String factoryClass = monitorConfig.getMonitorFactoryClass();
-      try {
-        MonitorFactory monitorFactory = ReflectionUtil.getObj(factoryClass, MonitorFactory.class);
-        return monitorFactory.getMonitorInstance(monitorName, monitorConfig, metricsRegistry);
-      } catch (Exception e) {
-        throw (InstantiationException)
-            new InstantiationException("Unable to instantiate monitor with factory class " + factoryClass).initCause(e);
-      }
+      MetricsRegistry metricsRegistry) throws InstantiationException {
+    String factoryClass = monitorConfig.getMonitorFactoryClass();
+    try {
+      MonitorFactory monitorFactory = ReflectionUtil.getObj(factoryClass, MonitorFactory.class);
+      return monitorFactory.getMonitorInstance(monitorName, monitorConfig, metricsRegistry);
+    } catch (Exception e) {
+      throw (InstantiationException)
+          new InstantiationException("Unable to instantiate monitor with factory class " + factoryClass).initCause(e);
+    }
   }
 }

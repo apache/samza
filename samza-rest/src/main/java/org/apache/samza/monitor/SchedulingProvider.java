@@ -22,9 +22,9 @@ package org.apache.samza.monitor;
  * Provides scheduling functionality to the SamzaMonitorService.
  */
 public interface SchedulingProvider {
-    /* Schedule a the given Runnable to run() every INTERVAL ms. */
-    void schedule(Runnable runnable, int intervalMs);
+  /* Schedule a the given Runnable to run() every INTERVAL ms. */
+  void schedule(Runnable runnable, int intervalMs);
 
-    /* Stop any future executions of any scheduled tasks. */
-    void stop();
+  /* Stop any future executions of any scheduled tasks. */
+  void stop();
 }

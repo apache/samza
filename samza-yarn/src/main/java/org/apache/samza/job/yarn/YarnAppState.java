@@ -22,7 +22,6 @@ package org.apache.samza.job.yarn;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
-import org.apache.samza.job.yarn.YarnContainer;
 
 import java.net.URL;
 import java.util.Map;

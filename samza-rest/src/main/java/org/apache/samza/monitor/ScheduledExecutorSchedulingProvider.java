@@ -24,17 +24,17 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class ScheduledExecutorSchedulingProvider implements SchedulingProvider {
 
-    private final ScheduledExecutorService scheduler;
+  private final ScheduledExecutorService scheduler;
 
-    public ScheduledExecutorSchedulingProvider(ScheduledExecutorService scheduler) {
-        this.scheduler = scheduler;
-    }
+  public ScheduledExecutorSchedulingProvider(ScheduledExecutorService scheduler) {
+    this.scheduler = scheduler;
+  }
 
-    public void schedule(Runnable runnable, int interval) {
-        this.scheduler.scheduleAtFixedRate(runnable, 0, interval, MILLISECONDS);
-    }
+  public void schedule(Runnable runnable, int interval) {
+    this.scheduler.scheduleAtFixedRate(runnable, 0, interval, MILLISECONDS);
+  }
 
-    public void stop() {
-        this.scheduler.shutdownNow();
-    }
+  public void stop() {
+    this.scheduler.shutdownNow();
+  }
 }

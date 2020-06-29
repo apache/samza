@@ -85,13 +85,13 @@ public class TestHttpFileSystem {
 
           //Hang the connection until the read timeout expires on the client side.
           if (numBytesWritten >= THRESHOLD_BYTES) {
-            if(!serverWaitLatch.await(5, TimeUnit.SECONDS)) {
+            if (!serverWaitLatch.await(5, TimeUnit.SECONDS)) {
               throw new IOException("Timed out waiting for latch");
             }
             break;
           }
         }
-      } catch(Exception e) {
+      } catch (Exception e) {
         //Record any exception that may have occurred
         LOG.error("{}", e);
         serverException = e;
@@ -129,10 +129,10 @@ public class TestHttpFileSystem {
         while (in.read() >= 0) {
           totalBytesRead++;
         }
-      } catch(SocketTimeoutException e) {
+      } catch (SocketTimeoutException e) {
         //Expect the socket to timeout after THRESHOLD bytes have been read.
         serverWaitLatch.countDown();
-      } catch(Exception e) {
+      } catch (Exception e) {
         //Record any exception that may have occurred.
         LOG.error("{}", e);
         clientException = e;
