@@ -397,6 +397,7 @@ project(":samza-tools_$scalaSuffix") {
 
 project(":samza-kafka_$scalaSuffix") {
   apply plugin: 'scala'
+  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -432,6 +433,11 @@ project(":samza-kafka_$scalaSuffix") {
 
     // Logging in tests is good.
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
+  }
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
   }
 
   test {

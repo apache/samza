@@ -22,19 +22,19 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Properties;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.util.TestStreamUtil;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
 /**
- * See also the general StreamSpec tests in {@link TestStreamUtil}
+ * See also the general StreamSpec tests in {@link org.apache.samza.util.TestStreamUtil}
  */
 public class TestKafkaStreamSpec {
 
   @Test
   public void testUnsupportedConfigStrippedFromProperties() {
-    StreamSpec original = new StreamSpec("dummyId","dummyPhysicalName", "dummySystemName", ImmutableMap.of("segment.bytes", "4", "replication.factor", "7"));
+    StreamSpec original = new StreamSpec("dummyId", "dummyPhysicalName", "dummySystemName",
+        ImmutableMap.of("segment.bytes", "4", "replication.factor", "7"));
 
     // First verify the original
     assertEquals("7", original.get("replication.factor"));
@@ -61,6 +61,6 @@ public class TestKafkaStreamSpec {
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidPartitionCount() {
-    new KafkaStreamSpec("dummyId","dummyPhysicalName", "dummySystemName", 0);
+    new KafkaStreamSpec("dummyId", "dummyPhysicalName", "dummySystemName", 0);
   }
 }

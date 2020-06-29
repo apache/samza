@@ -213,49 +213,49 @@ public class KafkaSystemAdmin implements SystemAdmin {
   public Map<String, SystemStreamMetadata> getSystemStreamPartitionCounts(Set<String> streamNames, long cacheTTL) {
     // This optimization omits actual metadata for performance. Instead, we inject a dummy for all partitions.
     final SystemStreamMetadata.SystemStreamPartitionMetadata dummySspm =
-        new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null) {
-          String msg =
-              "getSystemStreamPartitionCounts does not populate SystemStreaMetadata info. Only number of partitions";
+      new SystemStreamMetadata.SystemStreamPartitionMetadata(null, null, null) {
+        String msg =
+            "getSystemStreamPartitionCounts does not populate SystemStreaMetadata info. Only number of partitions";
 
-          @Override
-          public String getOldestOffset() {
-            throw new NotImplementedException(msg);
-          }
+        @Override
+        public String getOldestOffset() {
+          throw new NotImplementedException(msg);
+        }
 
-          @Override
-          public String getNewestOffset() {
-            throw new NotImplementedException(msg);
-          }
+        @Override
+        public String getNewestOffset() {
+          throw new NotImplementedException(msg);
+        }
 
-          @Override
-          public String getUpcomingOffset() {
-            throw new NotImplementedException(msg);
-          }
-        };
+        @Override
+        public String getUpcomingOffset() {
+          throw new NotImplementedException(msg);
+        }
+      };
 
     ExponentialSleepStrategy strategy = new ExponentialSleepStrategy(DEFAULT_EXPONENTIAL_SLEEP_BACK_OFF_MULTIPLIER,
         DEFAULT_EXPONENTIAL_SLEEP_INITIAL_DELAY_MS, DEFAULT_EXPONENTIAL_SLEEP_MAX_DELAY_MS);
 
     Function1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>> fetchMetadataOperation =
-        new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>>() {
-          @Override
-          public Map<String, SystemStreamMetadata> apply(ExponentialSleepStrategy.RetryLoop loop) {
-            Map<String, SystemStreamMetadata> allMetadata = new HashMap<>();
+      new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>>() {
+        @Override
+        public Map<String, SystemStreamMetadata> apply(ExponentialSleepStrategy.RetryLoop loop) {
+          Map<String, SystemStreamMetadata> allMetadata = new HashMap<>();
 
-            streamNames.forEach(streamName -> {
-              Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
+          streamNames.forEach(streamName -> {
+            Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = new HashMap<>();
 
-              List<PartitionInfo> partitionInfos = threadSafeKafkaConsumer.execute(consumer -> consumer.partitionsFor(streamName));
-              LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
-              partitionInfos.forEach(
-                  partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
-              allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
-            });
+            List<PartitionInfo> partitionInfos = threadSafeKafkaConsumer.execute(consumer -> consumer.partitionsFor(streamName));
+            LOG.debug("Stream {} has partitions {}", streamName, partitionInfos);
+            partitionInfos.forEach(
+              partitionInfo -> partitionMetadata.put(new Partition(partitionInfo.partition()), dummySspm));
+            allMetadata.put(streamName, new SystemStreamMetadata(streamName, partitionMetadata));
+          });
 
-            loop.done();
-            return allMetadata;
-          }
-        };
+          loop.done();
+          return allMetadata;
+        }
+      };
 
     Map<String, SystemStreamMetadata> result = strategy.run(fetchMetadataOperation,
         new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
@@ -323,51 +323,51 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
     Function1<ExponentialSleepStrategy.RetryLoop, Map<SystemStreamPartition,
         SystemStreamMetadata.SystemStreamPartitionMetadata>> fetchTopicPartitionMetadataOperation =
-        new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<SystemStreamPartition,
-            SystemStreamMetadata.SystemStreamPartitionMetadata>>() {
+      new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<SystemStreamPartition,
+          SystemStreamMetadata.SystemStreamPartitionMetadata>>() {
 
-          @Override
-          public Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> apply(
-              ExponentialSleepStrategy.RetryLoop loop) {
-            OffsetsMaps topicPartitionsMetadata = fetchTopicPartitionsMetadata(topicPartitions);
+        @Override
+        public Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> apply(
+            ExponentialSleepStrategy.RetryLoop loop) {
+          OffsetsMaps topicPartitionsMetadata = fetchTopicPartitionsMetadata(topicPartitions);
 
-            Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspToSSPMetadata = new HashMap<>();
-            for (SystemStreamPartition ssp : ssps) {
-              String oldestOffset = topicPartitionsMetadata.getOldestOffsets().get(ssp);
-              String newestOffset = topicPartitionsMetadata.getNewestOffsets().get(ssp);
-              String upcomingOffset = topicPartitionsMetadata.getUpcomingOffsets().get(ssp);
+          Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> sspToSSPMetadata = new HashMap<>();
+          for (SystemStreamPartition ssp : ssps) {
+            String oldestOffset = topicPartitionsMetadata.getOldestOffsets().get(ssp);
+            String newestOffset = topicPartitionsMetadata.getNewestOffsets().get(ssp);
+            String upcomingOffset = topicPartitionsMetadata.getUpcomingOffsets().get(ssp);
 
-              sspToSSPMetadata.put(ssp,
-                  new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset));
-            }
-            loop.done();
-            return sspToSSPMetadata;
+            sspToSSPMetadata.put(ssp,
+                new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset));
           }
-        };
+          loop.done();
+          return sspToSSPMetadata;
+        }
+      };
 
     Function2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit> onExceptionRetryOperation =
-        new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
-          @Override
-          public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
-            if (loop.sleepCount() < MAX_RETRIES_ON_EXCEPTION) {
-              LOG.warn(
-                  String.format("Fetching SSP metadata for: %s threw an exception. Retrying.", ssps), exception);
-            } else {
-              LOG.error(String.format("Fetching SSP metadata for: %s threw an exception.", ssps), exception);
-              loop.done();
-              throw new SamzaException(exception);
-            }
-            return null;
+      new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
+        @Override
+        public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
+          if (loop.sleepCount() < MAX_RETRIES_ON_EXCEPTION) {
+            LOG.warn(
+                String.format("Fetching SSP metadata for: %s threw an exception. Retrying.", ssps), exception);
+          } else {
+            LOG.error(String.format("Fetching SSP metadata for: %s threw an exception.", ssps), exception);
+            loop.done();
+            throw new SamzaException(exception);
           }
-        };
+          return null;
+        }
+      };
 
     Function0<Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata>> fallbackOperation =
-        new AbstractFunction0<Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata>>() {
-          @Override
-          public Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> apply() {
-            throw new SamzaException("Failed to get SSP metadata");
-          }
-        };
+      new AbstractFunction0<Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata>>() {
+        @Override
+        public Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> apply() {
+          throw new SamzaException("Failed to get SSP metadata");
+        }
+      };
 
     return retryBackoff.run(fetchTopicPartitionMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
   }
@@ -389,41 +389,41 @@ public class KafkaSystemAdmin implements SystemAdmin {
     LOG.info("Fetching system stream metadata for {} from system {}", streamNames, systemName);
 
     Function1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>> fetchMetadataOperation =
-        new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>>() {
-          @Override
-          public Map<String, SystemStreamMetadata> apply(ExponentialSleepStrategy.RetryLoop loop) {
-            Map<String, SystemStreamMetadata> metadata = fetchSystemStreamMetadata(streamNames);
-            loop.done();
-            return metadata;
-          }
-        };
+      new AbstractFunction1<ExponentialSleepStrategy.RetryLoop, Map<String, SystemStreamMetadata>>() {
+        @Override
+        public Map<String, SystemStreamMetadata> apply(ExponentialSleepStrategy.RetryLoop loop) {
+          Map<String, SystemStreamMetadata> metadata = fetchSystemStreamMetadata(streamNames);
+          loop.done();
+          return metadata;
+        }
+      };
 
     Function2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit> onExceptionRetryOperation =
-        new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
-          @Override
-          public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
-            if (loop.sleepCount() < MAX_RETRIES_ON_EXCEPTION) {
-              LOG.warn(
-                  String.format("Fetching system stream metadata for: %s threw an exception. Retrying.", streamNames),
-                  exception);
-            } else {
-              LOG.error(String.format("Fetching system stream metadata for: %s threw an exception.", streamNames),
-                  exception);
-              loop.done();
-              throw new SamzaException(exception);
-            }
-
-            return null;
+      new AbstractFunction2<Exception, ExponentialSleepStrategy.RetryLoop, BoxedUnit>() {
+        @Override
+        public BoxedUnit apply(Exception exception, ExponentialSleepStrategy.RetryLoop loop) {
+          if (loop.sleepCount() < MAX_RETRIES_ON_EXCEPTION) {
+            LOG.warn(
+                String.format("Fetching system stream metadata for: %s threw an exception. Retrying.", streamNames),
+                exception);
+          } else {
+            LOG.error(String.format("Fetching system stream metadata for: %s threw an exception.", streamNames),
+                exception);
+            loop.done();
+            throw new SamzaException(exception);
           }
-        };
+
+          return null;
+        }
+      };
 
     Function0<Map<String, SystemStreamMetadata>> fallbackOperation =
-        new AbstractFunction0<Map<String, SystemStreamMetadata>>() {
-          @Override
-          public Map<String, SystemStreamMetadata> apply() {
-            throw new SamzaException("Failed to get system stream metadata");
-          }
-        };
+      new AbstractFunction0<Map<String, SystemStreamMetadata>>() {
+        @Override
+        public Map<String, SystemStreamMetadata> apply() {
+          throw new SamzaException("Failed to get system stream metadata");
+        }
+      };
 
     return retryBackoff.run(fetchMetadataOperation, onExceptionRetryOperation).getOrElse(fallbackOperation);
   }
@@ -486,16 +486,16 @@ public class KafkaSystemAdmin implements SystemAdmin {
 
     topics.forEach(topic -> {
       OffsetsMaps offsetsForTopic = threadSafeKafkaConsumer.execute(consumer -> {
-         List<PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
-         if (partitionInfos == null) {
-           String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
-           throw new SamzaException(msg);
-         }
-         List<TopicPartition> topicPartitions = partitionInfos.stream()
-          .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
-          .collect(Collectors.toList());
-         return fetchTopicPartitionsMetadata(topicPartitions);
-       });
+        List<PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
+        if (partitionInfos == null) {
+          String msg = String.format("Partition info not(yet?) available for system %s topic %s", systemName, topic);
+          throw new SamzaException(msg);
+        }
+        List<TopicPartition> topicPartitions = partitionInfos.stream()
+            .map(partitionInfo -> new TopicPartition(partitionInfo.topic(), partitionInfo.partition()))
+            .collect(Collectors.toList());
+        return fetchTopicPartitionsMetadata(topicPartitions);
+      });
       allOldestOffsets.putAll(offsetsForTopic.getOldestOffsets());
       allNewestOffsets.putAll(offsetsForTopic.getNewestOffsets());
       allUpcomingOffsets.putAll(offsetsForTopic.getUpcomingOffsets());
@@ -516,7 +516,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
   @Override
   public boolean createStream(StreamSpec streamSpec) {
     LOG.info("Creating Kafka topic: {} on system: {}", streamSpec.getPhysicalName(), streamSpec.getSystemName());
-    final String REPL_FACTOR = "replication.factor";
+    final String replFactor = "replication.factor";
 
     KafkaStreamSpec kafkaStreamSpec = toKafkaSpec(streamSpec);
     String topicName = kafkaStreamSpec.getPhysicalName();
@@ -527,11 +527,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
     // specify the configs
     Map<String, String> streamConfig = new HashMap<>(kafkaStreamSpec.getConfig());
     // HACK - replication.factor is invalid config for AdminClient.createTopics
-    if (streamConfig.containsKey(REPL_FACTOR)) {
-      String repl = streamConfig.get(REPL_FACTOR);
+    if (streamConfig.containsKey(replFactor)) {
+      String repl = streamConfig.get(replFactor);
       LOG.warn("Configuration {}={} for topic={} is invalid. Using kSpec repl factor {}",
-          REPL_FACTOR, repl, kafkaStreamSpec.getPhysicalName(), kafkaStreamSpec.getReplicationFactor());
-      streamConfig.remove(REPL_FACTOR);
+          replFactor, repl, kafkaStreamSpec.getPhysicalName(), kafkaStreamSpec.getReplicationFactor());
+      streamConfig.remove(replFactor);
     }
     newTopic.configs(new MapConfig(streamConfig));
     CreateTopicsResult result = adminClient.createTopics(ImmutableSet.of(newTopic));
@@ -653,8 +653,8 @@ public class KafkaSystemAdmin implements SystemAdmin {
       Map<TopicPartition, RecordsToDelete> recordsToDelete = offsets.entrySet()
           .stream()
           .collect(Collectors.toMap(entry ->
-              new TopicPartition(entry.getKey().getStream(), entry.getKey().getPartition().getPartitionId()),
-              entry -> RecordsToDelete.beforeOffset(Long.parseLong(entry.getValue()) + 1)));
+            new TopicPartition(entry.getKey().getStream(), entry.getKey().getPartition().getPartitionId()),
+            entry -> RecordsToDelete.beforeOffset(Long.parseLong(entry.getValue()) + 1)));
 
       adminClient.deleteRecords(recordsToDelete).all().whenComplete((ignored, exception) -> {
         if (exception != null) {
