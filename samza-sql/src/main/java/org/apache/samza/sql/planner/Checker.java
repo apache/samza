@@ -159,8 +159,9 @@ class Checker implements SqlOperandTypeChecker {
   static SqlTypeName toCalciteSqlType(SamzaSqlFieldType samzaSqlFieldType) {
     switch (samzaSqlFieldType) {
       case ANY:
-      case ROW:
         return SqlTypeName.ANY;
+      case ROW:
+        return SqlTypeName.ROW;
       case MAP:
         return SqlTypeName.MAP;
       case ARRAY:
