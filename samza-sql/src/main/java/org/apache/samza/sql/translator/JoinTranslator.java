@@ -114,7 +114,7 @@ class JoinTranslator {
     final int tableStartIdx = isTablePosOnRight ? leftSideSize : 0;
     final int streamStartIdx = isTablePosOnRight ? 0 : leftSideSize;
     final int tableEndIdx = isTablePosOnRight ? join.getRowType().getFieldCount() : leftSideSize;
-    join.getCondition().accept(new RexShuttle(){
+    join.getCondition().accept(new RexShuttle() {
       @Override
       public RexNode visitInputRef(RexInputRef inputRef) {
         validateJoinKeyType(inputRef); // Validate the type of the input ref.
@@ -233,7 +233,7 @@ class JoinTranslator {
           + " It is expected that the joins should include JOIN ON operator in the sql query.");
     }
     //TODO Not sure why we can not allow literal as part of the join condition will revisit this in another scope
-    conjunctionList.forEach(rexNode -> rexNode.accept(new RexShuttle(){
+    conjunctionList.forEach(rexNode -> rexNode.accept(new RexShuttle() {
       @Override
       public RexNode visitLiteral(RexLiteral literal) {
         throw new SamzaException(
@@ -254,7 +254,7 @@ class JoinTranslator {
 
     // First let's collect the ref of columns used by the join condition.
     List<RexInputRef> refCollector = new ArrayList<>();
-    join.getCondition().accept(new RexShuttle(){
+    join.getCondition().accept(new RexShuttle() {
       @Override
       public RexNode visitInputRef(RexInputRef inputRef) {
         refCollector.add(inputRef);
@@ -299,7 +299,7 @@ class JoinTranslator {
    * @param relNode current Rel Node
    * @return false if any Relational Expression is encountered on the path, true if is simple ref to __key__ column.
    */
-  private static boolean isValidRemoteJoinRef(int inputRexIndex, RelNode relNode){
+  private static boolean isValidRemoteJoinRef(int inputRexIndex, RelNode relNode) {
     if (relNode instanceof TableScan) {
       return relNode.getRowType().getFieldList().get(inputRexIndex).getName().equals(SamzaSqlRelMessage.KEY_NAME);
     }
@@ -323,10 +323,8 @@ class JoinTranslator {
    * @param rexPredicate Rex Condition
    * @param conjunctionList result container to pull result form recursion stack.
    */
-  public static void decomposeAndValidateConjunction(
-      RexNode rexPredicate,
-      List<RexNode> conjunctionList) {
-    if (rexPredicate == null || rexPredicate.isAlwaysTrue() ) {
+  public static void decomposeAndValidateConjunction(RexNode rexPredicate, List<RexNode> conjunctionList) {
+    if (rexPredicate == null || rexPredicate.isAlwaysTrue()) {
       return;
     }
 
