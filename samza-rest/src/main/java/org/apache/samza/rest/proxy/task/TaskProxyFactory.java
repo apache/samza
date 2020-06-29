@@ -31,7 +31,7 @@ package org.apache.samza.rest.proxy.task;
 public interface TaskProxyFactory {
 
   /**
-   * @param config the config to pass to the proxy.
+   * @param config the {@link TaskResourceConfig} to pass to the proxy.
    * @return the created proxy.
    */
   TaskProxy getTaskProxy(TaskResourceConfig config);
