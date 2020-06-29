@@ -192,14 +192,12 @@ public class QueryPlanner {
   }
 
   public RelRoot plan(String query) {
-    Planner planner = null;
-    try {
-      planner = getPlanner();
+    try (Planner planner = getPlanner()) {
       SqlNode sql = planner.parse(query);
       SqlNode validatedSql = planner.validate(sql);
       RelRoot relRoot = planner.rel(validatedSql);
-      LOG.info("query plan without optimization:\n"
-          + RelOptUtil.toString(relRoot.rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
+      LOG.info(
+          "query plan without optimization:\n" + RelOptUtil.toString(relRoot.rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
       if (!isQueryPlanOptimizerEnabled) {
         return relRoot;
       }
@@ -207,9 +205,6 @@ public class QueryPlanner {
     } catch (Exception e) {
       String errorMsg = SamzaSqlValidator.formatErrorString(query, e);
       LOG.error(errorMsg, e);
-      if (planner != null) {
-        planner.close();
-      }
       throw new SamzaException(errorMsg, e);
     }
   }
