@@ -37,7 +37,7 @@ import static org.mockito.Mockito.when;
 
 public class DefaultIndexRequestFactoryTest {
 
-  private static final IndexRequestFactory indexRequestFactory = new DefaultIndexRequestFactory();
+  private static final IndexRequestFactory INDEX_REQUEST_FACTORY = new DefaultIndexRequestFactory();
   private static final String TYPE = "type";
   private static final String INDEX = "index";
   private static final SystemStream SYSTEM = mock(SystemStream.class);
@@ -50,23 +50,23 @@ public class DefaultIndexRequestFactoryTest {
 
   @Test
   public void testGetIndexRequestStreamName()  {
-    IndexRequest indexRequest = indexRequestFactory.
+    IndexRequest indexRequest = INDEX_REQUEST_FACTORY.
         getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, EMPTY_MSG));
 
     assertEquals(INDEX, indexRequest.index());
     assertEquals(TYPE, indexRequest.type());
   }
 
-  @Test(expected=SamzaException.class)
+  @Test(expected = SamzaException.class)
   public void testGetIndexRequestInvalidStreamName()  {
     when(SYSTEM.getStream()).thenReturn(INDEX);
-    indexRequestFactory.getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, EMPTY_MSG));
+    INDEX_REQUEST_FACTORY.getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, EMPTY_MSG));
   }
 
   @Test
   public void testGetIndexRequestNoId() throws Exception {
     IndexRequest indexRequest =
-        indexRequestFactory.getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, EMPTY_MSG));
+        INDEX_REQUEST_FACTORY.getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, EMPTY_MSG));
 
     assertNull(indexRequest.id());
   }
@@ -74,14 +74,14 @@ public class DefaultIndexRequestFactoryTest {
   @Test
   public void testGetIndexRequestWithId() throws Exception {
     IndexRequest indexRequest =
-        indexRequestFactory.getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, "id", EMPTY_MSG));
+        INDEX_REQUEST_FACTORY.getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, "id", EMPTY_MSG));
 
     assertEquals("id", indexRequest.id());
   }
 
   @Test
   public void testGetIndexRequestNoPartitionKey() throws Exception {
-    IndexRequest indexRequest = indexRequestFactory.getIndexRequest(
+    IndexRequest indexRequest = INDEX_REQUEST_FACTORY.getIndexRequest(
         new OutgoingMessageEnvelope(SYSTEM, EMPTY_MSG));
 
     assertNull(indexRequest.routing());
@@ -89,7 +89,7 @@ public class DefaultIndexRequestFactoryTest {
 
   @Test
   public void testGetIndexRequestWithPartitionKey() throws Exception {
-    IndexRequest indexRequest = indexRequestFactory.getIndexRequest(
+    IndexRequest indexRequest = INDEX_REQUEST_FACTORY.getIndexRequest(
         new OutgoingMessageEnvelope(SYSTEM, "shardKey", "id", EMPTY_MSG));
 
     assertEquals("shardKey", indexRequest.routing());
@@ -97,7 +97,7 @@ public class DefaultIndexRequestFactoryTest {
 
   @Test
   public void testGetIndexRequestMessageBytes() throws Exception {
-    IndexRequest indexRequest = indexRequestFactory.getIndexRequest(
+    IndexRequest indexRequest = INDEX_REQUEST_FACTORY.getIndexRequest(
         new OutgoingMessageEnvelope(SYSTEM, "{\"foo\":\"bar\"}".getBytes(Charsets.UTF_8)));
 
     assertEquals(Collections.singletonMap("foo", "bar"), indexRequest.sourceAsMap());
@@ -105,14 +105,14 @@ public class DefaultIndexRequestFactoryTest {
 
   @Test
   public void testGetIndexRequestMessageMap() throws Exception {
-    IndexRequest indexRequest = indexRequestFactory.getIndexRequest(
+    IndexRequest indexRequest = INDEX_REQUEST_FACTORY.getIndexRequest(
         new OutgoingMessageEnvelope(SYSTEM, Collections.singletonMap("foo", "bar")));
 
     assertEquals(Collections.singletonMap("foo", "bar"), indexRequest.sourceAsMap());
   }
 
-  @Test(expected=SamzaException.class)
+  @Test(expected = SamzaException.class)
   public void testGetIndexRequestInvalidMessage() throws Exception {
-    indexRequestFactory.getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, "{'foo':'bar'}"));
+    INDEX_REQUEST_FACTORY.getIndexRequest(new OutgoingMessageEnvelope(SYSTEM, "{'foo':'bar'}"));
   }
 }

@@ -40,5 +40,6 @@
 
   <!-- suppress avro schema classes since they are based on auto-generated code -->
   <suppress files="samza-sql/src/test/java/org/apache/samza/sql/avro/schemas" checks=".*" />
+  <suppress files="samza-tools/src/main/java/org/apache/samza/tools/schemas" checks=".*" />
 </suppressions>
 

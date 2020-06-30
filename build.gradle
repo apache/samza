@@ -119,6 +119,12 @@ subprojects {
   apply plugin: 'eclipse'
   apply plugin: 'project-report'
   apply plugin: 'jacoco'
+  apply plugin: 'checkstyle'
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
+  }
 
   tasks.withType(ScalaCompile) {
     // show compile errors in console output
@@ -139,7 +145,6 @@ subprojects {
 }
 
 project(':samza-api') {
-  apply plugin: 'checkstyle'
   apply plugin: 'java'
 
   dependencies {
@@ -152,15 +157,10 @@ project(':samza-api') {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-core_$scalaSuffix") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -207,11 +207,6 @@ project(":samza-core_$scalaSuffix") {
     testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:$log4j2Version"
   }
 
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
-
   test {
     // some unit tests use embedded zookeeper, so adding some extra memory for those
     maxHeapSize = "1560m"
@@ -221,7 +216,6 @@ project(":samza-core_$scalaSuffix") {
 
 project(":samza-azure_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile "com.azure:azure-storage-blob:12.0.1"
@@ -239,15 +233,10 @@ project(":samza-azure_$scalaSuffix") {
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
   }
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-aws_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile "com.amazonaws:aws-java-sdk-kinesis:1.11.152"
@@ -269,11 +258,6 @@ project(":samza-aws_$scalaSuffix") {
       url "https://repo1.maven.org/maven2/"
     }
   }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-elasticsearch_$scalaSuffix") {
@@ -293,7 +277,6 @@ project(":samza-elasticsearch_$scalaSuffix") {
 
 project(":samza-sql_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   // Disabling assertions while running test because of a calcite bug in {@link RelOptUtil#eq} method
   // it checks for the type1 != type2 rather than !type1.equals(type2)
@@ -321,16 +304,10 @@ project(":samza-sql_$scalaSuffix") {
 
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-sql-shell_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   jar {
     manifest {
@@ -349,11 +326,6 @@ project(":samza-sql-shell_$scalaSuffix") {
     compile "org.jline:jline:$jlineVersion"
 
     testCompile "junit:junit:$junitVersion"
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
   }
 
   tasks.create(name: "releaseSqlShellTarGz", dependsOn: configurations.archives.artifacts, type: Tar) {
@@ -397,7 +369,6 @@ project(":samza-tools_$scalaSuffix") {
 
 project(":samza-kafka_$scalaSuffix") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -435,11 +406,6 @@ project(":samza-kafka_$scalaSuffix") {
     testRuntime "org.slf4j:slf4j-simple:$slf4jVersion"
   }
 
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
-
   test {
     // Bump up the heap so we can start ZooKeeper and Kafka brokers.
     minHeapSize = "1560m"
@@ -455,7 +421,6 @@ project(":samza-kafka_$scalaSuffix") {
 
 project(":samza-log4j_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile "log4j:log4j:$log4jVersion"
@@ -465,16 +430,10 @@ project(":samza-log4j_$scalaSuffix") {
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-log4j2_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile "org.apache.logging.log4j:log4j-1.2-api:$log4j2Version"
@@ -486,17 +445,11 @@ project(":samza-log4j2_$scalaSuffix") {
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-yarn_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'lesscss'
-  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -546,11 +499,6 @@ project(":samza-yarn_$scalaSuffix") {
     testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile project(":samza-core_$scalaSuffix").sourceSets.test.output
     testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
   }
 
   repositories {
@@ -638,7 +586,6 @@ project(":samza-shell") {
 
 project(":samza-kv_$scalaSuffix") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -657,11 +604,6 @@ project(":samza-kv_$scalaSuffix") {
     testCompile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -770,7 +712,6 @@ project(":samza-hdfs_$scalaSuffix") {
 
 project(":samza-rest_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile project(":samza-shell")
@@ -796,11 +737,6 @@ project(":samza-rest_$scalaSuffix") {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.glassfish.jersey.test-framework.providers:jersey-test-framework-provider-grizzly2:$jerseyVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
   }
 
   tasks.create(name: "releaseRestServiceTar", type: Tar) {
@@ -834,7 +770,6 @@ project(":samza-rest_$scalaSuffix") {
 
 project(":samza-test_$scalaSuffix") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -893,11 +828,6 @@ project(":samza-test_$scalaSuffix") {
     minHeapSize = "1560m"
     maxHeapSize = "1560m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
   }
 
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {

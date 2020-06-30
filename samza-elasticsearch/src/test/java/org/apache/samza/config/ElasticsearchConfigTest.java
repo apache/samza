@@ -32,7 +32,7 @@ import static org.junit.Assert.assertTrue;
 
 public class ElasticsearchConfigTest {
 
-  private ElasticsearchConfig EMPTY_CONFIG = new ElasticsearchConfig(
+  private static final ElasticsearchConfig EMPTY_CONFIG = new ElasticsearchConfig(
       "es",
       new MapConfig(Collections.<String, String>emptyMap()));
 

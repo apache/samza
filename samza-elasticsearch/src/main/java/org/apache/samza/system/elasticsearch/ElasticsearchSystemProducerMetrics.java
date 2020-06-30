@@ -23,17 +23,17 @@ import org.apache.samza.metrics.MetricsBase;
 import org.apache.samza.metrics.MetricsRegistry;
 
 public class ElasticsearchSystemProducerMetrics extends MetricsBase {
-    public final Counter bulkSendSuccess;
-    public final Counter inserts;
-    public final Counter updates;
-    public final Counter conflicts;
+  public final Counter bulkSendSuccess;
+  public final Counter inserts;
+  public final Counter updates;
+  public final Counter conflicts;
 
-    public ElasticsearchSystemProducerMetrics(String systemName, MetricsRegistry registry) {
-        super(systemName + "-", registry);
+  public ElasticsearchSystemProducerMetrics(String systemName, MetricsRegistry registry) {
+    super(systemName + "-", registry);
 
-        bulkSendSuccess = newCounter("bulk-send-success");
-        inserts = newCounter("docs-inserted");
-        updates = newCounter("docs-updated");
-        conflicts = newCounter("version-conflicts");
-    }
+    bulkSendSuccess = newCounter("bulk-send-success");
+    inserts = newCounter("docs-inserted");
+    updates = newCounter("docs-updated");
+    conflicts = newCounter("version-conflicts");
+  }
 }

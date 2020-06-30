@@ -81,7 +81,7 @@ public abstract class AbstractSamzaBench {
   protected int totalEvents;
   protected String streamId;
 
-  public AbstractSamzaBench(String scriptName, String args[]) throws ParseException {
+  public AbstractSamzaBench(String scriptName, String[] args) throws ParseException {
     options = new Options();
     options.addOption(
         CommandLineHelper.createOption(OPT_SHORT_PROPERTIES_FILE, OPT_LONG_PROPERTIES_FILE, OPT_ARG_PROPERTIES_FILE,
@@ -143,8 +143,8 @@ public abstract class AbstractSamzaBench {
   }
 
   Config convertToSamzaConfig(Properties props) {
-      Map<String, String> propsValue =
-          props.stringPropertyNames().stream().collect(Collectors.toMap(Function.identity(), props::getProperty));
-      return new MapConfig(propsValue);
-    }
+    Map<String, String> propsValue =
+        props.stringPropertyNames().stream().collect(Collectors.toMap(Function.identity(), props::getProperty));
+    return new MapConfig(propsValue);
+  }
 }
