@@ -45,7 +45,6 @@ public class ElasticsearchSystemAdmin implements SystemAdmin {
   @Override
   public Map<SystemStreamPartition, String> getOffsetsAfter(
       Map<SystemStreamPartition, String> map) {
-    int j = 0;
     throw new UnsupportedOperationException();
   }
 
