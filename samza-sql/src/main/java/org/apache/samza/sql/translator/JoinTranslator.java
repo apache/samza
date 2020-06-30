@@ -20,10 +20,12 @@
 package org.apache.samza.sql.translator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.JoinRelType;
@@ -33,7 +35,9 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
@@ -55,8 +59,8 @@ import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames;
 import static org.apache.samza.sql.data.SamzaSqlRelMessage.createSamzaSqlCompositeKey;
+import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames;
 
 
 /**
@@ -105,8 +109,26 @@ class JoinTranslator {
     List<Integer> tableKeyIds = new LinkedList<>();
 
     // Fetch the stream and table indices corresponding to the fields given in the join condition.
-    populateStreamAndTableKeyIds(((RexCall) join.getCondition()).getOperands(), join, isTablePosOnRight, streamKeyIds,
-        tableKeyIds);
+
+    final int leftSideSize = join.getLeft().getRowType().getFieldCount();
+    final int tableStartIdx = isTablePosOnRight ? leftSideSize : 0;
+    final int streamStartIdx = isTablePosOnRight ? 0 : leftSideSize;
+    final int tableEndIdx = isTablePosOnRight ? join.getRowType().getFieldCount() : leftSideSize;
+    join.getCondition().accept(new RexShuttle() {
+      @Override
+      public RexNode visitInputRef(RexInputRef inputRef) {
+        validateJoinKeyType(inputRef); // Validate the type of the input ref.
+        int index = inputRef.getIndex();
+        if (index >= tableStartIdx && index < tableEndIdx) {
+          tableKeyIds.add(index - tableStartIdx);
+        } else {
+          streamKeyIds.add(index - streamStartIdx);
+        }
+        return inputRef;
+      }
+    });
+    Collections.sort(tableKeyIds);
+    Collections.sort(streamKeyIds);
 
     // Get the two input nodes (stream and table nodes) for the join.
     JoinInputNode streamNode = new JoinInputNode(isTablePosOnRight ? join.getLeft() : join.getRight(), streamKeyIds,
@@ -193,88 +215,131 @@ class JoinTranslator {
           dumpRelPlanForNode(join));
     }
 
-    if (joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnLeft && !isTablePosOnRight) {
+    if (joinRelType.compareTo(JoinRelType.LEFT) == 0 && isTablePosOnLeft) {
       throw new SamzaException("Invalid query for outer left join. Left side of the join should be a 'stream' and "
           + "right side of join should be a 'table'. " + dumpRelPlanForNode(join));
     }
 
-    if (joinRelType.compareTo(JoinRelType.RIGHT) == 0 && isTablePosOnRight && !isTablePosOnLeft) {
+    if (joinRelType.compareTo(JoinRelType.RIGHT) == 0 && isTablePosOnRight) {
       throw new SamzaException("Invalid query for outer right join. Left side of the join should be a 'table' and "
           + "right side of join should be a 'stream'. " + dumpRelPlanForNode(join));
     }
 
-    validateJoinCondition(join.getCondition());
-  }
+    final List<RexNode> conjunctionList = new ArrayList<>();
+    decomposeAndValidateConjunction(join.getCondition(), conjunctionList);
 
-  private void validateJoinCondition(RexNode operand) {
-    if (!(operand instanceof RexCall)) {
-      throw new SamzaException("SQL Query is not supported. Join condition operand " + operand +
-          " is of type " + operand.getClass());
-    }
-
-    RexCall condition = (RexCall) operand;
-
-    if (condition.isAlwaysTrue()) {
+    if (conjunctionList.isEmpty()) {
       throw new SamzaException("Query results in a cross join, which is not supported. Please optimize the query."
           + " It is expected that the joins should include JOIN ON operator in the sql query.");
     }
+    //TODO Not sure why we can not allow literal as part of the join condition will revisit this in another scope
+    conjunctionList.forEach(rexNode -> rexNode.accept(new RexShuttle() {
+      @Override
+      public RexNode visitLiteral(RexLiteral literal) {
+        throw new SamzaException(
+            "Join Condition can not allow literal " + literal.toString() + " join node" + join.getDigest());
+      }
+    }));
+    final JoinInputNode.InputType rootTableInput = isTablePosOnRight ? inputTypeOnRight : inputTypeOnLeft;
+    if (rootTableInput.compareTo(JoinInputNode.InputType.REMOTE_TABLE) != 0) {
+      // it is not a remote table all is good we do not have to validate the project on key Column
+      return;
+    }
 
-    if (condition.getKind() != SqlKind.EQUALS && condition.getKind() != SqlKind.AND) {
+    /*
+    For remote Table we need to validate The join Condition and The project that is above remote table scan.
+     - As of today Filter need to be exactly one equi-join using the __key__ column (see SAMZA-2554)
+     - The Project on the top of the remote table has to contain only simple input references to any of the column used in the join.
+    */
+
+    // First let's collect the ref of columns used by the join condition.
+    List<RexInputRef> refCollector = new ArrayList<>();
+    join.getCondition().accept(new RexShuttle() {
+      @Override
+      public RexNode visitInputRef(RexInputRef inputRef) {
+        refCollector.add(inputRef);
+        return inputRef;
+      }
+    });
+    // start index of the Remote table within the Join Row
+    final int tableStartIndex = isTablePosOnRight ? join.getLeft().getRowType().getFieldCount() : 0;
+    // end index of the Remote table withing the Join Row
+    final int tableEndIndex =
+        isTablePosOnRight ? join.getRowType().getFieldCount() : join.getLeft().getRowType().getFieldCount();
+
+    List<Integer> tableRefsIdx = refCollector.stream()
+        .map(x -> x.getIndex())
+        .filter(x -> tableStartIndex <= x && x < tableEndIndex) // collect all the refs form table side
+        .map(x -> x - tableStartIndex) // re-adjust the offset
+        .sorted()
+        .collect(Collectors.toList()); // we have a list with all the input from table side with 0 based index.
+
+    // Validate the Condition must contain a ref to remote table primary key column.
+
+    if (conjunctionList.size() != 1 || tableRefsIdx.size() != 1) {
+      //TODO We can relax this by allowing another filter to be evaluated post lookup see SAMZA-2554
+      throw new SamzaException(
+          "Invalid query for join condition must contain exactly one predicate for remote table on __key__ column "
+              + dumpRelPlanForNode(join));
+    }
+
+    // Validate the Project, follow each input and ensure that it is a simple ref with no rexCall in the way.
+    if (!isValidRemoteJoinRef(tableRefsIdx.get(0), isTablePosOnRight ? join.getRight() : join.getLeft())) {
+      throw new SamzaException("Invalid query for join condition can not have an expression and must be reference "
+          + SamzaSqlRelMessage.KEY_NAME + " column " + dumpRelPlanForNode(join));
+    }
+  }
+
+  /**
+   * Helper method to check if the join condition can be evaluated by the remote table.
+   * It does follow single path  using the index ref path checking if it is a simple reference all the way to table scan.
+   * In case any RexCall is encountered will stop an return null as a marker otherwise will return Column Name.
+   *
+   * @param inputRexIndex rex ref index
+   * @param relNode current Rel Node
+   * @return false if any Relational Expression is encountered on the path, true if is simple ref to __key__ column.
+   */
+  private static boolean isValidRemoteJoinRef(int inputRexIndex, RelNode relNode) {
+    if (relNode instanceof TableScan) {
+      return relNode.getRowType().getFieldList().get(inputRexIndex).getName().equals(SamzaSqlRelMessage.KEY_NAME);
+    }
+    // has to be a single rel kind filter/project/table scan
+    Preconditions.checkState(relNode.getInputs().size() == 1,
+        "Has to be single input RelNode and got " + relNode.getDigest());
+    if (relNode instanceof LogicalFilter) {
+      return isValidRemoteJoinRef(inputRexIndex, relNode.getInput(0));
+    }
+    RexNode inputRef = ((LogicalProject) relNode).getProjects().get(inputRexIndex);
+    if (inputRef instanceof RexCall) {
+      return false; // we can not push any expression as of now stop and return null.
+    }
+    return isValidRemoteJoinRef(((RexInputRef) inputRef).getIndex(), relNode.getInput(0));
+  }
+
+
+
+  /**
+   * Traverse the tree of expression and validate. Only allowed predicate is conjunction of exp1 = exp2
+   * @param rexPredicate Rex Condition
+   * @param conjunctionList result container to pull result form recursion stack.
+   */
+  public static void decomposeAndValidateConjunction(RexNode rexPredicate, List<RexNode> conjunctionList) {
+    if (rexPredicate == null || rexPredicate.isAlwaysTrue()) {
+      return;
+    }
+
+    if (rexPredicate.isA(SqlKind.AND)) {
+      for (RexNode operand : ((RexCall) rexPredicate).getOperands()) {
+        decomposeAndValidateConjunction(operand, conjunctionList);
+      }
+    } else if (rexPredicate.isA(SqlKind.EQUALS)) {
+      conjunctionList.add(rexPredicate);
+    } else {
       throw new SamzaException("Only equi-joins and AND operator is supported in join condition.");
     }
   }
 
-  // Fetch the stream and table key indices corresponding to the fields given in the join condition by parsing through
-  // the condition. Stream and table key indices are populated in streamKeyIds and tableKeyIds respectively.
-  private void populateStreamAndTableKeyIds(List<RexNode> operands, final LogicalJoin join, boolean isTablePosOnRight,
-      List<Integer> streamKeyIds, List<Integer> tableKeyIds) {
-
-    // All non-leaf operands in the join condition should be expressions.
-    if (operands.get(0) instanceof RexCall) {
-      operands.forEach(operand -> {
-        validateJoinCondition(operand);
-        populateStreamAndTableKeyIds(((RexCall) operand).getOperands(), join, isTablePosOnRight, streamKeyIds, tableKeyIds);
-      });
-      return;
-    }
-
-    // We are at the leaf of the join condition. Only binary operators are supported.
-    Validate.isTrue(operands.size() == 2);
-
-    // Only reference operands are supported in row expressions and not constants.
-    // a.key = b.key is supported with a.key and b.key being reference operands.
-    // a.key = "constant" is not yet supported.
-    if (!(operands.get(0) instanceof RexInputRef) || !(operands.get(1) instanceof RexInputRef)) {
-      throw new SamzaException("SQL query is not supported. Join condition " + join.getCondition() + " should have "
-          + "reference operands but the types are " + operands.get(0).getClass() + " and " + operands.get(1).getClass());
-    }
-
-    // Join condition is commutative, meaning, a.key = b.key is equivalent to b.key = a.key.
-    // Calcite assigns the indices to the fields based on the order a and b are specified in
-    // the sql 'from' clause. Let's put the operand with smaller index in leftRef and larger
-    // index in rightRef so that the order of operands in the join condition is in the order
-    // the stream and table are specified in the 'from' clause.
-
-    RexInputRef leftRef = (RexInputRef) operands.get(0);
-    RexInputRef rightRef = (RexInputRef) operands.get(1);
-
-    // Let's validate the key used in the join condition.
-    validateJoinKeys(leftRef);
-    validateJoinKeys(rightRef);
-
-    if (leftRef.getIndex() > rightRef.getIndex()) {
-      RexInputRef tmpRef = leftRef;
-      leftRef = rightRef;
-      rightRef = tmpRef;
-    }
-
-    // Get the table key index and stream key index
-    int deltaKeyIdx = rightRef.getIndex() - join.getLeft().getRowType().getFieldCount();
-    streamKeyIds.add(isTablePosOnRight ? leftRef.getIndex() : deltaKeyIdx);
-    tableKeyIds.add(isTablePosOnRight ? deltaKeyIdx : leftRef.getIndex());
-  }
-
-  private void validateJoinKeys(RexInputRef ref) {
+  private void validateJoinKeyType(RexInputRef ref) {
     SqlTypeName sqlTypeName = ref.getType().getSqlTypeName();
 
     // Primitive types and ANY (for the record key) are supported in the key
