@@ -450,7 +450,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
         + "       p.name as profileName, p.address as profileAddress "
         + "from testavro.PAGEVIEW as pv  "
         + " LEFT Join testRemoteStore.Profile.`$table` as p "
-        + " on  pv.profileId = p.id "
+        + " on  pv.profileId = p.__key__ "
         + "  where p.name <> 'Mary' or p.name is null";
 
     List<String> sqlStmts = Arrays.asList(sql);
