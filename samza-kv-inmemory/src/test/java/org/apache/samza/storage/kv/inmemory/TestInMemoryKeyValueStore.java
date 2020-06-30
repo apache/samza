@@ -46,7 +46,7 @@ public class TestInMemoryKeyValueStore {
         new KeyValueStoreMetrics("testInMemory", new MetricsRegistryMap()));
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     String prefix = "prefix";
-    for(int i = 0; i < 100; i++) {
+    for (int i = 0; i < 100; i++) {
       store.put(genKey(outputStream, prefix, i), genValue());
     }
 

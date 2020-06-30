@@ -43,12 +43,12 @@ import org.apache.samza.util.NoOpMetricsRegistry;
  */
 public class SystemConsumerBench extends AbstractSamzaBench {
 
-  public static void main(String args[]) throws Exception {
+  public static void main(String[] args) throws Exception {
     SystemConsumerBench bench = new SystemConsumerBench(args);
     bench.start();
   }
 
-  public SystemConsumerBench(String args[]) throws ParseException {
+  public SystemConsumerBench(String[] args) throws ParseException {
     super("system-consumer-bench", args);
   }
 
@@ -77,7 +77,7 @@ public class SystemConsumerBench extends AbstractSamzaBench {
 
     System.out.println("Ending consumption at " + Instant.now());
     System.out.println(String.format("Event Rate is %s Messages/Sec ",
-        (numEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis())));
+        numEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis()));
     consumer.stop();
     System.exit(0);
   }

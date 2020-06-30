@@ -46,7 +46,7 @@ public class RandomValueGenerator {
     }
     // assert(max > min);
 
-    return (rand.nextInt(max - min + 1) + min);
+    return rand.nextInt(max - min + 1) + min;
   }
 
   public String getNextString(int min, int max) {
