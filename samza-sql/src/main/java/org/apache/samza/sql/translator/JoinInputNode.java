@@ -91,7 +91,7 @@ public class JoinInputNode {
 
     // If the relNode is a vertex in a DAG, get the real relNode. This happens due to query optimization.
     if (relNode instanceof HepRelVertex) {
-      relNode = ((HepRelVertex)relNode).getCurrentRel();
+      relNode = ((HepRelVertex) relNode).getCurrentRel();
     }
 
     if (relNode instanceof TableScan || relNode instanceof LogicalProject || relNode instanceof LogicalFilter) {

@@ -364,7 +364,7 @@ class JoinTranslator {
     // Let's recursively get to the TableScan node to identify IO for the table.
 
     if (relNode instanceof HepRelVertex) {
-      return resolveSQlIOForTable(((HepRelVertex)relNode).getCurrentRel(), systemStreamConfigBySource);
+      return resolveSQlIOForTable(((HepRelVertex) relNode).getCurrentRel(), systemStreamConfigBySource);
     }
     if (relNode instanceof LogicalProject) {
       return resolveSQlIOForTable(((LogicalProject) relNode).getInput(), systemStreamConfigBySource);
