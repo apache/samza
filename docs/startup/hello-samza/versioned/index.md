@@ -126,4 +126,4 @@ After you're done, you can clean everything up using the same grid script.
 bin/grid stop all
 {% endhighlight %}
 
-Congratulations! You've now setup a Tlocal grid that includes YARN, Kafka, and ZooKeeper, and run a Samza job on it. Next up, check out the [Background](/learn/documentation/{{site.version}}/introduction/background.html) and [API Overview](/learn/documentation/{{site.version}}/api/overview.html) pages.
+Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza job on it. Next up, check out the [Background](/learn/documentation/{{site.version}}/introduction/background.html) and [API Overview](/learn/documentation/{{site.version}}/api/overview.html) pages.
