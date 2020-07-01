@@ -23,16 +23,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.samza.Partition;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStreamPartition;
@@ -53,12 +48,12 @@ public class SystemProducerBench extends AbstractSamzaBench {
 
   private byte[] value;
 
-  public static void main(String args[]) throws Exception {
+  public static void main(String[] args) throws Exception {
     SystemProducerBench bench = new SystemProducerBench(args);
     bench.start();
   }
 
-  public SystemProducerBench(String args[]) throws ParseException {
+  public SystemProducerBench(String[] args) throws ParseException {
     super("system-producer", args);
   }
 
@@ -93,13 +88,13 @@ public class SystemProducerBench extends AbstractSamzaBench {
 
     System.out.println("Ending production at " + Instant.now());
     System.out.println(String.format("Event Rate is %s Messages/Sec",
-        (totalEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis())));
+        totalEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis()));
 
     producer.flush(source);
 
     System.out.println("Ending flush at " + Instant.now());
     System.out.println(String.format("Event Rate with flush is %s Messages/Sec",
-        (totalEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis())));
+        totalEvents * 1000 / Duration.between(startTime, Instant.now()).toMillis()));
     producer.stop();
     System.exit(0);
   }

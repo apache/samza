@@ -187,15 +187,15 @@ public class EventHubSystemAdmin implements SystemAdmin {
               .getPartitionRuntimeInformation(partition);
       futureList.add(partitionRuntimeInfo);
       partitionRuntimeInfo.thenAccept(ehPartitionInfo -> {
-          LOG.info(printPartitionRuntimeInfo(ehPartitionInfo));
-          // Set offsets
-          String startingOffset = EventHubSystemConsumer.START_OF_STREAM;
-          String newestOffset = ehPartitionInfo.getLastEnqueuedOffset();
-          String upcomingOffset = EventHubSystemConsumer.END_OF_STREAM;
-          SystemStreamPartitionMetadata sspMetadata = new SystemStreamPartitionMetadata(startingOffset, newestOffset,
-            upcomingOffset);
-          sspMetadataMap.put(new Partition(Integer.parseInt(partition)), sspMetadata);
-        });
+        LOG.info(printPartitionRuntimeInfo(ehPartitionInfo));
+        // Set offsets
+        String startingOffset = EventHubSystemConsumer.START_OF_STREAM;
+        String newestOffset = ehPartitionInfo.getLastEnqueuedOffset();
+        String upcomingOffset = EventHubSystemConsumer.END_OF_STREAM;
+        SystemStreamPartitionMetadata sspMetadata = new SystemStreamPartitionMetadata(startingOffset, newestOffset,
+          upcomingOffset);
+        sspMetadataMap.put(new Partition(Integer.parseInt(partition)), sspMetadata);
+      });
     }
 
     CompletableFuture<Void> futureGroup =

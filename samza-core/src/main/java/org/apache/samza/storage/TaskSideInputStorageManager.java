@@ -125,18 +125,18 @@ public class TaskSideInputStorageManager {
     LOG.info("Initializing side input store directories.");
 
     stores.keySet().forEach(storeName -> {
-        File storeLocation = getStoreLocation(storeName);
-        String storePath = storeLocation.toPath().toString();
-        if (!isValidSideInputStore(storeName, storeLocation)) {
-          LOG.info("Cleaning up the store directory at {} for {}", storePath, storeName);
-          new FileUtil().rm(storeLocation);
-        }
+      File storeLocation = getStoreLocation(storeName);
+      String storePath = storeLocation.toPath().toString();
+      if (!isValidSideInputStore(storeName, storeLocation)) {
+        LOG.info("Cleaning up the store directory at {} for {}", storePath, storeName);
+        new FileUtil().rm(storeLocation);
+      }
 
-        if (isPersistedStore(storeName) && !storeLocation.exists()) {
-          LOG.info("Creating {} as the store directory for the side input store {}", storePath, storeName);
-          storeLocation.mkdirs();
-        }
-      });
+      if (isPersistedStore(storeName) && !storeLocation.exists()) {
+        LOG.info("Creating {} as the store directory for the side input store {}", storePath, storeName);
+        storeLocation.mkdirs();
+      }
+    });
   }
 
   /**
@@ -149,18 +149,18 @@ public class TaskSideInputStorageManager {
     storeToSSps.entrySet().stream()
         .filter(entry -> isPersistedStore(entry.getKey())) // filter out in-memory side input stores
         .forEach((entry) -> {
-            String storeName = entry.getKey();
-            Map<SystemStreamPartition, String> offsets = entry.getValue().stream()
-              .filter(lastProcessedOffsets::containsKey)
-              .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
+          String storeName = entry.getKey();
+          Map<SystemStreamPartition, String> offsets = entry.getValue().stream()
+            .filter(lastProcessedOffsets::containsKey)
+            .collect(Collectors.toMap(Function.identity(), lastProcessedOffsets::get));
 
-            try {
-              File taskStoreDir = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode);
-              storageManagerUtil.writeOffsetFile(taskStoreDir, offsets, true);
-            } catch (Exception e) {
-              throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
-            }
-          });
+          try {
+            File taskStoreDir = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode);
+            storageManagerUtil.writeOffsetFile(taskStoreDir, offsets, true);
+          } catch (Exception e) {
+            throw new SamzaException("Failed to write offset file for side input store: " + storeName, e);
+          }
+        });
   }
 
   /**
@@ -173,20 +173,20 @@ public class TaskSideInputStorageManager {
     Map<SystemStreamPartition, String> fileOffsets = new HashMap<>();
 
     stores.keySet().forEach(storeName -> {
-        LOG.debug("Reading local offsets for store: {}", storeName);
+      LOG.debug("Reading local offsets for store: {}", storeName);
 
-        File storeLocation = getStoreLocation(storeName);
-        if (isValidSideInputStore(storeName, storeLocation)) {
-          try {
+      File storeLocation = getStoreLocation(storeName);
+      if (isValidSideInputStore(storeName, storeLocation)) {
+        try {
 
-            Map<SystemStreamPartition, String> offsets =
-                storageManagerUtil.readOffsetFile(storeLocation, storeToSSps.get(storeName), true);
-            fileOffsets.putAll(offsets);
-          } catch (Exception e) {
-            LOG.warn("Failed to load the offset file for side input store:" + storeName, e);
-          }
+          Map<SystemStreamPartition, String> offsets =
+              storageManagerUtil.readOffsetFile(storeLocation, storeToSSps.get(storeName), true);
+          fileOffsets.putAll(offsets);
+        } catch (Exception e) {
+          LOG.warn("Failed to load the offset file for side input store:" + storeName, e);
         }
-      });
+      }
+    });
 
     return fileOffsets;
   }
@@ -211,10 +211,10 @@ public class TaskSideInputStorageManager {
 
   private void validateStoreConfiguration(Map<String, StorageEngine> stores) {
     stores.forEach((storeName, storageEngine) -> {
-        if (storageEngine.getStoreProperties().isLoggedStore()) {
-          throw new SamzaException(
-              String.format("Cannot configure both side inputs and a changelog for store: %s.", storeName));
-        }
-      });
+      if (storageEngine.getStoreProperties().isLoggedStore()) {
+        throw new SamzaException(
+            String.format("Cannot configure both side inputs and a changelog for store: %s.", storeName));
+      }
+    });
   }
 }

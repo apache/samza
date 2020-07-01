@@ -28,11 +28,10 @@ package org.apache.samza.monitor;
  */
 public interface Monitor {
 
-    /**
-     * Do the work of the monitor. Because this can be arbitrary behavior up to and including script execution,
-     * IPC-related IOExceptions and concurrency-related InterruptedExceptions are caught by the SamzaMonitorService.
-     * @throws Exception if there was any problem running the monitor.
-     */
-    void monitor()
-        throws Exception;
+  /**
+   * Do the work of the monitor. Because this can be arbitrary behavior up to and including script execution,
+   * IPC-related IOExceptions and concurrency-related InterruptedExceptions are caught by the SamzaMonitorService.
+   * @throws Exception if there was any problem running the monitor.
+   */
+  void monitor() throws Exception;
 }

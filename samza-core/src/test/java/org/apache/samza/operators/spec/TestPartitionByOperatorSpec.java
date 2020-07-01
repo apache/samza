@@ -62,9 +62,9 @@ public class TestPartitionByOperatorSpec {
     MapFunction<Object, Object> valueFn = m -> m;
     KVSerde<Object, Object> partitionBySerde = KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>());
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream inputStream = appDesc.getInputStream(testInputDescriptor);
-        inputStream.partitionBy(keyFn, valueFn, partitionBySerde, testRepartitionedStreamName);
-      }, getConfig());
+      MessageStream inputStream = appDesc.getInputStream(testInputDescriptor);
+      inputStream.partitionBy(keyFn, valueFn, partitionBySerde, testRepartitionedStreamName);
+    }, getConfig());
     assertEquals(2, streamAppDesc.getInputOperators().size());
     Map<String, InputOperatorSpec> inputOpSpecs = streamAppDesc.getInputOperators();
     assertTrue(inputOpSpecs.keySet().contains(String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName)));
@@ -91,9 +91,9 @@ public class TestPartitionByOperatorSpec {
     MapFunction<Object, String> keyFn = m -> m.toString();
     MapFunction<Object, Object> valueFn = m -> m;
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream inputStream = appDesc.getInputStream(testInputDescriptor);
-        inputStream.partitionBy(keyFn, valueFn, mock(KVSerde.class), testRepartitionedStreamName);
-      }, getConfig());
+      MessageStream inputStream = appDesc.getInputStream(testInputDescriptor);
+      inputStream.partitionBy(keyFn, valueFn, mock(KVSerde.class), testRepartitionedStreamName);
+    }, getConfig());
     InputOperatorSpec inputOpSpec = streamAppDesc.getInputOperators().get(
         String.format("%s-%s-partition_by-%s", testJobName, testJobId, testRepartitionedStreamName));
     assertNotNull(inputOpSpec);
@@ -116,9 +116,9 @@ public class TestPartitionByOperatorSpec {
   @Test
   public void testCopy() {
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream inputStream = appDesc.getInputStream(testInputDescriptor);
-        inputStream.partitionBy(m -> m.toString(), m -> m, mock(KVSerde.class), testRepartitionedStreamName);
-      }, getConfig());
+      MessageStream inputStream = appDesc.getInputStream(testInputDescriptor);
+      inputStream.partitionBy(m -> m.toString(), m -> m, mock(KVSerde.class), testRepartitionedStreamName);
+    }, getConfig());
     OperatorSpecGraph specGraph = streamAppDesc.getOperatorSpecGraph();
     OperatorSpecGraph clonedGraph = specGraph.clone();
     OperatorSpecTestUtils.assertClonedGraph(specGraph, clonedGraph);
@@ -128,36 +128,36 @@ public class TestPartitionByOperatorSpec {
   public void testScheduledFunctionAsKeyFn() {
     ScheduledMapFn keyFn = new ScheduledMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<Object> inputStream = appDesc.getInputStream(testInputDescriptor);
-        inputStream.partitionBy(keyFn, m -> m, mock(KVSerde.class), "parByKey");
-      }, getConfig());
+      MessageStream<Object> inputStream = appDesc.getInputStream(testInputDescriptor);
+      inputStream.partitionBy(keyFn, m -> m, mock(KVSerde.class), "parByKey");
+    }, getConfig());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsKeyFn() {
     WatermarkMapFn keyFn = new WatermarkMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<Object> inputStream = appDesc.getInputStream(testInputDescriptor);
-        inputStream.partitionBy(keyFn, m -> m, mock(KVSerde.class), "parByKey");
-      }, getConfig());
+      MessageStream<Object> inputStream = appDesc.getInputStream(testInputDescriptor);
+      inputStream.partitionBy(keyFn, m -> m, mock(KVSerde.class), "parByKey");
+    }, getConfig());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testScheduledFunctionAsValueFn() {
     ScheduledMapFn valueFn = new ScheduledMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<Object> inputStream = appDesc.getInputStream(testInputDescriptor);
-        inputStream.partitionBy(m -> m.toString(), valueFn, mock(KVSerde.class), "parByKey");
-      }, getConfig());
+      MessageStream<Object> inputStream = appDesc.getInputStream(testInputDescriptor);
+      inputStream.partitionBy(m -> m.toString(), valueFn, mock(KVSerde.class), "parByKey");
+    }, getConfig());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testWatermarkFunctionAsValueFn() {
     WatermarkMapFn valueFn = new WatermarkMapFn();
     new StreamApplicationDescriptorImpl(appDesc -> {
-        MessageStream<Object> inputStream = appDesc.getInputStream(testInputDescriptor);
-        inputStream.partitionBy(m -> m.toString(), valueFn, mock(KVSerde.class), "parByKey");
-      }, getConfig());
+      MessageStream<Object> inputStream = appDesc.getInputStream(testInputDescriptor);
+      inputStream.partitionBy(m -> m.toString(), valueFn, mock(KVSerde.class), "parByKey");
+    }, getConfig());
   }
 
   private Config getConfig() {

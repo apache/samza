@@ -51,9 +51,9 @@ public class TimeTriggerImpl<M, WK> implements TriggerImpl<M, WK> {
 
     if (cancellable == null) {
       cancellable = context.scheduleCallback(() -> {
-          LOG.trace("Time trigger fired");
-          shouldFire = true;
-        }, callbackTime, triggerKey);
+        LOG.trace("Time trigger fired");
+        shouldFire = true;
+      }, callbackTime, triggerKey);
     }
   }
 

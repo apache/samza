@@ -336,7 +336,7 @@ public class TestKafkaSystemAdminWithMock {
   }
 
   @Test(expected = SamzaException.class)
-  public void testGetSSPMetadataShouldTerminateAfterFiniteRetriesOnException() throws Exception{
+  public void testGetSSPMetadataShouldTerminateAfterFiniteRetriesOnException() throws Exception {
     SystemStreamPartition oneSSP = new SystemStreamPartition(TEST_SYSTEM, VALID_TOPIC, new Partition(0));
     SystemStreamPartition otherSSP = new SystemStreamPartition(TEST_SYSTEM, "otherTopic", new Partition(1));
 

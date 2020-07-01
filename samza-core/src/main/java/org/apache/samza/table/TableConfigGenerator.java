@@ -76,10 +76,10 @@ public class TableConfigGenerator {
     tableDescriptors.stream()
         .filter(d -> d instanceof LocalTableDescriptor)
         .forEach(d -> {
-            LocalTableDescriptor ld = (LocalTableDescriptor) d;
-            tableKeySerdes.put(ld.getTableId(), ld.getSerde().getKeySerde());
-            tableValueSerdes.put(ld.getTableId(), ld.getSerde().getValueSerde());
-          });
+          LocalTableDescriptor ld = (LocalTableDescriptor) d;
+          tableKeySerdes.put(ld.getTableId(), ld.getSerde().getKeySerde());
+          tableValueSerdes.put(ld.getTableId(), ld.getSerde().getValueSerde());
+        });
     serdes.addAll(tableKeySerdes.values());
     serdes.addAll(tableValueSerdes.values());
 
@@ -88,21 +88,21 @@ public class TableConfigGenerator {
     Base64.Encoder base64Encoder = Base64.getEncoder();
     Map<Serde, String> serdeUUIDs = new HashMap<>();
     serdes.forEach(serde -> {
-        String serdeName = serdeUUIDs.computeIfAbsent(serde,
-            s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-        serdeConfigs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
-            base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
-      });
+      String serdeName = serdeUUIDs.computeIfAbsent(serde,
+        s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
+      serdeConfigs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
+          base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
+    });
 
     // Set key and msg serdes for tables to the serde names generated above
     tableKeySerdes.forEach((tableId, serde) -> {
-        String keySerdeConfigKey = String.format(JavaTableConfig.STORE_KEY_SERDE, tableId);
-        serdeConfigs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-      });
+      String keySerdeConfigKey = String.format(JavaTableConfig.STORE_KEY_SERDE, tableId);
+      serdeConfigs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+    });
     tableValueSerdes.forEach((tableId, serde) -> {
-        String valueSerdeConfigKey = String.format(JavaTableConfig.STORE_MSG_SERDE, tableId);
-        serdeConfigs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
-      });
+      String valueSerdeConfigKey = String.format(JavaTableConfig.STORE_MSG_SERDE, tableId);
+      serdeConfigs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+    });
     return serdeConfigs;
   }
 }

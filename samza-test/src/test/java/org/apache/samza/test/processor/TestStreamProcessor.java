@@ -278,10 +278,10 @@ public class TestStreamProcessor extends IntegrationTestHarness {
       doNothing().when(listener).afterStart();
       doNothing().when(listener).afterFailure(any());
       doAnswer(invocation -> {
-          // stopped successfully
-          shutdownLatch.countDown();
-          return null;
-        }).when(listener).afterStop();
+        // stopped successfully
+        shutdownLatch.countDown();
+        return null;
+      }).when(listener).afterStop();
     }
 
     private void initProducer(String bootstrapServer) {

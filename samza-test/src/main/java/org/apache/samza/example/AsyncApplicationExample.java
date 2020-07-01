@@ -108,18 +108,18 @@ public class AsyncApplicationExample implements StreamApplication {
 
     static CompletionStage<Member> decorateMember(int memberId) {
       return CompletableFuture.supplyAsync(() -> {
-          /*
-           * Introduce some lag to mimic remote call. In real use cases, this typically translates to over the wire
-           * network call to some rest service.
-           */
-          try {
-            Thread.sleep((long) (Math.random() * 10000));
-          } catch (InterruptedException ec) {
-            System.out.println("Interrupted during sleep");
-          }
+        /*
+         * Introduce some lag to mimic remote call. In real use cases, this typically translates to over the wire
+         * network call to some rest service.
+         */
+        try {
+          Thread.sleep((long) (Math.random() * 10000));
+        } catch (InterruptedException ec) {
+          System.out.println("Interrupted during sleep");
+        }
 
-          return new Member(memberId, getRandomGender(), getRandomCountry());
-        });
+        return new Member(memberId, getRandomGender(), getRandomCountry());
+      });
     }
 
     static String getRandomGender() {

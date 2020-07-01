@@ -220,20 +220,20 @@ public class JobConfig extends MapConfig {
   public Map<String, Pattern> getMonitorRegexPatternMap(String rewritersList) {
     Map<String, Pattern> inputRegexesToMonitor = new HashMap<>();
     Stream.of(rewritersList.split(",")).forEach(rewriterName -> {
-        Optional<String> rewriterSystem = getRegexResolvedSystem(rewriterName);
-        Optional<String> rewriterRegex = getRegexResolvedStreams(rewriterName);
-        if (rewriterSystem.isPresent() && rewriterRegex.isPresent()) {
-          Pattern newPatternForSystem;
-          Pattern existingPatternForSystem = inputRegexesToMonitor.get(rewriterSystem.get());
-          if (existingPatternForSystem == null) {
-            newPatternForSystem = Pattern.compile(rewriterRegex.get());
-          } else {
-            newPatternForSystem =
-                Pattern.compile(String.join("|", existingPatternForSystem.pattern(), rewriterRegex.get()));
-          }
-          inputRegexesToMonitor.put(rewriterSystem.get(), newPatternForSystem);
+      Optional<String> rewriterSystem = getRegexResolvedSystem(rewriterName);
+      Optional<String> rewriterRegex = getRegexResolvedStreams(rewriterName);
+      if (rewriterSystem.isPresent() && rewriterRegex.isPresent()) {
+        Pattern newPatternForSystem;
+        Pattern existingPatternForSystem = inputRegexesToMonitor.get(rewriterSystem.get());
+        if (existingPatternForSystem == null) {
+          newPatternForSystem = Pattern.compile(rewriterRegex.get());
+        } else {
+          newPatternForSystem =
+              Pattern.compile(String.join("|", existingPatternForSystem.pattern(), rewriterRegex.get()));
         }
-      });
+        inputRegexesToMonitor.put(rewriterSystem.get(), newPatternForSystem);
+      }
+    });
     return inputRegexesToMonitor;
   }
 
@@ -293,13 +293,13 @@ public class JobConfig extends MapConfig {
   public String getSSPMatcherConfigRegex() {
     return Optional.ofNullable(get(SSP_MATCHER_CONFIG_REGEX))
         .orElseThrow(
-            () -> new SamzaException(String.format("Missing required configuration: '%s'", SSP_MATCHER_CONFIG_REGEX)));
+          () -> new SamzaException(String.format("Missing required configuration: '%s'", SSP_MATCHER_CONFIG_REGEX)));
   }
 
   public String getSSPMatcherConfigRanges() {
     return Optional.ofNullable(get(SSP_MATCHER_CONFIG_RANGES))
         .orElseThrow(
-            () -> new SamzaException(String.format("Missing required configuration: '%s'", SSP_MATCHER_CONFIG_RANGES)));
+          () -> new SamzaException(String.format("Missing required configuration: '%s'", SSP_MATCHER_CONFIG_RANGES)));
   }
 
   public String getSSPMatcherConfigJobFactoryRegex() {

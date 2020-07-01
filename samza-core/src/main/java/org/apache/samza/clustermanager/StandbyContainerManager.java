@@ -143,8 +143,8 @@ public class StandbyContainerManager {
 
       // if we find a metadata entry, we continue with the failover (select another standby or any-host appropriately)
       failoverMetadata.ifPresent(
-          metadata -> initiateStandbyAwareAllocation(metadata.activeContainerID, metadata.activeContainerResourceID,
-              containerAllocator));
+        metadata -> initiateStandbyAwareAllocation(metadata.activeContainerID, metadata.activeContainerResourceID,
+            containerAllocator));
     } else {
       // If this class receives a callback for stop-fail on an active container, throw an exception
       throw new SamzaException("Invalid State. Received stop container fail for container Id: " + containerID);
@@ -216,10 +216,10 @@ public class StandbyContainerManager {
 
       Map<String, SamzaResource> runningStandbyContainersOnHost = new HashMap<>();
       this.samzaApplicationState.runningProcessors.forEach((samzaContainerId, samzaResource) -> {
-          if (standbySamzaContainerIds.contains(samzaContainerId) && samzaResource.getHost().equals(standbyHost)) {
-            runningStandbyContainersOnHost.put(samzaContainerId, samzaResource);
-          }
-        });
+        if (standbySamzaContainerIds.contains(samzaContainerId) && samzaResource.getHost().equals(standbyHost)) {
+          runningStandbyContainersOnHost.put(samzaContainerId, samzaResource);
+        }
+      });
 
       if (runningStandbyContainersOnHost.isEmpty()) {
         // if there are no running standby-containers on the standbyHost, we proceed to directly make a resource request
@@ -239,13 +239,13 @@ public class StandbyContainerManager {
         FailoverMetadata failoverMetadata = this.registerActiveContainerFailure(activeContainerID, resourceID);
 
         runningStandbyContainersOnHost.forEach((standbyContainerID, standbyResource) -> {
-            log.info("Initiating failover and stopping standby container, found standbyContainer {} = resource {}, "
-                    + "for active container {}", runningStandbyContainersOnHost.keySet(),
-                runningStandbyContainersOnHost.values(), activeContainerID);
-            failoverMetadata.updateStandbyContainer(standbyResource.getContainerId(), standbyResource.getHost());
-            samzaApplicationState.failoversToStandby.incrementAndGet();
-            this.clusterResourceManager.stopStreamProcessor(standbyResource);
-          });
+          log.info("Initiating failover and stopping standby container, found standbyContainer {} = resource {}, "
+                  + "for active container {}", runningStandbyContainersOnHost.keySet(),
+              runningStandbyContainersOnHost.values(), activeContainerID);
+          failoverMetadata.updateStandbyContainer(standbyResource.getContainerId(), standbyResource.getHost());
+          samzaApplicationState.failoversToStandby.incrementAndGet();
+          this.clusterResourceManager.stopStreamProcessor(standbyResource);
+        });
 
         // if multiple standbys are on the same host, we are in an invalid state, so we fail the deploy and retry
         if (runningStandbyContainersOnHost.size() > 1) {

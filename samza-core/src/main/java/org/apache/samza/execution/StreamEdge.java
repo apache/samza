@@ -136,8 +136,8 @@ public class StreamEdge {
       streamConfig.put(String.format(StreamConfig.PRIORITY_FOR_STREAM_ID, streamId), String.valueOf(Integer.MAX_VALUE));
     }
     spec.getConfig().forEach((property, value) -> {
-        streamConfig.put(String.format(StreamConfig.STREAM_ID_PREFIX, streamId) + property, value);
-      });
+      streamConfig.put(String.format(StreamConfig.STREAM_ID_PREFIX, streamId) + property, value);
+    });
 
     return new MapConfig(streamConfig);
   }

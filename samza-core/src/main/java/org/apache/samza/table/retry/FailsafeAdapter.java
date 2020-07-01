@@ -89,15 +89,15 @@ class FailsafeAdapter {
     return Failsafe.with(retryPolicy).with(retryExec)
         .onRetry(e -> metrics.retryCount.inc())
         .onRetriesExceeded(e -> {
-            metrics.retryTimer.update(System.currentTimeMillis() - startMs);
-            metrics.permFailureCount.inc();
-          })
+          metrics.retryTimer.update(System.currentTimeMillis() - startMs);
+          metrics.permFailureCount.inc();
+        })
         .onSuccess((e, ctx) -> {
-            if (ctx.getExecutions() > 1) {
-              metrics.retryTimer.update(System.currentTimeMillis() - startMs);
-            } else {
-              metrics.successCount.inc();
-            }
-          });
+          if (ctx.getExecutions() > 1) {
+            metrics.retryTimer.update(System.currentTimeMillis() - startMs);
+          } else {
+            metrics.successCount.inc();
+          }
+        });
   }
 }

@@ -88,7 +88,7 @@ public class LocalStoreMonitorConfig extends MapConfig {
    *         on the job status server.
    */
   public List<String> getJobStatusServers() {
-     return Arrays.asList(StringUtils.split(get(CONFIG_JOB_STATUS_SERVERS), ','));
+    return Arrays.asList(StringUtils.split(get(CONFIG_JOB_STATUS_SERVERS), ','));
   }
 
   /**

@@ -29,6 +29,7 @@ import org.apache.samza.util.TimerUtil
 import java.nio.file.Path
 import java.util.Optional
 
+import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.checkpoint.CheckpointId
 
 /**
@@ -251,5 +252,15 @@ class KeyValueStorageEngine[K, V](
       metrics.snapshots.inc
       wrapperStore.snapshot(from, to)
     }
+  }
+
+  @VisibleForTesting
+  private[kv] def getRawStore: KeyValueStore[Array[Byte], Array[Byte]] = {
+    rawStore
+  }
+
+  @VisibleForTesting
+  private[kv] def getWrapperStore: KeyValueStore[K, V] = {
+    wrapperStore
   }
 }

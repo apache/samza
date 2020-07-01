@@ -485,12 +485,12 @@ public class AzureJobCoordinator implements JobCoordinator {
       // Schedule a task to renew the lease after a fixed time interval
       LOG.info("Starting scheduler to keep renewing lease held by the leader.");
       renewLease = new RenewLeaseScheduler((errorMsg) -> {
-          LOG.error(errorMsg);
-          table.updateIsLeader(currentJMVersion.get(), processorId, false);
-          azureLeaderElector.resignLeadership();
-          renewLease.shutdown();
-          liveness.shutdown();
-        }, azureLeaderElector.getLeaseBlobManager(), azureLeaderElector.getLeaseId());
+        LOG.error(errorMsg);
+        table.updateIsLeader(currentJMVersion.get(), processorId, false);
+        azureLeaderElector.resignLeadership();
+        renewLease.shutdown();
+        liveness.shutdown();
+      }, azureLeaderElector.getLeaseBlobManager(), azureLeaderElector.getLeaseId());
       renewLease.scheduleTask();
 
       doOnProcessorChange(new ArrayList<>());

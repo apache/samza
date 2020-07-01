@@ -105,16 +105,16 @@ public class TestAzureBlobOutputStream {
 
     BlobMetadataGenerator mockBlobMetadataGenerator = mock(BlobMetadataGenerator.class);
     doAnswer(invocation -> {
-        BlobMetadataContext blobMetadataContext = invocation.getArgumentAt(0, BlobMetadataContext.class);
-        String streamName = blobMetadataContext.getStreamName();
-        Long blobSize = blobMetadataContext.getBlobSize();
-        Long numberOfRecords = blobMetadataContext.getNumberOfMessagesInBlob();
-        Map<String, String> metadataProperties = new HashMap<>();
-        metadataProperties.put(BLOB_STREAM_NAME_METADATA, streamName);
-        metadataProperties.put(BLOB_RAW_SIZE_BYTES_METADATA, Long.toString(blobSize));
-        metadataProperties.put(BLOB_RECORD_NUMBER_METADATA, Long.toString(numberOfRecords));
-        return metadataProperties;
-      }).when(mockBlobMetadataGenerator).getBlobMetadata(anyObject());
+      BlobMetadataContext blobMetadataContext = invocation.getArgumentAt(0, BlobMetadataContext.class);
+      String streamName = blobMetadataContext.getStreamName();
+      Long blobSize = blobMetadataContext.getBlobSize();
+      Long numberOfRecords = blobMetadataContext.getNumberOfMessagesInBlob();
+      Map<String, String> metadataProperties = new HashMap<>();
+      metadataProperties.put(BLOB_STREAM_NAME_METADATA, streamName);
+      metadataProperties.put(BLOB_RAW_SIZE_BYTES_METADATA, Long.toString(blobSize));
+      metadataProperties.put(BLOB_RECORD_NUMBER_METADATA, Long.toString(numberOfRecords));
+      return metadataProperties;
+    }).when(mockBlobMetadataGenerator).getBlobMetadata(anyObject());
 
     azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
         blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
@@ -196,8 +196,8 @@ public class TestAzureBlobOutputStream {
     verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(1)), argument.capture(), eq((int) fullBlockCompressedByte.length));
     verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(2)), argument2.capture(), eq((int) halfBlockCompressedByte.length));
     argument.getAllValues().forEach(byteBuffer -> {
-        Assert.assertEquals(ByteBuffer.wrap(fullBlockCompressedByte), byteBuffer);
-      });
+      Assert.assertEquals(ByteBuffer.wrap(fullBlockCompressedByte), byteBuffer);
+    });
     Assert.assertEquals(ByteBuffer.wrap(halfBlockCompressedByte), argument2.getAllValues().get(0));
     verify(mockMetrics, times(3)).updateAzureUploadMetrics();
   }

@@ -1,5 +1,4 @@
 /*
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,14 +15,11 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- *
  */
-
 package org.apache.samza.config;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -128,7 +124,7 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
   }
 
   public int fetchMessageMaxBytes() {
-    String fetchSize = (String)get("fetch.message.max.bytes");
+    String fetchSize = (String) get("fetch.message.max.bytes");
     if (StringUtils.isBlank(fetchSize)) {
       return FETCH_MAX_BYTES;
     } else  {
@@ -177,26 +173,26 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
    */
   static String getAutoOffsetResetValue(final String autoOffsetReset, final String samzaOffsetDefault) {
     // valid kafka consumer values
-    final String KAFKA_OFFSET_LATEST = "latest";
-    final String KAFKA_OFFSET_EARLIEST = "earliest";
-    final String KAFKA_OFFSET_NONE = "none";
+    final String kafkaOffsetLatest = "latest";
+    final String kafkaOffsetEarliest = "earliest";
+    final String kafkaOffsetNone = "none";
 
     // if the value for KafkaConsumer is set - use it.
     if (!StringUtils.isBlank(autoOffsetReset)) {
-      if (autoOffsetReset.equals(KAFKA_OFFSET_EARLIEST) || autoOffsetReset.equals(KAFKA_OFFSET_LATEST)
-          || autoOffsetReset.equals(KAFKA_OFFSET_NONE)) {
+      if (autoOffsetReset.equals(kafkaOffsetEarliest) || autoOffsetReset.equals(kafkaOffsetLatest)
+          || autoOffsetReset.equals(kafkaOffsetNone)) {
         return autoOffsetReset;
       }
       // translate old kafka consumer values into new ones (SAMZA-1987 top remove it)
       String newAutoOffsetReset;
       switch (autoOffsetReset) {
         case "largest":
-          newAutoOffsetReset = KAFKA_OFFSET_LATEST;
-          LOG.warn("Using old (deprecated) value for kafka consumer config auto.offset.reset = {}. The right value should be {}", autoOffsetReset, KAFKA_OFFSET_LATEST);
+          newAutoOffsetReset = kafkaOffsetLatest;
+          LOG.warn("Using old (deprecated) value for kafka consumer config auto.offset.reset = {}. The right value should be {}", autoOffsetReset, kafkaOffsetLatest);
           break;
         case "smallest":
-          newAutoOffsetReset = KAFKA_OFFSET_EARLIEST;
-          LOG.warn("Using old (deprecated) value for kafka consumer config auto.offset.reset = {}. The right value should be {}", autoOffsetReset, KAFKA_OFFSET_EARLIEST);
+          newAutoOffsetReset = kafkaOffsetEarliest;
+          LOG.warn("Using old (deprecated) value for kafka consumer config auto.offset.reset = {}. The right value should be {}", autoOffsetReset, kafkaOffsetEarliest);
           break;
         default:
           throw new SamzaException("Using invalid value for kafka consumer config auto.offset.reset " + autoOffsetReset + ". See KafkaConsumer config for the correct values.");
@@ -207,14 +203,14 @@ public class KafkaConsumerConfig extends HashMap<String, Object> {
     }
 
     // in case kafka consumer configs are not provided we should match them to Samza's ones.
-    String newAutoOffsetReset = KAFKA_OFFSET_LATEST;
+    String newAutoOffsetReset = kafkaOffsetLatest;
     if (!StringUtils.isBlank(samzaOffsetDefault)) {
       switch (samzaOffsetDefault) {
         case SystemConfig.SAMZA_SYSTEM_OFFSET_UPCOMING:
-          newAutoOffsetReset = KAFKA_OFFSET_LATEST;
+          newAutoOffsetReset = kafkaOffsetLatest;
           break;
         case SystemConfig.SAMZA_SYSTEM_OFFSET_OLDEST:
-          newAutoOffsetReset = KAFKA_OFFSET_EARLIEST;
+          newAutoOffsetReset = kafkaOffsetEarliest;
           break;
         default:
           throw new SamzaException("Using invalid value for samza default offset config " + autoOffsetReset + ". See samza config for the correct values");

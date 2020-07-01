@@ -78,10 +78,10 @@ public class TestClusterBasedProcessorLifecycleListener {
   @Test
   public void testShutdownHookInvokesShutdownHookCallback() {
     doAnswer(invocation -> {
-        // Simulate call to container.shutdown()
-        clusterBasedProcessorLifecycleListener.afterStop();
-        return null;
-      }).when(mockShutdownHookCallback).run();
+      // Simulate call to container.shutdown()
+      clusterBasedProcessorLifecycleListener.afterStop();
+      return null;
+    }).when(mockShutdownHookCallback).run();
 
     // call beforeStart to setup shutdownHook
     clusterBasedProcessorLifecycleListener.beforeStart();

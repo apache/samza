@@ -75,11 +75,11 @@ class ControlMessageSender {
 
   private int getPartitionCount(SystemStream systemStream) {
     return PARTITION_COUNT_CACHE.computeIfAbsent(systemStream, ss -> {
-        SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(ss, true);
-        if (metadata == null) {
-          throw new SamzaException("Unable to find metadata for stream " + systemStream);
-        }
-        return metadata.getSystemStreamPartitionMetadata().size();
-      });
+      SystemStreamMetadata metadata = metadataCache.getSystemStreamMetadata(ss, true);
+      if (metadata == null) {
+        throw new SamzaException("Unable to find metadata for stream " + systemStream);
+      }
+      return metadata.getSystemStreamPartitionMetadata().size();
+    });
   }
 }

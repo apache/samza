@@ -70,7 +70,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
     // We will identify the YARN application states by their qualified names, so build a map
     // to translate back from that name to the JobInfo we wish to populate.
     final Map<String, Job> qualifiedJobToInfo = new HashMap<>();
-    for(Job job : jobs) {
+    for (Job job : jobs) {
       qualifiedJobToInfo.put(YarnApplicationInfo.getQualifiedJobName(new JobInstance(job.getJobName(), job.getJobId())), job);
     }
 

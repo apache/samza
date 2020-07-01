@@ -69,26 +69,26 @@ public class LivenessCheckScheduler implements TaskScheduler {
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
-        try {
-          if (!table.getEntity(currentJMVersion.get(), processorId).getIsLeader()) {
-            LOG.info("Not the leader anymore. Shutting down LivenessCheckScheduler.");
-            scheduler.shutdownNow();
-            return;
-          }
-          LOG.info("Checking for list of live processors");
-          //Get the list of live processors published on the blob.
-          Set<String> currProcessors = new HashSet<>(blob.getLiveProcessorList());
-          //Get the list of live processors from the table. This is the current system state.
-          Set<String> liveProcessors = table.getActiveProcessorsList(currentJMVersion);
-          //Invoke listener if the table list is not consistent with the blob list.
-          if (!liveProcessors.equals(currProcessors)) {
-            liveProcessorsList.getAndSet(new ArrayList<>(liveProcessors));
-            listener.onStateChange();
-          }
-        } catch (Exception e) {
-          errorHandler.accept("Exception in Liveness Check Scheduler. Stopping the processor...");
+      try {
+        if (!table.getEntity(currentJMVersion.get(), processorId).getIsLeader()) {
+          LOG.info("Not the leader anymore. Shutting down LivenessCheckScheduler.");
+          scheduler.shutdownNow();
+          return;
         }
-      }, LIVENESS_CHECK_DELAY_SEC, LIVENESS_CHECK_DELAY_SEC, TimeUnit.SECONDS);
+        LOG.info("Checking for list of live processors");
+        //Get the list of live processors published on the blob.
+        Set<String> currProcessors = new HashSet<>(blob.getLiveProcessorList());
+        //Get the list of live processors from the table. This is the current system state.
+        Set<String> liveProcessors = table.getActiveProcessorsList(currentJMVersion);
+        //Invoke listener if the table list is not consistent with the blob list.
+        if (!liveProcessors.equals(currProcessors)) {
+          liveProcessorsList.getAndSet(new ArrayList<>(liveProcessors));
+          listener.onStateChange();
+        }
+      } catch (Exception e) {
+        errorHandler.accept("Exception in Liveness Check Scheduler. Stopping the processor...");
+      }
+    }, LIVENESS_CHECK_DELAY_SEC, LIVENESS_CHECK_DELAY_SEC, TimeUnit.SECONDS);
   }
 
   @Override

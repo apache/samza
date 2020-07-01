@@ -20,6 +20,7 @@ package org.apache.samza.sql.translator;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +67,7 @@ import static org.mockito.Mockito.when;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(LogicalProject.class)
 public class TestProjectTranslator extends TranslatorTestBase {
-  final private String LOGICAL_OP_ID = "sql0_project_0";
+  private static final String LOGICAL_OP_ID = "sql0_project_0";
 
   @Test
   public void testTranslate() throws IOException, ClassNotFoundException {
@@ -116,7 +117,7 @@ public class TestProjectTranslator extends TranslatorTestBase {
     assertEquals(projectSpec.getOpCode(), OperatorSpec.OpCode.MAP);
 
     // Verify that the bootstrap() method will establish the context for the map function
-    Map<Integer, TranslatorContext> mockContexts= new HashMap<>();
+    Map<Integer, TranslatorContext> mockContexts = new HashMap<>();
     mockContexts.put(1, mockTranslatorContext);
     when(mockContext.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContexts));
     projectSpec.getTransformFn().init(mockContext);
@@ -144,20 +145,15 @@ public class TestProjectTranslator extends TranslatorTestBase {
     Object[] result = new Object[1];
     final Object mockFieldObj = new Object();
 
-    doAnswer( invocation -> {
+    doAnswer(invocation -> {
       Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = mockFieldObj;
       return null;
     }).when(mockExpr).execute(eq(executionContext), eq(mockContext), eq(dataContext),
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     SamzaSqlRelMessage retMsg = (SamzaSqlRelMessage) mapFn.apply(mockInputMsg);
-    assertEquals(retMsg.getSamzaSqlRelRecord().getFieldNames(),
-        new ArrayList<String>() {{
-          this.add("test_field");
-        }});
-    assertEquals(retMsg.getSamzaSqlRelRecord().getFieldValues(), new ArrayList<Object>() {{
-          this.add(mockFieldObj);
-        }});
+    assertEquals(retMsg.getSamzaSqlRelRecord().getFieldNames(), Collections.singletonList("test_field"));
+    assertEquals(retMsg.getSamzaSqlRelRecord().getFieldValues(), Collections.singletonList(mockFieldObj));
 
     // Verify mapFn.apply() updates the TestMetricsRegistryImpl metrics
     assertEquals(1, testMetricsRegistryImpl.getCounters().get(LOGICAL_OP_ID).get(0).getCount());

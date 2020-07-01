@@ -135,13 +135,13 @@ public class GenerateKafkaEvents {
         final int finalIndex = 0;
         Pair<String, byte[]> record = eventGenerator.apply(index);
         producer.send(new ProducerRecord<>(topicName, record.getLeft().getBytes("UTF-8"), record.getRight()),
-            (metadata, exception) -> {
-              if (exception == null) {
-                LOG.info("send completed for event {} at offset {}", finalIndex, metadata.offset());
-              } else {
-                throw new RuntimeException("Failed to send message.", exception);
-              }
-            });
+          (metadata, exception) -> {
+            if (exception == null) {
+              LOG.info("send completed for event {} at offset {}", finalIndex, metadata.offset());
+            } else {
+              throw new RuntimeException("Failed to send message.", exception);
+            }
+          });
         System.out.println(String.format("Published event %d to topic %s", index, topicName));
         if (doSleep) {
           Thread.sleep(1000);

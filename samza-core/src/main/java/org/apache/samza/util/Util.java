@@ -53,9 +53,9 @@ public class Util {
 
   public static String getSamzaVersion() {
     return Optional.ofNullable(Util.class.getPackage().getImplementationVersion()).orElseGet(() -> {
-        LOG.warn("Unable to find implementation samza version in jar's meta info. Defaulting to {}", FALLBACK_VERSION);
-        return FALLBACK_VERSION;
-      });
+      LOG.warn("Unable to find implementation samza version in jar's meta info. Defaulting to {}", FALLBACK_VERSION);
+      return FALLBACK_VERSION;
+    });
   }
 
   public static String getTaskClassVersion(Config config) {

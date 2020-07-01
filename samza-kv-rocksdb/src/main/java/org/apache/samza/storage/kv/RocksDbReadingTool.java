@@ -49,21 +49,21 @@ public class RocksDbReadingTool extends CommandLine {
       .withOptionalArg()
       .ofType(Long.class)
       .describedAs("long-key")
-      .withValuesSeparatedBy( ',' );
+      .withValuesSeparatedBy(',');
 
   private ArgumentAcceptingOptionSpec<String> stringKeyArgu = parser()
       .accepts("string-key", "a list of string keys. Sperated by ','.")
       .withOptionalArg()
       .ofType(String.class)
       .describedAs("string-key")
-      .withValuesSeparatedBy( ',' );
+      .withValuesSeparatedBy(',');
 
   private ArgumentAcceptingOptionSpec<Integer> integerKeyArgu = parser()
       .accepts("integer-key", "a list of integer keys. Sperated by ','.")
       .withOptionalArg()
       .ofType(Integer.class)
       .describedAs("integer-key")
-      .withValuesSeparatedBy( ',' );
+      .withValuesSeparatedBy(',');
 
   private String dbPath = "";
   private String dbName = "";

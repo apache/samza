@@ -300,7 +300,7 @@ public class TestApplicationMasterRestClient {
       containers.put(yarnContainerId, containerMap);
     });
 
-    return jsonMapper.readValue(jsonMapper.writeValueAsString(containers), new TypeReference<Map<String, Map<String, Object>>>() {});
+    return jsonMapper.readValue(jsonMapper.writeValueAsString(containers), new TypeReference<Map<String, Map<String, Object>>>() { });
   }
 
   private void assignMetricValues(SamzaApplicationState samzaAppState, MetricsRegistryMap registry) {

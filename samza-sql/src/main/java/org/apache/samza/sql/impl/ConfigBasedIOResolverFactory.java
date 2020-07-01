@@ -54,7 +54,7 @@ public class ConfigBasedIOResolverFactory implements SqlIOResolverFactory {
   }
 
   private class ConfigBasedIOResolver implements SqlIOResolver {
-    private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
+    private static final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
     private final String changeLogStorePrefix;
 

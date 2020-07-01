@@ -52,7 +52,7 @@ class ConfigBasedSspGrouperFactory implements SystemStreamPartitionGrouperFactor
 
   private class ConfigBasedSspGrouper implements SystemStreamPartitionGrouper {
     private final Config config;
-    private HashMap<String, Set<Integer>> _streamPartitionsMap = new HashMap<>();
+    private HashMap<String, Set<Integer>> streamPartitionsMap = new HashMap<>();
 
     public ConfigBasedSspGrouper(Config config) {
       this.config = config;
@@ -75,13 +75,13 @@ class ConfigBasedSspGrouperFactory implements SystemStreamPartitionGrouperFactor
     private Set<Integer> getPartitions(SystemStream systemStream) {
       String streamName = systemStream.getStream();
 
-      if (!_streamPartitionsMap.containsKey(streamName)) {
+      if (!streamPartitionsMap.containsKey(streamName)) {
         String partitions = config.get(String.format(CONFIG_STREAM_PARTITIONS, streamName));
-        _streamPartitionsMap.put(streamName, Arrays.stream(partitions.split(CFG_PARTITIONS_DELIMITER))
+        streamPartitionsMap.put(streamName, Arrays.stream(partitions.split(CFG_PARTITIONS_DELIMITER))
             .map(Integer::parseInt)
             .collect(Collectors.toSet()));
       }
-      return _streamPartitionsMap.get(streamName);
+      return streamPartitionsMap.get(streamName);
     }
   }
 }

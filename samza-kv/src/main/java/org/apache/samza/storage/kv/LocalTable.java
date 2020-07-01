@@ -118,12 +118,12 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
     List<Entry<K, V>> toPut = new LinkedList<>();
     List<K> toDelete = new LinkedList<>();
     entries.forEach(e -> {
-        if (e.getValue() != null) {
-          toPut.add(e);
-        } else {
-          toDelete.add(e.getKey());
-        }
-      });
+      if (e.getValue() != null) {
+        toPut.add(e);
+      } else {
+        toDelete.add(e.getKey());
+      }
+    });
 
     if (!toPut.isEmpty()) {
       instrument(metrics.numPutAlls, metrics.putAllNs, () -> kvStore.putAll(toPut));

@@ -467,29 +467,29 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
     public void onReceive(Iterable<EventData> events) {
       if (events != null) {
         events.forEach(event -> {
-            byte[] eventDataBody = event.getBytes();
-            if (interceptor != null) {
-              eventDataBody = interceptor.intercept(eventDataBody);
-            }
-            String offset = event.getSystemProperties().getOffset();
-            Object partitionKey = event.getSystemProperties().getPartitionKey();
-            if (partitionKey == null) {
-              partitionKey = event.getProperties().get(EventHubSystemProducer.KEY);
-            }
-            try {
-              updateMetrics(event);
+          byte[] eventDataBody = event.getBytes();
+          if (interceptor != null) {
+            eventDataBody = interceptor.intercept(eventDataBody);
+          }
+          String offset = event.getSystemProperties().getOffset();
+          Object partitionKey = event.getSystemProperties().getPartitionKey();
+          if (partitionKey == null) {
+            partitionKey = event.getProperties().get(EventHubSystemProducer.KEY);
+          }
+          try {
+            updateMetrics(event);
 
-              // note that the partition key can be null
-              put(ssp, new EventHubIncomingMessageEnvelope(ssp, offset, partitionKey, eventDataBody, event));
-            } catch (InterruptedException e) {
-              String msg = String.format("Interrupted while adding the event from ssp %s to dispatch queue.", ssp);
-              LOG.error(msg, e);
-              throw new SamzaException(msg, e);
-            }
+            // note that the partition key can be null
+            put(ssp, new EventHubIncomingMessageEnvelope(ssp, offset, partitionKey, eventDataBody, event));
+          } catch (InterruptedException e) {
+            String msg = String.format("Interrupted while adding the event from ssp %s to dispatch queue.", ssp);
+            LOG.error(msg, e);
+            throw new SamzaException(msg, e);
+          }
 
-            // Cache latest checkpoint
-            streamPartitionOffsets.put(ssp, offset);
-          });
+          // Cache latest checkpoint
+          streamPartitionOffsets.put(ssp, offset);
+        });
       }
     }
 

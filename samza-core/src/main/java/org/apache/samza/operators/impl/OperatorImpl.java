@@ -182,14 +182,14 @@ public abstract class OperatorImpl<M, RM> {
     }
 
     CompletionStage<Void> result = completableResultsFuture.thenCompose(results -> {
-        long endNs = this.highResClock.nanoTime();
-        this.handleMessageNs.update(endNs - startNs);
+      long endNs = this.highResClock.nanoTime();
+      this.handleMessageNs.update(endNs - startNs);
 
-        return CompletableFuture.allOf(results.stream()
-            .flatMap(r -> this.registeredOperators.stream()
-              .map(op -> op.onMessageAsync(r, collector, coordinator)))
-            .toArray(CompletableFuture[]::new));
-      });
+      return CompletableFuture.allOf(results.stream()
+          .flatMap(r -> this.registeredOperators.stream()
+            .map(op -> op.onMessageAsync(r, collector, coordinator)))
+          .toArray(CompletableFuture[]::new));
+    });
 
     WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
     if (watermarkFn != null) {
@@ -281,13 +281,13 @@ public abstract class OperatorImpl<M, RM> {
       // populate the end-of-stream through the dag
       endOfStreamFuture = onEndOfStream(collector, coordinator)
           .thenAccept(result -> {
-              if (eosStates.allEndOfStream()) {
-                // all inputs have been end-of-stream, shut down the task
-                LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
-                coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-                coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-              }
-            });
+            if (eosStates.allEndOfStream()) {
+              // all inputs have been end-of-stream, shut down the task
+              LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
+              coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+              coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+            }
+          });
     }
 
     return endOfStreamFuture;
@@ -485,24 +485,24 @@ public abstract class OperatorImpl<M, RM> {
       @Override
       public void schedule(K key, long time) {
         callbackScheduler.scheduleCallback(key, time, (k, collector, coordinator) -> {
-            final ScheduledFunction<K, RM> scheduledFn = getOperatorSpec().getScheduledFn();
-            if (scheduledFn != null) {
-              final Collection<RM> output = scheduledFn.onCallback(key, time);
+          final ScheduledFunction<K, RM> scheduledFn = getOperatorSpec().getScheduledFn();
+          if (scheduledFn != null) {
+            final Collection<RM> output = scheduledFn.onCallback(key, time);
 
-              if (!output.isEmpty()) {
-                CompletableFuture<Void> timerFuture = CompletableFuture.allOf(output.stream()
-                    .flatMap(r -> registeredOperators.stream()
-                        .map(op -> op.onMessageAsync(r, collector, coordinator)))
-                    .toArray(CompletableFuture[]::new));
+            if (!output.isEmpty()) {
+              CompletableFuture<Void> timerFuture = CompletableFuture.allOf(output.stream()
+                  .flatMap(r -> registeredOperators.stream()
+                      .map(op -> op.onMessageAsync(r, collector, coordinator)))
+                  .toArray(CompletableFuture[]::new));
 
-                timerFuture.join();
-              }
-            } else {
-              throw new SamzaException(
-                  String.format("Operator %s id %s (created at %s) must implement ScheduledFunction to use system timer.",
-                      getOperatorSpec().getOpCode().name(), getOpImplId(), getOperatorSpec().getSourceLocation()));
+              timerFuture.join();
             }
-          });
+          } else {
+            throw new SamzaException(
+                String.format("Operator %s id %s (created at %s) must implement ScheduledFunction to use system timer.",
+                    getOperatorSpec().getOpCode().name(), getOpImplId(), getOperatorSpec().getSourceLocation()));
+          }
+        });
       }
 
       @Override

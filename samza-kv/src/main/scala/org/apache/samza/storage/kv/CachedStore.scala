@@ -25,6 +25,7 @@ import scala.collection._
 import java.nio.file.Path
 import java.util.{Arrays, Optional}
 
+import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.checkpoint.CheckpointId
 
 /**
@@ -298,6 +299,11 @@ class CachedStore[K, V](
 
   override def checkpoint(id: CheckpointId): Optional[Path] = {
     store.checkpoint(id)
+  }
+
+  @VisibleForTesting
+  private[kv] def getStore: KeyValueStore[K, V] = {
+    store
   }
 }
 

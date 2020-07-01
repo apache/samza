@@ -75,8 +75,8 @@ class EndOfStreamStates {
   EndOfStreamStates(Set<SystemStreamPartition> ssps, Map<SystemStream, Integer> producerTaskCounts) {
     Map<SystemStreamPartition, EndOfStreamState> states = new HashMap<>();
     ssps.forEach(ssp -> {
-        states.put(ssp, new EndOfStreamState(producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0)));
-      });
+      states.put(ssp, new EndOfStreamState(producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0)));
+    });
     this.eosStates = Collections.unmodifiableMap(states);
   }
 

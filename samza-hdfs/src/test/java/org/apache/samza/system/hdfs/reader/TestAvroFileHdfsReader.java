@@ -87,7 +87,7 @@ public class TestAvroFileHdfsReader {
     SingleFileHdfsReader reader = new AvroFileHdfsReader(ssp);
     reader.open(AVRO_FILE, "0");
     int index = 0;
-    for (;index < NUM_EVENTS / 2; index++) {
+    for (; index < NUM_EVENTS / 2; index++) {
       GenericRecord record = (GenericRecord) reader.readNext().getMessage();
       Assert.assertEquals(index, record.get(FIELD_1));
       Assert.assertEquals("string_" + index, record.get(FIELD_2).toString());
@@ -96,7 +96,7 @@ public class TestAvroFileHdfsReader {
     reader.close();
     reader = new AvroFileHdfsReader(ssp);
     reader.open(AVRO_FILE, offset);
-    for (;index < NUM_EVENTS; index++) {
+    for (; index < NUM_EVENTS; index++) {
       GenericRecord record = (GenericRecord) reader.readNext().getMessage();
       Assert.assertEquals(index, record.get(FIELD_1));
       Assert.assertEquals("string_" + index, record.get(FIELD_2).toString());
@@ -110,7 +110,7 @@ public class TestAvroFileHdfsReader {
     SystemStreamPartition ssp = new SystemStreamPartition("hdfs", "testStream", new Partition(0));
     SingleFileHdfsReader reader = new AvroFileHdfsReader(ssp);
     reader.open(AVRO_FILE, "0");
-    for (int i = 0;i < NUM_EVENTS / 2; i++) {
+    for (int i = 0; i < NUM_EVENTS / 2; i++) {
       reader.readNext();
     }
     String offset = reader.nextOffset();

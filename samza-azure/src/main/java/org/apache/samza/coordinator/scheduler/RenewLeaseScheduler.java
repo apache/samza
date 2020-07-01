@@ -56,16 +56,16 @@ public class RenewLeaseScheduler implements TaskScheduler {
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
-        try {
-          LOG.info("Renewing lease");
-          boolean status = leaseBlobManager.renewLease(leaseId.get());
-          if (!status) {
-            errorHandler.accept("Unable to renew lease. Continuing as non-leader.");
-          }
-        } catch (Exception e) {
-          errorHandler.accept("Exception in Renew Lease Scheduler. Continuing as non-leader.");
+      try {
+        LOG.info("Renewing lease");
+        boolean status = leaseBlobManager.renewLease(leaseId.get());
+        if (!status) {
+          errorHandler.accept("Unable to renew lease. Continuing as non-leader.");
         }
-      }, RENEW_LEASE_DELAY_SEC, RENEW_LEASE_DELAY_SEC, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        errorHandler.accept("Exception in Renew Lease Scheduler. Continuing as non-leader.");
+      }
+    }, RENEW_LEASE_DELAY_SEC, RENEW_LEASE_DELAY_SEC, TimeUnit.SECONDS);
   }
 
   @Override

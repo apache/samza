@@ -98,15 +98,15 @@ public class TestTimeSeriesStoreImpl {
     List<TimestampedValue<byte[]>> values = readStore(timeSeriesStore, "hello", 0L, 2L);
     Assert.assertEquals(100, values.size());
     values.forEach(timeSeriesValue -> {
-        Assert.assertEquals("world-1", new String(timeSeriesValue.getValue()));
-      });
+      Assert.assertEquals("world-1", new String(timeSeriesValue.getValue()));
+    });
 
     // read from time-range [2,4) should return 100 entries
     values = readStore(timeSeriesStore, "hello", 2L, 4L);
     Assert.assertEquals(100, values.size());
     values.forEach(timeSeriesValue -> {
-        Assert.assertEquals("world-2", new String(timeSeriesValue.getValue()));
-      });
+      Assert.assertEquals("world-2", new String(timeSeriesValue.getValue()));
+    });
 
     // read all entries in the store
     values = readStore(timeSeriesStore, "hello", 0L, Integer.MAX_VALUE);

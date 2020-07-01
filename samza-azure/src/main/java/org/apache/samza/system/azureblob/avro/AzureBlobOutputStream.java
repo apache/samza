@@ -351,15 +351,15 @@ public class AzureBlobOutputStream extends OutputStream {
     pendingUpload.add(future);
 
     future.handle((aVoid, throwable) -> {
-        if (throwable == null) {
-          LOG.info("Upload block for blob: {} with blockid: {} finished.", blobAsyncClient.getBlobUrl().toString(), blockId);
-          pendingUpload.remove(future);
-          return aVoid;
-        } else {
-          throw new AzureException("Blob upload failed for blob " + blobAsyncClient.getBlobUrl().toString()
-              + " and block with id: " + blockId, throwable);
-        }
-      });
+      if (throwable == null) {
+        LOG.info("Upload block for blob: {} with blockid: {} finished.", blobAsyncClient.getBlobUrl().toString(), blockId);
+        pendingUpload.remove(future);
+        return aVoid;
+      } else {
+        throw new AzureException("Blob upload failed for blob " + blobAsyncClient.getBlobUrl().toString()
+            + " and block with id: " + blockId, throwable);
+      }
+    });
 
     blockNum += 1;
     if (blockNum >= MAX_BLOCKS_IN_AZURE_BLOB) {

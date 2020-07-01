@@ -125,7 +125,7 @@ public class TestJobsResource extends BaseJerseyTest {
     Response resp = target(String.format("v1/jobs/%s/%s", "BadJobName", MockJobProxy.JOB_INSTANCE_2_ID)).request().get();
     assertEquals(404, resp.getStatus());
 
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message"), errorMessage.get("message").contains("does not exist"));
     resp.close();
   }
@@ -136,7 +136,7 @@ public class TestJobsResource extends BaseJerseyTest {
     Response resp = target(String.format("v1/jobs/%s/%s", MockJobProxy.JOB_INSTANCE_2_NAME, "BadJobId")).request().get();
     assertEquals(404, resp.getStatus());
 
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message"), errorMessage.get("message").contains("does not exist"));
     resp.close();
   }
@@ -184,7 +184,7 @@ public class TestJobsResource extends BaseJerseyTest {
         .queryParam("status", "BADSTATUS").request().put(Entity.form(new Form()));
     assertEquals(400, resp.getStatus());
 
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message").contains("BADSTATUS"));
     resp.close();
   }
@@ -196,7 +196,7 @@ public class TestJobsResource extends BaseJerseyTest {
         .put(Entity.form(new Form()));
     assertEquals(400, resp.getStatus());
 
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message").contains("status"));
     resp.close();
   }

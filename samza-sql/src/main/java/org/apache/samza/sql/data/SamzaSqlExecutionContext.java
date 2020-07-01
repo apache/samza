@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.Context;
 import org.apache.samza.sql.interfaces.UdfMetadata;
@@ -57,7 +56,7 @@ public class SamzaSqlExecutionContext implements Cloneable {
   public SamzaSqlExecutionContext(SamzaSqlApplicationConfig config) {
     this.sqlConfig = config;
     udfMetadata = new HashMap<>();
-    for(UdfMetadata udf : this.sqlConfig.getUdfMetadata()) {
+    for (UdfMetadata udf : this.sqlConfig.getUdfMetadata()) {
       udfMetadata.putIfAbsent(udf.getName(), new ArrayList<>());
       udfMetadata.get(udf.getName()).add(udf);
     }

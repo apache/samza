@@ -97,10 +97,10 @@ public class ReflectionUtil {
         Class<?>[] argClasses = new Class<?>[args.length];
         Object[] argValues = new Object[args.length];
         IntStream.range(0, args.length).forEach(i -> {
-            ConstructorArgument<?> constructorArgument = args[i];
-            argClasses[i] = constructorArgument.getClazz();
-            argValues[i] = constructorArgument.getValue();
-          });
+          ConstructorArgument<?> constructorArgument = args[i];
+          argClasses[i] = constructorArgument.getClazz();
+          argValues[i] = constructorArgument.getValue();
+        });
         Constructor<T> constructor = classObj.getDeclaredConstructor(argClasses);
         return constructor.newInstance(argValues);
       }

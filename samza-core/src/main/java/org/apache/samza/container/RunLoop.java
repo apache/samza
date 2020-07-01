@@ -397,8 +397,8 @@ public class RunLoop implements Runnable, Throttleable {
       final EpochTimeScheduler epochTimeScheduler = task.epochTimeScheduler();
       if (epochTimeScheduler != null) {
         epochTimeScheduler.registerListener(() -> {
-            state.needScheduler();
-          });
+          state.needScheduler();
+        });
       }
     }
 
