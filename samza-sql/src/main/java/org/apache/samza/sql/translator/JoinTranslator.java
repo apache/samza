@@ -366,6 +366,7 @@ class JoinTranslator {
     if (relNode instanceof HepRelVertex) {
       return resolveSQlIOForTable(((HepRelVertex) relNode).getCurrentRel(), systemStreamConfigBySource);
     }
+
     if (relNode instanceof LogicalProject) {
       return resolveSQlIOForTable(((LogicalProject) relNode).getInput(), systemStreamConfigBySource);
     }
