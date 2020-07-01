@@ -31,6 +31,8 @@ excerpt_separator: <!--more-->
 
 <!--more-->
 
+**IMPORTANT NOTE**: As noted in the last release, this release has **backward incompatible changes regarding samza job submission**. Details can be found on [SEP-23: Simplify Job Runner](https://cwiki.apache.org/confluence/display/SAMZA/SEP-23%3A+Simplify+Job+Runner)
+
 We are thrilled to announce the release of Apache Samza 1.5.0.
 
 Today, Samza forms the backbone of hundreds of real-time production applications across a multitude of companies, such as LinkedIn, Slack, and Redfin, among many others. Samza provides leading support for large-scale stateful stream processing with:
