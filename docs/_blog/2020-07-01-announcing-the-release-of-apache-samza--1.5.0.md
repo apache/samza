@@ -26,7 +26,7 @@ excerpt_separator: <!--more-->
    limitations under the License.
 -->
 
-# **Announcing the release of Apache Samza 1.4.0**
+# **Announcing the release of Apache Samza 1.5.0**
 
 
 <!--more-->
