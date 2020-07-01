@@ -52,9 +52,6 @@ Before you can run a Samza job, you need to build a package for it. This package
 **(Optional)** NOTE: if you want the hello-samza jobs to run with a local Samza build (e.g., if you are a Samza developer), 
 make sure that you run the following steps, otherwise skip them.
 {% highlight bash %}
-In your hello-samza project,  
-git checkout latest  
-In your local Samza project,  
 ./gradlew publishToMavenLocal  
 {% endhighlight %}
 
@@ -63,7 +60,7 @@ Then, you can continue w/ the following command in hello-samza project:
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-1.5.0-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-1.5.0-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 ### Run a Samza Job
@@ -129,4 +126,4 @@ After you're done, you can clean everything up using the same grid script.
 bin/grid stop all
 {% endhighlight %}
 
-Congratulations! You've now setup a local grid that includes YARN, Kafka, and ZooKeeper, and run a Samza job on it. Next up, check out the [Background](/learn/documentation/{{site.version}}/introduction/background.html) and [API Overview](/learn/documentation/{{site.version}}/api/overview.html) pages.
+Congratulations! You've now setup a Tlocal grid that includes YARN, Kafka, and ZooKeeper, and run a Samza job on it. Next up, check out the [Background](/learn/documentation/{{site.version}}/introduction/background.html) and [API Overview](/learn/documentation/{{site.version}}/api/overview.html) pages.
