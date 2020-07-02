@@ -52,9 +52,6 @@ Before you can run a Samza job, you need to build a package for it. This package
 **(Optional)** NOTE: if you want the hello-samza jobs to run with a local Samza build (e.g., if you are a Samza developer), 
 make sure that you run the following steps, otherwise skip them.
 {% highlight bash %}
-In your hello-samza project,  
-git checkout latest  
-In your local Samza project,  
 ./gradlew publishToMavenLocal  
 {% endhighlight %}
 
@@ -63,7 +60,7 @@ Then, you can continue w/ the following command in hello-samza project:
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-1.5.0-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-1.5.0-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 ### Run a Samza Job
