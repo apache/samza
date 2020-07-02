@@ -25,6 +25,7 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.adapter.enumerable.CallImplementor;
+import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.NullPolicy;
 import org.apache.calcite.adapter.enumerable.RexImpTable;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -32,7 +33,6 @@ import org.apache.calcite.linq4j.tree.ConstantExpression;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.ExpressionType;
 import org.apache.calcite.linq4j.tree.Expressions;
-import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -149,7 +149,7 @@ public class GetNestedField extends SqlUserDefinedFunction {
           relDataType = t.getType();
         }
         Type fieldType = javaTypeFactory.getJavaClass(relDataType);
-        return Types.castIfNecessary(fieldType, currentExpression);
+        return EnumUtils.convert(currentExpression, fieldType);
       }, NullPolicy.ARG0, false);
     }
 

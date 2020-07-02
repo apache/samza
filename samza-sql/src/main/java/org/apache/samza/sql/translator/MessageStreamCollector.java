@@ -31,7 +31,6 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.operators.functions.AsyncFlatMapFunction;
-import org.apache.samza.operators.functions.ClosableFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
 import org.apache.samza.operators.functions.JoinFunction;
@@ -59,7 +58,7 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
   /**
    * Queue First in First to be Fired order of the operators on the top of Remote Table Scan.
    */
-  private final Deque<MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage>> _mapFnCallQueue =
+  private final Deque<MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage>> mapFnCallQueue =
       new ArrayDeque<>();
 
   /**
@@ -69,13 +68,13 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
 
   @Override
   public <OM> MessageStream<OM> map(MapFunction<? super SamzaSqlRelMessage, ? extends OM> mapFn) {
-    _mapFnCallQueue.offer((MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage>) mapFn);
+    mapFnCallQueue.offer((MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage>) mapFn);
     return (MessageStream<OM>) this;
   }
 
   @Override
   public MessageStream<SamzaSqlRelMessage> filter(FilterFunction<? super SamzaSqlRelMessage> filterFn) {
-    _mapFnCallQueue.offer(new FilterMapAdapter(filterFn));
+    mapFnCallQueue.offer(new FilterMapAdapter(filterFn));
     return this;
   }
 
@@ -90,8 +89,8 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
     Function<Void, Void> intFn = aVoid -> null; // Projects and Filters both need to be initialized.
     closeFn = aVoid -> null;
     // At this point we have a the queue of operator, where first in is the first operator on top of TableScan.
-    while (!_mapFnCallQueue.isEmpty()) {
-      MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage> f = _mapFnCallQueue.poll();
+    while (!mapFnCallQueue.isEmpty()) {
+      MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage> f = mapFnCallQueue.poll();
       intFn = intFn.andThen((aVoid) -> {
         f.init(context);
         return null;
@@ -115,7 +114,7 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
 
   /**
    * Filter adapter is used to compose filters with {@code MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage>}
-   * Filter function will return {@code null} when input is {@null} or filter condition reject current row.
+   * Filter function will return {@code null} when input is {@code null} or filter condition reject current row.
    */
   private static class FilterMapAdapter implements MapFunction<SamzaSqlRelMessage, SamzaSqlRelMessage> {
     private final FilterFunction<? super SamzaSqlRelMessage> filterFn;

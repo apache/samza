@@ -51,7 +51,7 @@ public class SamzaSqlRemoteTableJoinFunction
   /**
    * Projects and Filters operator queue.
    */
-  private final MessageStreamCollector _messageStreamCollector;
+  private final MessageStreamCollector messageStreamCollector;
 
   public SamzaSqlRemoteTableJoinFunction(SamzaRelConverter msgConverter, SamzaRelTableKeyConverter tableKeyConverter,
       JoinInputNode streamNode, JoinInputNode tableNode, JoinRelType joinRelType, int queryId,
@@ -61,7 +61,7 @@ public class SamzaSqlRemoteTableJoinFunction
     this.relTableKeyConverter = tableKeyConverter;
     this.tableName = tableNode.getSourceName();
     this.queryId = queryId;
-    this._messageStreamCollector = messageStreamCollector;
+    this.messageStreamCollector = messageStreamCollector;
   }
 
   SamzaSqlRemoteTableJoinFunction(SamzaRelConverter msgConverter, SamzaRelTableKeyConverter tableKeyConverter,
@@ -72,7 +72,7 @@ public class SamzaSqlRemoteTableJoinFunction
     this.tableName = tableNode.getSourceName();
     this.queryId = queryId;
     this.projectFunction = Function.identity();
-    this._messageStreamCollector = null;
+    this.messageStreamCollector = null;
   }
 
   @Override
@@ -81,8 +81,8 @@ public class SamzaSqlRemoteTableJoinFunction
         ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
     this.msgConverter = translatorContext.getMsgConverter(tableName);
     this.relTableKeyConverter = translatorContext.getTableKeyConverter(tableName);
-    if (_messageStreamCollector != null) {
-      projectFunction = _messageStreamCollector.getFunction(context);
+    if (messageStreamCollector != null) {
+      projectFunction = messageStreamCollector.getFunction(context);
     }
   }
 
@@ -120,8 +120,8 @@ public class SamzaSqlRemoteTableJoinFunction
   @Override
   public void close() {
     super.close();
-    if (_messageStreamCollector != null) {
-      _messageStreamCollector.close();
+    if (messageStreamCollector != null) {
+      messageStreamCollector.close();
     }
   }
 }
