@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.ExternalContext;
@@ -54,7 +55,6 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
 
   private final ApplicationRunner runner;
 
-  public static final String RUNNER_CONFIG = "app.runner.class";
   public static final String CFG_FMT_SAMZA_STREAM_SYSTEM = "streams.%s.samza.system";
 
   /**
@@ -109,9 +109,9 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
     newConfig.putAll(config);
 
     if (localRunner) {
-      newConfig.put(RUNNER_CONFIG, LocalApplicationRunner.class.getName());
+      newConfig.put(ApplicationConfig.APP_RUNNER_CLASS, LocalApplicationRunner.class.getName());
     } else {
-      newConfig.put(RUNNER_CONFIG, RemoteApplicationRunner.class.getName());
+      newConfig.put(ApplicationConfig.APP_RUNNER_CLASS, RemoteApplicationRunner.class.getName());
     }
 
     LOG.info("New Samza configs: " + newConfig);

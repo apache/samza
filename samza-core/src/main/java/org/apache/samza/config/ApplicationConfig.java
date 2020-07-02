@@ -59,6 +59,9 @@ public class ApplicationConfig extends MapConfig {
   public static final String APP_RUN_ID = "app.run.id";
   public static final String APP_MAIN_CLASS = "app.main.class";
   public static final String APP_MAIN_ARGS = "app.main.args";
+  public static final String APP_RUNNER_CLASS = "app.runner.class";
+
+  private static final String DEFAULT_APP_RUNNER = "org.apache.samza.runtime.RemoteApplicationRunner";
 
   public ApplicationConfig(Config config) {
     super(config);
@@ -108,4 +111,7 @@ public class ApplicationConfig extends MapConfig {
     return Optional.ofNullable(get(APP_MAIN_CLASS));
   }
 
+  public String getAppRunnerClass() {
+    return get(APP_RUNNER_CLASS, DEFAULT_APP_RUNNER);
+  }
 }

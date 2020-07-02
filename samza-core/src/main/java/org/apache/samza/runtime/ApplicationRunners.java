@@ -20,6 +20,7 @@ package org.apache.samza.runtime;
 
 import java.lang.reflect.Constructor;
 import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 
@@ -40,14 +41,7 @@ import org.apache.samza.config.ConfigException;
  *   }
  * }</pre>
  */
-public class ApplicationRunners {
-
-  private static final String APP_RUNNER_CFG = "app.runner.class";
-  private static final String DEFAULT_APP_RUNNER = "org.apache.samza.runtime.RemoteApplicationRunner";
-
-  private ApplicationRunners() {
-
-  }
+public final class ApplicationRunners {
 
   /**
    * Get the {@link ApplicationRunner} that runs the {@code userApp}
@@ -56,8 +50,8 @@ public class ApplicationRunners {
    * @param config the configuration for this application
    * @return the {@link ApplicationRunner} object that will run the {@code userApp}
    */
-  public static final ApplicationRunner getApplicationRunner(SamzaApplication userApp, Config config) {
-    String appRunnerClassName = getAppRunnerClass(config);
+  public static ApplicationRunner getApplicationRunner(SamzaApplication<?> userApp, Config config) {
+    String appRunnerClassName = new ApplicationConfig(config).getAppRunnerClass();
     try {
       Class<?> runnerClass = Class.forName(appRunnerClassName);
       if (!ApplicationRunner.class.isAssignableFrom(runnerClass)) {
@@ -75,8 +69,6 @@ public class ApplicationRunners {
     }
   }
 
-  private static String getAppRunnerClass(Config config) {
-    return config.getOrDefault(APP_RUNNER_CFG, DEFAULT_APP_RUNNER);
+  private ApplicationRunners() {
   }
-
 }

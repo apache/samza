@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Random;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -72,7 +73,7 @@ public class EndOfStreamIntegrationTest extends IntegrationTestHarness {
 
     int partitionCount = 4;
     Map<String, String> configs = new HashMap<>();
-    configs.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    configs.put(ApplicationConfig.APP_RUNNER_CLASS, "org.apache.samza.runtime.LocalApplicationRunner");
     configs.put("systems.test.samza.factory", ArraySystemFactory.class.getName());
     configs.put("streams.PageView.samza.system", "test");
     configs.put("streams.PageView.source", Base64Serializer.serialize(pageviews));
