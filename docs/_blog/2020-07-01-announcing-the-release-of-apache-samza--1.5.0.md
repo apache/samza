@@ -31,7 +31,7 @@ excerpt_separator: <!--more-->
 
 <!--more-->
 
-**IMPORTANT NOTE**: As noted in the last release, this release has **backward incompatible changes regarding samza job submission**. Details can be found on [SEP-23: Simplify Job Runner](https://cwiki.apache.org/confluence/display/SAMZA/SEP-23%3A+Simplify+Job+Runner)
+**IMPORTANT NOTE**: As noted in the last release, this release contains **backward incompatible changes regarding samza job submission**. Details can be found on [SEP-23: Simplify Job Runner](https://cwiki.apache.org/confluence/display/SAMZA/SEP-23%3A+Simplify+Job+Runner)
 
 We are thrilled to announce the release of Apache Samza 1.5.0.
 
@@ -57,7 +57,7 @@ Today, Samza forms the backbone of hundreds of real-time production applications
 This release brings the following features, upgrades, and capabilities (highlights):
 
 #### Samza Container Placement
-Container Placements API gives you the ability to move / restart one or more containers (either active or standby) of your cluster based applications from one host to another without restarting your application. You can use these api to build maintenance, balancing & remediation tools. 
+Container Placements API gives you the ability to move / restart one or more containers (either active or standby) of your cluster based applications from one host to another without restarting your application. You can use these API to build maintenance, balancing & remediation tools. 
 
 #### Simplify Job Runner & Configs
 Job Runner will now simply submit Samza job to Yarn RM without executing any user code and job planning will happen on ClusterBasedJobCoordinator instead. This simplified workflow addresses security requirements where job submissions need to be isolated in order to execute user code as well as operational pain points where deployment failure could happen at multiple places.
@@ -68,7 +68,34 @@ Full list of the jiras addressed in this release can be found [here](https://iss
 ConfigFactory is deprecated as Job Runner does not load full job config anymore. Instead, ConfigLoaderFactory is introduced to be executed on ClusterBasedJobCoordinator to fetch full job config.
 If you are using the default PropertiesConfigFactory, simply switching to use the default PropertiesConfigLoaderFactory will work, otherwise if you are using a custom ConfigFactory, kindly creates its new counterpart following ConfigLoaderFactory. 
 
-Configs related to job submission must be explicitly provided to Job Runner as it is no longer loading full job config anymore.
+Configs related to job submission must be explicitly provided to Job Runner as it is no longer loading full job config anymore. These configs include
+
+* Configs directly related to job submission, such as yarn.package.path, job.name etc.
+* Configs needed by the config loader on AM to fetch job config, such as path to the property file in the tarball, all of such configs will have a job.config.loader.properties prefix.
+* Configs that users would like to override
+
+Full list of the job submission configurations can be found [here](https://cwiki.apache.org/confluence/display/SAMZA/SEP-23%3A+Simplify+Job+Runner#SEP23:SimplifyJobRunner-References)
+
+#### Usage Instructions
+Alternative way when submitting job,
+{% highlight bash %}
+deploy/samza/bin/run-app.sh
+ --config yarn.package.path=<package_path>
+ --config job.name=<job_name>
+{% endhighlight %}
+can be simplified to
+{% highlight bash %}
+deploy/samza/bin/run-app.sh
+ --config-path=/path/to/submission/properties/file/submission.properties
+{% endhighlight %}
+where submission.properties contains
+{% highlight jproperties %}
+yarn.package.path=<package_path>
+job.name=<job_name>
+{% endhighlight %}
+
+#### Rollback Instructions
+In case of a problem in Samza 1.5, users can rollback to Samza 1.4 and keep the old start up flow using _config-path_ & _config-factory_.
 
 ### Simplify Job Runner & Configs
 [SAMZA-2488](https://issues.apache.org/jira/browse/SAMZA-2488) Add JobCoordinatorLaunchUtil to handle common logic when launching job coordinator
