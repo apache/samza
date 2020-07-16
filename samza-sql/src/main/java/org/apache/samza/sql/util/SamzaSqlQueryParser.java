@@ -51,6 +51,7 @@ import org.apache.calcite.tools.Planner;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.interfaces.SamzaSqlDriver;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
+import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.planner.SamzaSqlValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
