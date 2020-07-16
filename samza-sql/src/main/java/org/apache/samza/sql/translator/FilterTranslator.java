@@ -80,6 +80,7 @@ class FilterTranslator {
       this.context = context;
       this.translatorContext = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.filter = (LogicalFilter) this.translatorContext.getRelNode(filterId);
+      LOG.info("Compiling Operator {}", filter.getDigest());
       this.expr = this.translatorContext.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
       ContainerContext containerContext = context.getContainerContext();
       metricsRegistry = containerContext.getContainerMetricsRegistry();

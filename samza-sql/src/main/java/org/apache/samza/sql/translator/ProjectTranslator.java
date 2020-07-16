@@ -215,6 +215,7 @@ public class ProjectTranslator {
       this.translatorContext =
           ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.project = (Project) this.translatorContext.getRelNode(projectId);
+      LOG.info("Compiling operator {} ", project.getDigest());
       this.expr = this.translatorContext.getExpressionCompiler().compile(project.getInputs(), project.getProjects());
       ContainerContext containerContext = context.getContainerContext();
       metricsRegistry = containerContext.getContainerMetricsRegistry();

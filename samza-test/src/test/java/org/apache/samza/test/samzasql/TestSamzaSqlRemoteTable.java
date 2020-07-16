@@ -450,7 +450,7 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
         + "       p.name as profileName, p.address as profileAddress "
         + "from testavro.PAGEVIEW as pv  "
         + " LEFT Join testRemoteStore.Profile.`$table` as p "
-        + " on  pv.profileId = p.__key__ "
+        + " on  pv.profileId + 1 - (2/2) = p.__key__ "
         + "  where p.name <> 'Mary' or p.name is null";
 
     List<String> sqlStmts = Arrays.asList(sql);
@@ -469,7 +469,8 @@ public class TestSamzaSqlRemoteTable extends SamzaSqlIntegrationTestHarness {
     List<String> expectedOutMessages =
         TestAvroSystemFactory.getPageKeyProfileNameOuterJoinWithNullForeignKeys(numMessages)
             .stream()
-            .filter(x -> !x.contains("Mary")).collect(Collectors.toList());
+            .filter(x -> !x.contains("Mary"))
+            .collect(Collectors.toList());
 
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
