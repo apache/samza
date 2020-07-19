@@ -186,7 +186,6 @@ public class QueryPlanner {
       String errorMsg =
           "Error while optimizing query plan:\n" + RelOptUtil.toString(relRoot.rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES);
       LOG.error(errorMsg, e);
-      planner.close();
       throw new SamzaException(errorMsg, e);
     }
   }
@@ -199,6 +198,7 @@ public class QueryPlanner {
       LOG.info(
           "query plan without optimization:\n" + RelOptUtil.toString(relRoot.rel, SqlExplainLevel.EXPPLAN_ATTRIBUTES));
       if (!isQueryPlanOptimizerEnabled) {
+        LOG.info("Skipping query optimization as it is disabled.");
         return relRoot;
       }
       return optimize(planner, relRoot);

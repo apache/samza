@@ -19,6 +19,7 @@
 
 package org.apache.samza.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import java.util.Map;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
@@ -81,7 +82,7 @@ public abstract class SamzaSqlFilterRemoteJoinRule extends RelOptRule {
     JoinInputNode.InputType inputTypeOnRight =
         JoinInputNode.getInputType(join.getRight(), systemStreamConfigBySource);
 
-    // Disable this optimnization for queries using local table.
+    // Disable this optimization for queries using local table.
     if (inputTypeOnLeft == InputType.LOCAL_TABLE || inputTypeOnRight == InputType.LOCAL_TABLE) {
       donotOptimizeLeft = true;
       donotOptimizeRight = true;
@@ -107,8 +108,8 @@ public abstract class SamzaSqlFilterRemoteJoinRule extends RelOptRule {
         filter != null
             ? RelOptUtil.conjunctions(filter.getCondition())
             : new ArrayList<>();
-    final com.google.common.collect.ImmutableList<RexNode> origAboveFilters =
-        com.google.common.collect.ImmutableList.copyOf(aboveFilters);
+    final ImmutableList<RexNode> origAboveFilters =
+        ImmutableList.copyOf(aboveFilters);
 
     // Simplify Outer Joins
     JoinRelType joinType = join.getJoinType();
@@ -132,6 +133,7 @@ public abstract class SamzaSqlFilterRemoteJoinRule extends RelOptRule {
     // generating side.
     // We do not push into join condition as we do not benefit much. There is also correctness issue
     // with remote table as we will not have values for the remote table before the join/lookup.
+    // leftFilters and rightFilters are populated in classifyFilters API.
     boolean filterPushed = false;
     if (RelOptUtil.classifyFilters(
         join,
@@ -191,8 +193,8 @@ public abstract class SamzaSqlFilterRemoteJoinRule extends RelOptRule {
 
     // create the new join node referencing the new children and
     // containing its new join filters (if there are any)
-    final com.google.common.collect.ImmutableList<RelDataType> fieldTypes =
-        com.google.common.collect.ImmutableList.<RelDataType>builder()
+    final ImmutableList<RelDataType> fieldTypes =
+        ImmutableList.<RelDataType>builder()
             .addAll(RelOptUtil.getFieldTypeList(leftRel.getRowType()))
             .addAll(RelOptUtil.getFieldTypeList(rightRel.getRowType())).build();
     final RexNode joinFilter =
