@@ -50,6 +50,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.sql.avro.schemas.AddressRecord;
 import org.apache.samza.sql.avro.schemas.ComplexRecord;
+import org.apache.samza.sql.avro.schemas.ComplexUnion;
 import org.apache.samza.sql.avro.schemas.Kind;
 import org.apache.samza.sql.avro.schemas.MyFixed;
 import org.apache.samza.sql.avro.schemas.PhoneNumber;
@@ -76,9 +77,11 @@ public class TestAvroRelConversion {
   private final AvroRelConverter simpleRecordAvroRelConverter;
   private final AvroRelConverter complexRecordAvroRelConverter;
   private final AvroRelConverter nestedRecordAvroRelConverter;
+  private final AvroRelConverter complexUnionAvroRelConverter;
   private final AvroRelSchemaProvider simpleRecordSchemaProvider;
   private final AvroRelSchemaProvider complexRecordSchemaProvider;
   private final AvroRelSchemaProvider nestedRecordSchemaProvider;
+  private final AvroRelSchemaProvider complexUnionSchemaProvider;
 
   private int id = 1;
   private boolean boolValue = true;
@@ -102,6 +105,7 @@ public class TestAvroRelConversion {
     SystemStream ss1 = new SystemStream("test", "complexRecord");
     SystemStream ss2 = new SystemStream("test", "simpleRecord");
     SystemStream ss3 = new SystemStream("test", "nestedRecord");
+    SystemStream ss4 = new SystemStream("test", "complexUnion");
     props.put(
         String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA, ss1.getSystem(), ss1.getStream()),
         ComplexRecord.SCHEMA$.toString());
@@ -111,15 +115,20 @@ public class TestAvroRelConversion {
     props.put(
         String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA, ss3.getSystem(), ss3.getStream()),
         Profile.SCHEMA$.toString());
+    props.put(
+        String.format(ConfigBasedAvroRelSchemaProviderFactory.CFG_SOURCE_SCHEMA, ss4.getSystem(), ss4.getStream()),
+        ComplexUnion.SCHEMA$.toString());
 
     ConfigBasedAvroRelSchemaProviderFactory factory = new ConfigBasedAvroRelSchemaProviderFactory();
 
     complexRecordSchemaProvider = (AvroRelSchemaProvider) factory.create(ss1, new MapConfig(props));
     simpleRecordSchemaProvider = (AvroRelSchemaProvider) factory.create(ss2, new MapConfig(props));
     nestedRecordSchemaProvider = (AvroRelSchemaProvider) factory.create(ss3, new MapConfig(props));
+    complexUnionSchemaProvider = (AvroRelSchemaProvider) factory.create(ss3, new MapConfig(props));
     complexRecordAvroRelConverter = new AvroRelConverter(ss1, complexRecordSchemaProvider, new MapConfig());
     simpleRecordAvroRelConverter = new AvroRelConverter(ss2, simpleRecordSchemaProvider, new MapConfig());
     nestedRecordAvroRelConverter = new AvroRelConverter(ss3, nestedRecordSchemaProvider, new MapConfig());
+    complexUnionAvroRelConverter = new AvroRelConverter(ss4, complexUnionSchemaProvider, new MapConfig());
 
     fixedBytes.bytes(DEFAULT_TRACKING_ID_BYTES);
   }
@@ -229,6 +238,42 @@ public class TestAvroRelConversion {
 
     serializedData = encodeAvroSpecificRecord(ComplexRecord.class, complexRecord);
     validateAvroSerializedData(serializedData, testStrValue);
+  }
+
+  @Test
+  public void testComplexUnionConversionShouldWorkWithBothStringAndIntTypes() throws Exception {
+    // ComplexUnion is a nested avro non-nullable union-type with both String and Integer type
+    // Test the complex-union conversion for String type.
+    GenericData.Record record = new GenericData.Record(ComplexUnion.SCHEMA$);
+    record.put("non_nullable_union_value", testStrValue);
+
+    ComplexUnion complexUnion = new ComplexUnion();
+    complexUnion.non_nullable_union_value = testStrValue;
+
+    byte[] serializedData = bytesFromGenericRecord(record);
+    GenericRecord genericRecord = genericRecordFromBytes(serializedData, ComplexUnion.SCHEMA$);
+    SamzaSqlRelMessage message = complexUnionAvroRelConverter.convertToRelMessage(new KV<>("key", genericRecord));
+
+    Assert.assertEquals(testStrValue, message.getSamzaSqlRelRecord().getField("non_nullable_union_value").get().toString());
+
+    serializedData = encodeAvroSpecificRecord(ComplexUnion.class, complexUnion);
+    genericRecord = genericRecordFromBytes(serializedData, ComplexUnion.SCHEMA$);
+    Assert.assertEquals(testStrValue, genericRecord.get("non_nullable_union_value").toString());
+
+    // Testing the complex-union conversion for Integer type
+    record.put("non_nullable_union_value", Integer.valueOf(123));
+
+    complexUnion.non_nullable_union_value = Integer.valueOf(123);
+
+    serializedData = bytesFromGenericRecord(record);
+    genericRecord = genericRecordFromBytes(serializedData, ComplexUnion.SCHEMA$);
+    message = complexUnionAvroRelConverter.convertToRelMessage(new KV<>("key", genericRecord));
+    Assert.assertEquals(Integer.valueOf(123), message.getSamzaSqlRelRecord().getField("non_nullable_union_value").get());
+
+    serializedData = encodeAvroSpecificRecord(ComplexUnion.class, complexUnion);
+    genericRecord = genericRecordFromBytes(serializedData, ComplexUnion.SCHEMA$);
+    Assert.assertEquals(Integer.valueOf(123), genericRecord.get("non_nullable_union_value"));
+
   }
 
   @Test
