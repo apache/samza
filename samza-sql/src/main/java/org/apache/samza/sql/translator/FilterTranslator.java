@@ -19,7 +19,7 @@
 
 package org.apache.samza.sql.translator;
 
-import java.util.Arrays;
+
 import java.util.Collections;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.samza.SamzaException;
@@ -57,8 +57,6 @@ class FilterTranslator {
   private static class FilterTranslatorFunction implements FilterFunction<SamzaSqlRelMessage> {
     private transient Expression expr;
     private transient TranslatorContext translatorContext;
-    private transient LogicalFilter filter;
-    private transient MetricsRegistry metricsRegistry;
     private transient SamzaHistogram processingTime; // milli-seconds
     private transient Counter inputEvents;
     private transient Counter filteredOutEvents;
@@ -79,11 +77,12 @@ class FilterTranslator {
     public void init(Context context) {
       this.context = context;
       this.translatorContext = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
-      this.filter = (LogicalFilter) this.translatorContext.getRelNode(filterId);
+      LogicalFilter filter = (LogicalFilter) this.translatorContext.getRelNode(filterId);
       LOG.info("Compiling Operator {}", filter.getDigest());
-      this.expr = this.translatorContext.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
+      this.expr = this.translatorContext.getExpressionCompiler().compile(
+          filter.getInputs(), Collections.singletonList(filter.getCondition()));
       ContainerContext containerContext = context.getContainerContext();
-      metricsRegistry = containerContext.getContainerMetricsRegistry();
+      MetricsRegistry metricsRegistry = containerContext.getContainerMetricsRegistry();
       processingTime = new SamzaHistogram(metricsRegistry, logicalOpId, TranslatorConstants.PROCESSING_TIME_NAME);
       inputEvents = metricsRegistry.newCounter(logicalOpId, TranslatorConstants.INPUT_EVENTS_NAME);
       inputEvents.clear();
@@ -115,7 +114,7 @@ class FilterTranslator {
         boolean retVal = (Boolean) result[0];
         LOG.debug(
             String.format("return value for input %s is %s",
-                Arrays.asList(message.getSamzaSqlRelRecord().getFieldValues()).toString(), retVal));
+                Collections.singletonList(message.getSamzaSqlRelRecord().getFieldValues()).toString(), retVal));
         updateMetrics(startProcessing, retVal, System.nanoTime());
         return retVal;
       } else {
@@ -125,7 +124,7 @@ class FilterTranslator {
     }
 
     /**
-     * Updates the MetricsRegistery of this operator
+     * Updates the MetricsRegistry of this operator
      * @param startProcessing = begin processing of the message
      * @param endProcessing = end of processing
      */
