@@ -109,6 +109,8 @@ public class SamzaSqlRemoteTableJoinFunction
       return null;
     }
     // Using the table key converter, convert message key from rel format to the record key format.
+    // TODO: On way to avoid the object type here is to ensure that:
+    // table's key is a SamzaRelRecord or any well defined type when defining the table descriptor
     return relTableKeyConverter.convertToTableKeyFormat(keyRecord);
   }
 
