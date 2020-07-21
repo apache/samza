@@ -50,7 +50,10 @@ public class TestDiagnosticsStreamMessage {
   private DiagnosticsStreamMessage getDiagnosticsStreamMessage() {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
         new DiagnosticsStreamMessage(jobName, jobId, containerName, executionEnvContainerId, taskClassVersion,
-            samzaVersion, hostname, timestamp, resetTimestamp);
+            samzaVersion, hostname, timestamp, resetTimestamp, "test deployment type", "test api type",
+            1, 1024, 2, 1, false,
+            "org.apache.samza.container.grouper.stream.GroupByPartitionFactory", 8,
+            300000, 1, 756);
 
     diagnosticsStreamMessage.addContainerMb(1024);
     diagnosticsStreamMessage.addContainerNumCores(2);

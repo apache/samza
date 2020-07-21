@@ -70,7 +70,10 @@ public class DiagnosticsUtil {
       MetricsHeader metricsHeader =
           new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""),
               LocalContainerRunner.class.getName(), Util.getTaskClassVersion(config), Util.getSamzaVersion(),
-              Util.getLocalHost().getHostName(), System.currentTimeMillis(), System.currentTimeMillis());
+              Util.getLocalHost().getHostName(), System.currentTimeMillis(), System.currentTimeMillis(), Util.getDeploymentType(config),
+              Util.getApiType(config), Util.getContainerCount(config), Util.getContainerMemoryMb(config), Util.getNumCores(config),
+              Util.getThreadPoolSize(config), Util.getHostAffinityEnabled(config), Util.getSspGrouperFactory(config),
+              Util.getContainerRetryCount(config), Util.getContainerRetryWindowMs(config), Util.getMaxConcurrency(config), Util.getMaxJvmHeapMb());
 
       class MetadataFileContents {
         public final String version;
@@ -127,6 +130,14 @@ public class DiagnosticsUtil {
       String hostName = Util.getLocalHost().getHostName();
       Optional<String> diagnosticsReporterStreamName =
           metricsConfig.getMetricsSnapshotReporterStream(diagnosticsReporterName);
+      String deploymentType = Util.getDeploymentType(config);
+      String apiType = Util.getApiType(config);
+      int numContainers = Util.getContainerCount(config);
+      boolean hostAffinityEnabled = Util.getHostAffinityEnabled(config);
+      String sspGrouperFactory = Util.getSspGrouperFactory(config);
+      int containerRetryCount = Util.getContainerRetryCount(config);
+      long containerRetryWindowMs = Util.getContainerRetryWindowMs(config);
+      int maxConcurrency = Util.getMaxConcurrency(config);
 
       if (!diagnosticsReporterStreamName.isPresent()) {
         throw new ConfigException(
@@ -151,7 +162,9 @@ public class DiagnosticsUtil {
               new StorageConfig(config).getNumPersistentStores(), maxHeapSizeBytes, containerThreadPoolSize,
               containerId, execEnvContainerId.orElse(""), taskClassVersion, samzaVersion, hostName,
               diagnosticsSystemStream, systemProducer,
-              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled());
+              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled(),
+              deploymentType, apiType, numContainers, hostAffinityEnabled, sspGrouperFactory, containerRetryCount,
+              containerRetryWindowMs, maxConcurrency);
 
       diagnosticsManagerReporterPair = Optional.of(new ImmutablePair<>(diagnosticsManager, diagnosticsReporter));
     }

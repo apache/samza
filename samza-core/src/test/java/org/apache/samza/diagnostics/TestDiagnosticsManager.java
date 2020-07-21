@@ -59,6 +59,14 @@ public class TestDiagnosticsManager {
   private int numPersistentStores = 2;
   private int containerNumCores = 2;
   private boolean autosizingEnabled = false;
+  private String deploymentType = "test deployment type";
+  private String apiType = "test api type";
+  private int numContainers = 1;
+  private boolean hostAffinityEnabled = false;
+  private String sspGrouperFactory = "org.apache.samza.container.grouper.stream.GroupByPartitionFactory";
+  private int containerRetryCount = 8;
+  private long containerRetryWindowMs = 300000;
+  private int maxConcurrency = 1;
   private Map<String, ContainerModel> containerModels = TestDiagnosticsStreamMessage.getSampleContainerModels();
   private Collection<DiagnosticsExceptionEvent> exceptionEventList = TestDiagnosticsStreamMessage.getExceptionList();
 
@@ -78,9 +86,10 @@ public class TestDiagnosticsManager {
         });
 
     this.diagnosticsManager =
-        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores, maxHeapSize, containerThreadPoolSize,
-            "0", executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticsSystemStream,
-            mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, autosizingEnabled);
+        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores, maxHeapSize,
+            containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticsSystemStream,
+            mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, autosizingEnabled, deploymentType, apiType, numContainers,
+            hostAffinityEnabled, sspGrouperFactory, containerRetryCount, containerRetryWindowMs, maxConcurrency);
 
     exceptionEventList.forEach(
       diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
@@ -95,7 +104,8 @@ public class TestDiagnosticsManager {
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
             maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
             hostname, diagnosticsSystemStream, mockSystemProducer, Duration.ofSeconds(1), mockExecutorService,
-            autosizingEnabled);
+            autosizingEnabled, deploymentType, apiType, numContainers,
+            hostAffinityEnabled, sspGrouperFactory, containerRetryCount, containerRetryWindowMs, maxConcurrency);
 
     diagnosticsManager.start();
 
@@ -114,7 +124,8 @@ public class TestDiagnosticsManager {
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
             maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
             hostname, diagnosticsSystemStream, mockSystemProducer, terminationDuration, mockExecutorService,
-            autosizingEnabled);
+            autosizingEnabled, deploymentType, apiType, numContainers,
+            hostAffinityEnabled, sspGrouperFactory, containerRetryCount, containerRetryWindowMs, maxConcurrency);
 
     diagnosticsManager.stop();
 
@@ -134,7 +145,8 @@ public class TestDiagnosticsManager {
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
             maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
             hostname, diagnosticsSystemStream, mockSystemProducer, terminationDuration, mockExecutorService,
-            autosizingEnabled);
+            autosizingEnabled, deploymentType, apiType, numContainers,
+            hostAffinityEnabled, sspGrouperFactory, containerRetryCount, containerRetryWindowMs, maxConcurrency);
 
     diagnosticsManager.stop();
 
@@ -252,7 +264,17 @@ public class TestDiagnosticsManager {
     Assert.assertEquals(metricsSnapshot.getHeader().getSamzaVersion(), samzaVersion);
     Assert.assertEquals(metricsSnapshot.getHeader().getHost(), hostname);
     Assert.assertEquals(metricsSnapshot.getHeader().getSource(), DiagnosticsManager.class.getName());
-
+    Assert.assertEquals(metricsSnapshot.getHeader().getDeploymentType(), deploymentType);
+    Assert.assertEquals(metricsSnapshot.getHeader().getApiType(), apiType);
+    Assert.assertEquals(metricsSnapshot.getHeader().getNumContainers(), numContainers);
+    Assert.assertEquals(metricsSnapshot.getHeader().getContainerMemoryMb(), containerMb);
+    Assert.assertEquals(metricsSnapshot.getHeader().getContainerCpuCores(), containerNumCores);
+    Assert.assertEquals(metricsSnapshot.getHeader().getContainerThreadPoolSize(), containerThreadPoolSize);
+    Assert.assertEquals(metricsSnapshot.getHeader().getHostAffinity(), hostAffinityEnabled);
+    Assert.assertEquals(metricsSnapshot.getHeader().getSspGrouper(), sspGrouperFactory);
+    Assert.assertEquals(metricsSnapshot.getHeader().getMaxContainerRetryCount(), containerRetryCount);
+    Assert.assertEquals(metricsSnapshot.getHeader().getContainerRetryWindowMs(), containerRetryWindowMs);
+    Assert.assertEquals(metricsSnapshot.getHeader().getTaskMaxConcurrency(), maxConcurrency);
   }
 
   private void validateOutgoingMessageEnvelope(OutgoingMessageEnvelope outgoingMessageEnvelope) {

@@ -124,7 +124,20 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       Util.getTaskClassVersion(config),
       Util.getSamzaVersion,
       Util.getLocalHost.getHostName,
-      serde, blacklist)
+      serde,
+      blacklist,
+      Util.getDeploymentType(config),
+      Util.getApiType(config),
+      Util.getContainerCount(config),
+      Util.getContainerMemoryMb(config),
+      Util.getNumCores(config),
+      Util.getThreadPoolSize(config),
+      Util.getHostAffinityEnabled(config),
+      Util.getSspGrouperFactory(config),
+      Util.getContainerRetryCount(config),
+      Util.getContainerRetryWindowMs(config),
+      Util.getMaxConcurrency(config),
+      Util.getMaxJvmHeapMb)
 
     reporter.register(this.getClass.getSimpleName, registry)
 

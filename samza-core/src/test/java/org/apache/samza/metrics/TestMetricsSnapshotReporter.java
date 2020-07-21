@@ -178,7 +178,10 @@ public class TestMetricsSnapshotReporter {
 
   private MetricsSnapshotReporter getMetricsSnapshotReporter(String blacklist) {
     return new MetricsSnapshotReporter(producer, SYSTEM_STREAM, REPORTING_INTERVAL, JOB_NAME, JOB_ID, CONTAINER_NAME,
-        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, new Some<>(blacklist), getClock());
+        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, new Some<>(blacklist), "test deployment type",
+        "test api type", 1, 1024, 1, 1,
+        false, "org.apache.samza.container.grouper.stream.GroupByPartitionFactory",
+        8, 300000, 1, 756, getClock());
   }
 
   private AbstractFunction0<Object> getClock() {

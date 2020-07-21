@@ -65,12 +65,17 @@ public class DiagnosticsStreamMessage {
   private final Map<String, Map<String, Object>> metricsMessage;
 
   public DiagnosticsStreamMessage(String jobName, String jobId, String containerName, String executionEnvContainerId,
-      String taskClassVersion, String samzaVersion, String hostname, long timestamp, long resetTimestamp) {
+      String taskClassVersion, String samzaVersion, String hostname, long timestamp, long resetTimestamp,
+      String deploymentType, String apiType, int numContainers, int containerMemoryMb, int numCores, int threadPoolSize,
+      boolean hostAffinityEnabled, String sspGrouperFactory, int containerRetryCount,
+      long containerRetryWindowMs, int maxConcurrency, int maxJvmHeapMb) {
 
     // Create the metricHeader
     metricsHeader =
         new MetricsHeader(jobName, jobId, containerName, executionEnvContainerId, DiagnosticsManager.class.getName(),
-            taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp);
+            taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp, deploymentType, apiType, numContainers,
+            containerMemoryMb, numCores, threadPoolSize, hostAffinityEnabled, sspGrouperFactory,
+            containerRetryCount, containerRetryWindowMs, maxConcurrency, maxJvmHeapMb);
 
     this.metricsMessage = new HashMap<>();
   }
@@ -237,7 +242,13 @@ public class DiagnosticsStreamMessage {
             metricsSnapshot.getHeader().getContainerName(), metricsSnapshot.getHeader().getExecEnvironmentContainerId(),
             metricsSnapshot.getHeader().getVersion(), metricsSnapshot.getHeader().getSamzaVersion(),
             metricsSnapshot.getHeader().getHost(), metricsSnapshot.getHeader().getTime(),
-            metricsSnapshot.getHeader().getResetTime());
+            metricsSnapshot.getHeader().getResetTime(), metricsSnapshot.getHeader().getDeploymentType(),
+            metricsSnapshot.getHeader().getApiType(), metricsSnapshot.getHeader().getNumContainers(),
+            metricsSnapshot.getHeader().getContainerMemoryMb(), metricsSnapshot.getHeader().getContainerCpuCores(),
+            metricsSnapshot.getHeader().getContainerThreadPoolSize(), metricsSnapshot.getHeader().getHostAffinity(),
+            metricsSnapshot.getHeader().getSspGrouper(), metricsSnapshot.getHeader().getMaxContainerRetryCount(),
+            metricsSnapshot.getHeader().getContainerRetryWindowMs(), metricsSnapshot.getHeader().getTaskMaxConcurrency(),
+            metricsSnapshot.getHeader().getMaxJvmHeapMb());
 
     Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
     Map<String, Object> diagnosticsManagerGroupMap = metricsMap.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER);

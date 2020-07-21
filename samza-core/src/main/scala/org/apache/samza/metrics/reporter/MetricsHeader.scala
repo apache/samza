@@ -35,7 +35,19 @@ object MetricsHeader {
       map.get("samza-version").toString,
       map.get("host").toString,
       map.get("time").asInstanceOf[Number].longValue,
-      map.get("reset-time").asInstanceOf[Number].longValue)
+      map.get("reset-time").asInstanceOf[Number].longValue,
+      map.get("deployment-type").toString,
+      map.get("api-type").toString,
+      map.get("num-containers").asInstanceOf[Number].intValue(),
+      map.get("container-memory-mb").asInstanceOf[Number].intValue(),
+      map.get("container-cpu-cores").asInstanceOf[Number].intValue(),
+      map.get("container-thread-pool-size").asInstanceOf[Number].intValue(),
+      map.get("host-affinity").asInstanceOf[Boolean].booleanValue(),
+      map.get("ssp-grouper").toString,
+      map.get("max-container-retry-count").asInstanceOf[Number].intValue(),
+      map.get("container-retry-window-ms").asInstanceOf[Number].longValue(),
+      map.get("task-max-concurrency").asInstanceOf[Number].intValue(),
+      map.get("max-jvm-heap-mb").asInstanceOf[Number].intValue())
   }
 }
 
@@ -52,7 +64,19 @@ class MetricsHeader(
   @BeanProperty val samzaVersion: String,
   @BeanProperty val host: String,
   @BeanProperty val time: Long,
-  @BeanProperty val resetTime: Long) {
+  @BeanProperty val resetTime: Long,
+  @BeanProperty val deploymentType: String,
+  @BeanProperty val apiType: String,
+  @BeanProperty val numContainers: Int,
+  @BeanProperty val containerMemoryMb: Int,
+  @BeanProperty val containerCpuCores: Int,
+  @BeanProperty val containerThreadPoolSize: Int,
+  @BeanProperty val hostAffinity: Boolean,
+  @BeanProperty val sspGrouper: String,
+  @BeanProperty val maxContainerRetryCount: Int,
+  @BeanProperty val containerRetryWindowMs: Long,
+  @BeanProperty val taskMaxConcurrency: Int,
+  @BeanProperty val maxJvmHeapMb: Int) {
 
   def getAsMap: Map[String, Object] = {
     val map = new HashMap[String, Object]
@@ -66,6 +90,18 @@ class MetricsHeader(
     map.put("host", host)
     map.put("time", time: java.lang.Long)
     map.put("reset-time", resetTime: java.lang.Long)
+    map.put("deployment-type", deploymentType)
+    map.put("api-type", apiType)
+    map.put("num-containers", numContainers: java.lang.Integer)
+    map.put("container-memory-mb", containerMemoryMb: java.lang.Integer)
+    map.put("container-cpu-cores", containerCpuCores: java.lang.Integer)
+    map.put("container-thread-pool-size", containerThreadPoolSize: java.lang.Integer)
+    map.put("host-affinity", hostAffinity: java.lang.Boolean)
+    map.put("ssp-grouper", sspGrouper)
+    map.put("max-container-retry-count", maxContainerRetryCount: java.lang.Integer)
+    map.put("container-retry-window-ms", containerRetryWindowMs: java.lang.Long)
+    map.put("task-max-concurrency", taskMaxConcurrency: java.lang.Integer)
+    map.put("max-jvm-heap-mb", maxJvmHeapMb: java.lang.Integer)
     map
   }
 }
