@@ -118,21 +118,21 @@ public class TestCachingTable {
     final ReadWriteTable cacheTable = mock(ReadWriteTable.class);
 
     doAnswer(invocation -> {
-        String key = invocation.getArgumentAt(0, String.class);
-        String value = invocation.getArgumentAt(1, String.class);
-        cacheStore.put(key, value);
-        return null;
-      }).when(cacheTable).put(any(), any());
+      String key = invocation.getArgumentAt(0, String.class);
+      String value = invocation.getArgumentAt(1, String.class);
+      cacheStore.put(key, value);
+      return null;
+    }).when(cacheTable).put(any(), any());
 
     doAnswer(invocation -> {
-        String key = invocation.getArgumentAt(0, String.class);
-        return cacheStore.get(key);
-      }).when(cacheTable).get(any());
+      String key = invocation.getArgumentAt(0, String.class);
+      return cacheStore.get(key);
+    }).when(cacheTable).get(any());
 
     doAnswer(invocation -> {
-        String key = invocation.getArgumentAt(0, String.class);
-        return cacheStore.remove(key);
-      }).when(cacheTable).delete(any());
+      String key = invocation.getArgumentAt(0, String.class);
+      return cacheStore.remove(key);
+    }).when(cacheTable).delete(any());
 
     return Pair.of(cacheTable, cacheStore);
   }
@@ -171,24 +171,24 @@ public class TestCachingTable {
     final ReadWriteTable realTable = mock(ReadWriteTable.class);
 
     doAnswer(invocation -> {
-        String key = invocation.getArgumentAt(0, String.class);
-        return CompletableFuture.completedFuture("test-data-" + key);
-      }).when(realTable).getAsync(any());
+      String key = invocation.getArgumentAt(0, String.class);
+      return CompletableFuture.completedFuture("test-data-" + key);
+    }).when(realTable).getAsync(any());
 
     doReturn(CompletableFuture.completedFuture(null)).when(realTable).putAsync(any(), any());
 
     doAnswer(invocation -> {
-        String tableId = invocation.getArgumentAt(0, String.class);
-        if (tableId.equals("realTable")) {
-          // cache
-          return realTable;
-        } else if (tableId.equals("cacheTable")) {
-          return cacheTable;
-        }
+      String tableId = invocation.getArgumentAt(0, String.class);
+      if (tableId.equals("realTable")) {
+        // cache
+        return realTable;
+      } else if (tableId.equals("cacheTable")) {
+        return cacheTable;
+      }
 
-        Assert.fail();
-        return null;
-      }).when(context.getTaskContext()).getTable(anyString());
+      Assert.fail();
+      return null;
+    }).when(context.getTaskContext()).getTable(anyString());
 
     when(context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
 

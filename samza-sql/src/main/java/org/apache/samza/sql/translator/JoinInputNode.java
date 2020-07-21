@@ -20,14 +20,21 @@
 package org.apache.samza.sql.translator;
 
 import java.util.List;
+import java.util.Map;
+import org.apache.calcite.plan.hep.HepRelVertex;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
+import org.apache.samza.table.descriptors.CachingTableDescriptor;
+import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 
 
 /**
  * This class represents the input node for the join. It can be either a table or a stream.
  */
-class JoinInputNode {
+public class JoinInputNode {
 
   // Calcite RelNode corresponding to the input
   private final RelNode relNode;
@@ -37,7 +44,7 @@ class JoinInputNode {
   private final InputType inputType;
   private final boolean isPosOnRight;
 
-  enum InputType {
+  public enum InputType {
     STREAM,
     LOCAL_TABLE,
     REMOTE_TABLE
@@ -73,4 +80,33 @@ class JoinInputNode {
   boolean isPosOnRight() {
     return isPosOnRight;
   }
+
+  public static JoinInputNode.InputType getInputType(
+      RelNode relNode, Map<String, SqlIOConfig> systemStreamConfigBySource) {
+
+    // NOTE: Any intermediate form of a join is always a stream. Eg: For the second level join of
+    // stream-table-table join, the left side of the join is join output, which we always
+    // assume to be a stream. The intermediate stream won't be an instance of TableScan.
+    // The join key(s) for the table could be an udf in which case the relNode would be LogicalProject.
+
+    // If the relNode is a vertex in a DAG, get the real relNode. This happens due to query optimization.
+    if (relNode instanceof HepRelVertex) {
+      relNode = ((HepRelVertex) relNode).getCurrentRel();
+    }
+
+    if (relNode instanceof TableScan || relNode instanceof LogicalProject || relNode instanceof LogicalFilter) {
+      SqlIOConfig sourceTableConfig = JoinTranslator.resolveSQlIOForTable(relNode, systemStreamConfigBySource);
+      if (sourceTableConfig == null || !sourceTableConfig.getTableDescriptor().isPresent()) {
+        return JoinInputNode.InputType.STREAM;
+      } else if (sourceTableConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor ||
+          sourceTableConfig.getTableDescriptor().get() instanceof CachingTableDescriptor) {
+        return JoinInputNode.InputType.REMOTE_TABLE;
+      } else {
+        return JoinInputNode.InputType.LOCAL_TABLE;
+      }
+    } else {
+      return JoinInputNode.InputType.STREAM;
+    }
+  }
+
 }

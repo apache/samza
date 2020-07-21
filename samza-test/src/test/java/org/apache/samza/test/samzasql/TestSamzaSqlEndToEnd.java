@@ -864,13 +864,13 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> {
-            GenericRecord profileAddr = (GenericRecord) ((GenericRecord) x.getMessage()).get("profileAddress");
-            GenericRecord streetNum = (GenericRecord) (profileAddr.get("streetnum"));
-            return ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
-                + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
-                ((GenericRecord) x.getMessage()).get("profileName").toString()) + ","
-                + profileAddr.get("zip") + "," + streetNum.get("number");
-          })
+          GenericRecord profileAddr = (GenericRecord) ((GenericRecord) x.getMessage()).get("profileAddress");
+          GenericRecord streetNum = (GenericRecord) (profileAddr.get("streetnum"));
+          return ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
+              + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
+              ((GenericRecord) x.getMessage()).get("profileName").toString()) + ","
+              + profileAddr.get("zip") + "," + streetNum.get("number");
+        })
         .collect(Collectors.toList());
     Assert.assertEquals(numMessages, outMessages.size());
     List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameAddressJoin(numMessages);
@@ -1149,9 +1149,9 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
             + ((GenericRecord) x.getMessage()).get("profileName").toString() + ","
             + ((GenericRecord) x.getMessage()).get("companyName").toString())
         .collect(Collectors.toList());
-    Assert.assertEquals(TestAvroSystemFactory.companies.length, outMessages.size());
+    Assert.assertEquals(TestAvroSystemFactory.COMPANIES.length, outMessages.size());
     List<String> expectedOutMessages =
-        TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(TestAvroSystemFactory.companies.length);
+        TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(TestAvroSystemFactory.COMPANIES.length);
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
@@ -1185,19 +1185,19 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     HashMap<String, List<String>> pageKeyCountListMap = new HashMap<>();
     TestAvroSystemFactory.messages.stream()
         .map(x -> {
-            String pageKey = ((GenericRecord) x.getMessage()).get("pageKey").toString();
-            String count = ((GenericRecord) x.getMessage()).get("count").toString();
-            pageKeyCountListMap.computeIfAbsent(pageKey, k -> new ArrayList<>()).add(count);
-            return pageKeyCountListMap;
-          });
+          String pageKey = ((GenericRecord) x.getMessage()).get("pageKey").toString();
+          String count = ((GenericRecord) x.getMessage()).get("count").toString();
+          pageKeyCountListMap.computeIfAbsent(pageKey, k -> new ArrayList<>()).add(count);
+          return pageKeyCountListMap;
+        });
 
     HashMap<String, Integer> pageKeyCountMap = new HashMap<>();
     pageKeyCountListMap.forEach((key, list) -> {
-        // Check that the number of windows per key is non-zero but less than the number of input messages per key.
-        Assert.assertTrue(list.size() > 1 && list.size() < numMessages / TestAvroSystemFactory.pageKeys.length);
-        // Collapse the count of messages per key
-        pageKeyCountMap.put(key, list.stream().mapToInt(Integer::parseInt).sum());
-      });
+      // Check that the number of windows per key is non-zero but less than the number of input messages per key.
+      Assert.assertTrue(list.size() > 1 && list.size() < numMessages / TestAvroSystemFactory.PAGE_KEYS.length);
+      // Collapse the count of messages per key
+      pageKeyCountMap.put(key, list.stream().mapToInt(Integer::parseInt).sum());
+    });
 
     Set<String> pageKeys = new HashSet<>(Arrays.asList("job", "inbox"));
     HashMap<String, Integer> expectedPageKeyCountMap =

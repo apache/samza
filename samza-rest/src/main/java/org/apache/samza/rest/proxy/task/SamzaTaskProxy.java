@@ -143,10 +143,10 @@ public class SamzaTaskProxy implements TaskProxy {
     StorageConfig storageConfig = new StorageConfig(consumer.getConfig());
     List<String> storeNames = storageConfig.getStoreNames();
     return taskNameToContainerIdMapping.entrySet()
-                                       .stream()
-                                       .map(entry -> {
-        String hostName = containerIdToHostMapping.get(entry.getValue()).get(SetContainerHostMapping.HOST_KEY);
-        return new Task(hostName, entry.getKey(), entry.getValue(), new ArrayList<>(), storeNames);
-                                       }).collect(Collectors.toList());
+        .stream()
+        .map(entry -> {
+          String hostName = containerIdToHostMapping.get(entry.getValue()).get(SetContainerHostMapping.HOST_KEY);
+          return new Task(hostName, entry.getKey(), entry.getValue(), new ArrayList<>(), storeNames);
+        }).collect(Collectors.toList());
   }
 }

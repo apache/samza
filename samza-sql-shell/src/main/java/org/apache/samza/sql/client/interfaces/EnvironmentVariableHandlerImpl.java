@@ -24,7 +24,7 @@ import org.apache.samza.sql.client.util.Pair;
 
 import java.util.*;
 
-public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVariableHandler{
+public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVariableHandler {
   private EnvironmentVariableSpecs specs;
   protected Map<String, String> envVars = new HashMap<>();
 
@@ -35,8 +35,8 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
   @Override
   public int setEnvironmentVariable(String name, String value) {
     EnvironmentVariableSpecs.Spec spec = specs.getSpec(name);
-    if(spec == null) {
-      if(isAcceptUnknowName()) {
+    if (spec == null) {
+      if (isAcceptUnknowName()) {
         return setEnvironmentVariableHelper(name, value);
       } else {
         return -1;
@@ -50,7 +50,7 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
 
     for (String s : possibleValues) {
       if (s.equalsIgnoreCase(value)) {
-        if(!processEnvironmentVariable(name, value)) {
+        if (!processEnvironmentVariable(name, value)) {
           throw new CliException(); // should not reach here
         }
         envVars.put(name, value);
@@ -69,7 +69,7 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
   public List<Pair<String, String>> getAllEnvironmentVariables() {
     List<Pair<String, String>> list = new ArrayList<>();
     Iterator<Map.Entry<String, String>> it =  envVars.entrySet().iterator();
-    while(it.hasNext()) {
+    while (it.hasNext()) {
       Map.Entry<String, String> entry = it.next();
       list.add(new Pair<>(entry.getKey(), entry.getValue()));
     }
@@ -106,7 +106,7 @@ public abstract class EnvironmentVariableHandlerImpl implements EnvironmentVaria
   }
 
   private int setEnvironmentVariableHelper(String name, String value) {
-    if(processEnvironmentVariable(name, value)) {
+    if (processEnvironmentVariable(name, value)) {
       envVars.put(name, value);
       return 0;
     } else {

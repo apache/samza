@@ -31,7 +31,7 @@ import org.apache.samza.sql.udfs.ScalarUdf;
 /**
  * Simple RegexMatch Udf.
  */
-@SamzaSqlUdf(name="RegexMatch", description = "Function to perform the regex match.")
+@SamzaSqlUdf(name = "RegexMatch", description = "Function to perform the regex match.")
 public class RegexMatchUdf implements ScalarUdf {
   @Override
   public void init(Config config, Context context) {

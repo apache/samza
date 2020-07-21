@@ -30,9 +30,9 @@ public class MockJobStatusProvider implements JobStatusProvider {
   @Override
   public void getJobStatuses(Collection<Job> jobs)
       throws IOException, InterruptedException {
-     for (Job info : jobs) {
-       setStatusStarted(info);
-     }
+    for (Job info : jobs) {
+      setStatusStarted(info);
+    }
   }
 
   @Override

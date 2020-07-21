@@ -36,9 +36,11 @@ public class MockMetricsValidator implements MetricsValidator {
   @Override
   public void validate(MetricsAccessor accessor) throws MetricsValidationFailureException {
     Map<String, Long> commitCalls = accessor.getCounterValues(SamzaContainerMetrics.class.getName(), "commit-calls");
-    if(commitCalls.isEmpty()) throw new MetricsValidationFailureException("no value");
-    for(Map.Entry<String, Long> entry: commitCalls.entrySet()) {
-      if(entry.getValue() <= 0) {
+    if (commitCalls.isEmpty()) {
+      throw new MetricsValidationFailureException("no value");
+    }
+    for (Map.Entry<String, Long> entry : commitCalls.entrySet()) {
+      if (entry.getValue() <= 0) {
         throw new MetricsValidationFailureException("commit call <= 0");
       }
     }

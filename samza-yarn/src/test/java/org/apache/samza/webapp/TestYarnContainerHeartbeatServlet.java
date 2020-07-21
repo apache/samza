@@ -73,10 +73,10 @@ public class TestYarnContainerHeartbeatServlet {
   @Test
   public void testContainerHeartbeatWhenValid()
       throws IOException {
-    String VALID_CONTAINER_ID = "container_1350670447861_0003_01_000002";
-    when(container.id()).thenReturn(ConverterUtils.toContainerId(VALID_CONTAINER_ID));
-    yarnAppState.runningProcessors.put(VALID_CONTAINER_ID, container);
-    URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + VALID_CONTAINER_ID);
+    String validContainerId = "container_1350670447861_0003_01_000002";
+    when(container.id()).thenReturn(ConverterUtils.toContainerId(validContainerId));
+    yarnAppState.runningProcessors.put(validContainerId, container);
+    URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + validContainerId);
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);
     Assert.assertTrue(heartbeat.isAlive());
@@ -85,11 +85,11 @@ public class TestYarnContainerHeartbeatServlet {
   @Test
   public void testContainerHeartbeatWhenInvalid()
       throws IOException {
-    String VALID_CONTAINER_ID = "container_1350670447861_0003_01_000003";
-    String INVALID_CONTAINER_ID = "container_1350670447861_0003_01_000002";
-    when(container.id()).thenReturn(ConverterUtils.toContainerId(VALID_CONTAINER_ID));
-    yarnAppState.runningProcessors.put(VALID_CONTAINER_ID, container);
-    URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + INVALID_CONTAINER_ID);
+    String validContainerId = "container_1350670447861_0003_01_000003";
+    String invalidContainerId = "container_1350670447861_0003_01_000002";
+    when(container.id()).thenReturn(ConverterUtils.toContainerId(validContainerId));
+    yarnAppState.runningProcessors.put(validContainerId, container);
+    URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + invalidContainerId);
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);
     Assert.assertFalse(heartbeat.isAlive());

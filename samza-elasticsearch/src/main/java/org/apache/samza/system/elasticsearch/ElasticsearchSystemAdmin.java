@@ -32,14 +32,14 @@ import java.util.Set;
  * <p>All the methods on this class return {@link UnsupportedOperationException}.</p>
  */
 public class ElasticsearchSystemAdmin implements SystemAdmin {
-  private static final SystemAdmin singleton = new ElasticsearchSystemAdmin();
+  private static final SystemAdmin SINGLETON = new ElasticsearchSystemAdmin();
 
   private ElasticsearchSystemAdmin() {
     // Ensure this can not be constructed.
   }
 
   public static SystemAdmin getInstance() {
-    return singleton;
+    return SINGLETON;
   }
 
   @Override
@@ -55,6 +55,6 @@ public class ElasticsearchSystemAdmin implements SystemAdmin {
 
   @Override
   public Integer offsetComparator(String offset1, String offset2) {
-	  throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException();
   }
 }

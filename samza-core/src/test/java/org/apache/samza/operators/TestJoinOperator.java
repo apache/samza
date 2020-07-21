@@ -98,15 +98,15 @@ public class TestJoinOperator {
     Config config = new MapConfig(mapConfig);
 
     StreamApplicationDescriptorImpl streamAppDesc = new StreamApplicationDescriptorImpl(appDesc -> {
-        IntegerSerde integerSerde = new IntegerSerde();
-        KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
-        GenericSystemDescriptor sd = new GenericSystemDescriptor("insystem", "mockFactoryClassName");
-        GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor = sd.getInputDescriptor("inStream", kvSerde);
+      IntegerSerde integerSerde = new IntegerSerde();
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
+      GenericSystemDescriptor sd = new GenericSystemDescriptor("insystem", "mockFactoryClassName");
+      GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor = sd.getInputDescriptor("inStream", kvSerde);
 
-        MessageStream<KV<Integer, Integer>> inStream = appDesc.getInputStream(inputDescriptor);
+      MessageStream<KV<Integer, Integer>> inStream = appDesc.getInputStream(inputDescriptor);
 
-        inStream.join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL, "join");
-      }, config);
+      inStream.join(inStream, new TestJoinFunction(), integerSerde, kvSerde, kvSerde, JOIN_TTL, "join");
+    }, config);
 
     createStreamOperatorTask(new SystemClock(), streamAppDesc); // should throw an exception
   }
@@ -336,22 +336,22 @@ public class TestJoinOperator {
     Config config = new MapConfig(mapConfig);
 
     return new StreamApplicationDescriptorImpl(appDesc -> {
-        IntegerSerde integerSerde = new IntegerSerde();
-        KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
-        GenericSystemDescriptor sd = new GenericSystemDescriptor("insystem", "mockFactoryClassName");
-        GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor1 = sd.getInputDescriptor("inStream", kvSerde);
-        GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor2 = sd.getInputDescriptor("inStream2", kvSerde);
+      IntegerSerde integerSerde = new IntegerSerde();
+      KVSerde<Integer, Integer> kvSerde = KVSerde.of(integerSerde, integerSerde);
+      GenericSystemDescriptor sd = new GenericSystemDescriptor("insystem", "mockFactoryClassName");
+      GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor1 = sd.getInputDescriptor("inStream", kvSerde);
+      GenericInputDescriptor<KV<Integer, Integer>> inputDescriptor2 = sd.getInputDescriptor("inStream2", kvSerde);
 
-        MessageStream<KV<Integer, Integer>> inStream = appDesc.getInputStream(inputDescriptor1);
-        MessageStream<KV<Integer, Integer>> inStream2 = appDesc.getInputStream(inputDescriptor2);
+      MessageStream<KV<Integer, Integer>> inStream = appDesc.getInputStream(inputDescriptor1);
+      MessageStream<KV<Integer, Integer>> inStream2 = appDesc.getInputStream(inputDescriptor2);
 
-        inStream
-            .join(inStream2, joinFn, integerSerde, kvSerde, kvSerde, JOIN_TTL, "j1")
-            .sink((message, messageCollector, taskCoordinator) -> {
-                SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
-                messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
-              });
-      }, config);
+      inStream
+          .join(inStream2, joinFn, integerSerde, kvSerde, kvSerde, JOIN_TTL, "j1")
+          .sink((message, messageCollector, taskCoordinator) -> {
+            SystemStream outputSystemStream = new SystemStream("outputSystem", "outputStream");
+            messageCollector.send(new OutgoingMessageEnvelope(outputSystemStream, message));
+          });
+    }, config);
   }
 
   private static class TestJoinFunction

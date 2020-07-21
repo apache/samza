@@ -66,6 +66,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     props.map(_root_.kafka.server.KafkaConfig.fromProps)
   }
 
+  @Test
   def testWriteCheckpointShouldRecreateSystemProducerOnFailure(): Unit = {
     val checkpointTopic = "checkpoint-topic-2"
     val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
@@ -82,7 +83,6 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val spec = new KafkaStreamSpec("id", checkpointTopic, checkpointSystemName, 1, 1, props)
     val checkPointManager = Mockito.spy(new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry))
     val newKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
-    checkPointManager.MaxRetryDurationInMillis = 1
 
     Mockito.doReturn(newKafkaProducer).when(checkPointManager).getSystemProducer()
 

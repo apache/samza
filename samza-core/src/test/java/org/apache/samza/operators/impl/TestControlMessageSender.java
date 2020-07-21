@@ -60,11 +60,11 @@ public class TestControlMessageSender {
     Set<Integer> partitions = new HashSet<>();
     MessageCollector collector = mock(MessageCollector.class);
     doAnswer(invocation -> {
-        OutgoingMessageEnvelope envelope = (OutgoingMessageEnvelope) invocation.getArguments()[0];
-        partitions.add((Integer) envelope.getPartitionKey());
-        assertEquals(envelope.getSystemStream(), systemStream);
-        return null;
-      }).when(collector).send(any());
+      OutgoingMessageEnvelope envelope = (OutgoingMessageEnvelope) invocation.getArguments()[0];
+      partitions.add((Integer) envelope.getPartitionKey());
+      assertEquals(envelope.getSystemStream(), systemStream);
+      return null;
+    }).when(collector).send(any());
 
     ControlMessageSender sender = new ControlMessageSender(metadataCache);
     WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(), "task 0");
@@ -88,11 +88,11 @@ public class TestControlMessageSender {
     Set<Integer> partitions = new HashSet<>();
     MessageCollector collector = mock(MessageCollector.class);
     doAnswer(invocation -> {
-        OutgoingMessageEnvelope envelope = (OutgoingMessageEnvelope) invocation.getArguments()[0];
-        partitions.add((Integer) envelope.getPartitionKey());
-        assertEquals(envelope.getSystemStream(), systemStream);
-        return null;
-      }).when(collector).send(any());
+      OutgoingMessageEnvelope envelope = (OutgoingMessageEnvelope) invocation.getArguments()[0];
+      partitions.add((Integer) envelope.getPartitionKey());
+      assertEquals(envelope.getSystemStream(), systemStream);
+      return null;
+    }).when(collector).send(any());
 
     ControlMessageSender sender = new ControlMessageSender(metadataCache);
     WatermarkMessage watermark = new WatermarkMessage(System.currentTimeMillis(), "task 0");

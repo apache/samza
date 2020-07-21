@@ -78,7 +78,7 @@ public class TestQueryTranslator {
             .collect(Collectors.toList()),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
-    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { },samzaConfig);
+    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
     QueryTranslator translator = new QueryTranslator(appDesc, samzaSqlApplicationConfig);
     translator.translate(queryInfo.get(0), appDesc, 0);
     OperatorSpecGraph specGraph = appDesc.getOperatorSpecGraph();
@@ -115,7 +115,7 @@ public class TestQueryTranslator {
             .collect(Collectors.toList()),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
-    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { },samzaConfig);
+    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
     QueryTranslator translator = new QueryTranslator(appDesc, samzaSqlApplicationConfig);
 
     translator.translate(queryInfo.get(0), appDesc, 0);
@@ -160,7 +160,7 @@ public class TestQueryTranslator {
             .collect(Collectors.toList()),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
-    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { },samzaConfig);
+    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
     QueryTranslator translator = new QueryTranslator(appDesc, samzaSqlApplicationConfig);
 
     translator.translate(queryInfo.get(0), appDesc, 0);
@@ -204,7 +204,7 @@ public class TestQueryTranslator {
             .collect(Collectors.toList()),
         queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
 
-    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { },samzaConfig);
+    StreamApplicationDescriptorImpl appDesc = new StreamApplicationDescriptorImpl(streamApp -> { }, samzaConfig);
     QueryTranslator translator = new QueryTranslator(appDesc, samzaSqlApplicationConfig);
 
     translator.translate(queryInfo.get(0), appDesc, 0);

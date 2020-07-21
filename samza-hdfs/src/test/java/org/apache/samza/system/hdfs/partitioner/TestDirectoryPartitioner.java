@@ -70,7 +70,7 @@ public class TestDirectoryPartitioner {
   @Test
   public void testBasicWhiteListFiltering() {
     List<FileMetadata> testList = new ArrayList<>();
-    int NUM_INPUT = 9;
+    int numInput = 9;
     String[] inputFiles = {
       "part-001.avro",
       "part-002.avro",
@@ -82,27 +82,27 @@ public class TestDirectoryPartitioner {
       "delta-02.avro",
       "part-006.avro"};
     long[] fileLength = {150582, 138132, 214005, 205738, 158273, 982345, 313245, 234212, 413232};
-    for (int i = 0; i < NUM_INPUT; i++) {
+    for (int i = 0; i < numInput; i++) {
       testList.add(new FileMetadata(inputFiles[i], fileLength[i]));
     }
     String whiteList = "part-.*\\.avro";
     String blackList = "";
     String groupPattern = "";
-    int EXPECTED_NUM_PARTITION = 6;
-    int[][] EXPECTED_PARTITIONING = {{0}, {1}, {2}, {4}, {6}, {8}};
+    int expectedNumPartition = 6;
+    int[][] expectedPartitioning = {{0}, {1}, {2}, {4}, {6}, {8}};
 
     DirectoryPartitioner directoryPartitioner =
       new DirectoryPartitioner(whiteList, blackList, groupPattern, new TestFileSystemAdapter(testList));
     Map<Partition, SystemStreamPartitionMetadata> metadataMap = directoryPartitioner.getPartitionMetadataMap("hdfs", null);
-    Assert.assertEquals(EXPECTED_NUM_PARTITION, metadataMap.size());
+    Assert.assertEquals(expectedNumPartition, metadataMap.size());
     Map<Partition, List<String>> descriptorMap = directoryPartitioner.getPartitionDescriptor("hdfs");
-    verifyPartitionDescriptor(inputFiles, EXPECTED_PARTITIONING, EXPECTED_NUM_PARTITION, descriptorMap);
+    verifyPartitionDescriptor(inputFiles, expectedPartitioning, expectedNumPartition, descriptorMap);
   }
 
   @Test
   public void testBasicBlackListFiltering() {
     List<FileMetadata> testList = new ArrayList<>();
-    int NUM_INPUT = 9;
+    int numInput = 9;
     String[] inputFiles = {
       "part-001.avro",
       "part-002.avro",
@@ -114,27 +114,27 @@ public class TestDirectoryPartitioner {
       "delta-02.avro",
       "part-006.avro"};
     long[] fileLength = {150582, 138132, 214005, 205738, 158273, 982345, 313245, 234212, 413232};
-    for (int i = 0; i < NUM_INPUT; i++) {
+    for (int i = 0; i < numInput; i++) {
       testList.add(new FileMetadata(inputFiles[i], fileLength[i]));
     }
     String whiteList = ".*";
     String blackList = "delta-.*\\.avro";
     String groupPattern = "";
-    int EXPECTED_NUM_PARTITION = 6;
-    int[][] EXPECTED_PARTITIONING = {{0}, {1}, {2}, {4}, {6}, {8}};
+    int expectedNumPartition = 6;
+    int[][] expectedPartitioning = {{0}, {1}, {2}, {4}, {6}, {8}};
 
     DirectoryPartitioner directoryPartitioner =
       new DirectoryPartitioner(whiteList, blackList, groupPattern, new TestFileSystemAdapter(testList));
     Map<Partition, SystemStreamPartitionMetadata> metadataMap = directoryPartitioner.getPartitionMetadataMap("hdfs", null);
-    Assert.assertEquals(EXPECTED_NUM_PARTITION, metadataMap.size());
+    Assert.assertEquals(expectedNumPartition, metadataMap.size());
     Map<Partition, List<String>> descriporMap = directoryPartitioner.getPartitionDescriptor("hdfs");
-    verifyPartitionDescriptor(inputFiles, EXPECTED_PARTITIONING, EXPECTED_NUM_PARTITION, descriporMap);
+    verifyPartitionDescriptor(inputFiles, expectedPartitioning, expectedNumPartition, descriporMap);
   }
 
   @Test
   public void testWhiteListBlackListFiltering() {
     List<FileMetadata> testList = new ArrayList<>();
-    int NUM_INPUT = 9;
+    int numInput = 9;
     String[] inputFiles = {
       "part-001.avro",
       "part-002.avro",
@@ -146,27 +146,27 @@ public class TestDirectoryPartitioner {
       "delta-02.avro",
       "part-006.avro"};
     long[] fileLength = {150582, 138132, 214005, 205738, 158273, 982345, 313245, 234212, 413232};
-    for (int i = 0; i < NUM_INPUT; i++) {
+    for (int i = 0; i < numInput; i++) {
       testList.add(new FileMetadata(inputFiles[i], fileLength[i]));
     }
     String whiteList = "part-.*\\.avro";
     String blackList = "part-002.avro";
     String groupPattern = "";
-    int EXPECTED_NUM_PARTITION = 5;
-    int[][] EXPECTED_PARTITIONING = {{0}, {2}, {4}, {6}, {8}};
+    int expectedNumPartition = 5;
+    int[][] expectedPartitioning = {{0}, {2}, {4}, {6}, {8}};
 
     DirectoryPartitioner directoryPartitioner =
       new DirectoryPartitioner(whiteList, blackList, groupPattern, new TestFileSystemAdapter(testList));
     Map<Partition, SystemStreamPartitionMetadata> metadataMap = directoryPartitioner.getPartitionMetadataMap("hdfs", null);
-    Assert.assertEquals(EXPECTED_NUM_PARTITION, metadataMap.size());
+    Assert.assertEquals(expectedNumPartition, metadataMap.size());
     Map<Partition, List<String>> descriporMap = directoryPartitioner.getPartitionDescriptor("hdfs");
-    verifyPartitionDescriptor(inputFiles, EXPECTED_PARTITIONING, EXPECTED_NUM_PARTITION, descriporMap);
+    verifyPartitionDescriptor(inputFiles, expectedPartitioning, expectedNumPartition, descriporMap);
   }
 
   @Test
   public void testBasicGrouping() {
     List<FileMetadata> testList = new ArrayList<>();
-    int NUM_INPUT = 9;
+    int numInput = 9;
     String[] inputFiles = {
       "00_10-run_2016-08-15-13-04-part.0.150582.avro",
       "00_10-run_2016-08-15-13-04-part.1.138132.avro",
@@ -178,15 +178,15 @@ public class TestDirectoryPartitioner {
       "00_10-run_2016-08-15-13-06-part.1.234212.avro",
       "00_10-run_2016-08-15-13-06-part.2.413232.avro"};
     long[] fileLength = {150582, 138132, 214005, 205738, 158273, 982345, 313245, 234212, 413232};
-    for (int i = 0; i < NUM_INPUT; i++) {
+    for (int i = 0; i < numInput; i++) {
       testList.add(new FileMetadata(inputFiles[i], fileLength[i]));
     }
 
     String whiteList = ".*\\.avro";
     String blackList = "";
     String groupPattern = ".*part\\.[id]\\..*\\.avro"; // 00_10-run_2016-08-15-13-04-part.[id].138132.avro
-    int EXPECTED_NUM_PARTITION = 3;
-    int[][] EXPECTED_PARTITIONING = {
+    int expectedNumPartition = 3;
+    int[][] expectedPartitioning = {
       {0, 3, 6}, // files from index 0, 3, 6 should be grouped into one partition
       {1, 4, 7}, // similar as above
       {2, 5, 8}};
@@ -194,9 +194,9 @@ public class TestDirectoryPartitioner {
     DirectoryPartitioner directoryPartitioner =
       new DirectoryPartitioner(whiteList, blackList, groupPattern, new TestFileSystemAdapter(testList));
     Map<Partition, SystemStreamPartitionMetadata> metadataMap = directoryPartitioner.getPartitionMetadataMap("hdfs", null);
-    Assert.assertEquals(EXPECTED_NUM_PARTITION, metadataMap.size());
+    Assert.assertEquals(expectedNumPartition, metadataMap.size());
     Map<Partition, List<String>> descriporMap = directoryPartitioner.getPartitionDescriptor("hdfs");
-    verifyPartitionDescriptor(inputFiles, EXPECTED_PARTITIONING, EXPECTED_NUM_PARTITION, descriporMap);
+    verifyPartitionDescriptor(inputFiles, expectedPartitioning, expectedNumPartition, descriporMap);
   }
 
   @Test
@@ -204,7 +204,7 @@ public class TestDirectoryPartitioner {
     // the update is valid when there are only new files being added to the directory
     // no changes on the old files
     List<FileMetadata> testList = new ArrayList<>();
-    int NUM_INPUT = 6;
+    int numInput = 6;
     String[] inputFiles = {
       "part-001.avro",
       "part-002.avro",
@@ -213,23 +213,23 @@ public class TestDirectoryPartitioner {
       "part-004.avro",
       "part-006.avro"};
     long[] fileLength = {150582, 138132, 214005, 205738, 158273, 982345};
-    for (int i = 0; i < NUM_INPUT; i++) {
+    for (int i = 0; i < numInput; i++) {
       testList.add(new FileMetadata(inputFiles[i], fileLength[i]));
     }
     String whiteList = ".*";
     String blackList = "";
     String groupPattern = "";
-    int EXPECTED_NUM_PARTITION = 6;
-    int[][] EXPECTED_PARTITIONING = {{0}, {1}, {2}, {3}, {4}, {5}};
+    int expectedNumPartition = 6;
+    int[][] expectedPartitioning = {{0}, {1}, {2}, {3}, {4}, {5}};
 
     DirectoryPartitioner directoryPartitioner =
       new DirectoryPartitioner(whiteList, blackList, groupPattern, new TestFileSystemAdapter(testList));
     Map<Partition, SystemStreamPartitionMetadata> metadataMap = directoryPartitioner.getPartitionMetadataMap("hdfs", null);
-    Assert.assertEquals(EXPECTED_NUM_PARTITION, metadataMap.size());
+    Assert.assertEquals(expectedNumPartition, metadataMap.size());
     Map<Partition, List<String>> descriporMap = directoryPartitioner.getPartitionDescriptor("hdfs");
-    verifyPartitionDescriptor(inputFiles, EXPECTED_PARTITIONING, EXPECTED_NUM_PARTITION, descriporMap);
+    verifyPartitionDescriptor(inputFiles, expectedPartitioning, expectedNumPartition, descriporMap);
 
-    NUM_INPUT = 7;
+    numInput = 7;
     String[] updatedInputFiles = {
       "part-001.avro",
       "part-002.avro",
@@ -240,22 +240,22 @@ public class TestDirectoryPartitioner {
       "part-006.avro"};
     long[] updatedFileLength = {150582, 138132, 214005, 205738, 158273, 2513454, 982345};
     testList.clear();
-    for (int i = 0; i < NUM_INPUT; i++) {
+    for (int i = 0; i < numInput; i++) {
       testList.add(new FileMetadata(updatedInputFiles[i], updatedFileLength[i]));
     }
     directoryPartitioner =
       new DirectoryPartitioner(whiteList, blackList, groupPattern, new TestFileSystemAdapter(testList));
     metadataMap = directoryPartitioner.getPartitionMetadataMap("hdfs", descriporMap);
-    Assert.assertEquals(EXPECTED_NUM_PARTITION, metadataMap.size()); // still expect only 6 partitions instead of 7
+    Assert.assertEquals(expectedNumPartition, metadataMap.size()); // still expect only 6 partitions instead of 7
     Map<Partition, List<String>> updatedDescriptorMap = directoryPartitioner.getPartitionDescriptor("hdfs");
-    verifyPartitionDescriptor(inputFiles, EXPECTED_PARTITIONING, EXPECTED_NUM_PARTITION, updatedDescriptorMap);
+    verifyPartitionDescriptor(inputFiles, expectedPartitioning, expectedNumPartition, updatedDescriptorMap);
   }
 
   @Test
   public void testInvalidDirectoryUpdating() {
     // the update is invalid when at least one old file is removed
     List<FileMetadata> testList = new ArrayList<>();
-    int NUM_INPUT = 6;
+    int numInput = 6;
     String[] inputFiles = {
       "part-001.avro",
       "part-002.avro",
@@ -264,21 +264,21 @@ public class TestDirectoryPartitioner {
       "part-004.avro",
       "part-006.avro"};
     long[] fileLength = {150582, 138132, 214005, 205738, 158273, 982345};
-    for (int i = 0; i < NUM_INPUT; i++) {
+    for (int i = 0; i < numInput; i++) {
       testList.add(new FileMetadata(inputFiles[i], fileLength[i]));
     }
     String whiteList = ".*";
     String blackList = "";
     String groupPattern = "";
-    int EXPECTED_NUM_PARTITION = 6;
-    int[][] EXPECTED_PARTITIONING = {{0}, {1}, {2}, {3}, {4}, {5}};
+    int expectedNumPartition = 6;
+    int[][] expectedPartitioning = {{0}, {1}, {2}, {3}, {4}, {5}};
 
     DirectoryPartitioner directoryPartitioner =
       new DirectoryPartitioner(whiteList, blackList, groupPattern, new TestFileSystemAdapter(testList));
     Map<Partition, SystemStreamPartitionMetadata> metadataMap = directoryPartitioner.getPartitionMetadataMap("hdfs", null);
-    Assert.assertEquals(EXPECTED_NUM_PARTITION, metadataMap.size());
+    Assert.assertEquals(expectedNumPartition, metadataMap.size());
     Map<Partition, List<String>> descriporMap = directoryPartitioner.getPartitionDescriptor("hdfs");
-    verifyPartitionDescriptor(inputFiles, EXPECTED_PARTITIONING, EXPECTED_NUM_PARTITION, descriporMap);
+    verifyPartitionDescriptor(inputFiles, expectedPartitioning, expectedNumPartition, descriporMap);
 
     String[] updatedInputFiles = {
       "part-001.avro",
@@ -289,7 +289,7 @@ public class TestDirectoryPartitioner {
       "part-006.avro"};
     long[] updatedFileLength = {150582, 138132, 214005, 205738, 158273, 982345};
     testList.clear();
-    for (int i = 0; i < NUM_INPUT; i++) {
+    for (int i = 0; i < numInput; i++) {
       testList.add(new FileMetadata(updatedInputFiles[i], updatedFileLength[i]));
     }
     directoryPartitioner =

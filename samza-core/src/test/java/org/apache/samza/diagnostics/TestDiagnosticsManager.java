@@ -44,6 +44,7 @@ import org.mockito.Mockito;
 public class TestDiagnosticsManager {
   private DiagnosticsManager diagnosticsManager;
   private MockSystemProducer mockSystemProducer;
+  private ScheduledExecutorService mockExecutorService;
   private SystemStream diagnosticsSystemStream = new SystemStream("kafka", "test stream");
 
   private String jobName = "Testjob";
@@ -68,13 +69,13 @@ public class TestDiagnosticsManager {
     mockSystemProducer = new MockSystemProducer();
 
     // Mocked scheduled executor service which does a synchronous run() on scheduling
-    ScheduledExecutorService mockExecutorService = Mockito.mock(ScheduledExecutorService.class);
+    mockExecutorService = Mockito.mock(ScheduledExecutorService.class);
     Mockito.when(mockExecutorService.scheduleWithFixedDelay(Mockito.any(), Mockito.anyLong(), Mockito.anyLong(),
         Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
-            ((Runnable) invocation.getArguments()[0]).run();
-            return Mockito.
-                mock(ScheduledFuture.class);
-          });
+          ((Runnable) invocation.getArguments()[0]).run();
+          return Mockito
+              .mock(ScheduledFuture.class);
+        });
 
     this.diagnosticsManager =
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores, maxHeapSize, containerThreadPoolSize,
@@ -82,9 +83,66 @@ public class TestDiagnosticsManager {
             mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, autosizingEnabled);
 
     exceptionEventList.forEach(
-        diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
+      diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
 
     this.diagnosticsManager.addProcessorStopEvent("0", executionEnvContainerId, hostname, 101);
+  }
+
+  @Test
+  public void testDiagnosticsManagerStart() {
+    SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
+    DiagnosticsManager diagnosticsManager =
+        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
+            maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
+            hostname, diagnosticsSystemStream, mockSystemProducer, Duration.ofSeconds(1), mockExecutorService,
+            autosizingEnabled);
+
+    diagnosticsManager.start();
+
+    Mockito.verify(mockSystemProducer, Mockito.times(1)).start();
+    Mockito.verify(mockExecutorService, Mockito.times(1))
+        .scheduleWithFixedDelay(Mockito.any(Runnable.class), Mockito.anyLong(), Mockito.anyLong(),
+            Mockito.any(TimeUnit.class));
+  }
+
+  @Test
+  public void testDiagnosticsManagerStop() throws InterruptedException {
+    SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
+    Mockito.when(mockExecutorService.isTerminated()).thenReturn(true);
+    Duration terminationDuration = Duration.ofSeconds(1);
+    DiagnosticsManager diagnosticsManager =
+        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
+            maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
+            hostname, diagnosticsSystemStream, mockSystemProducer, terminationDuration, mockExecutorService,
+            autosizingEnabled);
+
+    diagnosticsManager.stop();
+
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdown();
+    Mockito.verify(mockExecutorService, Mockito.times(1))
+        .awaitTermination(terminationDuration.toMillis(), TimeUnit.MILLISECONDS);
+    Mockito.verify(mockExecutorService, Mockito.never()).shutdownNow();
+    Mockito.verify(mockSystemProducer, Mockito.times(1)).stop();
+  }
+
+  @Test
+  public void testDiagnosticsManagerForceStop() throws InterruptedException {
+    SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
+    Mockito.when(mockExecutorService.isTerminated()).thenReturn(false);
+    Duration terminationDuration = Duration.ofSeconds(1);
+    DiagnosticsManager diagnosticsManager =
+        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
+            maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
+            hostname, diagnosticsSystemStream, mockSystemProducer, terminationDuration, mockExecutorService,
+            autosizingEnabled);
+
+    diagnosticsManager.stop();
+
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdown();
+    Mockito.verify(mockExecutorService, Mockito.times(1))
+        .awaitTermination(terminationDuration.toMillis(), TimeUnit.MILLISECONDS);
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
+    Mockito.verify(mockSystemProducer, Mockito.times(1)).stop();
   }
 
   @Test

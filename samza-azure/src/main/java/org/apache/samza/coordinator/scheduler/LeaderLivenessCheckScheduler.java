@@ -64,15 +64,15 @@ public class LeaderLivenessCheckScheduler implements TaskScheduler {
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
-        try {
-          LOG.info("Checking for leader liveness");
-          if (!checkIfLeaderAlive()) {
-            listener.onStateChange();
-          }
-        } catch (Exception e) {
-          errorHandler.accept("Exception in Leader Liveness Check Scheduler. Stopping the processor...");
+      try {
+        LOG.info("Checking for leader liveness");
+        if (!checkIfLeaderAlive()) {
+          listener.onStateChange();
         }
-      }, LIVENESS_CHECK_DELAY_SEC, LIVENESS_CHECK_DELAY_SEC, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        errorHandler.accept("Exception in Leader Liveness Check Scheduler. Stopping the processor...");
+      }
+    }, LIVENESS_CHECK_DELAY_SEC, LIVENESS_CHECK_DELAY_SEC, TimeUnit.SECONDS);
   }
 
   @Override

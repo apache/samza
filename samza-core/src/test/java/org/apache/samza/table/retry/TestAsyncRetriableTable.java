@@ -188,15 +188,15 @@ public class TestAsyncRetriableTable {
     map.put("foo1", "bar1");
     map.put("foo2", "bar2");
     doAnswer(invocation -> {
-        CompletableFuture<Map<String, String>> future = new CompletableFuture();
-        if (times.get() > 0) {
-          future.complete(map);
-        } else {
-          times.incrementAndGet();
-          future.completeExceptionally(new RuntimeException("test exception"));
-        }
-        return future;
-      }).when(readFn).getAllAsync(anyCollection());
+      CompletableFuture<Map<String, String>> future = new CompletableFuture();
+      if (times.get() > 0) {
+        future.complete(map);
+      } else {
+        times.incrementAndGet();
+        future.completeExceptionally(new RuntimeException("test exception"));
+      }
+      return future;
+    }).when(readFn).getAllAsync(anyCollection());
 
     AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, null);
     AsyncRetriableTable table = new AsyncRetriableTable("t1", delegate, policy, null, schedExec, readFn, null);
@@ -399,15 +399,15 @@ public class TestAsyncRetriableTable {
 
     AtomicInteger times = new AtomicInteger();
     doAnswer(invocation -> {
-        CompletableFuture<Map<String, String>> future = new CompletableFuture();
-        if (times.get() > 0) {
-          future.complete(null);
-        } else {
-          times.incrementAndGet();
-          future.completeExceptionally(new RuntimeException("test exception"));
-        }
-        return future;
-      }).when(writeFn).putAllAsync(any());
+      CompletableFuture<Map<String, String>> future = new CompletableFuture();
+      if (times.get() > 0) {
+        future.complete(null);
+      } else {
+        times.incrementAndGet();
+        future.completeExceptionally(new RuntimeException("test exception"));
+      }
+      return future;
+    }).when(writeFn).putAllAsync(any());
 
     AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
     AsyncRetriableTable table = new AsyncRetriableTable("t1", delegate, null, policy, schedExec, readFn, writeFn);

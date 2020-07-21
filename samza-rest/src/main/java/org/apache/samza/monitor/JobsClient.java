@@ -70,7 +70,7 @@ public class JobsClient {
    */
   public List<Task> getTasks(JobInstance jobInstance) {
     return queryJobStatusServers(baseUrl -> String.format(ResourceConstants.GET_TASKS_URL, baseUrl,
-        jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<List<Task>>(){});
+        jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<List<Task>>() { });
   }
 
   /**
@@ -81,7 +81,7 @@ public class JobsClient {
    */
   public JobStatus getJobStatus(JobInstance jobInstance) {
     Job job = queryJobStatusServers(baseUrl -> String.format(ResourceConstants.GET_JOBS_URL, baseUrl,
-        jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<Job>(){});
+        jobInstance.getJobName(), jobInstance.getJobId()), new TypeReference<Job>() { });
     return job.getStatus();
   }
 

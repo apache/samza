@@ -106,15 +106,15 @@ public class NamespaceAwareCoordinatorStreamStore implements MetadataStore {
     Map<String, byte[]> bootstrappedMessages = new HashMap<>();
     Map<String, byte[]> coordinatorStreamMessages = metadataStore.all();
     coordinatorStreamMessages.forEach((coordinatorMessageKeyAsJson, value) -> {
-        CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(coordinatorMessageKeyAsJson);
-        if (Objects.equals(namespace, coordinatorMessageKey.getNamespace())) {
-          if (value != null) {
-            bootstrappedMessages.put(coordinatorMessageKey.getKey(), value);
-          } else {
-            bootstrappedMessages.remove(coordinatorMessageKey.getKey());
-          }
+      CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(coordinatorMessageKeyAsJson);
+      if (Objects.equals(namespace, coordinatorMessageKey.getNamespace())) {
+        if (value != null) {
+          bootstrappedMessages.put(coordinatorMessageKey.getKey(), value);
+        } else {
+          bootstrappedMessages.remove(coordinatorMessageKey.getKey());
         }
-      });
+      }
+    });
 
     return bootstrappedMessages;
   }

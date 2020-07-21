@@ -53,7 +53,7 @@ public class EnvironmentVariableSpecs {
   public List<Pair<String, Spec>> getAllSpecs() {
     List<Pair<String, Spec>> list = new ArrayList<>();
     Iterator<Map.Entry<String, Spec>> it =  specMap.entrySet().iterator();
-    while(it.hasNext()) {
+    while (it.hasNext()) {
       Map.Entry<String, Spec> entry = it.next();
       list.add(new Pair<>(entry.getKey(), entry.getValue()));
     }

@@ -75,15 +75,15 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
     Stopwatch stopwatch = Stopwatch.createStarted();
     return tagToCreditsMap.entrySet().stream()
         .map(e -> {
-            String tag = e.getKey();
-            int requiredCredits = e.getValue();
-            long remainingTimeoutInNanos = Math.max(0L, timeoutInNanos - stopwatch.elapsed(NANOSECONDS));
-            com.google.common.util.concurrent.RateLimiter rateLimiter = tagToRateLimiterMap.get(tag);
-            int availableCredits = rateLimiter.tryAcquire(requiredCredits, remainingTimeoutInNanos, NANOSECONDS)
-                ? requiredCredits
-                : 0;
-            return new ImmutablePair<>(tag, availableCredits);
-          })
+          String tag = e.getKey();
+          int requiredCredits = e.getValue();
+          long remainingTimeoutInNanos = Math.max(0L, timeoutInNanos - stopwatch.elapsed(NANOSECONDS));
+          com.google.common.util.concurrent.RateLimiter rateLimiter = tagToRateLimiterMap.get(tag);
+          int availableCredits = rateLimiter.tryAcquire(requiredCredits, remainingTimeoutInNanos, NANOSECONDS)
+              ? requiredCredits
+              : 0;
+          return new ImmutablePair<>(tag, availableCredits);
+        })
         .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue));
   }
 
@@ -110,22 +110,22 @@ public class EmbeddedTaggedRateLimiter implements RateLimiter {
   public void init(Context context) {
     this.tagToRateLimiterMap = Collections.unmodifiableMap(tagToTargetRateMap.entrySet().stream()
         .map(e -> {
-            String tag = e.getKey();
-            JobModel jobModel = ((TaskContextImpl) context.getTaskContext()).getJobModel();
-            int numTasks = jobModel.getContainers().values().stream()
-                .mapToInt(cm -> cm.getTasks().size())
-                .sum();
-            double effectiveRate = (double) e.getValue() / numTasks;
-            TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
-            LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %f", taskName, tag,
-                effectiveRate));
-            if (effectiveRate < 1.0) {
-              LOGGER.warn(String.format("Effective limit rate (%f) is very low. "
-                              + "Total rate limit is %d while number of tasks is %d. Consider increasing the rate limit.",
-                        effectiveRate, e.getValue(), numTasks));
-            }
-            return new ImmutablePair<>(tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
-          })
+          String tag = e.getKey();
+          JobModel jobModel = ((TaskContextImpl) context.getTaskContext()).getJobModel();
+          int numTasks = jobModel.getContainers().values().stream()
+              .mapToInt(cm -> cm.getTasks().size())
+              .sum();
+          double effectiveRate = (double) e.getValue() / numTasks;
+          TaskName taskName = context.getTaskContext().getTaskModel().getTaskName();
+          LOGGER.info(String.format("Effective rate limit for task %s and tag %s is %f", taskName, tag,
+              effectiveRate));
+          if (effectiveRate < 1.0) {
+            LOGGER.warn(String.format("Effective limit rate (%f) is very low. "
+                            + "Total rate limit is %d while number of tasks is %d. Consider increasing the rate limit.",
+                      effectiveRate, e.getValue(), numTasks));
+          }
+          return new ImmutablePair<>(tag, com.google.common.util.concurrent.RateLimiter.create(effectiveRate));
+        })
         .collect(Collectors.toMap(ImmutablePair::getKey, ImmutablePair::getValue))
     );
     initialized = true;

@@ -90,6 +90,7 @@ public class SamzaSqlApplicationConfig {
   public static final String CFG_METADATA_TOPIC_PREFIX = "samza.sql.metadataTopicPrefix";
   public static final String CFG_GROUPBY_WINDOW_DURATION_MS = "samza.sql.groupby.window.ms";
   public static final String CFG_SQL_PROCESS_SYSTEM_EVENTS = "samza.sql.processSystemEvents";
+  public static final String CFG_SQL_ENABLE_PLAN_OPTIMIZER = "samza.sql.enablePlanOptimizer";
 
   public static final String SAMZA_SYSTEM_LOG = "log";
 
@@ -117,6 +118,7 @@ public class SamzaSqlApplicationConfig {
   private final String metadataTopicPrefix;
   private final long windowDurationMs;
   private final boolean processSystemEvents;
+  private final boolean enableQueryPlanOptimizer;
 
   public SamzaSqlApplicationConfig(Config staticConfig, List<String> inputSystemStreams,
       List<String> outputSystemStreams) {
@@ -145,22 +147,22 @@ public class SamzaSqlApplicationConfig {
 
     relSchemaProvidersBySource = systemStreamConfigs.stream()
         .collect(Collectors.toMap(SqlIOConfig::getSource,
-            x -> initializePlugin("RelSchemaProvider", x.getRelSchemaProviderName(), staticConfig,
-                CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
-                (o, c) -> ((RelSchemaProviderFactory) o).create(x.getSystemStream(), c))));
+          x -> initializePlugin("RelSchemaProvider", x.getRelSchemaProviderName(), staticConfig,
+            CFG_FMT_REL_SCHEMA_PROVIDER_DOMAIN,
+            (o, c) -> ((RelSchemaProviderFactory) o).create(x.getSystemStream(), c))));
 
     samzaRelConvertersBySource = systemStreamConfigs.stream()
         .collect(Collectors.toMap(SqlIOConfig::getSource,
-            x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
-                CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
-                    relSchemaProvidersBySource.get(x.getSource()), c))));
+          x -> initializePlugin("SamzaRelConverter", x.getSamzaRelConverterName(), staticConfig,
+            CFG_FMT_SAMZA_REL_CONVERTER_DOMAIN, (o, c) -> ((SamzaRelConverterFactory) o).create(x.getSystemStream(),
+              relSchemaProvidersBySource.get(x.getSource()), c))));
 
     samzaRelTableKeyConvertersBySource = systemStreamConfigs.stream()
         .filter(SqlIOConfig::isRemoteTable)
         .collect(Collectors.toMap(SqlIOConfig::getSource,
-            x -> initializePlugin("SamzaRelTableKeyConverter", x.getSamzaRelTableKeyConverterName(),
-                staticConfig, CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN,
-                (o, c) -> ((SamzaRelTableKeyConverterFactory) o).create(x.getSystemStream(), c))));
+          x -> initializePlugin("SamzaRelTableKeyConverter", x.getSamzaRelTableKeyConverterName(),
+            staticConfig, CFG_FMT_SAMZA_REL_TABLE_KEY_CONVERTER_DOMAIN,
+            (o, c) -> ((SamzaRelTableKeyConverterFactory) o).create(x.getSystemStream(), c))));
 
     udfResolver = createUdfResolver(staticConfig);
     udfMetadata = udfResolver.getUdfs();
@@ -170,6 +172,7 @@ public class SamzaSqlApplicationConfig {
 
     processSystemEvents = staticConfig.getBoolean(CFG_SQL_PROCESS_SYSTEM_EVENTS, true);
     windowDurationMs = staticConfig.getLong(CFG_GROUPBY_WINDOW_DURATION_MS, DEFAULT_GROUPBY_WINDOW_DURATION_MS);
+    enableQueryPlanOptimizer = staticConfig.getBoolean(CFG_SQL_ENABLE_PLAN_OPTIMIZER, true);
   }
 
   public static <T> T initializePlugin(String pluginName, String plugin, Config staticConfig,
@@ -203,7 +206,7 @@ public class SamzaSqlApplicationConfig {
     Config newConfig = new MapConfig(Arrays.asList(config, metadataPrefixProperties));
     Validate.notEmpty(sourceResolveValue, "ioResolver config is not set or empty");
     return initializePlugin("SqlIOResolver", sourceResolveValue, newConfig, CFG_FMT_SOURCE_RESOLVER_DOMAIN,
-        (o, c) -> ((SqlIOResolverFactory) o).create(c, newConfig));
+      (o, c) -> ((SqlIOResolverFactory) o).create(c, newConfig));
   }
 
   private UdfResolver createUdfResolver(Map<String, String> config) {
@@ -282,7 +285,7 @@ public class SamzaSqlApplicationConfig {
         }
       }
     }
-     List<RelNode> relNodes = relNode.getInputs();
+    List<RelNode> relNodes = relNode.getInputs();
     if (relNodes == null || relNodes.isEmpty()) {
       return;
     }
@@ -335,5 +338,9 @@ public class SamzaSqlApplicationConfig {
 
   public boolean isProcessSystemEvents() {
     return processSystemEvents;
+  }
+
+  public boolean isQueryPlanOptimizerEnabled() {
+    return enableQueryPlanOptimizer;
   }
 }

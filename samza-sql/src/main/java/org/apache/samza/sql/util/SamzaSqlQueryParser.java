@@ -115,7 +115,7 @@ public class SamzaSqlQueryParser {
     String selectQuery;
     ArrayList<String> sources;
     if (sqlNode instanceof SqlInsert) {
-      SqlInsert sqlInsert = ((SqlInsert) sqlNode);
+      SqlInsert sqlInsert = (SqlInsert) sqlNode;
       sink = sqlInsert.getTargetTable().toString();
       if (sqlInsert.getSource() instanceof SqlSelect) {
         SqlSelect sqlSelect = (SqlSelect) sqlInsert.getSource();
@@ -165,6 +165,7 @@ public class SamzaSqlQueryParser {
         .traitDefs(traitDefs)
         .context(Contexts.EMPTY_CONTEXT)
         .costFactory(null)
+        //.programs(Programs.CALC_PROGRAM)
         .build();
     return Frameworks.getPlanner(frameworkConfig);
   }
@@ -192,7 +193,7 @@ public class SamzaSqlQueryParser {
     } else if (node instanceof SqlIdentifier) {
       sourceList.add(node.toString());
     } else if (node instanceof SqlBasicCall) {
-      SqlBasicCall basicCall = ((SqlBasicCall) node);
+      SqlBasicCall basicCall = (SqlBasicCall) node;
       if (basicCall.getOperator() instanceof SqlAsOperator) {
         getSource(basicCall.operand(0), sourceList);
       } else if (basicCall.getOperator() instanceof SqlUnnestOperator && basicCall.operand(0) instanceof SqlSelect) {

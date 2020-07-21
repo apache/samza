@@ -81,7 +81,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   private static final int PREFERRED_HOST_PRIORITY = 0;
   private static final int ANY_HOST_PRIORITY = 1;
 
-  private final String INVALID_PROCESSOR_ID = "-1";
+  private static final String INVALID_PROCESSOR_ID = "-1";
 
   /**
    * The AMClient instance to request resources from yarn.
@@ -153,11 +153,11 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     // Use the Samza job config "fs.<scheme>.impl" and "fs.<scheme>.impl.*" for YarnConfiguration
     FileSystemImplConfig fsImplConfig = new FileSystemImplConfig(config);
     fsImplConfig.getSchemes().forEach(
-        scheme -> {
-          fsImplConfig.getSchemeConfig(scheme).forEach(
-              (confKey, confValue) -> yarnConfiguration.set(confKey, confValue)
-          );
-        }
+      scheme -> {
+        fsImplConfig.getSchemeConfig(scheme).forEach(
+          (confKey, confValue) -> yarnConfiguration.set(confKey, confValue)
+        );
+      }
     );
 
     MetricsRegistryMap registry = new MetricsRegistryMap();
@@ -204,7 +204,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void start() {
-    if(!started.compareAndSet(false, true)) {
+    if (!started.compareAndSet(false, true)) {
       log.info("Attempting to start an already started YarnClusterResourceManager");
       return;
     }
@@ -217,7 +217,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     nmClientAsync.start();
     lifecycle.onInit();
 
-    if(lifecycle.shouldShutdown()) {
+    if (lifecycle.shouldShutdown()) {
       clusterManagerCallback.onError(new SamzaException("Invalid resource request."));
     }
 
@@ -338,11 +338,11 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   //In that case, this scan will turn into a lookup. This change will require changes/testing in the UI files because
   //those UI stub templates operate on the YarnContainer object.
   private String getRunningProcessorId(String containerId) {
-    for(Map.Entry<String, YarnContainer> entry : state.runningProcessors.entrySet()) {
+    for (Map.Entry<String, YarnContainer> entry : state.runningProcessors.entrySet()) {
       String key = entry.getKey();
       YarnContainer yarnContainer = entry.getValue();
       String yarnContainerId = yarnContainer.id().toString();
-      if(yarnContainerId.equals(containerId)) {
+      if (yarnContainerId.equals(containerId)) {
         return key;
       }
     }
@@ -395,7 +395,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     service.onShutdown();
     metrics.stop();
 
-    if(status != SamzaApplicationState.SamzaAppStatus.UNDEFINED) {
+    if (status != SamzaApplicationState.SamzaAppStatus.UNDEFINED) {
       cleanupStagingDir();
     }
   }
@@ -406,7 +406,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   private void cleanupStagingDir() {
     String yarnJobStagingDirectory = yarnConfig.getYarnJobStagingDirectory();
-    if(yarnJobStagingDirectory != null) {
+    if (yarnJobStagingDirectory != null) {
       JobContext context = new JobContext();
       context.setAppStagingDir(new Path(yarnJobStagingDirectory));
 
@@ -417,7 +417,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
         log.error("Unable to clean up file system.", e);
         return;
       }
-      if(fs != null) {
+      if (fs != null) {
         YarnJobUtil.cleanupStagingDir(context, fs);
       }
     }
@@ -433,7 +433,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   public void onContainersCompleted(List<ContainerStatus> statuses) {
     List<SamzaResourceStatus> samzaResourceStatuses = new ArrayList<>();
 
-    for(ContainerStatus status: statuses) {
+    for (ContainerStatus status : statuses) {
       log.info("Got completion notification for Container ID: {} with status: {} and state: {}. Diagnostics information: {}.",
           status.getContainerId(), status.getExitStatus(), status.getState(), status.getDiagnostics());
 
@@ -445,12 +445,12 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
       //remove the container from the list of running containers, if failed with a non-zero exit code, add it to the list of
       //failed containers.
-      if(!completedProcessorID.equals(INVALID_PROCESSOR_ID)){
-        if(state.runningProcessors.containsKey(completedProcessorID)) {
+      if (!completedProcessorID.equals(INVALID_PROCESSOR_ID)) {
+        if (state.runningProcessors.containsKey(completedProcessorID)) {
           log.info("Removing Processor ID: {} from YarnClusterResourceManager running processors.", completedProcessorID);
           state.runningProcessors.remove(completedProcessorID);
 
-          if(status.getExitStatus() != ContainerExitStatus.SUCCESS)
+          if (status.getExitStatus() != ContainerExitStatus.SUCCESS)
             state.failedContainersStatus.put(status.getContainerId().toString(), status);
         }
       }
@@ -465,19 +465,20 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void onContainersAllocated(List<Container> containers) {
-      List<SamzaResource> resources = new ArrayList<SamzaResource>();
-      for(Container container : containers) {
-          log.info("Got allocation notification for Container ID: {} on host: {}", container.getId(), container.getNodeId().getHost());
-          String containerId = container.getId().toString();
-          String host = container.getNodeId().getHost();
-          int memory = container.getResource().getMemory();
-          int numCores = container.getResource().getVirtualCores();
+    List<SamzaResource> resources = new ArrayList<SamzaResource>();
+    for (Container container : containers) {
+      log.info("Got allocation notification for Container ID: {} on host: {}", container.getId(),
+          container.getNodeId().getHost());
+      String containerId = container.getId().toString();
+      String host = container.getNodeId().getHost();
+      int memory = container.getResource().getMemory();
+      int numCores = container.getResource().getVirtualCores();
 
-          SamzaResource resource = new SamzaResource(numCores, memory, host, containerId);
-          allocatedResources.put(resource, container);
-          resources.add(resource);
-      }
-      clusterManagerCallback.onResourcesAvailable(resources);
+      SamzaResource resource = new SamzaResource(numCores, memory, host, containerId);
+      allocatedResources.put(resource, container);
+      resources.add(resource);
+    }
+    clusterManagerCallback.onResourcesAvailable(resources);
   }
 
   //The below methods are specific to the Yarn AMRM Client. We currently don't handle scenarios where there are
@@ -513,7 +514,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> allServiceResponse) {
     String processorId = getPendingProcessorId(containerId);
     if (processorId != null) {
-    log.info("Got start notification for Container ID: {} for Processor ID: {}", containerId, processorId);
+      log.info("Got start notification for Container ID: {} for Processor ID: {}", containerId, processorId);
       // 1. Move the processor from pending to running state
       final YarnContainer container = state.pendingProcessors.remove(processorId);
 
@@ -664,7 +665,11 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     ContainerLaunchContext context = Records.newRecord(ContainerLaunchContext.class);
     context.setEnvironment(env);
     context.setTokens(allTokens.duplicate());
-    context.setCommands(new ArrayList<String>() {{add(cmd);}});
+    context.setCommands(new ArrayList<String>() {
+      {
+        add(cmd);
+      }
+    });
     context.setLocalResources(localResourceMap);
 
     if (UserGroupInformation.isSecurityEnabled()) {

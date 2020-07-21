@@ -116,15 +116,15 @@ public class StorageRecovery {
 
     systemAdmins.start();
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
-        try {
-          containerStorageManager.start();
-        } catch (InterruptedException e) {
-          // we can ignore the exception since its only used in the context of a command line tool and bubbling the
-          // exception upstream isn't needed.
-          LOG.warn("Received an interrupt during store restoration for container {}."
-              + " Proceeding with the next container", containerName);
-        }
-      });
+      try {
+        containerStorageManager.start();
+      } catch (InterruptedException e) {
+        // we can ignore the exception since its only used in the context of a command line tool and bubbling the
+        // exception upstream isn't needed.
+        LOG.warn("Received an interrupt during store restoration for container {}."
+            + " Proceeding with the next container", containerName);
+      }
+    });
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> containerStorageManager.shutdown());
     systemAdmins.stop();
 
@@ -201,13 +201,13 @@ public class StorageRecovery {
     // Adding all serdes from factories
     serializerConfig.getSerdeNames()
         .forEach(serdeName -> {
-            String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
-              .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
-            @SuppressWarnings("unchecked")
-            Serde<Object> serde =
-                ReflectionUtil.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
-            serdeMap.put(serdeName, serde);
-          });
+          String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
+            .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
+          @SuppressWarnings("unchecked")
+          Serde<Object> serde =
+              ReflectionUtil.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
+          serdeMap.put(serdeName, serde);
+        });
 
     return serdeMap;
   }

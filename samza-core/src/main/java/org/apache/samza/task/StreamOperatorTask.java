@@ -140,12 +140,12 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
           }
 
           processFuture.whenComplete((val, ex) -> {
-              if (ex != null) {
-                callback.failure(ex);
-              } else {
-                callback.complete();
-              }
-            });
+            if (ex != null) {
+              callback.failure(ex);
+            } else {
+              callback.complete();
+            }
+          });
         }
       } catch (Exception e) {
         LOG.error("Failed to process the incoming message due to ", e);

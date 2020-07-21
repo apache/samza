@@ -69,7 +69,7 @@ public class TestTaskSideInputHandler {
         .collect(Collectors.toSet());
     Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata = ssps.stream()
         .collect(Collectors.toMap(SystemStreamPartition::getPartition,
-            x -> new SystemStreamMetadata.SystemStreamPartitionMetadata(null, "1", "2")));
+          x -> new SystemStreamMetadata.SystemStreamPartitionMetadata(null, "1", "2")));
 
 
     TaskSideInputHandler handler = new MockTaskSideInputHandlerBuilder(taskName, TaskMode.Active)
@@ -81,10 +81,10 @@ public class TestTaskSideInputHandler {
     handler.init();
 
     ssps.forEach(ssp -> {
-        String startingOffset = handler.getStartingOffset(
-            new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, ssp.getPartition()));
-        Assert.assertNull("Starting offset should be null", startingOffset);
-      });
+      String startingOffset = handler.getStartingOffset(
+          new SystemStreamPartition(TEST_SYSTEM, TEST_STREAM, ssp.getPartition()));
+      Assert.assertNull("Starting offset should be null", startingOffset);
+    });
   }
 
   @Test
@@ -104,17 +104,17 @@ public class TestTaskSideInputHandler {
     // set up file and oldest offsets. for even partitions, fileOffsets will be larger; for odd partitions oldestOffsets will be larger
     Map<SystemStreamPartition, String> fileOffsets = ssps.stream()
         .collect(Collectors.toMap(Function.identity(), ssp -> {
-            int partitionId = ssp.getPartition().getPartitionId();
-            int offset = partitionId % 2 == 0 ? partitionId + 10 : partitionId;
-            return String.valueOf(offset);
-          }));
+          int partitionId = ssp.getPartition().getPartitionId();
+          int offset = partitionId % 2 == 0 ? partitionId + 10 : partitionId;
+          return String.valueOf(offset);
+        }));
     Map<SystemStreamPartition, String> oldestOffsets = ssps.stream()
         .collect(Collectors.toMap(Function.identity(), ssp -> {
-            int partitionId = ssp.getPartition().getPartitionId();
-            int offset = partitionId % 2 == 0 ? partitionId : partitionId + 10;
+          int partitionId = ssp.getPartition().getPartitionId();
+          int offset = partitionId % 2 == 0 ? partitionId : partitionId + 10;
 
-            return String.valueOf(offset);
-          }));
+          return String.valueOf(offset);
+        }));
 
     doCallRealMethod().when(handler).getStartingOffsets(fileOffsets, oldestOffsets);
 
@@ -122,14 +122,14 @@ public class TestTaskSideInputHandler {
 
     assertTrue("Failed to get starting offsets for all ssps", startingOffsets.size() == 5);
     startingOffsets.forEach((ssp, offset) -> {
-        int partitionId = ssp.getPartition().getPartitionId();
-        String expectedOffset = partitionId % 2 == 0
-            // 1 + fileOffset
-            ? getOffsetAfter(String.valueOf(ssp.getPartition().getPartitionId() + 10))
-            // oldestOffset
-            : String.valueOf(ssp.getPartition().getPartitionId() + 10);
-        assertEquals("Larger of fileOffsets and oldestOffsets should always be chosen", expectedOffset, offset);
-      });
+      int partitionId = ssp.getPartition().getPartitionId();
+      String expectedOffset = partitionId % 2 == 0
+          // 1 + fileOffset
+          ? getOffsetAfter(String.valueOf(ssp.getPartition().getPartitionId() + 10))
+          // oldestOffset
+          : String.valueOf(ssp.getPartition().getPartitionId() + 10);
+      assertEquals("Larger of fileOffsets and oldestOffsets should always be chosen", expectedOffset, offset);
+    });
   }
 
   private static final class MockTaskSideInputHandlerBuilder {
@@ -155,19 +155,18 @@ public class TestTaskSideInputHandler {
     private void initializeMocks() {
       SystemAdmin admin = mock(SystemAdmin.class);
       doAnswer(invocation -> {
-          String offset1 = invocation.getArgumentAt(0, String.class);
-          String offset2 = invocation.getArgumentAt(1, String.class);
+        String offset1 = invocation.getArgumentAt(0, String.class);
+        String offset2 = invocation.getArgumentAt(1, String.class);
 
-          return Long.compare(Long.parseLong(offset1), Long.parseLong(offset2));
-        }).when(admin).offsetComparator(any(), any());
+        return Long.compare(Long.parseLong(offset1), Long.parseLong(offset2));
+      }).when(admin).offsetComparator(any(), any());
       doAnswer(invocation -> {
-          Map<SystemStreamPartition, String> sspToOffsets = invocation.getArgumentAt(0, Map.class);
+        Map<SystemStreamPartition, String> sspToOffsets = invocation.getArgumentAt(0, Map.class);
 
-          return sspToOffsets.entrySet()
-              .stream()
-              .collect(Collectors.toMap(Map.Entry::getKey,
-                  entry -> getOffsetAfter(entry.getValue())));
-        }).when(admin).getOffsetsAfter(any());
+        return sspToOffsets.entrySet()
+            .stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, entry -> getOffsetAfter(entry.getValue())));
+      }).when(admin).getOffsetsAfter(any());
       doReturn(admin).when(systemAdmins).getSystemAdmin(TEST_SYSTEM);
       doReturn(ScalaJavaUtil.toScalaMap(new HashMap<>())).when(streamMetadataCache).getStreamMetadata(any(), anyBoolean());
     }

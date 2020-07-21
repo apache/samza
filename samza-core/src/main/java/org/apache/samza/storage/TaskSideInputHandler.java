@@ -85,14 +85,14 @@ public class TaskSideInputHandler {
 
     this.sspToStores = new HashMap<>();
     storeToSSPs.forEach((store, ssps) -> {
-        for (SystemStreamPartition ssp: ssps) {
-          this.sspToStores.computeIfAbsent(ssp, key -> new HashSet<>());
-          this.sspToStores.computeIfPresent(ssp, (key, value) -> {
-              value.add(store);
-              return value;
-            });
-        }
-      });
+      for (SystemStreamPartition ssp: ssps) {
+        this.sspToStores.computeIfAbsent(ssp, key -> new HashSet<>());
+        this.sspToStores.computeIfPresent(ssp, (key, value) -> {
+          value.add(store);
+          return value;
+        });
+      }
+    });
 
     this.taskSideInputStorageManager = new TaskSideInputStorageManager(taskName,
         taskMode,
@@ -236,13 +236,13 @@ public class TaskSideInputHandler {
     Map<SystemStreamPartition, String> startingOffsets = new HashMap<>();
 
     this.sspToStores.keySet().forEach(ssp -> {
-        String fileOffset = fileOffsets.get(ssp);
-        String oldestOffset = oldestOffsets.get(ssp);
+      String fileOffset = fileOffsets.get(ssp);
+      String oldestOffset = oldestOffsets.get(ssp);
 
-        startingOffsets.put(ssp,
-            this.storageManagerUtil.getStartingOffset(
-                ssp, this.systemAdmins.getSystemAdmin(ssp.getSystem()), fileOffset, oldestOffset));
-      });
+      startingOffsets.put(ssp,
+          this.storageManagerUtil.getStartingOffset(
+              ssp, this.systemAdmins.getSystemAdmin(ssp.getSystem()), fileOffset, oldestOffset));
+    });
 
     return startingOffsets;
   }
@@ -273,17 +273,17 @@ public class TaskSideInputHandler {
     // Step 3
     metadata.forEach((systemStream, systemStreamMetadata) -> {
 
-        // get the partition metadata for each system stream
-        Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata =
-            systemStreamMetadata.getSystemStreamPartitionMetadata();
+      // get the partition metadata for each system stream
+      Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetadata =
+          systemStreamMetadata.getSystemStreamPartitionMetadata();
 
-        // For SSPs belonging to the system stream, use the partition metadata to get the oldest offset
-        // if partitionMetadata was not obtained for any SSP, populate oldest-offset as null
-        // Because of https://bugs.openjdk.java.net/browse/JDK-8148463 using lambda will NPE when getOldestOffset() is null
-        for (SystemStreamPartition ssp : systemStreamToSsp.get(systemStream)) {
-          oldestOffsets.put(ssp, partitionMetadata.get(ssp.getPartition()).getOldestOffset());
-        }
-      });
+      // For SSPs belonging to the system stream, use the partition metadata to get the oldest offset
+      // if partitionMetadata was not obtained for any SSP, populate oldest-offset as null
+      // Because of https://bugs.openjdk.java.net/browse/JDK-8148463 using lambda will NPE when getOldestOffset() is null
+      for (SystemStreamPartition ssp : systemStreamToSsp.get(systemStream)) {
+        oldestOffsets.put(ssp, partitionMetadata.get(ssp.getPartition()).getOldestOffset());
+      }
+    });
 
     return oldestOffsets;
   }
@@ -331,10 +331,10 @@ public class TaskSideInputHandler {
    */
   private void validateProcessorConfiguration(Set<String> stores, Map<String, SideInputsProcessor> storeToProcessor) {
     stores.forEach(storeName -> {
-        if (!storeToProcessor.containsKey(storeName)) {
-          throw new SamzaException(
-              String.format("Side inputs processor missing for store: %s.", storeName));
-        }
-      });
+      if (!storeToProcessor.containsKey(storeName)) {
+        throw new SamzaException(
+            String.format("Side inputs processor missing for store: %s.", storeName));
+      }
+    });
   }
 }

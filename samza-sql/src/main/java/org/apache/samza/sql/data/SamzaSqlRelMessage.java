@@ -124,7 +124,9 @@ public class SamzaSqlRelMessage implements Serializable {
   }
 
   @JsonProperty("samzaSqlRelMsgMetadata")
-  public SamzaSqlRelMsgMetadata getSamzaSqlRelMsgMetadata() { return samzaSqlRelMsgMetadata; }
+  public SamzaSqlRelMsgMetadata getSamzaSqlRelMsgMetadata() {
+    return samzaSqlRelMsgMetadata;
+  }
 
   public Object getKey() {
     return key;

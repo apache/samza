@@ -120,7 +120,7 @@ public class SamzaRestService {
     } catch (Throwable t) {
       log.error("Exception in main.", t);
     } finally {
-      if (schedulingProvider != null){
+      if (schedulingProvider != null) {
         schedulingProvider.stop();
       }
     }

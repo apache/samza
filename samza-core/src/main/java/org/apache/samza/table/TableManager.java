@@ -70,9 +70,9 @@ public class TableManager {
    */
   public TableManager(Config config) {
     new JavaTableConfig(config).getTableIds().forEach(tableId -> {
-        addTable(tableId, config);
-        logger.debug("Added table " + tableId);
-      });
+      addTable(tableId, config);
+      logger.debug("Added table " + tableId);
+    });
     logger.info(String.format("Added %d tables", tableContexts.size()));
   }
 

@@ -55,7 +55,7 @@ public class TestRocksDbKeyValueStoreJava {
 
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     String prefix = "prefix";
-    for(int i = 0; i < 100; i++) {
+    for (int i = 0; i < 100; i++) {
       store.put(genKey(outputStream, prefix, i), genValue());
     }
 
@@ -95,7 +95,7 @@ public class TestRocksDbKeyValueStoreJava {
     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
     String prefix = "this is the key prefix";
     Random r = new Random();
-    for(int i = 0; i < 100000; i++) {
+    for (int i = 0; i < 100000; i++) {
       store.put(genKey(outputStream, prefix, r.nextInt()), genValue());
     }
 

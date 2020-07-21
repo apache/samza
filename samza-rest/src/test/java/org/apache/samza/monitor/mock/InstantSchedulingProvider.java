@@ -25,10 +25,10 @@ import org.apache.samza.monitor.SchedulingProvider;
  */
 public class InstantSchedulingProvider implements SchedulingProvider {
 
-    public void schedule(Runnable runnableMonitor, int interval) {
-        runnableMonitor.run();
-    }
+  public void schedule(Runnable runnableMonitor, int interval) {
+    runnableMonitor.run();
+  }
 
-    // Nothing to stop because no deferred task was started
-    public void stop() {}
+  // Nothing to stop because no deferred task was started
+  public void stop() {}
 }

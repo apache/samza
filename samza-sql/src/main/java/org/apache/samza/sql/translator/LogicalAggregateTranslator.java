@@ -76,19 +76,19 @@ class LogicalAggregateTranslator {
                 .setAccumulationMode(
                     AccumulationMode.DISCARDING), changeLogStorePrefix + "_tumblingWindow_" + logicalOpId)
             .map(windowPane -> {
-                List<String> fieldNames = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldNames();
-                List<Object> fieldValues = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldValues();
-                fieldNames.add(aggFieldNames.get(0));
-                fieldValues.add(windowPane.getMessage());
-                return new SamzaSqlRelMessage(fieldNames, fieldValues, new SamzaSqlRelMsgMetadata(0L, 0L));
-              });
+              List<String> fieldNames = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldNames();
+              List<Object> fieldValues = windowPane.getKey().getKey().getSamzaSqlRelRecord().getFieldValues();
+              fieldNames.add(aggFieldNames.get(0));
+              fieldValues.add(windowPane.getMessage());
+              return new SamzaSqlRelMessage(fieldNames, fieldValues, new SamzaSqlRelMsgMetadata(0L, 0L));
+            });
     context.registerMessageStream(aggregate.getId(), outputStream);
     outputStream.map(new TranslatorOutputMetricsMapFunction(logicalOpId));
   }
 
   private ArrayList<String> getAggFieldNames(LogicalAggregate aggregate) {
     return aggregate.getAggCallList().stream().collect(ArrayList::new, (names, aggCall) -> names.add(aggCall.getName()),
-        (n1, n2) -> n1.addAll(n2));
+      (n1, n2) -> n1.addAll(n2));
   }
 
   void validateAggregateFunctions(final LogicalAggregate aggregate) {

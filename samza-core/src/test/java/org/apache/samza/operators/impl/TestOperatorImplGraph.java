@@ -132,17 +132,17 @@ public class TestOperatorImplGraph {
     when(this.context.getJobContext().getConfig()).thenReturn(config);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
-        GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
-        GenericOutputDescriptor outputDescriptor = sd.getOutputDescriptor(outputStreamId, mock(Serde.class));
-        MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
-        OutputStream<Object> outputStream = appDesc.getOutputStream(outputDescriptor);
+      GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+      GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
+      GenericOutputDescriptor outputDescriptor = sd.getOutputDescriptor(outputStreamId, mock(Serde.class));
+      MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
+      OutputStream<Object> outputStream = appDesc.getOutputStream(outputDescriptor);
 
-        inputStream
-            .filter(mock(FilterFunction.class))
-            .map(mock(MapFunction.class))
-            .sendTo(outputStream);
-      }, config);
+      inputStream
+          .filter(mock(FilterFunction.class))
+          .map(mock(MapFunction.class))
+          .sendTo(outputStream);
+    }, config);
 
     OperatorImplGraph opImplGraph =
         new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, mock(Clock.class));
@@ -184,19 +184,19 @@ public class TestOperatorImplGraph {
     when(this.context.getJobContext().getConfig()).thenReturn(config);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
-        GenericSystemDescriptor osd = new GenericSystemDescriptor(outputSystem, "mockFactoryClass");
-        GenericInputDescriptor inputDescriptor = isd.getInputDescriptor(inputStreamId, mock(Serde.class));
-        GenericOutputDescriptor outputDescriptor = osd.getOutputDescriptor(outputStreamId,
-            KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
-        MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
-        OutputStream<KV<Integer, String>> outputStream = appDesc.getOutputStream(outputDescriptor);
+      GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+      GenericSystemDescriptor osd = new GenericSystemDescriptor(outputSystem, "mockFactoryClass");
+      GenericInputDescriptor inputDescriptor = isd.getInputDescriptor(inputStreamId, mock(Serde.class));
+      GenericOutputDescriptor outputDescriptor = osd.getOutputDescriptor(outputStreamId,
+          KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)));
+      MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
+      OutputStream<KV<Integer, String>> outputStream = appDesc.getOutputStream(outputDescriptor);
 
-        inputStream
-            .partitionBy(Object::hashCode, Object::toString,
-                KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)), "p1")
-            .sendTo(outputStream);
-      }, config);
+      inputStream
+          .partitionBy(Object::hashCode, Object::toString,
+              KVSerde.of(mock(IntegerSerde.class), mock(StringSerde.class)), "p1")
+          .sendTo(outputStream);
+    }, config);
 
     JobModel jobModel = mock(JobModel.class);
     ContainerModel containerModel = mock(ContainerModel.class);
@@ -236,12 +236,12 @@ public class TestOperatorImplGraph {
     Config config = new MapConfig(configMap);
     when(this.context.getJobContext().getConfig()).thenReturn(config);
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
-        GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
-        MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
-        inputStream.filter(mock(FilterFunction.class));
-        inputStream.map(mock(MapFunction.class));
-      }, config);
+      GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+      GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
+      MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
+      inputStream.filter(mock(FilterFunction.class));
+      inputStream.map(mock(MapFunction.class));
+    }, config);
 
     OperatorImplGraph opImplGraph =
         new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, mock(Clock.class));
@@ -259,14 +259,14 @@ public class TestOperatorImplGraph {
     String inputStreamId = "input";
     String inputSystem = "input-system";
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
-        GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
-        MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
-        MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
-        MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
-        stream1.merge(Collections.singleton(stream2))
-            .map(new TestMapFunction<Object, Object>("test-map-1", (Function & Serializable) m -> m));
-      }, getConfig());
+      GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+      GenericInputDescriptor inputDescriptor = sd.getInputDescriptor(inputStreamId, mock(Serde.class));
+      MessageStream<Object> inputStream = appDesc.getInputStream(inputDescriptor);
+      MessageStream<Object> stream1 = inputStream.filter(mock(FilterFunction.class));
+      MessageStream<Object> stream2 = inputStream.map(mock(MapFunction.class));
+      stream1.merge(Collections.singleton(stream2))
+          .map(new TestMapFunction<Object, Object>("test-map-1", (Function & Serializable) m -> m));
+    }, getConfig());
 
     TaskName mockTaskName = mock(TaskName.class);
     TaskModel taskModel = mock(TaskModel.class);
@@ -277,7 +277,7 @@ public class TestOperatorImplGraph {
         new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, mock(Clock.class));
 
     Set<OperatorImpl> opSet = opImplGraph.getAllInputOperators().stream().collect(HashSet::new,
-        (s, op) -> addOperatorRecursively(s, op), HashSet::addAll);
+      (s, op) -> addOperatorRecursively(s, op), HashSet::addAll);
     Object[] mergeOps = opSet.stream().filter(op -> op.getOperatorSpec().getOpCode() == OpCode.MERGE).toArray();
     assertEquals(1, mergeOps.length);
     assertEquals(1, ((OperatorImpl) mergeOps[0]).registeredOperators.size());
@@ -309,15 +309,15 @@ public class TestOperatorImplGraph {
         (BiFunction & Serializable) (m1, m2) -> KV.of(m1, m2), keyFn, keyFn);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
-        GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
-        GenericInputDescriptor inputDescriptor2 = sd.getInputDescriptor(inputStreamId2, mock(Serde.class));
-        MessageStream<Object> inputStream1 = appDesc.getInputStream(inputDescriptor1);
-        MessageStream<Object> inputStream2 = appDesc.getInputStream(inputDescriptor2);
+      GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+      GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
+      GenericInputDescriptor inputDescriptor2 = sd.getInputDescriptor(inputStreamId2, mock(Serde.class));
+      MessageStream<Object> inputStream1 = appDesc.getInputStream(inputDescriptor1);
+      MessageStream<Object> inputStream2 = appDesc.getInputStream(inputDescriptor2);
 
-        inputStream1.join(inputStream2, testJoinFunction,
-            mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1");
-      }, config);
+      inputStream1.join(inputStream2, testJoinFunction,
+          mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j1");
+    }, config);
 
     TaskName mockTaskName = mock(TaskName.class);
     TaskModel taskModel = mock(TaskModel.class);
@@ -377,19 +377,19 @@ public class TestOperatorImplGraph {
     when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
-        GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
-        GenericInputDescriptor inputDescriptor2 = sd.getInputDescriptor(inputStreamId2, mock(Serde.class));
-        MessageStream<Object> inputStream1 = appDesc.getInputStream(inputDescriptor1);
-        MessageStream<Object> inputStream2 = appDesc.getInputStream(inputDescriptor2);
+      GenericSystemDescriptor sd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+      GenericInputDescriptor inputDescriptor1 = sd.getInputDescriptor(inputStreamId1, mock(Serde.class));
+      GenericInputDescriptor inputDescriptor2 = sd.getInputDescriptor(inputStreamId2, mock(Serde.class));
+      MessageStream<Object> inputStream1 = appDesc.getInputStream(inputDescriptor1);
+      MessageStream<Object> inputStream2 = appDesc.getInputStream(inputDescriptor2);
 
-        Function mapFn = (Function & Serializable) m -> m;
-        inputStream1.map(new TestMapFunction<Object, Object>("1", mapFn))
-            .map(new TestMapFunction<Object, Object>("2", mapFn));
+      Function mapFn = (Function & Serializable) m -> m;
+      inputStream1.map(new TestMapFunction<Object, Object>("1", mapFn))
+          .map(new TestMapFunction<Object, Object>("2", mapFn));
 
-        inputStream2.map(new TestMapFunction<Object, Object>("3", mapFn))
-            .map(new TestMapFunction<Object, Object>("4", mapFn));
-      }, getConfig());
+      inputStream2.map(new TestMapFunction<Object, Object>("3", mapFn))
+          .map(new TestMapFunction<Object, Object>("4", mapFn));
+    }, getConfig());
 
     OperatorImplGraph opImplGraph = new OperatorImplGraph(graphSpec.getOperatorSpecGraph(), this.context, SystemClock.instance());
 
@@ -475,33 +475,33 @@ public class TestOperatorImplGraph {
     when(this.context.getJobContext().getConfig()).thenReturn(config);
 
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
-        GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
-        GenericInputDescriptor inputDescriptor1 = isd.getInputDescriptor(inputStreamId1, mock(Serde.class));
-        GenericInputDescriptor inputDescriptor2 = isd.getInputDescriptor(inputStreamId2, mock(Serde.class));
-        GenericInputDescriptor inputDescriptor3 = isd.getInputDescriptor(inputStreamId3, mock(Serde.class));
-        GenericSystemDescriptor osd = new GenericSystemDescriptor(outputSystem, "mockFactoryClass");
-        GenericOutputDescriptor outputDescriptor1 = osd.getOutputDescriptor(outputStreamId1, mock(Serde.class));
-        GenericOutputDescriptor outputDescriptor2 = osd.getOutputDescriptor(outputStreamId2, mock(Serde.class));
-        MessageStream messageStream1 = appDesc.getInputStream(inputDescriptor1).map(m -> m);
-        MessageStream messageStream2 = appDesc.getInputStream(inputDescriptor2).filter(m -> true);
-        MessageStream messageStream3 =
-            appDesc.getInputStream(inputDescriptor3)
-                .filter(m -> true)
-                .partitionBy(m -> "m", m -> m, mock(KVSerde.class),  "p1")
-                .map(m -> m);
-        OutputStream<Object> outputStream1 = appDesc.getOutputStream(outputDescriptor1);
-        OutputStream<Object> outputStream2 = appDesc.getOutputStream(outputDescriptor2);
+      GenericSystemDescriptor isd = new GenericSystemDescriptor(inputSystem, "mockFactoryClass");
+      GenericInputDescriptor inputDescriptor1 = isd.getInputDescriptor(inputStreamId1, mock(Serde.class));
+      GenericInputDescriptor inputDescriptor2 = isd.getInputDescriptor(inputStreamId2, mock(Serde.class));
+      GenericInputDescriptor inputDescriptor3 = isd.getInputDescriptor(inputStreamId3, mock(Serde.class));
+      GenericSystemDescriptor osd = new GenericSystemDescriptor(outputSystem, "mockFactoryClass");
+      GenericOutputDescriptor outputDescriptor1 = osd.getOutputDescriptor(outputStreamId1, mock(Serde.class));
+      GenericOutputDescriptor outputDescriptor2 = osd.getOutputDescriptor(outputStreamId2, mock(Serde.class));
+      MessageStream messageStream1 = appDesc.getInputStream(inputDescriptor1).map(m -> m);
+      MessageStream messageStream2 = appDesc.getInputStream(inputDescriptor2).filter(m -> true);
+      MessageStream messageStream3 =
+          appDesc.getInputStream(inputDescriptor3)
+              .filter(m -> true)
+              .partitionBy(m -> "m", m -> m, mock(KVSerde.class),  "p1")
+              .map(m -> m);
+      OutputStream<Object> outputStream1 = appDesc.getOutputStream(outputDescriptor1);
+      OutputStream<Object> outputStream2 = appDesc.getOutputStream(outputDescriptor2);
 
-        messageStream1
-            .join(messageStream2, mock(JoinFunction.class),
-                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
-            .partitionBy(m -> "m", m -> m, mock(KVSerde.class), "p2")
-            .sendTo(outputStream1);
-        messageStream3
-            .join(messageStream2, mock(JoinFunction.class),
-                mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
-            .sendTo(outputStream2);
-      }, config);
+      messageStream1
+          .join(messageStream2, mock(JoinFunction.class),
+              mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(2), "j1")
+          .partitionBy(m -> "m", m -> m, mock(KVSerde.class), "p2")
+          .sendTo(outputStream1);
+      messageStream3
+          .join(messageStream2, mock(JoinFunction.class),
+              mock(Serde.class), mock(Serde.class), mock(Serde.class), Duration.ofHours(1), "j2")
+          .sendTo(outputStream2);
+    }, config);
 
     Multimap<SystemStream, SystemStream> outputToInput =
         OperatorImplGraph.getIntermediateToInputStreamsMap(graphSpec.getOperatorSpecGraph(), new StreamConfig(config));

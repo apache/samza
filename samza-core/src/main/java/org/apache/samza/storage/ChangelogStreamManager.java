@@ -74,12 +74,12 @@ public class ChangelogStreamManager {
     LOG.debug("Reading changelog partition information");
     final Map<TaskName, Integer> changelogMapping = new HashMap<>();
     metadataStore.all().forEach((taskName, partitionIdAsBytes) -> {
-        String partitionId = valueSerde.fromBytes(partitionIdAsBytes);
-        LOG.debug("TaskName: {} is mapped to {}", taskName, partitionId);
-        if (StringUtils.isNotBlank(partitionId)) {
-          changelogMapping.put(new TaskName(taskName), Integer.valueOf(partitionId));
-        }
-      });
+      String partitionId = valueSerde.fromBytes(partitionIdAsBytes);
+      LOG.debug("TaskName: {} is mapped to {}", taskName, partitionId);
+      if (StringUtils.isNotBlank(partitionId)) {
+        changelogMapping.put(new TaskName(taskName), Integer.valueOf(partitionId));
+      }
+    });
     return changelogMapping;
   }
 
@@ -129,47 +129,47 @@ public class ChangelogStreamManager {
     StorageConfig storageConfig = new StorageConfig(config);
     ImmutableMap.Builder<String, SystemStream> storeNameSystemStreamMapBuilder = new ImmutableMap.Builder<>();
     storageConfig.getStoreNames().forEach(storeName -> {
-        Optional<String> changelogStream = storageConfig.getChangelogStream(storeName);
-        if (changelogStream.isPresent() && StringUtils.isNotBlank(changelogStream.get())) {
-          storeNameSystemStreamMapBuilder.put(storeName, StreamUtil.getSystemStreamFromNames(changelogStream.get()));
-        }
-      });
+      Optional<String> changelogStream = storageConfig.getChangelogStream(storeName);
+      if (changelogStream.isPresent() && StringUtils.isNotBlank(changelogStream.get())) {
+        storeNameSystemStreamMapBuilder.put(storeName, StreamUtil.getSystemStreamFromNames(changelogStream.get()));
+      }
+    });
     Map<String, SystemStream> storeNameSystemStreamMapping = storeNameSystemStreamMapBuilder.build();
 
     // Get SystemAdmin for changelog store's system and attempt to create the stream
     SystemConfig systemConfig = new SystemConfig(config);
     storeNameSystemStreamMapping.forEach((storeName, systemStream) -> {
-        // Load system admin for this system.
-        SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem());
+      // Load system admin for this system.
+      SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem());
 
-        if (systemAdmin == null) {
-          throw new SamzaException(String.format(
-              "Error creating changelog. Changelog on store %s uses system %s, which is missing from the configuration.",
-              storeName, systemStream.getSystem()));
-        }
+      if (systemAdmin == null) {
+        throw new SamzaException(String.format(
+            "Error creating changelog. Changelog on store %s uses system %s, which is missing from the configuration.",
+            storeName, systemStream.getSystem()));
+      }
 
-        StreamSpec changelogSpec =
-            StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(),
-                maxChangeLogStreamPartitions);
+      StreamSpec changelogSpec =
+          StreamSpec.createChangeLogStreamSpec(systemStream.getStream(), systemStream.getSystem(),
+              maxChangeLogStreamPartitions);
 
-        systemAdmin.start();
+      systemAdmin.start();
 
-        if (systemAdmin.createStream(changelogSpec)) {
-          LOG.info(String.format("created changelog stream %s.", systemStream.getStream()));
-        } else {
-          LOG.info(String.format("changelog stream %s already exists.", systemStream.getStream()));
-        }
-        systemAdmin.validateStream(changelogSpec);
+      if (systemAdmin.createStream(changelogSpec)) {
+        LOG.info(String.format("created changelog stream %s.", systemStream.getStream()));
+      } else {
+        LOG.info(String.format("changelog stream %s already exists.", systemStream.getStream()));
+      }
+      systemAdmin.validateStream(changelogSpec);
 
-        if (storageConfig.getAccessLogEnabled(storeName)) {
-          String accesslogStream = storageConfig.getAccessLogStream(systemStream.getStream());
-          StreamSpec accesslogSpec =
-              new StreamSpec(accesslogStream, accesslogStream, systemStream.getSystem(), maxChangeLogStreamPartitions);
-          systemAdmin.createStream(accesslogSpec);
-          systemAdmin.validateStream(accesslogSpec);
-        }
+      if (storageConfig.getAccessLogEnabled(storeName)) {
+        String accesslogStream = storageConfig.getAccessLogStream(systemStream.getStream());
+        StreamSpec accesslogSpec =
+            new StreamSpec(accesslogStream, accesslogStream, systemStream.getSystem(), maxChangeLogStreamPartitions);
+        systemAdmin.createStream(accesslogSpec);
+        systemAdmin.validateStream(accesslogSpec);
+      }
 
-        systemAdmin.stop();
-      });
+      systemAdmin.stop();
+    });
   }
 }

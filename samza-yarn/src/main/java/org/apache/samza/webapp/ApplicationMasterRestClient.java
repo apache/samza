@@ -53,7 +53,7 @@ public class ApplicationMasterRestClient implements Closeable {
    */
   public Map<String, Map<String, Object>> getMetrics() throws IOException {
     String jsonString = getEntityAsJson("/metrics", "metrics");
-    return jsonMapper.readValue(jsonString, new TypeReference<Map<String, Map<String, Object>>>() {});
+    return jsonMapper.readValue(jsonString, new TypeReference<Map<String, Map<String, Object>>>() { });
   }
 
   /**
@@ -62,7 +62,7 @@ public class ApplicationMasterRestClient implements Closeable {
    */
   public Map<String, Object> getTaskContext() throws IOException {
     String jsonString = getEntityAsJson("/task-context", "task context");
-    return jsonMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {});
+    return jsonMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() { });
   }
 
   /**
@@ -71,7 +71,7 @@ public class ApplicationMasterRestClient implements Closeable {
    */
   public Map<String, Object> getAmState() throws IOException {
     String jsonString = getEntityAsJson("/am", "AM state");
-    return jsonMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {});
+    return jsonMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() { });
   }
 
   /**
@@ -80,7 +80,7 @@ public class ApplicationMasterRestClient implements Closeable {
    */
   public Map<String, Object> getConfig() throws IOException {
     String jsonString = getEntityAsJson("/config", "config");
-    return jsonMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {});
+    return jsonMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() { });
   }
 
   @Override
