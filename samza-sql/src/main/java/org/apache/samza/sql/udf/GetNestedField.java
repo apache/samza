@@ -163,4 +163,9 @@ public class GetNestedField extends SqlUserDefinedFunction {
       return builder().add(Object[].class, "row").add(String.class, "path").build();
     }
   }
+
+  @Override
+  public String getAllowedSignatures(String opNameToUse) {
+    return opNameToUse + "(<ROW>, <VARCHAR>)";
+  }
 }

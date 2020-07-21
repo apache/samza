@@ -535,9 +535,11 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 =
-        "Insert into testavro.outputTopic (string_value, id, bool_value, double_value)"
-            + " select GetNestedField(address, 'streetnum.number') as id, cast(GetNestedField(address, 'streetnum').number * 1.0 as double) as double_value, "
-            + " GetNestedField(phoneNumbers[1] ,'kind') = 'Home' as bool_value, cast(GetNestedField(address, 'zip') as bigint) as long_value "
+        "Insert into testavro.outputTopic (string_value, id, bool_value, double_value, map_values, long_value)"
+            + " select GetNestedField(address, 'streetnum.number') * getNestedField(mapValues['key'], 'id') as id, "
+            + " cast(GetNestedField(address, 'streetnum').number * 1.0 as double) as double_value, mapValues as map_values, "
+            + " GetNestedField(phoneNumbers[1] ,'kind') = 'Home' as bool_value, cast( mapValues['key'].id as bigint) as long_value , "
+            + " GetNestedField(mapValues['key'], 'name') as string_value "
             + " from testavro.PROFILE as p  where GetNestedField(address, 'zip') > 0 and GetNestedField(address, 'zip') < 100003";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
@@ -548,7 +550,16 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
-    Assert.assertEquals(numMessages, outMessages.size());
+    List<GenericRecord> actualResult = outMessages.stream()
+        .map(x -> (GenericRecord) x.getMessage())
+        .filter(x -> true == (Boolean) x.get("bool_value"))
+        .filter(x -> x.get("string_value") != null && x.get("string_value").toString().isEmpty() == false)
+        .filter(x -> x.get("map_values") instanceof Map)
+        .filter(x -> x.get("id") instanceof Integer)
+        .filter(x -> (Long) x.get("long_value") < 10 && (Long) x.get("long_value") >= 0)
+        .filter(x -> x.get("double_value") instanceof Double && (Double) x.get("double_value") >= 1234.0)
+        .collect(Collectors.toList());
+    Assert.assertEquals("Wrong results the Actual out is " + outMessages.toString(), numMessages, actualResult.size());
   }
 
 
