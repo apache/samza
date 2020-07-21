@@ -549,17 +549,19 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     runApplication(config);
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
-
+    // check that the projected values are not null, correct types and good values when easy to check.
     List<GenericRecord> actualResult = outMessages.stream()
         .map(x -> (GenericRecord) x.getMessage())
-        .filter(x -> true == (Boolean) x.get("bool_value"))
-        .filter(x -> x.get("string_value") != null && x.get("string_value").toString().isEmpty() == false)
+        .filter(x -> (Boolean) x.get("bool_value"))
+        .filter(x -> x.get("string_value") != null && !x.get("string_value").toString().isEmpty())
         .filter(x -> x.get("map_values") instanceof Map)
         .filter(x -> x.get("id") instanceof Integer)
         .filter(x -> (Long) x.get("long_value") < 10 && (Long) x.get("long_value") >= 0)
         .filter(x -> x.get("double_value") instanceof Double && (Double) x.get("double_value") >= 1234.0)
         .collect(Collectors.toList());
-    Assert.assertEquals("Wrong results the Actual out is " + outMessages.toString(), numMessages, actualResult.size());
+    Assert.assertEquals(
+        "Wrong results size, check the test condition against the Actual outputs -> " + outMessages.toString(),
+        numMessages, actualResult.size());
   }
 
 

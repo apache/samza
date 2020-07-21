@@ -260,7 +260,7 @@ public class TestAvroSystemFactory implements SystemFactory {
       record.put("phoneNumbers", createProfilePhoneNumbers(index % PHONE_NUMBERS.length));
       Map<String, Object> mapValues = new HashMap<>();
       mapValues.put("key", createSimpleRecord(index, false));
-      record.put("mapValues", mapValues );
+      record.put("mapValues", mapValues);
       return record;
     }
 
