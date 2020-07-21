@@ -21,7 +21,7 @@ package org.apache.samza.job.local
 
 import com.google.common.collect.ImmutableMap
 import org.apache.samza.config.MapConfig
-import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory
 import org.apache.samza.job.ApplicationStatus.{Running, SuccessfulFinish, UnsuccessfulFinish}
@@ -59,7 +59,8 @@ object TestProcessJob {
     new ProcessJob(
       commandBuilder,
       new MockJobModelManager,
-      new MockCoordinateStreamStore(MockConfigs, systemProducer, systemConsumer, systemAdmin))
+      new MockCoordinateStreamStore(MockConfigs, systemProducer, systemConsumer, systemAdmin),
+      new MockMetadataResourceUtil)
   }
 
   private def getMockJobModelManager(processJob: ProcessJob): MockJobModelManager = {
@@ -68,6 +69,10 @@ object TestProcessJob {
 
   private def getMockCoordinatorStreamStore(processJob: ProcessJob): MockCoordinateStreamStore = {
     processJob.coordinatorStreamStore.asInstanceOf[MockCoordinateStreamStore]
+  }
+
+  private def getMockMetadataResourceUtil(processJob: ProcessJob): MockMetadataResourceUtil = {
+    processJob.metadataResourceUtil.asInstanceOf[MockMetadataResourceUtil]
   }
 }
 
@@ -84,6 +89,7 @@ class TestProcessJob {
     assertEquals(SuccessfulFinish, status)
     assertTrue(getMockJobModelManager(processJob).stopped)
     assertTrue(getMockCoordinatorStreamStore(processJob).closed)
+    assertTrue(getMockMetadataResourceUtil(processJob).stopped)
   }
 
   @Test
@@ -95,6 +101,7 @@ class TestProcessJob {
     assertEquals(UnsuccessfulFinish, status)
     assertTrue(getMockJobModelManager(processJob).stopped)
     assertTrue(getMockCoordinatorStreamStore(processJob).closed)
+    assertTrue(getMockMetadataResourceUtil(processJob).stopped)
   }
 
   @Test
@@ -116,6 +123,7 @@ class TestProcessJob {
     assertEquals(UnsuccessfulFinish, processJob.getStatus)
     assertTrue(getMockJobModelManager(processJob).stopped)
     assertTrue(getMockCoordinatorStreamStore(processJob).closed)
+    assertTrue(getMockMetadataResourceUtil(processJob).stopped)
   }
 
   @Test
@@ -127,6 +135,7 @@ class TestProcessJob {
     assertEquals(UnsuccessfulFinish, processJob.getStatus)
     assertTrue(getMockJobModelManager(processJob).stopped)
     assertTrue(getMockCoordinatorStreamStore(processJob).closed)
+    assertTrue(getMockMetadataResourceUtil(processJob).stopped)
   }
 
   @Test
@@ -138,6 +147,7 @@ class TestProcessJob {
     assertEquals(SuccessfulFinish, processJob.getStatus)
     assertTrue(getMockJobModelManager(processJob).stopped)
     assertTrue(getMockCoordinatorStreamStore(processJob).closed)
+    assertTrue(getMockMetadataResourceUtil(processJob).stopped)
   }
 
   @Test
@@ -185,5 +195,15 @@ class MockCoordinateStreamStore(
 
   override def close: Unit = {
     closed = true
+  }
+}
+
+class MockMetadataResourceUtil extends MetadataResourceUtil(null, null, null) {
+  var stopped: Boolean = false
+
+  override def createResources: Unit = {}
+
+  override def stop: Unit = {
+    stopped = true
   }
 }

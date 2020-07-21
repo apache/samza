@@ -176,6 +176,11 @@ public class ClusterBasedJobCoordinator {
   private final SystemAdmins systemAdmins;
 
   /**
+   * Util to close the KafkaCheckpointManager later on
+   */
+  private MetadataResourceUtil metadataResourceUtil;
+
+  /**
    * Internal variable for the instance of {@link JmxServer}
    */
   private JmxServer jmxServer;
@@ -259,7 +264,7 @@ public class ClusterBasedJobCoordinator {
 
       //create necessary checkpoint and changelog streams, if not created
       JobModel jobModel = jobModelManager.jobModel();
-      MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, this.metrics, config);
+      metadataResourceUtil = new MetadataResourceUtil(jobModel, this.metrics, config);
       metadataResourceUtil.createResources();
 
       // fan out the startpoints if startpoints is enabled
@@ -343,6 +348,7 @@ public class ClusterBasedJobCoordinator {
       systemAdmins.stop();
       shutDowncontainerPlacementRequestAllocatorAndUtils();
       containerProcessManager.stop();
+      metadataResourceUtil.stop();
       metadataStore.close();
     } catch (Throwable e) {
       LOG.error("Exception while stopping cluster based job coordinator", e);

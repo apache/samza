@@ -160,6 +160,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       threadJob
     } finally {
       jobModelManager.stop
+      metadataResourceUtil.stop
       if (jmxServer != null) {
         jmxServer.stop
       }

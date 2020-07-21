@@ -114,6 +114,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   private JobModel newJobModel;
   private boolean hasLoadedMetadataResources = false;
   private String cachedJobModelVersion = null;
+  private MetadataResourceUtil metadataResourceUtil;
 
   @VisibleForTesting
   ZkSessionMetrics zkSessionMetrics;
@@ -312,7 +313,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   void loadMetadataResources(JobModel jobModel) {
     try {
-      MetadataResourceUtil metadataResourceUtil = createMetadataResourceUtil(jobModel, config);
+      metadataResourceUtil = createMetadataResourceUtil(jobModel, config);
       metadataResourceUtil.createResources();
 
       if (coordinatorStreamStore != null) {

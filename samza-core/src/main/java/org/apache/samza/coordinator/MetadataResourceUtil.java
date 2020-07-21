@@ -59,6 +59,10 @@ public class MetadataResourceUtil {
     createChangelogStreams();
   }
 
+  public void stop() {
+    checkpointManager.stop();
+  }
+
   @VisibleForTesting
   void createChangelogStreams() {
     ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);

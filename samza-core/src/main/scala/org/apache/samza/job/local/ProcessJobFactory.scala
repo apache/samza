@@ -115,6 +115,6 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
       .setId("0")
       .setUrl(jobModelManager.server.getUrl)
 
-    new ProcessJob(commandBuilder, jobModelManager, coordinatorStreamStore)
+    new ProcessJob(commandBuilder, jobModelManager, coordinatorStreamStore, metadataResourceUtil)
   }
 }
