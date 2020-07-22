@@ -19,7 +19,7 @@
 
 package org.apache.samza.sql.util;
 
-import java.util.stream.Collectors;
+import java.util.Objects;
 import org.apache.samza.sql.SamzaSqlRelRecord;
 import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
 
@@ -30,14 +30,10 @@ import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
 public class SampleRelTableKeyConverter implements SamzaRelTableKeyConverter {
 
   @Override
-  public Object convertToTableKeyFormat(SamzaSqlRelRecord relRecord) {
+  public String convertToTableKeyFormat(SamzaSqlRelRecord relRecord) {
     if (relRecord.getFieldValues().get(0) instanceof SamzaSqlRelRecord) {
       relRecord = (SamzaSqlRelRecord) relRecord.getFieldValues().get(0);
     }
-    return relRecord.getFieldValues()
-        .stream()
-        .map(x -> x == null ? null : x.toString())
-        .collect(Collectors.toList())
-        .get(0);
+    return Objects.toString(relRecord.getFieldValues().get(0), null);
   }
 }

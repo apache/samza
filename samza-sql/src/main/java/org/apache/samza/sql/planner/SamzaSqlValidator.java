@@ -27,6 +27,7 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
@@ -59,6 +60,8 @@ public class SamzaSqlValidator {
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlValidator.class);
 
   private final Config config;
+  private final RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
+  private final JavaTypeFactory samzaSqlJavaTypeFactory = new SamzaSqlJavaTypeFactoryImpl();
 
   public SamzaSqlValidator(Config config) {
     this.config = config;
@@ -132,7 +135,7 @@ public class SamzaSqlValidator {
 
     RelRecordType projectRecord = (RelRecordType) project.getRowType();
     RelRecordType outputRecord = (RelRecordType) QueryPlanner.getSourceRelSchema(outputRelSchemaProvider,
-        new RelSchemaConverter());
+        relSchemaConverter);
 
     // Handle any DELETE ops.
     if (projectRecord.getFieldList().stream().anyMatch(f -> f.getName().equalsIgnoreCase(SamzaSqlRelMessage.OP_NAME))) {
@@ -264,7 +267,7 @@ public class SamzaSqlValidator {
     // TODO: Support UDF argument validation. Currently, only return types are validated and argument types are
     //  validated during run-time.
     if (fieldType instanceof RelDataTypeFactoryImpl.JavaType) {
-      sqlFieldType = new SamzaSqlJavaTypeFactoryImpl().toSql(fieldType);
+      sqlFieldType = samzaSqlJavaTypeFactory.toSql(fieldType);
     } else {
       sqlFieldType = fieldType;
     }

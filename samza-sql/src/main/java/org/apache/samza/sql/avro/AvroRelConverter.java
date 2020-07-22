@@ -99,17 +99,6 @@ public class AvroRelConverter implements SamzaRelConverter {
         new SamzaSqlRelMsgMetadata(0L, 0L));
   }
 
-  /**
-   * Create a SamzaSqlRelMessage for the specified key and Avro record using the schema from the Avro record.
-   *
-   */
-  public static SamzaSqlRelMessage convertToRelMessage(Object key, IndexedRecord record, Schema schema) {
-    List<String> payloadFieldNames = new ArrayList<>();
-    List<Object> payloadFieldValues = new ArrayList<>();
-    fetchFieldNamesAndValuesFromIndexedRecord(record, payloadFieldNames, payloadFieldValues, schema);
-    return new SamzaSqlRelMessage(key, payloadFieldNames, payloadFieldValues, new SamzaSqlRelMsgMetadata(0L, 0L));
-  }
-
   public static void fetchFieldNamesAndValuesFromIndexedRecord(IndexedRecord record, List<String> fieldNames,
       List<Object> fieldValues, Schema cachedSchema) {
     // Please note that record schema and cached schema could be different due to schema evolution.

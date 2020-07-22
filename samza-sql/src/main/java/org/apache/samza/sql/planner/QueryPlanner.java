@@ -61,6 +61,7 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.interfaces.UdfMetadata;
+import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.schema.SqlFieldSchema;
 import org.apache.samza.sql.schema.SqlSchema;
@@ -74,15 +75,35 @@ import org.slf4j.LoggerFactory;
 public class QueryPlanner {
   private static final Logger LOG = LoggerFactory.getLogger(QueryPlanner.class);
 
+  /**
+   * User defined meta data for UDFs
+   */
   private final Collection<UdfMetadata> udfMetadata;
 
-  // Mapping between the source to the RelSchemaProvider corresponding to the source.
+  /**
+   * Mapping between the source to the RelSchemaProvider corresponding to the source.
+   */
   private final Map<String, RelSchemaProvider> relSchemaProviders;
 
-  // Mapping between the source to the SqlIOConfig corresponding to the source.
+  /**
+   * Mapping between the source to the SqlIOConfig corresponding to the source.
+   */
   private final Map<String, SqlIOConfig> systemStreamConfigBySource;
 
+  /**
+   * Relational Schema Converter form Native Samza SQL types to Calcite Types.
+   */
+  private final RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
+
+  /**
+   * Flag to trigger query optimizer rules.
+   */
   private final boolean isQueryPlanOptimizerEnabled;
+
+  public static QueryPlanner fromSamzaAppConfig(SamzaSqlApplicationConfig sqlConfig) {
+    return new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
+        sqlConfig.getUdfMetadata(), sqlConfig.isQueryPlanOptimizerEnabled());
+  }
 
   public QueryPlanner(Map<String, RelSchemaProvider> relSchemaProviders,
       Map<String, SqlIOConfig> systemStreamConfigBySource, Collection<UdfMetadata> udfMetadata,
@@ -93,14 +114,16 @@ public class QueryPlanner {
     this.isQueryPlanOptimizerEnabled = isQueryPlanOptimizerEnabled;
   }
 
-  private void registerSourceSchemas(SchemaPlus rootSchema) {
-    RelSchemaConverter relSchemaConverter = new RelSchemaConverter();
-
+  /**
+   * Build the tables definition into the root schema
+   * @return Calcite Schema.
+   */
+  private SchemaPlus buildRootSchema() {
+    SchemaPlus rootSchema = CalciteSchema.createRootSchema(true, false).plus();
     for (SqlIOConfig ssc : systemStreamConfigBySource.values()) {
       SchemaPlus previousLevelSchema = rootSchema;
       List<String> sourceParts = ssc.getSourceParts();
       RelSchemaProvider relSchemaProvider = relSchemaProviders.get(ssc.getSource());
-
       for (int sourcePartIndex = 0; sourcePartIndex < sourceParts.size(); sourcePartIndex++) {
         String sourcePart = sourceParts.get(sourcePartIndex);
         if (sourcePartIndex < sourceParts.size() - 1) {
@@ -117,45 +140,43 @@ public class QueryPlanner {
         }
       }
     }
+    return rootSchema;
   }
 
-  private Planner getPlanner() {
-    Planner planner;
-    SchemaPlus rootSchema = CalciteSchema.createRootSchema(true, false).plus();
-    registerSourceSchemas(rootSchema);
-
+  SqlOperatorTable buildSqlOperatorTable() {
     List<SamzaSqlScalarFunctionImpl> samzaSqlFunctions =
         udfMetadata.stream().map(SamzaSqlScalarFunctionImpl::new).collect(Collectors.toList());
-
-    final List<RelTraitDef> traitDefs = new ArrayList<>();
-
-    traitDefs.add(ConventionTraitDef.INSTANCE);
-    traitDefs.add(RelCollationTraitDef.INSTANCE);
-
     List<SqlOperatorTable> sqlOperatorTables = new ArrayList<>();
     sqlOperatorTables.add(new SamzaSqlOperatorTable());
     sqlOperatorTables.add(new SamzaSqlUdfOperatorTable(samzaSqlFunctions));
+    return new ChainedSqlOperatorTable(sqlOperatorTables);
+  }
 
+  private Planner getPlanner() {
+    final List<RelTraitDef> traitDefs = new ArrayList<>();
+    traitDefs.add(ConventionTraitDef.INSTANCE);
+    traitDefs.add(RelCollationTraitDef.INSTANCE);
     // TODO: Introduce a pluggable rule factory.
     List<RelOptRule> rules = ImmutableList.of(FilterProjectTransposeRule.INSTANCE, ProjectMergeRule.INSTANCE,
         new SamzaSqlFilterRemoteJoinRule.SamzaSqlFilterIntoRemoteJoinRule(true, RelFactories.LOGICAL_BUILDER,
             systemStreamConfigBySource));
 
     // Using lenient so that !=,%,- are allowed.
+    SqlParser.Config parserConfig = SqlParser.configBuilder()
+        .setLex(Lex.JAVA)
+        .setConformance(SqlConformanceEnum.LENIENT)
+        .setCaseSensitive(false) // Make Udfs case insensitive
+        .build();
+
     FrameworkConfig frameworkConfig = Frameworks.newConfigBuilder()
-        .parserConfig(SqlParser.configBuilder()
-            .setLex(Lex.JAVA)
-            .setConformance(SqlConformanceEnum.LENIENT)
-            .setCaseSensitive(false) // Make Udfs case insensitive
-            .build())
-        .defaultSchema(rootSchema)
-        .operatorTable(new ChainedSqlOperatorTable(sqlOperatorTables))
+        .parserConfig(parserConfig)
+        .defaultSchema(buildRootSchema())
+        .operatorTable(buildSqlOperatorTable())
         .sqlToRelConverterConfig(SqlToRelConverter.Config.DEFAULT)
         .traitDefs(traitDefs)
         .programs(Programs.hep(rules, true, DefaultRelMetadataProvider.INSTANCE))
         .build();
-    planner = Frameworks.getPlanner(frameworkConfig);
-    return planner;
+    return Frameworks.getPlanner(frameworkConfig);
   }
 
   private RelRoot optimize(Planner planner, RelRoot relRoot) {

@@ -86,8 +86,7 @@ public class SamzaSqlDslConverter implements DslConverter {
    * @return {@link QueryPlanner}
    */
   public static QueryPlanner getQueryPlanner(SamzaSqlApplicationConfig sqlConfig) {
-    return new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
-        sqlConfig.getUdfMetadata(), sqlConfig.isQueryPlanOptimizerEnabled());
+    return QueryPlanner.fromSamzaAppConfig(sqlConfig);
   }
 
   /**
