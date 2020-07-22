@@ -80,6 +80,7 @@ class FilterTranslator {
       this.context = context;
       this.translatorContext = ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
       this.filter = (LogicalFilter) this.translatorContext.getRelNode(filterId);
+      LOG.info("Compiling Operator {}", filter.getDigest());
       this.expr = this.translatorContext.getExpressionCompiler().compile(filter.getInputs(), Collections.singletonList(filter.getCondition()));
       ContainerContext containerContext = context.getContainerContext();
       metricsRegistry = containerContext.getContainerMetricsRegistry();
@@ -96,9 +97,10 @@ class FilterTranslator {
     public boolean apply(SamzaSqlRelMessage message) {
       long startProcessing = System.nanoTime();
       Object[] result = new Object[1];
+      Object[] inputRow = ProjectTranslator.convertToJavaRow(message.getSamzaSqlRelRecord());
       try {
         expr.execute(translatorContext.getExecutionContext(), context, translatorContext.getDataContext(),
-            message.getSamzaSqlRelRecord().getFieldValues().toArray(), result);
+            inputRow, result);
       } catch (Exception e) {
         String errMsg = String.format("Handling the following rel message ran into an error. %s", message);
         LOG.error(errMsg, e);

@@ -21,6 +21,7 @@ package org.apache.samza.sql.translator;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
@@ -48,6 +49,7 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
   // Table field names are used in the outer join when the table record is not found.
   private final ArrayList<String> tableFieldNames;
   private final ArrayList<String> outFieldNames;
+  final private List<Object> nullRow;
 
   SamzaSqlTableJoinFunction(JoinInputNode streamNode, JoinInputNode tableNode, JoinRelType joinRelType) {
     this.joinRelType = joinRelType;
@@ -69,6 +71,7 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
       outFieldNames.addAll(tableFieldNames);
       outFieldNames.addAll(streamNode.getFieldNames());
     }
+    nullRow = tableFieldNames.stream().map(x -> null).collect(Collectors.toList());
   }
 
   @Override
@@ -93,7 +96,10 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
 
     // Add the table record fields.
     if (record != null) {
-      outFieldValues.addAll(getTableRelRecordFieldValues(record));
+      List<Object> row = getTableRelRecordFieldValues(record);
+      // null in case the filter did not match thus row has to be removed if inner join or padded null case outer join
+      if (row == null && joinRelType.compareTo(JoinRelType.INNER) == 0) return null;
+      outFieldValues.addAll(row == null ? nullRow : row);
     } else {
       // Table record could be null as the record could not be found in the store. This can
       // happen for outer joins. Add nulls to all the field values in the output message.

@@ -74,7 +74,7 @@ public class JoinInputNode {
   }
 
   String getSourceName() {
-    return SqlIOConfig.getSourceFromSourceParts(relNode.getTable().getQualifiedName());
+    return SqlIOConfig.getSourceFromSourceParts(getTableScan(relNode).getTable().getQualifiedName());
   }
 
   boolean isPosOnRight() {
@@ -109,4 +109,12 @@ public class JoinInputNode {
     }
   }
 
+  private static TableScan getTableScan(RelNode relNode) {
+    if (relNode instanceof TableScan) {
+      return (TableScan) relNode;
+    }
+    // we deal with Single inputs filter/project
+    assert relNode.getInputs().size() == 1;
+    return getTableScan(relNode.getInput(0));
+  }
 }

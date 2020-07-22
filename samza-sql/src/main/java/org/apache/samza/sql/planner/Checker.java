@@ -98,11 +98,11 @@ class Checker implements SqlOperandTypeChecker {
         if (parsedSqlArgType.getSqlTypeName() == SqlTypeName.CHAR && udfArgumentAsSqlType == SqlTypeName.VARCHAR) {
           return true;
         } else if (!Objects.equals(parsedSqlArgType.getSqlTypeName(), udfArgumentAsSqlType)
-                && !ANY_SQL_TYPE_NAMES.contains(parsedSqlArgType.getSqlTypeName()) && hasOneUdfMethod(udfMetadata)) {
+            && !ANY_SQL_TYPE_NAMES.contains(parsedSqlArgType.getSqlTypeName()) && hasOneUdfMethod(udfMetadata)) {
           // 3(b). Throw up and fail on mismatch between the SamzaSqlType and CalciteType for any argument.
-          String msg = String.format("Type mismatch in udf class: %s at argument index: %d." +
-                          "Expected type: %s, actual type: %s.", udfMetadata.getName(),
-                  udfArgumentIndex, parsedSqlArgType.getSqlTypeName(), udfArgumentAsSqlType);
+          String msg = String.format(
+              "Type mismatch in udf class: %s at argument index: %d." + "Expected type: %s, actual type: %s.",
+              udfMetadata.getName(), udfArgumentIndex, udfArgumentAsSqlType, parsedSqlArgType.getSqlTypeName());
           LOG.error(msg);
           throw new SamzaSqlValidatorException(msg);
         }
@@ -159,8 +159,9 @@ class Checker implements SqlOperandTypeChecker {
   static SqlTypeName toCalciteSqlType(SamzaSqlFieldType samzaSqlFieldType) {
     switch (samzaSqlFieldType) {
       case ANY:
-      case ROW:
         return SqlTypeName.ANY;
+      case ROW:
+        return SqlTypeName.ROW;
       case MAP:
         return SqlTypeName.MAP;
       case ARRAY:
