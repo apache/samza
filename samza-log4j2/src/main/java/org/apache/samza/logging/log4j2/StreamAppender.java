@@ -79,26 +79,30 @@ public class StreamAppender extends AbstractAppender {
   // Hidden config for now. Will move to appropriate Config class when ready to.
   private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
 
-  protected static final int DEFAULT_QUEUE_SIZE = 100;
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
+  private final BlockingQueue<byte[]> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
 
-  protected static volatile boolean systemInitialized = false;
-
-  private Config config = null;
   private SystemStream systemStream = null;
   private SystemProducer systemProducer = null;
   private String key = null;
-  private String streamName = null;
+  private String containerName = null;
   private int partitionCount = 0;
   private boolean isApplicationMaster;
   private Serde<LogEvent> serde = null;
   private Logger log = LogManager.getLogger(StreamAppender.class);
-  protected StreamAppenderMetrics metrics;
-
-  private final BlockingQueue<byte[]> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
-  protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
-
   private Thread transferThread;
+  private Config config = null;
+  private String streamName = null;
+
+  /**
+   * used to detect if this thread is called recursively
+   */
+  private final AtomicBoolean recursiveCall = new AtomicBoolean(false);
+
+  protected static final int DEFAULT_QUEUE_SIZE = 100;
+  protected static volatile boolean systemInitialized = false;
+  protected StreamAppenderMetrics metrics;
+  protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
 
   protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions, String streamName) {
     super(name, filter, layout, ignoreExceptions);
@@ -108,7 +112,7 @@ public class StreamAppender extends AbstractAppender {
   @Override
   public void start() {
     super.start();
-    String containerName = System.getProperty(JAVA_OPTS_CONTAINER_NAME);
+    containerName = System.getProperty(JAVA_OPTS_CONTAINER_NAME);
     if (containerName != null) {
       isApplicationMaster = containerName.contains(JOB_COORDINATOR_TAG);
     } else {
@@ -127,17 +131,22 @@ public class StreamAppender extends AbstractAppender {
   }
 
   /**
-   * used to detect if this thread is called recursively
-   */
-  private final AtomicBoolean recursiveCall = new AtomicBoolean(false);
-
-  /**
    * Getter for the StreamName parameter. See also {@link #createAppender(String, Filter, Layout, boolean, String)} for when this is called.
    * Example: {@literal <param name="StreamName" value="ExampleStreamName"/>}
    * @return The configured stream name.
    */
   public String getStreamName() {
     return this.streamName;
+  }
+
+  /**
+   * Getter for the Config parameter.
+   */
+  protected Config getConfig() {
+    if (config == null) {
+      config = fetchConfig();
+    }
+    return this.config;
   }
 
   /**
@@ -188,7 +197,7 @@ public class StreamAppender extends AbstractAppender {
         } else {
           // Serialize the event before adding to the queue to leverage the caller thread
           // and ensure that the transferThread can keep up.
-          if (!logQueue.offer(serde.toBytes(subLog(event)), queueTimeoutS, TimeUnit.SECONDS)) {
+          if (!logQueue.offer(encodeLogEventToBytes(event), queueTimeoutS, TimeUnit.SECONDS)) {
             // Do NOT retry adding system to the queue. Dropping the event allows us to alleviate the unlikely
             // possibility of a deadlock, which can arise due to a circular dependency between the SystemProducer
             // which is used for StreamAppender and the log, which uses StreamAppender. Any locks held in the callstack
@@ -214,7 +223,7 @@ public class StreamAppender extends AbstractAppender {
           metrics.bufferFillPct.set(Math.round(100f * logQueue.size() / DEFAULT_QUEUE_SIZE));
         }
       } catch (Exception e) {
-        System.err.println("[StreamAppender] Error sending log message:");
+        System.err.println(String.format("[%s] Error sending log message:", getName()));
         e.printStackTrace();
       } finally {
         recursiveCall.set(false);
@@ -222,6 +231,10 @@ public class StreamAppender extends AbstractAppender {
     } else if (metrics != null) { // setupSystem() may not have been invoked yet so metrics can be null here.
       metrics.recursiveCalls.inc();
     }
+  }
+
+  protected byte[] encodeLogEventToBytes(LogEvent event) {
+    return serde.toBytes(subLog(event));
   }
 
   private Message subAppend(LogEvent event) {
@@ -239,7 +252,7 @@ public class StreamAppender extends AbstractAppender {
     }
   }
 
-  private LogEvent subLog(LogEvent event) {
+  protected LogEvent subLog(LogEvent event) {
     return Log4jLogEvent.newBuilder()
         .setLevel(event.getLevel())
         .setLoggerName(event.getLoggerName())
@@ -256,7 +269,7 @@ public class StreamAppender extends AbstractAppender {
 
   @Override
   public void stop() {
-    log.info("Shutting down the StreamAppender...");
+    log.info(String.format("Shutting down the %s...", getName()));
     transferThread.interrupt();
     try {
       transferThread.join();
@@ -285,7 +298,7 @@ public class StreamAppender extends AbstractAppender {
    *
    * @return Config the config of this container
    */
-  protected Config getConfig() {
+  private Config fetchConfig() {
     Config config;
 
     try {
@@ -305,29 +318,18 @@ public class StreamAppender extends AbstractAppender {
     return config;
   }
 
-  protected void setupSystem() {
-    config = getConfig();
-    Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(config);
+  protected Log4jSystemConfig getLog4jSystemConfig(Config config) {
+    return new Log4jSystemConfig(config);
+  }
 
-    if (streamName == null) {
-      streamName = getStreamName(log4jSystemConfig.getJobName(), log4jSystemConfig.getJobId());
-    }
+  protected StreamAppenderMetrics getMetrics(MetricsRegistry metricsRegistry) {
+    return new StreamAppenderMetrics(getName(), metricsRegistry);
+  }
 
-    // TODO we need the ACTUAL metrics registry, or the metrics won't get reported by the metric reporters!
-    MetricsRegistry metricsRegistry = new MetricsRegistryMap();
-    metrics = new StreamAppenderMetrics("stream-appender", metricsRegistry);
-
-    String systemName = log4jSystemConfig.getSystemName();
-    String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
-        .orElseThrow(() -> new SamzaException(
-            "Could not figure out \"" + systemName + "\" system factory for log4j StreamAppender to use"));
-    SystemFactory systemFactory = ReflectionUtil.getObj(systemFactoryName, SystemFactory.class);
-
-    setSerde(log4jSystemConfig, systemName, streamName);
-
+  protected void setupStream(SystemFactory systemFactory, String systemName) {
     if (config.getBoolean(CREATE_STREAM_ENABLED, false)) {
       // Explicitly create stream appender stream with the partition count the same as the number of containers.
-      System.out.println("[StreamAppender] creating stream " + streamName + " with partition count " + getPartitionCount());
+      System.out.println(String.format("[%s] creating stream ", getName()) + streamName + " with partition count " + getPartitionCount());
       StreamSpec streamSpec =
           StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getPartitionCount());
 
@@ -337,6 +339,29 @@ public class StreamAppender extends AbstractAppender {
       systemAdmin.createStream(streamSpec);
       systemAdmin.stop();
     }
+  }
+
+  protected void setupSystem() {
+    config = getConfig();
+    Log4jSystemConfig log4jSystemConfig = getLog4jSystemConfig(config);
+
+    if (streamName == null) {
+      streamName = getStreamName(log4jSystemConfig.getJobName(), log4jSystemConfig.getJobId());
+    }
+
+    // TODO we need the ACTUAL metrics registry, or the metrics won't get reported by the metric reporters!
+    MetricsRegistry metricsRegistry = new MetricsRegistryMap();
+    metrics = getMetrics(metricsRegistry);
+
+    String systemName = log4jSystemConfig.getSystemName();
+    String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
+        .orElseThrow(() -> new SamzaException(
+            "Could not figure out \"" + systemName + "\" system factory for log4j " + getName() + " to use"));
+    SystemFactory systemFactory = ReflectionUtil.getObj(systemFactoryName, SystemFactory.class);
+
+    setSerde(log4jSystemConfig, systemName);
+
+    setupStream(systemFactory, systemName);
 
     systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry);
     systemStream = new SystemStream(systemName, streamName);
@@ -368,24 +393,24 @@ public class StreamAppender extends AbstractAppender {
             // Preserve the interrupted status for the loop condition.
             Thread.currentThread().interrupt();
           } catch (Throwable t) {
-            log.error("Error sending StreamAppender event to SystemProducer", t);
+            log.error("Error sending " + getName() + " event to SystemProducer", t);
           }
         }
       };
 
       transferThread = new Thread(transferFromQueueToSystem);
       transferThread.setDaemon(true);
-      transferThread.setName("Samza StreamAppender Producer " + transferThread.getName());
+      transferThread.setName("Samza " + getName() + " Producer " + transferThread.getName());
       transferThread.start();
 
     } catch (UnsupportedEncodingException e) {
       throw new SamzaException(String.format(
-          "Container name: %s could not be encoded to bytes. StreamAppender cannot proceed.", key),
+          "Container name: %s could not be encoded to bytes. %s cannot proceed.", key, getName()),
           e);
     }
   }
 
-  protected static String getStreamName(String jobName, String jobId) {
+  protected String getStreamName(String jobName, String jobId) {
     if (jobName == null) {
       throw new SamzaException("job name is null. Please specify job.name");
     }
@@ -402,9 +427,8 @@ public class StreamAppender extends AbstractAppender {
    *
    * @param log4jSystemConfig log4jSystemConfig for this appender
    * @param systemName name of the system
-   * @param streamName name of the stream
    */
-  private void setSerde(Log4jSystemConfig log4jSystemConfig, String systemName, String streamName) {
+  protected void setSerde(Log4jSystemConfig log4jSystemConfig, String systemName) {
     String serdeClass = LoggingEventJsonSerdeFactory.class.getCanonicalName();
     String serdeName = log4jSystemConfig.getStreamSerdeName(systemName, streamName);
 
