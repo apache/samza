@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -48,14 +49,15 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.SerializerConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.logging.log4j2.serializers.LoggingEventJsonSerdeFactory;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
@@ -67,6 +69,7 @@ import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.ExponentialSleepStrategy;
 import org.apache.samza.util.HttpUtil;
+import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.ReflectionUtil;
 
 @Plugin(name = "Stream", category = "Core", elementType = "appender", printObject = true)
@@ -223,6 +226,9 @@ public class StreamAppender extends AbstractAppender {
           metrics.bufferFillPct.set(Math.round(100f * logQueue.size() / DEFAULT_QUEUE_SIZE));
         }
       } catch (Exception e) {
+        if (metrics != null) { // setupSystem() may not have been invoked yet so metrics can be null here.
+          metrics.logMessagesErrors.inc();
+        }
         System.err.println(String.format("[%s] Error sending log message:", getName()));
         e.printStackTrace();
       } finally {
@@ -322,7 +328,7 @@ public class StreamAppender extends AbstractAppender {
     return new Log4jSystemConfig(config);
   }
 
-  protected StreamAppenderMetrics getMetrics(MetricsRegistry metricsRegistry) {
+  protected StreamAppenderMetrics getMetrics(MetricsRegistryMap metricsRegistry) {
     return new StreamAppenderMetrics(getName(), metricsRegistry);
   }
 
@@ -349,9 +355,17 @@ public class StreamAppender extends AbstractAppender {
       streamName = getStreamName(log4jSystemConfig.getJobName(), log4jSystemConfig.getJobId());
     }
 
-    // TODO we need the ACTUAL metrics registry, or the metrics won't get reported by the metric reporters!
-    MetricsRegistry metricsRegistry = new MetricsRegistryMap();
+    // Instantiate metrics
+    MetricsRegistryMap metricsRegistry = new MetricsRegistryMap();
+    // Take this.getClass().getName() as the name to make it extend-friendly
     metrics = getMetrics(metricsRegistry);
+    // Register metrics into metrics reporters so that they are able to be reported to other systems
+    Map<String, MetricsReporter>
+        metricsReporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), containerName);
+    metricsReporters.values().forEach(reporter -> {
+      reporter.register(containerName, metricsRegistry);
+      reporter.start();
+    });
 
     String systemName = log4jSystemConfig.getSystemName();
     String systemFactoryName = log4jSystemConfig.getSystemFactory(systemName)
@@ -385,6 +399,9 @@ public class StreamAppender extends AbstractAppender {
           try {
             byte[] serializedLogEvent = logQueue.take();
 
+            metrics.logMessagesBytesSent.inc(serializedLogEvent.length);
+            metrics.logMessagesCountSent.inc();
+
             OutgoingMessageEnvelope outgoingMessageEnvelope =
                 new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent);
             systemProducer.send(SOURCE, outgoingMessageEnvelope);
@@ -393,6 +410,7 @@ public class StreamAppender extends AbstractAppender {
             // Preserve the interrupted status for the loop condition.
             Thread.currentThread().interrupt();
           } catch (Throwable t) {
+            metrics.logMessagesErrors.inc();
             log.error("Error sending " + getName() + " event to SystemProducer", t);
           }
         }
