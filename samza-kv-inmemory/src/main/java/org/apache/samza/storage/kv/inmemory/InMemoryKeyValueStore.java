@@ -87,7 +87,7 @@ public class InMemoryKeyValueStore implements KeyValueStore<byte[], byte[]> {
 
   @Override
   public void delete(byte[] key) {
-    // TODO Bug: This double counts deletes for metrics, because put also counts a delete
+    // TODO Bug: SAMZA-2563: This double counts deletes for metrics, because put also counts a delete
     metrics.deletes().inc();
     put(key, null);
   }
@@ -102,7 +102,7 @@ public class InMemoryKeyValueStore implements KeyValueStore<byte[], byte[]> {
 
   @Override
   public KeyValueSnapshot<byte[], byte[]> snapshot(byte[] from, byte[] to) {
-    // TODO: Bug: This does not satisfy the immutability constraint, since the entrySet is backed by the underlying map.
+    // TODO: Bug: SAMZA-2564: does not satisfy immutability constraint, since entrySet is backed by the underlying map.
     // snapshot the underlying map
     Set<Map.Entry<byte[], byte[]>> entries = this.underlying.subMap(from, to).entrySet();
     return new KeyValueSnapshot<byte[], byte[]>() {

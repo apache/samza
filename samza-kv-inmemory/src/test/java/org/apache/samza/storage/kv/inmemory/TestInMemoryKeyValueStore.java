@@ -57,6 +57,17 @@ public class TestInMemoryKeyValueStore {
   private static final String DEFAULT_VALUE_PREFIX = "value_prefix_value_prefix";
   private static final String OTHER_VALUE_PREFIX = "other_value_prefix_value_prefix";
 
+  /**
+   * The length of the result of {@link #key(int)} will always be the same, so this can be used as the length for any
+   * key produced by {@link #key(int)}.
+   */
+  private static final int DEFAULT_KEY_LENGTH = key(0).length;
+  /**
+   * The length of the result of {@link #value(int)} will always be the same, so this can be used as the length for any
+   * key produced by {@link #value(int)}.
+   */
+  private static final int DEFAULT_VALUE_LENGTH = value(0).length;
+
   @Mock
   private KeyValueStoreMetrics keyValueStoreMetrics;
   @Mock
@@ -91,7 +102,7 @@ public class TestInMemoryKeyValueStore {
     assertArrayEquals(value(0), this.inMemoryKeyValueStore.get(key(0)));
     assertArrayEquals(value(OTHER_VALUE_PREFIX, 1), this.inMemoryKeyValueStore.get(key(OTHER_KEY_PREFIX, 1)));
     verify(this.getsCounter, times(2)).inc();
-    verify(this.bytesReadCounter).inc(value(0).length);
+    verify(this.bytesReadCounter).inc(DEFAULT_VALUE_LENGTH);
     verify(this.bytesReadCounter).inc(value(OTHER_VALUE_PREFIX, 1).length);
   }
 
@@ -120,7 +131,7 @@ public class TestInMemoryKeyValueStore {
     assertArrayEquals(value(0), this.inMemoryKeyValueStore.get(key(0)));
     assertArrayEquals(value(OTHER_VALUE_PREFIX, 1), this.inMemoryKeyValueStore.get(key(OTHER_KEY_PREFIX, 1)));
     verify(this.putsCounter, times(2)).inc();
-    verify(this.bytesWrittenCounter).inc(key(0).length + value(0).length);
+    verify(this.bytesWrittenCounter).inc(DEFAULT_KEY_LENGTH + DEFAULT_VALUE_LENGTH);
     verify(this.bytesWrittenCounter).inc(key(OTHER_KEY_PREFIX, 1).length + value(OTHER_VALUE_PREFIX, 1).length);
   }
 
@@ -131,18 +142,18 @@ public class TestInMemoryKeyValueStore {
 
     assertArrayEquals(value(OTHER_VALUE_PREFIX, 1), this.inMemoryKeyValueStore.get(key(0)));
     verify(this.putsCounter, times(2)).inc();
-    verify(this.bytesWrittenCounter).inc(key(0).length + value(0).length);
-    verify(this.bytesWrittenCounter).inc(key(0).length + value(OTHER_VALUE_PREFIX, 1).length);
+    verify(this.bytesWrittenCounter).inc(DEFAULT_KEY_LENGTH + DEFAULT_VALUE_LENGTH);
+    verify(this.bytesWrittenCounter).inc(DEFAULT_KEY_LENGTH + value(OTHER_VALUE_PREFIX, 1).length);
   }
 
   @Test
-  public void testPutEmpty() {
+  public void testPutEmptyValue() {
     byte[] emptyValue = new byte[0];
     this.inMemoryKeyValueStore.put(key(0), emptyValue);
 
     assertEquals(0, this.inMemoryKeyValueStore.get(key(0)).length);
     verify(this.putsCounter).inc();
-    verify(this.bytesWrittenCounter).inc(key(0).length);
+    verify(this.bytesWrittenCounter).inc(DEFAULT_KEY_LENGTH);
   }
 
   @Test
@@ -153,7 +164,7 @@ public class TestInMemoryKeyValueStore {
     assertNull(this.inMemoryKeyValueStore.get(key(0)));
     verify(this.putsCounter, times(2)).inc();
     verify(this.deletesCounter).inc();
-    verify(this.bytesWrittenCounter).inc(key(0).length + value(0).length);
+    verify(this.bytesWrittenCounter).inc(DEFAULT_KEY_LENGTH + DEFAULT_VALUE_LENGTH);
   }
 
   @Test
@@ -168,13 +179,14 @@ public class TestInMemoryKeyValueStore {
       assertArrayEquals(value(i), this.inMemoryKeyValueStore.get(key(i)));
     }
     verify(this.putsCounter, times(10)).inc();
-    verify(this.bytesWrittenCounter, times(10)).inc(key(0).length + value(0).length);
+    // when using key(i) and value(i), the byte[] lengths will be the same
+    verify(this.bytesWrittenCounter, times(10)).inc(DEFAULT_KEY_LENGTH + DEFAULT_VALUE_LENGTH);
   }
 
   @Test
   public void testPutAllUpdate() {
     // check that an existing value is overridden
-    this.inMemoryKeyValueStore.put(key(0), value(1234));
+    this.inMemoryKeyValueStore.put(key(0), value(OTHER_VALUE_PREFIX, 0));
     List<Entry<byte[], byte[]>> entries = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
       entries.add(new Entry<>(key(i), value(i)));
@@ -186,8 +198,10 @@ public class TestInMemoryKeyValueStore {
     }
     // 1 time for initial value to be overridden, 10 times for "regular" puts
     verify(this.putsCounter, times(11)).inc();
-    verify(this.bytesWrittenCounter).inc(key(0).length + value(1234).length);
-    verify(this.bytesWrittenCounter, times(10)).inc(key(0).length + value(0).length);
+    // for initial value which is overridden
+    verify(this.bytesWrittenCounter).inc(DEFAULT_KEY_LENGTH + value(OTHER_VALUE_PREFIX, 0).length);
+    // when using key(i) and value(i), the byte[] lengths will be the same
+    verify(this.bytesWrittenCounter, times(10)).inc(DEFAULT_KEY_LENGTH + DEFAULT_VALUE_LENGTH);
   }
 
   @Test
@@ -214,7 +228,7 @@ public class TestInMemoryKeyValueStore {
     // 10 times for "regular" puts, 3 times for deletion puts
     verify(this.putsCounter, times(13)).inc();
     // 10 "regular" puts all have same size for key/value
-    verify(this.bytesWrittenCounter, times(10)).inc(key(0).length + value(0).length);
+    verify(this.bytesWrittenCounter, times(10)).inc(DEFAULT_KEY_LENGTH + DEFAULT_VALUE_LENGTH);
     verifyNoMoreInteractions(this.bytesWrittenCounter);
     verify(this.deletesCounter, times(3)).inc();
   }
@@ -260,10 +274,10 @@ public class TestInMemoryKeyValueStore {
     }
     assertFalse(range.hasNext());
     verify(rangesCounter).inc();
-    // key size increments
-    verify(this.bytesReadCounter, times(5)).inc(key(0).length);
-    // value size increments
-    verify(this.bytesReadCounter, times(5)).inc(value(0).length);
+    // key size increments: key(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(5)).inc(DEFAULT_KEY_LENGTH);
+    // value size increments: value(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(5)).inc(DEFAULT_VALUE_LENGTH);
   }
 
   @Test
@@ -297,13 +311,13 @@ public class TestInMemoryKeyValueStore {
     assertFalse(range.hasNext());
 
     verify(rangesCounter, times(2)).inc();
-    // key size increments: 4 calls for checking iterator size for first range, 4 calls for second range
-    verify(this.bytesReadCounter, times(8)).inc(key(0).length);
+    // key increments: 4 for iterator size for first range, 4 for second range; key(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(8)).inc(DEFAULT_KEY_LENGTH);
     /*
-     * value size increments: 4 calls for checking iterator size for first range, 3 calls for second range (updated
-     * entry is different)
+     * value increments: 4 for iterator size for first range, 3 for second range (updated entry is different); value(i)
+     * produces byte[] of same length
      */
-    verify(this.bytesReadCounter, times(7)).inc(value(0).length);
+    verify(this.bytesReadCounter, times(7)).inc(DEFAULT_VALUE_LENGTH);
     // 1 call for updated entry
     verify(this.bytesReadCounter).inc(value(OTHER_VALUE_PREFIX, 0).length);
   }
@@ -321,10 +335,10 @@ public class TestInMemoryKeyValueStore {
       assertEntryEquals(key(i), value(i), iterator.next());
     }
     assertFalse(iterator.hasNext());
-    // key size increments
-    verify(this.bytesReadCounter, times(5)).inc(key(0).length);
-    // value size increments
-    verify(this.bytesReadCounter, times(5)).inc(value(0).length);
+    // key size increments: key(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(5)).inc(DEFAULT_KEY_LENGTH);
+    // value size increments: value(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(5)).inc(DEFAULT_VALUE_LENGTH);
   }
 
   @Test
@@ -336,10 +350,10 @@ public class TestInMemoryKeyValueStore {
     KeyValueSnapshot<byte[], byte[]> snapshot = this.inMemoryKeyValueStore.snapshot(key(0), key(5));
     assertEquals(5, Iterators.size(snapshot.iterator())); // Iterators.size exhausts the iterator
     assertEquals(5, Iterators.size(snapshot.iterator()));
-    // key size increments: calling two separate iterators
-    verify(this.bytesReadCounter, times(5 * 2)).inc(key(0).length);
-    // value size increments: calling two separate iterators
-    verify(this.bytesReadCounter, times(5 * 2)).inc(value(0).length);
+    // key size increments: calling two separate iterators; key(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(5 * 2)).inc(DEFAULT_KEY_LENGTH);
+    // value size increments: calling two separate iterators; value(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(5 * 2)).inc(DEFAULT_VALUE_LENGTH);
   }
 
   @Test
@@ -364,10 +378,10 @@ public class TestInMemoryKeyValueStore {
       }
     }
     assertFalse(iterator.hasNext());
-    // key size increments
-    verify(this.bytesReadCounter, times(5)).inc(key(0).length);
-    // value size increments
-    verify(this.bytesReadCounter, times(4)).inc(value(0).length);
+    // key size increments; key(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(5)).inc(DEFAULT_KEY_LENGTH);
+    // value size increments; value(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(4)).inc(DEFAULT_VALUE_LENGTH);
     // when snapshot immutability bug is fixed, this should be merged into the bytesRead check above
     verify(this.bytesReadCounter).inc(value(OTHER_VALUE_PREFIX, 1).length);
   }
@@ -400,13 +414,13 @@ public class TestInMemoryKeyValueStore {
     }
     assertFalse(iterator.hasNext());
 
-    // key size increments: 4 calls for checking iterator size for first range, 4 calls for second range
-    verify(this.bytesReadCounter, times(8)).inc(key(0).length);
+    // key increments: 4 for iterator size for first range, 4 for second range; key(i) produces byte[] of same length
+    verify(this.bytesReadCounter, times(8)).inc(DEFAULT_KEY_LENGTH);
     /*
-     * value size increments: 4 calls for checking iterator size for first range, 3 calls for second range (updated
-     * entry is different)
+     * value increments: 4 for iterator size for first range, 3 for second range (updated entry is different); value(i)
+     * produces byte[] of same length
      */
-    verify(this.bytesReadCounter, times(7)).inc(value(0).length);
+    verify(this.bytesReadCounter, times(7)).inc(DEFAULT_VALUE_LENGTH);
     // 1 call for updated entry
     verify(this.bytesReadCounter).inc(value(OTHER_VALUE_PREFIX, 0).length);
   }
@@ -421,6 +435,7 @@ public class TestInMemoryKeyValueStore {
       this.inMemoryKeyValueStore.put(key(i), value(i));
     }
     KeyValueIterator<byte[], byte[]> all = this.inMemoryKeyValueStore.all();
+
     // all entries of one prefix comes first due to ordering
     for (int i = 0; i < 10; i++) {
       assertEntryEquals(key(i), value(i), all.next());
@@ -431,12 +446,18 @@ public class TestInMemoryKeyValueStore {
     assertFalse(all.hasNext());
 
     verify(allsCounter).inc();
+
     // key size increments: 10 calls for each prefix
-    verify(this.bytesReadCounter, times(10)).inc(key(OTHER_KEY_PREFIX, 0).length);
-    verify(this.bytesReadCounter, times(10)).inc(key(0).length);
+    verify(this.bytesReadCounter, times(10)).inc(DEFAULT_KEY_LENGTH);
+    // all keys using OTHER_KEY_PREFIX have the same length
+    int otherKeyLength = key(OTHER_KEY_PREFIX, 0).length;
+    verify(this.bytesReadCounter, times(10)).inc(otherKeyLength);
+
     // value size increments: 10 calls for each prefix
-    verify(this.bytesReadCounter, times(10)).inc(value(OTHER_VALUE_PREFIX, 0).length);
-    verify(this.bytesReadCounter, times(10)).inc(value(0).length);
+    verify(this.bytesReadCounter, times(10)).inc(DEFAULT_VALUE_LENGTH);
+    // all values using OTHER_VALUE_PREFIX have the same length
+    int otherValueLength = value(OTHER_VALUE_PREFIX, 0).length;
+    verify(this.bytesReadCounter, times(10)).inc(otherValueLength);
   }
 
   @Test
@@ -471,12 +492,12 @@ public class TestInMemoryKeyValueStore {
 
     verify(allsCounter, times(2)).inc();
     // key size increments: 9 calls for iterator size check of first "all", 9 calls for second "all"
-    verify(this.bytesReadCounter, times(18)).inc(key(0).length);
+    verify(this.bytesReadCounter, times(18)).inc(DEFAULT_KEY_LENGTH);
     /*
      * value size increments: 9 calls for iterator size check of first "all", 8 calls for second "all" (updated entry is
      * different)
      */
-    verify(this.bytesReadCounter, times(17)).inc(value(0).length);
+    verify(this.bytesReadCounter, times(17)).inc(DEFAULT_VALUE_LENGTH);
     // 1 call for "updatedValue"
     verify(this.bytesReadCounter).inc(value(OTHER_VALUE_PREFIX, 3).length);
   }
@@ -489,7 +510,43 @@ public class TestInMemoryKeyValueStore {
     verify(flushesCounter).inc();
   }
 
+  /**
+   * If this is called multiple times with the same {@code prefix} and any {@code i}, then this needs to return a byte[]
+   * of the same length for each call.
+   */
   private static byte[] key(String prefix, int i) {
+    return toBytes(prefix, i);
+  }
+
+  /**
+   * The tests depend on the fact that this returns the same length byte[] for any i (for checking metrics).
+   */
+  private static byte[] key(int i) {
+    return key(DEFAULT_KEY_PREFIX, i);
+  }
+
+  /**
+   * If this is called multiple times with the same {@code prefix} and any {@code i}, then this needs to return a byte[]
+   * of the same length for each call.
+   */
+  private static byte[] value(String prefix, int i) {
+    return toBytes(prefix, i);
+  }
+
+  /**
+   * The tests depend on the fact that this returns the same length byte[] for any i (for checking metrics).
+   */
+  private static byte[] value(int i) {
+    return value(DEFAULT_VALUE_PREFIX, i);
+  }
+
+  /**
+   * Concatenates bytes for {@code prefix} with bytes for {@code i}.
+   * If this is called multiple times with the same {@code prefix} and any {@code i}, then this needs to return a byte[]
+   * of the same length for each call.
+   */
+  private static byte[] toBytes(String prefix, int i) {
+    // wrapping with try-catch to avoid dealing with checked exceptions
     try {
       ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
       byteArrayOutputStream.write(prefix.getBytes());
@@ -498,18 +555,6 @@ public class TestInMemoryKeyValueStore {
     } catch (IOException e) {
       throw new SamzaException(e);
     }
-  }
-
-  private static byte[] key(int i) {
-    return key(DEFAULT_KEY_PREFIX, i);
-  }
-
-  private static byte[] value(String prefix, int i) {
-    return (prefix + i).getBytes();
-  }
-
-  private static byte[] value(int i) {
-    return value(DEFAULT_VALUE_PREFIX, i);
   }
 
   private static void assertEntryEquals(byte[] expectedKey, byte[] expectedValue, Entry<byte[], byte[]> entry) {
