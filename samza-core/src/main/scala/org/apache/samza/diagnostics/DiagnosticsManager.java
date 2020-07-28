@@ -68,6 +68,15 @@ public class DiagnosticsManager {
   private final int containerThreadPoolSize;
   private final Map<String, ContainerModel> containerModels;
   private final boolean autosizingEnabled;
+  private final String deploymentType;
+  private final String apiType;
+  private final int numContainers;
+  private final boolean hostAffinityEnabled;
+  private final String sspGrouperFactory;
+  private final int containerRetryCount;
+  private final long containerRetryWindowMs;
+  private final int maxConcurrency;
+
   private boolean jobParamsEmitted = false;
 
   private final SystemProducer systemProducer; // SystemProducer for writing diagnostics data
@@ -93,12 +102,23 @@ public class DiagnosticsManager {
       String hostname,
       SystemStream diagnosticSystemStream,
       SystemProducer systemProducer,
-      Duration terminationDuration, boolean autosizingEnabled) {
+      Duration terminationDuration,
+      boolean autosizingEnabled,
+      String deploymentType,
+      String apiType,
+      int numContainers,
+      boolean hostAffinityEnabled,
+      String sspGrouperFactory,
+      int containerRetryCount,
+      long containerRetryWindowMs,
+      int maxConcurrency) {
 
     this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numPersistentStores, maxHeapSizeBytes, containerThreadPoolSize,
         containerId, executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticSystemStream, systemProducer,
         terminationDuration, Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()), autosizingEnabled);
+            new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()), autosizingEnabled,
+        deploymentType, apiType, numContainers, hostAffinityEnabled, sspGrouperFactory, containerRetryCount,
+        containerRetryWindowMs, maxConcurrency);
   }
 
   @VisibleForTesting
@@ -118,7 +138,16 @@ public class DiagnosticsManager {
       SystemStream diagnosticSystemStream,
       SystemProducer systemProducer,
       Duration terminationDuration,
-      ScheduledExecutorService executorService, boolean autosizingEnabled) {
+      ScheduledExecutorService executorService,
+      boolean autosizingEnabled,
+      String deploymentType,
+      String apiType,
+      int numContainers,
+      boolean hostAffinityEnabled,
+      String sspGrouperFactory,
+      int containerRetryCount,
+      long containerRetryWindowMs,
+      int maxConcurrency) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.containerModels = containerModels;
@@ -140,6 +169,14 @@ public class DiagnosticsManager {
     this.exceptions = new BoundedList<>("exceptions"); // Create a BoundedList with default size and time parameters
     this.scheduler = executorService;
     this.autosizingEnabled = autosizingEnabled;
+    this.deploymentType = deploymentType;
+    this.apiType = apiType;
+    this.numContainers = numContainers;
+    this.hostAffinityEnabled = hostAffinityEnabled;
+    this.sspGrouperFactory = sspGrouperFactory;
+    this.containerRetryCount = containerRetryCount;
+    this.containerRetryWindowMs = containerRetryWindowMs;
+    this.maxConcurrency = maxConcurrency;
 
     resetTime = Instant.now();
     this.systemProducer.register(getClass().getSimpleName());
@@ -195,9 +232,12 @@ public class DiagnosticsManager {
     @Override
     public void run() {
       try {
+        Long maxJvmHeapMb = maxHeapSizeBytes / (1024 * 1024);
         DiagnosticsStreamMessage diagnosticsStreamMessage =
             new DiagnosticsStreamMessage(jobName, jobId, "samza-container-" + containerId, executionEnvContainerId,
-                taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(), resetTime.toEpochMilli());
+                taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(), resetTime.toEpochMilli(), deploymentType,
+                apiType, numContainers, containerMemoryMb, containerNumCores, containerThreadPoolSize, hostAffinityEnabled,
+                sspGrouperFactory, containerRetryCount, containerRetryWindowMs, maxConcurrency, maxJvmHeapMb.intValue());
 
         // Add job-related params to the message (if not already published)
         if (!jobParamsEmitted) {

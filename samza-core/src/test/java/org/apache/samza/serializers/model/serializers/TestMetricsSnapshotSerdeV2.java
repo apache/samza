@@ -38,7 +38,9 @@ public class TestMetricsSnapshotSerdeV2 {
   public void testSerde() {
     MetricsHeader metricsHeader =
         new MetricsHeader("jobName", "i001", "container 0", "test container ID", "source", "300.14.25.1", "1", "1", 1,
-            1);
+            1, "test deployment type", "test api type", 1, 1024, 1,
+            1, false, "org.apache.samza.container.grouper.stream.GroupByPartitionFactory",
+            8, 300000, 1, 756);
 
     BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
     DiagnosticsExceptionEvent diagnosticsExceptionEvent1 =

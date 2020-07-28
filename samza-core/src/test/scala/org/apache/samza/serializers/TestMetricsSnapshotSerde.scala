@@ -34,7 +34,11 @@ class TestMetricsSnapshotSerde {
   @Ignore
   @Test
   def testMetricsSerdeShouldSerializeAndDeserializeAMetric {
-    val header = new MetricsHeader("test-jobName", "testjobid", "samza-container-0", "test exec env container id", "test source", "version", "samzaversion", "host", 1L, 2L)
+    val header = new MetricsHeader("test-jobName", "testjobid", "samza-container-0", "test exec env container id",
+      "test source", "version", "samzaversion", "host", 1L, 2L,
+    "test deployment type", "test api type", 1, 1024, 1,
+      1, false, "org.apache.samza.container.grouper.stream.GroupByPartitionFactory",
+      8, 300000, 1, 756)
     val metricsMap = new HashMap[String, Object]()
     metricsMap.put("test2", "foo")
     val metricsGroupMap = new HashMap[String, Map[String, Object]]()
