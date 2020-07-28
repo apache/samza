@@ -608,24 +608,15 @@ project(":samza-kv_$scalaSuffix") {
 }
 
 project(":samza-kv-inmemory_$scalaSuffix") {
-  apply plugin: 'scala'
-
-  // Force scala joint compilation
-  sourceSets.main.scala.srcDir "src/main/java"
-  sourceSets.test.scala.srcDir "src/test/java"
-
-  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
-  // tasks.compileTestJava.enabled = false
-  sourceSets.main.java.srcDirs = []
-  sourceSets.test.java.srcDirs = []
+  apply plugin: 'java'
 
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
     compile project(":samza-kv_$scalaSuffix")
-    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
 }
 
@@ -653,29 +644,17 @@ project(":samza-kv-rocksdb_$scalaSuffix") {
 }
 
 project(":samza-kv-couchbase_$scalaSuffix") {
-  apply plugin: 'scala'
-
-  // Force scala joint compilation
-  sourceSets.main.scala.srcDir "src/main/java"
-  sourceSets.test.scala.srcDir "src/test/java"
-
-  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
-  // tasks.compileTestJava.enabled = false
-  sourceSets.main.java.srcDirs = []
-  sourceSets.test.java.srcDirs = []
+  apply plugin: 'java'
 
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
-    compile project(":samza-kv_$scalaSuffix")
-    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "com.couchbase.client:java-client:$couchbaseClientVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile "org.powermock:powermock-api-mockito:$powerMockVersion"
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
-    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
   }
 }
 
