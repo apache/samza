@@ -60,8 +60,8 @@ import org.apache.samza.table.Table;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.createSamzaSqlCompositeKey;
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames;
+import static org.apache.samza.sql.translator.SamzaSqlTableJoinFunction.createSamzaSqlCompositeKey;
+import static org.apache.samza.sql.translator.SamzaSqlTableJoinFunction.getSamzaSqlCompositeKeyFieldNames;
 
 
 /**
@@ -167,8 +167,8 @@ class JoinTranslator {
     if (tableNode.isRemoteTable()) {
       String remoteTableName = tableNode.getSourceName();
       MessageStream<SamzaSqlRelMessage> operatorStack = context.getMessageStream(tableNode.getRelNode().getId());
-      final  StreamTableJoinFunction<Object, SamzaSqlRelMessage, KV, SamzaSqlRelMessage> joinFn;
-      if (operatorStack != null && operatorStack instanceof MessageStreamCollector) {
+      final StreamTableJoinFunction<Object, SamzaSqlRelMessage, KV, SamzaSqlRelMessage> joinFn;
+      if (operatorStack instanceof MessageStreamCollector) {
         joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
             context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId,
             (MessageStreamCollector) operatorStack);

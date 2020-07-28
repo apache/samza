@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.planner.SamzaSqlValidator;
@@ -422,12 +421,11 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndFlatten() throws Exception {
-    int numMessages = 20;
+  public void testEndToEndFlatten() {
+    int numMessages = 21;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
-    LOG.info(" Class Path : " + RelOptUtil.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
     String sql1 =
         "Insert into testavro.outputTopic(string_value, id, bool_value, bytes_value, fixed_value, float_value0) "
             + " select Flatten(array_values) as string_value, id, NOT(id = 5) as bool_value, bytes_value, fixed_value, float_value0 "
@@ -442,11 +440,9 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
-    int expectedMessages = 0;
+    // Test invariant for each input Row with rank i will contain a column array_values with i elements $\sum_1^n{i}$.
+    int expectedMessages = (numMessages * (numMessages - 1)) / 2;
     // Flatten de-normalizes the data. So there is separate record for each entry in the array.
-    for (int index = 1; index < numMessages; index++) {
-      expectedMessages = expectedMessages + Math.max(1, index);
-    }
     Assert.assertEquals(expectedMessages, outMessages.size());
   }
 
@@ -592,7 +588,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndFlattenWithUdf() throws Exception {
+  public void testEndToEndFlattenWithUdf() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
@@ -609,16 +605,14 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
-    int expectedMessages = 0;
+    // Test invariant for each input Row with rank i will contain a column array_values with i elements $\sum_1^n{i}$.
+    int expectedMessages = (numMessages * (numMessages - 1)) / 2;
     // Flatten de-normalizes the data. So there is separate record for each entry in the array.
-    for (int index = 1; index < numMessages; index++) {
-      expectedMessages = expectedMessages + Math.max(1, index);
-    }
     Assert.assertEquals(expectedMessages, outMessages.size());
   }
 
   @Test
-  public void testEndToEndSubQuery() throws Exception {
+  public void testEndToEndSubQuery() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
@@ -635,11 +629,9 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
-    int expectedMessages = 0;
+    // Test invariant for each input Row with rank i will contain a column array_values with i elements $\sum_1^n{i}$.
+    int expectedMessages = (numMessages * (numMessages - 1)) / 2;
     // Flatten de-normalizes the data. So there is separate record for each entry in the array.
-    for (int index = 1; index < numMessages; index++) {
-      expectedMessages = expectedMessages + Math.max(1, index);
-    }
     Assert.assertEquals(expectedMessages, outMessages.size());
   }
 

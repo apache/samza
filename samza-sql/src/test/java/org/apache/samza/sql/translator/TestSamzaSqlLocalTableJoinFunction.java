@@ -48,7 +48,7 @@ public class TestSamzaSqlLocalTableJoinFunction {
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(0, 1);
     List<Integer> tableKeyIds = Arrays.asList(0, 1);
-    SamzaSqlRelRecord compositeKey = SamzaSqlRelMessage.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
+    SamzaSqlRelRecord compositeKey = SamzaSqlTableJoinFunction.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
     KV<SamzaSqlRelRecord, SamzaSqlRelMessage> record = KV.of(compositeKey, tableMsg);
 
     JoinInputNode mockTableInputNode = mock(JoinInputNode.class);
@@ -81,7 +81,7 @@ public class TestSamzaSqlLocalTableJoinFunction {
     JoinRelType joinRelType = JoinRelType.INNER;
     List<Integer> streamKeyIds = Arrays.asList(0, 2);
     List<Integer> tableKeyIds = Arrays.asList(0, 2);
-    SamzaSqlRelRecord compositeKey = SamzaSqlRelMessage.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
+    SamzaSqlRelRecord compositeKey = SamzaSqlTableJoinFunction.createSamzaSqlCompositeKey(tableMsg, tableKeyIds);
     KV<SamzaSqlRelRecord, SamzaSqlRelMessage> record = KV.of(compositeKey, tableMsg);
 
     JoinInputNode mockTableInputNode = mock(JoinInputNode.class);

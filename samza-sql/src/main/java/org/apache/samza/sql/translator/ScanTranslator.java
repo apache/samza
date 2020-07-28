@@ -21,6 +21,8 @@ package org.apache.samza.sql.translator;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
@@ -104,12 +106,19 @@ class ScanTranslator {
     private final int queryId;
     private final String queryLogicalId;
     private final String logicalOpId;
+    /**
+     * The Table ordered field names as considered by Calcite. The order is important as Calcite use positional columns.
+     */
+    private final int scanId;
 
-    ScanMapFunction(String sourceStreamName, int queryId, String queryLogicalId, String logicalOpId) {
+    private Function<SamzaSqlRelMessage, SamzaSqlRelMessage> reArrangeFn;
+
+    ScanMapFunction(String sourceStreamName, int queryId, String queryLogicalId, String logicalOpId, int tableScanId) {
       this.streamName = sourceStreamName;
       this.queryId = queryId;
       this.queryLogicalId = queryLogicalId;
       this.logicalOpId = logicalOpId;
+      this.scanId = tableScanId;
     }
 
     @Override
@@ -122,6 +131,7 @@ class ScanTranslator {
       processingTime = new SamzaHistogram(metricsRegistry, logicalOpId, TranslatorConstants.PROCESSING_TIME_NAME);
       queryInputEvents = metricsRegistry.newCounter(queryLogicalId, TranslatorConstants.INPUT_EVENTS_NAME);
       queryInputEvents.clear();
+      reArrangeFn = new ReArrangeFn(translatorContext.getRelNode(scanId).getRowType().getFieldNames());
     }
 
     @Override
@@ -130,7 +140,8 @@ class ScanTranslator {
       long startProcessingNs = System.nanoTime();
       /* SAMZA-2089/LISAMZA-10654: the SamzaRelConverter.convertToRelMessage currently does not initialize
        *                           the samzaSqlRelMessage.samzaSqlRelMsgMetadata, this needs to be fixed */
-      SamzaSqlRelMessage retMsg = this.msgConverter.convertToRelMessage(samzaSqlInputMessage.getKeyAndMessageKV());
+      SamzaSqlRelMessage convertMsg = this.msgConverter.convertToRelMessage(samzaSqlInputMessage.getKeyAndMessageKV());
+      final SamzaSqlRelMessage retMsg = reArrangeFn.apply(convertMsg);
       retMsg.setEventTime(samzaSqlInputMessage.getMetadata().getEventTime());
       retMsg.setArrivalTime(samzaSqlInputMessage.getMetadata().getArrivalTime());
       retMsg.setScanTime(startProcessingNs, startProcessingMs);
@@ -162,6 +173,8 @@ class ScanTranslator {
     final String streamId = sqlIOConfig.getStreamId();
     final String source = sqlIOConfig.getSource();
 
+    // Using field names form the table scan to ensure order of top level column and Incoming msg at runtime.
+    context.registerRelNode(tableScan.getId(), tableScan);
     final boolean isRemoteTable = sqlIOConfig.getTableDescriptor().isPresent() && (
         sqlIOConfig.getTableDescriptor().get() instanceof RemoteTableDescriptor || sqlIOConfig.getTableDescriptor()
             .get() instanceof CachingTableDescriptor);
@@ -173,7 +186,7 @@ class ScanTranslator {
     // To handle case where a project or filter is pushed to Remote table Scan will collect the operators and feed it to the join operator.
     // TODO In an ideal world this has to change and use Calcite Pattern matching to translate the plan.
     if (isRemoteTable) {
-      context.registerMessageStream(tableScan.getId(), new MessageStreamCollector());
+      context.registerMessageStream(tableScan.getId(), new MessageStreamCollector(tableScan, queryId));
       return;
     }
 
@@ -203,7 +216,7 @@ class ScanTranslator {
     }
     MessageStream<SamzaSqlRelMessage> samzaSqlRelMessageStream = inputMsgStreams.get(source)
         .filter(new FilterSystemMessageFunction(sourceName, queryId))
-        .map(new ScanMapFunction(sourceName, queryId, queryLogicalId, logicalOpId));
+        .map(new ScanMapFunction(sourceName, queryId, queryLogicalId, logicalOpId, tableScan.getId()));
 
     context.registerMessageStream(tableScan.getId(), samzaSqlRelMessageStream);
   }
@@ -233,6 +246,42 @@ class ScanTranslator {
     public SamzaSqlInputMessage apply(SamzaSqlInputMessage message) {
       message.getMetadata().setIsSystemMessage(relConverter.isSystemMessage(message.getKeyAndMessageKV()));
       return message;
+    }
+  }
+
+  /**
+   * Utility Fn to re arrange the order of the top level columns to match the provided {@code fieldNames} order.
+   * This is needed to ensure that Calcite positional Schema matches with the Input coming from Table scans.
+   */
+  protected static final class ReArrangeFn implements Function<SamzaSqlRelMessage, SamzaSqlRelMessage> {
+    /**
+     * The desired order of field names.
+     */
+    private final List<String> fieldNames;
+
+    public ReArrangeFn(List<String> fieldNames) {
+      this.fieldNames = fieldNames;
+    }
+
+    /**
+     * Re arrange the Rel Message to respect the provided field Names order
+     * @param samzaSqlRelMessage input Rel Message to re arrange if needed.
+     * @return Rel Message ordered according to {@code fieldNames} or {@code null} if input is {@code null}.
+     */
+    @Override
+    public SamzaSqlRelMessage apply(SamzaSqlRelMessage samzaSqlRelMessage) {
+      if (samzaSqlRelMessage == null) {
+        return null;
+      }
+      if (!fieldNames.equals(samzaSqlRelMessage.getSamzaSqlRelRecord().getFieldNames())) {
+        // Re-arrange the values in the same order as the provided fieldNames.
+        List<Object> fieldValues = fieldNames.stream()
+            .map(x -> samzaSqlRelMessage.getSamzaSqlRelRecord().getField(x))
+            .map(x -> x.orElse(null))
+            .collect(Collectors.toList());
+        return new SamzaSqlRelMessage(fieldNames, fieldValues, samzaSqlRelMessage.getSamzaSqlRelMsgMetadata());
+      }
+      return samzaSqlRelMessage;
     }
   }
 }

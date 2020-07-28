@@ -60,7 +60,7 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
     this.getUdfMethod = Arrays.stream(SamzaSqlExecutionContext.class.getMethods())
         .filter(x -> x.getName().equals("getOrCreateUdf"))
         .findFirst()
-        .get();
+        .orElseThrow(() -> new IllegalStateException("Can not find udf <getOrCreatedUdf>"));
   }
 
   public String getUdfName() {
@@ -84,7 +84,7 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
           Expressions.constant(udfMethod.getDeclaringClass().getName()), Expressions.constant(udfName), samzaContext);
 
       List<Expression> convertedOperands = new ArrayList<>();
-      // SAMZA: 2230 To allow UDFS to accept Untyped arguments.
+      // SAMZA: 2230 To allow UDFs to accept Untyped arguments.
       // We explicitly Convert the untyped arguments to type that the UDf expects.
       for (int index = 0; index < translatedOperands.size(); index++) {
         if (!udfMetadata.isDisableArgCheck() && translatedOperands.get(index).type == Object.class
@@ -95,9 +95,8 @@ public class SamzaSqlScalarFunctionImpl implements ScalarFunction, Implementable
         }
       }
 
-      final Expression callExpression = Expressions.call(Expressions.convert_(getUdfInstance, udfMethod.getDeclaringClass()), udfMethod,
+      return Expressions.call(Expressions.convert_(getUdfInstance, udfMethod.getDeclaringClass()), udfMethod,
           convertedOperands);
-      return callExpression;
     }, NullPolicy.NONE, false);
   }
 

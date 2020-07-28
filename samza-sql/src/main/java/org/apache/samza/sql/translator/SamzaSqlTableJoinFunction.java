@@ -30,12 +30,15 @@ import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.createSamzaSqlCompositeKey;
-import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames;
-
 
 /**
- * This abstract class joins incoming {@link SamzaSqlRelMessage} with records from a table with the join key.
+ * Base Join Class between A Stream and A Lookup based Table using the Nested Loop join Algorithm.
+ * For each incoming {@link SamzaSqlRelMessage} from the Stream DO a LOOKUP on the Table.
+ *
+ * There is 3 key steps:
+ * 1 - Extract the Join Key from the incoming Message Based on the Join Predicate see {@link SamzaSqlTableJoinFunction#getMessageKeyRelRecord(org.apache.samza.sql.data.SamzaSqlRelMessage)}
+ * 2 - Convert the Join Key to the Table Key Format and Execute the Lookup (Delegated to underline table implementation) {@link StreamTableJoinFunction#getMessageKey(java.lang.Object)}.
+ * 3 - Compute the Join Result by combining the input Record from Stream and Result from Table Lookup {@link SamzaSqlTableJoinFunction#apply(org.apache.samza.sql.data.SamzaSqlRelMessage, Object)}.
  */
 public abstract class SamzaSqlTableJoinFunction<K, R>
     implements StreamTableJoinFunction<K, SamzaSqlRelMessage, R, SamzaSqlRelMessage> {
@@ -114,19 +117,73 @@ public abstract class SamzaSqlTableJoinFunction<K, R>
     return new SamzaSqlRelMessage(outFieldNames, outFieldValues, message.getSamzaSqlRelMsgMetadata());
   }
 
+  /**
+   * Map the resulting Record from the Table Side to a Primitive Java Type.
+   * @param record join result to be converted
+   * @return ordered List of columns as expected by the Join operator.
+   */
   protected abstract List<Object> getTableRelRecordFieldValues(R record);
 
+  /**
+   * Computes the Rel Record out of the Join Predicate. Today join predicate is conjunction of equalities thus,
+   * the record is a project of Values from Stream side with column names from the Table.
+   * @param message input record from the Stream side.
+   * @return join lookup key used to execute the inner lookup against Table.
+   */
   protected SamzaSqlRelRecord getMessageKeyRelRecord(SamzaSqlRelMessage message) {
-    return getMessageKeyRelRecord(message, streamFieldIds, tableFieldNames, tableKeyIds);
-  }
-
-  public static SamzaSqlRelRecord getMessageKeyRelRecord(SamzaSqlRelMessage message, List<Integer> streamFieldIds,
-      List<String> tableFieldNames, List<Integer> tableKeyIds) {
-    return createSamzaSqlCompositeKey(message, streamFieldIds,
-        getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds));
+    // Extract the column names as they appear in the Table Side.
+    final List<String> fieldNames = getSamzaSqlCompositeKeyFieldNames(tableFieldNames, tableKeyIds);
+    // Extract the values used by the join predicate and compose it with Names from Table
+    // NOTE that when join predicate has more that one clause there is an implicit contract:
+    // The ORDER of field's name and values MATTER, this concern Local table joins only.
+    // Remote table supports only one equality over the table primary key.
+    return createSamzaSqlCompositeKey(message, streamFieldIds, fieldNames);
   }
 
   @Override
   public void close() {
+  }
+
+  /**
+   * Create composite key from the rel message.
+   * @param message Represents the samza sql rel message to extract the key values from.
+   * @param keyValueIdx list of key values in the form of field indices within the rel message.
+   * @param keyPartNames Represents the key field names.
+   * @return the composite key of the rel message
+   */
+  public static SamzaSqlRelRecord createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> keyValueIdx,
+      List<String> keyPartNames) {
+    Validate.isTrue(keyValueIdx.size() == keyPartNames.size(), "Key part name and value list sizes are different");
+    ArrayList<Object> keyPartValues = new ArrayList<>();
+    for (int idx : keyValueIdx) {
+      keyPartValues.add(message.getSamzaSqlRelRecord().getFieldValues().get(idx));
+    }
+    return new SamzaSqlRelRecord(keyPartNames, keyPartValues);
+  }
+
+  /**
+   * Create composite key from the rel message.
+   * @param message Represents the samza sql rel message to extract the key values and names from.
+   * @param relIdx list of keys in the form of field indices within the rel message.
+   * @return the composite key of the rel message
+   */
+  public static SamzaSqlRelRecord createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> relIdx) {
+    return createSamzaSqlCompositeKey(message, relIdx,
+        getSamzaSqlCompositeKeyFieldNames(message.getSamzaSqlRelRecord().getFieldNames(), relIdx));
+  }
+
+  /**
+   * Get composite key field names.
+   * @param fieldNames list of field names to extract the key names from.
+   * @param nameIds indices within the field names.
+   * @return list of composite key field names
+   */
+  public static List<String> getSamzaSqlCompositeKeyFieldNames(List<String> fieldNames,
+      List<Integer> nameIds) {
+    List<String> keyPartNames = new ArrayList<>();
+    for (int idx : nameIds) {
+      keyPartNames.add(fieldNames.get(idx));
+    }
+    return keyPartNames;
   }
 }
