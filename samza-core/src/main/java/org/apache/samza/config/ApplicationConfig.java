@@ -53,6 +53,7 @@ public class ApplicationConfig extends MapConfig {
    */
   public static final String APP_PROCESSOR_ID_GENERATOR_CLASS = "app.processor-id-generator.class";
   public static final String APP_NAME = "app.name";
+  public static final String APP_ENV = "app.env";
   public static final String APP_ID = "app.id";
   public static final String APP_CLASS = "app.class";
   public static final String APP_MODE = "app.mode";
@@ -70,6 +71,10 @@ public class ApplicationConfig extends MapConfig {
 
   public String getAppName() {
     return get(APP_NAME, get(JobConfig.JOB_NAME));
+  }
+
+  public String getAppEnv() {
+    return get(APP_ENV, null);
   }
 
   public String getAppId() {

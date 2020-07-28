@@ -51,6 +51,10 @@ public class Util {
         .replace("`", "\\`");
   }
 
+  public static String getAppEnv(Config config) {
+    return new ApplicationConfig(config).getAppEnv();
+  }
+
   public static String getSamzaVersion() {
     return Optional.ofNullable(Util.class.getPackage().getImplementationVersion()).orElseGet(() -> {
       LOG.warn("Unable to find implementation samza version in jar's meta info. Defaulting to {}", FALLBACK_VERSION);
