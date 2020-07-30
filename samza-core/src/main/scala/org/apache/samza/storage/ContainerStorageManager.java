@@ -112,7 +112,8 @@ public class ContainerStorageManager {
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
   // We use a prefix to differentiate the SystemConsumersMetrics for sideInputs from the ones in SamzaContainer
 
-  private static final int SIDE_INPUT_LATCH_TIMEOUT_SECONDS = 10; // Timeout with which sideinput thread checks for exceptions
+  // Timeout with which sideinput thread checks for exceptions and for whether SSPs as caught up
+  private static final int SIDE_INPUT_CHECK_TIMEOUT_SECONDS = 10;
   private static final int SIDE_INPUT_SHUTDOWN_TIMEOUT_SECONDS = 60;
 
   /** Maps containing relevant per-task objects */
@@ -728,7 +729,7 @@ public class ContainerStorageManager {
     Map<TaskName, TaskInstanceMetrics> sideInputTaskMetrics = new HashMap<>();
     this.taskInstanceMetrics.forEach((taskName, metrics) -> {
       String sideInputSource = SIDEINPUTS_METRICS_PREFIX + metrics.source();
-      TaskInstanceMetrics sideInputMetrics = new TaskInstanceMetrics(sideInputSource, metrics.registry());
+      TaskInstanceMetrics sideInputMetrics = new TaskInstanceMetrics(sideInputSource, metrics.registry(), SIDEINPUTS_METRICS_PREFIX);
       sideInputTaskMetrics.put(taskName, sideInputMetrics);
     });
 
@@ -770,7 +771,7 @@ public class ContainerStorageManager {
     TaskConfig taskConfig = new TaskConfig(this.config);
     SamzaContainerMetrics sideInputContainerMetrics =
         new SamzaContainerMetrics(SIDEINPUTS_METRICS_PREFIX + this.samzaContainerMetrics.source(),
-            this.samzaContainerMetrics.registry());
+            this.samzaContainerMetrics.registry(), SIDEINPUTS_METRICS_PREFIX);
 
     this.sideInputRunLoop = new RunLoop(sideInputTasks,
         null, // all operations are executed in the main runloop thread
@@ -828,7 +829,7 @@ public class ContainerStorageManager {
    * @throws InterruptedException if waiting any of the latches is interrupted
    */
   private boolean awaitSideInputTasks() throws InterruptedException {
-    long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(SIDE_INPUT_LATCH_TIMEOUT_SECONDS);
+    long endTime = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(SIDE_INPUT_CHECK_TIMEOUT_SECONDS);
     for (CountDownLatch latch : this.sideInputTaskLatches.values()) {
       long remainingMillisToWait = endTime - System.currentTimeMillis();
       if (remainingMillisToWait <= 0 || !latch.await(remainingMillisToWait, TimeUnit.MILLISECONDS)) {

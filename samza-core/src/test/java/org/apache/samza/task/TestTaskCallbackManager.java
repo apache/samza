@@ -38,7 +38,7 @@ public class TestTaskCallbackManager {
 
   @Before
   public void setup() {
-    TaskInstanceMetrics metrics = new TaskInstanceMetrics("Partition 0", new MetricsRegistryMap());
+    TaskInstanceMetrics metrics = new TaskInstanceMetrics("Partition 0", new MetricsRegistryMap(), "");
     listener = new TaskCallbackListener() {
       @Override
       public void onComplete(TaskCallback callback) {

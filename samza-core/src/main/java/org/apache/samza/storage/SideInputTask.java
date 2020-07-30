@@ -58,7 +58,7 @@ public class SideInputTask implements RunLoopTask {
   }
 
   @Override
-  public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator,
+  synchronized public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator,
       TaskCallbackFactory callbackFactory) {
     TaskCallback callback = callbackFactory.createCallback();
     this.metrics.processes().inc();
@@ -73,23 +73,23 @@ public class SideInputTask implements RunLoopTask {
 
   @Override
   public void window(ReadableCoordinator coordinator) {
-
+    throw new UnsupportedOperationException("Windowing is not applicable for side input tasks.");
   }
 
   @Override
   public void scheduler(ReadableCoordinator coordinator) {
-
+    throw new UnsupportedOperationException("Scheduling is not applicable for side input tasks.");
   }
 
   @Override
-  public void commit() {
+  synchronized public void commit() {
     this.taskSideInputHandler.flush();
     this.metrics.commits().inc();
   }
 
   @Override
   public void endOfStream(ReadableCoordinator coordinator) {
-
+    throw new UnsupportedOperationException("End of stream is not applicable for side input tasks.");
   }
 
   @Override

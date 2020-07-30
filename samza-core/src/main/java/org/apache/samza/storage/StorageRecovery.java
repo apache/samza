@@ -248,7 +248,7 @@ public class StorageRecovery {
               this.getSerdes(),
               jobConfig,
               new HashMap<>(),
-              new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
+              new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap(), ""),
               JobContextImpl.fromConfigWithDefaults(jobConfig),
               containerContext,
               new HashMap<>(),
