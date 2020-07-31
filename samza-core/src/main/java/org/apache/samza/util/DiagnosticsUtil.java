@@ -70,7 +70,7 @@ public class DiagnosticsUtil {
       MetricsHeader metricsHeader =
           new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""),
               LocalContainerRunner.class.getName(), Util.getTaskClassVersion(config), Util.getSamzaVersion(),
-              Util.getLocalHost().getHostName(), System.currentTimeMillis(), System.currentTimeMillis());
+              Util.getLocalHost().getHostName(), System.currentTimeMillis(), System.currentTimeMillis(), config);
 
       class MetadataFileContents {
         public final String version;
@@ -151,7 +151,7 @@ public class DiagnosticsUtil {
               new StorageConfig(config).getNumPersistentStores(), maxHeapSizeBytes, containerThreadPoolSize,
               containerId, execEnvContainerId.orElse(""), taskClassVersion, samzaVersion, hostName,
               diagnosticsSystemStream, systemProducer,
-              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled());
+              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled(), config);
 
       diagnosticsManagerReporterPair = Optional.of(new ImmutablePair<>(diagnosticsManager, diagnosticsReporter));
     }

@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
@@ -60,17 +62,18 @@ public class DiagnosticsStreamMessage {
   private static final String CONTAINER_THREAD_POOL_SIZE_METRIC_NAME = "containerThreadPoolSize";
   private static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
   private static final String AUTOSIZING_ENABLED_METRIC_NAME = "autosizingEnabled";
+  private static final String CONFIG = "config";
 
   private final MetricsHeader metricsHeader;
   private final Map<String, Map<String, Object>> metricsMessage;
 
   public DiagnosticsStreamMessage(String jobName, String jobId, String containerName, String executionEnvContainerId,
-      String taskClassVersion, String samzaVersion, String hostname, long timestamp, long resetTimestamp) {
+      String taskClassVersion, String samzaVersion, String hostname, long timestamp, long resetTimestamp, Map<String, String> config) {
 
     // Create the metricHeader
     metricsHeader =
         new MetricsHeader(jobName, jobId, containerName, executionEnvContainerId, DiagnosticsManager.class.getName(),
-            taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp);
+            taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp, config);
 
     this.metricsMessage = new HashMap<>();
   }
@@ -155,6 +158,10 @@ public class DiagnosticsStreamMessage {
     }
   }
 
+  public void addConfig(Config config) {
+    addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONFIG, config);
+  }
+
   /**
    * Convert this message into a {@link MetricsSnapshot}, useful for serde-deserde using {@link org.apache.samza.serializers.MetricsSnapshotSerde}.
    * @return
@@ -228,6 +235,10 @@ public class DiagnosticsStreamMessage {
     return (Boolean) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, AUTOSIZING_ENABLED_METRIC_NAME);
   }
 
+  public Config getConfig() {
+    return (Config) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONFIG);
+  }
+
   // Helper method to get a {@link DiagnosticsStreamMessage} from a {@link MetricsSnapshot}.
   //   * This is typically used when deserializing messages from a diagnostics-stream.
   //   * @param metricsSnapshot
@@ -237,7 +248,7 @@ public class DiagnosticsStreamMessage {
             metricsSnapshot.getHeader().getContainerName(), metricsSnapshot.getHeader().getExecEnvironmentContainerId(),
             metricsSnapshot.getHeader().getVersion(), metricsSnapshot.getHeader().getSamzaVersion(),
             metricsSnapshot.getHeader().getHost(), metricsSnapshot.getHeader().getTime(),
-            metricsSnapshot.getHeader().getResetTime());
+            metricsSnapshot.getHeader().getResetTime(), metricsSnapshot.getHeader().getConfig());
 
     Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
     Map<String, Object> diagnosticsManagerGroupMap = metricsMap.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER);
@@ -254,6 +265,7 @@ public class DiagnosticsStreamMessage {
       diagnosticsStreamMessage.addContainerThreadPoolSize((Integer) diagnosticsManagerGroupMap.get(CONTAINER_THREAD_POOL_SIZE_METRIC_NAME));
       diagnosticsStreamMessage.addProcessorStopEvents((List<ProcessorStopEvent>) diagnosticsManagerGroupMap.get(STOP_EVENT_LIST_METRIC_NAME));
       diagnosticsStreamMessage.addAutosizingEnabled((Boolean) diagnosticsManagerGroupMap.get(AUTOSIZING_ENABLED_METRIC_NAME));
+      diagnosticsStreamMessage.addConfig(new MapConfig((Map) diagnosticsManagerGroupMap.get(CONFIG)));
     }
 
     if (containerMetricsGroupMap != null && containerMetricsGroupMap.containsKey(EXCEPTION_LIST_METRIC_NAME)) {

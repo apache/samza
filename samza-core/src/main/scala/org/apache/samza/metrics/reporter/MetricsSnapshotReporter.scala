@@ -57,6 +57,7 @@ class MetricsSnapshotReporter(
   host: String,
   serializer: Serializer[MetricsSnapshot] = null,
   blacklist: Option[String],
+  config: Map[String, String],
   clock: () => Long = () => { System.currentTimeMillis }) extends MetricsReporter with Runnable with Logging {
 
   val execEnvironmentContainerId = Option[String](System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID)).getOrElse("")
@@ -148,7 +149,7 @@ class MetricsSnapshotReporter(
 
       // publish to Kafka only if the metricsMsg carries any metrics
       if (!metricsMsg.isEmpty) {
-        val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime)
+        val header = new MetricsHeader(jobName, jobId, containerName, execEnvironmentContainerId, source, version, samzaVersion, host, clock(), resetTime, config)
         val metrics = new Metrics(metricsMsg)
 
         debug("Flushing metrics for %s to %s with header and map: header=%s, map=%s." format(source, out, header.getAsMap, metrics.getAsMap()))
