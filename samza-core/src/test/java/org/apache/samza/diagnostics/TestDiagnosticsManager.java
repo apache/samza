@@ -62,7 +62,9 @@ public class TestDiagnosticsManager {
   private int numPersistentStores = 2;
   private int containerNumCores = 2;
   private boolean autosizingEnabled = false;
-  private Config config = new MapConfig(ImmutableMap.of("job.name", jobName, "job.id", jobId));
+  private Config config = new MapConfig(ImmutableMap.of("job.name", jobName, "job.id", jobId,
+      "cluster-manager.container.memory.mb", "1024", "cluster-manager.container. cpu.cores", "1",
+      "cluster-manager.container.retry.count", "8"));
   private Map<String, ContainerModel> containerModels = TestDiagnosticsStreamMessage.getSampleContainerModels();
   private Collection<DiagnosticsExceptionEvent> exceptionEventList = TestDiagnosticsStreamMessage.getExceptionList();
 
