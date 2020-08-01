@@ -19,11 +19,8 @@
 
 package org.apache.samza.metrics;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
@@ -38,10 +35,7 @@ import org.mockito.ArgumentCaptor;
 import scala.Some;
 import scala.runtime.AbstractFunction0;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.*;
 
 
 public class TestMetricsSnapshotReporter {
@@ -60,7 +54,6 @@ public class TestMetricsSnapshotReporter {
   private static final String SAMZA_VERSION = "test samza version";
   private static final String HOSTNAME = "test host";
   private static final int REPORTING_INTERVAL = 60000;
-  private static final Config CONFIG = new MapConfig(ImmutableMap.of("job.name", JOB_NAME, "job.id", JOB_ID));
 
   private Serializer<MetricsSnapshot> serializer;
   private SystemProducer producer;
@@ -182,7 +175,7 @@ public class TestMetricsSnapshotReporter {
 
   private MetricsSnapshotReporter getMetricsSnapshotReporter(String blacklist) {
     return new MetricsSnapshotReporter(producer, SYSTEM_STREAM, REPORTING_INTERVAL, JOB_NAME, JOB_ID, CONTAINER_NAME,
-        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, new Some<>(blacklist), CONFIG, getClock());
+        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, new Some<>(blacklist), getClock());
   }
 
   private AbstractFunction0<Object> getClock() {

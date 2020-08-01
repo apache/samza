@@ -19,13 +19,9 @@
 
 package org.apache.samza.serializers
 
-import java.util.HashMap
-import java.util.Map
+import java.util.{HashMap, Map}
 
-import com.google.common.collect.ImmutableMap
-import org.apache.samza.metrics.reporter.MetricsSnapshot
-import org.apache.samza.metrics.reporter.MetricsHeader
-import org.apache.samza.metrics.reporter.Metrics
+import org.apache.samza.metrics.reporter.{Metrics, MetricsHeader, MetricsSnapshot}
 import org.junit.Assert._
 import org.junit.Ignore
 import org.junit.Test
@@ -34,10 +30,7 @@ class TestMetricsSnapshotSerde {
   @Ignore
   @Test
   def testMetricsSerdeShouldSerializeAndDeserializeAMetric {
-    val jobName = "test-jobName"
-    val jobId = "test-jobId"
-    val config = ImmutableMap.of("job.name", jobName, "job.id", jobId)
-    val header = new MetricsHeader(jobName, jobId, "samza-container-0", "test exec env container id", "test source", "version", "samzaversion", "host", 1L, 2L, config)
+    val header = new MetricsHeader("test-jobName", "testjobid", "samza-container-0", "test exec env container id", "test source", "version", "samzaversion", "host", 1L, 2L)
     val metricsMap = new HashMap[String, Object]()
     metricsMap.put("test2", "foo")
     val metricsGroupMap = new HashMap[String, Map[String, Object]]()

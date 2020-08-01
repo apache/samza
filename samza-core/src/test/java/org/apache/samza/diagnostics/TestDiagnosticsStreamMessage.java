@@ -54,7 +54,7 @@ public class TestDiagnosticsStreamMessage {
   private DiagnosticsStreamMessage getDiagnosticsStreamMessage() {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
         new DiagnosticsStreamMessage(jobName, jobId, containerName, executionEnvContainerId, taskClassVersion,
-            samzaVersion, hostname, timestamp, resetTimestamp, config);
+            samzaVersion, hostname, timestamp, resetTimestamp);
 
     diagnosticsStreamMessage.addContainerMb(1024);
     diagnosticsStreamMessage.addContainerNumCores(2);
@@ -137,7 +137,6 @@ public class TestDiagnosticsStreamMessage {
     Assert.assertEquals(metricsSnapshot.getHeader().getSamzaVersion(), samzaVersion);
     Assert.assertEquals(metricsSnapshot.getHeader().getHost(), hostname);
     Assert.assertEquals(metricsSnapshot.getHeader().getSource(), DiagnosticsManager.class.getName());
-    Assert.assertEquals(metricsSnapshot.getHeader().getConfig(), config);
 
     Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
     Assert.assertTrue(metricsMap.get("org.apache.samza.container.SamzaContainerMetrics").containsKey("exceptions"));

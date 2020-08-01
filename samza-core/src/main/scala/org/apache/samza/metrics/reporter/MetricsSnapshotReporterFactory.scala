@@ -124,9 +124,7 @@ class MetricsSnapshotReporterFactory extends MetricsReporterFactory with Logging
       Util.getTaskClassVersion(config),
       Util.getSamzaVersion,
       Util.getLocalHost.getHostName,
-      serde,
-      blacklist,
-      config)
+      serde, blacklist)
 
     reporter.register(this.getClass.getSimpleName, registry)
 

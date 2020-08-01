@@ -70,7 +70,7 @@ public class DiagnosticsUtil {
       MetricsHeader metricsHeader =
           new MetricsHeader(jobName, jobId, "samza-container-" + containerId, execEnvContainerId.orElse(""),
               LocalContainerRunner.class.getName(), Util.getTaskClassVersion(config), Util.getSamzaVersion(),
-              Util.getLocalHost().getHostName(), System.currentTimeMillis(), System.currentTimeMillis(), config);
+              Util.getLocalHost().getHostName(), System.currentTimeMillis(), System.currentTimeMillis());
 
       class MetadataFileContents {
         public final String version;

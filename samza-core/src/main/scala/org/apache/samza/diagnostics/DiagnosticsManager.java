@@ -204,7 +204,7 @@ public class DiagnosticsManager {
       try {
         DiagnosticsStreamMessage diagnosticsStreamMessage =
             new DiagnosticsStreamMessage(jobName, jobId, "samza-container-" + containerId, executionEnvContainerId,
-                taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(), resetTime.toEpochMilli(), config);
+                taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(), resetTime.toEpochMilli());
 
         // Add job-related params to the message (if not already published)
         if (!jobParamsEmitted) {

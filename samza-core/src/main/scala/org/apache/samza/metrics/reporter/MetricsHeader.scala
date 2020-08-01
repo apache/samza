@@ -35,8 +35,7 @@ object MetricsHeader {
       map.get("samza-version").toString,
       map.get("host").toString,
       map.get("time").asInstanceOf[Number].longValue,
-      map.get("reset-time").asInstanceOf[Number].longValue,
-      map.get("config").asInstanceOf[Map[String, String]])
+      map.get("reset-time").asInstanceOf[Number].longValue)
   }
 }
 
@@ -53,8 +52,7 @@ class MetricsHeader(
   @BeanProperty val samzaVersion: String,
   @BeanProperty val host: String,
   @BeanProperty val time: Long,
-  @BeanProperty val resetTime: Long,
-  @BeanProperty val config: Map[String, String]) {
+  @BeanProperty val resetTime: Long) {
 
   def getAsMap: Map[String, Object] = {
     val map = new HashMap[String, Object]
@@ -68,7 +66,6 @@ class MetricsHeader(
     map.put("host", host)
     map.put("time", time: java.lang.Long)
     map.put("reset-time", resetTime: java.lang.Long)
-    map.put("config", config)
     map
   }
 }

@@ -19,7 +19,6 @@
 
 package org.apache.samza.serializers.model.serializers;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.SamzaException;
@@ -37,12 +36,9 @@ public class TestMetricsSnapshotSerdeV2 {
 
   @Test
   public void testSerde() {
-    String jobName = "test-jobName";
-    String jobId = "i001";
-    Map<String, String> config = ImmutableMap.of("job.name", jobName, "job.id", jobId);
     MetricsHeader metricsHeader =
-        new MetricsHeader(jobName, jobId, "container 0", "test container ID",
-            "source", "300.14.25.1", "1", "1", 1, 1, config);
+        new MetricsHeader("jobName", "i001", "container 0", "test container ID",
+            "source", "300.14.25.1", "1", "1", 1, 1);
 
     BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
     DiagnosticsExceptionEvent diagnosticsExceptionEvent1 =

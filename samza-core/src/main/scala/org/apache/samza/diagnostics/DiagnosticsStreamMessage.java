@@ -68,12 +68,12 @@ public class DiagnosticsStreamMessage {
   private final Map<String, Map<String, Object>> metricsMessage;
 
   public DiagnosticsStreamMessage(String jobName, String jobId, String containerName, String executionEnvContainerId,
-      String taskClassVersion, String samzaVersion, String hostname, long timestamp, long resetTimestamp, Map<String, String> config) {
+      String taskClassVersion, String samzaVersion, String hostname, long timestamp, long resetTimestamp) {
 
     // Create the metricHeader
     metricsHeader =
         new MetricsHeader(jobName, jobId, containerName, executionEnvContainerId, DiagnosticsManager.class.getName(),
-            taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp, config);
+            taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp);
 
     this.metricsMessage = new HashMap<>();
   }
@@ -158,6 +158,10 @@ public class DiagnosticsStreamMessage {
     }
   }
 
+  /**
+   * Add the job's config to the message.
+   * @param config the config to add.
+   */
   public void addConfig(Config config) {
     addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONFIG, config);
   }
@@ -235,6 +239,10 @@ public class DiagnosticsStreamMessage {
     return (Boolean) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, AUTOSIZING_ENABLED_METRIC_NAME);
   }
 
+  /**
+   * This method gets the config of the job from the MetricsMessage.
+   * @return the config of the job.
+   */
   public Config getConfig() {
     return (Config) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONFIG);
   }
@@ -248,7 +256,7 @@ public class DiagnosticsStreamMessage {
             metricsSnapshot.getHeader().getContainerName(), metricsSnapshot.getHeader().getExecEnvironmentContainerId(),
             metricsSnapshot.getHeader().getVersion(), metricsSnapshot.getHeader().getSamzaVersion(),
             metricsSnapshot.getHeader().getHost(), metricsSnapshot.getHeader().getTime(),
-            metricsSnapshot.getHeader().getResetTime(), metricsSnapshot.getHeader().getConfig());
+            metricsSnapshot.getHeader().getResetTime());
 
     Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
     Map<String, Object> diagnosticsManagerGroupMap = metricsMap.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER);
