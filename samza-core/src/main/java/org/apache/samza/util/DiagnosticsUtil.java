@@ -19,6 +19,7 @@
 package org.apache.samza.util;
 
 import java.io.File;
+import java.lang.invoke.MethodHandles;
 import java.time.Duration;
 import java.util.Optional;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -144,7 +145,8 @@ public class DiagnosticsUtil {
       }
       SystemFactory systemFactory = ReflectionUtil.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
       SystemProducer systemProducer =
-          systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
+          systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap(),
+              MethodHandles.lookup().lookupClass().getSimpleName());
 
       DiagnosticsManager diagnosticsManager =
           new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,

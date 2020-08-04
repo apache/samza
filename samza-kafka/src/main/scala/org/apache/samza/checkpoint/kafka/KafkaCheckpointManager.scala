@@ -67,8 +67,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val checkpointSsp: SystemStreamPartition = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
   val expectedGrouperFactory: String = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
-  val systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry)
-  val systemAdmin = systemFactory.getAdmin(checkpointSystem, config)
+  val systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry, this.getClass.getSimpleName)
+  val systemAdmin = systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
 
   var taskNames: Set[TaskName] = Set[TaskName]()
   var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = _
@@ -237,7 +237,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
   @VisibleForTesting
   def getSystemProducer(): SystemProducer = {
-    systemFactory.getProducer(checkpointSystem, config, metricsRegistry)
+    systemFactory.getProducer(checkpointSystem, config, metricsRegistry, this.getClass.getSimpleName)
   }
 
   /**

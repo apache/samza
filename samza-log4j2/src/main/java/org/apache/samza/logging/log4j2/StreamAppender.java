@@ -338,7 +338,7 @@ public class StreamAppender extends AbstractAppender {
       systemAdmin.stop();
     }
 
-    systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry);
+    systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry, this.getClass().getSimpleName());
     systemStream = new SystemStream(systemName, streamName);
     systemProducer.register(SOURCE);
     systemProducer.start();

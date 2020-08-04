@@ -32,4 +32,16 @@ public interface SystemFactory {
   SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry);
 
   SystemAdmin getAdmin(String systemName, Config config);
+
+  default SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry, String callerClass) {
+    return getConsumer(systemName, config, registry);
+  }
+
+  default SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry, String callerClass) {
+    return getProducer(systemName, config, registry);
+  }
+
+  default SystemAdmin getAdmin(String systemName, Config config, String callerClass) {
+    return getAdmin(systemName, config);
+  }
 }
