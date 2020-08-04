@@ -19,9 +19,13 @@
 
 package org.apache.samza.serializers
 
-import java.util.{HashMap, Map}
+import java.util.HashMap
+import java.util.Map
 
-import org.apache.samza.metrics.reporter.{Metrics, MetricsHeader, MetricsSnapshot}
+import org.apache.samza.config.ShellCommandConfig
+import org.apache.samza.metrics.reporter.MetricsSnapshot
+import org.apache.samza.metrics.reporter.MetricsHeader
+import org.apache.samza.metrics.reporter.Metrics
 import org.junit.Assert._
 import org.junit.Ignore
 import org.junit.Test
@@ -39,9 +43,6 @@ class TestMetricsSnapshotSerde {
     val snapshot = new MetricsSnapshot(header, metrics)
     val serde = new MetricsSnapshotSerde()
     val bytes = serde.toBytes(snapshot)
-    val deserialized = serde.fromBytes(bytes)
-    assertTrue(deserialized.getHeader.jobName.equals(snapshot.getHeader.jobName))
-    assertTrue(deserialized.getHeader.jobId.equals(snapshot.getHeader.jobId))
-    assertTrue(deserialized.getMetrics.immutableMetrics.keySet().equals(snapshot.getMetrics.immutableMetrics.keySet()))
+    assertTrue(serde.fromBytes(bytes).equals(metrics))
   }
 }
