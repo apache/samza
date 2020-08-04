@@ -542,13 +542,13 @@ public class TestZkUtils {
     ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
 
     Thread threadToInterrupt = new Thread(() -> {
-        try {
-          latch.await();
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-        }
-        zkUtils.close();
-      });
+      try {
+        latch.await();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+      zkUtils.close();
+    });
 
     threadToInterrupt.start();
 

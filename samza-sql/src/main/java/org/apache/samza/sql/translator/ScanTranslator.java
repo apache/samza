@@ -22,7 +22,7 @@ package org.apache.samza.sql.translator;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.rel.core.TableScan;
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.context.ContainerContext;
@@ -37,7 +37,6 @@ import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.sql.SamzaSqlInputMessage;
 import org.apache.samza.sql.SamzaSqlInputTransformer;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.apache.samza.sql.data.SamzaSqlRelMsgMetadata;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
@@ -171,7 +170,10 @@ class ScanTranslator {
     // SqlIOResolverFactory.
     // For local table, even though table descriptor is already defined, we still need to create the input stream
     // descriptor to load the local table.
+    // To handle case where a project or filter is pushed to Remote table Scan will collect the operators and feed it to the join operator.
+    // TODO In an ideal world this has to change and use Calcite Pattern matching to translate the plan.
     if (isRemoteTable) {
+      context.registerMessageStream(tableScan.getId(), new MessageStreamCollector());
       return;
     }
 

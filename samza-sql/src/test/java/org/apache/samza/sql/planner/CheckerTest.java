@@ -55,7 +55,7 @@ public class CheckerTest {
     public String execute(String val) {
       return "RandomStringtoFail";
     }
- }
+  }
 
   @Test(expected = SamzaSqlValidatorException.class)
   public void testCheckOperandTypesShouldFailOnTypeMisMatch() throws NoSuchMethodException {

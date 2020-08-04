@@ -110,10 +110,10 @@ public class EventHubConfig extends MapConfig {
     LOG.info("Building mappings from physicalName to streamId");
     streamConfig.getStreamIds()
         .forEach((streamId) -> {
-            String physicalName = streamConfig.getPhysicalName(streamId);
-            LOG.info("Obtained physicalName: {} for streamId: {} ", physicalName, streamId);
-            physcialToId.put(physicalName, streamId);
-          });
+          String physicalName = streamConfig.getPhysicalName(streamId);
+          LOG.info("Obtained physicalName: {} for streamId: {} ", physicalName, streamId);
+          physcialToId.put(physicalName, streamId);
+        });
   }
 
   private String getFromStreamIdOrName(String configName, String streamName, String defaultString) {

@@ -19,8 +19,6 @@
 package org.apache.samza.rest.model.yarn;
 
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.rest.proxy.job.JobInstance;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -56,8 +54,8 @@ public class YarnApplicationInfo {
    * @return the job name to use for the job in YARN.
    */
   public static String getQualifiedJobName(JobInstance jobInstance) {
-    final String JOB_NAME_ID_FORMAT = "%s_%s";
-    return String.format(JOB_NAME_ID_FORMAT, jobInstance.getJobName(), jobInstance.getJobId());
+    final String jobNameIdFormat = "%s_%s";
+    return String.format(jobNameIdFormat, jobInstance.getJobName(), jobInstance.getJobId());
   }
 
   @JsonIgnoreProperties(ignoreUnknown = true)

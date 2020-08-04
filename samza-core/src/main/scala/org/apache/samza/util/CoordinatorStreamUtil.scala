@@ -24,10 +24,11 @@ import java.util
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
-import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer, CoordinatorStreamValueSerde}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
 import org.apache.samza.job.JobRunner
+import org.apache.samza.metadatastore.MetadataStore
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemAdmins, SystemFactory, SystemStream}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
@@ -44,7 +45,23 @@ object CoordinatorStreamUtil extends Logging {
     val buildConfigFactory = jobConfig.getCoordinatorStreamFactory
     val coordinatorSystemConfig = Class.forName(buildConfigFactory).newInstance().asInstanceOf[CoordinatorStreamConfigFactory].buildCoordinatorStreamConfig(config)
 
-    new MapConfig(coordinatorSystemConfig);
+    new MapConfig(coordinatorSystemConfig)
+  }
+
+  /**
+   * Creates coordinator stream from config if it does not exist, otherwise no-op.
+   *
+   * @param config to create coordinator stream.
+   */
+  def createCoordinatorStream(config: Config): Unit = {
+    val systemAdmins = new SystemAdmins(config)
+
+    info("Creating coordinator stream")
+    val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
+    val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
+    coordinatorSystemAdmin.start()
+    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin)
+    coordinatorSystemAdmin.stop()
   }
 
   /**
@@ -111,12 +128,29 @@ object CoordinatorStreamUtil extends Logging {
   }
 
   /**
+   * Reads and returns launch config persisted in coordinator stream. Only job.auto sizing configs are currently supported.
+   * @param config full job config
+   * @param metadataStore an instance of the instantiated MetadataStore
+   * @return empty config if auto sizing is disabled, otherwise auto sizing related configs.
+   */
+  def readLaunchConfigFromCoordinatorStream(config: Config, metadataStore: MetadataStore): Config = {
+    if (!config.getBoolean(JobConfig.JOB_AUTOSIZING_ENABLED, false)) {
+      new MapConfig()
+    } else {
+      val config = readConfigFromCoordinatorStream(metadataStore)
+      val launchConfig = config.asScala.filterKeys(key => JobConfig.isAutosizingConfig(key)).asJava
+
+      new MapConfig(launchConfig)
+    }
+  }
+
+  /**
     * Reads and returns the complete configuration stored in the coordinator stream.
-    * @param coordinatorStreamStore an instance of the instantiated {@link CoordinatorStreamStore}.
+    * @param metadataStore an instance of the instantiated {@link CoordinatorStreamStore}.
     * @return the configuration read from the coordinator stream.
     */
-  def readConfigFromCoordinatorStream(coordinatorStreamStore: CoordinatorStreamStore): Config = {
-    val namespaceAwareCoordinatorStreamStore: NamespaceAwareCoordinatorStreamStore = new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE)
+  def readConfigFromCoordinatorStream(metadataStore: MetadataStore): Config = {
+    val namespaceAwareCoordinatorStreamStore: NamespaceAwareCoordinatorStreamStore = new NamespaceAwareCoordinatorStreamStore(metadataStore, SetConfig.TYPE)
     val configFromCoordinatorStream: util.Map[String, Array[Byte]] = namespaceAwareCoordinatorStreamStore.all
     val configMap: util.Map[String, String] = new util.HashMap[String, String]
     for ((key: String, valueAsBytes: Array[Byte]) <- configFromCoordinatorStream.asScala) {
@@ -136,18 +170,10 @@ object CoordinatorStreamUtil extends Logging {
   }
 
   def writeConfigToCoordinatorStream(config: Config, resetJobConfig: Boolean = true) {
-    debug("config: %s" format (config))
+    debug("config: %s" format config)
     val coordinatorSystemConsumer = new CoordinatorStreamSystemConsumer(config, new MetricsRegistryMap)
     val coordinatorSystemProducer = new CoordinatorStreamSystemProducer(config, new MetricsRegistryMap)
-    val systemAdmins = new SystemAdmins(config)
-
-    // Create the coordinator stream if it doesn't exist
-    info("Creating coordinator stream")
-    val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
-    val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
-    coordinatorSystemAdmin.start()
-    CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin)
-    coordinatorSystemAdmin.stop()
+    CoordinatorStreamUtil.createCoordinatorStream(config)
 
     if (resetJobConfig) {
       info("Storing config in coordinator stream.")
@@ -168,7 +194,7 @@ object CoordinatorStreamUtil extends Logging {
       val jobConfig = new JobConfig(config)
       if (jobConfig.getAutosizingEnabled) {
         // If autosizing is enabled, we retain auto-sizing related configs
-        keysToRemove = keysToRemove.filter(configKey => !jobConfig.isAutosizingConfig(configKey))
+        keysToRemove = keysToRemove.filter(configKey => !JobConfig.isAutosizingConfig(configKey))
       }
 
       info("Deleting old configs that are no longer defined: %s".format(keysToRemove))

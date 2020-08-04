@@ -39,12 +39,12 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
   private static final String SSP_GROUPER_FACTORY_FIELD = "systemstreampartition-grouper-factory";
   private static final String TASK_NAME_FIELD = "taskName";
   private static final String TYPE_FIELD = "type";
-  private static final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Override
   public byte[] toBytes(KafkaCheckpointLogKey key) {
     try {
-      return mapper.writeValueAsBytes(ImmutableMap.of(
+      return MAPPER.writeValueAsBytes(ImmutableMap.of(
           SSP_GROUPER_FACTORY_FIELD, key.getGrouperFactoryClassName(),
           TASK_NAME_FIELD, key.getTaskName().toString(),
           TYPE_FIELD, key.getType()
@@ -57,7 +57,7 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
   @Override
   public KafkaCheckpointLogKey fromBytes(byte[] bytes) {
     try {
-      LinkedHashMap<String, String> deserializedKey = mapper.readValue(bytes, LinkedHashMap.class);
+      LinkedHashMap<String, String> deserializedKey = MAPPER.readValue(bytes, LinkedHashMap.class);
 
       if (!KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(deserializedKey.get(TYPE_FIELD))) {
         throw new IllegalArgumentException(String.format("Invalid key detected. Type of the key is %s", deserializedKey.get(TYPE_FIELD)));

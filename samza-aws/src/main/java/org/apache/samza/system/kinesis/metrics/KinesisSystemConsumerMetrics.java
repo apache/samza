@@ -73,7 +73,7 @@ public class KinesisSystemConsumerMetrics {
         .collect(Collectors.toConcurrentMap(Function.identity(), x -> new SamzaHistogram(registry, x, READ_LATENCY)));
     millisBehindLatest = streamNames.stream()
         .collect(Collectors.toConcurrentMap(Function.identity(),
-            x -> new SamzaHistogram(registry, x, MILLIS_BEHIND_LATEST)));
+          x -> new SamzaHistogram(registry, x, MILLIS_BEHIND_LATEST)));
 
     // Locking to ensure that these aggregated metrics will be created only once across multiple system consumers.
     synchronized (LOCK) {

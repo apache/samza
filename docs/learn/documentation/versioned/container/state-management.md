@@ -192,7 +192,7 @@ Currently Samza provides a state storage tool which can recover the state store 
 
 {% highlight bash %}
 samza-example/target/bin/state-storage-tool.sh \
-  --config-path=file:///path/to/job/config.properties \
+  --config-path=/path/to/job/config.properties \
   --path=directory/to/put/state/stores
 {% endhighlight %}
 
@@ -202,7 +202,7 @@ Samza also provides a tool to read the value from a running job's RocksDB.
 
 {% highlight bash %}
 samza-example/target/bin/read-rocksdb-tool.sh \
-  --config-path=file:///path/to/job/config.properties \
+  --config-path=/path/to/job/config.properties \
   --db-path=/tmp/nm-local-dir/state/test-state/Partition_0 \
   --db-name=test-state \
   --string-key=a,b,c

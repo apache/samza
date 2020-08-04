@@ -18,6 +18,7 @@
  */
 package org.apache.samza.clustermanager.container.placement;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.samza.clustermanager.ContainerProcessManager;
 import org.apache.samza.config.ApplicationConfig;
@@ -50,7 +51,10 @@ public class ContainerPlacementRequestAllocator implements Runnable {
    * RunId of the app
    */
   private final String appRunId;
-
+  /**
+   * Sleep time for container placement handler thread
+   */
+  private final int containerPlacementHandlerSleepMs;
   public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager, ApplicationConfig config) {
     Preconditions.checkNotNull(containerPlacementMetadataStore, "containerPlacementMetadataStore cannot be null");
     Preconditions.checkNotNull(manager, "ContainerProcessManager cannot be null");
@@ -58,6 +62,22 @@ public class ContainerPlacementRequestAllocator implements Runnable {
     this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     this.isRunning = true;
     this.appRunId = config.getRunId();
+    this.containerPlacementHandlerSleepMs = DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS;
+  }
+
+  @VisibleForTesting
+  /**
+   * Should only get used for testing, cannot make it package private because end to end integeration test
+   * need package private methods which live in org.apache.samza.clustermanager
+   */
+  public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager, ApplicationConfig config, int containerPlacementHandlerSleepMs) {
+    Preconditions.checkNotNull(containerPlacementMetadataStore, "containerPlacementMetadataStore cannot be null");
+    Preconditions.checkNotNull(manager, "ContainerProcessManager cannot be null");
+    this.containerProcessManager = manager;
+    this.containerPlacementMetadataStore = containerPlacementMetadataStore;
+    this.isRunning = true;
+    this.appRunId = config.getRunId();
+    this.containerPlacementHandlerSleepMs = containerPlacementHandlerSleepMs;
   }
 
   @Override
@@ -75,7 +95,7 @@ public class ContainerPlacementRequestAllocator implements Runnable {
             containerPlacementMetadataStore.deleteAllContainerPlacementMessages(message.getUuid());
           }
         }
-        Thread.sleep(DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS);
+        Thread.sleep(containerPlacementHandlerSleepMs);
       } catch (InterruptedException e) {
         LOG.warn("Got InterruptedException in ContainerPlacementRequestAllocator thread.", e);
         Thread.currentThread().interrupt();

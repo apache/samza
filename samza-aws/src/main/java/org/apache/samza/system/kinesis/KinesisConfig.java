@@ -84,12 +84,12 @@ public class KinesisConfig extends MapConfig {
     // all properties should now start with stream name
     Set<String> streams = new HashSet<>();
     streamsConfig.keySet().forEach(key -> {
-        String[] parts = key.split("\\.", 2);
-        if (parts.length != 2) {
-          throw new IllegalArgumentException("Ill-formatted stream config: " + key);
-        }
-        streams.add(parts[0]);
-      });
+      String[] parts = key.split("\\.", 2);
+      if (parts.length != 2) {
+        throw new IllegalArgumentException("Ill-formatted stream config: " + key);
+      }
+      streams.add(parts[0]);
+    });
     return streams;
   }
 

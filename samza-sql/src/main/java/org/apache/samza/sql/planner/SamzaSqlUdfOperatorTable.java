@@ -29,6 +29,7 @@ import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.util.ListSqlOperatorTable;
+import org.apache.calcite.sql.validate.SqlNameMatcher;
 import org.apache.calcite.sql.validate.SqlUserDefinedFunction;
 import org.apache.samza.sql.interfaces.UdfMetadata;
 
@@ -45,7 +46,7 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
     List<UdfMetadata> udfMetadataList = new ArrayList<>();
     scalarFunctions.forEach(samzaSqlScalarFunction -> {
       udfMetadataList.add(samzaSqlScalarFunction.getUdfMetadata());
-      });
+    });
     return scalarFunctions.stream().map(scalarFunction -> getSqlOperator(scalarFunction, udfMetadataList)).collect(Collectors.toList());
   }
 
@@ -53,31 +54,20 @@ public class SamzaSqlUdfOperatorTable implements SqlOperatorTable {
     int numArguments = scalarFunction.numberOfArguments();
     UdfMetadata udfMetadata = scalarFunction.getUdfMetadata();
 
-    if(udfMetadata.isDisableArgCheck()) {
+    if (udfMetadata.isDisableArgCheck()) {
       return new SqlUserDefinedFunction(new SqlIdentifier(scalarFunction.getUdfName(), SqlParserPos.ZERO),
-          o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.ANY_CHECKER,
-          null, scalarFunction);
+        o -> scalarFunction.getReturnType(o.getTypeFactory()), null, Checker.ANY_CHECKER, null, scalarFunction);
     } else {
-      return new SqlUserDefinedFunction(
-              new SqlIdentifier(scalarFunction.getUdfName(),
-                                SqlParserPos.ZERO),
-          o -> scalarFunction.getReturnType(o.getTypeFactory()),
-          null,
-          Checker.getChecker(numArguments, numArguments, udfMetadata),
-          null,
-              scalarFunction);
+      return new SqlUserDefinedFunction(new SqlIdentifier(scalarFunction.getUdfName(), SqlParserPos.ZERO),
+        o -> scalarFunction.getReturnType(o.getTypeFactory()), null,
+        Checker.getChecker(numArguments, numArguments, udfMetadata), null, scalarFunction);
     }
   }
 
   @Override
   public void lookupOperatorOverloads(SqlIdentifier opName, SqlFunctionCategory category, SqlSyntax syntax,
-      List<SqlOperator> operatorList) {
-    SqlIdentifier upperCaseOpName = opName;
-    // Only udfs are case insensitive
-    if (category != null && category.equals(SqlFunctionCategory.USER_DEFINED_FUNCTION)) {
-      upperCaseOpName = new SqlIdentifier(opName.names.get(0).toUpperCase(), opName.getComponentParserPosition(0));
-    }
-    operatorTable.lookupOperatorOverloads(upperCaseOpName, category, syntax, operatorList);
+      List<SqlOperator> operatorList, SqlNameMatcher nameMatcher) {
+    operatorTable.lookupOperatorOverloads(opName, category, syntax, operatorList, nameMatcher);
   }
 
   @Override

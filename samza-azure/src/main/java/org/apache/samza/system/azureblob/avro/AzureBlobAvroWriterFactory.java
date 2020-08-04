@@ -26,6 +26,8 @@ import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import java.io.IOException;
 import java.util.concurrent.Executor;
+import org.apache.samza.config.Config;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 
 
 public class AzureBlobAvroWriterFactory implements AzureBlobWriterFactory {
@@ -35,9 +37,11 @@ public class AzureBlobAvroWriterFactory implements AzureBlobWriterFactory {
    */
   public AzureBlobWriter getWriterInstance(BlobContainerAsyncClient containerAsyncClient, String blobURL,
       Executor blobUploadThreadPool, AzureBlobWriterMetrics metrics,
+      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
       long maxBlobSize, long maxMessagesPerBlob) throws IOException {
     return new AzureBlobAvroWriter(containerAsyncClient, blobURL, blobUploadThreadPool, metrics,
-        maxBlockFlushThresholdSize, flushTimeoutMs, compression, useRandomStringInBlobName, maxBlobSize, maxMessagesPerBlob);
+          blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName, maxBlockFlushThresholdSize, flushTimeoutMs,
+          compression, useRandomStringInBlobName, maxBlobSize, maxMessagesPerBlob);
   }
 }

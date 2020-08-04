@@ -67,12 +67,12 @@ public class ElasticsearchConfig extends MapConfig {
 
   // Index Request
   public Optional<String> getIndexRequestFactoryClassName() {
-      return Optional.ofNullable(get(CONFIG_KEY_INDEX_REQUEST_FACTORY));
+    return Optional.ofNullable(get(CONFIG_KEY_INDEX_REQUEST_FACTORY));
   }
 
   // Transport client settings
   public Optional<String> getTransportHost() {
-      return Optional.ofNullable(get(CONFIG_KEY_CLIENT_TRANSPORT_HOST));
+    return Optional.ofNullable(get(CONFIG_KEY_CLIENT_TRANSPORT_HOST));
   }
 
   public Optional<Integer> getTransportPort() {

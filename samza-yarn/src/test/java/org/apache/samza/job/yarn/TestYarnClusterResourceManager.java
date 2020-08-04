@@ -65,7 +65,7 @@ public class TestYarnClusterResourceManager {
         new YarnContainer(Container.newInstance(
             ContainerId.newContainerId(
                 ApplicationAttemptId.newInstance(
-                    ApplicationId.newInstance(10000l, 1), 1), 1),
+                    ApplicationId.newInstance(10000L, 1), 1), 1),
             NodeId.newInstance("host1", 8088), "http://host1",
             Resource.newInstance(1024, 1), Priority.newInstance(1),
             Token.newInstance("id".getBytes(), "read", "password".getBytes(), "service"))));
@@ -75,7 +75,7 @@ public class TestYarnClusterResourceManager {
 
     yarnClusterResourceManager.onStartContainerError(ContainerId.newContainerId(
         ApplicationAttemptId.newInstance(
-            ApplicationId.newInstance(10000l, 1), 1), 1),
+            ApplicationId.newInstance(10000L, 1), 1), 1),
         new Exception());
 
     assertEquals(0, yarnAppState.pendingProcessors.size());

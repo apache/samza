@@ -50,10 +50,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemProducerException;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,6 +138,9 @@ public class AzureBlobSystemProducer implements SystemProducer {
   private final Map<String, Object> sourceWriterCreationLockMap = new ConcurrentHashMap<>();
   private final Map<String, ReadWriteLock> sourceSendFlushLockMap = new ConcurrentHashMap<>();
 
+  private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory;
+  private final Config blobMetadataGeneratorConfig;
+
   public AzureBlobSystemProducer(String systemName, AzureBlobConfig config, MetricsRegistry metricsRegistry) {
     Preconditions.checkNotNull(systemName, "System name can not be null when creating AzureBlobSystemProducer");
     Preconditions.checkNotNull(config, "Config can not be null when creating AzureBlobSystemProducer");
@@ -171,6 +176,14 @@ public class AzureBlobSystemProducer implements SystemProducer {
     this.writerMap = new ConcurrentHashMap<>();
 
     this.metrics = new AzureBlobSystemProducerMetrics(systemName, config.getAzureAccountName(systemName), metricsRegistry);
+
+    String blobMetadataGeneratorFactoryClassName = this.config.getSystemBlobMetadataPropertiesGeneratorFactory(this.systemName);
+    try {
+      blobMetadataGeneratorFactory = (BlobMetadataGeneratorFactory) Class.forName(blobMetadataGeneratorFactoryClassName).newInstance();
+    } catch (Exception e) {
+      throw new SystemProducerException("Could not create blob metadata generator factory with name " + blobMetadataGeneratorFactoryClassName, e);
+    }
+    blobMetadataGeneratorConfig = this.config.getSystemBlobMetadataGeneratorConfigs(systemName);
   }
 
   /**
@@ -423,7 +436,7 @@ public class AzureBlobSystemProducer implements SystemProducer {
         if (writer == null) {
           AzureBlobWriterMetrics writerMetrics =
               new AzureBlobWriterMetrics(metrics.getAggregateMetrics(), metrics.getSystemMetrics(), metrics.getSourceMetrics(source));
-          writer = createNewWriter(blobURLPrefix, writerMetrics);
+          writer = createNewWriter(blobURLPrefix, writerMetrics, messageEnvelope.getSystemStream().getStream());
           sourceWriterMap.put(writerMapKey, writer);
         }
       }
@@ -458,41 +471,41 @@ public class AzureBlobSystemProducer implements SystemProducer {
 
   private void flushWriters(Map<String, AzureBlobWriter> sourceWriterMap) {
     sourceWriterMap.forEach((stream, writer) -> {
-        try {
-          LOG.info("Flushing topic:{}", stream);
-          writer.flush();
-        } catch (IOException e) {
-          throw new SystemProducerException("Close failed for topic " + stream, e);
-        }
-      });
+      try {
+        LOG.info("Flushing topic:{}", stream);
+        writer.flush();
+      } catch (IOException e) {
+        throw new SystemProducerException("Close failed for topic " + stream, e);
+      }
+    });
   }
 
   private void closeWriters(String source, Map<String, AzureBlobWriter> sourceWriterMap) throws Exception {
     Set<CompletableFuture<Void>> pendingClose = ConcurrentHashMap.newKeySet();
     try {
       sourceWriterMap.forEach((stream, writer) -> {
-          LOG.info("Closing topic:{}", stream);
-          CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
-            @Override
-            public void run() {
-              try {
-                writer.close();
-              } catch (IOException e) {
-                throw new SystemProducerException("Close failed for topic " + stream, e);
-              }
+        LOG.info("Closing topic:{}", stream);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
+          @Override
+          public void run() {
+            try {
+              writer.close();
+            } catch (IOException e) {
+              throw new SystemProducerException("Close failed for topic " + stream, e);
             }
-          }, asyncBlobThreadPool);
-          pendingClose.add(future);
-          future.handle((aVoid, throwable) -> {
-              sourceWriterMap.remove(writer);
-              if (throwable != null) {
-                throw new SystemProducerException("Close failed for topic " + stream, throwable);
-              } else {
-                LOG.info("Blob close finished for stream " + stream);
-                return aVoid;
-              }
-            });
+          }
+        }, asyncBlobThreadPool);
+        pendingClose.add(future);
+        future.handle((aVoid, throwable) -> {
+          sourceWriterMap.remove(writer);
+          if (throwable != null) {
+            throw new SystemProducerException("Close failed for topic " + stream, throwable);
+          } else {
+            LOG.info("Blob close finished for stream " + stream);
+            return aVoid;
+          }
         });
+      });
       CompletableFuture<Void> future = CompletableFuture.allOf(pendingClose.toArray(new CompletableFuture[0]));
       LOG.info("Flush source: {} has pending closes: {} ", source, pendingClose.size());
       future.get((long) closeTimeout, TimeUnit.MILLISECONDS);
@@ -502,9 +515,10 @@ public class AzureBlobSystemProducer implements SystemProducer {
   }
 
   @VisibleForTesting
-  AzureBlobWriter createNewWriter(String blobURL, AzureBlobWriterMetrics writerMetrics) {
+  AzureBlobWriter createNewWriter(String blobURL, AzureBlobWriterMetrics writerMetrics, String streamName) {
     try {
       return writerFactory.getWriterInstance(containerAsyncClient, blobURL, asyncBlobThreadPool, writerMetrics,
+          blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName,
           blockFlushThresholdSize, flushTimeoutMs,
           CompressionFactory.getInstance().getCompression(config.getCompressionType(systemName)),
           config.getSuffixRandomStringToBlobName(systemName),

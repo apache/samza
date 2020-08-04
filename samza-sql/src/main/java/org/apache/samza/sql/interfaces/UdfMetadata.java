@@ -35,7 +35,6 @@ public class UdfMetadata {
   // retains the name as it is given to UdfMetadata.
   // For example: if displayName is 'GetSqlField', name would be 'GETSQLFIELD'.
   private final String name;
-  private final String displayName;
 
   private final String description;
   private final Method udfMethod;
@@ -47,10 +46,7 @@ public class UdfMetadata {
 
   public UdfMetadata(String name, String description, Method udfMethod, Config udfConfig, List<SamzaSqlFieldType> arguments,
       SamzaSqlFieldType returnType, boolean disableArgCheck) {
-    // Udfs are case insensitive
-    this.name = name.toUpperCase();
-    // Let's also store the original name for display purposes.
-    this.displayName = name;
+    this.name = name;
     this.description = description;
     this.udfMethod = udfMethod;
     this.udfConfig = udfConfig;
@@ -88,7 +84,7 @@ public class UdfMetadata {
    * @return Returns the name of the Udf for display purposes.
    */
   public String getDisplayName() {
-    return displayName;
+    return getName();
   }
 
   /**

@@ -20,6 +20,7 @@
 package org.apache.samza.sql.planner;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -34,8 +35,8 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelRecordType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
@@ -69,10 +70,10 @@ public class SamzaSqlValidator {
    * @throws SamzaSqlValidatorException exception for sql validation
    */
   public void validate(List<String> sqlStmts) throws SamzaSqlValidatorException {
-    SamzaSqlApplicationConfig sqlConfig = SamzaSqlDslConverter.getSqlConfig(sqlStmts, config);
-    QueryPlanner planner = SamzaSqlDslConverter.getQueryPlanner(sqlConfig);
-
     for (String sql: sqlStmts) {
+      SamzaSqlApplicationConfig sqlConfig = SamzaSqlDslConverter.getSqlConfig(Collections.singletonList(sql), config);
+      QueryPlanner planner = SamzaSqlDslConverter.getQueryPlanner(sqlConfig);
+
       // we always pass only select query to the planner for samza sql. The reason is that samza sql supports
       // schema evolution where source and destination could up to an extent have independent schema evolution while
       // calcite expects strict conformance of the destination schema with that of the fields in the select query.

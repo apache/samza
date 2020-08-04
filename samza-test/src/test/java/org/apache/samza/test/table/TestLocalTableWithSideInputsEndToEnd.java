@@ -143,10 +143,10 @@ public class TestLocalTableWithSideInputsEndToEnd extends IntegrationTestHarness
       return new InMemoryTableDescriptor(PROFILE_TABLE, KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
           .withSideInputs(ImmutableList.of(PROFILE_STREAM))
           .withSideInputsProcessor((msg, store) -> {
-              Profile profile = (Profile) msg.getMessage();
-              int key = profile.getMemberId();
-              return ImmutableList.of(new Entry<>(key, profile));
-            });
+            Profile profile = (Profile) msg.getMessage();
+            int key = profile.getMemberId();
+            return ImmutableList.of(new Entry<>(key, profile));
+          });
     }
   }
 
@@ -156,10 +156,10 @@ public class TestLocalTableWithSideInputsEndToEnd extends IntegrationTestHarness
       return new RocksDbTableDescriptor(PROFILE_TABLE, KVSerde.of(new IntegerSerde(), new ProfileJsonSerde()))
           .withSideInputs(ImmutableList.of(PROFILE_STREAM))
           .withSideInputsProcessor((msg, store) -> {
-              TestTableData.Profile profile = (TestTableData.Profile) msg.getMessage();
-              int key = profile.getMemberId();
-              return ImmutableList.of(new Entry<>(key, profile));
-            });
+            TestTableData.Profile profile = (TestTableData.Profile) msg.getMessage();
+            int key = profile.getMemberId();
+            return ImmutableList.of(new Entry<>(key, profile));
+          });
     }
   }
 }

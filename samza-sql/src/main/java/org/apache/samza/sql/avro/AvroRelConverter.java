@@ -125,11 +125,18 @@ public class AvroRelConverter implements SamzaRelConverter {
         .collect(Collectors.toList()));
   }
 
-  private static SamzaSqlRelRecord convertToRelRecord(IndexedRecord avroRecord, Schema schema) {
+  private static SamzaSqlRelRecord convertToRelRecord(IndexedRecord avroRecord) {
     List<Object> fieldValues = new ArrayList<>();
     List<String> fieldNames = new ArrayList<>();
     if (avroRecord != null) {
-      fetchFieldNamesAndValuesFromIndexedRecord(avroRecord, fieldNames, fieldValues, schema);
+      fieldNames.addAll(
+          avroRecord.getSchema().getFields().stream().map(Schema.Field::name).collect(Collectors.toList()));
+      fieldValues.addAll(avroRecord.getSchema()
+          .getFields()
+          .stream()
+          .map(f -> convertToJavaObject(avroRecord.get(avroRecord.getSchema().getField(f.name()).pos()),
+              getNonNullUnionSchema(avroRecord.getSchema().getField(f.name()).schema())))
+          .collect(Collectors.toList()));
     } else {
       String msg = "Avro Record is null";
       LOG.error(msg);
@@ -194,10 +201,12 @@ public class AvroRelConverter implements SamzaRelConverter {
             .collect(Collectors.toList());
         return avroList;
       case MAP:
-        return ((Map<String, ?>) relObj).entrySet()
-            .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey,
-                e -> convertToAvroObject(e.getValue(), getNonNullUnionSchema(schema).getValueType())));
+        // If you ask why not using String and that is because some strings are Wrapped into org.apache.avro.util.Utf8
+        // TODO looking at the Utf8 code base it is not immutable, having it as a key is calling for trouble!
+        final Map<Object, Object> outputMap = new HashMap<>();
+        ((Map<Object, Object>) relObj).forEach((key, aValue) -> outputMap.put(key,
+            convertToAvroObject(aValue, getNonNullUnionSchema(schema).getValueType())));
+        return outputMap;
       case UNION:
         for (Schema unionSchema : schema.getTypes()) {
           if (isSchemaCompatibleWithRelObj(relObj, unionSchema)) {
@@ -224,7 +233,7 @@ public class AvroRelConverter implements SamzaRelConverter {
     }
     switch (schema.getType()) {
       case RECORD:
-        return convertToRelRecord((IndexedRecord) avroObj, schema);
+        return convertToRelRecord((IndexedRecord) avroObj);
       case ARRAY: {
         ArrayList<Object> retVal = new ArrayList<>();
         List<Object> avroArray;
@@ -246,7 +255,7 @@ public class AvroRelConverter implements SamzaRelConverter {
         retVal.putAll(((Map<String, ?>) avroObj).entrySet()
             .stream()
             .collect(Collectors.toMap(Map.Entry::getKey,
-                e -> convertToJavaObject(e.getValue(), getNonNullUnionSchema(schema).getValueType()))));
+              e -> convertToJavaObject(e.getValue(), getNonNullUnionSchema(schema).getValueType()))));
         return retVal;
       }
       case UNION:
@@ -321,7 +330,7 @@ public class AvroRelConverter implements SamzaRelConverter {
       if (types.size() == 2) {
         if (types.get(0).getType() == Schema.Type.NULL) {
           return types.get(1);
-        } else if ((types.get(1).getType() == Schema.Type.NULL)) {
+        } else if (types.get(1).getType() == Schema.Type.NULL) {
           return types.get(0);
         }
       }

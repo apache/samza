@@ -22,8 +22,8 @@ import org.apache.samza.monitor.Monitor;
 
 public class DummyMonitor implements Monitor {
 
-    @Override
-    public void monitor() {
-        // Do nothing!
-    }
+  @Override
+  public void monitor() {
+    // Do nothing!
+  }
 }

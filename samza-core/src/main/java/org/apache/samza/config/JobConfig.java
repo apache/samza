@@ -143,8 +143,7 @@ public class JobConfig extends MapConfig {
   public static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
   public static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
 
-  public static final String CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED =
-      "samza.cluster.based.job.coordinator.dependency.isolation.enabled";
+  public static final String JOB_SPLIT_DEPLOYMENT_ENABLED = "job.split.deployment.enabled";
 
   private static final String JOB_STARTPOINT_ENABLED = "job.startpoint.enabled";
 
@@ -221,20 +220,20 @@ public class JobConfig extends MapConfig {
   public Map<String, Pattern> getMonitorRegexPatternMap(String rewritersList) {
     Map<String, Pattern> inputRegexesToMonitor = new HashMap<>();
     Stream.of(rewritersList.split(",")).forEach(rewriterName -> {
-        Optional<String> rewriterSystem = getRegexResolvedSystem(rewriterName);
-        Optional<String> rewriterRegex = getRegexResolvedStreams(rewriterName);
-        if (rewriterSystem.isPresent() && rewriterRegex.isPresent()) {
-          Pattern newPatternForSystem;
-          Pattern existingPatternForSystem = inputRegexesToMonitor.get(rewriterSystem.get());
-          if (existingPatternForSystem == null) {
-            newPatternForSystem = Pattern.compile(rewriterRegex.get());
-          } else {
-            newPatternForSystem =
-                Pattern.compile(String.join("|", existingPatternForSystem.pattern(), rewriterRegex.get()));
-          }
-          inputRegexesToMonitor.put(rewriterSystem.get(), newPatternForSystem);
+      Optional<String> rewriterSystem = getRegexResolvedSystem(rewriterName);
+      Optional<String> rewriterRegex = getRegexResolvedStreams(rewriterName);
+      if (rewriterSystem.isPresent() && rewriterRegex.isPresent()) {
+        Pattern newPatternForSystem;
+        Pattern existingPatternForSystem = inputRegexesToMonitor.get(rewriterSystem.get());
+        if (existingPatternForSystem == null) {
+          newPatternForSystem = Pattern.compile(rewriterRegex.get());
+        } else {
+          newPatternForSystem =
+              Pattern.compile(String.join("|", existingPatternForSystem.pattern(), rewriterRegex.get()));
         }
-      });
+        inputRegexesToMonitor.put(rewriterSystem.get(), newPatternForSystem);
+      }
+    });
     return inputRegexesToMonitor;
   }
 
@@ -294,13 +293,13 @@ public class JobConfig extends MapConfig {
   public String getSSPMatcherConfigRegex() {
     return Optional.ofNullable(get(SSP_MATCHER_CONFIG_REGEX))
         .orElseThrow(
-            () -> new SamzaException(String.format("Missing required configuration: '%s'", SSP_MATCHER_CONFIG_REGEX)));
+          () -> new SamzaException(String.format("Missing required configuration: '%s'", SSP_MATCHER_CONFIG_REGEX)));
   }
 
   public String getSSPMatcherConfigRanges() {
     return Optional.ofNullable(get(SSP_MATCHER_CONFIG_RANGES))
         .orElseThrow(
-            () -> new SamzaException(String.format("Missing required configuration: '%s'", SSP_MATCHER_CONFIG_RANGES)));
+          () -> new SamzaException(String.format("Missing required configuration: '%s'", SSP_MATCHER_CONFIG_RANGES)));
   }
 
   public String getSSPMatcherConfigJobFactoryRegex() {
@@ -352,7 +351,7 @@ public class JobConfig extends MapConfig {
    * @param configParam the config param to determine
    * @return true if the config is related to autosizing, false otherwise
    */
-  public boolean isAutosizingConfig(String configParam) {
+  public static boolean isAutosizingConfig(String configParam) {
     return configParam.startsWith(JOB_AUTOSIZING_CONFIG_PREFIX);
   }
 
@@ -372,8 +371,8 @@ public class JobConfig extends MapConfig {
     return getStandbyTaskReplicationFactor() > 1;
   }
 
-  public boolean getClusterBasedJobCoordinatorDependencyIsolationEnabled() {
-    return getBoolean(CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, false);
+  public boolean isSplitDeploymentEnabled() {
+    return getBoolean(JOB_SPLIT_DEPLOYMENT_ENABLED, false);
   }
 
   /**

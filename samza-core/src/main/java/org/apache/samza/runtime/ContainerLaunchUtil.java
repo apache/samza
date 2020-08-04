@@ -52,6 +52,7 @@ import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import scala.Option;
 
 
@@ -77,6 +78,12 @@ public class ContainerLaunchUtil {
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
       String jobName, String jobId, String containerId, Optional<String> execEnvContainerId,
       JobModel jobModel) {
+
+    // populate MDC for logging
+    MDC.put("containerName", "samza-container-" + containerId);
+    MDC.put("jobName", jobName);
+    MDC.put("jobId", jobId);
+
 
     Config config = jobModel.getConfig();
     DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
@@ -190,14 +197,14 @@ public class ContainerLaunchUtil {
     if (executionEnvContainerId != null) {
       log.info("Got execution environment container id: {}", executionEnvContainerId);
       return new ContainerHeartbeatMonitor(() -> {
-          try {
-            container.shutdown();
-            containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
-          } catch (Exception e) {
-            log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
-            System.exit(1);
-          }
-        }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+        try {
+          container.shutdown();
+          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+        } catch (Exception e) {
+          log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
+          System.exit(1);
+        }
+      }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
     } else {
       log.warn("Execution environment container id not set. Container heartbeat monitor will not be created");
       return null;

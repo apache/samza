@@ -140,12 +140,12 @@ public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
       List<K> delKeys = new ArrayList<>();
       List<Entry<K, V>> putRecords = new ArrayList<>();
       entries.forEach(r -> {
-          if (r.getValue() != null) {
-            putRecords.add(r);
-          } else {
-            delKeys.add(r.getKey());
-          }
-        });
+        if (r.getValue() != null) {
+          putRecords.add(r);
+        } else {
+          delKeys.add(r.getKey());
+        }
+      });
 
       cache.invalidateAll(delKeys);
       putRecords.forEach(e -> put(e.getKey(), e.getValue()));

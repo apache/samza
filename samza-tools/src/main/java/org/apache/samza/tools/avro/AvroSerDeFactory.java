@@ -31,7 +31,6 @@ import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.serializers.Serde;
@@ -43,7 +42,7 @@ import org.apache.samza.serializers.SerdeFactory;
  */
 public class AvroSerDeFactory implements SerdeFactory {
 
-  public static String CFG_AVRO_SCHEMA = "serializers.avro.schema";
+  public static final String CFG_AVRO_SCHEMA = "serializers.avro.schema";
 
   @Override
   public Serde getSerde(String name, Config config) {

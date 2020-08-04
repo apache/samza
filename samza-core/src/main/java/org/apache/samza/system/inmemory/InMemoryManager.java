@@ -111,9 +111,7 @@ class InMemoryManager {
   Map<SystemStreamPartition, List<IncomingMessageEnvelope>> poll(Map<SystemStreamPartition, String> sspsToOffsets) {
     return sspsToOffsets.entrySet()
         .stream()
-        .collect(Collectors.toMap(
-            Map.Entry::getKey,
-            entry -> poll(entry.getKey(), entry.getValue())));
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> poll(entry.getKey(), entry.getValue())));
   }
 
   /**
@@ -155,9 +153,8 @@ class InMemoryManager {
 
     return result.entrySet()
         .stream()
-        .collect(Collectors.toMap(
-            Map.Entry::getKey,
-            entry -> constructSystemStreamMetadata(entry.getKey(), entry.getValue())));
+        .collect(Collectors.toMap(Map.Entry::getKey,
+          entry -> constructSystemStreamMetadata(entry.getKey(), entry.getValue())));
   }
 
   /**
@@ -180,14 +177,39 @@ class InMemoryManager {
             .entrySet()
             .stream()
             .collect(Collectors.toMap(entry -> entry.getKey().getPartition(), entry -> {
-                List<IncomingMessageEnvelope> messages = entry.getValue();
-                String oldestOffset = messages.isEmpty() ? null : "0";
-                String newestOffset = messages.isEmpty() ? null : String.valueOf(messages.size() - 1);
-                String upcomingOffset = String.valueOf(messages.size());
+              List<IncomingMessageEnvelope> messages = entry.getValue();
+              Integer oldestOffset;
+              Integer newestOffset;
+              int upcomingOffset;
 
-                return new SystemStreamMetadata.SystemStreamPartitionMetadata(oldestOffset, newestOffset, upcomingOffset);
+              if (messages.isEmpty()) {
+                oldestOffset = null;
+                newestOffset = null;
+                upcomingOffset = 0;
+              } else if (messages.get(messages.size() - 1).isEndOfStream()) {
+                if (messages.size() > 1) {
+                  // don't count end of stream in offset indices
+                  oldestOffset = 0;
+                  newestOffset = messages.size() - 2;
+                  upcomingOffset = messages.size() - 1;
+                } else {
+                  // end of stream is the only message, treat the same as empty
+                  oldestOffset = null;
+                  newestOffset = null;
+                  upcomingOffset = 0;
+                }
+              } else {
+                // offsets correspond strictly to numeric indices
+                oldestOffset = 0;
+                newestOffset = messages.size() - 1;
+                upcomingOffset = messages.size();
+              }
 
-              }));
+              return new SystemStreamMetadata.SystemStreamPartitionMetadata(
+                  oldestOffset == null ? null : oldestOffset.toString(),
+                  newestOffset == null ? null : newestOffset.toString(),
+                  Integer.toString(upcomingOffset));
+            }));
 
     return new SystemStreamMetadata(streamName, partitionMetadata);
   }

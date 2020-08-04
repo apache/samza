@@ -20,6 +20,7 @@
 package org.apache.samza.system.azureblob.avro;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import org.apache.samza.AzureException;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
@@ -33,6 +34,10 @@ import java.util.Map;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.Config;
+import org.apache.samza.system.azureblob.utils.BlobMetadataContext;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGenerator;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,7 +52,9 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyMap;
+import static org.mockito.Mockito.anyObject;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -72,6 +79,12 @@ public class TestAzureBlobOutputStream {
   private static final byte[] COMPRESSED_BYTES = RANDOM_STRING.substring(0, THRESHOLD / 2).getBytes();
   private AzureBlobWriterMetrics mockMetrics;
   private Compression mockCompression;
+  private static final String FAKE_STREAM = "FAKE_STREAM";
+  private static final String BLOB_RAW_SIZE_BYTES_METADATA = "rawSizeBytes";
+  private static final String BLOB_STREAM_NAME_METADATA = "streamName";
+  private static final String BLOB_RECORD_NUMBER_METADATA = "numberOfRecords";
+  private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory = mock(BlobMetadataGeneratorFactory.class);
+  private final Config blobMetadataGeneratorConfig = mock(Config.class);
 
   @Before
   public void setup() throws Exception {
@@ -90,12 +103,27 @@ public class TestAzureBlobOutputStream {
     mockCompression = mock(Compression.class);
     doReturn(COMPRESSED_BYTES).when(mockCompression).compress(BYTES);
 
+    BlobMetadataGenerator mockBlobMetadataGenerator = mock(BlobMetadataGenerator.class);
+    doAnswer(invocation -> {
+      BlobMetadataContext blobMetadataContext = invocation.getArgumentAt(0, BlobMetadataContext.class);
+      String streamName = blobMetadataContext.getStreamName();
+      Long blobSize = blobMetadataContext.getBlobSize();
+      Long numberOfRecords = blobMetadataContext.getNumberOfMessagesInBlob();
+      Map<String, String> metadataProperties = new HashMap<>();
+      metadataProperties.put(BLOB_STREAM_NAME_METADATA, streamName);
+      metadataProperties.put(BLOB_RAW_SIZE_BYTES_METADATA, Long.toString(blobSize));
+      metadataProperties.put(BLOB_RECORD_NUMBER_METADATA, Long.toString(numberOfRecords));
+      return metadataProperties;
+    }).when(mockBlobMetadataGenerator).getBlobMetadata(anyObject());
+
     azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
+        blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
         60000, THRESHOLD, mockByteArrayOutputStream, mockCompression));
 
     doNothing().when(azureBlobOutputStream).commitBlob(any(ArrayList.class), anyMap());
     doNothing().when(azureBlobOutputStream).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
     doNothing().when(azureBlobOutputStream).clearAndMarkClosed();
+    doReturn(mockBlobMetadataGenerator).when(azureBlobOutputStream).getBlobMetadataGenerator();
   }
 
   @Test
@@ -168,8 +196,8 @@ public class TestAzureBlobOutputStream {
     verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(1)), argument.capture(), eq((int) fullBlockCompressedByte.length));
     verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(2)), argument2.capture(), eq((int) halfBlockCompressedByte.length));
     argument.getAllValues().forEach(byteBuffer -> {
-        Assert.assertEquals(ByteBuffer.wrap(fullBlockCompressedByte), byteBuffer);
-      });
+      Assert.assertEquals(ByteBuffer.wrap(fullBlockCompressedByte), byteBuffer);
+    });
     Assert.assertEquals(ByteBuffer.wrap(halfBlockCompressedByte), argument2.getAllValues().get(0));
     verify(mockMetrics, times(3)).updateAzureUploadMetrics();
   }
@@ -204,6 +232,7 @@ public class TestAzureBlobOutputStream {
   @Test
   public void testClose() {
     azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
+    azureBlobOutputStream.incrementNumberOfRecordsInBlob();
     int blockNum = 0;
     String blockId = String.format("%05d", blockNum);
     String blockIdEncoded = Base64.getEncoder().encodeToString(blockId.getBytes());
@@ -216,13 +245,17 @@ public class TestAzureBlobOutputStream {
     verify(azureBlobOutputStream).commitBlob(blockListArgument.capture(), blobMetadataArg.capture());
     Assert.assertEquals(Arrays.asList(blockIdEncoded), blockListArgument.getAllValues().get(0));
     Map<String, String> blobMetadata = (Map<String, String>) blobMetadataArg.getAllValues().get(0);
-    Assert.assertEquals(blobMetadata.get(AzureBlobOutputStream.BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(THRESHOLD));
+    Assert.assertEquals(blobMetadata.get(BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(THRESHOLD));
+    Assert.assertEquals(blobMetadata.get(BLOB_STREAM_NAME_METADATA), FAKE_STREAM);
+    Assert.assertEquals(blobMetadata.get(BLOB_RECORD_NUMBER_METADATA), Long.toString(1));
   }
 
   @Test
   public void testCloseMultipleBlocks() {
     azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
+    azureBlobOutputStream.incrementNumberOfRecordsInBlob();
     azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
+    azureBlobOutputStream.incrementNumberOfRecordsInBlob();
 
     int blockNum = 0;
     String blockId = String.format("%05d", blockNum);
@@ -239,13 +272,16 @@ public class TestAzureBlobOutputStream {
     Assert.assertEquals(blockIdEncoded, blockListArgument.getAllValues().get(0).toArray()[0]);
     Assert.assertEquals(blockIdEncoded1, blockListArgument.getAllValues().get(0).toArray()[1]);
     Map<String, String> blobMetadata = (Map<String, String>) blobMetadataArg.getAllValues().get(0);
-    Assert.assertEquals(blobMetadata.get(AzureBlobOutputStream.BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(2 * THRESHOLD));
+    Assert.assertEquals(blobMetadata.get(BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(2 * THRESHOLD));
+    Assert.assertEquals(blobMetadata.get(BLOB_STREAM_NAME_METADATA), FAKE_STREAM);
+    Assert.assertEquals(blobMetadata.get(BLOB_RECORD_NUMBER_METADATA), Long.toString(2));
   }
 
   @Test(expected = AzureException.class)
   public void testCloseFailed() {
 
     azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
+        blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
         60000, THRESHOLD, mockByteArrayOutputStream, mockCompression));
 
     //doNothing().when(azureBlobOutputStream).commitBlob(any(ArrayList.class), anyMap());
@@ -286,6 +322,7 @@ public class TestAzureBlobOutputStream {
   @Test (expected = AzureException.class)
   public void testFlushFailed() throws IOException {
     azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
+        blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
         60000, THRESHOLD, mockByteArrayOutputStream, mockCompression));
 
     doNothing().when(azureBlobOutputStream).commitBlob(any(ArrayList.class), anyMap());

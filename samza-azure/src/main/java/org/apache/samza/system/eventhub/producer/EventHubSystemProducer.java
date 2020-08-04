@@ -152,32 +152,32 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
     if (PartitioningMethod.PARTITION_KEY_AS_PARTITION.equals(partitioningMethod)) {
       // Create all partition senders
       perStreamEventHubClientManagers.forEach((streamId, samzaEventHubClient) -> {
-          EventHubClient ehClient = samzaEventHubClient.getEventHubClient();
+        EventHubClient ehClient = samzaEventHubClient.getEventHubClient();
 
-          try {
-            Map<Integer, PartitionSender> partitionSenders = new HashMap<>();
-            long timeoutMs = config.getRuntimeInfoWaitTimeMS(systemName);
-            Integer numPartitions =
-                ehClient.getRuntimeInformation().get(timeoutMs, TimeUnit.MILLISECONDS).getPartitionCount();
+        try {
+          Map<Integer, PartitionSender> partitionSenders = new HashMap<>();
+          long timeoutMs = config.getRuntimeInfoWaitTimeMS(systemName);
+          Integer numPartitions =
+              ehClient.getRuntimeInformation().get(timeoutMs, TimeUnit.MILLISECONDS).getPartitionCount();
 
-            for (int i = 0; i < numPartitions; i++) {
-              String partitionId = String.valueOf(i);
-              EventHubClientManager perPartitionClientManager =
-                  createOrGetEventHubClientManagerForPartition(streamId, i);
-              PartitionSender partitionSender =
-                  perPartitionClientManager.getEventHubClient().createPartitionSender(partitionId).get(DEFAULT_CREATE_PARTITION_SENDER_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-              partitionSenders.put(i, partitionSender);
-            }
-
-            streamPartitionSenders.put(streamId, partitionSenders);
-          } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            String msg = "Failed to fetch number of Event Hub partitions for partition sender creation";
-            throw new SamzaException(msg, e);
-          } catch (EventHubException | IllegalArgumentException e) {
-            String msg = "Creation of partition sender failed with exception";
-            throw new SamzaException(msg, e);
+          for (int i = 0; i < numPartitions; i++) {
+            String partitionId = String.valueOf(i);
+            EventHubClientManager perPartitionClientManager =
+                createOrGetEventHubClientManagerForPartition(streamId, i);
+            PartitionSender partitionSender =
+                perPartitionClientManager.getEventHubClient().createPartitionSender(partitionId).get(DEFAULT_CREATE_PARTITION_SENDER_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            partitionSenders.put(i, partitionSender);
           }
-        });
+
+          streamPartitionSenders.put(streamId, partitionSenders);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+          String msg = "Failed to fetch number of Event Hub partitions for partition sender creation";
+          throw new SamzaException(msg, e);
+        } catch (EventHubException | IllegalArgumentException e) {
+          String msg = "Creation of partition sender failed with exception";
+          throw new SamzaException(msg, e);
+        }
+      });
     }
     isInitialized = true;
     LOG.info("EventHubSystemProducer initialized.");
@@ -227,10 +227,10 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
 
     // Initiate metrics
     streamIds.forEach((streamId) -> {
-        eventSkipRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_SKIP_RATE));
-        eventWriteRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_WRITE_RATE));
-        eventByteWriteRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_BYTE_WRITE_RATE));
-      });
+      eventSkipRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_SKIP_RATE));
+      eventWriteRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_WRITE_RATE));
+      eventByteWriteRate.put(streamId, metricsRegistry.newCounter(streamId, EVENT_BYTE_WRITE_RATE));
+    });
 
     // Locking to ensure that these aggregated metrics will be created only once across multiple system producers.
     synchronized (AGGREGATE_METRICS_LOCK) {
@@ -365,15 +365,15 @@ public class EventHubSystemProducer extends AsyncSystemProducer {
   public synchronized void stop() {
     LOG.info("Stopping producer.");
     streamPartitionSenders.values().forEach((streamPartitionSender) -> {
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-        streamPartitionSender.forEach((key, value) -> futures.add(value.close()));
-        CompletableFuture<Void> future = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
-        try {
-          future.get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-        } catch (ExecutionException | InterruptedException | TimeoutException e) {
-          LOG.error("Closing the partition sender failed ", e);
-        }
-      });
+      List<CompletableFuture<Void>> futures = new ArrayList<>();
+      streamPartitionSender.forEach((key, value) -> futures.add(value.close()));
+      CompletableFuture<Void> future = CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
+      try {
+        future.get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+      } catch (ExecutionException | InterruptedException | TimeoutException e) {
+        LOG.error("Closing the partition sender failed ", e);
+      }
+    });
     perStreamEventHubClientManagers.values()
         .parallelStream()
         .forEach(ehClient -> ehClient.close(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS));

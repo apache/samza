@@ -52,9 +52,9 @@ public class SamzaSqlDslConverter implements DslConverter {
   public Collection<RelRoot> convertDsl(String dsl) {
     // TODO: Introduce an API to parse a dsl string and return one or more sql statements
     List<String> sqlStmts = fetchSqlFromConfig(config);
-    QueryPlanner planner = getQueryPlanner(getSqlConfig(sqlStmts, config));
     List<RelRoot> relRoots = new LinkedList<>();
     for (String sql: sqlStmts) {
+      QueryPlanner planner = getQueryPlanner(getSqlConfig(Collections.singletonList(sql), config));
       // we always pass only select query to the planner for samza sql. The reason is that samza sql supports
       // schema evolution where source and destination could up to an extent have independent schema evolution while
       // calcite expects strict comformance of the destination schema with that of the fields in the select query.
@@ -87,7 +87,7 @@ public class SamzaSqlDslConverter implements DslConverter {
    */
   public static QueryPlanner getQueryPlanner(SamzaSqlApplicationConfig sqlConfig) {
     return new QueryPlanner(sqlConfig.getRelSchemaProviders(), sqlConfig.getInputSystemStreamConfigBySource(),
-        sqlConfig.getUdfMetadata());
+        sqlConfig.getUdfMetadata(), sqlConfig.isQueryPlanOptimizerEnabled());
   }
 
   /**

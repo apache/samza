@@ -31,10 +31,8 @@ public class ExampleExpandingSystemDescriptor extends SystemDescriptor<ExampleEx
   private static final String FACTORY_CLASS_NAME = "org.apache.samza.GraphExpandingSystemFactory";
 
   public ExampleExpandingSystemDescriptor(String systemName) {
-    super(systemName, FACTORY_CLASS_NAME,
-        (InputTransformer<String>) IncomingMessageEnvelope::toString,
-        (streamGraph, inputDescriptor) -> (MessageStream<Long>) streamGraph.getInputStream(inputDescriptor)
-    );
+    super(systemName, FACTORY_CLASS_NAME, (InputTransformer<String>) IncomingMessageEnvelope::toString,
+      (streamGraph, inputDescriptor) -> (MessageStream<Long>) streamGraph.getInputStream(inputDescriptor));
   }
 
   @Override

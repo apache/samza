@@ -40,64 +40,64 @@ import static org.apache.samza.monitor.MonitorLoader.instantiateMonitor;
  */
 public class SamzaMonitorService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SamzaMonitorService.class);
-    private static final SecureRandom RANDOM = new SecureRandom();
+  private static final Logger LOGGER = LoggerFactory.getLogger(SamzaMonitorService.class);
+  private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final SchedulingProvider scheduler;
-    private final SamzaRestConfig config;
-    private final MetricsRegistry metricsRegistry;
+  private final SchedulingProvider scheduler;
+  private final SamzaRestConfig config;
+  private final MetricsRegistry metricsRegistry;
 
-    public SamzaMonitorService(SamzaRestConfig config,
-                               MetricsRegistry metricsRegistry,
-                               SchedulingProvider schedulingProvider) {
-        this.config = config;
-        this.metricsRegistry = metricsRegistry;
-        this.scheduler = schedulingProvider;
-    }
+  public SamzaMonitorService(SamzaRestConfig config,
+                             MetricsRegistry metricsRegistry,
+                             SchedulingProvider schedulingProvider) {
+    this.config = config;
+    this.metricsRegistry = metricsRegistry;
+    this.scheduler = schedulingProvider;
+  }
 
-    public void start() {
-        try {
-            Map<String, MonitorConfig> monitorConfigs = getMonitorConfigs(config);
-            for (Map.Entry<String, MonitorConfig> entry : monitorConfigs.entrySet()) {
-                String monitorName = entry.getKey();
-                MonitorConfig monitorConfig = entry.getValue();
+  public void start() {
+    try {
+      Map<String, MonitorConfig> monitorConfigs = getMonitorConfigs(config);
+      for (Map.Entry<String, MonitorConfig> entry : monitorConfigs.entrySet()) {
+        String monitorName = entry.getKey();
+        MonitorConfig monitorConfig = entry.getValue();
 
-                if (!Strings.isNullOrEmpty(monitorConfig.getMonitorFactoryClass())) {
-                    int schedulingIntervalInMs = monitorConfig.getSchedulingIntervalInMs();
-                    int monitorSchedulingJitterInMs = (int) (RANDOM.nextInt(schedulingIntervalInMs + 1) * (monitorConfig.getSchedulingJitterPercent() / 100.0));
-                    schedulingIntervalInMs += monitorSchedulingJitterInMs;
-                    LOGGER.info("Scheduling the monitor: {} to run every {} ms.", monitorName, schedulingIntervalInMs);
-                    scheduler.schedule(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
-                        schedulingIntervalInMs);
-                } else {
-                  // When MonitorFactoryClass is not defined in the config, ignore the monitor config
-                  LOGGER.warn("Not scheduling the monitor: {} to run, since monitor factory class is not set in config.", monitorName);
-                }
-            }
-        } catch (InstantiationException e) {
-            LOGGER.error("Exception when instantiating the monitor : ", e);
-            throw new SamzaException(e);
+        if (!Strings.isNullOrEmpty(monitorConfig.getMonitorFactoryClass())) {
+          int schedulingIntervalInMs = monitorConfig.getSchedulingIntervalInMs();
+          int monitorSchedulingJitterInMs = (int) (RANDOM.nextInt(schedulingIntervalInMs + 1) * (monitorConfig.getSchedulingJitterPercent() / 100.0));
+          schedulingIntervalInMs += monitorSchedulingJitterInMs;
+          LOGGER.info("Scheduling the monitor: {} to run every {} ms.", monitorName, schedulingIntervalInMs);
+          scheduler.schedule(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
+              schedulingIntervalInMs);
+        } else {
+          // When MonitorFactoryClass is not defined in the config, ignore the monitor config
+          LOGGER.warn("Not scheduling the monitor: {} to run, since monitor factory class is not set in config.", monitorName);
         }
+      }
+    } catch (InstantiationException e) {
+      LOGGER.error("Exception when instantiating the monitor : ", e);
+      throw new SamzaException(e);
     }
+  }
 
-    public void stop() {
-        this.scheduler.stop();
-    }
+  public void stop() {
+    this.scheduler.stop();
+  }
 
-    private Runnable getRunnable(final Monitor monitor) {
-        return new Runnable() {
-            public void run() {
-                try {
-                    monitor.monitor();
-                } catch (IOException e) {
-                    LOGGER.error("Caught IOException during " + monitor.toString() + ".monitor()", e);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    LOGGER.error("Caught InterruptedException during " + monitor.toString() + ".monitor()", e);
-                } catch (Exception e) {
-                    LOGGER.error("Unexpected exception during {}.monitor()", monitor, e);
-                }
-            }
-        };
-    }
+  private Runnable getRunnable(final Monitor monitor) {
+    return new Runnable() {
+      public void run() {
+        try {
+          monitor.monitor();
+        } catch (IOException e) {
+          LOGGER.error("Caught IOException during " + monitor.toString() + ".monitor()", e);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          LOGGER.error("Caught InterruptedException during " + monitor.toString() + ".monitor()", e);
+        } catch (Exception e) {
+          LOGGER.error("Unexpected exception during {}.monitor()", monitor, e);
+        }
+      }
+    };
+  }
 }

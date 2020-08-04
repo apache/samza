@@ -173,14 +173,14 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     Preconditions.checkNotNull(key, "null key");
     return instrument(() -> asyncTable.getAsync(key, args), metrics.numGets, metrics.getNs)
         .handle((result, e) -> {
-            if (e != null) {
-              throw new SamzaException("Failed to get the records for " + key, e);
-            }
-            if (result == null) {
-              incCounter(metrics.numMissedLookups);
-            }
-            return result;
-          });
+          if (e != null) {
+            throw new SamzaException("Failed to get the records for " + key, e);
+          }
+          if (result == null) {
+            incCounter(metrics.numMissedLookups);
+          }
+          return result;
+        });
   }
 
   @Override
@@ -200,12 +200,12 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     }
     return instrument(() -> asyncTable.getAllAsync(keys, args), metrics.numGetAlls, metrics.getAllNs)
         .handle((result, e) -> {
-            if (e != null) {
-              throw new SamzaException("Failed to get the records for " + keys, e);
-            }
-            result.values().stream().filter(Objects::isNull).forEach(v -> incCounter(metrics.numMissedLookups));
-            return result;
-          });
+          if (e != null) {
+            throw new SamzaException("Failed to get the records for " + keys, e);
+          }
+          result.values().stream().filter(Objects::isNull).forEach(v -> incCounter(metrics.numMissedLookups));
+          return result;
+        });
   }
 
   @Override
@@ -221,8 +221,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   public <T> CompletableFuture<T> readAsync(int opId, Object ... args) {
     return (CompletableFuture<T>) instrument(() -> asyncTable.readAsync(opId, args), metrics.numReads, metrics.readNs)
         .exceptionally(e -> {
-            throw new SamzaException(String.format("Failed to read, opId=%d", opId), e);
-          });
+          throw new SamzaException(String.format("Failed to read, opId=%d", opId), e);
+        });
   }
 
   @Override
@@ -244,8 +244,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
 
     return instrument(() -> asyncTable.putAsync(key, value, args), metrics.numPuts, metrics.putNs)
         .exceptionally(e -> {
-            throw new SamzaException("Failed to put a record with key=" + key, (Throwable) e);
-          });
+          throw new SamzaException("Failed to put a record with key=" + key, (Throwable) e);
+        });
   }
 
   @Override
@@ -281,9 +281,9 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
         deleteFuture,
         instrument(() -> asyncTable.putAllAsync(putRecords, args), metrics.numPutAlls, metrics.putAllNs))
         .exceptionally(e -> {
-            String strKeys = records.stream().map(r -> r.getKey().toString()).collect(Collectors.joining(","));
-            throw new SamzaException(String.format("Failed to put records with keys=" + strKeys), e);
-          });
+          String strKeys = records.stream().map(r -> r.getKey().toString()).collect(Collectors.joining(","));
+          throw new SamzaException(String.format("Failed to put records with keys=" + strKeys), e);
+        });
   }
 
   @Override
@@ -301,8 +301,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     Preconditions.checkNotNull(key, "null key");
     return instrument(() -> asyncTable.deleteAsync(key, args), metrics.numDeletes, metrics.deleteNs)
         .exceptionally(e -> {
-            throw new SamzaException(String.format("Failed to delete the record for " + key), (Throwable) e);
-          });
+          throw new SamzaException(String.format("Failed to delete the record for " + key), (Throwable) e);
+        });
   }
 
   @Override
@@ -324,8 +324,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
 
     return instrument(() -> asyncTable.deleteAllAsync(keys, args), metrics.numDeleteAlls, metrics.deleteAllNs)
         .exceptionally(e -> {
-            throw new SamzaException(String.format("Failed to delete records for " + keys), e);
-          });
+          throw new SamzaException(String.format("Failed to delete records for " + keys), e);
+        });
   }
 
   @Override
@@ -341,8 +341,8 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
   public <T> CompletableFuture<T> writeAsync(int opId, Object... args) {
     return (CompletableFuture<T>) instrument(() -> asyncTable.writeAsync(opId, args), metrics.numWrites, metrics.writeNs)
         .exceptionally(e -> {
-            throw new SamzaException(String.format("Failed to write, opId=%d", opId), e);
-          });
+          throw new SamzaException(String.format("Failed to write, opId=%d", opId), e);
+        });
   }
 
   @Override
@@ -390,14 +390,14 @@ public final class RemoteTable<K, V> extends BaseReadWriteTable<K, V>
     CompletableFuture<T> ioFuture = func.apply();
     if (callbackExecutor != null) {
       ioFuture.thenApplyAsync(r -> {
-          updateTimer(timer, clock.nanoTime() - startNs);
-          return r;
-        }, callbackExecutor);
+        updateTimer(timer, clock.nanoTime() - startNs);
+        return r;
+      }, callbackExecutor);
     } else {
       ioFuture.thenApply(r -> {
-          updateTimer(timer, clock.nanoTime() - startNs);
-          return r;
-        });
+        updateTimer(timer, clock.nanoTime() - startNs);
+        return r;
+      });
     }
     return ioFuture;
   }

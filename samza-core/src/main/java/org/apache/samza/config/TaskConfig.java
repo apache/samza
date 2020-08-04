@@ -111,7 +111,7 @@ public class TaskConfig extends MapConfig {
   public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
   public static final String TRANSACTIONAL_STATE_RESTORE_ENABLED = "task.transactional.state.restore.enabled";
-  private static final boolean DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED = false;
+  private static final boolean DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED = true;
   public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE =
       "task.transactional.state.retain.existing.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
