@@ -30,7 +30,7 @@ import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
 public class SampleRelTableKeyConverter implements SamzaRelTableKeyConverter {
 
   @Override
-  public String convertToTableKeyFormat(SamzaSqlRelRecord relRecord) {
+  public Object convertToTableKeyFormat(SamzaSqlRelRecord relRecord) {
     if (relRecord.getFieldValues().get(0) instanceof SamzaSqlRelRecord) {
       relRecord = (SamzaSqlRelRecord) relRecord.getFieldValues().get(0);
     }
