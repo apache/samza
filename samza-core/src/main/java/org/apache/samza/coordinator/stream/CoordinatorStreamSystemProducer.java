@@ -58,8 +58,8 @@ public class CoordinatorStreamSystemProducer {
   public CoordinatorStreamSystemProducer(Config config, MetricsRegistry registry) {
     SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
     SystemFactory systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config);
-    SystemAdmin systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem(), config);
-    SystemProducer systemProducer = systemFactory.getProducer(coordinatorSystemStream.getSystem(), config, registry);
+    SystemAdmin systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem(), config, this.getClass().getSimpleName());
+    SystemProducer systemProducer = systemFactory.getProducer(coordinatorSystemStream.getSystem(), config, registry, this.getClass().getSimpleName());
     this.systemStream = coordinatorSystemStream;
     this.systemProducer = systemProducer;
     this.systemAdmin = systemAdmin;

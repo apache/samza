@@ -70,8 +70,8 @@ public class CoordinatorStreamSystemConsumer {
   public CoordinatorStreamSystemConsumer(Config config, MetricsRegistry registry) {
     SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
     SystemFactory systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config);
-    SystemAdmin systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem(), config);
-    SystemConsumer systemConsumer = systemFactory.getConsumer(coordinatorSystemStream.getSystem(), config, registry);
+    SystemAdmin systemAdmin = systemFactory.getAdmin(coordinatorSystemStream.getSystem(), config, this.getClass().getSimpleName());
+    SystemConsumer systemConsumer = systemFactory.getConsumer(coordinatorSystemStream.getSystem(), config, registry, this.getClass().getSimpleName());
 
     this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
     this.systemConsumer = systemConsumer;

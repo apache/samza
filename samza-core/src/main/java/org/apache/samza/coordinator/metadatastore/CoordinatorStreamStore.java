@@ -88,9 +88,9 @@ public class CoordinatorStreamStore implements MetadataStore {
     this.coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
     this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
     SystemFactory systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config);
-    this.systemProducer = systemFactory.getProducer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry);
-    this.systemConsumer = systemFactory.getConsumer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry);
-    this.systemAdmin = systemFactory.getAdmin(this.coordinatorSystemStream.getSystem(), config);
+    this.systemProducer = systemFactory.getProducer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry, this.getClass().getSimpleName());
+    this.systemConsumer = systemFactory.getConsumer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry, this.getClass().getSimpleName());
+    this.systemAdmin = systemFactory.getAdmin(this.coordinatorSystemStream.getSystem(), config, this.getClass().getSimpleName());
   }
 
   @VisibleForTesting
