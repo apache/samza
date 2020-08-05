@@ -21,7 +21,6 @@ package org.apache.samza.sql.translator;
 
 import com.google.common.base.Preconditions;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -269,26 +268,27 @@ public class ProjectTranslator {
   private MessageStream<SamzaSqlRelMessage> translateFlatten(Integer flattenIndex,
       MessageStream<SamzaSqlRelMessage> inputStream) {
     return inputStream.flatMap(message -> {
-      Object field = message.getSamzaSqlRelRecord().getFieldValues().get(flattenIndex);
-      if (field != null && field instanceof List) {
-        List<SamzaSqlRelMessage> outMessages = new ArrayList<>();
+      Object targetFlattenColumn = message.getSamzaSqlRelRecord().getFieldValues().get(flattenIndex);
+      final List<SamzaSqlRelMessage> outMessages = new ArrayList<>();
+      if (targetFlattenColumn != null && targetFlattenColumn instanceof List) {
+        List<Object> objectList = (List<Object>) targetFlattenColumn;
         SamzaSqlRelMsgMetadata messageMetadata = message.getSamzaSqlRelMsgMetadata();
         SamzaSqlRelMsgMetadata newMetadata =
             new SamzaSqlRelMsgMetadata(messageMetadata.getEventTime(), messageMetadata.getArrivalTime(),
                 messageMetadata.getScanTimeNanos(), messageMetadata.getScanTimeMillis());
-        for (Object fieldValue : (List) field) {
+        for (Object fieldValue : objectList) {
           List<Object> newValues = new ArrayList<>(message.getSamzaSqlRelRecord().getFieldValues());
-          newValues.set(flattenIndex, Collections.singletonList(fieldValue));
+          newValues.set(flattenIndex, fieldValue);
           outMessages.add(
               new SamzaSqlRelMessage(message.getSamzaSqlRelRecord().getFieldNames(), newValues, newMetadata));
           newMetadata = new SamzaSqlRelMsgMetadata(newMetadata.getEventTime(), newMetadata.getArrivalTime(),
               newMetadata.getScanTimeNanos(), newMetadata.getScanTimeMillis());
         }
-        return outMessages;
       } else {
         message.getSamzaSqlRelMsgMetadata().isNewInputMessage = true;
-        return Collections.singletonList(message);
+        outMessages.add(message);
       }
+      return outMessages;
     });
   }
 
