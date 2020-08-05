@@ -151,7 +151,7 @@ public class DiagnosticsUtil {
               new StorageConfig(config).getNumPersistentStores(), maxHeapSizeBytes, containerThreadPoolSize,
               containerId, execEnvContainerId.orElse(""), taskClassVersion, samzaVersion, hostName,
               diagnosticsSystemStream, systemProducer,
-              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled());
+              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled(), config);
 
       diagnosticsManagerReporterPair = Optional.of(new ImmutablePair<>(diagnosticsManager, diagnosticsReporter));
     }
