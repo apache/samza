@@ -33,15 +33,15 @@ public interface SystemFactory {
 
   SystemAdmin getAdmin(String systemName, Config config);
 
-  default SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry, String callerClass) {
+  default SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry, String consumerIdPrefix) {
     return getConsumer(systemName, config, registry);
   }
 
-  default SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry, String callerClass) {
+  default SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry, String producerIdPrefix) {
     return getProducer(systemName, config, registry);
   }
 
-  default SystemAdmin getAdmin(String systemName, Config config, String callerClass) {
+  default SystemAdmin getAdmin(String systemName, Config config, String adminIdPrefix) {
     return getAdmin(systemName, config);
   }
 }
