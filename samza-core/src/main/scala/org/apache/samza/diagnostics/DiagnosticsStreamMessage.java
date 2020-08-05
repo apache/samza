@@ -162,8 +162,8 @@ public class DiagnosticsStreamMessage {
    * Add the job's config to the message.
    * @param config the config to add.
    */
-  public void addConfig(Map<String, String> config) {
-    addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONFIG_METRIC_NAME, config);
+  public void addConfig(Config config) {
+    addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONFIG_METRIC_NAME, (Map<String, String>) config);
   }
 
   /**
