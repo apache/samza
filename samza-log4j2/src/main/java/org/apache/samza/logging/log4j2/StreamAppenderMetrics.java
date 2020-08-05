@@ -34,10 +34,22 @@ public class StreamAppenderMetrics extends MetricsBase {
   /** The number of log messages dropped e.g. because of buffer overflow. Does not include recursive calls. */
   public final Counter logMessagesDropped;
 
+  /** The number of log messages cannot be sent out due to errors e.g. serialization errors, system producer send errors. */
+  public final Counter logMessagesErrors;
+
+  /** The size of log messages sent out to SystemProducer. */
+  public final Counter logMessagesBytesSent;
+
+  /** The number of log messages sent out to SystemProducer. */
+  public final Counter logMessagesCountSent;
+
   public StreamAppenderMetrics(String prefix, MetricsRegistry registry) {
-    super(prefix, registry);
+    super(prefix + "-", registry);
     bufferFillPct = newGauge("buffer-fill-percent", 0);
     recursiveCalls = newCounter("recursive-calls");
     logMessagesDropped = newCounter("log-messages-dropped");
+    logMessagesErrors = newCounter("log-messages-errors");
+    logMessagesBytesSent = newCounter("log-messages-bytes-sent");
+    logMessagesCountSent = newCounter("log-messages-count-sent");
   }
 }
