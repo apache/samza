@@ -68,13 +68,12 @@ public class TestStreamAppender {
   @Test
   public void testNonDefaultSerde() {
     System.setProperty("samza.container.name", "samza-container-1");
-    String streamName = StreamAppender.getStreamName("log4jTest", "1");
     Map<String, String> map = new HashMap<String, String>();
     map.put("job.name", "log4jTest");
     map.put("job.id", "1");
     map.put("serializers.registry.log4j-string.class", LoggingEventStringSerdeFactory.class.getCanonicalName());
     map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
-    map.put("systems.mock.streams." + streamName + ".samza.msg.serde", "log4j-string");
+    map.put("systems.mock.streams.__samza_log4jTest_1_logs.samza.msg.serde", "log4j-string");
     map.put("task.log4j.system", "mock");
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
     MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, new MapConfig(map), null);
