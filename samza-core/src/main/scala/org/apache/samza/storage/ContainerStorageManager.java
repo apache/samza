@@ -782,6 +782,7 @@ public class ContainerStorageManager {
         -1, // no windowing
         taskConfig.getCommitMs(),
         taskConfig.getCallbackTimeoutMs(),
+        // TODO consolidate these container configs SAMZA-2275
         this.config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1)),
         taskConfig.getMaxIdleMs(),
         sideInputContainerMetrics,
