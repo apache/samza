@@ -597,32 +597,35 @@ public class ContainerStorageManager {
 
         Map<String, StorageEngine> sideInputStores = getSideInputStores(taskName);
         Map<String, Set<SystemStreamPartition>> sideInputStoresToSSPs = new HashMap<>();
-
-        CountDownLatch taskCountDownLatch = new CountDownLatch(1);
-        this.sideInputTaskLatches.put(taskName, taskCountDownLatch);
-
+        boolean taskHasSideInputs = false;
         for (String storeName : sideInputStores.keySet()) {
           Set<SystemStreamPartition> storeSSPs = this.taskSideInputStoreSSPs.get(taskName).get(storeName);
+          taskHasSideInputs = taskHasSideInputs || !storeSSPs.isEmpty();
           sideInputStoresToSSPs.put(storeName, storeSSPs);
         }
 
-        TaskSideInputHandler taskSideInputHandler = new TaskSideInputHandler(taskName,
-            taskModel.getTaskMode(),
-            loggedStoreBaseDirectory,
-            sideInputStores,
-            sideInputStoresToSSPs,
-            taskSideInputProcessors.get(taskName),
-            this.systemAdmins,
-            this.streamMetadataCache,
-            taskCountDownLatch,
-            clock);
+        if (taskHasSideInputs) {
+          CountDownLatch taskCountDownLatch = new CountDownLatch(1);
+          this.sideInputTaskLatches.put(taskName, taskCountDownLatch);
 
-        sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
-          handlers.put(ssp, taskSideInputHandler);
-        });
+          TaskSideInputHandler taskSideInputHandler = new TaskSideInputHandler(taskName,
+              taskModel.getTaskMode(),
+              loggedStoreBaseDirectory,
+              sideInputStores,
+              sideInputStoresToSSPs,
+              taskSideInputProcessors.get(taskName),
+              this.systemAdmins,
+              this.streamMetadataCache,
+              taskCountDownLatch,
+              clock);
 
-        LOG.info("Created TaskSideInputHandler for task {}, sideInputStores {} and loggedStoreBaseDirectory {}",
-            taskName, sideInputStores, loggedStoreBaseDirectory);
+          sideInputStoresToSSPs.values().stream().flatMap(Set::stream).forEach(ssp -> {
+            handlers.put(ssp, taskSideInputHandler);
+          });
+
+          LOG.info("Created TaskSideInputHandler for task {}, sideInputStores {} and loggedStoreBaseDirectory {}",
+              taskName, sideInputStores, loggedStoreBaseDirectory);
+        }
       });
     }
     return handlers;
@@ -726,11 +729,25 @@ public class ContainerStorageManager {
     // initialize the sideInputStorageManagers
     getSideInputHandlers().forEach(TaskSideInputHandler::init);
 
+    Map<TaskName, TaskSideInputHandler> taskSideInputHandlers = this.sspSideInputHandlers.values().stream()
+        .distinct()
+        .collect(Collectors.toMap(TaskSideInputHandler::getTaskName, Function.identity()));
+
     Map<TaskName, TaskInstanceMetrics> sideInputTaskMetrics = new HashMap<>();
-    this.taskInstanceMetrics.forEach((taskName, metrics) -> {
-      String sideInputSource = SIDEINPUTS_METRICS_PREFIX + metrics.source();
-      TaskInstanceMetrics sideInputMetrics = new TaskInstanceMetrics(sideInputSource, metrics.registry(), SIDEINPUTS_METRICS_PREFIX);
-      sideInputTaskMetrics.put(taskName, sideInputMetrics);
+    Map<TaskName, RunLoopTask> sideInputTasks = new HashMap<>();
+    this.taskSideInputStoreSSPs.forEach((taskName, storesToSSPs) -> {
+      Set<SystemStreamPartition> taskSSPs = this.taskSideInputStoreSSPs.get(taskName).values().stream()
+          .flatMap(Set::stream)
+          .collect(Collectors.toSet());
+
+      if (!taskSSPs.isEmpty()) {
+        String sideInputSource = SIDEINPUTS_METRICS_PREFIX + this.taskInstanceMetrics.get(taskName).source();
+        TaskInstanceMetrics sideInputMetrics = new TaskInstanceMetrics(sideInputSource, this.taskInstanceMetrics.get(taskName).registry(), SIDEINPUTS_METRICS_PREFIX);
+        sideInputTaskMetrics.put(taskName, sideInputMetrics);
+
+        RunLoopTask sideInputTask = new SideInputTask(taskName, taskSSPs, taskSideInputHandlers.get(taskName), sideInputTaskMetrics.get(taskName));
+        sideInputTasks.put(taskName, sideInputTask);
+      }
     });
 
     // register all sideInput SSPs with the consumers
@@ -749,21 +766,6 @@ public class ContainerStorageManager {
       sideInputTaskMetrics.get(this.sspSideInputHandlers.get(ssp).getTaskName()).addOffsetGauge(
           ssp, ScalaJavaUtil.toScalaFunction(() -> this.sspSideInputHandlers.get(ssp).getLastProcessedOffset(ssp)));
     }
-
-    Map<TaskName, TaskSideInputHandler> taskSideInputHandlers = this.sspSideInputHandlers.values().stream()
-        .distinct()
-        .collect(Collectors.toMap(TaskSideInputHandler::getTaskName, Function.identity()));
-
-    Map<TaskName, RunLoopTask> sideInputTasks = new HashMap<>();
-    this.taskSideInputStoreSSPs.forEach((taskName, storesToSSPs) -> {
-      Set<SystemStreamPartition> taskSSPs = this.taskSideInputStoreSSPs.get(taskName).values().stream()
-          .flatMap(Set::stream)
-          .collect(Collectors.toSet());
-
-      RunLoopTask sideInputTask = new SideInputTask(taskName, taskSSPs, taskSideInputHandlers.get(taskName), sideInputTaskMetrics.get(taskName));
-
-      sideInputTasks.put(taskName, sideInputTask);
-    });
 
     // start the systemConsumers for consuming input
     this.sideInputSystemConsumers.start();

@@ -30,12 +30,16 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.ReadableCoordinator;
 import org.apache.samza.task.TaskCallback;
 import org.apache.samza.task.TaskCallbackFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * This class encapsulates the processing logic for side input streams. It is executed by {@link org.apache.samza.container.RunLoop}
  */
 public class SideInputTask implements RunLoopTask {
+  private static final Logger LOG = LoggerFactory.getLogger(SideInputTask.class);
+
   private final TaskName taskName;
   private final Set<SystemStreamPartition> taskSSPs;
   private final TaskSideInputHandler taskSideInputHandler;
@@ -89,7 +93,7 @@ public class SideInputTask implements RunLoopTask {
 
   @Override
   public void endOfStream(ReadableCoordinator coordinator) {
-    throw new UnsupportedOperationException("End of stream is not applicable for side input tasks.");
+    LOG.info("Task {} has reached end of stream", this.taskName);
   }
 
   @Override
