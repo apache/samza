@@ -27,15 +27,19 @@ import org.apache.samza.metrics.MetricsRegistry;
  * a particular system, as well as the accompanying {@link org.apache.samza.system.SystemAdmin}.
  */
 public interface SystemFactory {
+  @Deprecated
   SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry);
 
+  @Deprecated
   SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry);
 
+  @Deprecated
   SystemAdmin getAdmin(String systemName, Config config);
 
   /**
    * This function provides an extra input parameter than {@link #getConsumer}, which can be used to provide extra
-   * information e.g. ownership of client instance
+   * information e.g. ownership of client instance, to helper better identify consumers in logs,
+   * threads and client instances etc., along with other relevant information like systemName
    *
    * @param systemName The name of the system to create consumer for.
    * @param config The config to create consumer with.
@@ -49,7 +53,8 @@ public interface SystemFactory {
 
   /**
    * This function provides an extra input parameter than {@link #getProducer}, which can be used to provide extra
-   * information e.g. ownership of client instance
+   * information e.g. ownership of client instance, to helper better identify producers in logs,
+   * threads and client instances etc., along with other relevant information like systemName
    *
    * @param systemName The name of the system to create producer for.
    * @param config The config to create producer with.
@@ -62,13 +67,14 @@ public interface SystemFactory {
   }
 
   /**
-   *This function provides an extra input parameter than {@link #getAdmin}, which can be used to provide extra
-   * information e.g. ownership of client instance
+   * This function provides an extra input parameter than {@link #getAdmin}, which can be used to provide extra
+   * information e.g. ownership of client instance, to helper better identify admins in logs,
+   * threads and client instances etc., along with other relevant information like systemName
    *
    * @param systemName The name of the system to create admin for.
    * @param config The config to create admin with.
    * @param adminLabel a string used to provide info the admin instance.
-   * @return A SystemAmind
+   * @return A SystemAdmin
    */
   default SystemAdmin getAdmin(String systemName, Config config, String adminLabel) {
     return getAdmin(systemName, config);
