@@ -39,12 +39,12 @@ public interface SystemFactory {
   /**
    * This function provides an extra input parameter than {@link #getConsumer}, which can be used to provide extra
    * information e.g. ownership of client instance, to helper better identify consumers in logs,
-   * threads and client instances etc., along with other relevant information like systemName
+   * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create consumer for.
    * @param config The config to create consumer with.
    * @param registry MetricsRegistry to which to publish consumer specific metrics.
-   * @param consumerLabel a string used to provide info the consumer instance.
+   * @param consumerLabel a string to provide info the consumer instance.
    * @return A SystemConsumer
    */
   default SystemConsumer getConsumer(String systemName, Config config, MetricsRegistry registry, String consumerLabel) {
@@ -54,12 +54,12 @@ public interface SystemFactory {
   /**
    * This function provides an extra input parameter than {@link #getProducer}, which can be used to provide extra
    * information e.g. ownership of client instance, to helper better identify producers in logs,
-   * threads and client instances etc., along with other relevant information like systemName
+   * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create producer for.
    * @param config The config to create producer with.
    * @param registry MetricsRegistry to which to publish producer specific metrics.
-   * @param producerLabel a string used to provide info the producer instance.
+   * @param producerLabel a string to provide info the producer instance.
    * @return A SystemProducer
    */
   default SystemProducer getProducer(String systemName, Config config, MetricsRegistry registry, String producerLabel) {
@@ -69,11 +69,11 @@ public interface SystemFactory {
   /**
    * This function provides an extra input parameter than {@link #getAdmin}, which can be used to provide extra
    * information e.g. ownership of client instance, to helper better identify admins in logs,
-   * threads and client instances etc., along with other relevant information like systemName
+   * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create admin for.
    * @param config The config to create admin with.
-   * @param adminLabel a string used to provide info the admin instance.
+   * @param adminLabel a string to provide info the admin instance.
    * @return A SystemAdmin
    */
   default SystemAdmin getAdmin(String systemName, Config config, String adminLabel) {
