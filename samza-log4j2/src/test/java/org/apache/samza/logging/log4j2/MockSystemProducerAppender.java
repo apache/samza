@@ -42,7 +42,7 @@ class MockSystemProducerAppender extends StreamAppender {
   private static Config config;
 
   protected MockSystemProducerAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions, Config config, String streamName) {
-    super(name, filter, layout, ignoreExceptions, streamName);
+    super(name, filter, layout, ignoreExceptions, false, streamName);
   }
 
   @PluginFactory
