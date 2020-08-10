@@ -19,15 +19,11 @@
 
 package org.apache.samza.logging.log4j;
 
-import static org.junit.Assert.*;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Logger;
@@ -40,6 +36,8 @@ import org.apache.samza.logging.log4j.serializers.LoggingEventStringSerdeFactory
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
+
+import static org.junit.Assert.*;
 
 public class TestStreamAppender {
 
@@ -202,51 +200,6 @@ public class TestStreamAppender {
     // Wait for messages
     assertTrue("Thread did not send all messages. Count: " + allMessagesSent.getCount(),
         allMessagesSent.await(60, TimeUnit.SECONDS));
-  }
-
-  @Test
-  public void testQueueTimeout() throws InterruptedException {
-    System.setProperty("samza.container.name", "samza-container-1");
-
-    MockSystemProducerAppender systemProducerAppender = new MockSystemProducerAppender();
-    systemProducerAppender.queueTimeoutS = 1;
-    PatternLayout layout = new PatternLayout();
-    layout.setConversionPattern("%m");
-    systemProducerAppender.setLayout(layout);
-    systemProducerAppender.activateOptions();
-    log.addAppender(systemProducerAppender);
-
-    int extraMessageCount = 5;
-    int expectedMessagesSent = extraMessageCount - 1; // -1 because when the queue is drained there is one additional message that couldn't be added
-    List<String> messages = new ArrayList<>(StreamAppender.DEFAULT_QUEUE_SIZE + extraMessageCount);
-    for (int i = 0; i < StreamAppender.DEFAULT_QUEUE_SIZE + extraMessageCount; i++) {
-      messages.add(String.valueOf(i));
-    }
-
-    // Set up latch
-    final CountDownLatch allMessagesSent = new CountDownLatch(expectedMessagesSent); // We expect to drop all but the extra messages
-    final CountDownLatch waitForTimeout = new CountDownLatch(1);
-    MockSystemProducer.listeners.add((source, envelope) -> {
-      allMessagesSent.countDown();
-      try {
-        waitForTimeout.await();
-      } catch (InterruptedException e) {
-        fail("Test could not run properly because of a thread interrupt.");
-      }
-    });
-
-    // Log the messages. This is where the timeout will happen!
-    messages.forEach((message) -> log.info(message));
-
-    assertEquals(messages.size() - expectedMessagesSent, systemProducerAppender.metrics.logMessagesDropped.getCount());
-
-    // Allow all the rest of the messages to send.
-    waitForTimeout.countDown();
-
-    // Wait for messages
-    assertTrue("Thread did not send all messages. Count: " + allMessagesSent.getCount(),
-        allMessagesSent.await(60, TimeUnit.SECONDS));
-    assertEquals(expectedMessagesSent, MockSystemProducer.messagesReceived.size());
   }
 
   private void logAndVerifyMessages(List<String> messages) throws InterruptedException {

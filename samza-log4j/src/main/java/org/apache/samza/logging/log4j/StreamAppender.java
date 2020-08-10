@@ -23,10 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Logger;
@@ -71,7 +68,6 @@ public class StreamAppender extends AppenderSkeleton {
   // Hidden config for now. Will move to appropriate Config class when ready to.
   private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
 
-  protected static final int DEFAULT_QUEUE_SIZE = 100;
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
 
   protected static volatile boolean systemInitialized = false;
@@ -87,7 +83,7 @@ public class StreamAppender extends AppenderSkeleton {
   private Logger log = Logger.getLogger(StreamAppender.class);
   protected StreamAppenderMetrics metrics;
 
-  private final BlockingQueue<byte[]> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
+  private final ConcurrentLinkedQueue<byte[]> logQueue = new ConcurrentLinkedQueue<>();
   protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
 
   private Thread transferThread;
@@ -175,30 +171,8 @@ public class StreamAppender extends AppenderSkeleton {
         } else {
           // Serialize the event before adding to the queue to leverage the caller thread
           // and ensure that the transferThread can keep up.
-          if (!logQueue.offer(serde.toBytes(subLog(event)), queueTimeoutS, TimeUnit.SECONDS)) {
-            // Do NOT retry adding to the queue. Dropping the event allows us to alleviate the unlikely
-            // possibility of a deadlock, which can arise due to a circular dependency between the SystemProducer
-            // which is used for StreamAppender and the log, which uses StreamAppender. Any locks held in the callstack
-            // of those two code paths can cause a deadlock. Dropping the event allows us to proceed.
-
-            // Scenario:
-            // T1: holds L1 and is waiting for L2
-            // T2: holds L2 and is waiting to produce to BQ1 which is drained by T3 (SystemProducer) which is waiting for L1
-
-            // This has happened due to locks in Kafka and log4j (see SAMZA-1537), which are both out of our control,
-            // so dropping events in the StreamAppender is our best recourse.
-
-            // Drain the queue instead of dropping one message just to reduce the frequency of warn logs above.
-            int messagesDropped = logQueue.drainTo(new ArrayList<>()) + 1; // +1 because of the current log event
-            log.warn(String.format("Exceeded timeout %ss while trying to log to %s. Dropping %d log messages.",
-                queueTimeoutS,
-                systemStream.toString(),
-                messagesDropped));
-
-            // Emit a metric which can be monitored to ensure it doesn't happen often.
-            metrics.logMessagesDropped.inc(messagesDropped);
-          }
-          metrics.bufferFillPct.set(Math.round(100f * logQueue.size() / DEFAULT_QUEUE_SIZE));
+          logQueue.add(serde.toBytes(subLog(event)));
+          metrics.bufferFillPct.set(Math.round(100f));
         }
       } catch (Exception e) {
         System.err.println("[StreamAppender] Error sending log message:");
@@ -336,12 +310,13 @@ public class StreamAppender extends AppenderSkeleton {
       Runnable transferFromQueueToSystem = () -> {
         while (!Thread.currentThread().isInterrupted()) {
           try {
-            byte[] serializedLogEvent = logQueue.take();
+            byte[] serializedLogEvent;
 
-            OutgoingMessageEnvelope outgoingMessageEnvelope =
-                new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent);
-            systemProducer.send(SOURCE, outgoingMessageEnvelope);
+            while ((serializedLogEvent = logQueue.poll()) != null) {
+              systemProducer.send(SOURCE, new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent));
+            }
 
+            Thread.sleep(DEFAULT_QUEUE_TIMEOUT_S * 1000);
           } catch (InterruptedException e) {
             // Preserve the interrupted status for the loop condition.
             Thread.currentThread().interrupt();
