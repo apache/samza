@@ -30,8 +30,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
@@ -93,7 +91,7 @@ public class StreamAppender extends AbstractAppender {
   private int partitionCount = 0;
   private boolean isApplicationMaster;
   private Serde<LogEvent> serde = null;
-  private Logger log = LogManager.getLogger(StreamAppender.class);
+
   private Thread transferThread;
   private Config config = null;
   private String streamName = null;
@@ -207,7 +205,7 @@ public class StreamAppender extends AbstractAppender {
             setupSystem();
             systemInitialized = true;
           } else {
-            log.trace("Waiting for the JobCoordinator to be instantiated...");
+            System.out.println("Waiting for the JobCoordinator to be instantiated...");
           }
         } else {
           // handle event based on if async or sync logger is being used
@@ -256,7 +254,7 @@ public class StreamAppender extends AbstractAppender {
 
       // Drain the queue instead of dropping one message just to reduce the frequency of warn logs above.
       int messagesDropped = logQueue.drainTo(new ArrayList<>()) + 1; // +1 because of the current log event
-      log.warn(String.format("Exceeded timeout %ss while trying to log to %s. Dropping %d log messages.",
+      System.err.println(String.format("Exceeded timeout %ss while trying to log to %s. Dropping %d log messages.",
           queueTimeoutS,
           systemStream.toString(),
           messagesDropped));
@@ -303,12 +301,12 @@ public class StreamAppender extends AbstractAppender {
 
   @Override
   public void stop() {
-    log.info(String.format("Shutting down the %s...", getName()));
+    System.out.println(String.format("Shutting down the %s...", getName()));
     transferThread.interrupt();
     try {
       transferThread.join();
     } catch (InterruptedException e) {
-      log.error("Interrupted while waiting for transfer thread to finish.", e);
+      System.err.println("Interrupted while waiting for transfer thread to finish." + e);
       Thread.currentThread().interrupt();
     }
 
@@ -410,42 +408,31 @@ public class StreamAppender extends AbstractAppender {
     systemProducer.register(SOURCE);
     systemProducer.start();
 
-    log.info(SOURCE + " has been registered in " + systemName + ". So all the logs will be sent to " + streamName
+    System.out.println(SOURCE + " has been registered in " + systemName + ". So all the logs will be sent to " + streamName
         + " in " + systemName + ". Logs are partitioned by " + key);
 
     startTransferThread();
   }
 
   private void startTransferThread() {
-
-    try {
-      // Serialize the key once, since we will use it for every event.
-      final byte[] keyBytes = key.getBytes("UTF-8");
-
-      Runnable transferFromQueueToSystem = () -> {
-        while (!Thread.currentThread().isInterrupted()) {
-          try {
-            sendEventToSystemProducer(logQueue.take());
-          } catch (InterruptedException e) {
-            // Preserve the interrupted status for the loop condition.
-            Thread.currentThread().interrupt();
-          } catch (Throwable t) {
-            metrics.logMessagesErrors.inc();
-            log.error("Error sending " + getName() + " event to SystemProducer", t);
-          }
+    Runnable transferFromQueueToSystem = () -> {
+      while (!Thread.currentThread().isInterrupted()) {
+        try {
+          sendEventToSystemProducer(logQueue.take());
+        } catch (InterruptedException e) {
+          // Preserve the interrupted status for the loop condition.
+          Thread.currentThread().interrupt();
+        } catch (Throwable t) {
+          metrics.logMessagesErrors.inc();
+          System.err.println("Error sending " + getName() + " event to SystemProducer " + t);
         }
-      };
+      }
+    };
 
-      transferThread = new Thread(transferFromQueueToSystem);
-      transferThread.setDaemon(true);
-      transferThread.setName("Samza " + getName() + " Producer " + transferThread.getName());
-      transferThread.start();
-
-    } catch (UnsupportedEncodingException e) {
-      throw new SamzaException(String.format(
-          "Container name: %s could not be encoded to bytes. %s cannot proceed.", key, getName()),
-          e);
-    }
+    transferThread = new Thread(transferFromQueueToSystem);
+    transferThread.setDaemon(true);
+    transferThread.setName("Samza " + getName() + " Producer " + transferThread.getName());
+    transferThread.start();
   }
 
   /**
