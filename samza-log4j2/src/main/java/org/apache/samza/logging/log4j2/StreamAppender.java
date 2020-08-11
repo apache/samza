@@ -88,7 +88,7 @@ public class StreamAppender extends AbstractAppender {
   private SystemStream systemStream = null;
   private SystemProducer systemProducer = null;
   private String key = null;
-  private byte[] keyBytes;// Serialize the key once, since we will use it for every event.
+  private byte[] keyBytes; // Serialize the key once, since we will use it for every event.
   private String containerName = null;
   private int partitionCount = 0;
   private boolean isApplicationMaster;
@@ -145,7 +145,7 @@ public class StreamAppender extends AbstractAppender {
   }
 
   /**
-   * Getter for the StreamName parameter. See also {@link #createAppender(String, Filter, Layout, boolean, String)} for when this is called.
+   * Getter for the StreamName parameter. See also {@link #createAppender(String, Filter, Layout, boolean, boolean, String)} for when this is called.
    * Example: {@literal <param name="StreamName" value="ExampleStreamName"/>}
    * @return The configured stream name.
    */
@@ -164,7 +164,7 @@ public class StreamAppender extends AbstractAppender {
   }
 
   /**
-   * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean, String)} for when this is called.
+   * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean, boolean, String)} for when this is called.
    * Example: {@literal <param name="PartitionCount" value="4"/>}
    * @return The configured partition count of the StreamAppender stream. If not set, returns {@link JobConfig#getContainerCount()}.
    */
@@ -176,7 +176,7 @@ public class StreamAppender extends AbstractAppender {
   }
 
   /**
-   * Setter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean, String)} for when this is called.
+   * Setter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean, boolean, String)} for when this is called.
    * Example: {@literal <param name="PartitionCount" value="4"/>}
    * @param partitionCount Configurable partition count.
    */
