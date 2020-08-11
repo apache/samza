@@ -37,8 +37,8 @@ public interface SystemFactory {
   SystemAdmin getAdmin(String systemName, Config config);
 
   /**
-   * This function provides an extra input parameter than {@link #getConsumer}, which can be used to provide extra
-   * information e.g. ownership of client instance, to helper better identify consumers in logs,
+   * This function provides an extra input parameter to {@link #getConsumer}, which can be used to provide extra
+   * information for the consumer instance, e.g. ownership of client instance, to helper better identify consumers in logs,
    * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create consumer for.
@@ -52,8 +52,8 @@ public interface SystemFactory {
   }
 
   /**
-   * This function provides an extra input parameter than {@link #getProducer}, which can be used to provide extra
-   * information e.g. ownership of client instance, to helper better identify producers in logs,
+   * This function provides an extra input parameter to {@link #getProducer}, which can be used to provide extra
+   * information for the producer instance, e.g. ownership of client instance, to helper better identify producers in logs,
    * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create producer for.
@@ -67,8 +67,8 @@ public interface SystemFactory {
   }
 
   /**
-   * This function provides an extra input parameter than {@link #getAdmin}, which can be used to provide extra
-   * information e.g. ownership of client instance, to helper better identify admins in logs,
+   * This function provides an extra input parameter to {@link #getAdmin}, which can be used to provide extra
+   * information for the admin instance, e.g. ownership of client instance, to helper better identify admins in logs,
    * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create admin for.
