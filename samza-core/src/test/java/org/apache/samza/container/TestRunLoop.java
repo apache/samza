@@ -50,7 +50,7 @@ import static org.mockito.Mockito.*;
 public class TestRunLoop {
   // Immutable objects shared by all test methods.
   private final ExecutorService executor = null;
-  private final SamzaContainerMetrics containerMetrics = new SamzaContainerMetrics("container", new MetricsRegistryMap());
+  private final SamzaContainerMetrics containerMetrics = new SamzaContainerMetrics("container", new MetricsRegistryMap(), "");
   private final long windowMs = -1;
   private final long commitMs = -1;
   private final long callbackTimeoutMs = 0;
@@ -522,7 +522,7 @@ public class TestRunLoop {
   private RunLoopTask getMockRunLoopTask(TaskName taskName, SystemStreamPartition ssp0) {
     RunLoopTask task0 = mock(RunLoopTask.class);
     when(task0.systemStreamPartitions()).thenReturn(Collections.singleton(ssp0));
-    when(task0.metrics()).thenReturn(new TaskInstanceMetrics("test", new MetricsRegistryMap()));
+    when(task0.metrics()).thenReturn(new TaskInstanceMetrics("test", new MetricsRegistryMap(), ""));
     when(task0.taskName()).thenReturn(taskName);
     return task0;
   }
