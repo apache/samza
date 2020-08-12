@@ -19,15 +19,6 @@
 
 package org.apache.samza.system;
 
-import java.util.ArrayDeque;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Queue;
-import java.util.Set;
-import org.apache.samza.SamzaException;
-
 /**
  * Iterates over messages in the provided changelog {@link SystemStreamPartition} using the provided
  * {@link SystemConsumer} until all messages have been consumed.
@@ -39,53 +30,40 @@ import org.apache.samza.SamzaException;
  * The iterator mode is used during transactional state restore to determine which changelog SSP entries
  * should be restored and which ones need to be reverted / trimmed from the changelog topic.
  */
-public class ChangelogSSPIterator {
+public class ChangelogSSPIterator extends BoundedSSPIterator {
   public enum Mode {
     RESTORE,
     TRIM
   }
 
-  private final SystemConsumer systemConsumer;
-  private final String endOffset;
-  private final SystemAdmin admin;
-  private final Set<SystemStreamPartition> fetchSet;
+  private final String restoreOffset;
   private final boolean trimEnabled;
-  private Queue<IncomingMessageEnvelope> peeks;
   private Mode mode = Mode.RESTORE;
 
-  // endOffset is inclusive when restoring. endOffset == null means trim from staring offset to head.
-  public ChangelogSSPIterator(SystemConsumer systemConsumer,
-      SystemStreamPartition systemStreamPartition, String endOffset, SystemAdmin admin, boolean trimEnabled) {
-    this.systemConsumer = systemConsumer;
-    this.endOffset = endOffset;
+  public ChangelogSSPIterator(SystemConsumer systemConsumer, SystemStreamPartition systemStreamPartition,
+      String restoreOffset, SystemAdmin admin, boolean trimEnabled) {
+    this(systemConsumer, systemStreamPartition, restoreOffset, admin, trimEnabled, null);
+  }
+
+  // restoreOffset is inclusive when restoring. endOffset == null means trim from staring offset to head.
+  public ChangelogSSPIterator(SystemConsumer systemConsumer, SystemStreamPartition systemStreamPartition,
+      String restoreOffset, SystemAdmin admin, boolean trimEnabled, String endOffset) {
+    super(systemConsumer, systemStreamPartition, endOffset, admin);
+
+    this.restoreOffset = restoreOffset;
     this.trimEnabled = trimEnabled;
-    if (this.trimEnabled && endOffset == null) {
+    if (this.trimEnabled && restoreOffset == null) {
       mode = Mode.TRIM;
     }
-    this.admin = admin;
-    this.fetchSet = new HashSet<>();
-    this.fetchSet.add(systemStreamPartition);
-    this.peeks = new ArrayDeque<>();
   }
 
-  public boolean hasNext() {
-    refresh();
-
-    return peeks.size() > 0;
-  }
-
+  @Override
   public IncomingMessageEnvelope next() {
-    refresh();
-
-    if (peeks.size() == 0) {
-      throw new NoSuchElementException();
-    }
-
-    IncomingMessageEnvelope envelope = peeks.poll();
+    IncomingMessageEnvelope envelope = super.next();
 
     // if trimming changelog is enabled, then switch to trim mode if if we've consumed past the end offset
     // (i.e., endOffset was null or current offset is > endOffset)
-    if (this.trimEnabled && (endOffset == null || admin.offsetComparator(envelope.getOffset(), endOffset) > 0)) {
+    if (this.trimEnabled && (restoreOffset == null || admin.offsetComparator(envelope.getOffset(), restoreOffset) > 0)) {
       mode = Mode.TRIM;
     }
 
@@ -94,20 +72,5 @@ public class ChangelogSSPIterator {
 
   public Mode getMode() {
     return this.mode;
-  }
-
-  private void refresh() {
-    if (peeks.size() == 0) {
-      try {
-        Map<SystemStreamPartition, List<IncomingMessageEnvelope>> envelopes = systemConsumer.poll(fetchSet, SystemConsumer.BLOCK_ON_OUTSTANDING_MESSAGES);
-
-        for (List<IncomingMessageEnvelope> systemStreamPartitionEnvelopes : envelopes.values()) {
-          peeks.addAll(systemStreamPartitionEnvelopes);
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new SamzaException(e);
-      }
-    }
   }
 }
