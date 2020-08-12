@@ -38,7 +38,7 @@ public interface SystemFactory {
 
   /**
    * This function provides an extra input parameter to {@link #getConsumer}, which can be used to provide extra
-   * information for the consumer instance, e.g. ownership of client instance, to helper better identify consumers in logs,
+   * information for the consumer instance, e.g. ownership of client instance, to help better identify consumers in logs,
    * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create consumer for.
@@ -53,7 +53,7 @@ public interface SystemFactory {
 
   /**
    * This function provides an extra input parameter to {@link #getProducer}, which can be used to provide extra
-   * information for the producer instance, e.g. ownership of client instance, to helper better identify producers in logs,
+   * information for the producer instance, e.g. ownership of client instance, to help better identify producers in logs,
    * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create producer for.
@@ -68,7 +68,7 @@ public interface SystemFactory {
 
   /**
    * This function provides an extra input parameter to {@link #getAdmin}, which can be used to provide extra
-   * information for the admin instance, e.g. ownership of client instance, to helper better identify admins in logs,
+   * information for the admin instance, e.g. ownership of client instance, to help better identify admins in logs,
    * threads and client instances etc., along with other relevant information like systemName.
    *
    * @param systemName The name of the system to create admin for.
