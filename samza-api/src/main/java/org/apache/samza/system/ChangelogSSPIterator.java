@@ -25,7 +25,7 @@ package org.apache.samza.system;
  *
  * The iterator has a {@link Mode} that depends on its position in the changelog SSP. If trim mode
  * is enabled, the mode switches to {@code TRIM} if the current message offset is greater than the
- * provided {@code endOffset}, or if {@code endOffset} is null.
+ * provided {@code restoreOffset}, or if {@code restoreOffset} is null.
  *
  * The iterator mode is used during transactional state restore to determine which changelog SSP entries
  * should be restored and which ones need to be reverted / trimmed from the changelog topic.
@@ -45,7 +45,7 @@ public class ChangelogSSPIterator extends BoundedSSPIterator {
     this(systemConsumer, systemStreamPartition, restoreOffset, admin, trimEnabled, null);
   }
 
-  // restoreOffset is inclusive when restoring. endOffset == null means trim from staring offset to head.
+  // restoreOffset is inclusive when restoring. restoreOffset == null means trim from starting offset to head.
   public ChangelogSSPIterator(SystemConsumer systemConsumer, SystemStreamPartition systemStreamPartition,
       String restoreOffset, SystemAdmin admin, boolean trimEnabled, String endOffset) {
     super(systemConsumer, systemStreamPartition, endOffset, admin);
@@ -61,8 +61,8 @@ public class ChangelogSSPIterator extends BoundedSSPIterator {
   public IncomingMessageEnvelope next() {
     IncomingMessageEnvelope envelope = super.next();
 
-    // if trimming changelog is enabled, then switch to trim mode if if we've consumed past the end offset
-    // (i.e., endOffset was null or current offset is > endOffset)
+    // if trimming changelog is enabled, then switch to trim mode if if we've consumed past the restore offset
+    // (i.e., restoreOffset was null or current offset is > restoreOffset)
     if (this.trimEnabled && (restoreOffset == null || admin.offsetComparator(envelope.getOffset(), restoreOffset) > 0)) {
       mode = Mode.TRIM;
     }
