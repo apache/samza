@@ -66,7 +66,7 @@ public class TestDiagnosticsUtil {
     MetricsReporterFactory metricsReporterFactory = mock(MetricsReporterFactory.class);
     MetricsSnapshotReporter mockReporter = mock(MetricsSnapshotReporter.class);
 
-    when(systemFactory.getProducer(anyString(), any(Config.class), any(MetricsRegistry.class))).thenReturn(mockProducer);
+    when(systemFactory.getProducer(anyString(), any(Config.class), any(MetricsRegistry.class), anyString())).thenReturn(mockProducer);
     when(metricsReporterFactory.getMetricsReporter(anyString(), anyString(), any(Config.class))).thenReturn(
         mockReporter);
     PowerMockito.mockStatic(ReflectionUtil.class);

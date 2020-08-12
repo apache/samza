@@ -144,7 +144,8 @@ public class DiagnosticsUtil {
       }
       SystemFactory systemFactory = ReflectionUtil.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
       SystemProducer systemProducer =
-          systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap());
+          systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap(),
+              DiagnosticsUtil.class.getSimpleName());
 
       DiagnosticsManager diagnosticsManager =
           new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
