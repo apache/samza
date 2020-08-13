@@ -137,6 +137,8 @@ public class TestStreamAppender {
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
     MockSystemProducerAppender systemProducerAppender =
         MockSystemProducerAppender.createAppender("testName", null, layout, false, true, null, null);
+    systemProducerAppender.setupSystem();
+    systemProducerAppender.systemInitialized = true;
     systemProducerAppender.start();
     log.addAppender(systemProducerAppender);
     log.setLevel(Level.INFO);
