@@ -54,6 +54,8 @@ public class ContainerManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContainerManager.class);
   private static final String ANY_HOST = ResourceRequestState.ANY_HOST;
+  private static final String LAST_SEEN = "LAST_SEEN";
+  private static final String FORCE_RESTART_LAST_SEEN = "FORCE_RESTART_LAST_SEEN";
   private static final int UUID_CACHE_SIZE = 20000;
 
   /**
@@ -366,9 +368,18 @@ public class ContainerManager {
    * Container placement requests are tied to deploymentId which is currently {@link org.apache.samza.config.ApplicationConfig#APP_RUN_ID}
    * On job restarts container placement requests queued for the previous deployment are deleted using this
    *
+   * All kinds of container placement request except for when destination host is "FORCE_RESTART_LAST_SEEN" work with
+   * a RESERVE - STOP - START policy, which means resources are accrued first before issuing a container stop, failure to
+   * do so will leave the running container untouched. Requests with destination host "FORCE_RESTART_LAST_SEEN" works with
+   * STOP - RESERVE - START policy, which means running container is stopped first then resource request are issued, this case
+   * is equivalent to doing a kill -9 on a container
+   *
    * @param requestMessage request containing logical processor id 0,1,2 and host where container is desired to be moved,
-   *                       acceptable values of this param are any valid hostname or "ANY_HOST"(in this case the request
-   *                       is sent to resource manager for any host)
+   *                       acceptable values of this param are
+   *                       - valid hostname
+   *                       - "ANY_HOST" in this case the request is sent to resource manager for any host
+   *                       - "LAST_SEEN" in this case request is sent to resource manager for last seen host
+   *                       - "FORCE_RESTART_LAST_SEEN" in this case request is sent to resource manager for last seen host
    * @param containerAllocator to request physical resources
    */
   public void registerContainerPlacementAction(ContainerPlacementRequestMessage requestMessage, ContainerAllocator containerAllocator) {
@@ -389,6 +400,28 @@ public class ContainerManager {
       LOG.info("Status updated for ContainerPlacement action request: {} response: {}", requestMessage, actionStatus.getValue());
       writeContainerPlacementResponseMessage(requestMessage, actionStatus.getKey(), actionStatus.getValue());
       return;
+    }
+
+    /*
+     * When destination host is {@code FORCE_RESTART_LAST_SEEN} its treated as eqvivalent to kill -9 operation for the container
+     * In this scenario container is stopped first and we fallback to normal restart path
+     */
+    if (destinationHost.equals(FORCE_RESTART_LAST_SEEN)) {
+      LOG.info("Issuing a force restart for Processor ID: {} for ContainerPlacement action request {}", processorId, requestMessage);
+      clusterResourceManager.stopStreamProcessor(samzaApplicationState.runningProcessors.get(processorId));
+      writeContainerPlacementResponseMessage(requestMessage, ContainerPlacementMessage.StatusCode.SUCCEEDED,
+          "Successfully issued a stop container request falling back to normal restart path");
+      return;
+    }
+
+    /**
+     * When destination host is {@code LAST_SEEN} its treated as a restart request on the host where container is running
+     * on or has been seen last
+     */
+    if (destinationHost.equals(LAST_SEEN)) {
+      String lastSeenHost = getSourceHostForContainer(requestMessage);
+      LOG.info("Changing the requested host for placement action to {} because requested host is LAST_SEEN", lastSeenHost);
+      destinationHost = lastSeenHost;
     }
 
     // TODO: SAMZA-2457: Allow host affinity disabled jobs to move containers to specific host
