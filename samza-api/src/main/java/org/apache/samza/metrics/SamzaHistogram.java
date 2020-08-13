@@ -72,8 +72,17 @@ public class SamzaHistogram {
     }
 
     public void visit(MetricsVisitor visitor) {
-      updateGaugeValues(percentile);
       visitor.gauge(this);
+    }
+
+    /**
+     * We update the percentile gauge values when value is being polled.
+     * This is needed for reporters which do not implement MetricsReporter
+     * and do not have MetricsReporter to update the values.
+     */
+    public Double getValue() {
+      updateGaugeValues(percentile);
+      return super.getValue();
     }
   }
 }
