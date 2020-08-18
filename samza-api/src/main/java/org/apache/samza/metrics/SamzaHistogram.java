@@ -81,6 +81,10 @@ public class SamzaHistogram {
      * and do not have MetricsReporter to update the values.
      */
     public Double getValue() {
+      /*
+       * We cannot updateGaugeValues if the histogram gauges are being instantiated
+       * and getValue is called in this context.
+       */
       if (gauges == null) {
         return 0.0;
       }
