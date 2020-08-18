@@ -81,6 +81,10 @@ public class SamzaHistogram {
      * and do not have MetricsReporter to update the values.
      */
     public Double getValue() {
+      if (gauges == null) {
+        return 0.0;
+      }
+
       updateGaugeValues(percentile);
       return super.getValue();
     }
