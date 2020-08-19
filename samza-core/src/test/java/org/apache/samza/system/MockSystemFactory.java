@@ -143,7 +143,7 @@ public class MockSystemFactory implements SystemFactory {
             Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> partitionMetaMap =
                 v.stream().<Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata>>collect(HashMap::new,
                   (m, p) -> {
-                    m.put(p, new SystemStreamMetadata.SystemStreamPartitionMetadata("", "", ""));
+                    m.put(p, new SystemStreamMetadata.SystemStreamPartitionMetadata("0", "0", "1"));
                   }, (m1, m2) -> m1.putAll(m2));
 
             metadataMap.put(k, new SystemStreamMetadata(k, partitionMetaMap));

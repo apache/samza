@@ -74,6 +74,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   private final FileUtil fileUtil;
 
   private StoreActions storeActions; // available after init
+  private Map<SystemStreamPartition, SystemStreamPartitionMetadata> currentChangelogOffsets;
 
   public TransactionalStateTaskRestoreManager(
       TaskModel taskModel,
@@ -104,8 +105,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
 
   @Override
   public void init(Map<SystemStreamPartition, String> checkpointedChangelogOffsets) {
-    Map<SystemStreamPartition, SystemStreamPartitionMetadata> currentChangelogOffsets =
-        getCurrentChangelogOffsets(taskModel, storeChangelogs, sspMetadataCache);
+    currentChangelogOffsets = getCurrentChangelogOffsets(taskModel, storeChangelogs, sspMetadataCache);
 
     this.storeActions = getStoreActions(taskModel, storeEngines, storeChangelogs,
         checkpointedChangelogOffsets, currentChangelogOffsets, systemAdmins, storageManagerUtil,
@@ -113,7 +113,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
 
     setupStoreDirs(taskModel, storeEngines, storeActions, storageManagerUtil, fileUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory);
-    registerStartingOffsets(taskModel, storeActions, storeChangelogs, systemAdmins, storeConsumers, currentChangelogOffsets);
+    registerStartingOffsets(taskModel, storeActions, storeChangelogs, systemAdmins, storeConsumers,
+        currentChangelogOffsets);
   }
 
   @Override
@@ -129,7 +130,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       SystemStreamPartition changelogSSP = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
 
       ChangelogSSPIterator changelogSSPIterator =
-          new ChangelogSSPIterator(systemConsumer, changelogSSP, endOffset, systemAdmin, true);
+          new ChangelogSSPIterator(systemConsumer, changelogSSP, endOffset, systemAdmin, true,
+              currentChangelogOffsets.get(changelogSSP).getNewestOffset());
       StorageEngine taskStore = storeEngines.get(storeName);
 
       LOG.info("Restoring store: {} for task: {}", storeName, taskModel.getTaskName());
