@@ -41,6 +41,7 @@ public class BoundedSSPIterator implements Iterator<IncomingMessageEnvelope> {
   private final SystemConsumer systemConsumer;
   private final String endOffset;
   private final Set<SystemStreamPartition> fetchSet;
+
   private Queue<IncomingMessageEnvelope> peeks;
 
   public BoundedSSPIterator(SystemConsumer systemConsumer,
