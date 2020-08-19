@@ -29,7 +29,10 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.stubbing.OngoingStubbing;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 public class TestBoundedSSPIterator {

@@ -19,8 +19,9 @@
 
 package org.apache.samza.system;
 
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayDeque;
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -29,10 +30,11 @@ import java.util.Set;
 import org.apache.samza.SamzaException;
 
 /**
- * Iterates over messages in the provided changelog {@link SystemStreamPartition} using the provided
- * {@link SystemConsumer} until all messages with offsets up to and including the bound offset have been consumed.
+ * Iterates over messages in the provided {@link SystemStreamPartition} using the provided
+ * {@link SystemConsumer} until all messages with offsets up to and including the {@code endOffset} have been consumed.
+ * If {@code endOffset} is null, the iterator will return all messages until caught up to head.
  */
-public class BoundedSSPIterator {
+public class BoundedSSPIterator implements Iterator<IncomingMessageEnvelope> {
 
   protected final SystemAdmin admin;
 
@@ -46,8 +48,7 @@ public class BoundedSSPIterator {
     this.systemConsumer = systemConsumer;
     this.endOffset = endOffset;
     this.admin = admin;
-    this.fetchSet = new HashSet<>();
-    this.fetchSet.add(systemStreamPartition);
+    this.fetchSet = ImmutableSet.of(systemStreamPartition);
     this.peeks = new ArrayDeque<>();
   }
 
