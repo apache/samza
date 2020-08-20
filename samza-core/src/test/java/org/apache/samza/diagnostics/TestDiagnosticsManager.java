@@ -18,6 +18,7 @@
  */
 package org.apache.samza.diagnostics;
 
+import com.google.common.collect.ImmutableMap;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
@@ -59,6 +62,9 @@ public class TestDiagnosticsManager {
   private int numPersistentStores = 2;
   private int containerNumCores = 2;
   private boolean autosizingEnabled = false;
+  private Config config = new MapConfig(ImmutableMap.of("job.name", jobName, "job.id", jobId,
+      "cluster-manager.container.memory.mb", "1024", "cluster-manager.container. cpu.cores", "1",
+      "cluster-manager.container.retry.count", "8"));
   private Map<String, ContainerModel> containerModels = TestDiagnosticsStreamMessage.getSampleContainerModels();
   private Collection<DiagnosticsExceptionEvent> exceptionEventList = TestDiagnosticsStreamMessage.getExceptionList();
 
@@ -80,7 +86,7 @@ public class TestDiagnosticsManager {
     this.diagnosticsManager =
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores, maxHeapSize, containerThreadPoolSize,
             "0", executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticsSystemStream,
-            mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, autosizingEnabled);
+            mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, autosizingEnabled, config);
 
     exceptionEventList.forEach(
       diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
@@ -95,7 +101,7 @@ public class TestDiagnosticsManager {
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
             maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
             hostname, diagnosticsSystemStream, mockSystemProducer, Duration.ofSeconds(1), mockExecutorService,
-            autosizingEnabled);
+            autosizingEnabled, config);
 
     diagnosticsManager.start();
 
@@ -114,7 +120,7 @@ public class TestDiagnosticsManager {
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
             maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
             hostname, diagnosticsSystemStream, mockSystemProducer, terminationDuration, mockExecutorService,
-            autosizingEnabled);
+            autosizingEnabled, config);
 
     diagnosticsManager.stop();
 
@@ -134,7 +140,7 @@ public class TestDiagnosticsManager {
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
             maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
             hostname, diagnosticsSystemStream, mockSystemProducer, terminationDuration, mockExecutorService,
-            autosizingEnabled);
+            autosizingEnabled, config);
 
     diagnosticsManager.stop();
 
@@ -272,6 +278,7 @@ public class TestDiagnosticsManager {
     Assert.assertEquals(containerNumCores, diagnosticsStreamMessage.getContainerNumCores().intValue());
     Assert.assertEquals(numPersistentStores, diagnosticsStreamMessage.getNumPersistentStores().intValue());
     Assert.assertEquals(autosizingEnabled, diagnosticsStreamMessage.getAutosizingEnabled());
+    Assert.assertEquals(config, diagnosticsStreamMessage.getConfig());
   }
 
   private class MockSystemProducer implements SystemProducer {

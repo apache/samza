@@ -26,7 +26,8 @@ import org.apache.samza.metrics.{Gauge, ReadableMetricsRegistry, MetricsRegistry
 
 class SamzaContainerMetrics(
   val source: String = "unknown",
-  val registry: ReadableMetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+  val registry: ReadableMetricsRegistry = new MetricsRegistryMap,
+  val prefix: String = "") extends MetricsHelper {
 
   val commits = newCounter("commit-calls")
   val windows = newCounter("window-calls")
@@ -54,4 +55,5 @@ class SamzaContainerMetrics(
     taskStoreRestorationMetrics.put(taskName, newGauge("%s-restore-time" format(taskName.toString), -1L))
   }
 
+  override def getPrefix: String = prefix
 }

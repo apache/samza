@@ -146,14 +146,14 @@ public class DiagnosticsUtil {
       SystemFactory systemFactory = ReflectionUtil.getObj(diagnosticsSystemFactoryName.get(), SystemFactory.class);
       SystemProducer systemProducer =
           systemFactory.getProducer(diagnosticsSystemStream.getSystem(), config, new MetricsRegistryMap(),
-              MethodHandles.lookup().lookupClass().getSimpleName());
+              DiagnosticsUtil.class.getSimpleName());
 
       DiagnosticsManager diagnosticsManager =
           new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
               new StorageConfig(config).getNumPersistentStores(), maxHeapSizeBytes, containerThreadPoolSize,
               containerId, execEnvContainerId.orElse(""), taskClassVersion, samzaVersion, hostName,
               diagnosticsSystemStream, systemProducer,
-              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled());
+              Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled(), config);
 
       diagnosticsManagerReporterPair = Optional.of(new ImmutablePair<>(diagnosticsManager, diagnosticsReporter));
     }
