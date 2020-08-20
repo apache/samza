@@ -36,7 +36,6 @@ public interface SystemFactory {
   @Deprecated
   SystemAdmin getAdmin(String systemName, Config config);
 
-
   /**
    * This function provides an extra input parameter to {@link #getConsumer}, which can be used to provide extra
    * information for the consumer instance, e.g. ownership of client instance, to help better identify consumers in logs,
