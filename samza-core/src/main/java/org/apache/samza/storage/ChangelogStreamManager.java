@@ -140,7 +140,7 @@ public class ChangelogStreamManager {
     SystemConfig systemConfig = new SystemConfig(config);
     storeNameSystemStreamMapping.forEach((storeName, systemStream) -> {
       // Load system admin for this system.
-      SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem());
+      SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem(), ChangelogStreamManager.class.getSimpleName());
 
       if (systemAdmin == null) {
         throw new SamzaException(String.format(

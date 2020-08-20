@@ -19,7 +19,6 @@
 package org.apache.samza.util;
 
 import java.io.File;
-import java.lang.invoke.MethodHandles;
 import java.time.Duration;
 import java.util.Optional;
 import org.apache.commons.lang3.tuple.ImmutablePair;
