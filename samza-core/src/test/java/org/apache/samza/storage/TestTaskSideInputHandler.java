@@ -18,6 +18,7 @@
  */
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
@@ -193,7 +194,7 @@ public class TestTaskSideInputHandler {
           systemAdmins,
           streamMetadataCache,
           new CountDownLatch(1),
-          clock));
+          clock, ImmutableMap.of(), ImmutableMap.of()));
     }
   }
 

@@ -28,7 +28,6 @@ import org.apache.samza.scheduler.EpochTimeScheduler;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.ReadableCoordinator;
-import org.apache.samza.task.TaskCallback;
 import org.apache.samza.task.TaskCallbackFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,15 +63,9 @@ public class SideInputTask implements RunLoopTask {
   @Override
   synchronized public void process(IncomingMessageEnvelope envelope, ReadableCoordinator coordinator,
       TaskCallbackFactory callbackFactory) {
-    TaskCallback callback = callbackFactory.createCallback();
     this.metrics.processes().inc();
-    try {
-      this.taskSideInputHandler.process(envelope);
-      this.metrics.messagesActuallyProcessed().inc();
-      callback.complete();
-    } catch (Exception e) {
-      callback.failure(e);
-    }
+    this.taskSideInputHandler.process(envelope, callbackFactory);
+    this.metrics.messagesActuallyProcessed().inc();
   }
 
   @Override
