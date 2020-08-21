@@ -404,7 +404,8 @@ public class ContainerManager {
 
     /*
      * When destination host is {@code FORCE_RESTART_LAST_SEEN} its treated as eqvivalent to kill -9 operation for the container
-     * In this scenario container is stopped first and we fallback to normal restart path
+     * In this scenario container is stopped first and we fallback to normal restart path so the policy here is
+     * stop - reserve - move
      */
     if (destinationHost.equals(FORCE_RESTART_LAST_SEEN)) {
       LOG.info("Issuing a force restart for Processor ID: {} for ContainerPlacement action request {}", processorId, requestMessage);
@@ -416,7 +417,8 @@ public class ContainerManager {
 
     /**
      * When destination host is {@code LAST_SEEN} its treated as a restart request on the host where container is running
-     * on or has been seen last
+     * on or has been seen last, but in this policy would be reserve - stop - move, which means reserve resources first
+     * only if resources are accrued stop the active container and issue a start on it on resource acquired
      */
     if (destinationHost.equals(LAST_SEEN)) {
       String lastSeenHost = getSourceHostForContainer(requestMessage);
