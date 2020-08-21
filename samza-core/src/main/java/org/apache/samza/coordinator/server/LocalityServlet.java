@@ -32,7 +32,7 @@ import org.codehaus.jackson.map.ObjectMapper;
 
 /**
  * A servlet for locality information of a job. The servlet is hosted alongside of the {@link JobServlet} which hosts
- * job model & configuration. Historically, locality information was part of job model but we extracted the locality
+ * job model and configuration. Historically, locality information was part of job model but we extracted the locality
  * as job model is static within the lifecycle of an application attempt while locality changes in the event of container
  * movements.
  *
