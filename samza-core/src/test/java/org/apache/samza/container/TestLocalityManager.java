@@ -103,11 +103,11 @@ public class TestLocalityManager {
   }
 
   static Map<String, Map<String, String>> readContainerLocality(LocalityManager localityManager) {
-    Map<String, Map<String, String>> containerLocality = new HashMap<>();
-    localityManager.readLocality().getHostLocalities().forEach((containerId, hostLocality) -> {
-      containerLocality.put(containerId, ImmutableMap.of("host", hostLocality.host()));
+    Map<String, Map<String, String>> containerLocalityMap = new HashMap<>();
+    localityManager.readLocality().getContainerLocalities().forEach((containerId, containerLocality) -> {
+      containerLocalityMap.put(containerId, ImmutableMap.of("host", containerLocality.host()));
     });
 
-    return containerLocality;
+    return containerLocalityMap;
   }
 }

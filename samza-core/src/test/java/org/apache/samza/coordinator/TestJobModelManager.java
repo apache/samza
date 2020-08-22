@@ -40,7 +40,7 @@ import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.job.model.HostLocality;
+import org.apache.samza.job.model.ContainerLocality;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.job.model.TaskMode;
@@ -116,7 +116,7 @@ public class TestJobModelManager {
     SystemStreamPartition testSystemStreamPartition1 = new SystemStreamPartition(new SystemStream("test-system-0", "test-stream-0"), new Partition(1));
     SystemStreamPartition testSystemStreamPartition2 = new SystemStreamPartition(new SystemStream("test-system-1", "test-stream-1"), new Partition(2));
 
-    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of("0", new HostLocality("0", "abc-affinity"))));
+    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of("0", new ContainerLocality("0", "abc-affinity"))));
 
     Map<SystemStreamPartition, List<String>> taskToSSPAssignments = ImmutableMap.of(testSystemStreamPartition1, ImmutableList.of("task-0", "task-1"),
                                                                                     testSystemStreamPartition2, ImmutableList.of("task-2", "task-3"));
@@ -151,8 +151,8 @@ public class TestJobModelManager {
 
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of(
-        "0", new HostLocality("0", "0-affinity"),
-        "1", new HostLocality("1", "1-affinity"))));
+        "0", new ContainerLocality("0", "0-affinity"),
+        "1", new ContainerLocality("1", "1-affinity"))));
 
     Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(config, mockLocalityManager);
 
@@ -168,7 +168,7 @@ public class TestJobModelManager {
 
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     // 2 containers, but only return 1 existing mapping
-    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of("0", new HostLocality("0", "abc-affinity"))));
+    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of("0", new ContainerLocality("0", "abc-affinity"))));
 
     Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(config, mockLocalityManager);
 

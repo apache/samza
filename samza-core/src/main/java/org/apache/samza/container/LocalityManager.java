@@ -25,7 +25,7 @@ import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.apache.samza.job.model.HostLocality;
+import org.apache.samza.job.model.ContainerLocality;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.serializers.Serde;
@@ -61,21 +61,21 @@ public class LocalityManager {
    * @return the {@code LocalityModel} for the job
    */
   public LocalityModel readLocality() {
-    Map<String, HostLocality> hostLocalityMap = new HashMap<>();
+    Map<String, ContainerLocality> containerLocalityMap = new HashMap<>();
 
     metadataStore.all().forEach((containerId, valueBytes) -> {
       if (valueBytes != null) {
         String locationId = valueSerde.fromBytes(valueBytes);
-        hostLocalityMap.put(containerId, new HostLocality(containerId, locationId));
+        containerLocalityMap.put(containerId, new ContainerLocality(containerId, locationId));
       }
     });
     if (LOG.isDebugEnabled()) {
-      for (Map.Entry<String, HostLocality> entry : hostLocalityMap.entrySet()) {
+      for (Map.Entry<String, ContainerLocality> entry : containerLocalityMap.entrySet()) {
         LOG.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue().host()));
       }
     }
 
-    return new LocalityModel(hostLocalityMap);
+    return new LocalityModel(containerLocalityMap);
   }
 
   /**
@@ -85,8 +85,8 @@ public class LocalityManager {
    * @param hostName  the hostname
    */
   public void writeContainerToHostMapping(String containerId, String hostName) {
-    String existingHostMapping = Optional.ofNullable(readLocality().getHostLocality(containerId))
-        .map(HostLocality::host)
+    String existingHostMapping = Optional.ofNullable(readLocality().getContainerLocality(containerId))
+        .map(ContainerLocality::host)
         .orElse(null);
     if (StringUtils.isNotBlank(existingHostMapping) && !existingHostMapping.equals(hostName)) {
       LOG.info("Container {} moved from {} to {}", containerId, existingHostMapping, hostName);

@@ -19,6 +19,7 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,7 +32,7 @@ import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
-import org.apache.samza.job.model.HostLocality;
+import org.apache.samza.job.model.ContainerLocality;
 import org.apache.samza.util.BoundedLinkedHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +87,7 @@ public class ContainerManager {
   public ContainerManager(ContainerPlacementMetadataStore containerPlacementMetadataStore,
       SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager,
       boolean hostAffinityEnabled, boolean standByEnabled, LocalityManager localityManager) {
+    Preconditions.checkNotNull(localityManager, "Locality manager cannot be null");
     this.samzaApplicationState = samzaApplicationState;
     this.clusterResourceManager = clusterResourceManager;
     this.actions = new ConcurrentHashMap<>();
@@ -498,8 +500,8 @@ public class ContainerManager {
           processorId, currentResource.getContainerId(), currentResource.getHost(), requestMessage);
       sourceHost = currentResource.getHost();
     } else {
-      sourceHost = Optional.ofNullable(localityManager.readLocality().getHostLocality(processorId))
-          .map(HostLocality::host)
+      sourceHost = Optional.ofNullable(localityManager.readLocality().getContainerLocality(processorId))
+          .map(ContainerLocality::host)
           .orElse(null);
       LOG.info("Processor ID: {} is not running and was last seen on host: {} for ContainerPlacement action: {}",
           processorId, sourceHost, requestMessage);

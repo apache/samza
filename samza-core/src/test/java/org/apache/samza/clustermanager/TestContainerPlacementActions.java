@@ -45,7 +45,7 @@ import org.apache.samza.coordinator.JobModelManagerTestUtil;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
-import org.apache.samza.job.model.HostLocality;
+import org.apache.samza.job.model.ContainerLocality;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.testUtils.MockHttpServer;
@@ -144,8 +144,8 @@ public class TestContainerPlacementActions {
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality())
         .thenReturn(new LocalityModel(ImmutableMap.of(
-            "0", new HostLocality("0", "host-1"),
-            "1", new HostLocality("1", "host-2"))));
+            "0", new ContainerLocality("0", "host-1"),
+            "1", new ContainerLocality("1", "host-2"))));
     containerManager = spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false, mockLocalityManager));
     allocatorWithHostAffinity = new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     cpm = new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
@@ -163,10 +163,10 @@ public class TestContainerPlacementActions {
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality())
         .thenReturn(new LocalityModel(ImmutableMap.of(
-            "0", new HostLocality("0", "host-1"),
-            "1", new HostLocality("1", "host-2"),
-            "0-0", new HostLocality("0", "host-2"),
-            "1-0", new HostLocality("0", "host-1"))));
+            "0", new ContainerLocality("0", "host-1"),
+            "1", new ContainerLocality("1", "host-2"),
+            "0-0", new ContainerLocality("0", "host-2"),
+            "1-0", new ContainerLocality("0", "host-1"))));
     state = new SamzaApplicationState(getJobModelManagerWithStandby());
     callback = mock(ClusterResourceManager.Callback.class);
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
@@ -555,8 +555,8 @@ public class TestContainerPlacementActions {
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality())
         .thenReturn(new LocalityModel(ImmutableMap.of(
-            "0", new HostLocality("0", "host-1"),
-            "1", new HostLocality("1", "host-2"))));
+            "0", new ContainerLocality("0", "host-1"),
+            "1", new ContainerLocality("1", "host-2"))));
     containerManager = spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false, mockLocalityManager));
     allocatorWithHostAffinity = new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     cpm = new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
@@ -673,8 +673,8 @@ public class TestContainerPlacementActions {
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality())
         .thenReturn(new LocalityModel(ImmutableMap.of(
-            "0", new HostLocality("0", "host-1"),
-            "1", new HostLocality("1", "host-2"))));
+            "0", new ContainerLocality("0", "host-1"),
+            "1", new ContainerLocality("1", "host-2"))));
     ContainerManager containerManager =
         new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, false, false, mockLocalityManager);
     MockContainerAllocatorWithoutHostAffinity allocatorWithoutHostAffinity =
@@ -813,8 +813,8 @@ public class TestContainerPlacementActions {
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality())
         .thenReturn(new LocalityModel(ImmutableMap.of(
-            "0", new HostLocality("0", "host-1"),
-            "1", new HostLocality("1", "host-2"))));
+            "0", new ContainerLocality("0", "host-1"),
+            "1", new ContainerLocality("1", "host-2"))));
     ContainerManager containerManager =
         spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false, mockLocalityManager));
     MockContainerAllocatorWithHostAffinity allocatorWithHostAffinity =

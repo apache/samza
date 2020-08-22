@@ -167,11 +167,11 @@ object JobModelManager extends Logging {
     */
   def getProcessorLocality(config: Config, localityManager: LocalityManager) = {
     val containerToLocationId: util.Map[String, LocationId] = new util.HashMap[String, LocationId]()
-    val existingContainerLocality = localityManager.readLocality().getHostLocalities
+    val existingContainerLocality = localityManager.readLocality().getContainerLocalities
 
     for (containerId <- 0 until new JobConfig(config).getContainerCount) {
       val preferredHost = Option.apply(existingContainerLocality.get(containerId.toString))
-        .map(hostLocality => hostLocality.host())
+        .map(containerLocality => containerLocality.host())
         .filter(host => host.nonEmpty)
         .orNull
       // To handle the case when the container count is increased between two different runs of a samza-yarn job,

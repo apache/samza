@@ -19,15 +19,16 @@
 
 package org.apache.samza.job.model;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /**
- * A class to represent the host locality information.
+ * A data model to represent the container locality information. The locality information refers to the whereabouts
+ * of the physical execution of container.
  * Fields such as <i>jmxUrl</i> and <i>jmxTunnelingUrl</i> exist for backward compatibility reasons as they were
  * historically stored under the same name space as locality and surfaced within the framework through the locality
  * manager.
  */
-public class HostLocality {
+public class ContainerLocality {
   /* Container identifier */
   private String id;
   /* Host on which the container is currently placed */
@@ -36,11 +37,11 @@ public class HostLocality {
   /* JMX tunneling URL for debugging */
   private String jmxTunnelingUrl;
 
-  public HostLocality(String id, String host) {
+  public ContainerLocality(String id, String host) {
     this(id, host, "", "");
   }
 
-  public HostLocality(String id, String host, String jmxUrl, String jmxTunnelingUrl) {
+  public ContainerLocality(String id, String host, String jmxUrl, String jmxTunnelingUrl) {
     this.id = id;
     this.host = host;
     this.jmxUrl = jmxUrl;
@@ -71,15 +72,15 @@ public class HostLocality {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    HostLocality that = (HostLocality) o;
-    return Objects.equal(id, that.id)
-        && Objects.equal(host, that.host)
-        && Objects.equal(jmxUrl, that.jmxUrl)
-        && Objects.equal(jmxTunnelingUrl, that.jmxTunnelingUrl);
+    ContainerLocality that = (ContainerLocality) o;
+    return Objects.equals(id, that.id)
+        && Objects.equals(host, that.host)
+        && Objects.equals(jmxUrl, that.jmxUrl)
+        && Objects.equals(jmxTunnelingUrl, that.jmxTunnelingUrl);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(id, host, jmxUrl, jmxTunnelingUrl);
+    return Objects.hash(id, host, jmxUrl, jmxTunnelingUrl);
   }
 }

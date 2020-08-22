@@ -19,34 +19,42 @@
 
 package org.apache.samza.job.model;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 import java.util.Map;
 
 /**
- * A model to represent the locality mapping of an application.
- * Currently the locality mapping represents the container host locality of an application.
+ * A model to represent the locality information of an application. The locality information refers to the
+ * whereabouts of the physical execution of a samza container. With this information, samza achieves (best effort) affinity
+ * i.e. place the container on the host in which it was running before. By doing this, stateful applications can minimize
+ * the bootstrap time of their state by leveraging the local copy.
  *
- * We want to keep the locality mapping open and not tie it to a container to potentially
- * support heterogeneous container where in task locality (unit of work within samza) will be useful
- * to track.
+ * It is suffice to have only {@link ContainerLocality} model and use it within locality manager. However, this abstraction
+ * enables us extend locality beyond container. e.g. It is useful to track task locality to enable heterogeneous containers
+ * or fine grained execution model.
  */
 public class LocalityModel {
-  private Map<String, HostLocality> hostLocalities;
+  private Map<String, ContainerLocality> containerLocalities;
 
   /**
    * Construct locality model for the job from the input map of container localities.
-   * @param hostLocalities host locality information for the job keyed by container id
+   * @param containerLocalities host locality information for the job keyed by container id
    */
-  public LocalityModel(Map<String, HostLocality> hostLocalities) {
-    this.hostLocalities = hostLocalities;
+  public LocalityModel(Map<String, ContainerLocality> containerLocalities) {
+    this.containerLocalities = containerLocalities;
   }
 
-  public Map<String, HostLocality> getHostLocalities() {
-    return hostLocalities;
+  /*
+   * Returns a {@link Map} of {@link ContainerLocality} keyed by container id.
+   */
+  public Map<String, ContainerLocality> getContainerLocalities() {
+    return containerLocalities;
   }
 
-  public HostLocality getHostLocality(String id) {
-    return hostLocalities.get(id);
+  /*
+   * Returns the {@link ContainerLocality} for the given container id.
+   */
+  public ContainerLocality getContainerLocality(String id) {
+    return containerLocalities.get(id);
   }
 
   @Override
@@ -58,11 +66,11 @@ public class LocalityModel {
       return false;
     }
     LocalityModel that = (LocalityModel) o;
-    return Objects.equal(hostLocalities, that.hostLocalities);
+    return Objects.deepEquals(containerLocalities, that.containerLocalities);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(hostLocalities);
+    return Objects.hash(containerLocalities);
   }
 }

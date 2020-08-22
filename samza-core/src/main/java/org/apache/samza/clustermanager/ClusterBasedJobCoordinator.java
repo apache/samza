@@ -176,6 +176,7 @@ public class ClusterBasedJobCoordinator {
   private final MetadataStore metadataStore;
 
   private final SystemAdmins systemAdmins;
+  private final LocalityManager localityManager;
 
   /**
    * Internal variable for the instance of {@link JmxServer}
@@ -217,6 +218,8 @@ public class ClusterBasedJobCoordinator {
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
     this.isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
     this.jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
+    this.localityManager =
+        new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE));
 
     // build metastore for container placement messages
     containerPlacementMetadataStore = new ContainerPlacementMetadataStore(metadataStore);
@@ -345,6 +348,7 @@ public class ClusterBasedJobCoordinator {
       systemAdmins.stop();
       shutDowncontainerPlacementRequestAllocatorAndUtils();
       containerProcessManager.stop();
+      localityManager.close();
       metadataStore.close();
     } catch (Throwable e) {
       LOG.error("Exception while stopping cluster based job coordinator", e);
@@ -459,8 +463,6 @@ public class ClusterBasedJobCoordinator {
 
   @VisibleForTesting
   ContainerProcessManager createContainerProcessManager() {
-    LocalityManager localityManager =
-        new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE));
     return new ContainerProcessManager(config, state, metrics, containerPlacementMetadataStore, localityManager);
   }
 

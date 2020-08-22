@@ -19,6 +19,7 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -37,7 +38,7 @@ import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.diagnostics.DiagnosticsManager;
-import org.apache.samza.job.model.HostLocality;
+import org.apache.samza.job.model.ContainerLocality;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.metrics.ContainerProcessManagerMetrics;
 import org.apache.samza.metrics.JvmMetrics;
@@ -136,6 +137,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
       ContainerPlacementMetadataStore metadataStore, LocalityManager localityManager) {
+    Preconditions.checkNotNull(localityManager, "Locality manager cannot be null");
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
     this.jobConfig = new JobConfig(config);
@@ -244,8 +246,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     LocalityModel localityModel = localityManager.readLocality();
     Map<String, String> processorToHost = new HashMap<>();
     state.jobModelManager.jobModel().getContainers().keySet().forEach((containerId) -> {
-      String host = Optional.ofNullable(localityModel.getHostLocality(containerId))
-          .map(HostLocality::host)
+      String host = Optional.ofNullable(localityModel.getContainerLocality(containerId))
+          .map(ContainerLocality::host)
           .filter(StringUtils::isNotBlank)
           .orElse(null);
       processorToHost.put(containerId, host);
@@ -492,8 +494,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     state.neededProcessors.incrementAndGet();
     // Find out previously running container location
-    String lastSeenOn = Optional.ofNullable(localityManager.readLocality().getHostLocality(processorId))
-        .map(HostLocality::host)
+    String lastSeenOn = Optional.ofNullable(localityManager.readLocality().getContainerLocality(processorId))
+        .map(ContainerLocality::host)
         .orElse(null);
     if (!hostAffinityEnabled || StringUtils.isBlank(lastSeenOn)) {
       lastSeenOn = ResourceRequestState.ANY_HOST;

@@ -24,7 +24,7 @@ import java.util.Collections;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.coordinator.server.LocalityServlet;
-import org.apache.samza.job.model.HostLocality;
+import org.apache.samza.job.model.ContainerLocality;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.util.ExponentialSleepStrategy;
@@ -42,7 +42,7 @@ import static org.mockito.Mockito.when;
 
 
 /**
- * A test class for {@link LocalityServlet}. It validates the servlet directly and Serde Mix-In of {@link HostLocality}
+ * A test class for {@link LocalityServlet}. It validates the servlet directly and Serde Mix-In of {@link ContainerLocality}
  * indirectly.
  */
 public class TestLocalityServlet {
@@ -53,10 +53,10 @@ public class TestLocalityServlet {
   private static final String JMX_URL = "jmx";
   private static final String TUNNELING_URL = "tunneling";
 
-  private static final HostLocality PROCESSOR_1_LOCALITY =
-      new HostLocality(PROCESSOR_ID1, HOST1, JMX_URL, TUNNELING_URL);
-  private static final HostLocality PROCESSOR_2_LOCALITY =
-      new HostLocality("2", HOST2, JMX_URL, TUNNELING_URL);
+  private static final ContainerLocality PROCESSOR_1_LOCALITY =
+      new ContainerLocality(PROCESSOR_ID1, HOST1, JMX_URL, TUNNELING_URL);
+  private static final ContainerLocality PROCESSOR_2_LOCALITY =
+      new ContainerLocality("2", HOST2, JMX_URL, TUNNELING_URL);
 
   private final ObjectMapper mapper = SamzaObjectMapper.getObjectMapper();
   private HttpServer webApp;
@@ -88,11 +88,11 @@ public class TestLocalityServlet {
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     LocalityModel locality = mapper.readValue(response, LocalityModel.class);
 
-    assertEquals("Expected locality for two containers", 2, locality.getHostLocalities().size());
+    assertEquals("Expected locality for two containers", 2, locality.getContainerLocalities().size());
     assertEquals("Mismatch in locality for processor " + PROCESSOR_ID1,
-        locality.getHostLocality(PROCESSOR_ID1), PROCESSOR_1_LOCALITY);
+        locality.getContainerLocality(PROCESSOR_ID1), PROCESSOR_1_LOCALITY);
     assertEquals("Mismatch in locality for processor " + PROCESSOR_ID2,
-        locality.getHostLocality(PROCESSOR_ID2), PROCESSOR_2_LOCALITY);
+        locality.getContainerLocality(PROCESSOR_ID2), PROCESSOR_2_LOCALITY);
   }
 
   @Test
@@ -113,19 +113,19 @@ public class TestLocalityServlet {
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
 
     assertEquals("Mismatch in the locality for processor " + PROCESSOR_ID1,
-        mapper.readValue(response, HostLocality.class), PROCESSOR_1_LOCALITY);
+        mapper.readValue(response, ContainerLocality.class), PROCESSOR_1_LOCALITY);
   }
 
   @Test
   public void testReadProcessorLocalityWithNoLocality() throws Exception {
-    final HostLocality expectedHostLocality = new HostLocality(PROCESSOR_ID2, "");
+    final ContainerLocality expectedContainerLocality = new ContainerLocality(PROCESSOR_ID2, "");
     URL url = new URL(webApp.getUrl().toString() + "locality?processorId=" + PROCESSOR_ID2);
     when(localityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of()));
 
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
-    HostLocality hostLocality = mapper.readValue(response, HostLocality.class);
+    ContainerLocality containerLocality = mapper.readValue(response, ContainerLocality.class);
 
-    assertEquals("Expected empty response for processor locality " + PROCESSOR_ID2 + " but got " + hostLocality,
-        hostLocality, expectedHostLocality);
+    assertEquals("Expected empty response for processor locality " + PROCESSOR_ID2 + " but got " + containerLocality,
+        containerLocality, expectedContainerLocality);
   }
 }

@@ -18,23 +18,30 @@
  */
 package org.apache.samza.serializers.model;
 
-import java.util.Map;
-import org.apache.samza.job.model.ContainerLocality;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 
 /**
- * A mix-in Jackson class to convert {@link org.apache.samza.job.model.LocalityModel} to/from JSON
+ * A mix-in Jackson class to convert {@link org.apache.samza.job.model.ContainerLocality} to/from JSON
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public abstract class JsonLocalityModelMixIn {
+public abstract class JsonContainerLocalityMixIn {
   @JsonCreator
-  public JsonLocalityModelMixIn(@JsonProperty("container-localities") Map<String, ContainerLocality> containerLocalities) {
-
+  public JsonContainerLocalityMixIn(@JsonProperty("id") String id, @JsonProperty("host") String host,
+      @JsonProperty("jmx-url") String jmxUrl, @JsonProperty("jmx-tunneling-url") String jmxTunnelingUrl) {
   }
 
-  @JsonProperty("container-localities")
-  abstract Map<String, ContainerLocality> containerLocalities();
+  @JsonProperty("id")
+  abstract String id();
+
+  @JsonProperty("host")
+  abstract String host();
+
+  @JsonProperty("jmx-url")
+  abstract String jmxUrl();
+
+  @JsonProperty("jmx-tunneling-url")
+  abstract String jmxTunnelingUrl();
 }

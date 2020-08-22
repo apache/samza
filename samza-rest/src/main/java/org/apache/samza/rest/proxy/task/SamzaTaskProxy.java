@@ -41,7 +41,7 @@ import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStrea
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemConsumer;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping;
-import org.apache.samza.job.model.HostLocality;
+import org.apache.samza.job.model.ContainerLocality;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.rest.model.Task;
 import org.apache.samza.rest.proxy.installation.InstallationFinder;
@@ -138,7 +138,7 @@ public class SamzaTaskProxy implements TaskProxy {
   protected List<Task> readTasksFromCoordinatorStream(CoordinatorStreamSystemConsumer consumer) {
     CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(consumer.getConfig(), new MetricsRegistryMap());
     LocalityManager localityManager = new LocalityManager(coordinatorStreamStore);
-    Map<String, HostLocality> hostLocalities = localityManager.readLocality().getHostLocalities();
+    Map<String, ContainerLocality> containerLocalities = localityManager.readLocality().getContainerLocalities();
     TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskModeMapping.TYPE));
     Map<String, String> taskNameToContainerIdMapping = taskAssignmentManager.readTaskAssignment();
     StorageConfig storageConfig = new StorageConfig(consumer.getConfig());
@@ -146,8 +146,8 @@ public class SamzaTaskProxy implements TaskProxy {
     return taskNameToContainerIdMapping.entrySet()
         .stream()
         .map(entry -> {
-          String hostName = Optional.ofNullable(hostLocalities.get(entry.getValue()))
-              .map(HostLocality::host)
+          String hostName = Optional.ofNullable(containerLocalities.get(entry.getValue()))
+              .map(ContainerLocality::host)
               .orElse(null);
           return new Task(hostName, entry.getKey(), entry.getValue(), new ArrayList<>(), storeNames);
         }).collect(Collectors.toList());
