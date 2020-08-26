@@ -19,14 +19,15 @@
 
 package org.apache.samza.job.model;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.Objects;
 import java.util.Map;
 
 /**
  * A model to represent the locality information of an application. The locality information refers to the
- * whereabouts of the physical execution of a samza container. With this information, samza achieves (best effort) affinity
- * i.e. place the container on the host in which it was running before. By doing this, stateful applications can minimize
- * the bootstrap time of their state by leveraging the local copy.
+ * whereabouts of the physical execution of a samza container. This locality information is used
+ * to place the container, if possible, on the same host that it was last seen. By doing this, stateful applications
+ * can minimize the bootstrap time of their state by leveraging the local copy.
  *
  * It is suffice to have only {@link ProcessorLocality} model and use it within locality manager. However, this abstraction
  * enables us extend locality beyond container. e.g. It is useful to track task locality to enable heterogeneous containers
@@ -39,14 +40,14 @@ public class LocalityModel {
   /*
    * A collection of processor locality keyed by processorId.
    */
-  private Map<String, ProcessorLocality> processorLocalities;
+  private final Map<String, ProcessorLocality> processorLocalities;
 
   /**
    * Construct locality model for the job from the input map of processor localities.
    * @param processorLocalities host locality information for the job keyed by processor id
    */
   public LocalityModel(Map<String, ProcessorLocality> processorLocalities) {
-    this.processorLocalities = processorLocalities;
+    this.processorLocalities = ImmutableMap.copyOf(processorLocalities);
   }
 
   /*

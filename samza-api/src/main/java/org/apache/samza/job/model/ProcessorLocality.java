@@ -30,12 +30,12 @@ import java.util.Objects;
  */
 public class ProcessorLocality {
   /* Processor identifier. In YARN deployment model, this corresponds to the logical container id */
-  private String id;
+  private final String id;
   /* Host on which the processor is currently placed */
-  private String host;
-  private String jmxUrl;
+  private final String host;
+  private final String jmxUrl;
   /* JMX tunneling URL for debugging */
-  private String jmxTunnelingUrl;
+  private final String jmxTunnelingUrl;
 
   public ProcessorLocality(String id, String host) {
     this(id, host, "", "");

@@ -48,8 +48,8 @@ public interface JobContext {
    */
   String getJobId();
 
-  /*
-   * Returns the job model for this job
+  /**
+   * @return the {@link JobModel} for the job
    */
   JobModel getJobModel();
 }

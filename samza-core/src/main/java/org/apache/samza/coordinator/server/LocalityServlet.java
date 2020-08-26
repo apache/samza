@@ -34,7 +34,10 @@ import org.codehaus.jackson.map.ObjectMapper;
  * A servlet for locality information of a job. The servlet is hosted alongside of the {@link JobServlet} which hosts
  * job model and configuration. Historically, locality information was part of job model but we extracted the locality
  * as job model is static within the lifecycle of an application attempt while locality changes in the event of container
- * movements.
+ * movements. The locality information is served under
+ * {@link org.apache.samza.coordinator.JobModelManager#server()}/locality. The server and the port information are
+ * dynamic and is determined at the start AM. YARN dashboard or job-coordinator logs contains the server
+ * and the port information.
  *
  * This separation enables us to achieve performance benefits by caching job model when it is served by the AM as it
  * can incur significant penalty in the job start time for jobs with large number of containers.
