@@ -39,7 +39,7 @@ import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
-import org.apache.samza.job.model.ContainerLocality;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.job.yarn.ClientHelper;
 import org.apache.samza.metrics.JmxMetricsAccessor;
@@ -164,9 +164,9 @@ public class YarnJobValidationTool {
       validator.init(config);
       LocalityModel localityModel = localityManager.readLocality();
 
-      for (ContainerLocality containerLocality : localityModel.getContainerLocalities().values()) {
-        String containerId = containerLocality.id();
-        String jmxUrl = containerLocality.jmxTunnelingUrl();
+      for (ProcessorLocality processorLocality : localityModel.getProcessorLocalities().values()) {
+        String containerId = processorLocality.id();
+        String jmxUrl = processorLocality.jmxTunnelingUrl();
         if (StringUtils.isNotBlank(jmxUrl)) {
           log.info("validate container " + containerId + " metrics with JMX: " + jmxUrl);
           JmxMetricsAccessor jmxMetrics = new JmxMetricsAccessor(jmxUrl);

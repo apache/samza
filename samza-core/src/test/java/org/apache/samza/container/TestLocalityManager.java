@@ -104,7 +104,7 @@ public class TestLocalityManager {
 
   static Map<String, Map<String, String>> readContainerLocality(LocalityManager localityManager) {
     Map<String, Map<String, String>> containerLocalityMap = new HashMap<>();
-    localityManager.readLocality().getContainerLocalities().forEach((containerId, containerLocality) -> {
+    localityManager.readLocality().getProcessorLocalities().forEach((containerId, containerLocality) -> {
       containerLocalityMap.put(containerId, ImmutableMap.of("host", containerLocality.host()));
     });
 

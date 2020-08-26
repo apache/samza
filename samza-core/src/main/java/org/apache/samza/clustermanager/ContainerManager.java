@@ -32,7 +32,7 @@ import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
-import org.apache.samza.job.model.ContainerLocality;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.util.BoundedLinkedHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -500,8 +500,8 @@ public class ContainerManager {
           processorId, currentResource.getContainerId(), currentResource.getHost(), requestMessage);
       sourceHost = currentResource.getHost();
     } else {
-      sourceHost = Optional.ofNullable(localityManager.readLocality().getContainerLocality(processorId))
-          .map(ContainerLocality::host)
+      sourceHost = Optional.ofNullable(localityManager.readLocality().getProcessorLocality(processorId))
+          .map(ProcessorLocality::host)
           .orElse(null);
       LOG.info("Processor ID: {} is not running and was last seen on host: {} for ContainerPlacement action: {}",
           processorId, sourceHost, requestMessage);

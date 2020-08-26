@@ -24,7 +24,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.samza.container.LocalityManager;
-import org.apache.samza.job.model.ContainerLocality;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -56,9 +56,9 @@ public class LocalityServlet extends HttpServlet {
 
     if (request.getParameterMap().size() == 1) {
       String processorId = request.getParameter(PROCESSOR_ID_PARAM);
-      ContainerLocality containerLocality = Optional.ofNullable(localityModel.getContainerLocality(processorId))
-          .orElse(new ContainerLocality(processorId, ""));
-      mapper.writeValue(response.getWriter(), containerLocality);
+      ProcessorLocality processorLocality = Optional.ofNullable(localityModel.getProcessorLocality(processorId))
+          .orElse(new ProcessorLocality(processorId, ""));
+      mapper.writeValue(response.getWriter(), processorLocality);
     } else {
       mapper.writeValue(response.getWriter(), localityModel);
     }

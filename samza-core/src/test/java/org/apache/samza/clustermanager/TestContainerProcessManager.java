@@ -38,7 +38,7 @@ import org.apache.samza.coordinator.JobModelManagerTestUtil;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.server.HttpServer;
-import org.apache.samza.job.model.ContainerLocality;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.testUtils.MockHttpServer;
@@ -142,7 +142,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality())
-        .thenReturn(new LocalityModel(ImmutableMap.of("0", new ContainerLocality("0", "host1"))));
+        .thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("0", "host1"))));
     ContainerManager containerManager =
         buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false, mockLocalityManager);
     ContainerProcessManager cpm =
@@ -493,7 +493,7 @@ public class TestContainerProcessManager {
 
     if (withHostAffinity) {
       when(mockLocalityManager.readLocality())
-          .thenReturn(new LocalityModel(ImmutableMap.of("0", new ContainerLocality("0", "host1"))));
+          .thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("0", "host1"))));
     } else {
       when(mockLocalityManager.readLocality())
           .thenReturn(new LocalityModel(new HashMap<>()));
@@ -653,7 +653,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality())
-        .thenReturn(new LocalityModel(ImmutableMap.of("0", new ContainerLocality("1", "host1"))));
+        .thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("1", "host1"))));
     ContainerManager containerManager = buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
         Boolean.valueOf(config.get(ClusterManagerConfig.HOST_AFFINITY_ENABLED)), false, mockLocalityManager);
 
@@ -690,7 +690,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality())
-        .thenReturn(new LocalityModel(ImmutableMap.of("0", new ContainerLocality("0", "host1"), "1", new ContainerLocality("1", "host2"))));
+        .thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("0", "host1"), "1", new ProcessorLocality("1", "host2"))));
     ContainerManager containerManager = buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
         Boolean.parseBoolean(config.get(ClusterManagerConfig.HOST_AFFINITY_ENABLED)), false, mockLocalityManager);
 

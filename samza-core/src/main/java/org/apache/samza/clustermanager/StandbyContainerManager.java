@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.LocalityManager;
-import org.apache.samza.job.model.ContainerLocality;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.job.model.JobModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -303,8 +303,8 @@ public class StandbyContainerManager {
     for (String standbyContainerID : this.standbyContainerConstraints.get(activeContainerID)) {
 
       String standbyHost =
-          Optional.ofNullable(localityManager.readLocality().getContainerLocality(standbyContainerID))
-              .map(ContainerLocality::host)
+          Optional.ofNullable(localityManager.readLocality().getProcessorLocality(standbyContainerID))
+              .map(ProcessorLocality::host)
               .orElse(null);
 
       if (StringUtils.isNotBlank(standbyHost)) {

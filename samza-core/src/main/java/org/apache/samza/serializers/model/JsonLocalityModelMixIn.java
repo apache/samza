@@ -19,7 +19,7 @@
 package org.apache.samza.serializers.model;
 
 import java.util.Map;
-import org.apache.samza.job.model.ContainerLocality;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
@@ -31,10 +31,10 @@ import org.codehaus.jackson.annotate.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public abstract class JsonLocalityModelMixIn {
   @JsonCreator
-  public JsonLocalityModelMixIn(@JsonProperty("container-localities") Map<String, ContainerLocality> containerLocalities) {
+  public JsonLocalityModelMixIn(@JsonProperty("processor-localities") Map<String, ProcessorLocality> processorLocalities) {
 
   }
 
-  @JsonProperty("container-localities")
-  abstract Map<String, ContainerLocality> containerLocalities();
+  @JsonProperty("processor-localities")
+  abstract Map<String, ProcessorLocality> processorLocalities();
 }

@@ -22,26 +22,26 @@ package org.apache.samza.job.model;
 import java.util.Objects;
 
 /**
- * A data model to represent the container locality information. The locality information refers to the whereabouts
+ * A data model to represent the processor locality information. The locality information refers to the whereabouts
  * of the physical execution of container.
  * Fields such as <i>jmxUrl</i> and <i>jmxTunnelingUrl</i> exist for backward compatibility reasons as they were
  * historically stored under the same name space as locality and surfaced within the framework through the locality
  * manager.
  */
-public class ContainerLocality {
-  /* Container identifier */
+public class ProcessorLocality {
+  /* Processor identifier. In YARN deployment model, this corresponds to the logical container id */
   private String id;
-  /* Host on which the container is currently placed */
+  /* Host on which the processor is currently placed */
   private String host;
   private String jmxUrl;
   /* JMX tunneling URL for debugging */
   private String jmxTunnelingUrl;
 
-  public ContainerLocality(String id, String host) {
+  public ProcessorLocality(String id, String host) {
     this(id, host, "", "");
   }
 
-  public ContainerLocality(String id, String host, String jmxUrl, String jmxTunnelingUrl) {
+  public ProcessorLocality(String id, String host, String jmxUrl, String jmxTunnelingUrl) {
     this.id = id;
     this.host = host;
     this.jmxUrl = jmxUrl;
@@ -72,7 +72,7 @@ public class ContainerLocality {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    ContainerLocality that = (ContainerLocality) o;
+    ProcessorLocality that = (ProcessorLocality) o;
     return Objects.equals(id, that.id)
         && Objects.equals(host, that.host)
         && Objects.equals(jmxUrl, that.jmxUrl)

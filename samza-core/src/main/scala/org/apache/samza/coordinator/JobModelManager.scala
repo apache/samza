@@ -167,7 +167,7 @@ object JobModelManager extends Logging {
     */
   def getProcessorLocality(config: Config, localityManager: LocalityManager) = {
     val containerToLocationId: util.Map[String, LocationId] = new util.HashMap[String, LocationId]()
-    val existingContainerLocality = localityManager.readLocality().getContainerLocalities
+    val existingContainerLocality = localityManager.readLocality().getProcessorLocalities
 
     for (containerId <- 0 until new JobConfig(config).getContainerCount) {
       val preferredHost = Option.apply(existingContainerLocality.get(containerId.toString))

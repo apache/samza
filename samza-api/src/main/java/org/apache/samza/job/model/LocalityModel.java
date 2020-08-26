@@ -28,33 +28,39 @@ import java.util.Map;
  * i.e. place the container on the host in which it was running before. By doing this, stateful applications can minimize
  * the bootstrap time of their state by leveraging the local copy.
  *
- * It is suffice to have only {@link ContainerLocality} model and use it within locality manager. However, this abstraction
+ * It is suffice to have only {@link ProcessorLocality} model and use it within locality manager. However, this abstraction
  * enables us extend locality beyond container. e.g. It is useful to track task locality to enable heterogeneous containers
  * or fine grained execution model.
+ *
+ * In YARN deployment model, processors are interchangeably used for container and <i>processorId</i>refers to
+ * logical container id.
  */
 public class LocalityModel {
-  private Map<String, ContainerLocality> containerLocalities;
+  /*
+   * A collection of processor locality keyed by processorId.
+   */
+  private Map<String, ProcessorLocality> processorLocalities;
 
   /**
-   * Construct locality model for the job from the input map of container localities.
-   * @param containerLocalities host locality information for the job keyed by container id
+   * Construct locality model for the job from the input map of processor localities.
+   * @param processorLocalities host locality information for the job keyed by processor id
    */
-  public LocalityModel(Map<String, ContainerLocality> containerLocalities) {
-    this.containerLocalities = containerLocalities;
+  public LocalityModel(Map<String, ProcessorLocality> processorLocalities) {
+    this.processorLocalities = processorLocalities;
   }
 
   /*
-   * Returns a {@link Map} of {@link ContainerLocality} keyed by container id.
+   * Returns a {@link Map} of {@link ProcessorLocality} keyed by processors id.
    */
-  public Map<String, ContainerLocality> getContainerLocalities() {
-    return containerLocalities;
+  public Map<String, ProcessorLocality> getProcessorLocalities() {
+    return processorLocalities;
   }
 
   /*
-   * Returns the {@link ContainerLocality} for the given container id.
+   * Returns the {@link ProcessorLocality} for the given container processorId.
    */
-  public ContainerLocality getContainerLocality(String id) {
-    return containerLocalities.get(id);
+  public ProcessorLocality getProcessorLocality(String processorId) {
+    return processorLocalities.get(processorId);
   }
 
   @Override
@@ -66,11 +72,11 @@ public class LocalityModel {
       return false;
     }
     LocalityModel that = (LocalityModel) o;
-    return Objects.deepEquals(containerLocalities, that.containerLocalities);
+    return Objects.deepEquals(processorLocalities, that.processorLocalities);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(containerLocalities);
+    return Objects.hash(processorLocalities);
   }
 }

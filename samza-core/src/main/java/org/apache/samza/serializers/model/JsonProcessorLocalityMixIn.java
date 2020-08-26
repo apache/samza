@@ -24,12 +24,13 @@ import org.codehaus.jackson.annotate.JsonProperty;
 
 
 /**
- * A mix-in Jackson class to convert {@link org.apache.samza.job.model.ContainerLocality} to/from JSON
+ * A mix-in Jackson class to convert {@link org.apache.samza.job.model.ProcessorLocality} to/from JSON
+ * <b>NOTE:</b> In YARN deployment model, the id refers to the logical container id.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public abstract class JsonContainerLocalityMixIn {
+public abstract class JsonProcessorLocalityMixIn {
   @JsonCreator
-  public JsonContainerLocalityMixIn(@JsonProperty("id") String id, @JsonProperty("host") String host,
+  public JsonProcessorLocalityMixIn(@JsonProperty("id") String id, @JsonProperty("host") String host,
       @JsonProperty("jmx-url") String jmxUrl, @JsonProperty("jmx-tunneling-url") String jmxTunnelingUrl) {
   }
 
