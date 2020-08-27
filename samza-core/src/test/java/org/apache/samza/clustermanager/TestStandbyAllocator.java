@@ -22,10 +22,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.apache.samza.Partition;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -40,7 +38,7 @@ public class TestStandbyAllocator {
 
   @Test
   public void testWithNoStandby() {
-    JobModel jobModel = getJobModelWithStandby(1, 1, 1, Optional.empty());
+    JobModel jobModel = getJobModelWithStandby(1, 1, 1);
     List<String> containerConstraints = StandbyTaskUtil.getStandbyContainerConstraints("0", jobModel);
     Assert.assertEquals("Constrained container count should be 0", 0, containerConstraints.size());
   }
@@ -59,7 +57,7 @@ public class TestStandbyAllocator {
 
 
   public void testWithStandby(int nContainers, int nTasks, int replicationFactor) {
-    JobModel jobModel = getJobModelWithStandby(nContainers, nTasks, replicationFactor, Optional.empty());
+    JobModel jobModel = getJobModelWithStandby(nContainers, nTasks, replicationFactor);
 
     for (String containerID : jobModel.getContainers().keySet()) {
       List<String> containerConstraints = StandbyTaskUtil.getStandbyContainerConstraints(containerID, jobModel);
@@ -81,7 +79,7 @@ public class TestStandbyAllocator {
   }
 
   // Helper method to create a jobmodel with given number of containers, tasks and replication factor
-  public static JobModel getJobModelWithStandby(int nContainers, int nTasks, int replicationFactor, Optional<LocalityManager> localityManager) {
+  public static JobModel getJobModelWithStandby(int nContainers, int nTasks, int replicationFactor) {
     Map<String, ContainerModel> containerModels = new HashMap<>();
     int taskID = 0;
 
@@ -104,7 +102,7 @@ public class TestStandbyAllocator {
     }
 
     containerModels.putAll(standbyContainerModels);
-    return new JobModel(new MapConfig(), containerModels, localityManager.orElse(null));
+    return new JobModel(new MapConfig(), containerModels);
   }
 
   // Helper method that creates a taskmodel with one input ssp

@@ -77,6 +77,7 @@ public class StorageRecovery {
   private final Map<String, ContainerStorageManager> containerStorageManagers = new HashMap<>();
 
   private int maxPartitionNumber = 0;
+  private JobModel jobModel;
   private Map<String, ContainerModel> containers = new HashMap<>();
 
   /**
@@ -145,6 +146,7 @@ public class StorageRecovery {
           JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
               coordinatorStreamStore, metricsRegistryMap);
       JobModel jobModel = jobModelManager.jobModel();
+      this.jobModel = jobModel;
       containers = jobModel.getContainers();
     } finally {
       coordinatorStreamStore.close();
@@ -249,7 +251,7 @@ public class StorageRecovery {
               jobConfig,
               new HashMap<>(),
               new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap(), ""),
-              JobContextImpl.fromConfigWithDefaults(jobConfig),
+              JobContextImpl.fromConfigWithDefaults(jobConfig, jobModel),
               containerContext,
               new HashMap<>(),
               storeBaseDir,

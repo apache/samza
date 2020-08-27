@@ -19,6 +19,7 @@
 package org.apache.samza.context;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.job.model.JobModel;
 
 
 /**
@@ -46,4 +47,9 @@ public interface JobContext {
    * @return the id for this job
    */
   String getJobId();
+
+  /**
+   * @return the {@link JobModel} for the job
+   */
+  JobModel getJobModel();
 }
