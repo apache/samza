@@ -97,7 +97,6 @@ public class LocalJobPlanner extends JobPlanner {
     }
 
     // 2. create the necessary streams
-    // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
     // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
     // to be used for the whole application
     JobConfig jobConfig = jobConfigs.get(0);

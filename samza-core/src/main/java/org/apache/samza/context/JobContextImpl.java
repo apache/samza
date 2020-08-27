@@ -20,17 +20,20 @@ package org.apache.samza.context;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.job.model.JobModel;
 
 
 public class JobContextImpl implements JobContext {
   private final Config config;
+  private final JobModel jobModel;
   private final String jobName;
   private final String jobId;
 
-  private JobContextImpl(Config config, String jobName, String jobId) {
+  private JobContextImpl(Config config, String jobName, String jobId, JobModel jobModel) {
     this.config = config;
     this.jobName = jobName;
     this.jobId = jobId;
+    this.jobModel = jobModel;
   }
 
   /**
@@ -38,15 +41,16 @@ public class JobContextImpl implements JobContext {
    * This extracts some information like job name and job id.
    *
    * @param config used to extract job information
+   * @param jobModel job model
    * @return {@link JobContextImpl} corresponding to the {@code config}
    * @throws IllegalArgumentException if job name is not defined in the {@code config}
    */
-  public static JobContextImpl fromConfigWithDefaults(Config config) {
+  public static JobContextImpl fromConfigWithDefaults(Config config, JobModel jobModel) {
     JobConfig jobConfig = new JobConfig(config);
     String jobName = jobConfig.getName()
         .orElseThrow(() -> new IllegalArgumentException(String.format("Config %s is missing", JobConfig.JOB_NAME)));
     String jobId = jobConfig.getJobId();
-    return new JobContextImpl(config, jobName, jobId);
+    return new JobContextImpl(config, jobName, jobId, jobModel);
   }
 
   @Override
@@ -62,5 +66,10 @@ public class JobContextImpl implements JobContext {
   @Override
   public String getJobId() {
     return this.jobId;
+  }
+
+  @Override
+  public JobModel getJobModel() {
+    return this.jobModel;
   }
 }
