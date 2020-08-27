@@ -39,9 +39,10 @@ import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
 import org.apache.samza.coordinator.server.HttpServer;
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.runtime.LocationId;
@@ -57,10 +58,12 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.argThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
@@ -104,72 +107,6 @@ public class TestJobModelManager {
   }
 
   @Test
-  public void testLocalityMapWithHostAffinity() {
-    Config config = new MapConfig(new HashMap<String, String>() {
-      {
-        put("cluster-manager.container.count", "1");
-        put("cluster-manager.container.memory.mb", "512");
-        put("cluster-manager.container.retry.count", "1");
-        put("cluster-manager.container.retry.window.ms", "1999999999");
-        put("cluster-manager.allocator.sleep.ms", "10");
-        put("yarn.package.path", "/foo");
-        put("task.inputs", "test-system.test-stream");
-        put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
-        put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
-        put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
-        put("job.host-affinity.enabled", "true");
-      }
-    });
-    LocalityManager mockLocalityManager = mock(LocalityManager.class);
-
-    localityMappings.put("0", new HashMap<String, String>() { {
-        put(SetContainerHostMapping.HOST_KEY, "abc-affinity");
-      } });
-    when(mockLocalityManager.readContainerLocality()).thenReturn(this.localityMappings);
-
-    Map<String, LocationId> containerLocality = ImmutableMap.of("0", new LocationId("abc-affinity"));
-    this.jobModelManager =
-        JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server,
-            mockLocalityManager, containerLocality);
-
-    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), ImmutableMap.of("0", "abc-affinity"));
-  }
-
-  @Test
-  public void testLocalityMapWithoutHostAffinity() {
-    Config config = new MapConfig(new HashMap<String, String>() {
-      {
-        put("cluster-manager.container.count", "1");
-        put("cluster-manager.container.memory.mb", "512");
-        put("cluster-manager.container.retry.count", "1");
-        put("cluster-manager.container.retry.window.ms", "1999999999");
-        put("cluster-manager.allocator.sleep.ms", "10");
-        put("yarn.package.path", "/foo");
-        put("task.inputs", "test-system.test-stream");
-        put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
-        put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
-        put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
-        put("job.host-affinity.enabled", "false");
-      }
-    });
-
-    LocalityManager mockLocalityManager = mock(LocalityManager.class);
-
-    localityMappings.put("0", new HashMap<String, String>() { {
-        put(SetContainerHostMapping.HOST_KEY, "abc-affinity");
-      } });
-    when(mockLocalityManager.readContainerLocality()).thenReturn(new HashMap<>());
-
-    Map<String, LocationId> containerLocality = ImmutableMap.of("0", new LocationId("abc-affinity"));
-
-    this.jobModelManager =
-        JobModelManagerTestUtil.getJobModelManagerUsingReadModel(config, mockStreamMetadataCache, server,
-            mockLocalityManager, containerLocality);
-
-    assertEquals(jobModelManager.jobModel().getAllContainerLocality(), Collections.singletonMap("0", null));
-  }
-
-  @Test
   public void testGetGrouperMetadata() {
     // Mocking setup.
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
@@ -179,16 +116,12 @@ public class TestJobModelManager {
     SystemStreamPartition testSystemStreamPartition1 = new SystemStreamPartition(new SystemStream("test-system-0", "test-stream-0"), new Partition(1));
     SystemStreamPartition testSystemStreamPartition2 = new SystemStreamPartition(new SystemStream("test-system-1", "test-stream-1"), new Partition(2));
 
-    Map<String, Map<String, String>> localityMappings = new HashMap<>();
-    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
+    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("0", "abc-affinity"))));
 
     Map<SystemStreamPartition, List<String>> taskToSSPAssignments = ImmutableMap.of(testSystemStreamPartition1, ImmutableList.of("task-0", "task-1"),
                                                                                     testSystemStreamPartition2, ImmutableList.of("task-2", "task-3"));
 
     Map<String, String> taskAssignment = ImmutableMap.of("task-0", "0");
-
-    // Mock the container locality assignment.
-    when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
 
     // Mock the task to partition assignment.
     when(mockTaskPartitionAssignmentManager.readTaskPartitionAssignments()).thenReturn(taskToSSPAssignments);
@@ -199,8 +132,8 @@ public class TestJobModelManager {
 
     GrouperMetadataImpl grouperMetadata = JobModelManager.getGrouperMetadata(new MapConfig(), mockLocalityManager, mockTaskAssignmentManager, mockTaskPartitionAssignmentManager);
 
-    Mockito.verify(mockLocalityManager).readContainerLocality();
-    Mockito.verify(mockTaskAssignmentManager).readTaskAssignment();
+    verify(mockLocalityManager).readLocality();
+    verify(mockTaskAssignmentManager).readTaskAssignment();
 
     Assert.assertEquals(ImmutableMap.of("0", new LocationId("abc-affinity")), grouperMetadata.getProcessorLocality());
     Assert.assertEquals(ImmutableMap.of(new TaskName("task-0"), new LocationId("abc-affinity")), grouperMetadata.getTaskLocality());
@@ -216,15 +149,14 @@ public class TestJobModelManager {
   public void testGetProcessorLocalityAllEntriesExisting() {
     Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_CONTAINER_COUNT, "2"));
 
-    Map<String, Map<String, String>> localityMappings = new HashMap<>();
-    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "0-affinity"));
-    localityMappings.put("1", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "1-affinity"));
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
-    when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
+    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of(
+        "0", new ProcessorLocality("0", "0-affinity"),
+        "1", new ProcessorLocality("1", "1-affinity"))));
 
     Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(config, mockLocalityManager);
 
-    Mockito.verify(mockLocalityManager).readContainerLocality();
+    verify(mockLocalityManager).readLocality();
     ImmutableMap<String, LocationId> expected =
         ImmutableMap.of("0", new LocationId("0-affinity"), "1", new LocationId("1-affinity"));
     Assert.assertEquals(expected, processorLocality);
@@ -234,15 +166,13 @@ public class TestJobModelManager {
   public void testGetProcessorLocalityNewContainer() {
     Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_CONTAINER_COUNT, "2"));
 
-    Map<String, Map<String, String>> localityMappings = new HashMap<>();
-    // 2 containers, but only return 1 existing mapping
-    localityMappings.put("0", ImmutableMap.of(SetContainerHostMapping.HOST_KEY, "abc-affinity"));
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
-    when(mockLocalityManager.readContainerLocality()).thenReturn(localityMappings);
+    // 2 containers, but only return 1 existing mapping
+    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("0", "abc-affinity"))));
 
     Map<String, LocationId> processorLocality = JobModelManager.getProcessorLocality(config, mockLocalityManager);
 
-    Mockito.verify(mockLocalityManager).readContainerLocality();
+    verify(mockLocalityManager).readLocality();
     ImmutableMap<String, LocationId> expected = ImmutableMap.of(
         // found entry in existing locality
         "0", new LocationId("abc-affinity"),
@@ -291,16 +221,16 @@ public class TestJobModelManager {
     systemStreamPartitions.add(new SystemStreamPartition(new SystemStream("test-system-3", "test-stream-3"), new Partition(2)));
 
     // Verifications
-    Mockito.verify(mockJobModel, atLeast(1)).getContainers();
-    Mockito.verify(mockTaskAssignmentManager).deleteTaskContainerMappings(Mockito.any());
-    Mockito.verify(mockTaskAssignmentManager).writeTaskContainerMappings(ImmutableMap.of("test-container-id",
+    verify(mockJobModel, atLeast(1)).getContainers();
+    verify(mockTaskAssignmentManager).deleteTaskContainerMappings(Mockito.any());
+    verify(mockTaskAssignmentManager).writeTaskContainerMappings(ImmutableMap.of("test-container-id",
         ImmutableMap.of("task-1", TaskMode.Active, "task-2", TaskMode.Active, "task-3", TaskMode.Active, "task-4", TaskMode.Active)));
 
     // Verify that the old, stale partition mappings had been purged in the coordinator stream.
-    Mockito.verify(mockTaskPartitionAssignmentManager).delete(systemStreamPartitions);
+    verify(mockTaskPartitionAssignmentManager).delete(systemStreamPartitions);
 
     // Verify that the new task to partition assignment is stored in the coordinator stream.
-    Mockito.verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignments(ImmutableMap.of(
+    verify(mockTaskPartitionAssignmentManager).writeTaskPartitionAssignments(ImmutableMap.of(
         testSystemStreamPartition1, ImmutableList.of("task-1"),
         testSystemStreamPartition2, ImmutableList.of("task-2"),
         testSystemStreamPartition3, ImmutableList.of("task-3"),

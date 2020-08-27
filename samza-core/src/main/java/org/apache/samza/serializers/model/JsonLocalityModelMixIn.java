@@ -16,28 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.serializers.model;
 
-package org.apache.samza.coordinator;
-
-import java.util.HashMap;
 import java.util.Map;
-import org.apache.samza.config.Config;
-import org.apache.samza.coordinator.server.HttpServer;
-import org.apache.samza.job.model.ContainerModel;
-import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.ProcessorLocality;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
+import org.codehaus.jackson.annotate.JsonProperty;
+
 
 /**
- * Utils to create instances of {@link JobModelManager} in unit tests
+ * A mix-in Jackson class to convert {@link org.apache.samza.job.model.LocalityModel} to/from JSON
  */
-public class JobModelManagerTestUtil {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public abstract class JsonLocalityModelMixIn {
+  @JsonCreator
+  public JsonLocalityModelMixIn(@JsonProperty("processor-localities") Map<String, ProcessorLocality> processorLocalities) {
 
-  public static JobModelManager getJobModelManager(Config config, int containerCount, HttpServer server) {
-    Map<String, ContainerModel> containers = new java.util.HashMap<>();
-    for (int i = 0; i < containerCount; i++) {
-      ContainerModel container = new ContainerModel(String.valueOf(i), new HashMap<>());
-      containers.put(String.valueOf(i), container);
-    }
-    JobModel jobModel = new JobModel(config, containers);
-    return new JobModelManager(jobModel, server);
   }
+
+  @JsonProperty("processor-localities")
+  abstract Map<String, ProcessorLocality> processorLocalities();
 }

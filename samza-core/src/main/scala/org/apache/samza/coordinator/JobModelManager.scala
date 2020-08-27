@@ -35,8 +35,7 @@ import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
 import org.apache.samza.container.LocalityManager
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
-import org.apache.samza.coordinator.server.HttpServer
-import org.apache.samza.coordinator.server.JobServlet
+import org.apache.samza.coordinator.server.{HttpServer, JobServlet, LocalityServlet}
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
 import org.apache.samza.job.model.ContainerModel
 import org.apache.samza.job.model.JobModel
@@ -95,14 +94,15 @@ object JobModelManager extends Logging {
       val grouperMetadata: GrouperMetadata = getGrouperMetadata(config, localityManager, taskAssignmentManager, taskPartitionAssignmentManager)
 
       val jobModel: JobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
-      jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers, localityManager))
+      jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers))
 
       updateTaskAssignments(jobModel, taskAssignmentManager, taskPartitionAssignmentManager, grouperMetadata)
 
       val server = new HttpServer
       server.addServlet("/", new JobServlet(jobModelRef))
+      server.addServlet("/locality", new LocalityServlet(localityManager))
 
-      currentJobModelManager = new JobModelManager(jobModelRef.get(), server, localityManager)
+      currentJobModelManager = new JobModelManager(jobModelRef.get(), server)
       currentJobModelManager
     } finally {
       systemAdmins.stop()
@@ -167,15 +167,18 @@ object JobModelManager extends Logging {
     */
   def getProcessorLocality(config: Config, localityManager: LocalityManager) = {
     val containerToLocationId: util.Map[String, LocationId] = new util.HashMap[String, LocationId]()
-    val existingContainerLocality = localityManager.readContainerLocality()
+    val existingContainerLocality = localityManager.readLocality().getProcessorLocalities
 
     for (containerId <- 0 until new JobConfig(config).getContainerCount) {
-      val localityMapping = existingContainerLocality.get(containerId.toString)
+      val preferredHost = Option.apply(existingContainerLocality.get(containerId.toString))
+        .map(containerLocality => containerLocality.host())
+        .filter(host => host.nonEmpty)
+        .orNull
       // To handle the case when the container count is increased between two different runs of a samza-yarn job,
       // set the locality of newly added containers to any_host.
       var locationId: LocationId = new LocationId("ANY_HOST")
-      if (localityMapping != null && localityMapping.containsKey(SetContainerHostMapping.HOST_KEY)) {
-        locationId = new LocationId(localityMapping.get(SetContainerHostMapping.HOST_KEY))
+      if (preferredHost != null) {
+        locationId = new LocationId(preferredHost)
       }
       containerToLocationId.put(containerId.toString, locationId)
     }
@@ -366,6 +369,7 @@ object JobModelManager extends Logging {
 
     // processor list is required by some of the groupers. So, let's pass them as part of the config.
     // Copy the config and add the processor list to the config copy.
+    // TODO: It is non-ideal to have config as a medium to transmit the locality information; especially, if the locality information evolves. Evaluate options on using context objects to pass dependent components.
     val configMap = new util.HashMap[String, String](config)
     configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", grouperMetadata.getProcessorLocality.keySet()))
     val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap))
@@ -444,12 +448,7 @@ class JobModelManager(
   /**
    * HTTP server used to serve a Samza job's container model to SamzaContainers when they start up.
    */
-  val server: HttpServer = null,
-
-  /**
-   * LocalityManager employed to read and write container and task locality information to metadata store.
-   */
-  val localityManager: LocalityManager = null) extends Logging {
+  val server: HttpServer = null) extends Logging {
 
   debug("Got job model: %s." format jobModel)
 
@@ -466,11 +465,6 @@ class JobModelManager(
       debug("Stopping HTTP server.")
       server.stop
       info("Stopped HTTP server.")
-      if (localityManager != null) {
-        info("Stopping localityManager")
-        localityManager.close()
-        info("Stopped localityManager")
-      }
     }
   }
 }

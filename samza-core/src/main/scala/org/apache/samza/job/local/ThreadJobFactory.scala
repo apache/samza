@@ -149,7 +149,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         jobModel,
         Map[String, MetricsReporter](),
         taskFactory,
-        JobContextImpl.fromConfigWithDefaults(config),
+        JobContextImpl.fromConfigWithDefaults(config, jobModel),
         Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
         Option(appDesc.getApplicationTaskContextFactory.orElse(null)),
         buildExternalContext(config)
