@@ -32,6 +32,7 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.samza.clustermanager.ClusterResourceManager;
+import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.clustermanager.SamzaResource;
 import org.apache.samza.config.Config;
 import org.junit.Assert;
@@ -107,7 +108,6 @@ public class TestYarnClusterResourceManager {
   @Test
   public void testAMShutdownOnRMCallback() {
     // create mocks
-    final int samzaContainerId = 1;
     YarnConfiguration yarnConfiguration = mock(YarnConfiguration.class);
     SamzaAppMasterMetrics metrics = mock(SamzaAppMasterMetrics.class);
     Config config = mock(Config.class);
@@ -124,7 +124,10 @@ public class TestYarnClusterResourceManager {
 
     yarnClusterResourceManager.onShutdownRequest();
 
+    verify(lifecycle, times(1)).onShutdown(SamzaApplicationState.SamzaAppStatus.FAILED);
     verify(asyncClient, times(1)).stop();
     verify(asyncNMClient, times(1)).stop();
+    verify(service, times(1)).onShutdown();
+    verify(metrics, times(1)).stop();
   }
 }
