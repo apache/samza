@@ -64,15 +64,15 @@ import static org.powermock.api.mockito.PowerMockito.mock;
 
 
 /**
- * Tests for {@link ClusterBasedJobCoordinator}
+ * Tests for {@link TestClusterBasedJobCoordinatorRunner}
  */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({
     CoordinatorStreamUtil.class,
-    ClusterBasedJobCoordinator.class,
+    ClusterBasedJobCoordinatorRunner.class,
     CoordinatorStreamStore.class,
     RemoteJobPlanner.class})
-public class TestClusterBasedJobCoordinator {
+public class TestClusterBasedJobCoordinatorRunner {
 
   private Map<String, String> configMap;
 
@@ -112,7 +112,7 @@ public class TestClusterBasedJobCoordinator {
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
-    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinator.createFromMetadataStore(config);
+    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinatorRunner.createFromMetadataStore(config);
 
     // change the input system stream metadata
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(1)), new ArrayList<>());
@@ -132,7 +132,7 @@ public class TestClusterBasedJobCoordinator {
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
-    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinator.createFromMetadataStore(config);
+    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinatorRunner.createFromMetadataStore(config);
 
     // change the input system stream metadata
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(1)), new ArrayList<>());
@@ -150,7 +150,7 @@ public class TestClusterBasedJobCoordinator {
     Config config = new MapConfig(configMap);
     MockitoException stopException = new MockitoException("Stop");
 
-    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(ClusterBasedJobCoordinator.createFromMetadataStore(config));
+    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(ClusterBasedJobCoordinatorRunner.createFromMetadataStore(config));
     ContainerProcessManager mockContainerProcessManager = mock(ContainerProcessManager.class);
     doReturn(true).when(mockContainerProcessManager).shouldShutdown();
     StartpointManager mockStartpointManager = mock(StartpointManager.class);
@@ -186,7 +186,7 @@ public class TestClusterBasedJobCoordinator {
         "--config", "app.class=class1",
         "--runner=SamzaRunner",
         "--maxSourceParallelism=1024");
-    List<String> actual = Arrays.asList(ClusterBasedJobCoordinator.toArgs(appConfig));
+    List<String> actual = Arrays.asList(ClusterBasedJobCoordinatorRunner.toArgs(appConfig));
 
     // cannot assert expected equals to actual as the order can be different.
     assertEquals(expected.size(), actual.size());

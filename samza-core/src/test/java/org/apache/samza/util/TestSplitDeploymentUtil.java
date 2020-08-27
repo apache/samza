@@ -19,6 +19,7 @@
 package org.apache.samza.util;
 
 import org.apache.samza.clustermanager.ClusterBasedJobCoordinator;
+import org.apache.samza.clustermanager.ClusterBasedJobCoordinatorRunner;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.api.mockito.PowerMockito;
@@ -33,18 +34,18 @@ import static org.powermock.api.mockito.PowerMockito.*;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({ClusterBasedJobCoordinator.class})
+@PrepareForTest({ClusterBasedJobCoordinatorRunner.class})
 public class TestSplitDeploymentUtil {
 
   @Test
   public void testRunWithIsolatingClassLoader() throws Exception {
     // partially mock ClusterBasedJobCoordinator (mock runClusterBasedJobCoordinator method only)
-    PowerMockito.spy(ClusterBasedJobCoordinator.class);
+    PowerMockito.spy(ClusterBasedJobCoordinatorRunner.class);
     // save the context classloader to make sure that it gets set properly once the test is finished
     ClassLoader previousContextClassLoader = Thread.currentThread().getContextClassLoader();
     ClassLoader classLoader = mock(ClassLoader.class);
     String[] args = new String[]{"arg0", "arg1"};
-    doReturn(ClusterBasedJobCoordinator.class).when(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
+    doReturn(ClusterBasedJobCoordinatorRunner.class).when(classLoader).loadClass(ClusterBasedJobCoordinatorRunner.class.getName());
 
     // stub the private static method which is called by reflection
     PowerMockito.doAnswer(invocation -> {
@@ -53,19 +54,19 @@ public class TestSplitDeploymentUtil {
       // checks that the context classloader is set correctly
       assertEquals(classLoader, Thread.currentThread().getContextClassLoader());
       return null;
-    }).when(ClusterBasedJobCoordinator.class, "runClusterBasedJobCoordinator", any());
+    }).when(ClusterBasedJobCoordinatorRunner.class, "runClusterBasedJobCoordinator", any());
 
     try {
       SplitDeploymentUtil.runWithClassLoader(classLoader,
-          ClusterBasedJobCoordinator.class, "runClusterBasedJobCoordinator", args);
+          ClusterBasedJobCoordinatorRunner.class, "runClusterBasedJobCoordinator", args);
       assertEquals(previousContextClassLoader, Thread.currentThread().getContextClassLoader());
     } finally {
       // reset it explicitly just in case runWithClassLoader throws an exception
       Thread.currentThread().setContextClassLoader(previousContextClassLoader);
     }
     // make sure that the classloader got used
-    verify(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
+    verify(classLoader).loadClass(ClusterBasedJobCoordinatorRunner.class.getName());
     // make sure runClusterBasedJobCoordinator only got called once
-    verifyPrivate(ClusterBasedJobCoordinator.class).invoke("runClusterBasedJobCoordinator", new Object[]{aryEq(args)});
+    verifyPrivate(ClusterBasedJobCoordinatorRunner.class).invoke("runClusterBasedJobCoordinator", new Object[]{aryEq(args)});
   }
 }
