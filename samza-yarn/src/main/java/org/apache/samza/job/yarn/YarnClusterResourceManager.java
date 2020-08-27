@@ -485,7 +485,15 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   //nodes being updated. We always return 0 when asked for progress by Yarn.
   @Override
   public void onShutdownRequest() {
-    //not implemented currently.
+    log.info("Stopping the AM client on shutdown request.");
+    lifecycle.onShutdown(SamzaApplicationState.SamzaAppStatus.FAILED);
+    amClient.stop();
+    log.info("Stopping the NM client on shutdown request.");
+    nmClientAsync.stop();
+    log.info("Stopping the SamzaYarnAppMasterService service on shutdown request.");
+    service.onShutdown();
+    log.info("Stopping SamzaAppMasterMetrics on shutdown request.");
+    metrics.stop();
   }
 
   @Override

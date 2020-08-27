@@ -103,4 +103,28 @@ public class TestYarnClusterResourceManager {
 
     Assert.assertTrue(yarnClusterResourceManager.isResourceExpired(allocatedResource));
   }
+
+  @Test
+  public void testAMShutdownOnRMCallback() {
+    // create mocks
+    final int samzaContainerId = 1;
+    YarnConfiguration yarnConfiguration = mock(YarnConfiguration.class);
+    SamzaAppMasterMetrics metrics = mock(SamzaAppMasterMetrics.class);
+    Config config = mock(Config.class);
+    AMRMClientAsync asyncClient = mock(AMRMClientAsync.class);
+    YarnAppState yarnAppState = new YarnAppState(0, mock(ContainerId.class), "host", 8080, 8081);
+    SamzaYarnAppMasterLifecycle lifecycle = mock(SamzaYarnAppMasterLifecycle.class);
+    SamzaYarnAppMasterService service = mock(SamzaYarnAppMasterService.class);
+    NMClientAsync asyncNMClient = mock(NMClientAsync.class);
+    ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
+
+    // start the cluster manager
+    YarnClusterResourceManager yarnClusterResourceManager = new YarnClusterResourceManager(asyncClient, asyncNMClient,
+        callback, yarnAppState, lifecycle, service, metrics, yarnConfiguration, config);
+
+    yarnClusterResourceManager.onShutdownRequest();
+
+    verify(asyncClient, times(1)).stop();
+    verify(asyncNMClient, times(1)).stop();
+  }
 }

@@ -22,6 +22,7 @@ package org.apache.samza.job.yarn
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
+import org.apache.hadoop.yarn.exceptions.InvalidApplicationMasterRequestException
 import org.apache.samza.SamzaException
 import org.apache.samza.clustermanager.SamzaApplicationState
 import SamzaApplicationState.SamzaAppStatus
@@ -68,7 +69,12 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
     //allowing the RM to restart it (potentially on a different host)
     if(samzaAppStatus != SamzaAppStatus.UNDEFINED) {
       info("Unregistering AM from the RM.")
-      amClient.unregisterApplicationMaster(yarnStatus, shutdownMessage, null)
+      try {
+        amClient.unregisterApplicationMaster(yarnStatus, shutdownMessage, null)
+      } catch {
+        case ex: InvalidApplicationMasterRequestException =>
+          info("Removed application attempt from RM cache.")
+      }
       info("Unregister complete.")
     }
     else {
