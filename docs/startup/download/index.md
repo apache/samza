@@ -31,6 +31,7 @@ Starting from 2016, Samza will begin requiring JDK8 or higher. Please see [this 
 
  Samza tools package contains command line tools that user can run to use Samza and it's input/output systems.
 
+ * [samza-tools_2.11-1.5.1.tgz](http://www-us.apache.org/dist/samza/1.5.1/samza-tools_2.11-1.5.1.tgz)
  * [samza-tools_2.11-1.5.0.tgz](http://www-us.apache.org/dist/samza/1.5.0/samza-tools_2.11-1.5.0.tgz)
  * [samza-tools_2.11-1.4.0.tgz](http://www-us.apache.org/dist/samza/1.4.0/samza-tools_2.11-1.4.0.tgz)
  * [samza-tools_2.11-1.3.1.tgz](http://www-us.apache.org/dist/samza/1.3.1/samza-tools_2.11-1.3.1.tgz)
@@ -42,6 +43,7 @@ Starting from 2016, Samza will begin requiring JDK8 or higher. Please see [this 
 
 ### Source Releases
 
+ * [samza-sources-1.5.1.tgz](http://www.apache.org/dyn/closer.lua/samza/1.5.1)
  * [samza-sources-1.5.0.tgz](http://www.apache.org/dyn/closer.lua/samza/1.5.0)
  * [samza-sources-1.4.0.tgz](http://www.apache.org/dyn/closer.lua/samza/1.4.0)
  * [samza-sources-1.3.1.tgz](http://www.apache.org/dyn/closer.lua/samza/1.3.1)
@@ -75,12 +77,12 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
 <dependency>
   <setId>org.apache.samza</setId>
   <artifactId>samza-api</artifactId>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
 </dependency>
 <dependency>
   <setId>org.apache.samza</setId>
   <artifactId>samza-core_2.11</artifactId>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
@@ -88,37 +90,37 @@ A Maven-based Samza project can pull in all required dependencies Samza dependen
   <artifactId>samza-shell</artifactId>
   <classifier>dist</classifier>
   <type>tgz</type>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <setId>org.apache.samza</setId>
   <artifactId>samza-yarn_2.11</artifactId>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <setId>org.apache.samza</setId>
   <artifactId>samza-kv_2.11</artifactId>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <setId>org.apache.samza</setId>
   <artifactId>samza-kv-rocksdb_2.11</artifactId>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <setId>org.apache.samza</setId>
   <artifactId>samza-kv-inmemory_2.11</artifactId>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
   <scope>runtime</scope>
 </dependency>
 <dependency>
   <setId>org.apache.samza</setId>
   <artifactId>samza-kafka_2.11</artifactId>
-  <version>1.5.0</version>
+  <version>1.5.1</version>
   <scope>runtime</scope>
 </dependency>
 {% endhighlight %}
