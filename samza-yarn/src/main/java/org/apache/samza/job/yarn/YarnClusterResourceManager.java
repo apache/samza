@@ -386,13 +386,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void stop(SamzaApplicationState.SamzaAppStatus status) {
-    log.info("Stopping AM client.");
+    log.info("Stopping the AM client on shutdown request.");
     lifecycle.onShutdown(status);
     amClient.stop();
-    log.info("Stopping the AM service.");
+    log.info("Stopping the NM client on shutdown request.");
     nmClientAsync.stop();
-    log.info("Stopping the NM service.");
+    log.info("Stopping the SamzaYarnAppMasterService service on shutdown request.");
     service.onShutdown();
+    log.info("Stopping SamzaAppMasterMetrics on shutdown request.");
     metrics.stop();
 
     if (status != SamzaApplicationState.SamzaAppStatus.UNDEFINED) {
@@ -485,15 +486,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   //nodes being updated. We always return 0 when asked for progress by Yarn.
   @Override
   public void onShutdownRequest() {
-    log.info("Stopping the AM client on shutdown request.");
-    lifecycle.onShutdown(SamzaApplicationState.SamzaAppStatus.FAILED);
-    amClient.stop();
-    log.info("Stopping the NM client on shutdown request.");
-    nmClientAsync.stop();
-    log.info("Stopping the SamzaYarnAppMasterService service on shutdown request.");
-    service.onShutdown();
-    log.info("Stopping SamzaAppMasterMetrics on shutdown request.");
-    metrics.stop();
+    stop(SamzaApplicationState.SamzaAppStatus.FAILED);
   }
 
   @Override
