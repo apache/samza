@@ -18,7 +18,6 @@
  */
 package org.apache.samza.util;
 
-import org.apache.samza.clustermanager.ClusterBasedJobCoordinator;
 import org.apache.samza.clustermanager.ClusterBasedJobCoordinatorRunner;
 import org.junit.Test;
 import org.junit.runner.RunWith;
