@@ -19,9 +19,12 @@
 
 package org.apache.samza.job.yarn
 
+import java.io.IOException
+
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
+import org.apache.hadoop.yarn.exceptions.{InvalidApplicationMasterRequestException, YarnException}
 import org.apache.samza.SamzaException
 import org.apache.samza.clustermanager.SamzaApplicationState
 import SamzaApplicationState.SamzaAppStatus
@@ -68,8 +71,17 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
     //allowing the RM to restart it (potentially on a different host)
     if(samzaAppStatus != SamzaAppStatus.UNDEFINED) {
       info("Unregistering AM from the RM.")
-      amClient.unregisterApplicationMaster(yarnStatus, shutdownMessage, null)
-      info("Unregister complete.")
+      try {
+        amClient.unregisterApplicationMaster(yarnStatus, shutdownMessage, null)
+        info("Unregister complete.")
+      } catch {
+        case ex: InvalidApplicationMasterRequestException =>
+          // Once the NM dies, the corresponding app attempt ID is removed from the RM cache so that the RM can spin up a new AM and its containers.
+          // Hence, this throws InvalidApplicationMasterRequestException since that AM is unregistered with the RM already.
+          info("Removed application attempt from RM cache because the AM died. Unregister complete.")
+        case ex @ (_ : YarnException | _ : IOException) =>
+          error("Caught an exception while trying to unregister AM. Trying to stop other components.", ex)
+      }
     }
     else {
       info("Not unregistering AM from the RM. This will enable RM retries")
