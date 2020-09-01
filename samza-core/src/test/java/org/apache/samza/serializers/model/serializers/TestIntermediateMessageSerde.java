@@ -24,7 +24,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.IntermediateMessageSerde;
+import org.apache.samza.serializers.JsonSerdeV2;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
@@ -125,5 +127,15 @@ public class TestIntermediateMessageSerde {
     assertEquals(MessageType.of(de), MessageType.END_OF_STREAM);
     assertEquals(de.getTaskName(), taskName);
     assertEquals(de.getVersion(), 1);
+  }
+
+  @Test (expected = SamzaException.class)
+  public void testUserMessageSerdeException() {
+    IntermediateMessageSerde imserde = new IntermediateMessageSerde(new ObjectSerde());
+    IntermediateMessageSerde imserde2 = new IntermediateMessageSerde(new JsonSerdeV2<>());
+    String msg = "this is a test message";
+    TestUserMessage userMessage = new TestUserMessage(msg, 0, System.currentTimeMillis());
+    byte[] bytes = imserde.toBytes(userMessage);
+    imserde2.fromBytes(bytes);
   }
 }

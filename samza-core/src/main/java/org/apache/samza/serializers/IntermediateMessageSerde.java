@@ -92,7 +92,7 @@ public class IntermediateMessageSerde implements Serde<Object> {
       // For these cases, we WILL NOT fall back to user-provided serde. Thus, we are not compatible with upgrade
       // directly from samza version older than 0.13.1.
       LOGGER.error("Error deserializing with intermediate message serde. If you are upgrading from samza version older"
-          + "than 0.13.1, please upgrade to samza 1.5 first.");
+          + " than 0.13.1, please upgrade to samza 1.5 first.");
       throw e;
     }
   }
