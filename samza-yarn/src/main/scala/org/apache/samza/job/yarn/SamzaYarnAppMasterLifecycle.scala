@@ -76,7 +76,7 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
         info("Unregister complete.")
       } catch {
         case ex: InvalidApplicationMasterRequestException =>
-          // Once the AM dies, the corresponding app attempt ID is removed from the RM cache so that the RM can spin up a new AM and its containers.
+          // Once the NM dies, the corresponding app attempt ID is removed from the RM cache so that the RM can spin up a new AM and its containers.
           // Hence, this throws InvalidApplicationMasterRequestException since that AM is unregistered with the RM already.
           info("Removed application attempt from RM cache because the AM died. Unregister complete.")
         case ex @ (_ : YarnException | _ : IOException) =>
