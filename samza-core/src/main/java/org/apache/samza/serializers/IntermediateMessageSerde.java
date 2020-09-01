@@ -83,21 +83,17 @@ public class IntermediateMessageSerde implements Serde<Object> {
           throw new UnsupportedOperationException(String.format("Message type %s is not supported", type.name()));
       }
       return object;
-
     } catch (UnsupportedOperationException ue) {
       throw new SamzaException(ue);
     } catch (Exception e) {
       // This will catch the following exceptions:
       // 1) the first byte is not a valid type so it will cause ArrayOutOfBound exception
       // 2) the first byte happens to be a valid type, but the deserialization fails with certain exception
-      // For these cases, we fall back to user-provided serde
-      try {
-        return userMessageSerde.fromBytes(bytes);
-      } catch (Exception umse) {
-        LOGGER.error("Error deserializing from both intermediate message serde and user message serde. "
-            + "Original exception: ", e);
-        throw umse;
-      }
+      // For these cases, we WILL NOT fall back to user-provided serde. Thus, we are not compatible with upgrade
+      // directly from samza version older than 0.13.1.
+      LOGGER.error("Error deserializing with intermediate message serde. If you are upgrading from samza version older"
+          + "than 0.13.1, please upgrade to samza 1.5 first.");
+      throw e;
     }
   }
 
