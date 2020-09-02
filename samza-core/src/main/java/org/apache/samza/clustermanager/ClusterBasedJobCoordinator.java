@@ -206,7 +206,7 @@ public class ClusterBasedJobCoordinator {
     this.hasDurableStores = new StorageConfig(config).hasDurableStores();
     this.state = new SamzaApplicationState(jobModelManager);
     // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
-    this.systemAdmins = new SystemAdmins(config);
+    this.systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
     this.partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
 
     Set<SystemStream> inputSystemStreams = JobModelUtil.getSystemStreams(jobModelManager.jobModel());

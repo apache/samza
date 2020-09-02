@@ -39,8 +39,8 @@ public class SystemAdmins {
   }
 
   public SystemAdmins(Config config, String adminLabel) {
-    SystemConfig systemConfig = new SystemConfig(config);
-    this.systemAdminMap = systemConfig.getSystemAdmins(adminLabel);
+    SystemConfig systemConfig = new SystemConfig(config, adminLabel);
+    this.systemAdminMap = systemConfig.getSystemAdmins();
   }
 
   /**

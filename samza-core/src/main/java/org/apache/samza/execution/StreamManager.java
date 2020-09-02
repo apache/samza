@@ -48,7 +48,7 @@ public class StreamManager {
   private final SystemAdmins systemAdmins;
 
   public StreamManager(Config config) {
-    this(new SystemAdmins(config));
+    this(new SystemAdmins(config, StreamManager.class.getSimpleName()));
   }
 
   @VisibleForTesting
