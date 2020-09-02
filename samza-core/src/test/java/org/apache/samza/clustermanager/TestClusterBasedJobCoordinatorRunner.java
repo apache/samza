@@ -45,8 +45,7 @@ import static org.powermock.api.mockito.PowerMockito.mock;
     System.class,
     ClusterBasedJobCoordinatorRunner.class,
     ApplicationUtil.class,
-    JobCoordinatorLaunchUtil.class
-})
+    JobCoordinatorLaunchUtil.class})
 public class TestClusterBasedJobCoordinatorRunner {
 
   @Test
