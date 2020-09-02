@@ -69,7 +69,8 @@ public class ClusterBasedJobCoordinatorRunner {
    * This is the actual execution for the {@link ClusterBasedJobCoordinator}. This is separated out from
    * {@link #main(String[])} so that it can be executed directly or from a separate classloader.
    */
-  private static void runClusterBasedJobCoordinator(String[] args) {
+  @VisibleForTesting
+  static void runClusterBasedJobCoordinator(String[] args) {
     final String coordinatorSystemEnv = System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG);
     final String submissionEnv = System.getenv(ShellCommandConfig.ENV_SUBMISSION_CONFIG);
 
