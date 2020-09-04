@@ -352,7 +352,7 @@ public class TestStreamAppender {
   }
 
   private String asJsonMessageSegment(String message) {
-    return String.format("\"formatted-message\":\"%s\"", message);
+    return String.format("\"message\":\"%s\"", message);
   }
 
   private void removeAllAppenders() {
