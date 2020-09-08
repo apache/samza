@@ -19,6 +19,7 @@
 package org.apache.samza.config;
 
 import java.util.Optional;
+import org.apache.samza.clustermanager.DefaultApplicationMain;
 import org.apache.samza.runtime.UUIDGenerator;
 
 
@@ -104,8 +105,8 @@ public class ApplicationConfig extends MapConfig {
     return Optional.ofNullable(get(APP_MAIN_ARGS));
   }
 
-  public Optional<String> getAppMainClass() {
-    return Optional.ofNullable(get(APP_MAIN_CLASS));
+  public String getAppMainClass() {
+    return get(APP_MAIN_CLASS, DefaultApplicationMain.class.getName());
   }
 
 }
