@@ -22,6 +22,7 @@ package org.apache.samza.container
 import java.util
 import java.util.concurrent.atomic.AtomicReference
 
+import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 import org.apache.samza.Partition
 import org.apache.samza.config.{ClusterManagerConfig, Config, MapConfig}
 import org.apache.samza.context.{ApplicationContainerContext, ContainerContext}
@@ -29,6 +30,7 @@ import org.apache.samza.coordinator.JobModelManager
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.metrics.Gauge
+import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.storage.ContainerStorageManager
 import org.apache.samza.system._
 import org.junit.Assert._
@@ -266,11 +268,11 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       "0" -> new ContainerModel("0", tasks),
       "1" -> new ContainerModel("1", tasks))
     val jobModel = new JobModel(config, containers)
-    def jobModelGenerator(): JobModel = jobModel
+    def jobModelGenerator(): Array[Byte] = SamzaObjectMapper.getObjectMapper.writeValueAsBytes(jobModel)
     val server = new HttpServer
     val coordinator = new JobModelManager(jobModel, server)
-    JobModelManager.jobModelRef.set(jobModelGenerator())
-    coordinator.server.addServlet("/*", new JobServlet(JobModelManager.jobModelRef))
+    JobModelManager.serializedJobModelRef.set(jobModelGenerator())
+    coordinator.server.addServlet("/*", new JobServlet(JobModelManager.serializedJobModelRef))
     try {
       coordinator.start
       assertEquals(jobModel, SamzaContainer.readJobModel(server.getUrl.toString))
@@ -291,11 +293,11 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       "0" -> new ContainerModel("0", tasks),
       "1" -> new ContainerModel("1", tasks))
     val jobModel = new JobModel(config, containers)
-    def jobModelGenerator(): JobModel = jobModel
+    def jobModelGenerator(): Array[Byte] = SamzaObjectMapper.getObjectMapper.writeValueAsBytes(jobModel)
     val server = new HttpServer
     val coordinator = new JobModelManager(jobModel, server)
-    JobModelManager.jobModelRef.set(jobModelGenerator())
-    val mockJobServlet = new MockJobServlet(2, JobModelManager.jobModelRef)
+    JobModelManager.serializedJobModelRef.set(jobModelGenerator())
+    val mockJobServlet = new MockJobServlet(2, JobModelManager.serializedJobModelRef)
     coordinator.server.addServlet("/*", mockJobServlet)
     try {
       coordinator.start
@@ -371,16 +373,24 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
     this.samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 
-  class MockJobServlet(exceptionLimit: Int, jobModelRef: AtomicReference[JobModel]) extends JobServlet(jobModelRef) {
+  class MockJobServlet(exceptionLimit: Int, jobModelRef: AtomicReference[Array[Byte]]) extends HttpServlet {
     var exceptionCount = 0
 
-    override protected def getObjectToWrite(): JobModel = {
+    override protected def doGet(request: HttpServletRequest, response: HttpServletResponse) {
       if (exceptionCount < exceptionLimit) {
         exceptionCount += 1
         throw new java.io.IOException("Throwing exception")
       } else {
         val jobModel = jobModelRef.get()
-        jobModel
+
+        // This should never happen because JobServlet is instantiated only after a jobModel is generated and its reference is updated
+        if (jobModel == null) {
+          throw new IllegalStateException("No JobModel to serve in the JobCoordinator.")
+        }
+
+        response.setContentType("application/json")
+        response.setStatus(HttpServletResponse.SC_OK)
+        response.getOutputStream.write(jobModelRef.get())
       }
     }
   }
