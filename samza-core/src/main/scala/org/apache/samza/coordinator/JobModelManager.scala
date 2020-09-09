@@ -34,7 +34,6 @@ import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
 import org.apache.samza.container.LocalityManager
 import org.apache.samza.container.TaskName
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet, LocalityServlet}
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
 import org.apache.samza.job.model.ContainerModel
@@ -45,9 +44,10 @@ import org.apache.samza.metadatastore.MetadataStore
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
+import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.system._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{ConfigUtil, Logging, ReflectionUtil, Util}
+import org.apache.samza.util.{ConfigUtil, Logging, ReflectionUtil}
 
 import scala.collection.JavaConverters
 import scala.collection.JavaConversions._
@@ -65,7 +65,7 @@ object JobModelManager extends Logging {
    * a volatile value to store the current instantiated <code>JobModelManager</code>
    */
   @volatile var currentJobModelManager: JobModelManager = _
-  val jobModelRef: AtomicReference[JobModel] = new AtomicReference[JobModel]()
+  val serializedJobModelRef = new AtomicReference[Array[Byte]]
 
   /**
    * Currently used only in the ApplicationMaster for yarn deployment model.
@@ -93,16 +93,18 @@ object JobModelManager extends Logging {
       val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
       val grouperMetadata: GrouperMetadata = getGrouperMetadata(config, localityManager, taskAssignmentManager, taskPartitionAssignmentManager)
 
-      val jobModel: JobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
-      jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers))
+      val jobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
+      val jobModelToServe = new JobModel(jobModel.getConfig, jobModel.getContainers)
+      val serializedJobModelToServe = SamzaObjectMapper.getObjectMapper().writeValueAsBytes(jobModelToServe)
+      serializedJobModelRef.set(serializedJobModelToServe)
 
       updateTaskAssignments(jobModel, taskAssignmentManager, taskPartitionAssignmentManager, grouperMetadata)
 
       val server = new HttpServer
-      server.addServlet("/", new JobServlet(jobModelRef))
+      server.addServlet("/", new JobServlet(serializedJobModelRef))
       server.addServlet("/locality", new LocalityServlet(localityManager))
 
-      currentJobModelManager = new JobModelManager(jobModelRef.get(), server)
+      currentJobModelManager = new JobModelManager(jobModelToServe, server)
       currentJobModelManager
     } finally {
       systemAdmins.stop()
