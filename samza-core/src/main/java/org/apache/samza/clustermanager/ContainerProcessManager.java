@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
@@ -239,7 +238,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     // Initialize the per processor failure count to be 0
     processorToHostMapping.keySet().forEach(processorId -> {
-      state.perProcessorFailureCount.put(processorId, new AtomicInteger(0));
       containerProcessManagerMetrics.registerProcessorFailureCountMetric(processorId);
     });
 
@@ -479,9 +477,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     LOG.info("Container ID: {} for Processor ID: {} failed with exit code: {}.", containerId, processorId, exitStatus);
     Instant now = Instant.now();
     state.failedContainers.incrementAndGet();
-    if (state.perProcessorFailureCount.get(processorId) != null) {
-      state.perProcessorFailureCount.get(processorId).incrementAndGet();
-    }
+    containerProcessManagerMetrics.incrementProcessorFailureCountMetric(processorId);
     state.jobHealthy.set(false);
 
     state.neededProcessors.incrementAndGet();

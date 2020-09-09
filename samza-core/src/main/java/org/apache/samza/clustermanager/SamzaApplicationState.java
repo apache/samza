@@ -115,13 +115,6 @@ public class SamzaApplicationState {
    */
   public final ConcurrentHashMap<String, SamzaResourceStatus> failedProcessors = new ConcurrentHashMap<>(0);
 
-
-  /**
-   *  Map of the Samza processor ID to the count of failed attempts
-   *  Modified by AMRMCallbackThread
-   */
-  public final ConcurrentMap<String, AtomicInteger> perProcessorFailureCount = new ConcurrentHashMap<>(0);
-
   /**
    * Final status of the application. Made to be volatile s.t. changes will be visible in multiple threads.
    */

@@ -66,9 +66,17 @@ class ContainerProcessManagerMetrics(val config: Config,
   val mContainerCpuCores = newGauge("container-cpu-cores", () => clusterManagerConfig.getNumCores)
 
 
+  /**
+   * Maitains the map of processorId 0,1,2 to failure count for one container
+   */
   val mPerContainerFailureCount = collection.mutable.Map[String, Gauge[Int]]()
-  def registerProcessorFailureCountMetric(containerId: String) {
-    mPerContainerFailureCount.put(containerId, newGauge("container_" + containerId + "-failure-count", () => state.perProcessorFailureCount.get(containerId).get()))
+
+  def registerProcessorFailureCountMetric(processorId: String) {
+    mPerContainerFailureCount.put(processorId, newGauge("container_" + processorId + "-failure-count", 0))
+  }
+
+  def incrementProcessorFailureCountMetric(processorId: String) {
+    mPerContainerFailureCount.get(processorId).get.set(mPerContainerFailureCount.get(processorId).get.getValue + 1)
   }
 
 }
