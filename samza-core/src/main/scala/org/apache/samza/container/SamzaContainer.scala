@@ -498,7 +498,7 @@ object SamzaContainer extends Logging {
 
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
 
-    var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
+    var taskStorageManagers : Map[TaskName, TaskStorageBackupManager] = Map()
 
     val taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics] = taskModels.map(taskModel => {
       (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName))
@@ -563,7 +563,7 @@ object SamzaContainer extends Logging {
       val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
-      val storageManager = TaskStorageManagerFactory.create(
+      val storageManager = TaskStorageBackupManagerFactory.create(
         taskName,
         containerStorageManager,
         storeChangelogs,

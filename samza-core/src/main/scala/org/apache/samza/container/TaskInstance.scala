@@ -30,7 +30,7 @@ import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
 import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.storage.TaskStorageManager
+import org.apache.samza.storage.TaskStorageBackupManager
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -48,7 +48,7 @@ class TaskInstance(
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
   override val offsetManager: OffsetManager = new OffsetManager,
-  storageManager: TaskStorageManager = null,
+  storageManager: TaskStorageBackupManager = null,
   tableManager: TableManager = null,
   val systemStreamPartitions: java.util.Set[SystemStreamPartition] = Collections.emptySet(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
@@ -239,7 +239,7 @@ class TaskInstance(
     var newestChangelogOffsets: Map[SystemStreamPartition, Option[String]] = null
     if (storageManager != null) {
       trace("Flushing state stores for taskName: %s" format taskName)
-      newestChangelogOffsets = storageManager.flush()
+      newestChangelogOffsets = storageManager.commit()
       trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestChangelogOffsets))
     }
 

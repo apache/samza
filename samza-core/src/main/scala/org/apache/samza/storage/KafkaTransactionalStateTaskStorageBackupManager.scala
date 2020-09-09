@@ -39,7 +39,7 @@ import scala.collection.JavaConverters._
 /**
  * Manage all the storage engines for a given task
  */
-class TransactionalStateTaskStorageManager(
+class KafkaTransactionalStateTaskStorageBackupManager(
   taskName: TaskName,
   containerStorageManager: ContainerStorageManager,
   storeChangelogs: Map[String, SystemStream] = Map(),
@@ -47,14 +47,18 @@ class TransactionalStateTaskStorageManager(
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition,
   taskMode: TaskMode,
-  storageManagerUtil: StorageManagerUtil) extends Logging with TaskStorageManager {
+  storageManagerUtil: StorageManagerUtil) extends Logging with TaskStorageBackupManager {
 
   def getStore(storeName: String): Option[StorageEngine] =  JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
 
-  def flush(): Map[SystemStreamPartition, Option[String]] = {
+  override def snapshot(): Map[SystemStreamPartition, Option[String]] = {
     debug("Flushing stores.")
     containerStorageManager.getAllStores(taskName).asScala.values.foreach(_.flush)
     getNewestChangelogSSPOffsets(taskName, storeChangelogs, partition, systemAdmins)
+  }
+
+  override def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Map[SystemStreamPartition, Option[String]] = {
+    snapshotCheckpointsMap
   }
 
   def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {

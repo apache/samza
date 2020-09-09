@@ -29,6 +29,7 @@ import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.job.model.{ContainerModel, TaskMode, TaskModel}
 import org.apache.samza.serializers.{Serde, StringSerdeFactory}
 import org.apache.samza.storage.StoreProperties.StorePropertiesBuilder
+import org.apache.samza.storage.KafkaNonTransactionalStateTaskStorageBackupManager
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
 import org.apache.samza.task.TaskInstanceCollector
@@ -58,7 +59,7 @@ import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
   * @param offsetFileName the name of the offset file.
   */
 @RunWith(value = classOf[Parameterized])
-class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extends MockitoSugar {
+class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: String) extends MockitoSugar {
 
   val store = "store1"
   val loggedStore = "loggedStore1"
@@ -133,7 +134,7 @@ class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extend
     verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should update the offset file
-    taskManager.flush()
+    taskManager.commit()
     assertTrue(offsetFile.exists())
     validateOffsetFileContents(offsetFile, "kafka.testStream-loggedStore1.0", "50")
 
@@ -217,7 +218,7 @@ class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extend
     verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should NOT create/update the offset file. Store directory has no files
-    taskManager.flush()
+    taskManager.commit()
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is NOT created
@@ -404,7 +405,7 @@ class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extend
       .build
 
     //Invoke test method
-    taskStorageManager.flush()
+    taskStorageManager.commit()
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -449,14 +450,14 @@ class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extend
       .build
 
     //Invoke test method
-    taskStorageManager.flush()
+    taskStorageManager.commit()
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
     validateOffsetFileContents(offsetFilePath, "kafka.testStream-loggedStore1.0", "100")
 
     //Invoke test method again
-    taskStorageManager.flush()
+    taskStorageManager.commit()
 
     //Check conditions
     assertFalse("Offset file for null offset exists!", offsetFilePath.exists())
@@ -494,7 +495,7 @@ class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extend
       .build
 
     //Invoke test method
-    taskStorageManager.flush()
+    taskStorageManager.commit()
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -505,7 +506,7 @@ class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extend
       .thenReturn(ImmutableMap.of(ssp, new SystemStreamPartitionMetadata("20", "193", "194")))
 
     //Invoke test method
-    taskStorageManager.flush()
+    taskStorageManager.commit()
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -777,7 +778,7 @@ class TestNonTransactionalStateTaskStorageManager(offsetFileName: String) extend
   }
 }
 
-object TestNonTransactionalStateTaskStorageManager {
+object TestKafkaNonTransactionalStateTaskStorageBackupManager {
 
   @Parameters def parameters: util.Collection[Array[String]] = {
     val offsetFileNames = new util.ArrayList[Array[String]]()
@@ -931,13 +932,13 @@ class TaskStorageManagerBuilder extends MockitoSugar {
 
 
 
-  def build: NonTransactionalStateTaskStorageManager = {
+  def build: KafkaNonTransactionalStateTaskStorageBackupManager = {
 
     if (containerStorageManager != null) {
       containerStorageManager.start()
     }
 
-    new NonTransactionalStateTaskStorageManager(
+    new KafkaNonTransactionalStateTaskStorageBackupManager(
       taskName = taskName,
       containerStorageManager = containerStorageManager,
       storeChangelogs = changeLogSystemStreams,

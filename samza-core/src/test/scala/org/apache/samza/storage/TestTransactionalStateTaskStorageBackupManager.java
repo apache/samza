@@ -63,7 +63,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class TestTransactionalStateTaskStorageManager {
+public class TestTransactionalStateTaskStorageBackupManager {
   @Test
   public void testFlushOrder() {
     ContainerStorageManager csm = mock(ContainerStorageManager.class);
@@ -71,12 +71,12 @@ public class TestTransactionalStateTaskStorageManager {
     java.util.Map<String, StorageEngine> taskStores = ImmutableMap.of("mockStore", mockStore);
     when(csm.getAllStores(any())).thenReturn(taskStores);
 
-    TransactionalStateTaskStorageManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
+    KafkaTransactionalStateTaskStorageBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
     // stub actual method call
     doReturn(mock(Map.class)).when(tsm).getNewestChangelogSSPOffsets(any(), any(), any(), any());
 
     // invoke flush
-    tsm.flush();
+    tsm.commit();
 
     // ensure that stores are flushed before we get newest changelog offsets
     InOrder inOrder = inOrder(mockStore, tsm);
@@ -87,7 +87,7 @@ public class TestTransactionalStateTaskStorageManager {
   @Test
   public void testGetNewestOffsetsReturnsCorrectOffset() {
     ContainerStorageManager csm = mock(ContainerStorageManager.class);
-    TransactionalStateTaskStorageManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
+    KafkaTransactionalStateTaskStorageBackupManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
 
     TaskName taskName = mock(TaskName.class);
     String changelogSystemName = "systemName";
@@ -123,7 +123,7 @@ public class TestTransactionalStateTaskStorageManager {
   public void testGetNewestOffsetsReturnsNoneForEmptyTopic() {
     // empty topic == null newest offset
     ContainerStorageManager csm = mock(ContainerStorageManager.class);
-    TransactionalStateTaskStorageManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
+    KafkaTransactionalStateTaskStorageBackupManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
 
     TaskName taskName = mock(TaskName.class);
     String changelogSystemName = "systemName";
@@ -159,7 +159,7 @@ public class TestTransactionalStateTaskStorageManager {
   public void testGetNewestOffsetsThrowsIfNullMetadata() {
     // empty topic == null newest offset
     ContainerStorageManager csm = mock(ContainerStorageManager.class);
-    TransactionalStateTaskStorageManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
+    KafkaTransactionalStateTaskStorageBackupManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
 
     TaskName taskName = mock(TaskName.class);
     String changelogSystemName = "systemName";
@@ -194,7 +194,7 @@ public class TestTransactionalStateTaskStorageManager {
   public void testGetNewestOffsetsThrowsIfNullSSPMetadata() {
     // empty topic == null newest offset
     ContainerStorageManager csm = mock(ContainerStorageManager.class);
-    TransactionalStateTaskStorageManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
+    KafkaTransactionalStateTaskStorageBackupManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
 
     TaskName taskName = mock(TaskName.class);
     String changelogSystemName = "systemName";
@@ -232,7 +232,7 @@ public class TestTransactionalStateTaskStorageManager {
   public void testGetNewestOffsetsThrowsIfErrorGettingMetadata() {
     // empty topic == null newest offset
     ContainerStorageManager csm = mock(ContainerStorageManager.class);
-    TransactionalStateTaskStorageManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
+    KafkaTransactionalStateTaskStorageBackupManager tsm = buildTSM(csm, mock(Partition.class), new StorageManagerUtil());
 
     TaskName taskName = mock(TaskName.class);
     String changelogSystemName = "systemName";
@@ -301,7 +301,7 @@ public class TestTransactionalStateTaskStorageManager {
     );
     when(csm.getAllStores(any())).thenReturn(taskStores);
 
-    TransactionalStateTaskStorageManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
+    KafkaTransactionalStateTaskStorageBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
     // stub actual method call
     ArgumentCaptor<Map> checkpointPathsCaptor = ArgumentCaptor.forClass(Map.class);
     doNothing().when(tsm).writeChangelogOffsetFiles(any(), any(), any());
@@ -338,7 +338,7 @@ public class TestTransactionalStateTaskStorageManager {
         ImmutableMap.of("loggedPersistentStore", mockLPStore);
     when(csm.getAllStores(any())).thenReturn(taskStores);
 
-    TransactionalStateTaskStorageManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
+    KafkaTransactionalStateTaskStorageBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
 
     Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
         ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
@@ -364,7 +364,7 @@ public class TestTransactionalStateTaskStorageManager {
         ImmutableMap.of("loggedPersistentStore", mockLPStore);
     when(csm.getAllStores(any())).thenReturn(taskStores);
 
-    TransactionalStateTaskStorageManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
+    KafkaTransactionalStateTaskStorageBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
     doThrow(new SamzaException("Error writing offset file"))
         .when(tsm).writeChangelogOffsetFiles(any(), any(), any());
 
@@ -392,7 +392,7 @@ public class TestTransactionalStateTaskStorageManager {
     File mockCurrentStoreDir = mock(File.class);
     doReturn(mockCurrentStoreDir).when(smu).getTaskStoreDir(any(), eq(storeName), any(), any());
     doNothing().when(smu).writeOffsetFile(eq(mockCurrentStoreDir), any(), anyBoolean());
-    TransactionalStateTaskStorageManager tsm = spy(buildTSM(csm, changelogPartition, smu));
+    KafkaTransactionalStateTaskStorageBackupManager tsm = spy(buildTSM(csm, changelogPartition, smu));
 
     String changelogNewestOffset = "1";
     Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
@@ -432,7 +432,7 @@ public class TestTransactionalStateTaskStorageManager {
     StorageManagerUtil mockSMU = mock(StorageManagerUtil.class);
     File mockCurrentStoreDir = mock(File.class);
     when(mockSMU.getTaskStoreDir(any(), eq(storeName), any(), any())).thenReturn(mockCurrentStoreDir);
-    TransactionalStateTaskStorageManager tsm = spy(buildTSM(csm, changelogPartition, mockSMU));
+    KafkaTransactionalStateTaskStorageBackupManager tsm = spy(buildTSM(csm, changelogPartition, mockSMU));
 
     String changelogNewestOffset = null;
     Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
@@ -476,7 +476,7 @@ public class TestTransactionalStateTaskStorageManager {
     Partition changelogPartition = new Partition(0);
     SystemStream changelogSS = new SystemStream("system", "changelog");
     SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSS, changelogPartition);
-    TransactionalStateTaskStorageManager tsm = spy(buildTSM(csm, changelogPartition, new StorageManagerUtil()));
+    KafkaTransactionalStateTaskStorageBackupManager tsm = spy(buildTSM(csm, changelogPartition, new StorageManagerUtil()));
 
     // no mapping present for changelog newest offset
     Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(ImmutableMap.of());
@@ -513,13 +513,14 @@ public class TestTransactionalStateTaskStorageManager {
     // null here can happen if listFiles is called on a non-directory
     when(mockStoreDir.listFiles(any(FileFilter.class))).thenReturn(null);
 
-    TransactionalStateTaskStorageManager tsm = new TransactionalStateTaskStorageManager(taskName, containerStorageManager,
+    KafkaTransactionalStateTaskStorageBackupManager
+        tsm = new KafkaTransactionalStateTaskStorageBackupManager(taskName, containerStorageManager,
         changelogSystemStreams, systemAdmins, loggedStoreBaseDir, changelogPartition, taskMode, storageManagerUtil);
 
     tsm.removeOldCheckpoints(CheckpointId.create());
   }
 
-  private TransactionalStateTaskStorageManager buildTSM(ContainerStorageManager csm, Partition changelogPartition,
+  private KafkaTransactionalStateTaskStorageBackupManager buildTSM(ContainerStorageManager csm, Partition changelogPartition,
       StorageManagerUtil smu) {
     TaskName taskName = new TaskName("Partition 0");
     Map<String, SystemStream> changelogSystemStreams = mock(Map.class);
@@ -527,7 +528,7 @@ public class TestTransactionalStateTaskStorageManager {
     File loggedStoreBaseDir = mock(File.class);
     TaskMode taskMode = TaskMode.Active;
 
-    return new TransactionalStateTaskStorageManager(
+    return new KafkaTransactionalStateTaskStorageBackupManager(
         taskName, csm, changelogSystemStreams, systemAdmins,
         loggedStoreBaseDir, changelogPartition, taskMode, smu);
   }

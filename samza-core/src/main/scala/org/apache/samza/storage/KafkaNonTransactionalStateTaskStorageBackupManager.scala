@@ -36,13 +36,13 @@ import scala.collection.JavaConverters._
 /**
  * Manage all the storage engines for a given task
  */
-class NonTransactionalStateTaskStorageManager(
+class KafkaNonTransactionalStateTaskStorageBackupManager(
   taskName: TaskName,
   containerStorageManager: ContainerStorageManager,
   storeChangelogs: Map[String, SystemStream] = Map(),
   systemAdmins: SystemAdmins,
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-  partition: Partition) extends Logging with TaskStorageManager {
+  partition: Partition) extends Logging with TaskStorageBackupManager {
 
   private val storageManagerUtil = new StorageManagerUtil
   private val persistedStores = containerStorageManager.getAllStores(taskName).asScala
@@ -50,12 +50,16 @@ class NonTransactionalStateTaskStorageManager(
 
   def getStore(storeName: String): Option[StorageEngine] =  JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
 
-  def flush(): Map[SystemStreamPartition, Option[String]] = {
+  override def snapshot(): Map[SystemStreamPartition, Option[String]] = {
     debug("Flushing stores.")
     containerStorageManager.getAllStores(taskName).asScala.values.foreach(_.flush)
     val newestChangelogSSPOffsets = getNewestChangelogSSPOffsets()
     writeChangelogOffsetFiles(newestChangelogSSPOffsets)
     newestChangelogSSPOffsets
+  }
+
+  override def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Map[SystemStreamPartition, Option[String]] = {
+    snapshotCheckpointsMap
   }
 
   override def checkpoint(checkpointId: CheckpointId,

@@ -30,16 +30,16 @@ import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 
-public class TaskStorageManagerFactory {
-  public static TaskStorageManager create(TaskName taskName, ContainerStorageManager containerStorageManager,
+public class TaskStorageBackupManagerFactory {
+  public static TaskStorageBackupManager create(TaskName taskName, ContainerStorageManager containerStorageManager,
       Map<String, SystemStream> storeChangelogs, SystemAdmins systemAdmins,
       File loggedStoreBaseDir, Partition changelogPartition,
       Config config, TaskMode taskMode) {
     if (new TaskConfig(config).getTransactionalStateCheckpointEnabled()) {
-      return new TransactionalStateTaskStorageManager(taskName, containerStorageManager, storeChangelogs, systemAdmins,
+      return new KafkaTransactionalStateTaskStorageBackupManager(taskName, containerStorageManager, storeChangelogs, systemAdmins,
           loggedStoreBaseDir, changelogPartition, taskMode, new StorageManagerUtil());
     } else {
-      return new NonTransactionalStateTaskStorageManager(taskName, containerStorageManager, storeChangelogs, systemAdmins,
+      return new KafkaNonTransactionalStateTaskStorageBackupManager(taskName, containerStorageManager, storeChangelogs, systemAdmins,
           loggedStoreBaseDir, changelogPartition);
     }
   }
