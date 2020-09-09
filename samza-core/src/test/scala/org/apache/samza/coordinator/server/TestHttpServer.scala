@@ -19,10 +19,12 @@
 
 package org.apache.samza.coordinator.server
 
+import java.net.URL
+
+import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 import org.apache.samza.util.{HttpUtil, Util}
 import org.junit.Assert._
 import org.junit.Test
-import java.net.URL
 
 class TestHttpServer {
   @Test
@@ -32,7 +34,7 @@ class TestHttpServer {
       server.addServlet("/basic", new BasicServlet())
       server.start
       val body = HttpUtil.read(new URL(server.getUrl + "/basic"))
-      assertEquals("{\"foo\":\"bar\"}", body)
+      assertEquals("{}", body)
       val css = HttpUtil.read(new URL(server.getUrl + "/css/ropa-sans.css"))
       assertTrue(css.contains("RopaSans"))
     } finally {
@@ -53,10 +55,10 @@ class TestHttpServer {
   }
 }
 
-class BasicServlet extends ServletBase {
-  def getObjectToWrite = {
-    val map = new java.util.HashMap[String, String]()
-    map.put("foo", "bar")
-    map
+class BasicServlet extends HttpServlet {
+  override protected def doGet(request: HttpServletRequest, response: HttpServletResponse) {
+    response.setContentType("application/json")
+    response.setStatus(HttpServletResponse.SC_OK)
+    response.getWriter.write("{}")
   }
 }

@@ -107,9 +107,10 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val expectedJobModel = new JobModel(new MapConfig(config.asJava), containers.asJava)
 
     // Verify that the atomicReference is initialized
-    assertNotNull(JobModelManager.jobModelRef.get())
+    assertNotNull(JobModelManager.serializedJobModelRef.get())
     val expectedContainerModels = new util.TreeMap[String, ContainerModel](expectedJobModel.getContainers)
-    val actualContainerModels = new util.TreeMap[String, ContainerModel](JobModelManager.jobModelRef.get().getContainers)
+    val jobModel = SamzaObjectMapper.getObjectMapper.readValue(JobModelManager.serializedJobModelRef.get(), classOf[JobModel])
+    val actualContainerModels = new util.TreeMap[String, ContainerModel](jobModel.getContainers)
     assertEquals(expectedContainerModels, actualContainerModels)
 
     coordinator.start
