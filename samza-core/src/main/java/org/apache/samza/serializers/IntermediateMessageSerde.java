@@ -67,7 +67,20 @@ public class IntermediateMessageSerde implements Serde<Object> {
   public Object fromBytes(byte[] bytes) {
     try {
       final Object object;
-      final MessageType type = MessageType.values()[bytes[0]];
+      final MessageType type;
+      try {
+        type = MessageType.values()[bytes[0]];
+      } catch (ArrayIndexOutOfBoundsException e) {
+        // The message type was introduced in samza 0.13.1. For samza 0.13.0 or older versions, the first byte of
+        // MessageType doesn't exist in the bytes. Thus, upgrading from those versions will get this exception.
+        // There are two ways to solve this issue:
+        // a) Reset checkpoint or clean all messages for the intermediate topic
+        // b) Run the application in any version between 0.13.1 and 1.5 until all old messages in intermediate topic
+        // has reached retention time.
+        throw new SamzaException("Error reading the message type from intermediate message. This may happen if you "
+            + "have recently upgraded from samza version older than 0.13.1 or there are still old messages in the "
+            + "intermediate topic.", e);
+      }
       final byte[] data = Arrays.copyOfRange(bytes, 1, bytes.length);
       switch (type) {
         case USER_MESSAGE:
@@ -86,13 +99,6 @@ public class IntermediateMessageSerde implements Serde<Object> {
     } catch (UnsupportedOperationException ue) {
       throw new SamzaException(ue);
     } catch (Exception e) {
-      // This will catch the following exceptions:
-      // 1) the first byte is not a valid type so it will cause ArrayOutOfBound exception
-      // 2) the first byte happens to be a valid type, but the deserialization fails with certain exception
-      // For these cases, we WILL NOT fall back to user-provided serde. Thus, we are not compatible with upgrade
-      // directly from samza version older than 0.13.1.
-      LOGGER.error("Error deserializing with intermediate message serde. If you are upgrading from samza version older"
-          + " than 0.13.1, please upgrade to samza 1.5 first.");
       throw e;
     }
   }
