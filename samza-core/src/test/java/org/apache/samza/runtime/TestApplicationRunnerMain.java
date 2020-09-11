@@ -44,7 +44,7 @@ public class TestApplicationRunnerMain {
         "-config", "job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
         "-config", "job.config.loader.properties.path=" + getClass().getResource("/test.properties").getPath(),
         "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
-        "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
+        "-config", String.format("%s=%s", ApplicationConfig.APP_RUNNER_CLASS, TestApplicationRunnerInvocationCounts.class.getName()),
     });
 
     assertEquals(1, TestApplicationRunnerInvocationCounts.runCount);
@@ -57,7 +57,7 @@ public class TestApplicationRunnerMain {
         "-config", "job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
         "-config", "job.config.loader.properties.path=" + getClass().getResource("/test.properties").getPath(),
         "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
-        "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
+        "-config", String.format("%s=%s", ApplicationConfig.APP_RUNNER_CLASS, TestApplicationRunnerInvocationCounts.class.getName()),
         "--operation=kill"
     });
 
@@ -71,7 +71,7 @@ public class TestApplicationRunnerMain {
         "-config", "job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
         "-config", "job.config.loader.properties.path=" + getClass().getResource("/test.properties").getPath(),
         "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
-        "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()),
+        "-config", String.format("%s=%s", ApplicationConfig.APP_RUNNER_CLASS, TestApplicationRunnerInvocationCounts.class.getName()),
         "--operation=status"
     });
 
@@ -85,7 +85,7 @@ public class TestApplicationRunnerMain {
         "-config", "job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
         "-config", "job.config.loader.properties.path=" + getClass().getResource("/test.properties").getPath(),
         "-config", String.format("%s=%s", ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName()),
-        "-config", String.format("app.runner.class=%s", TestApplicationRunnerInvocationCounts.class.getName()));
+        "-config", String.format("%s=%s", ApplicationConfig.APP_RUNNER_CLASS, TestApplicationRunnerInvocationCounts.class.getName()));
 
     Config actual = cmdLine.loadConfig(options);
 
@@ -93,7 +93,7 @@ public class TestApplicationRunnerMain {
         JobConfig.CONFIG_LOADER_FACTORY, "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory",
         ConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path", getClass().getResource("/test.properties").getPath(),
         ApplicationConfig.APP_CLASS, MockStreamApplication.class.getName(),
-        "app.runner.class", TestApplicationRunnerInvocationCounts.class.getName()));
+        ApplicationConfig.APP_RUNNER_CLASS, TestApplicationRunnerInvocationCounts.class.getName()));
 
     assertEquals(expected, actual);
   }
