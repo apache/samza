@@ -26,17 +26,14 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.classloader.IsolatingClassLoaderFactory;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
-import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.SplitDeploymentUtil;
 import org.slf4j.Logger;
@@ -94,30 +91,16 @@ public class ClusterBasedJobCoordinatorRunner {
        * For Beam jobs, app.main.class will be Beam's main class
        * and app.main.args will be Beam's pipeline options.
        */
-      if (appConfig.getAppMainClass().isPresent()) {
-        String className = appConfig.getAppMainClass().get();
-        LOG.info("Invoke main {}", className);
-        try {
-          Class<?> cls = Class.forName(className);
-          Method mainMethod = cls.getMethod("main", String[].class);
-          mainMethod.invoke(null, (Object) toArgs(appConfig));
-        } catch (Exception e) {
-          throw new SamzaException(e);
-        }
-      } else {
-        JobConfig jobConfig = new JobConfig(submissionConfig);
-
-        if (!jobConfig.getConfigLoaderFactory().isPresent()) {
-          throw new SamzaException(JobConfig.CONFIG_LOADER_FACTORY + " is required to initialize job coordinator from config loader");
-        }
-
-        // load full job config with ConfigLoader
-        Config originalConfig = ConfigUtil.loadConfig(submissionConfig);
-
-        JobCoordinatorLaunchUtil.run(ApplicationUtil.fromConfig(originalConfig), originalConfig);
+      String className = appConfig.getAppMainClass();
+      String[] arguments = toArgs(appConfig);
+      LOG.info("Invoke main {} with args {}", className, arguments);
+      try {
+        Class<?> cls = Class.forName(className);
+        Method mainMethod = cls.getMethod("main", String[].class);
+        mainMethod.invoke(null, (Object) arguments);
+      } catch (Exception e) {
+        throw new SamzaException(e);
       }
-
-      LOG.info("Finished running ClusterBasedJobCoordinator");
     } else {
       // TODO: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
       Config coordinatorSystemConfig;
@@ -133,8 +116,9 @@ public class ClusterBasedJobCoordinatorRunner {
       }
       ClusterBasedJobCoordinator jc = createFromMetadataStore(coordinatorSystemConfig);
       jc.run();
-      LOG.info("Finished running ClusterBasedJobCoordinator");
     }
+
+    LOG.info("Finished running ClusterBasedJobCoordinator");
   }
 
   /**
