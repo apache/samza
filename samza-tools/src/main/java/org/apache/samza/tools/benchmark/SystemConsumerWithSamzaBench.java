@@ -63,7 +63,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
 
   @Override
   public void addMoreSystemConfigs(Properties props) {
-    props.put("app.runner.class", LocalApplicationRunner.class.getName());
+    props.put(ApplicationConfig.APP_RUNNER_CLASS, LocalApplicationRunner.class.getName());
     List<Integer> partitions = IntStream.range(startPartition, endPartition).boxed().collect(Collectors.toList());
     props.put(ApplicationConfig.APP_NAME, "SamzaBench");
     props.put(JobConfig.PROCESSOR_ID, "1");
