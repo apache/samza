@@ -55,15 +55,9 @@ public class SystemConfig extends MapConfig {
   static final String SAMZA_SYSTEM_OFFSET_OLDEST = "oldest";
 
   private Map<String, SystemAdmin> systemAdminMap = new HashMap<>();
-  private String adminLabel = "";
 
   public SystemConfig(Config config) {
     super(config);
-  }
-
-  public SystemConfig(Config config, String adminLabel) {
-    super(config);
-    this.adminLabel = adminLabel;
   }
 
   public Optional<String> getSystemFactory(String systemName) {
@@ -93,11 +87,13 @@ public class SystemConfig extends MapConfig {
   }
 
   /**
-   * Get {@link SystemAdmin} instances for all the systems defined in this config.
+   * Get {@link SystemAdmin} instances for all the systems defined in this config with given adminLabel to help
+   * better identify admins in logs, threads and client instances etc.
    *
+   * @param adminLabel
    * @return map of system name to {@link SystemAdmin}
    */
-  public Map<String, SystemAdmin> getSystemAdmins() {
+  public Map<String, SystemAdmin> getSystemAdmins(String adminLabel) {
     if (systemAdminMap.isEmpty()) {
       systemAdminMap = getSystemFactories().entrySet()
           .stream()
@@ -106,6 +102,27 @@ public class SystemConfig extends MapConfig {
                .getAdmin(systemNameToFactoryEntry.getKey(), this, adminLabel)));
     }
     return systemAdminMap;
+  }
+
+  /**
+   * Get {@link SystemAdmin} instances for all the systems defined in this config.
+   *
+   * @return map of system name to {@link SystemAdmin}
+   */
+  public Map<String, SystemAdmin> getSystemAdmins() {
+    return getSystemAdmins("");
+  }
+
+  /**
+   * Get {@link SystemAdmin} instance for given system name with given adminLabel to help
+   * better identify admins in logs, threads and client instances etc..
+   *
+   * @param systemName System name
+   * @param adminLabel
+   * @return SystemAdmin of the system if it exists, otherwise null.
+   */
+  public SystemAdmin getSystemAdmin(String systemName, String adminLabel) {
+    return getSystemAdmins(adminLabel).get(systemName);
   }
 
   /**

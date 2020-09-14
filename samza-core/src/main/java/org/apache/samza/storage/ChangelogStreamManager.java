@@ -137,10 +137,10 @@ public class ChangelogStreamManager {
     Map<String, SystemStream> storeNameSystemStreamMapping = storeNameSystemStreamMapBuilder.build();
 
     // Get SystemAdmin for changelog store's system and attempt to create the stream
-    SystemConfig systemConfig = new SystemConfig(config, ChangelogStreamManager.class.getSimpleName());
+    SystemConfig systemConfig = new SystemConfig(config);
     storeNameSystemStreamMapping.forEach((storeName, systemStream) -> {
       // Load system admin for this system.
-      SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem());
+      SystemAdmin systemAdmin = systemConfig.getSystemAdmin(systemStream.getSystem(), ChangelogStreamManager.class.getSimpleName());
 
       if (systemAdmin == null) {
         throw new SamzaException(String.format(
