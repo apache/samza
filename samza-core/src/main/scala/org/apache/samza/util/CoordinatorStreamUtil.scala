@@ -54,7 +54,7 @@ object CoordinatorStreamUtil extends Logging {
    * @param config to create coordinator stream.
    */
   def createCoordinatorStream(config: Config): Unit = {
-    val systemAdmins = new SystemAdmins(config)
+    val systemAdmins = new SystemAdmins(config, this.getClass.getSimpleName)
 
     info("Creating coordinator stream")
     val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)

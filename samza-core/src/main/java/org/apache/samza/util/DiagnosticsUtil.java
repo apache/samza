@@ -19,7 +19,6 @@
 package org.apache.samza.util;
 
 import java.io.File;
-import java.lang.invoke.MethodHandles;
 import java.time.Duration;
 import java.util.Optional;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -167,7 +166,7 @@ public class DiagnosticsUtil {
     }
     // if diagnostics is enabled, create diagnostics stream if it doesnt exist
 
-    SystemAdmins systemAdmins = new SystemAdmins(config);
+    SystemAdmins systemAdmins = new SystemAdmins(config, DiagnosticsUtil.class.getSimpleName());
     String diagnosticsSystemStreamName = new MetricsConfig(config)
         .getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS)
         .orElseThrow(() -> new ConfigException("Missing required config: " +

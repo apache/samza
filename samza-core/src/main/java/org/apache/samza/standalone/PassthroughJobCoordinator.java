@@ -120,7 +120,7 @@ public class PassthroughJobCoordinator implements JobCoordinator {
 
   @Override
   public JobModel getJobModel() {
-    SystemAdmins systemAdmins = new SystemAdmins(config);
+    SystemAdmins systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, SystemClock.instance());
     systemAdmins.start();
     try {

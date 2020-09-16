@@ -99,7 +99,7 @@ class RegExTopicGenerator extends ConfigRewriter with Logging {
       .getOrElse(throw new SamzaException("No system defined in config for rewriter %s." format rewriterName))
 
     var systemStreams = Seq.empty[String]
-    val systemAdmin = new SystemConfig(config).getSystemAdmin(systemName)
+    val systemAdmin = new SystemConfig(config).getSystemAdmin(systemName, this.getClass.getSimpleName)
     try {
       systemAdmin.start()
       systemStreams =
