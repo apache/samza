@@ -118,21 +118,17 @@ public class SystemConfig extends MapConfig {
    * better identify admins in logs, threads and client instances etc..
    *
    * @param systemName System name
-   * @param adminLabel
    * @return SystemAdmin of the system if it exists, otherwise null.
    */
   public SystemAdmin getSystemAdmin(String systemName, String adminLabel) {
+    if (systemAdminMap.isEmpty() || (systemAdminMap.containsKey(systemName) && systemAdminMap.get(systemName).isStopped())) {
+      systemAdminMap.clear();
+    }
     return getSystemAdmins(adminLabel).get(systemName);
   }
 
-  /**
-   * Get {@link SystemAdmin} instance for given system name.
-   *
-   * @param systemName System name
-   * @return SystemAdmin of the system if it exists, otherwise null.
-   */
   public SystemAdmin getSystemAdmin(String systemName) {
-    return getSystemAdmins().get(systemName);
+    return getSystemAdmin(systemName, "");
   }
 
   /**

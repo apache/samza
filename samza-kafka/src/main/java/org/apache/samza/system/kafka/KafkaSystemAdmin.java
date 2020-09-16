@@ -201,6 +201,11 @@ public class KafkaSystemAdmin implements SystemAdmin {
     }
   }
 
+  @Override
+  public boolean isStopped() {
+    return stopped.get();
+  }
+
   /**
    * Note! This method does not populate SystemStreamMetadata for each stream with real data.
    * Thus, this method should ONLY be used to get number of partitions for each stream.
@@ -947,5 +952,7 @@ public class KafkaSystemAdmin implements SystemAdmin {
         kafkaConsumer.close();
       }
     }
+
+
   }
 }

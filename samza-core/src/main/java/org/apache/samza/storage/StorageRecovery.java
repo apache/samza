@@ -91,7 +91,7 @@ public class StorageRecovery {
   StorageRecovery(Config config, String path) {
     jobConfig = config;
     storeBaseDir = new File(path, "state");
-    systemAdmins = new SystemAdmins(config);
+    systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
   }
 
   /**
