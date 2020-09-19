@@ -76,7 +76,8 @@ public class TestRemoteTableDescriptor {
 
   private void doTestSerialize(RateLimiter rateLimiter, CreditFunction readCredFn, CreditFunction writeCredFn) {
     String tableId = "1";
-    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId).withReadFunction(createMockTableReadFunction())
+    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
+        .withReadFunction(createMockTableReadFunction())
         .withWriteFunction(createMockTableWriteFunction());
     if (rateLimiter != null) {
       desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn);
@@ -157,10 +158,9 @@ public class TestRemoteTableDescriptor {
   @Test
   public void testSerializeNullWriteFunction() {
     String tableId = "1";
-    RemoteTableDescriptor desc =
-        new RemoteTableDescriptor(tableId)
-            .withReadFunction(createMockTableReadFunction())
-            .withRateLimiterDisabled();
+    RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
+        .withReadFunction(createMockTableReadFunction())
+        .withRateLimiterDisabled();
     Map<String, String> tableConfig = desc.toConfig(new MapConfig());
     assertExists(RemoteTableDescriptor.READ_FN, tableId, tableConfig);
     assertEquals(null, RemoteTableDescriptor.WRITE_FN, tableId, tableConfig);
@@ -186,11 +186,10 @@ public class TestRemoteTableDescriptor {
   public void testTablePartToConfigDefault() {
     TableReadFunction readFn = createMockTableReadFunction();
     when(readFn.toConfig(any(), any())).thenReturn(createConfigPair(1));
-    Map<String, String> tableConfig =
-        new RemoteTableDescriptor("1")
-            .withReadFunction(readFn)
-            .withReadRateLimit(100)
-            .toConfig(new MapConfig());
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1")
+        .withReadFunction(readFn)
+        .withReadRateLimit(100)
+        .toConfig(new MapConfig());
     verify(readFn, times(1)).toConfig(any(), any());
     Assert.assertEquals("v1", tableConfig.get("tables.1.io.read.func.k1"));
   }
