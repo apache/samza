@@ -70,14 +70,14 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public static final String READ_FN = "io.read.func";
   public static final String WRITE_FN = "io.write.func";
   public static final String RATE_LIMITER = "io.ratelimiter";
+  public static final String READ_CREDITS = "io.read.credits";
+  public static final String WRITE_CREDITS = "io.write.credits";
   public static final String READ_CREDIT_FN = "io.read.credit.func";
   public static final String WRITE_CREDIT_FN = "io.write.credit.func";
   public static final String ASYNC_CALLBACK_POOL_SIZE = "io.async.callback.pool.size";
   public static final String READ_RETRY_POLICY = "io.read.retry.policy";
   public static final String WRITE_RETRY_POLICY = "io.write.retry.policy";
   public static final String BATCH_PROVIDER = "io.batch.provider";
-  public static final String READ_RATE_LIMIT = "io.read.ratelimit";
-  public static final String WRITE_RATE_LIMIT = "io.write.ratelimit";
 
   // Input support for a specific remote store (optional)
   private TableReadFunction<K, V> readFn;
@@ -178,7 +178,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @return this table descriptor instance
    */
   public RemoteTableDescriptor<K, V> withRateLimiter(RateLimiter rateLimiter,
-      TableRateLimiter.CreditFunction<K, V> readCreditFn, TableRateLimiter.CreditFunction<K, V> writeCreditFn) {
+      TableRateLimiter.CreditFunction<K, V> readCreditFn,
+      TableRateLimiter.CreditFunction<K, V> writeCreditFn) {
     Preconditions.checkNotNull(rateLimiter, "null read rate limiter");
     this.rateLimiter = rateLimiter;
     this.readCreditFn = readCreditFn;
@@ -284,36 +285,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
 
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
-    // Handle rate limiter
-    if (!tagCreditsMap.isEmpty()) {
-      RateLimiter defaultRateLimiter;
-      try {
-        @SuppressWarnings("unchecked")
-        Class<? extends RateLimiter> clazz =
-            (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
-        Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
-        defaultRateLimiter = ctor.newInstance(tagCreditsMap);
-      } catch (Exception ex) {
-        throw new SamzaException("Failed to create default rate limiter", ex);
-      }
-      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter), tableConfig);
-      if (defaultRateLimiter instanceof TablePart) {
-        addTablePartConfig(RATE_LIMITER, (TablePart) defaultRateLimiter, jobConfig, tableConfig);
-      }
-    } else if (rateLimiter != null) {
-      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter), tableConfig);
-      if (rateLimiter instanceof TablePart) {
-        addTablePartConfig(RATE_LIMITER, (TablePart) rateLimiter, jobConfig, tableConfig);
-      }
-    }
-
-    //emit table api read/write rate limit
-    if (this.enableReadRateLimiter && tagCreditsMap.containsKey(RL_READ_TAG)) {
-      addTableConfig(READ_RATE_LIMIT, String.valueOf(tagCreditsMap.get(RL_READ_TAG)), tableConfig);
-    }
-    if (this.enableWriteRateLimiter && tagCreditsMap.containsKey(RL_WRITE_TAG)) {
-      addTableConfig(WRITE_RATE_LIMIT, String.valueOf(tagCreditsMap.get(RL_WRITE_TAG)), tableConfig);
-    }
+    writeRateLimiterConfig(jobConfig, tableConfig);
 
     // Handle readCredit functions
     if (readCreditFn != null) {
@@ -360,6 +332,37 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     return Collections.unmodifiableMap(tableConfig);
   }
 
+  // Handle rate limiter
+  private void writeRateLimiterConfig(Config jobConfig, Map<String, String> tableConfig) {
+    if (!tagCreditsMap.isEmpty()) {
+      RateLimiter defaultRateLimiter;
+      try {
+        @SuppressWarnings("unchecked")
+        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
+        Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
+        defaultRateLimiter = ctor.newInstance(tagCreditsMap);
+      } catch (Exception ex) {
+        throw new SamzaException("Failed to create default rate limiter", ex);
+      }
+      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter), tableConfig);
+      if (defaultRateLimiter instanceof TablePart) {
+        addTablePartConfig(RATE_LIMITER, (TablePart) defaultRateLimiter, jobConfig, tableConfig);
+      }
+    } else if (rateLimiter != null) {
+      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter), tableConfig);
+      if (rateLimiter instanceof TablePart) {
+        addTablePartConfig(RATE_LIMITER, (TablePart) rateLimiter, jobConfig, tableConfig);
+      }
+    }
+    //Write table api read/write rate limit
+    if (this.enableReadRateLimiter && tagCreditsMap.containsKey(RL_READ_TAG)) {
+      addTableConfig(READ_CREDITS, String.valueOf(tagCreditsMap.get(RL_READ_TAG)), tableConfig);
+    }
+    if (this.enableWriteRateLimiter && tagCreditsMap.containsKey(RL_WRITE_TAG)) {
+      addTableConfig(WRITE_CREDITS, String.valueOf(tagCreditsMap.get(RL_WRITE_TAG)), tableConfig);
+    }
+  }
+
   @Override
   protected void validate() {
     Preconditions.checkArgument(writeFn != null || readFn != null,
@@ -367,7 +370,8 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
     Preconditions.checkArgument(rateLimiter == null || tagCreditsMap.isEmpty(),
         "Only one of rateLimiter instance or read/write limits can be specified");
     // Assume callback executor pool should have no more than 20 threads
-    Preconditions.checkArgument(asyncCallbackPoolSize <= 20, "too many threads for async callback executor.");
+    Preconditions.checkArgument(asyncCallbackPoolSize <= 20,
+        "too many threads for async callback executor.");
 
     if (readFn != null && enableReadRateLimiter) {
       Preconditions.checkArgument(readCreditFn != null || tagCreditsMap.containsKey(RL_READ_TAG),
