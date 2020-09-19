@@ -70,7 +70,9 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public static final String READ_FN = "io.read.func";
   public static final String WRITE_FN = "io.write.func";
   public static final String RATE_LIMITER = "io.ratelimiter";
+  //Key name for table api read rate limit
   public static final String READ_CREDITS = "io.read.credits";
+  //Key name for table api write rate limit
   public static final String WRITE_CREDITS = "io.write.credits";
   public static final String READ_CREDIT_FN = "io.read.credit.func";
   public static final String WRITE_CREDIT_FN = "io.write.credit.func";
