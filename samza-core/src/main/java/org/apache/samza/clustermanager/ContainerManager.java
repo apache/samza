@@ -210,9 +210,13 @@ public class ContainerManager {
         updateContainerPlacementActionStatus(metadata, ContainerPlacementMessage.StatusCode.SUCCEEDED,
             String.format("Successfully stopped the container %s on host %s, falling back to normal restart path",
                 processorId, metadata.getSourceHost()));
-        containerAllocator.requestResourceWithDelay(processorId, preferredHost, preferredHostRetryDelay);
+      } else {
+        // In this case ContainerManager will handle the next step from Allocator
+        return;
       }
-    } else if (standbyContainerManager.isPresent()) {
+    }
+
+    if (standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
           .handleContainerStop(processorId, containerId, preferredHost, exitStatus, containerAllocator,
               preferredHostRetryDelay);
