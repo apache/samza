@@ -24,7 +24,7 @@ import java.io.File
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StorageEngine, StoreProperties}
 import org.apache.samza.system.{ChangelogSSPIterator, OutgoingMessageEnvelope, SystemStreamPartition}
-import org.apache.samza.task.MessageCollector
+import org.apache.samza.task.{MessageCollector, TaskInstanceCollector}
 import org.apache.samza.util.TimerUtil
 import java.nio.file.Path
 import java.util.Optional

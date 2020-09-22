@@ -247,9 +247,9 @@ public class TestKafkaCheckpointManagerJava {
 
   private SystemFactory newFactory(SystemProducer producer, SystemConsumer consumer, SystemAdmin admin) {
     SystemFactory factory = mock(SystemFactory.class);
-    when(factory.getProducer(anyString(), any(Config.class), any(MetricsRegistry.class))).thenReturn(producer);
-    when(factory.getConsumer(anyString(), any(Config.class), any(MetricsRegistry.class))).thenReturn(consumer);
-    when(factory.getAdmin(anyString(), any(Config.class))).thenReturn(admin);
+    when(factory.getProducer(anyString(), any(Config.class), any(MetricsRegistry.class), anyString())).thenReturn(producer);
+    when(factory.getConsumer(anyString(), any(Config.class), any(MetricsRegistry.class), anyString())).thenReturn(consumer);
+    when(factory.getAdmin(anyString(), any(Config.class), anyString())).thenReturn(admin);
     return factory;
   }
 

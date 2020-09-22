@@ -22,13 +22,9 @@ package org.apache.samza.coordinator;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.config.Config;
-import org.apache.samza.container.LocalityManager;
-import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.runtime.LocationId;
-import org.apache.samza.system.StreamMetadataCache;
 
 /**
  * Utils to create instances of {@link JobModelManager} in unit tests
@@ -36,23 +32,12 @@ import org.apache.samza.system.StreamMetadataCache;
 public class JobModelManagerTestUtil {
 
   public static JobModelManager getJobModelManager(Config config, int containerCount, HttpServer server) {
-    return getJobModelManagerWithLocalityManager(config, containerCount, null, server);
-  }
-
-  public static JobModelManager getJobModelManagerWithLocalityManager(Config config, int containerCount, LocalityManager localityManager, HttpServer server) {
     Map<String, ContainerModel> containers = new java.util.HashMap<>();
     for (int i = 0; i < containerCount; i++) {
       ContainerModel container = new ContainerModel(String.valueOf(i), new HashMap<>());
       containers.put(String.valueOf(i), container);
     }
-    JobModel jobModel = new JobModel(config, containers, localityManager);
-    return new JobModelManager(jobModel, server, null);
-  }
-
-  public static JobModelManager getJobModelManagerUsingReadModel(Config config, StreamMetadataCache streamMetadataCache,
-      HttpServer server, LocalityManager localityManager, Map<String, LocationId> processorLocality) {
-    JobModel jobModel = JobModelManager.readJobModel(config, new HashMap<>(), streamMetadataCache,
-        new GrouperMetadataImpl(processorLocality, new HashMap<>(), new HashMap<>(), new HashMap<>()));
-    return new JobModelManager(new JobModel(jobModel.getConfig(), jobModel.getContainers(), localityManager), server, localityManager);
+    JobModel jobModel = new JobModel(config, containers);
+    return new JobModelManager(jobModel, server);
   }
 }

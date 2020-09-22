@@ -31,6 +31,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.application.SamzaApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;
@@ -176,9 +177,9 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
       String appName,
       Map<String, String> overriddenConfigs) {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
-    configMap.put("app.name", appName);
-    configMap.put("app.class", streamApplication.getClass().getCanonicalName());
+    configMap.put(ApplicationConfig.APP_RUNNER_CLASS, "org.apache.samza.runtime.LocalApplicationRunner");
+    configMap.put(ApplicationConfig.APP_NAME, appName);
+    configMap.put(ApplicationConfig.APP_CLASS, streamApplication.getClass().getCanonicalName());
     configMap.put("serializers.registry.json.class", "org.apache.samza.serializers.JsonSerdeFactory");
     configMap.put("serializers.registry.string.class", "org.apache.samza.serializers.StringSerdeFactory");
     configMap.put("systems.kafka.samza.factory", "org.apache.samza.system.kafka.KafkaSystemFactory");

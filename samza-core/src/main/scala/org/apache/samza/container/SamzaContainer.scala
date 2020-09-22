@@ -228,7 +228,7 @@ object SamzaContainer extends Logging {
         val systemFactory = systemFactories(systemName)
 
         try {
-          (systemName, systemFactory.getConsumer(systemName, config, samzaContainerMetrics.registry))
+          (systemName, systemFactory.getConsumer(systemName, config, samzaContainerMetrics.registry, this.getClass.getSimpleName))
         } catch {
           case e: Exception =>
             error("Failed to create a consumer for %s, so skipping." format systemName, e)
@@ -244,7 +244,7 @@ object SamzaContainer extends Logging {
       .map {
         case (systemName, systemFactory) =>
           try {
-            (systemName, systemFactory.getProducer(systemName, config, samzaContainerMetrics.registry))
+            (systemName, systemFactory.getProducer(systemName, config, samzaContainerMetrics.registry, this.getClass.getSimpleName))
           } catch {
             case e: Exception =>
               error("Failed to create a producer for %s, so skipping." format systemName, e)

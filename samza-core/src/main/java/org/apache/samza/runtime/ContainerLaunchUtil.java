@@ -128,7 +128,7 @@ public class ContainerLaunchUtil {
           containerId, jobModel,
           ScalaJavaUtil.toScalaMap(metricsReporters),
           taskFactory,
-          JobContextImpl.fromConfigWithDefaults(config),
+          JobContextImpl.fromConfigWithDefaults(config, jobModel),
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
           Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
           Option.apply(externalContextOptional.orElse(null)),

@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.ExternalContext;
@@ -41,7 +42,7 @@ public class TestApplicationRunners {
   @Test
   public void testGetAppRunner() {
     Map<String, String> configMap = new HashMap<>();
-    configMap.put("app.runner.class", MockApplicationRunner.class.getName());
+    configMap.put(ApplicationConfig.APP_RUNNER_CLASS, MockApplicationRunner.class.getName());
     Config config = new MapConfig(configMap);
     StreamApplication app = mock(StreamApplication.class);
     ApplicationRunner appRunner = ApplicationRunners.getApplicationRunner(app, config);
