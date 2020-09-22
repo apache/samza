@@ -202,6 +202,16 @@ public class ContainerManager {
       LOG.info("Setting the container state with Processor ID: {} to be stopped because of existing ContainerPlacement action: {}",
           processorId, metadata);
       metadata.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOPPED);
+      /**
+       * In the kill -9 case since container is successfully stopped we report placement action as success and fallback
+       * to normal restart path
+       */
+      if (metadata.getDestinationHost().equals(FORCE_RESTART_LAST_SEEN)) {
+        updateContainerPlacementActionStatus(metadata, ContainerPlacementMessage.StatusCode.SUCCEEDED,
+            String.format("Successfully stopped the container %s on host %s, falling back to normal restart path",
+                processorId, metadata.getSourceHost()));
+        containerAllocator.requestResourceWithDelay(processorId, preferredHost, preferredHostRetryDelay);
+      }
     } else if (standbyContainerManager.isPresent()) {
       standbyContainerManager.get()
           .handleContainerStop(processorId, containerId, preferredHost, exitStatus, containerAllocator,
@@ -260,8 +270,15 @@ public class ContainerManager {
     if (processorId != null && hasActiveContainerPlacementAction(processorId)) {
       // Assuming resource acquired on destination host will be relinquished by the containerAllocator,
       // We mark the placement action as failed, and return.
-      ContainerPlacementMetadata metaData = getPlacementActionMetadata(processorId).get();
-      metaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOP_FAILED);
+      ContainerPlacementMetadata metadata = getPlacementActionMetadata(processorId).get();
+      metadata.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOP_FAILED);
+      /**
+       * In the kill -9 case since container has failed to stop we report placement action as failure
+       */
+      if (metadata.getDestinationHost().equals(FORCE_RESTART_LAST_SEEN)) {
+        markContainerPlacementActionFailed(metadata,
+            String.format("failed to stop container on source host %s", metadata.getSourceHost()));
+      }
     } else if (processorId != null && standbyContainerManager.isPresent()) {
       standbyContainerManager.get().handleContainerStopFail(processorId, containerId, containerAllocator);
     } else {
@@ -408,18 +425,6 @@ public class ContainerManager {
       return;
     }
 
-    /*
-     * When destination host is {@code FORCE_RESTART_LAST_SEEN} its treated as eqvivalent to kill -9 operation for the container
-     * In this scenario container is stopped first and we fallback to normal restart path so the policy here is
-     * stop - reserve - move
-     */
-    if (destinationHost.equals(FORCE_RESTART_LAST_SEEN)) {
-      LOG.info("Issuing a force restart for Processor ID: {} for ContainerPlacement action request {}", processorId, requestMessage);
-      clusterResourceManager.stopStreamProcessor(samzaApplicationState.runningProcessors.get(processorId));
-      writeContainerPlacementResponseMessage(requestMessage, ContainerPlacementMessage.StatusCode.SUCCEEDED,
-          "Successfully issued a stop container request falling back to normal restart path");
-      return;
-    }
 
     /**
      * When destination host is {@code LAST_SEEN} its treated as a restart request on the host where container is running
@@ -447,12 +452,28 @@ public class ContainerManager {
       actionMetaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOPPED);
     }
 
-    SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequest(processorId, destinationHost);
-    // Record the resource request for monitoring
-    actionMetaData.recordResourceRequest(resourceRequest);
-    actions.put(processorId, actionMetaData);
-    updateContainerPlacementActionStatus(actionMetaData, ContainerPlacementMessage.StatusCode.IN_PROGRESS, "Preferred Resources requested");
-    containerAllocator.issueResourceRequest(resourceRequest);
+    /*
+     * When destination host is {@code FORCE_RESTART_LAST_SEEN} its treated as eqvivalent to kill -9 operation for the container
+     * In this scenario container is stopped first and we fallback to normal restart path so the policy here is
+     * stop - reserve - move
+     */
+    if (destinationHost.equals(FORCE_RESTART_LAST_SEEN)
+        && actionMetaData.getContainerStatus() == ContainerPlacementMetadata.ContainerStatus.RUNNING) {
+      LOG.info("Issuing a force restart (kill -9) for Processor ID: {} for ContainerPlacement action request {}",
+          processorId, requestMessage);
+      actionMetaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOP_IN_PROGRESS);
+      clusterResourceManager.stopStreamProcessor(samzaApplicationState.runningProcessors.get(processorId));
+      updateContainerPlacementActionStatus(actionMetaData, ContainerPlacementMessage.StatusCode.IN_PROGRESS,
+          "Stop on active container is issued");
+    } else {
+      SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequest(processorId, destinationHost);
+      // Record the resource request for monitoring
+      actionMetaData.recordResourceRequest(resourceRequest);
+      actions.put(processorId, actionMetaData);
+      updateContainerPlacementActionStatus(actionMetaData, ContainerPlacementMessage.StatusCode.IN_PROGRESS,
+          "Preferred Resources requested");
+      containerAllocator.issueResourceRequest(resourceRequest);
+    }
   }
 
   /**
