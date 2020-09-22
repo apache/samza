@@ -113,7 +113,7 @@ public class SystemConfig extends MapConfig {
    * @return SystemAdmin of the system if it exists, otherwise null.
    */
   public SystemAdmin getSystemAdmin(String systemName, String adminLabel) {
-    if (systemAdminMap.isEmpty() || (systemAdminMap.containsKey(systemName) && systemAdminMap.get(systemName).isStopped())) {
+    if (systemAdminMap.containsKey(systemName) && systemAdminMap.get(systemName).isStopped()) {
       systemAdminMap.clear();
     }
     return getSystemAdmins(adminLabel).get(systemName);
