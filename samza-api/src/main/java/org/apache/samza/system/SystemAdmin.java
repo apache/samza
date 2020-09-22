@@ -43,6 +43,14 @@ public interface SystemAdmin {
   default void stop() {};
 
   /**
+   * To give the status of current systemAdmin
+   * @return boolean stopped or not;
+   */
+  default boolean isStopped() {
+    return false;
+  }
+
+  /**
    * Fetches the offsets for the messages immediately after the supplied offsets
    * for a group of SystemStreamPartitions.
    *

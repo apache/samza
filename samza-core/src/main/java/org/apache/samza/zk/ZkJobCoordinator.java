@@ -146,7 +146,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       stop();
     });
     this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, new ZkBarrierListenerImpl(), debounceTimer);
-    systemAdmins = new SystemAdmins(config);
+    systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     LocationIdProviderFactory locationIdProviderFactory =
         ReflectionUtil.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);

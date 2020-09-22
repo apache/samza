@@ -215,7 +215,7 @@ object SamzaContainer extends Logging {
     }).toMap
     info("Got system factories: %s" format systemFactories.keys)
 
-    val systemAdmins = new SystemAdmins(config)
+    val systemAdmins = new SystemAdmins(config, this.getClass.getSimpleName)
     info("Got system admins: %s" format systemAdmins.getSystemNames)
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
