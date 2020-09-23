@@ -19,6 +19,7 @@
 
 package org.apache.samza.task;
 
+import com.google.common.base.Preconditions;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -56,6 +57,7 @@ public class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackIm
       ReadableCoordinator coordinator,
       long seqNum,
       long timeCreatedNs) {
+    Preconditions.checkNotNull(envelope, "Incoming message envelope cannot be null");
     this.listener = listener;
     this.taskName = taskName;
     this.offset = envelope.getOffset();
@@ -72,7 +74,7 @@ public class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackIm
   public String getOffset() {
     return offset;
   }
-  
+
   public SystemStreamPartition getSystemStreamPartition() {
     return systemStreamPartition;
   }
