@@ -31,6 +31,8 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.*;
+
 
 public class TestTaskCallbackManager {
   TaskCallbackManager callbackManager = null;
@@ -52,10 +54,10 @@ public class TestTaskCallbackManager {
 
   @Test
   public void testCreateCallback() {
-    TaskCallbackImpl callback = callbackManager.createCallback(new TaskName("Partition 0"), null, null);
+    TaskCallbackImpl callback = callbackManager.createCallback(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null);
     assertTrue(callback.matchSeqNum(0));
 
-    callback = callbackManager.createCallback(new TaskName("Partition 0"), null, null);
+    callback = callbackManager.createCallback(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null);
     assertTrue(callback.matchSeqNum(1));
   }
 
