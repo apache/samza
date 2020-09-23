@@ -621,16 +621,17 @@ public class RunLoop implements Runnable, Throttleable {
             TaskCallbackImpl callbackImpl = (TaskCallbackImpl) callback;
             containerMetrics.processNs().update(clock.nanoTime() - callbackImpl.getTimeCreatedNs());
             log.trace("Got callback complete for task {}, ssp {}",
-                callbackImpl.getTaskName(), callbackImpl.getEnvelope().getSystemStreamPartition());
+                callbackImpl.getTaskName(), callbackImpl.getSystemStreamPartition());
 
             List<TaskCallbackImpl> callbacksToUpdate = callbackManager.updateCallback(callbackImpl);
             for (TaskCallbackImpl callbackToUpdate : callbacksToUpdate) {
-              IncomingMessageEnvelope envelope = callbackToUpdate.getEnvelope();
-              log.trace("Update offset for ssp {}, offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
+              log.trace("Update offset for ssp {}, offset {}", callbackToUpdate.getSystemStreamPartition(),
+                  callbackToUpdate.getOffset());
 
               // update offset
               if (task.offsetManager() != null) {
-                task.offsetManager().update(task.taskName(), envelope.getSystemStreamPartition(), envelope.getOffset());
+                task.offsetManager().update(task.taskName(), callbackToUpdate.getSystemStreamPartition(),
+                    callbackToUpdate.getOffset());
               }
 
               // update coordinator
