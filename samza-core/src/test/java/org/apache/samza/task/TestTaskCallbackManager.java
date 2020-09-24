@@ -31,6 +31,8 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+
 
 public class TestTaskCallbackManager {
   TaskCallbackManager callbackManager = null;
@@ -52,10 +54,10 @@ public class TestTaskCallbackManager {
 
   @Test
   public void testCreateCallback() {
-    TaskCallbackImpl callback = callbackManager.createCallback(new TaskName("Partition 0"), null, null);
+    TaskCallbackImpl callback = callbackManager.createCallback(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null);
     assertTrue(callback.matchSeqNum(0));
 
-    callback = callbackManager.createCallback(new TaskName("Partition 0"), null, null);
+    callback = callbackManager.createCallback(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null);
     assertTrue(callback.matchSeqNum(1));
   }
 
@@ -71,8 +73,8 @@ public class TestTaskCallbackManager {
     assertEquals(1, callbacksToUpdate.size());
     TaskCallbackImpl callback = callbacksToUpdate.get(0);
     assertTrue(callback.matchSeqNum(0));
-    assertEquals(ssp, callback.envelope.getSystemStreamPartition());
-    assertEquals("0", callback.envelope.getOffset());
+    assertEquals(ssp, callback.getSystemStreamPartition());
+    assertEquals("0", callback.getOffset());
 
     IncomingMessageEnvelope envelope1 = new IncomingMessageEnvelope(ssp, "1", null, null);
     TaskCallbackImpl callback1 = new TaskCallbackImpl(listener, taskName, envelope1, coordinator, 1, 0);
@@ -80,8 +82,8 @@ public class TestTaskCallbackManager {
     assertEquals(1, callbacksToUpdate.size());
     callback = callbacksToUpdate.get(0);
     assertTrue(callback.matchSeqNum(1));
-    assertEquals(ssp, callback.envelope.getSystemStreamPartition());
-    assertEquals("1", callback.envelope.getOffset());
+    assertEquals(ssp, callback.getSystemStreamPartition());
+    assertEquals("1", callback.getOffset());
   }
 
   @Test
@@ -107,18 +109,18 @@ public class TestTaskCallbackManager {
     assertEquals(3, callbacksToUpdate.size());
     TaskCallbackImpl callback = callbacksToUpdate.get(0);
     assertTrue(callback.matchSeqNum(0));
-    assertEquals(ssp, callback.envelope.getSystemStreamPartition());
-    assertEquals("0", callback.envelope.getOffset());
+    assertEquals(ssp, callback.getSystemStreamPartition());
+    assertEquals("0", callback.getOffset());
 
     callback = callbacksToUpdate.get(1);
     assertTrue(callback.matchSeqNum(1));
-    assertEquals(ssp, callback.envelope.getSystemStreamPartition());
-    assertEquals("1", callback.envelope.getOffset());
+    assertEquals(ssp, callback.getSystemStreamPartition());
+    assertEquals("1", callback.getOffset());
 
     callback = callbacksToUpdate.get(2);
     assertTrue(callback.matchSeqNum(2));
-    assertEquals(ssp, callback.envelope.getSystemStreamPartition());
-    assertEquals("2", callback.envelope.getOffset());
+    assertEquals(ssp, callback.getSystemStreamPartition());
+    assertEquals("2", callback.getOffset());
   }
 
   @Test
@@ -150,14 +152,14 @@ public class TestTaskCallbackManager {
     //Check for envelope0
     TaskCallbackImpl taskCallback = callbacksToUpdate.get(0);
     assertTrue(taskCallback.matchSeqNum(0));
-    assertEquals(ssp, taskCallback.envelope.getSystemStreamPartition());
-    assertEquals("0", taskCallback.envelope.getOffset());
+    assertEquals(ssp, taskCallback.getSystemStreamPartition());
+    assertEquals("0", taskCallback.getOffset());
 
     //Check for envelope1
     taskCallback = callbacksToUpdate.get(1);
     assertTrue(taskCallback.matchSeqNum(1));
-    assertEquals(ssp, taskCallback.envelope.getSystemStreamPartition());
-    assertEquals("1", taskCallback.envelope.getOffset());
+    assertEquals(ssp, taskCallback.getSystemStreamPartition());
+    assertEquals("1", taskCallback.getOffset());
   }
 
   @Test
@@ -199,12 +201,12 @@ public class TestTaskCallbackManager {
     assertEquals(2, callbacksToUpdate.size());
     TaskCallbackImpl callback = callbacksToUpdate.get(0);
     assertTrue(callback.matchSeqNum(0));
-    assertEquals(envelope0.getSystemStreamPartition(), callback.envelope.getSystemStreamPartition());
-    assertEquals(envelope0.getOffset(), callback.envelope.getOffset());
+    assertEquals(envelope0.getSystemStreamPartition(), callback.getSystemStreamPartition());
+    assertEquals(envelope0.getOffset(), callback.getOffset());
 
     callback = callbacksToUpdate.get(1);
     assertTrue(callback.matchSeqNum(1));
-    assertEquals(envelope1.getSystemStreamPartition(), callback.envelope.getSystemStreamPartition());
-    assertEquals(envelope1.getOffset(), callback.envelope.getOffset());
+    assertEquals(envelope1.getSystemStreamPartition(), callback.getSystemStreamPartition());
+    assertEquals(envelope1.getOffset(), callback.getOffset());
   }
 }
