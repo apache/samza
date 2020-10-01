@@ -133,7 +133,7 @@ public class TestIntermediateMessageSerde {
     assertEquals(de.getVersion(), 1);
   }
 
-  @Test(expected = SamzaException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testUserMessageSerdeException() {
     Serde<?> mockUserMessageSerde = mock(Serde.class);
     when(mockUserMessageSerde.fromBytes(anyObject())).then(new Answer<Object>() {
@@ -141,10 +141,11 @@ public class TestIntermediateMessageSerde {
       public Object answer(InvocationOnMock invocation) throws Throwable {
         byte[] bytes = invocation.getArgumentAt(0, byte[].class);
         if (Arrays.equals(bytes, new byte[]{1, 2})) {
-          throw new SamzaException("User message serde failed to deserialize this message.");
+          throw new IllegalArgumentException("User message serde failed to deserialize this message.");
         } else {
-          throw new IllegalArgumentException(
-              "Intermediate message serde shouldn't try to deserialize user message with wrong bytes");
+          // Intermediate message serde shouldn't try to deserialize user message with wrong bytes
+          Assert.fail();
+          return null;
         }
       }
     });

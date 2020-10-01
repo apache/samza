@@ -73,13 +73,14 @@ public class IntermediateMessageSerde implements Serde<Object> {
       } catch (ArrayIndexOutOfBoundsException e) {
         // The message type was introduced in samza 0.13.1. For samza 0.13.0 or older versions, the first byte of
         // MessageType doesn't exist in the bytes. Thus, upgrading from those versions will get this exception.
-        // There are two ways to solve this issue:
-        // a) Reset checkpoint or clean all messages for the intermediate topic
-        // b) Run the application in any version between 0.13.1 and 1.5 until all old messages in intermediate topic
+        // There are three ways to solve this issue:
+        // a) Reset checkpoint to consume from newest message in the intermediate stream
+        // b) clean all existing messages in the intermediate stream
+        // c) Run the application in any version between 0.13.1 and 1.5 until all old messages in intermediate stream
         // has reached retention time.
         throw new SamzaException("Error reading the message type from intermediate message. This may happen if you "
             + "have recently upgraded from samza version older than 0.13.1 or there are still old messages in the "
-            + "intermediate topic.", e);
+            + "intermediate stream.", e);
       }
       final byte[] data = Arrays.copyOfRange(bytes, 1, bytes.length);
       switch (type) {
