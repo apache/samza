@@ -67,7 +67,21 @@ public class IntermediateMessageSerde implements Serde<Object> {
   public Object fromBytes(byte[] bytes) {
     try {
       final Object object;
-      final MessageType type = MessageType.values()[bytes[0]];
+      final MessageType type;
+      try {
+        type = MessageType.values()[bytes[0]];
+      } catch (ArrayIndexOutOfBoundsException e) {
+        // The message type was introduced in samza 0.13.1. For samza 0.13.0 or older versions, the first byte of
+        // MessageType doesn't exist in the bytes. Thus, upgrading from those versions will get this exception.
+        // There are three ways to solve this issue:
+        // a) Reset checkpoint to consume from newest message in the intermediate stream
+        // b) clean all existing messages in the intermediate stream
+        // c) Run the application in any version between 0.13.1 and 1.5 until all old messages in intermediate stream
+        // has reached retention time.
+        throw new SamzaException("Error reading the message type from intermediate message. This may happen if you "
+            + "have recently upgraded from samza version older than 0.13.1 or there are still old messages in the "
+            + "intermediate stream.", e);
+      }
       final byte[] data = Arrays.copyOfRange(bytes, 1, bytes.length);
       switch (type) {
         case USER_MESSAGE:
@@ -83,21 +97,10 @@ public class IntermediateMessageSerde implements Serde<Object> {
           throw new UnsupportedOperationException(String.format("Message type %s is not supported", type.name()));
       }
       return object;
-
     } catch (UnsupportedOperationException ue) {
       throw new SamzaException(ue);
     } catch (Exception e) {
-      // This will catch the following exceptions:
-      // 1) the first byte is not a valid type so it will cause ArrayOutOfBound exception
-      // 2) the first byte happens to be a valid type, but the deserialization fails with certain exception
-      // For these cases, we fall back to user-provided serde
-      try {
-        return userMessageSerde.fromBytes(bytes);
-      } catch (Exception umse) {
-        LOGGER.error("Error deserializing from both intermediate message serde and user message serde. "
-            + "Original exception: ", e);
-        throw umse;
-      }
+      throw e;
     }
   }
 
