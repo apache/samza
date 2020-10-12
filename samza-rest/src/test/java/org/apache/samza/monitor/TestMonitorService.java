@@ -139,7 +139,6 @@ public class TestMonitorService {
   public void testScheduledExecutorSchedulingProvider() {
     // Test that the monitor is scheduled by the ScheduledExecutorSchedulingProvider
     ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
-    ScheduledExecutorSchedulingProvider provider = new ScheduledExecutorSchedulingProvider(executorService);
 
     // notifyingMonitor.monitor() should be called repeatedly.
     final CountDownLatch wasCalledLatch = new CountDownLatch(3);
@@ -163,7 +162,7 @@ public class TestMonitorService {
     };
 
     // monitor should get called every 1ms, so if await() misses the first call, there will be more.
-    provider.schedule(runnableMonitor, 1);
+    executorService.scheduleAtFixedRate(runnableMonitor, 0, 1, TimeUnit.MILLISECONDS);
 
     try {
       assertTrue(wasCalledLatch.await(5L, TimeUnit.SECONDS));
