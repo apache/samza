@@ -103,7 +103,6 @@ public class SamzaRestService {
       monitorService.start();
 
       restService.runBlocking();
-      monitorService.stop();
     } catch (Throwable t) {
       log.error("Exception in main.", t);
     } finally {
