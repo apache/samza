@@ -110,7 +110,9 @@ public class TestMonitorService {
     Map<String, String> configMap = ImmutableMap.of("monitor.monitor1.config.key1", "configValue1",
                                                     "monitor.monitor1.config.key2", "configValue2",
                                                     String.format("monitor.MOCK_MONITOR.%s", CONFIG_MONITOR_FACTORY_CLASS),
-                                                    MockMonitorFactory.class.getCanonicalName());
+                                                    MockMonitorFactory.class.getCanonicalName(),
+                                                    String.format("monitor.MOCK_MONITOR.%s", "scheduling.jitter.percent"),
+                                                    "0");
 
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
     SamzaMonitorService monitorService = new SamzaMonitorService(config,
