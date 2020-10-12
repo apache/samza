@@ -19,8 +19,16 @@
 package org.apache.samza.monitor;
 
 import com.google.common.base.Strings;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.rest.SamzaRestConfig;
@@ -43,16 +51,14 @@ public class SamzaMonitorService {
   private static final Logger LOGGER = LoggerFactory.getLogger(SamzaMonitorService.class);
   private static final SecureRandom RANDOM = new SecureRandom();
 
-  private final SchedulingProvider scheduler;
   private final SamzaRestConfig config;
   private final MetricsRegistry metricsRegistry;
-
+  private final List<ScheduledExecutorService> scheduledExecutors;
   public SamzaMonitorService(SamzaRestConfig config,
-                             MetricsRegistry metricsRegistry,
-                             SchedulingProvider schedulingProvider) {
+      MetricsRegistry metricsRegistry) {
     this.config = config;
     this.metricsRegistry = metricsRegistry;
-    this.scheduler = schedulingProvider;
+    scheduledExecutors = new ArrayList<>();
   }
 
   public void start() {
@@ -67,8 +73,12 @@ public class SamzaMonitorService {
           int monitorSchedulingJitterInMs = (int) (RANDOM.nextInt(schedulingIntervalInMs + 1) * (monitorConfig.getSchedulingJitterPercent() / 100.0));
           schedulingIntervalInMs += monitorSchedulingJitterInMs;
           LOGGER.info("Scheduling the monitor: {} to run every {} ms.", monitorName, schedulingIntervalInMs);
-          scheduler.schedule(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
-              schedulingIntervalInMs);
+          // Create a new SchedulerExecutorService for each monitor. This ensures that a long running monitor service
+          // does not block another monitor from scheduling/running. A long running monitor will not create a backlog
+          // of work for future monitors of same type. A new monitor is scheduled only when current work is complete.
+          getScheduler()
+              .scheduleAtFixedRate(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
+                  0, schedulingIntervalInMs, TimeUnit.MILLISECONDS);
         } else {
           // When MonitorFactoryClass is not defined in the config, ignore the monitor config
           LOGGER.warn("Not scheduling the monitor: {} to run, since monitor factory class is not set in config.", monitorName);
@@ -81,7 +91,7 @@ public class SamzaMonitorService {
   }
 
   public void stop() {
-    this.scheduler.stop();
+    scheduledExecutors.forEach(ExecutorService::shutdown);
   }
 
   private Runnable getRunnable(final Monitor monitor) {
@@ -99,5 +109,20 @@ public class SamzaMonitorService {
         }
       }
     };
+  }
+
+  /**
+   * Creates a ScheduledThreadPoolExecutor with core pool size 1
+   * @return ScheduledExecutorService
+   */
+  private ScheduledExecutorService getScheduler() {
+    ThreadFactory threadFactory = new ThreadFactoryBuilder().setDaemon(true)
+        .setNameFormat("MonitorThread-%d")
+        .build();
+
+    ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1, threadFactory);
+    scheduledExecutors.add(scheduledExecutorService);
+
+    return scheduledExecutorService;
   }
 }

@@ -26,7 +26,6 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.monitor.mock.DummyMonitorFactory;
 import org.apache.samza.monitor.mock.ExceptionThrowingMonitorFactory;
-import org.apache.samza.monitor.mock.InstantSchedulingProvider;
 import org.apache.samza.monitor.mock.MockMonitorFactory;
 import org.apache.samza.rest.SamzaRestConfig;
 import org.apache.samza.util.NoOpMetricsRegistry;
@@ -96,8 +95,7 @@ public class TestMonitorService {
                         ExceptionThrowingMonitorFactory.class.getCanonicalName());
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
     SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                 METRICS_REGISTRY,
-                                                                 new InstantSchedulingProvider());
+                                                                 METRICS_REGISTRY);
 
     // This will throw if the exception isn't caught within the provider.
     monitorService.start();
@@ -116,8 +114,7 @@ public class TestMonitorService {
 
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
     SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                 METRICS_REGISTRY,
-                                                                 new InstantSchedulingProvider());
+                                                                 METRICS_REGISTRY);
     try {
       monitorService.start();
     } catch (Exception e) {
@@ -134,8 +131,7 @@ public class TestMonitorService {
                                                     "RandomClassName");
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
     SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                 METRICS_REGISTRY,
-                                                                 new InstantSchedulingProvider());
+                                                                 METRICS_REGISTRY);
     monitorService.start();
   }
 

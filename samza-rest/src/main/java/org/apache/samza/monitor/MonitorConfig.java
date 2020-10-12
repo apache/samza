@@ -44,7 +44,7 @@ public class MonitorConfig extends MapConfig {
 
   private static final String CONFIG_SCHEDULING_JITTER_PERCENT = "scheduling.jitter.percent";
 
-  private static final int DEFAULT_SCHEDULING_JITTER_PERCENT = 0;
+  private static final int DEFAULT_SCHEDULING_JITTER_PERCENT = 100;
 
   public MonitorConfig(Config config) {
     super(config);
