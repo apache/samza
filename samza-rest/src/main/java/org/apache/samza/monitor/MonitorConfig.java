@@ -44,6 +44,10 @@ public class MonitorConfig extends MapConfig {
 
   private static final String CONFIG_SCHEDULING_JITTER_PERCENT = "scheduling.jitter.percent";
 
+  // Default scheduling jitter set to 100 to ensure every monitor is scheduled with an initial jitter.
+  // The change SAMZA-2595 creates a new scheduler/thread for every monitor. Jitter ensures that there is a delay in
+  // scheduling of every monitor to ensure all the monitors do not start at the same time, to avoid spike on host
+  // and to not overwhelm the metric reporting service.
   private static final int DEFAULT_SCHEDULING_JITTER_PERCENT = 100;
 
   public MonitorConfig(Config config) {
