@@ -58,7 +58,7 @@ public class SamzaMonitorService {
       MetricsRegistry metricsRegistry) {
     this.config = config;
     this.metricsRegistry = metricsRegistry;
-    scheduledExecutors = new ArrayList<>();
+    this.scheduledExecutors = new ArrayList<>();
   }
 
   public void start() {
@@ -75,8 +75,8 @@ public class SamzaMonitorService {
           LOGGER.info("Scheduling the monitor: {} to run every {} ms.", monitorName, schedulingIntervalInMs);
           // Create a new SchedulerExecutorService for each monitor. This ensures that a long running monitor service
           // does not block another monitor from scheduling/running. A long running monitor will not create a backlog
-          // of work for future monitors of same type. A new monitor is scheduled only when current work is complete.
-          getScheduler()
+          // of work for future execution of the same monitor. A new monitor is scheduled only when current work is complete.
+          createScheduler()
               .scheduleAtFixedRate(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
                   0, schedulingIntervalInMs, TimeUnit.MILLISECONDS);
         } else {
@@ -115,7 +115,7 @@ public class SamzaMonitorService {
    * Creates a ScheduledThreadPoolExecutor with core pool size 1
    * @return ScheduledExecutorService
    */
-  private ScheduledExecutorService getScheduler() {
+  private ScheduledExecutorService createScheduler() {
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setDaemon(true)
         .setNameFormat("MonitorThread-%d")
         .build();
