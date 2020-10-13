@@ -26,7 +26,6 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.monitor.mock.DummyMonitorFactory;
 import org.apache.samza.monitor.mock.ExceptionThrowingMonitorFactory;
-import org.apache.samza.monitor.mock.InstantSchedulingProvider;
 import org.apache.samza.monitor.mock.MockMonitorFactory;
 import org.apache.samza.rest.SamzaRestConfig;
 import org.apache.samza.util.NoOpMetricsRegistry;
@@ -40,6 +39,7 @@ import org.mockito.Mockito;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.apache.samza.monitor.MonitorConfig.CONFIG_MONITOR_FACTORY_CLASS;
+import static org.apache.samza.monitor.MonitorLoader.instantiateMonitor;
 import static org.junit.Assert.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -96,8 +96,7 @@ public class TestMonitorService {
                         ExceptionThrowingMonitorFactory.class.getCanonicalName());
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
     SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                 METRICS_REGISTRY,
-                                                                 new InstantSchedulingProvider());
+                                                                 METRICS_REGISTRY);
 
     // This will throw if the exception isn't caught within the provider.
     monitorService.start();
@@ -115,9 +114,28 @@ public class TestMonitorService {
                                                     MockMonitorFactory.class.getCanonicalName());
 
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
-    SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                 METRICS_REGISTRY,
-                                                                 new InstantSchedulingProvider());
+
+    class SamzaMonitorServiceTest extends SamzaMonitorService {
+      MetricsRegistry metricsRegistry;
+      public SamzaMonitorServiceTest(SamzaRestConfig config, MetricsRegistry metricsRegistry) {
+        super(config, metricsRegistry);
+        this.metricsRegistry = metricsRegistry;
+      }
+
+      @Override
+      public void createSchedulerAndScheduleMonitor(String monitorName, MonitorConfig monitorConfig, long schedulingIntervalInMs) {
+        try {
+          // immediately run monitor, without scheduling
+          instantiateMonitor(monitorName, monitorConfig, metricsRegistry).monitor();
+        } catch (Exception e) {
+          fail();
+        }
+      }
+    }
+
+    SamzaMonitorService monitorService = new SamzaMonitorServiceTest(config,
+        METRICS_REGISTRY);
+
     try {
       monitorService.start();
     } catch (Exception e) {
@@ -134,8 +152,7 @@ public class TestMonitorService {
                                                     "RandomClassName");
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
     SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                 METRICS_REGISTRY,
-                                                                 new InstantSchedulingProvider());
+                                                                 METRICS_REGISTRY);
     monitorService.start();
   }
 
@@ -143,7 +160,6 @@ public class TestMonitorService {
   public void testScheduledExecutorSchedulingProvider() {
     // Test that the monitor is scheduled by the ScheduledExecutorSchedulingProvider
     ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
-    ScheduledExecutorSchedulingProvider provider = new ScheduledExecutorSchedulingProvider(executorService);
 
     // notifyingMonitor.monitor() should be called repeatedly.
     final CountDownLatch wasCalledLatch = new CountDownLatch(3);
@@ -167,7 +183,7 @@ public class TestMonitorService {
     };
 
     // monitor should get called every 1ms, so if await() misses the first call, there will be more.
-    provider.schedule(runnableMonitor, 1);
+    executorService.scheduleAtFixedRate(runnableMonitor, 0, 1, TimeUnit.MILLISECONDS);
 
     try {
       assertTrue(wasCalledLatch.await(5L, TimeUnit.SECONDS));
