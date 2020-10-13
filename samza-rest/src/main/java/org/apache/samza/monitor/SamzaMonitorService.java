@@ -18,6 +18,7 @@
  */
 package org.apache.samza.monitor;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.security.SecureRandom;
@@ -76,9 +77,7 @@ public class SamzaMonitorService {
           // Create a new SchedulerExecutorService for each monitor. This ensures that a long running monitor service
           // does not block another monitor from scheduling/running. A long running monitor will not create a backlog
           // of work for future execution of the same monitor. A new monitor is scheduled only when current work is complete.
-          createScheduler()
-              .scheduleAtFixedRate(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
-                  0, schedulingIntervalInMs, TimeUnit.MILLISECONDS);
+          createSchedulerAndScheduleMonitor(monitorName, monitorConfig, schedulingIntervalInMs);
         } else {
           // When MonitorFactoryClass is not defined in the config, ignore the monitor config
           LOGGER.warn("Not scheduling the monitor: {} to run, since monitor factory class is not set in config.", monitorName);
@@ -112,10 +111,11 @@ public class SamzaMonitorService {
   }
 
   /**
-   * Creates a ScheduledThreadPoolExecutor with core pool size 1
-   * @return ScheduledExecutorService
+   * Creates a ScheduledThreadPoolExecutor with core pool size 1 and schedules the monitor to run every schedulingIntervalInMs
    */
-  private ScheduledExecutorService createScheduler() {
+  @VisibleForTesting
+  public void createSchedulerAndScheduleMonitor(String monitorName, MonitorConfig monitorConfig, long schedulingIntervalInMs)
+      throws InstantiationException {
     ThreadFactory threadFactory = new ThreadFactoryBuilder().setDaemon(true)
         .setNameFormat("MonitorThread-%d")
         .build();
@@ -123,6 +123,8 @@ public class SamzaMonitorService {
     ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(1, threadFactory);
     scheduledExecutors.add(scheduledExecutorService);
 
-    return scheduledExecutorService;
+    scheduledExecutorService
+        .scheduleAtFixedRate(getRunnable(instantiateMonitor(monitorName, monitorConfig, metricsRegistry)),
+            0, schedulingIntervalInMs, TimeUnit.MILLISECONDS);
   }
 }

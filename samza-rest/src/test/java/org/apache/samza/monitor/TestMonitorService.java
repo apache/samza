@@ -39,6 +39,7 @@ import org.mockito.Mockito;
 
 import static junit.framework.TestCase.assertTrue;
 import static org.apache.samza.monitor.MonitorConfig.CONFIG_MONITOR_FACTORY_CLASS;
+import static org.apache.samza.monitor.MonitorLoader.instantiateMonitor;
 import static org.junit.Assert.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -110,13 +111,31 @@ public class TestMonitorService {
     Map<String, String> configMap = ImmutableMap.of("monitor.monitor1.config.key1", "configValue1",
                                                     "monitor.monitor1.config.key2", "configValue2",
                                                     String.format("monitor.MOCK_MONITOR.%s", CONFIG_MONITOR_FACTORY_CLASS),
-                                                    MockMonitorFactory.class.getCanonicalName(),
-                                                    String.format("monitor.MOCK_MONITOR.%s", "scheduling.jitter.percent"),
-                                                    "0");
+                                                    MockMonitorFactory.class.getCanonicalName());
 
     SamzaRestConfig config = new SamzaRestConfig(new MapConfig(configMap));
-    SamzaMonitorService monitorService = new SamzaMonitorService(config,
-                                                                 METRICS_REGISTRY);
+
+    class SamzaMonitorServiceTest extends SamzaMonitorService {
+      MetricsRegistry metricsRegistry;
+      public SamzaMonitorServiceTest(SamzaRestConfig config, MetricsRegistry metricsRegistry) {
+        super(config, metricsRegistry);
+        this.metricsRegistry = metricsRegistry;
+      }
+
+      @Override
+      public void createSchedulerAndScheduleMonitor(String monitorName, MonitorConfig monitorConfig, long schedulingIntervalInMs) {
+        try {
+          // immediately run monitor, without scheduling
+          instantiateMonitor(monitorName, monitorConfig, metricsRegistry).monitor();
+        } catch (Exception e) {
+          fail();
+        }
+      }
+    }
+
+    SamzaMonitorService monitorService = new SamzaMonitorServiceTest(config,
+        METRICS_REGISTRY);
+
     try {
       monitorService.start();
     } catch (Exception e) {
