@@ -194,7 +194,7 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
     long startNs = clock.nanoTime();
     return table.putAsync(key, value, args).handle((result, e) -> {
       if (e != null) {
-        throw new SamzaException(String.format("Failed to put a record, key=%s, value=%s", key, value), e);
+        throw new SamzaException("Failed to put a record, key=" + key + ", value=" + value, e);
       } else if (!isWriteAround) {
         if (value == null) {
           cache.delete(key, args);
