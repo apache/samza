@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 
@@ -109,9 +109,9 @@ public abstract class OperatorImpl<M, RM> {
     }
 
     this.highResClock = createHighResClock(context.getJobContext().getConfig());
-    registeredOperators = new HashSet<>();
-    prevOperators = new HashSet<>();
-    inputStreams = new HashSet<>();
+    registeredOperators = new LinkedHashSet<>();
+    prevOperators = new LinkedHashSet<>();
+    inputStreams = new LinkedHashSet<>();
 
     final ContainerContext containerContext = context.getContainerContext();
     final MetricsRegistry metricsRegistry = containerContext.getContainerMetricsRegistry();
