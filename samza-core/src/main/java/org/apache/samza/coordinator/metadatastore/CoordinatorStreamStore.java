@@ -188,6 +188,14 @@ public class CoordinatorStreamStore implements MetadataStore {
     }
   }
 
+  @Override
+  protected void finalize() throws Throwable {
+    super.finalize();
+    systemAdmin.stop();
+    systemProducer.stop();
+    systemConsumer.stop();
+  }
+
   /**
    * <p>
    *   Fetches the metadata of the topic partition of coordinator stream. Registers the oldest offset
