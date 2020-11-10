@@ -247,7 +247,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     assertEquals("5", CheckpointedChangelogOffset.fromString(cp.getOffsets.get(changelogSSP)).getOffset)
 
     // Old checkpointed stores should be cleared
-    mockOrder.verify(this.taskStorageManager).removeOldCheckpoints(any())
+    mockOrder.verify(this.taskStorageManager).cleanUp(any())
     verify(commitsCounter).inc()
   }
 
@@ -343,7 +343,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskStorageManager.commit()).thenReturn(Map[SystemStreamPartition, Option[String]]())
     doNothing().when(this.taskStorageManager).checkpoint(any(), any())
-    when(this.taskStorageManager.removeOldCheckpoints(any()))
+    when(this.taskStorageManager.cleanUp(any()))
       .thenThrow(new SamzaException("Error clearing old checkpoints"))
 
     try {

@@ -30,10 +30,11 @@ import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
 import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.storage.TaskStorageBackupManager
+import org.apache.samza.storage.{ContainerStorageManager, TaskStorageBackupManager}
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Logging, ScalaJavaUtil}
 
 import scala.collection.JavaConversions._
@@ -49,6 +50,7 @@ class TaskInstance(
   collector: TaskInstanceCollector,
   override val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageBackupManager = null,
+  containerStorageManager: ContainerStorageManager = null,
   tableManager: TableManager = null,
   val systemStreamPartitions: java.util.Set[SystemStreamPartition] = Collections.emptySet(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
@@ -73,8 +75,9 @@ class TaskInstance(
 
   private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
-      if (storageManager != null && storageManager.getStore(storeName).isDefined) {
-        storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
+      val storeOption = JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
+      if (storageManager != null && storeOption.isDefined) {
+        storeOption.get.asInstanceOf[KeyValueStore[_, _]]
       } else {
         null
       }
@@ -236,34 +239,35 @@ class TaskInstance(
       tableManager.flush()
     }
 
-    var newestChangelogOffsets: Map[SystemStreamPartition, Option[String]] = null
+    val checkpointId = CheckpointId.create()
+    // Perform state commit
     if (storageManager != null) {
       trace("Flushing state stores for taskName: %s" format taskName)
-      newestChangelogOffsets = storageManager.commit()
+      val newestChangelogOffsets = storageManager.commit()
       trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestChangelogOffsets))
-    }
 
-    val checkpointId = CheckpointId.create()
-    if (storageManager != null && newestChangelogOffsets != null) {
-      trace("Checkpointing stores for taskName: %s with checkpoint id: %s" format (taskName, checkpointId))
-      storageManager.checkpoint(checkpointId, newestChangelogOffsets.toMap)
-    }
+      if (newestChangelogOffsets != null) {
+        trace("Checkpointing stores for taskName: %s with checkpoint id: %s" format (taskName, checkpointId))
+        storageManager.checkpoint(checkpointId, newestChangelogOffsets.toMap)
 
-    if (newestChangelogOffsets != null) {
-      newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
-        val offset = new CheckpointedChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
-        allCheckpointOffsets.put(ssp, offset)
+        // Merge input and state checkpoints
+        newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
+          val offset = new CheckpointedChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
+          allCheckpointOffsets.put(ssp, offset)
+        }
       }
     }
     val checkpoint = new Checkpoint(allCheckpointOffsets)
     trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
 
+    // Commit state and input checkpoints offsets atomically
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
+    // Perform cleanup on unused checkpoints
     if (storageManager != null) {
       trace("Remove old checkpoint stores for taskName: %s" format taskName)
       try {
-        storageManager.removeOldCheckpoints(checkpointId)
+        storageManager.cleanUp(checkpointId)
       } catch {
         case e: Exception => error("Failed to remove old checkpoints for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)
       }

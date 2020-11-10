@@ -24,8 +24,6 @@ import org.apache.samza.system.SystemStreamPartition
 
 trait TaskStorageBackupManager {
 
-  def getStore(storeName: String): Option[StorageEngine]
-
   /**
    * Commits the local state on the remote backup implementation
    * @return Committed SSP to checkpoint mappings of the committed SSPs
@@ -50,7 +48,11 @@ trait TaskStorageBackupManager {
 
   def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit
 
-  def removeOldCheckpoints(checkpointId: CheckpointId): Unit
+  /**
+   * Cleanup any local or remote state for obselete checkpoint information
+   * @param checkpointId The id of the latest succesfully committed checkpoint
+   */
+  def cleanUp(checkpointId: CheckpointId): Unit
 
   def stop(): Unit
 

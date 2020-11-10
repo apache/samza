@@ -49,8 +49,6 @@ class KafkaTransactionalStateTaskStorageBackupManager(
   taskMode: TaskMode,
   storageManagerUtil: StorageManagerUtil) extends Logging with TaskStorageBackupManager {
 
-  def getStore(storeName: String): Option[StorageEngine] =  JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
-
   override def snapshot(): Map[SystemStreamPartition, Option[String]] = {
     debug("Flushing stores.")
     containerStorageManager.getAllStores(taskName).asScala.values.foreach(_.flush)
@@ -80,7 +78,7 @@ class KafkaTransactionalStateTaskStorageBackupManager(
     writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, newestChangelogOffsets)
   }
 
-  def removeOldCheckpoints(latestCheckpointId: CheckpointId): Unit = {
+  def cleanUp(latestCheckpointId: CheckpointId): Unit = {
     if (latestCheckpointId != null) {
       debug("Removing older checkpoints before " + latestCheckpointId)
 

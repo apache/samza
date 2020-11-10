@@ -48,8 +48,6 @@ class KafkaNonTransactionalStateTaskStorageBackupManager(
   private val persistedStores = containerStorageManager.getAllStores(taskName).asScala
     .filter { case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk }
 
-  def getStore(storeName: String): Option[StorageEngine] =  JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
-
   override def snapshot(): Map[SystemStreamPartition, Option[String]] = {
     debug("Flushing stores.")
     containerStorageManager.getAllStores(taskName).asScala.values.foreach(_.flush)
@@ -65,7 +63,7 @@ class KafkaNonTransactionalStateTaskStorageBackupManager(
   override def checkpoint(checkpointId: CheckpointId,
     newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {}
 
-  override def removeOldCheckpoints(checkpointId: CheckpointId): Unit = {}
+  override def cleanUp(checkpointId: CheckpointId): Unit = {}
 
   @VisibleForTesting
   def stop() {
