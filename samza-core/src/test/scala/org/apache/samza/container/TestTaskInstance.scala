@@ -28,7 +28,7 @@ import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
-import org.apache.samza.storage.KafkaNonTransactionalStateTaskStorageBackupManager
+import org.apache.samza.storage.{KafkaNonTransactionalStateTaskStorageBackupManager, TaskStorageCommitManager}
 import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -43,6 +43,7 @@ import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
 
 class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   private val SYSTEM_NAME = "test-system"
@@ -216,7 +217,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
     val changelogOffsets = Map(changelogSSP -> Some("5"))
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskStorageManager.commit()).thenReturn(changelogOffsets)
+    when(this.taskStorageManager.snapshot()).thenReturn(changelogOffsets)
+    when(this.taskStorageManager.upload(any())).thenReturn(Future.successful(changelogOffsets))
     doNothing().when(this.taskStorageManager).checkpoint(any(), any[Map[SystemStreamPartition, Option[String]]])
     taskInstance.commit
 
@@ -233,7 +235,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     mockOrder.verify(this.taskTableManager).flush()
 
     // Local state should be flushed next next
-    mockOrder.verify(this.taskStorageManager).commit()
+    mockOrder.verify(this.taskStorageManager).snapshot()
 
     // Stores checkpoints should be created next with the newest changelog offsets
     mockOrder.verify(this.taskStorageManager).checkpoint(any(), Matchers.eq(changelogOffsets))
@@ -260,7 +262,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
     val changelogOffsets = Map(changelogSSP -> None)
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskStorageManager.commit()).thenReturn(changelogOffsets)
+    when(this.taskStorageManager.snapshot()).thenReturn(changelogOffsets)
+    when(this.taskStorageManager.upload(any())).thenReturn(Future.successful(changelogOffsets))
     taskInstance.commit
 
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
@@ -282,7 +285,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
     val changelogOffsets = Map[SystemStreamPartition, Option[String]]()
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskStorageManager.commit()).thenReturn(changelogOffsets)
+    when(this.taskStorageManager.snapshot()).thenReturn(changelogOffsets)
+    when(this.taskStorageManager.upload(any())).thenReturn(Future.successful(changelogOffsets))
     taskInstance.commit
 
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
@@ -300,12 +304,13 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskStorageManager.commit()).thenThrow(new SamzaException("Error getting changelog offsets"))
+    when(this.taskStorageManager.snapshot()).thenThrow(new SamzaException("Error getting changelog offsets"))
 
     try {
       taskInstance.commit
     } catch {
       case e: SamzaException =>
+        val msg = e.getMessage
         // exception is expected, container should fail if could not get changelog offsets.
         return
     }
@@ -320,7 +325,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskStorageManager.commit()).thenReturn(Map[SystemStreamPartition, Option[String]]())
+    when(this.taskStorageManager.snapshot()).thenReturn(Map[SystemStreamPartition, Option[String]]())
+    when(this.taskStorageManager.upload(any())).thenReturn(Future.successful(Map[SystemStreamPartition, Option[String]]()))
     when(this.taskStorageManager.checkpoint(any(), any())).thenThrow(new SamzaException("Error creating store checkpoint"))
 
     try {
@@ -341,7 +347,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
     when(this.offsetManager.buildCheckpoint(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskStorageManager.commit()).thenReturn(Map[SystemStreamPartition, Option[String]]())
+    when(this.taskStorageManager.snapshot()).thenReturn(Map[SystemStreamPartition, Option[String]]())
+    when(this.taskStorageManager.upload(any())).thenReturn(Future.successful(Map[SystemStreamPartition, Option[String]]()))
     doNothing().when(this.taskStorageManager).checkpoint(any(), any())
     when(this.taskStorageManager.cleanUp(any()))
       .thenThrow(new SamzaException("Error clearing old checkpoints"))
@@ -400,7 +407,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       this.consumerMultiplexer,
       this.collector,
       offsetManager = offsetManagerMock,
-      storageManager = this.taskStorageManager,
+      commitManager = new TaskStorageCommitManager(this.taskStorageManager),
       tableManager = this.taskTableManager,
       systemStreamPartitions = ImmutableSet.of(ssp),
       exceptionHandler = this.taskInstanceExceptionHandler,
@@ -426,7 +433,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       this.consumerMultiplexer,
       this.collector,
       offsetManager = this.offsetManager,
-      storageManager = this.taskStorageManager,
+      commitManager = new TaskStorageCommitManager(this.taskStorageManager),
       tableManager = this.taskTableManager,
       systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
       exceptionHandler = this.taskInstanceExceptionHandler,

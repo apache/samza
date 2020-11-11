@@ -21,7 +21,7 @@ package org.apache.samza.container
 
 
 import java.util.{Collections, Objects, Optional}
-import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
 
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointedChangelogOffset, OffsetManager}
@@ -30,7 +30,7 @@ import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
 import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.storage.{ContainerStorageManager, TaskStorageBackupManager}
+import org.apache.samza.storage.{ContainerStorageManager, TaskStorageBackupManager, TaskStorageCommitManager}
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -49,7 +49,7 @@ class TaskInstance(
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
   override val offsetManager: OffsetManager = new OffsetManager,
-  storageManager: TaskStorageBackupManager = null,
+  commitManager: TaskStorageCommitManager = null,
   containerStorageManager: ContainerStorageManager = null,
   tableManager: TableManager = null,
   val systemStreamPartitions: java.util.Set[SystemStreamPartition] = Collections.emptySet(),
@@ -75,9 +75,9 @@ class TaskInstance(
 
   private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
-      val storeOption = JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
-      if (storageManager != null && storeOption.isDefined) {
-        storeOption.get.asInstanceOf[KeyValueStore[_, _]]
+      if (containerStorageManager != null) {
+        val storeOption = JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
+        if (storeOption.isDefined) storeOption.get.asInstanceOf[KeyValueStore[_, _]] else null
       } else {
         null
       }
@@ -241,17 +241,17 @@ class TaskInstance(
 
     val checkpointId = CheckpointId.create()
     // Perform state commit
-    if (storageManager != null) {
+    if (commitManager != null) {
       trace("Flushing state stores for taskName: %s" format taskName)
-      val newestChangelogOffsets = storageManager.commit()
-      trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestChangelogOffsets))
+      val newestStateCheckpointMakers = commitManager.commit(taskName, checkpointId)
 
-      if (newestChangelogOffsets != null) {
-        trace("Checkpointing stores for taskName: %s with checkpoint id: %s" format (taskName, checkpointId))
-        storageManager.checkpoint(checkpointId, newestChangelogOffsets.toMap)
+      trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestStateCheckpointMakers))
+
+      if (newestStateCheckpointMakers != null) {
 
         // Merge input and state checkpoints
-        newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
+        newestStateCheckpointMakers.foreach {case (ssp, newestOffsetOption) =>
+          // TODO: change checkpointedChangelogOffset to StateCheckpointMarkers, move creating to TaskStorageCommitManager
           val offset = new CheckpointedChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
           allCheckpointOffsets.put(ssp, offset)
         }
@@ -264,10 +264,10 @@ class TaskInstance(
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
     // Perform cleanup on unused checkpoints
-    if (storageManager != null) {
+    if (commitManager != null) {
       trace("Remove old checkpoint stores for taskName: %s" format taskName)
       try {
-        storageManager.cleanUp(checkpointId)
+        commitManager.cleanUp(checkpointId)
       } catch {
         case e: Exception => error("Failed to remove old checkpoints for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)
       }

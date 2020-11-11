@@ -573,6 +573,8 @@ object SamzaContainer extends Logging {
         config,
         taskModel.getTaskMode)
 
+      val commitManager = new TaskStorageCommitManager(storageManager)
+
       val tableManager = new TableManager(config)
 
       info("Got table manager")
@@ -585,7 +587,7 @@ object SamzaContainer extends Logging {
           consumerMultiplexer = consumerMultiplexer,
           collector = taskCollectors.get(taskName).get,
           offsetManager = offsetManager,
-          storageManager = storageManager,
+          commitManager = commitManager,
           containerStorageManager = containerStorageManager,
           tableManager = tableManager,
           systemStreamPartitions = JavaConversions.setAsJavaSet(taskSSPs -- taskSideInputSSPs),

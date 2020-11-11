@@ -22,17 +22,10 @@ package org.apache.samza.storage
 import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.system.SystemStreamPartition
 
+import scala.concurrent.Future
+
 trait TaskStorageBackupManager {
-
-  /**
-   * Commits the local state on the remote backup implementation
-   * @return Committed SSP to checkpoint mappings of the committed SSPs
-   */
-  def commit(): Map[SystemStreamPartition, Option[String]] = {
-    val snapshotMap = snapshot()
-    upload(snapshotMap)
-  }
-
+  
   /**
    * Commit operation that is synchronous to processing
    * @return The SSP to checkpoint map of the snapshotted local store
@@ -44,7 +37,7 @@ trait TaskStorageBackupManager {
    * @param snapshotCheckpointsMap The SSP to checkpoint map returned by the snapshot
    * @return The SSP to checkpoint map of the uploaded local store
    */
-  def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Map[SystemStreamPartition, Option[String]]
+  def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Future[Map[SystemStreamPartition, Option[String]]]
 
   def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit
 

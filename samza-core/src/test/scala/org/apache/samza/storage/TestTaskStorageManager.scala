@@ -134,7 +134,8 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
     verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should update the offset file
-    taskManager.commit()
+    val snapshot = taskManager.snapshot()
+    taskManager.upload(snapshot)
     assertTrue(offsetFile.exists())
     validateOffsetFileContents(offsetFile, "kafka.testStream-loggedStore1.0", "50")
 
@@ -218,7 +219,8 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
     verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should NOT create/update the offset file. Store directory has no files
-    taskManager.commit()
+    val snapshot = taskManager.snapshot()
+    taskManager.upload(snapshot)
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is NOT created
@@ -405,7 +407,8 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
       .build
 
     //Invoke test method
-    taskStorageManager.commit()
+    val snapshot = taskStorageManager.snapshot()
+    taskStorageManager.upload(snapshot)
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -450,14 +453,16 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
       .build
 
     //Invoke test method
-    taskStorageManager.commit()
+    var snapshot = taskStorageManager.snapshot()
+    taskStorageManager.upload(snapshot)
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
     validateOffsetFileContents(offsetFilePath, "kafka.testStream-loggedStore1.0", "100")
 
     //Invoke test method again
-    taskStorageManager.commit()
+    snapshot = taskStorageManager.snapshot()
+    taskStorageManager.upload(snapshot)
 
     //Check conditions
     assertFalse("Offset file for null offset exists!", offsetFilePath.exists())
@@ -495,7 +500,8 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
       .build
 
     //Invoke test method
-    taskStorageManager.commit()
+    var snapshot = taskStorageManager.snapshot()
+    taskStorageManager.upload(snapshot)
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -506,7 +512,8 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
       .thenReturn(ImmutableMap.of(ssp, new SystemStreamPartitionMetadata("20", "193", "194")))
 
     //Invoke test method
-    taskStorageManager.commit()
+    snapshot = taskStorageManager.snapshot()
+    taskStorageManager.upload(snapshot)
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -518,7 +525,7 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
     * The legacy offset file only contains the offset as a string, while the new offset file contains a map of
     * ssp to offset in json format.
     * The name of the two offset files are given in {@link StorageManagerUtil.OFFSET_FILE_NAME_NEW} and
-    * {@link StorageManagerUtil.OFFSET_FILE_LEGACY}.
+    * {@link StorageManagerUtil.OFFSET_FILE_NAME_LEGACY}.
     */
   private def validateOffsetFileContents(offsetFile: File, ssp: String, offset: String): Unit = {
 

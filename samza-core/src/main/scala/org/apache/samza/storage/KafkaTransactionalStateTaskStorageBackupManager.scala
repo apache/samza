@@ -35,6 +35,7 @@ import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.Logging
 
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
 
 /**
  * Manage all the storage engines for a given task
@@ -55,8 +56,8 @@ class KafkaTransactionalStateTaskStorageBackupManager(
     getNewestChangelogSSPOffsets(taskName, storeChangelogs, partition, systemAdmins)
   }
 
-  override def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Map[SystemStreamPartition, Option[String]] = {
-    snapshotCheckpointsMap
+  override def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Future[Map[SystemStreamPartition, Option[String]]] = {
+    Future.successful(snapshotCheckpointsMap)
   }
 
   def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {
