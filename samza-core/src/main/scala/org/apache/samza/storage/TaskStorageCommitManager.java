@@ -25,11 +25,8 @@ import java.util.concurrent.TimeoutException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.container.TaskName;
-import org.apache.samza.system.SystemStreamPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Option;
-import scala.collection.immutable.Map;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
@@ -50,13 +47,13 @@ public class TaskStorageCommitManager {
    * Commits the local state on the remote backup implementation
    * @return Committed SSP to checkpoint mappings of the committed SSPs
    */
-  public Map<SystemStreamPartition, Option<String>> commit(TaskName taskName, CheckpointId checkpointId) {
-    Map<SystemStreamPartition, Option<String>> snapshot = storageBackupManager.snapshot();
-    Future<Map<SystemStreamPartition, Option<String>>> uploadFuture = storageBackupManager.upload(snapshot);
+  public StateCheckpointMarkers commit(TaskName taskName, CheckpointId checkpointId) {
+    StateCheckpointMarkers snapshot = storageBackupManager.snapshot(checkpointId);
+    Future<StateCheckpointMarkers> uploadFuture = storageBackupManager.upload(checkpointId, snapshot);
 
     try {
       // TODO: Make async with andThen and add thread management for concurrency
-      Map<SystemStreamPartition, Option<String>> uploadMap = Await.result(uploadFuture, MAX_COMMIT_DURATION);
+      StateCheckpointMarkers uploadMap = Await.result(uploadFuture, MAX_COMMIT_DURATION);
 
       if (uploadMap != null) {
         LOG.trace("Checkpointing stores for taskName: {}} with checkpoint id: {}", taskName, checkpointId);

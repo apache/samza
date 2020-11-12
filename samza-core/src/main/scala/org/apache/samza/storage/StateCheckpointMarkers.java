@@ -40,14 +40,14 @@ public class StateCheckpointMarkers {
     });
   }
 
-  public Map<SystemStreamPartition, String> toOffsets() {
+  public Map<SystemStreamPartition, Option<String>> toOffsets() {
     Map<SystemStreamPartition, Option<String>> sspToOffsets = new HashMap<>();
     sspToStateCheckpointMarker.forEach((ssp, scmOption) -> {
       String offset = scmOption.getChangelogOffset();
       Option<String> offsetOption = offset == null ? null : Option.apply(offset);
       sspToOffsets.put(ssp, offsetOption);
     });
-    return toOffsets();
+    return sspToOffsets;
   }
 
   public static StateCheckpointMarkers fromOffsets(Map<SystemStreamPartition, Option<String>> sspToOffsets, CheckpointId id) {

@@ -48,20 +48,20 @@ class KafkaNonTransactionalStateTaskStorageBackupManager(
   private val persistedStores = containerStorageManager.getAllStores(taskName).asScala
     .filter { case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk }
 
-  override def snapshot(): Map[SystemStreamPartition, Option[String]] = {
+  override def snapshot(checkpointId: CheckpointId): StateCheckpointMarkers = {
     debug("Flushing stores.")
     containerStorageManager.getAllStores(taskName).asScala.values.foreach(_.flush)
     val newestChangelogSSPOffsets = getNewestChangelogSSPOffsets()
     writeChangelogOffsetFiles(newestChangelogSSPOffsets)
-    newestChangelogSSPOffsets
+    StateCheckpointMarkers.fromOffsets(newestChangelogSSPOffsets.asJava, checkpointId)
   }
 
-  override def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Future[Map[SystemStreamPartition, Option[String]]] = {
-     Future.successful(snapshotCheckpointsMap)
+  override def upload(checkpointId: CheckpointId, stateCheckpointMarkers: StateCheckpointMarkers): Future[StateCheckpointMarkers] = {
+     Future.successful(stateCheckpointMarkers)
   }
 
   override def persistToFilesystem(checkpointId: CheckpointId,
-    newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {}
+    stateCheckpointMarkers: StateCheckpointMarkers): Unit = {}
 
   override def cleanUp(checkpointId: CheckpointId): Unit = {}
 

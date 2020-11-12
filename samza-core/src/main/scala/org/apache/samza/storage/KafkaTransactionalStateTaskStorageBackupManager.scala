@@ -50,17 +50,18 @@ class KafkaTransactionalStateTaskStorageBackupManager(
   taskMode: TaskMode,
   storageManagerUtil: StorageManagerUtil) extends Logging with TaskStorageBackupManager {
 
-  override def snapshot(): Map[SystemStreamPartition, Option[String]] = {
+  override def snapshot(checkpointId: CheckpointId): StateCheckpointMarkers = {
     debug("Flushing stores.")
     containerStorageManager.getAllStores(taskName).asScala.values.foreach(_.flush)
-    getNewestChangelogSSPOffsets(taskName, storeChangelogs, partition, systemAdmins)
+    StateCheckpointMarkers.fromOffsets(
+      getNewestChangelogSSPOffsets(taskName, storeChangelogs, partition, systemAdmins).asJava, checkpointId)
   }
 
-  override def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Future[Map[SystemStreamPartition, Option[String]]] = {
+  override def upload(checkpointId: CheckpointId, snapshotCheckpointsMap: StateCheckpointMarkers): Future[StateCheckpointMarkers] = {
     Future.successful(snapshotCheckpointsMap)
   }
 
-  def persistToFilesystem(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {
+  def persistToFilesystem(checkpointId: CheckpointId, stateCheckpointMarkers: StateCheckpointMarkers): Unit = {
     debug("Checkpointing stores.")
 
     val checkpointPaths = containerStorageManager.getAllStores(taskName).asScala
@@ -76,7 +77,8 @@ class KafkaTransactionalStateTaskStorageBackupManager(
       }}
       .toMap
 
-    writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, newestChangelogOffsets)
+    writeChangelogOffsetFiles(checkpointPaths, storeChangelogs,
+      stateCheckpointMarkers.toOffsets.asScala.toMap)
   }
 
   def cleanUp(latestCheckpointId: CheckpointId): Unit = {

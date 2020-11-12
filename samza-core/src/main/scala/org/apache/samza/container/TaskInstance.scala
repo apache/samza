@@ -244,17 +244,11 @@ class TaskInstance(
     if (commitManager != null) {
       trace("Flushing state stores for taskName: %s" format taskName)
       val newestStateCheckpointMakers = commitManager.commit(taskName, checkpointId)
-
-      trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestStateCheckpointMakers))
+      trace("Got newest state checkpoint markers for taskName: %s as: %s " format(taskName, newestStateCheckpointMakers))
 
       if (newestStateCheckpointMakers != null) {
-
         // Merge input and state checkpoints
-        newestStateCheckpointMakers.foreach {case (ssp, newestOffsetOption) =>
-          // TODO: change checkpointedChangelogOffset to StateCheckpointMarkers, move creating to TaskStorageCommitManager
-          val offset = new StateCheckpointMarker(checkpointId, newestOffsetOption.orNull).toString
-          allCheckpointOffsets.put(ssp, offset)
-        }
+        newestStateCheckpointMakers.mergeInto(allCheckpointOffsets)
       }
     }
     val checkpoint = new Checkpoint(allCheckpointOffsets)

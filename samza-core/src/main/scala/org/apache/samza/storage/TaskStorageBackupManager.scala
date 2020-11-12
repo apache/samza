@@ -41,23 +41,25 @@ trait TaskStorageBackupManager {
 
   /**
    * Commit operation that is synchronous to processing
+   * @param checkpointId Checkpoint id of the current commit
    * @return The SSP to checkpoint map of the snapshotted local store
    */
-  def snapshot(): Map[SystemStreamPartition, Option[String]]
+  def snapshot(checkpointId: CheckpointId): StateCheckpointMarkers
 
   /**
    * Commit operation that is asynchronous to message processing,
-   * @param snapshotCheckpointsMap The SSP to checkpoint map returned by the snapshot
+   * @param checkpointId Checkpoint id of the current commit
+   * @param stateCheckpointMarkers The checkpoint makers returned by the snapshot
    * @return The SSP to checkpoint map of the uploaded local store
    */
-  def upload(snapshotCheckpointsMap: Map[SystemStreamPartition, Option[String]]): Future[Map[SystemStreamPartition, Option[String]]]
+  def upload(checkpointId: CheckpointId, stateCheckpointMarkers: StateCheckpointMarkers): Future[StateCheckpointMarkers]
 
   /**
    * Persist the state locally to the file system
    * @param checkpointId The id of the checkpoint to be committed
-   * @param newestChangelogOffsets Uploaded checkpoints to be persisted locally
+   * @param stateCheckpointMarkers Uploaded checkpoints to be persisted locally
    */
-  def persistToFilesystem(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit
+  def persistToFilesystem(checkpointId: CheckpointId, stateCheckpointMarkers: StateCheckpointMarkers): Unit
 
   /**
    * Cleanup any local or remote state for obsolete checkpoint information that are older than checkpointId
