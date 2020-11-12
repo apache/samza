@@ -60,7 +60,7 @@ class KafkaTransactionalStateTaskStorageBackupManager(
     Future.successful(snapshotCheckpointsMap)
   }
 
-  def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {
+  def persistToFilesystem(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {
     debug("Checkpointing stores.")
 
     val checkpointPaths = containerStorageManager.getAllStores(taskName).asScala

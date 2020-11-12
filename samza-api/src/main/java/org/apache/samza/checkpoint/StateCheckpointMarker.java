@@ -26,23 +26,29 @@ import org.apache.samza.annotation.InterfaceStability;
  * Checkpointed changelog offset has the format: [checkpointId, offset], separated by a colon.
  */
 @InterfaceStability.Unstable
-public class CheckpointedChangelogOffset {
+public class StateCheckpointMarker {
   public static final String SEPARATOR = ":";
 
   private final CheckpointId checkpointId;
-  private final String offset;
+  private final String changelogOffset;
+  private final RemoteStoreMetadata remoteStoreMetadata;
 
-  public CheckpointedChangelogOffset(CheckpointId checkpointId, String offset) {
+  public StateCheckpointMarker(CheckpointId checkpointId, String changelogOffset, RemoteStoreMetadata remoteStoreMetadata) {
     this.checkpointId = checkpointId;
-    this.offset = offset;
+    this.changelogOffset = changelogOffset;
+    this.remoteStoreMetadata = remoteStoreMetadata;
   }
 
-  public static CheckpointedChangelogOffset fromString(String message) {
+  public StateCheckpointMarker(CheckpointId checkpointId, String changelogOffset) {
+    this(checkpointId, changelogOffset, null);
+  }
+
+  public static StateCheckpointMarker fromString(String message) {
     if (StringUtils.isBlank(message)) {
       throw new IllegalArgumentException("Invalid checkpointed changelog message: " + message);
     }
-    String[] checkpointIdAndOffset = message.split(":");
-    if (checkpointIdAndOffset.length != 2) {
+    String[] checkpointIdAndOffset = message.split(SEPARATOR);
+    if (checkpointIdAndOffset.length < 2 || checkpointIdAndOffset.length > 3) {
       throw new IllegalArgumentException("Invalid checkpointed changelog offset: " + message);
     }
     CheckpointId checkpointId = CheckpointId.fromString(checkpointIdAndOffset[0]);
@@ -50,33 +56,42 @@ public class CheckpointedChangelogOffset {
     if (!"null".equals(checkpointIdAndOffset[1])) {
       offset = checkpointIdAndOffset[1];
     }
-    return new CheckpointedChangelogOffset(checkpointId, offset);
+    RemoteStoreMetadata remoteStoreMetadata = null;
+    if (checkpointIdAndOffset.length == 3 && !"null".equals(checkpointIdAndOffset[2])) {
+      remoteStoreMetadata = RemoteStoreMetadata.fromString(checkpointIdAndOffset[2]);
+    }
+    return new StateCheckpointMarker(checkpointId, offset, remoteStoreMetadata);
   }
 
   public CheckpointId getCheckpointId() {
     return checkpointId;
   }
 
-  public String getOffset() {
-    return offset;
+  public String getChangelogOffset() {
+    return changelogOffset;
+  }
+
+  public RemoteStoreMetadata getRemoteStoreMetadata() {
+    return remoteStoreMetadata;
   }
 
   @Override
   public String toString() {
-    return String.format("%s%s%s", checkpointId, SEPARATOR, offset);
+    return String.format("%s%s%s%s%s", checkpointId, SEPARATOR, changelogOffset, SEPARATOR, remoteStoreMetadata);
   }
 
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    CheckpointedChangelogOffset that = (CheckpointedChangelogOffset) o;
+    StateCheckpointMarker that = (StateCheckpointMarker) o;
     return Objects.equals(checkpointId, that.checkpointId) &&
-        Objects.equals(offset, that.offset);
+        Objects.equals(changelogOffset, that.changelogOffset) &&
+        Objects.equals(remoteStoreMetadata, that.remoteStoreMetadata);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(checkpointId, offset);
+    return Objects.hash(checkpointId, changelogOffset, remoteStoreMetadata);
   }
 }

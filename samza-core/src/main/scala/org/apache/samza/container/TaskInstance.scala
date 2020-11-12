@@ -24,7 +24,7 @@ import java.util.{Collections, Objects, Optional}
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointedChangelogOffset, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, StateCheckpointMarker, OffsetManager}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
@@ -252,7 +252,7 @@ class TaskInstance(
         // Merge input and state checkpoints
         newestStateCheckpointMakers.foreach {case (ssp, newestOffsetOption) =>
           // TODO: change checkpointedChangelogOffset to StateCheckpointMarkers, move creating to TaskStorageCommitManager
-          val offset = new CheckpointedChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
+          val offset = new StateCheckpointMarker(checkpointId, newestOffsetOption.orNull).toString
           allCheckpointOffsets.put(ssp, offset)
         }
       }

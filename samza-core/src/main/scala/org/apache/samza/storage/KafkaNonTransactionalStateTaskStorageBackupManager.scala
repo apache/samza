@@ -28,7 +28,6 @@ import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
-import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.{Partition, SamzaException}
 
 import scala.collection.JavaConverters._
@@ -61,7 +60,7 @@ class KafkaNonTransactionalStateTaskStorageBackupManager(
      Future.successful(snapshotCheckpointsMap)
   }
 
-  override def checkpoint(checkpointId: CheckpointId,
+  override def persistToFilesystem(checkpointId: CheckpointId,
     newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {}
 
   override def cleanUp(checkpointId: CheckpointId): Unit = {}

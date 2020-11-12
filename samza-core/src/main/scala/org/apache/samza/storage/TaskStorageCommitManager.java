@@ -60,7 +60,7 @@ public class TaskStorageCommitManager {
 
       if (uploadMap != null) {
         LOG.trace("Checkpointing stores for taskName: {}} with checkpoint id: {}", taskName, checkpointId);
-        storageBackupManager.checkpoint(checkpointId, uploadMap);
+        storageBackupManager.persistToFilesystem(checkpointId, uploadMap);
       }
       return uploadMap;
     } catch (TimeoutException e) {

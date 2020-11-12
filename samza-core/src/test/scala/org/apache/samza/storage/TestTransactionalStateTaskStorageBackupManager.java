@@ -310,7 +310,7 @@ public class TestTransactionalStateTaskStorageBackupManager {
         ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
 
     // invoke checkpoint
-    tsm.checkpoint(CheckpointId.create(), offsets);
+    tsm.persistToFilesystem(CheckpointId.create(), offsets);
 
     // ensure that checkpoint is never called for non-logged persistent stores since they're
     // always cleared on restart.
@@ -344,7 +344,7 @@ public class TestTransactionalStateTaskStorageBackupManager {
         ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
 
     // invoke checkpoint
-    tsm.checkpoint(CheckpointId.create(), offsets);
+    tsm.persistToFilesystem(CheckpointId.create(), offsets);
     verify(tsm, never()).writeChangelogOffsetFiles(any(), any(), any());
     fail("Should have thrown an exception if error creating store checkpoint");
   }
@@ -372,7 +372,7 @@ public class TestTransactionalStateTaskStorageBackupManager {
         ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
 
     // invoke checkpoint
-    tsm.checkpoint(CheckpointId.create(), offsets);
+    tsm.persistToFilesystem(CheckpointId.create(), offsets);
 
     fail("Should have thrown an exception if error writing offset file.");
   }
