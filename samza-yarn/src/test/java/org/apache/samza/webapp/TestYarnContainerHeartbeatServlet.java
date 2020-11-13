@@ -24,6 +24,7 @@ import java.net.URL;
 import junit.framework.Assert;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.samza.container.ContainerHeartbeatResponse;
+import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.server.HttpServer;
 import org.apache.samza.job.yarn.YarnAppState;
 import org.apache.samza.job.yarn.YarnContainer;
@@ -76,7 +77,8 @@ public class TestYarnContainerHeartbeatServlet {
     String validContainerId = "container_1350670447861_0003_01_000002";
     when(container.id()).thenReturn(ConverterUtils.toContainerId(validContainerId));
     yarnAppState.runningProcessors.put(validContainerId, container);
-    URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + validContainerId);
+    URL url = new URL(String.format("%s%s?%s=%s", webApp.getUrl().toString(), CoordinationConstants.CLUSTERBASED_CONTAINER_HEARTBEAT_SERVELET,
+        CoordinationConstants.CLUSTERBASED_EXECUTION_ENVIRONMENT_CONTAINER_ID, validContainerId));
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);
     Assert.assertTrue(heartbeat.isAlive());
@@ -89,7 +91,8 @@ public class TestYarnContainerHeartbeatServlet {
     String invalidContainerId = "container_1350670447861_0003_01_000002";
     when(container.id()).thenReturn(ConverterUtils.toContainerId(validContainerId));
     yarnAppState.runningProcessors.put(validContainerId, container);
-    URL url = new URL(webApp.getUrl().toString() + "containerHeartbeat?executionContainerId=" + invalidContainerId);
+    URL url = new URL(String.format("%s%s?%s=%s", webApp.getUrl().toString(), CoordinationConstants.CLUSTERBASED_CONTAINER_HEARTBEAT_SERVELET,
+        CoordinationConstants.CLUSTERBASED_EXECUTION_ENVIRONMENT_CONTAINER_ID, invalidContainerId));
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);
     Assert.assertFalse(heartbeat.isAlive());

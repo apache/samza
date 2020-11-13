@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.samza.container.ContainerHeartbeatResponse;
+import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.job.yarn.SamzaAppMasterMetrics;
 import org.apache.samza.job.yarn.YarnAppState;
 import org.apache.samza.job.yarn.YarnContainer;
@@ -47,7 +48,6 @@ import org.slf4j.LoggerFactory;
  */
 public class YarnContainerHeartbeatServlet extends HttpServlet {
 
-  private static final String YARN_CONTAINER_ID = "executionContainerId";
   private static final Logger LOG = LoggerFactory.getLogger(YarnContainerHeartbeatServlet.class);
   private static final String APPLICATION_JSON = "application/json";
   private static final String GROUP = SamzaAppMasterMetrics.class.getName();
@@ -67,7 +67,7 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
       throws ServletException, IOException {
     ContainerId yarnContainerId;
     PrintWriter printWriter = resp.getWriter();
-    String containerIdParam = req.getParameter(YARN_CONTAINER_ID);
+    String containerIdParam = req.getParameter(CoordinationConstants.CLUSTERBASED_EXECUTION_ENVIRONMENT_CONTAINER_ID);
     ContainerHeartbeatResponse response;
     resp.setContentType(APPLICATION_JSON);
     boolean alive = false;

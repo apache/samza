@@ -23,6 +23,7 @@ import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.samza.clustermanager.SamzaApplicationState
 import org.apache.samza.config.Config
+import org.apache.samza.coordinator.CoordinationConstants
 import org.apache.samza.coordinator.server.HttpServer
 import org.apache.samza.coordinator.stream.CoordinatorStreamWriter
 import org.apache.samza.coordinator.stream.messages.SetConfig
@@ -40,7 +41,7 @@ import org.apache.samza.webapp.{ApplicationMasterRestServlet, ApplicationMasterW
 class SamzaYarnAppMasterService(config: Config, samzaAppState: SamzaApplicationState, state: YarnAppState, registry: ReadableMetricsRegistry, yarnConfiguration: YarnConfiguration) extends  Logging {
   var rpcApp: HttpServer = null
   var webApp: HttpServer = null
-  val SERVER_URL_OPT: String = "samza.autoscaling.server.url"
+  val SERVER_URL_OPT: String = CoordinationConstants.CLUSTERBASED_COORDINATOR_URL;
   var securityManager: Option[SamzaAppMasterSecurityManager] = None
 
   def onInit() {
@@ -56,7 +57,8 @@ class SamzaYarnAppMasterService(config: Config, samzaAppState: SamzaApplicationS
     webApp.addServlet("/*", new ApplicationMasterWebServlet(config, samzaAppState, state))
     webApp.start
 
-    samzaAppState.jobModelManager.server.addServlet("/containerHeartbeat", new YarnContainerHeartbeatServlet(state, registry))
+    samzaAppState.jobModelManager.server.addServlet("/" + CoordinationConstants.CLUSTERBASED_CONTAINER_HEARTBEAT_SERVELET,
+      new YarnContainerHeartbeatServlet(state, registry))
     samzaAppState.jobModelManager.start
     state.rpcUrl = rpcApp.getUrl
     state.trackingUrl = webApp.getUrl

@@ -25,6 +25,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.stream.Collectors;
+import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.util.HttpUtil;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
@@ -56,7 +57,8 @@ public class ContainerHeartbeatClient {
 
   public ContainerHeartbeatClient(String coordinatorUrl, String executionEnvContainerId) {
     this.heartbeatEndpoint =
-        String.format("%scontainerHeartbeat?executionContainerId=%s", coordinatorUrl, executionEnvContainerId);
+        String.format("%s%s?%s=%s", coordinatorUrl, CoordinationConstants.CLUSTERBASED_CONTAINER_HEARTBEAT_SERVELET,
+            CoordinationConstants.CLUSTERBASED_EXECUTION_ENVIRONMENT_CONTAINER_ID, executionEnvContainerId);
   }
 
   /**
