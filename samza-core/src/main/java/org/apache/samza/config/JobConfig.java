@@ -403,7 +403,7 @@ public class JobConfig extends MapConfig {
     return get(COORDINATOR_STREAM_FACTORY, DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY);
   }
 
-  public boolean iscoordinatorHighAvailabilityEnabled() {
+  public boolean isJobCoordinatorHighAvailabilityEnabled() {
     return getBoolean(JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED, JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED_DEFAULT);
   }
 
