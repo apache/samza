@@ -41,7 +41,7 @@ import org.apache.samza.webapp.{ApplicationMasterRestServlet, ApplicationMasterW
 class SamzaYarnAppMasterService(config: Config, samzaAppState: SamzaApplicationState, state: YarnAppState, registry: ReadableMetricsRegistry, yarnConfiguration: YarnConfiguration) extends  Logging {
   var rpcApp: HttpServer = null
   var webApp: HttpServer = null
-  val SERVER_URL_OPT: String = CoordinationConstants.CLUSTERBASED_COORDINATOR_URL;
+  val SERVER_URL_OPT: String = CoordinationConstants.YARN_COORDINATOR_URL;
   var securityManager: Option[SamzaAppMasterSecurityManager] = None
 
   def onInit() {
@@ -57,7 +57,7 @@ class SamzaYarnAppMasterService(config: Config, samzaAppState: SamzaApplicationS
     webApp.addServlet("/*", new ApplicationMasterWebServlet(config, samzaAppState, state))
     webApp.start
 
-    samzaAppState.jobModelManager.server.addServlet("/" + CoordinationConstants.CLUSTERBASED_CONTAINER_HEARTBEAT_SERVELET,
+    samzaAppState.jobModelManager.server.addServlet("/" + CoordinationConstants.YARN_CONTAINER_HEARTBEAT_SERVELET,
       new YarnContainerHeartbeatServlet(state, registry))
     samzaAppState.jobModelManager.start
     state.rpcUrl = rpcApp.getUrl

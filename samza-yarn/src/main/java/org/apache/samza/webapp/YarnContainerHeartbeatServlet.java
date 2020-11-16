@@ -67,7 +67,7 @@ public class YarnContainerHeartbeatServlet extends HttpServlet {
       throws ServletException, IOException {
     ContainerId yarnContainerId;
     PrintWriter printWriter = resp.getWriter();
-    String containerIdParam = req.getParameter(CoordinationConstants.CLUSTERBASED_EXECUTION_ENVIRONMENT_CONTAINER_ID);
+    String containerIdParam = req.getParameter(CoordinationConstants.YARN_EXECUTION_ENVIRONMENT_CONTAINER_ID);
     ContainerHeartbeatResponse response;
     resp.setContentType(APPLICATION_JSON);
     boolean alive = false;

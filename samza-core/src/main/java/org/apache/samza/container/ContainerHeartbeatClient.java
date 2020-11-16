@@ -57,8 +57,7 @@ public class ContainerHeartbeatClient {
 
   public ContainerHeartbeatClient(String coordinatorUrl, String executionEnvContainerId) {
     this.heartbeatEndpoint =
-        String.format("%s%s?%s=%s", coordinatorUrl, CoordinationConstants.CLUSTERBASED_CONTAINER_HEARTBEAT_SERVELET,
-            CoordinationConstants.CLUSTERBASED_EXECUTION_ENVIRONMENT_CONTAINER_ID, executionEnvContainerId);
+        String.format(CoordinationConstants.YARN_CONTAINER_HEARTBEAT_ENDPOINT_FORMAT, coordinatorUrl, executionEnvContainerId);
   }
 
   /**

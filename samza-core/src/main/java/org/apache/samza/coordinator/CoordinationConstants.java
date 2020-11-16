@@ -27,7 +27,12 @@ public final class CoordinationConstants {
   public static final String APPLICATION_RUNNER_PATH_SUFFIX = "ApplicationRunnerData";
   public static final String RUNID_LOCK_ID = "runId";
   public static final int LOCK_TIMEOUT_MS = 300000;
-  public static final String CLUSTERBASED_CONTAINER_HEARTBEAT_SERVELET = "containerHeartbeat";
-  public static final String CLUSTERBASED_EXECUTION_ENVIRONMENT_CONTAINER_ID = "executionContainerId";
-  public static final String CLUSTERBASED_COORDINATOR_URL = "samza.autoscaling.server.url";
+
+  // Yarn coordination constants for heartbeat
+  public static final String YARN_CONTAINER_HEARTBEAT_SERVELET = "containerHeartbeat";
+  public static final String YARN_EXECUTION_ENVIRONMENT_CONTAINER_ID = "executionContainerId";
+  public static final String YARN_COORDINATOR_URL = "samza.job.am.tracking.url";
+  private static final String YARN_CONTAINER_HEARTBEAT_SERVLET_FORMAT = "%s" + YARN_CONTAINER_HEARTBEAT_SERVELET;
+  private static final String YARN_CONTAINER_EXECUTION_ID_PARAM_FORMAT = YARN_EXECUTION_ENVIRONMENT_CONTAINER_ID + "=" + "%s";
+  public static final String YARN_CONTAINER_HEARTBEAT_ENDPOINT_FORMAT = YARN_CONTAINER_HEARTBEAT_SERVLET_FORMAT + YARN_CONTAINER_EXECUTION_ID_PARAM_FORMAT;
 }
