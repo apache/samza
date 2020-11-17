@@ -147,6 +147,11 @@ public class JobConfig extends MapConfig {
 
   private static final String JOB_STARTPOINT_ENABLED = "job.startpoint.enabled";
 
+  // Enable ClusterBasedJobCoordinator aka ApplicationMaster High Availability.
+  // High availability allows new AM to establish connection with already running containers
+  public static final String JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED = "job.coordinator.high-availability.enabled";
+  public static final boolean JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED_DEFAULT = false;
+
   public JobConfig(Config config) {
     super(config);
   }
@@ -396,6 +401,10 @@ public class JobConfig extends MapConfig {
    */
   public String getCoordinatorStreamFactory() {
     return get(COORDINATOR_STREAM_FACTORY, DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY);
+  }
+
+  public boolean getJobCoordinatorHighAvailabilityEnabled() {
+    return getBoolean(JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED, JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED_DEFAULT);
   }
 
   /**
