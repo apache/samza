@@ -92,7 +92,6 @@ public class TestYarnContainerHeartbeatServlet {
     yarnAppState.runningProcessors.put(validContainerId, container);
     URL url = new URL(String.format(CoordinationConstants.YARN_CONTAINER_HEARTBEAT_ENDPOINT_FORMAT,
         webApp.getUrl().toString(), invalidContainerId));
-    System.out.println(url.toString());
     String response = HttpUtil.read(url, 1000, new ExponentialSleepStrategy());
     heartbeat = mapper.readValue(response, ContainerHeartbeatResponse.class);
     Assert.assertFalse(heartbeat.isAlive());
