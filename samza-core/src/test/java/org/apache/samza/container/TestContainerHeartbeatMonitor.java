@@ -22,6 +22,10 @@ package org.apache.samza.container;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.coordinator.CoordinationConstants;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -33,6 +37,7 @@ import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +47,8 @@ public class TestContainerHeartbeatMonitor {
   private Runnable onExpired;
   @Mock
   private ContainerHeartbeatClient containerHeartbeatClient;
+  @Mock
+  private MetadataStore coordinatorStreamStore;
 
   private ScheduledExecutorService scheduler;
   /**
@@ -51,13 +58,16 @@ public class TestContainerHeartbeatMonitor {
 
   private ContainerHeartbeatMonitor containerHeartbeatMonitor;
 
+  private static final String COORDINATOR_URL = "http://some-host.prod.linkedin.com";
+
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
     this.schedulerFixedRateExecutionLatch = new CountDownLatch(1);
     this.scheduler = buildScheduledExecutorService(this.schedulerFixedRateExecutionLatch);
     this.containerHeartbeatMonitor =
-        new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler);
+        new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
+            "0", coordinatorStreamStore, false, 10);
   }
 
   @Test
@@ -81,6 +91,31 @@ public class TestContainerHeartbeatMonitor {
   public void testDoesNotCallbackWhenHeartbeatAlive() throws InterruptedException {
     ContainerHeartbeatResponse response = new ContainerHeartbeatResponse(true);
     when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(response);
+    this.containerHeartbeatMonitor.start();
+    // wait for the executor to finish the heartbeat check task
+    boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(2, TimeUnit.SECONDS);
+    assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
+    // shutdown task should not have been submitted
+    verify(this.scheduler, never()).schedule(any(Runnable.class), anyLong(), any());
+    verify(this.onExpired, never()).run();
+
+    this.containerHeartbeatMonitor.stop();
+    verify(this.scheduler).shutdown();
+  }
+
+  @Test
+  public void testReestablishConnectionWithNewAM() throws InterruptedException {
+    this.containerHeartbeatMonitor =
+        spy(new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
+            "0", coordinatorStreamStore, true, 10));
+    CoordinatorStreamValueSerde serde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+    byte[] newCoordinatorUrl = serde.toBytes("http://some-host-2.prod.linkedin.com");
+    ContainerHeartbeatResponse response1 = new ContainerHeartbeatResponse(false);
+    ContainerHeartbeatResponse response2 = new ContainerHeartbeatResponse(true);
+    when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(response1).thenReturn(response2);
+    when(this.containerHeartbeatMonitor.getContainerHeartbeatClient()).thenReturn(this.containerHeartbeatClient);
+    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL)).thenReturn(newCoordinatorUrl);
+
     this.containerHeartbeatMonitor.start();
     // wait for the executor to finish the heartbeat check task
     boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(2, TimeUnit.SECONDS);

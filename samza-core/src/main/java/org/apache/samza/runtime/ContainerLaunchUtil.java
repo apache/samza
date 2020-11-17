@@ -30,7 +30,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.SamzaContainer;
@@ -39,9 +38,11 @@ import org.apache.samza.context.ExternalContext;
 import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
@@ -142,7 +143,11 @@ public class ContainerLaunchUtil {
           listener = new ClusterBasedProcessorLifecycleListener(config, processorLifecycleListener, container::shutdown);
       container.setContainerListener(listener);
 
-      ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container);
+      boolean isJobCoordinatorHighAvailabilityEnabled = new JobConfig(config).getJobCoordinatorHighAvailabilityEnabled();
+      ContainerHeartbeatMonitor heartbeatMonitor =
+          createContainerHeartbeatMonitor(container,
+              new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE),
+              isJobCoordinatorHighAvailabilityEnabled);
       if (heartbeatMonitor != null) {
         heartbeatMonitor.start();
       }
@@ -189,9 +194,12 @@ public class ContainerLaunchUtil {
   /**
    * Creates a new container heartbeat monitor if possible.
    * @param container the container to monitor
+   * @param coordinatorStreamStore the metadata store to fetch coordinator url from
+   * @param isJobCoordinatorHighAvailabilityEnabled whether coordinator HA is enabled to fetch new coordinator url
    * @return a new {@link ContainerHeartbeatMonitor} instance, or null if could not create one
    */
-  private static ContainerHeartbeatMonitor createContainerHeartbeatMonitor(SamzaContainer container) {
+  private static ContainerHeartbeatMonitor createContainerHeartbeatMonitor(SamzaContainer container,
+      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled) {
     String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
     String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID);
     if (executionEnvContainerId != null) {
@@ -204,7 +212,7 @@ public class ContainerLaunchUtil {
           log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
           System.exit(1);
         }
-      }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+      }, coordinatorUrl, executionEnvContainerId, coordinatorStreamStore, isJobCoordinatorHighAvailabilityEnabled);
     } else {
       log.warn("Execution environment container id not set. Container heartbeat monitor will not be created");
       return null;

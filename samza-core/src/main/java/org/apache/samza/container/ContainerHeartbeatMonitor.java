@@ -26,6 +26,10 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.samza.coordinator.CoordinationConstants;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.util.ThreadUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,26 +38,45 @@ import org.slf4j.LoggerFactory;
 public class ContainerHeartbeatMonitor {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatMonitor.class);
   private static final ThreadFactory THREAD_FACTORY = new HeartbeatThreadFactory();
+  private static final CoordinatorStreamValueSerde SERDE = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+  private static final int RETRY_COUNT = 5;
+  private static final int SLEEP_DURATION_FOR_RECONNECT_WITH_AM_MS = 10000;
+
   @VisibleForTesting
   static final int SCHEDULE_MS = 60000;
   @VisibleForTesting
   static final int SHUTDOWN_TIMOUT_MS = 120000;
 
   private final Runnable onContainerExpired;
-  private final ContainerHeartbeatClient containerHeartbeatClient;
   private final ScheduledExecutorService scheduler;
+  private final String containerExecutionId;
+  private final MetadataStore coordinatorStreamStore;
+  private final long sleepDurationForReconnectWithAM;
+  private final boolean isJobCoordinatorHighAvailabilityEnabled;
+
+  private ContainerHeartbeatClient containerHeartbeatClient;
+  private String coordinatorUrl;
   private boolean started = false;
 
-  public ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient) {
-    this(onContainerExpired, containerHeartbeatClient, Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY));
+  public ContainerHeartbeatMonitor(Runnable onContainerExpired, String coordinatorUrl, String containerExecutionId,
+      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled) {
+    this(onContainerExpired, new ContainerHeartbeatClient(coordinatorUrl, containerExecutionId),
+        Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY), coordinatorUrl, containerExecutionId,
+        coordinatorStreamStore, isJobCoordinatorHighAvailabilityEnabled, SLEEP_DURATION_FOR_RECONNECT_WITH_AM_MS);
   }
 
   @VisibleForTesting
   ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient,
-      ScheduledExecutorService scheduler) {
+      ScheduledExecutorService scheduler, String coordinatorUrl, String containerExecutionId,
+      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled, long sleepDurationForReconnectWithAM) {
     this.onContainerExpired = onContainerExpired;
     this.containerHeartbeatClient = containerHeartbeatClient;
     this.scheduler = scheduler;
+    this.coordinatorUrl = coordinatorUrl;
+    this.containerExecutionId = containerExecutionId;
+    this.coordinatorStreamStore = coordinatorStreamStore;
+    this.isJobCoordinatorHighAvailabilityEnabled = isJobCoordinatorHighAvailabilityEnabled;
+    this.sleepDurationForReconnectWithAM = sleepDurationForReconnectWithAM;
   }
 
   public void start() {
@@ -65,6 +88,12 @@ public class ContainerHeartbeatMonitor {
     scheduler.scheduleAtFixedRate(() -> {
       ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
       if (!response.isAlive()) {
+        if (isJobCoordinatorHighAvailabilityEnabled) {
+          LOG.warn("Failed to establish connection with {}. Checking for new AM", coordinatorUrl);
+          if (checkAndEstablishConnectionWithNewAM()) {
+            return;
+          }
+        }
         scheduler.schedule(() -> {
           // On timeout of container shutting down, force exit.
           LOG.error("Graceful shutdown timeout expired. Force exiting.");
@@ -82,6 +111,38 @@ public class ContainerHeartbeatMonitor {
       LOG.info("Stopping ContainerHeartbeatMonitor");
       scheduler.shutdown();
     }
+  }
+
+  private boolean checkAndEstablishConnectionWithNewAM() {
+    boolean response = false;
+    int attempt = 1;
+
+    while (attempt <= RETRY_COUNT) {
+      String newCoordinatorUrl = SERDE.fromBytes(coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL));
+      try {
+        if (coordinatorUrl.equals(newCoordinatorUrl)) {
+          LOG.info("Attempt {} to discover new AM. Sleep for {}ms before next attempt.", attempt, sleepDurationForReconnectWithAM);
+          Thread.sleep(sleepDurationForReconnectWithAM);
+        } else {
+          LOG.info("Found new AM: {}. Establishing heartbeat with the new AM.", newCoordinatorUrl);
+          coordinatorUrl = newCoordinatorUrl;
+          containerHeartbeatClient = getContainerHeartbeatClient();
+          response = containerHeartbeatClient.requestHeartbeat().isAlive();
+          LOG.info("Received heartbeat response: {} from new AM: {}", response, this.coordinatorUrl);
+          break;
+        }
+      } catch (InterruptedException e) {
+        LOG.warn("Interrupted during sleep.");
+        Thread.currentThread().interrupt();
+      }
+      attempt++;
+    }
+    return response;
+  }
+
+  @VisibleForTesting
+  ContainerHeartbeatClient getContainerHeartbeatClient() {
+    return new ContainerHeartbeatClient(coordinatorUrl, containerExecutionId);
   }
 
   private static class HeartbeatThreadFactory implements ThreadFactory {
