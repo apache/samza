@@ -31,7 +31,7 @@ public final class CoordinationConstants {
   // Yarn coordination constants for heartbeat
   public static final String YARN_CONTAINER_HEARTBEAT_SERVELET = "containerHeartbeat";
   public static final String YARN_EXECUTION_ENVIRONMENT_CONTAINER_ID = "executionContainerId";
-  public static final String YARN_COORDINATOR_URL = "samza.job.am.tracking.url";
+  public static final String YARN_COORDINATOR_URL = "yarn.am.tracking.url";
   private static final String YARN_CONTAINER_HEARTBEAT_SERVLET_FORMAT = "%s" + YARN_CONTAINER_HEARTBEAT_SERVELET;
   private static final String YARN_CONTAINER_EXECUTION_ID_PARAM_FORMAT = YARN_EXECUTION_ENVIRONMENT_CONTAINER_ID + "=" + "%s";
   public static final String YARN_CONTAINER_HEARTBEAT_ENDPOINT_FORMAT = YARN_CONTAINER_HEARTBEAT_SERVLET_FORMAT + YARN_CONTAINER_EXECUTION_ID_PARAM_FORMAT;
