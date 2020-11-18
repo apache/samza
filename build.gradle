@@ -77,7 +77,6 @@ rat {
     '**/syntax.css',
     '**/d3.v3.min.js',
     '**/dagre-d3.min.js',
-    '**/package-list',
     '.idea/**',
     '.reviewboardrc',
     'docs/_site/**',
