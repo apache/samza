@@ -111,6 +111,12 @@ public class CoordinatorStreamStore implements MetadataStore {
       systemConsumer.start();
       systemProducer.register(SOURCE);
       systemProducer.start();
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        LOG.info("CoordinatorStreamStore Shut Down Hook thread is closing kafka clients");
+        this.systemProducer.stop();
+        this.systemConsumer.stop();
+        this.systemAdmin.stop();
+      }));
       iterator = new SystemStreamPartitionIterator(systemConsumer, coordinatorSystemStreamPartition);
       readMessagesFromCoordinatorStream();
     } else {
@@ -186,14 +192,6 @@ public class CoordinatorStreamStore implements MetadataStore {
       LOG.error("Exception occurred when flushing the metadata store:", e);
       throw new SamzaException("Exception occurred when flushing the metadata store:", e);
     }
-  }
-
-  @Override
-  protected void finalize() throws Throwable {
-    super.finalize();
-    systemAdmin.stop();
-    systemProducer.stop();
-    systemConsumer.stop();
   }
 
   /**
