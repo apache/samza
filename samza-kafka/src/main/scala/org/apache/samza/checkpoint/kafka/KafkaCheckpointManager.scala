@@ -244,13 +244,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info("CheckpointManager stopped.")
   }
 
-  override def finalize() {
-    super.finalize()
-    systemConsumer.stop()
-    systemAdmin.stop()
-    producerRef.get().stop()
-  }
-
   @VisibleForTesting
   def getSystemProducer(): SystemProducer = {
     systemFactory.getProducer(checkpointSystem, config, metricsRegistry, this.getClass.getSimpleName)
