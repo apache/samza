@@ -85,7 +85,7 @@ public class TestExecutionContainerIdManager {
 
     ArgumentCaptor<byte[]> argument1 = ArgumentCaptor.forClass(byte[].class);
     Mockito.verify(store).put(Mockito.eq(processorId), argument1.capture());
-    CoordinatorStreamValueSerde valueSerde =new CoordinatorStreamValueSerde(SetExecutionContainerIdMapping.TYPE);
+    CoordinatorStreamValueSerde valueSerde = new CoordinatorStreamValueSerde(SetExecutionContainerIdMapping.TYPE);
     assertEquals(physicalId, valueSerde.fromBytes(argument1.getValue()));
   }
 
