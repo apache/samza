@@ -88,7 +88,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     Preconditions.checkNotNull(systemAdmin)
 
     systemAdmin.start()
-    Runtime.getRuntime.addShutdownHook(new Thread("KafkaCheckPointManagerShutdownHook") {
+    Runtime.getRuntime.addShutdownHook(new Thread("KafkaCheckPointManagerAdminShutdownHook") {
       override def run = systemAdmin.stop()
     })
 
@@ -115,7 +115,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Starting the checkpoint SystemConsumer from oldest offset $oldestOffset")
     systemConsumer.register(checkpointSsp, oldestOffset)
     systemConsumer.start()
-    Runtime.getRuntime.addShutdownHook(new Thread("KafkaCheckPointManagerShutdownHook") {
+    Runtime.getRuntime.addShutdownHook(new Thread("KafkaCheckPointManagerClientShutdownHook") {
       override def run(): Unit = {
         producerRef.get().stop()
         systemConsumer.stop()
