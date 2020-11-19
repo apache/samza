@@ -32,6 +32,7 @@ import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
+import org.apache.samza.container.ExecutionContainerIdManager;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
@@ -40,6 +41,7 @@ import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.coordinator.stream.messages.SetExecutionContainerIdMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -145,6 +147,14 @@ public class ContainerLaunchUtil {
       ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container);
       if (heartbeatMonitor != null) {
         heartbeatMonitor.start();
+      }
+
+      if (new JobConfig(config).getJobCoordinatorHighAvailabilityEnabled()) {
+        ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
+            new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetExecutionContainerIdMapping.TYPE));
+        if (executionContainerIdManager != null && execEnvContainerId.isPresent()) {
+          executionContainerIdManager.writeExecutionEnvironmentContainerIdMapping(containerId, execEnvContainerId.get());
+        }
       }
 
       container.run();

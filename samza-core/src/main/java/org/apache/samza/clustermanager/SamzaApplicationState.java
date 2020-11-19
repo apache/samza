@@ -106,6 +106,22 @@ public class SamzaApplicationState {
   public final ConcurrentMap<String, SamzaResource> runningProcessors = new ConcurrentHashMap<>(0);
 
   /**
+   * Map of Samza processor Id (aka logical id) to execution environment container id (aka physical id ex: yarn container id).
+   * This map will be used during the start up phase of new AM in AM-HA.
+   *
+   * This map is populated at startup of ClusterBasedJobCoordinator.
+   * It initially holds the processId to execution id mapping (if any) present in the coordinator stream.
+   * This could correspond to containers currently running or from previous attempt or previous deploy.
+   *
+   * If # of containers in map is same as current JobModel's containers, and mapping is from previous deploy,
+   * then they will get overwritten by new container incarnations in the current deploy in {@link ContainerProcessManager}.onStreamProcessorLaunchSuccess.
+   * If # of containers in map is lesser, then map entries will get overwritten by current containers and new ones will be added to map.
+   * If # of containers in map is greater, this map is wiped clear in {@link ContainerProcessManager}.start
+   * to avoid having mapping for containers which are not part of the current JobModel.
+   */
+  public final ConcurrentMap<String, String> processorToExecutionId = new ConcurrentHashMap<>(0);
+
+  /**
    *  Map of the failed Samza processor ID to resource status of the last attempted of the container.
    *  This map is only used when {@link org.apache.samza.config.ClusterManagerConfig#CLUSTER_MANAGER_CONTAINER_FAIL_JOB_AFTER_RETRIES}
    *  is set to false, this map tracks the containers which have exhausted all retires for restart and JobCoordinator is
