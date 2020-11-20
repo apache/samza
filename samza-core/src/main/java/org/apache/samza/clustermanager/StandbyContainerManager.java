@@ -402,7 +402,8 @@ public class StandbyContainerManager {
 
       // return false if a conflicting container is pending for launch on the host
       if (resource != null) {
-        if (rackManager.checkHostsOnSameRack(host, resource.getHost())) {
+        if (!resource.getHost().equals(ResourceRequestState.ANY_HOST) && !host.equals(ResourceRequestState.ANY_HOST)
+                && rackManager.checkHostsOnSameRack(host, resource.getHost())) {
           log.info("Container {} cannot be started on host {} because container {} is already scheduled on this rack",
                   containerIdToStart, host, containerID);
         } else if (resource.getHost().equals(host)) {
@@ -415,7 +416,8 @@ public class StandbyContainerManager {
       // return false if a conflicting container is running on the host
       resource = samzaApplicationState.runningProcessors.get(containerID);
       if (resource != null) {
-        if (rackManager.checkHostsOnSameRack(host, resource.getHost())) {
+        if (!resource.getHost().equals(ResourceRequestState.ANY_HOST) && !host.equals(ResourceRequestState.ANY_HOST)
+                && rackManager.checkHostsOnSameRack(host, resource.getHost())) {
           log.info("Container {} cannot be started on host {} because container {} is already running on this rack",
                   containerIdToStart, host, containerID);
         } else if (resource.getHost().equals(host)) {

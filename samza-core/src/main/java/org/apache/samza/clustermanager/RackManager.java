@@ -18,7 +18,8 @@
  */
 package org.apache.samza.clustermanager;
 
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class RackManager {
@@ -39,7 +40,7 @@ public class RackManager {
 
   public String[] getAllowedRacksForStandbyContainer(String host) {
     String activeContainerRack = nodeToRackMap.get(host);
-    Collection<String> standbyRacks = nodeToRackMap.values();
+    List<String> standbyRacks = new ArrayList<>(nodeToRackMap.values());
     standbyRacks.remove(activeContainerRack);
     return standbyRacks.toArray(new String[0]);
   }
