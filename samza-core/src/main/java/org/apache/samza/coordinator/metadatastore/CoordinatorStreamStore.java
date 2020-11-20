@@ -111,10 +111,6 @@ public class CoordinatorStreamStore implements MetadataStore {
       systemConsumer.start();
       systemProducer.register(SOURCE);
       systemProducer.start();
-      Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-        LOG.info("CoordinatorStreamStore Shut Down Hook thread is closing kafka clients");
-        this.close();
-      }));
       iterator = new SystemStreamPartitionIterator(systemConsumer, coordinatorSystemStreamPartition);
       readMessagesFromCoordinatorStream();
     } else {
