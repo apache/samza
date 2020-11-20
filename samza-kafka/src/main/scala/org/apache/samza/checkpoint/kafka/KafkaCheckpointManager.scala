@@ -83,6 +83,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
   /**
     * Create checkpoint stream prior to start.
+    * Need to close KafkaCheckPointManager after createResources
     */
   override def createResources(): Unit = {
     Preconditions.checkNotNull(systemAdmin)
@@ -109,7 +110,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     // register and start a producer for the checkpoint topic
     info("Starting the checkpoint SystemProducer")
     producerRef.get().start()
-
+    info("Starting the checkpoint SystemAdmin")
+    systemAdmin.start()
     // register and start a consumer for the checkpoint topic
     val oldestOffset = getOldestOffset(checkpointSsp)
     info(s"Starting the checkpoint SystemConsumer from oldest offset $oldestOffset")

@@ -441,15 +441,24 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
     @Override
     public void afterFailure(Throwable t) {
-      processors.removeIf(pair -> pair.getLeft().equals(processor));
-
+      // we need to close associated coordinator metadata store, although the processor failed
+      processors.forEach(sp -> {
+        if (sp.getLeft().equals(processor)) {
+          if (sp.getRight() != null) {
+            sp.getRight().close();
+          }
+          processors.remove(sp);
+        }
+      });
       // the processor stopped with failure, this is logging the first processor's failure as the cause of
       // the whole application failure
       if (failure.compareAndSet(null, t)) {
         // shutdown the other processors
         processors.forEach(sp -> {
-          sp.getLeft().stop();    // Stop StreamProcessor
-          sp.getRight().close();  // Close associated coordinator metadata store
+          sp.getLeft().stop();     // Stop StreamProcessor
+          if (sp.getRight() != null) {
+            sp.getRight().close(); // Close associated coordinator metadata store
+          }
         });
       }
 
