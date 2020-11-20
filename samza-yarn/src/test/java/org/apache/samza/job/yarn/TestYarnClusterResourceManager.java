@@ -116,7 +116,7 @@ public class TestYarnClusterResourceManager {
     Config config = mock(Config.class);
     AMRMClientAsync asyncClient = mock(AMRMClientAsync.class);
     YarnAppState yarnAppState = new YarnAppState(0, mock(ContainerId.class), "host", 8080, 8081);
-    SamzaYarnAppMasterLifecycle lifecycle = Mockito.spy(new SamzaYarnAppMasterLifecycle(512, 2, mock(SamzaApplicationState.class), yarnAppState, asyncClient));
+    SamzaYarnAppMasterLifecycle lifecycle = Mockito.spy(new SamzaYarnAppMasterLifecycle(512, 2, mock(SamzaApplicationState.class), yarnAppState, asyncClient, false));
     SamzaYarnAppMasterService service = mock(SamzaYarnAppMasterService.class);
     NMClientAsync asyncNMClient = mock(NMClientAsync.class);
     ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
@@ -144,7 +144,7 @@ public class TestYarnClusterResourceManager {
     Config config = mock(Config.class);
     AMRMClientAsync asyncClient = mock(AMRMClientAsync.class);
     YarnAppState yarnAppState = new YarnAppState(0, mock(ContainerId.class), "host", 8080, 8081);
-    SamzaYarnAppMasterLifecycle lifecycle = Mockito.spy(new SamzaYarnAppMasterLifecycle(512, 2, mock(SamzaApplicationState.class), yarnAppState, asyncClient));
+    SamzaYarnAppMasterLifecycle lifecycle = Mockito.spy(new SamzaYarnAppMasterLifecycle(512, 2, mock(SamzaApplicationState.class), yarnAppState, asyncClient, false));
     SamzaYarnAppMasterService service = mock(SamzaYarnAppMasterService.class);
     NMClientAsync asyncNMClient = mock(NMClientAsync.class);
     ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);

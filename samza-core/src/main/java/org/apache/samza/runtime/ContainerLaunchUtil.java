@@ -149,7 +149,7 @@ public class ContainerLaunchUtil {
         heartbeatMonitor.start();
       }
 
-      if (new JobConfig(config).getJobCoordinatorHighAvailabilityEnabled()) {
+      if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
         ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
             new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetExecutionContainerIdMapping.TYPE));
         if (executionContainerIdManager != null && execEnvContainerId.isPresent()) {

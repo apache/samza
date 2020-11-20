@@ -43,6 +43,7 @@ import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.clustermanager.ProcessorLaunchException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.YarnConfig;
 import org.apache.samza.coordinator.JobModelManager;
@@ -192,7 +193,8 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
         clusterManagerConfig.getNumCores(),
         samzaAppState,
         state,
-        amClient
+        amClient,
+        new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()
     );
     this.nmClientAsync = NMClientAsync.createNMClientAsync(this);
 

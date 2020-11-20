@@ -36,9 +36,13 @@ import org.apache.samza.clustermanager.SamzaApplicationState.SamzaAppStatus
 import org.apache.samza.coordinator.JobModelManager
 import org.junit.Assert._
 import org.junit.Test
-import org.mockito.Mockito
+import org.mockito.{ArgumentCaptor, Mockito}
 
 class TestSamzaYarnAppMasterLifecycle {
+  private def YARN_CONTAINER_ID = "container_123_123_123"
+  private def YARN_CONTAINER_HOST = "host"
+  private def YARN_CONTAINER_MEM = 1024
+  private def YARN_CONTAINER_VCORE = 1
   val coordinator = new JobModelManager(null, null)
   val amClient = new AMRMClientAsyncImpl[ContainerRequest](1, Mockito.mock(classOf[CallbackHandler])) {
     var host = ""
@@ -60,7 +64,10 @@ class TestSamzaYarnAppMasterLifecycle {
         }
         override def getClientToAMTokenMasterKey = null
         override def setClientToAMTokenMasterKey(buffer: ByteBuffer) {}
-        override def getContainersFromPreviousAttempts(): java.util.List[Container] = java.util.Collections.emptyList[Container]
+        // to test AM high availability - return a running container from previous attempt
+        val prevAttemptCotainers = new java.util.ArrayList[Container]()
+        prevAttemptCotainers.add(getMockContainer)
+        override def getContainersFromPreviousAttempts(): java.util.List[Container] = prevAttemptCotainers
         override def getNMTokensFromPreviousAttempts(): java.util.List[NMToken] = java.util.Collections.emptyList[NMToken]
         override def getQueue(): String = null
         override def setContainersFromPreviousAttempts(containers: java.util.List[Container]): Unit = Unit
@@ -92,7 +99,7 @@ class TestSamzaYarnAppMasterLifecycle {
     yarnState.rpcUrl = new URL("http://localhost:1")
     yarnState.trackingUrl = new URL("http://localhost:2")
 
-    val saml = new SamzaYarnAppMasterLifecycle(512, 2, state, yarnState, amClient)
+    val saml = new SamzaYarnAppMasterLifecycle(512, 2, state, yarnState, amClient, false)
     saml.onInit
     assertEquals("testHost", amClient.host)
     assertEquals(1, amClient.port)
@@ -104,7 +111,7 @@ class TestSamzaYarnAppMasterLifecycle {
     val state = new SamzaApplicationState(coordinator)
 
     val yarnState =  new YarnAppState(1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "testHost", 1, 2);
-    new SamzaYarnAppMasterLifecycle(512, 2, state, yarnState, amClient).onShutdown (SamzaAppStatus.SUCCEEDED)
+    new SamzaYarnAppMasterLifecycle(512, 2, state, yarnState, amClient, false).onShutdown (SamzaAppStatus.SUCCEEDED)
     assertEquals(FinalApplicationStatus.SUCCEEDED, amClient.status)
   }
 
@@ -115,7 +122,7 @@ class TestSamzaYarnAppMasterLifecycle {
       val state = new SamzaApplicationState(coordinator)
 
       val yarnState =  new YarnAppState(1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "testHost", 1, 2);
-      new SamzaYarnAppMasterLifecycle(512, 2, state, yarnState, amClient).onReboot()
+      new SamzaYarnAppMasterLifecycle(512, 2, state, yarnState, amClient, false).onReboot()
     } catch {
       // expected
       case e: SamzaException => gotException = true
@@ -132,11 +139,62 @@ class TestSamzaYarnAppMasterLifecycle {
     yarnState.trackingUrl = new URL("http://localhost:2")
 
     //Request a higher amount of memory from yarn.
-    List(new SamzaYarnAppMasterLifecycle(768, 1, state, yarnState, amClient),
+    List(new SamzaYarnAppMasterLifecycle(768, 1, state, yarnState, amClient, false),
     //Request a higher number of cores from yarn.
-      new SamzaYarnAppMasterLifecycle(368, 3, state, yarnState, amClient)).map(saml => {
+      new SamzaYarnAppMasterLifecycle(368, 3, state, yarnState, amClient, false)).map(saml => {
         saml.onInit
         assertTrue(saml.shouldShutdown)
       })
+  }
+
+  @Test
+  def testAMHighAvailabilityOnInit {
+    val PROCESSOR_ID = "0"
+    val samzaApplicationState = new SamzaApplicationState(coordinator)
+
+    samzaApplicationState.processorToExecutionId.put(PROCESSOR_ID, YARN_CONTAINER_ID);
+
+    val yarnState = new YarnAppState(1, ConverterUtils.toContainerId("container_1350670447861_0003_01_000001"), "testHost", 1, 2);
+    yarnState.rpcUrl = new URL("http://localhost:1")
+    yarnState.trackingUrl = new URL("http://localhost:2")
+
+    val saml = new SamzaYarnAppMasterLifecycle(512, 2, samzaApplicationState, yarnState, amClient, true)
+    saml.onInit
+
+    // verify that the samzaApplicationState is updated to reflect a running container from previous attempt
+    assertEquals(1, samzaApplicationState.runningProcessors.size())
+    assertTrue(samzaApplicationState.runningProcessors.containsKey(PROCESSOR_ID))
+    val resource = samzaApplicationState.runningProcessors.get(PROCESSOR_ID)
+    assertEquals(YARN_CONTAINER_ID, resource.getContainerId)
+    assertEquals(YARN_CONTAINER_HOST, resource.getHost)
+    assertEquals(YARN_CONTAINER_MEM, resource.getMemoryMb)
+    assertEquals(YARN_CONTAINER_VCORE, resource.getNumCores)
+
+    assertEquals(1, yarnState.runningProcessors.size())
+    assertTrue(yarnState.runningProcessors.containsKey(PROCESSOR_ID))
+    val yarnCtr = yarnState.runningProcessors.get(PROCESSOR_ID)
+    assertEquals(YARN_CONTAINER_ID, yarnCtr.id.toString)
+    assertEquals(YARN_CONTAINER_HOST, yarnCtr.nodeId.getHost)
+    assertEquals(YARN_CONTAINER_MEM, yarnCtr.resource.getMemory)
+    assertEquals(YARN_CONTAINER_VCORE, yarnCtr.resource.getVirtualCores)
+  }
+
+  def getMockContainer: Container = {
+    val container = Mockito.mock(classOf[Container])
+
+    val containerId = Mockito.mock(classOf[ContainerId])
+    Mockito.when(containerId.toString).thenReturn(YARN_CONTAINER_ID)
+    Mockito.when(container.getId).thenReturn(containerId)
+
+    val resource = Mockito.mock(classOf[Resource])
+    Mockito.when(resource.getMemory).thenReturn(YARN_CONTAINER_MEM)
+    Mockito.when(resource.getVirtualCores).thenReturn(YARN_CONTAINER_VCORE)
+    Mockito.when(container.getResource).thenReturn(resource)
+
+    val nodeId = Mockito.mock(classOf[NodeId])
+    Mockito.when(nodeId.getHost).thenReturn(YARN_CONTAINER_HOST)
+    Mockito.when(container.getNodeId).thenReturn(nodeId)
+
+    container
   }
 }

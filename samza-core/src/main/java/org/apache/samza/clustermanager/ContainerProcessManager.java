@@ -241,7 +241,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
     state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
-    if (jobConfig.getJobCoordinatorHighAvailabilityEnabled()) {
+    if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
       // refer to {@link SamzaApplicationState.processorToExecutionId} javadocs for rationale.
       if (state.neededProcessors.get() < state.processorToExecutionId.size()) {
         LOG.info("Number of containers is lower now than previous deploy.");
@@ -258,6 +258,13 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
           .orElse(null);
       processorToHost.put(containerId, host);
     });
+    if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
+      // don't request resource for container that is already running
+      state.runningProcessors.keySet().forEach(containerId -> {
+        processorToHost.remove(containerId);
+        state.neededProcessors.decrementAndGet();
+      });
+    }
     containerAllocator.requestResources(processorToHost);
 
     // Start container allocator thread
@@ -340,7 +347,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       return;
     }
     state.runningProcessors.remove(processorId);
-    if (jobConfig.getJobCoordinatorHighAvailabilityEnabled()) {
+    if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
       state.processorToExecutionId.remove(processorId);
     }
     int exitStatus = resourceStatus.getExitCode();
@@ -421,7 +428,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
           processorId, containerId, containerHost);
       state.pendingProcessors.remove(processorId);
       state.runningProcessors.put(processorId, resource);
-      if (jobConfig.getJobCoordinatorHighAvailabilityEnabled()) {
+      if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
         state.processorToExecutionId.put(processorId, containerId);
       }
 
