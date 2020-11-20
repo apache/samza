@@ -39,8 +39,6 @@ public class ContainerHeartbeatMonitor {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatMonitor.class);
   private static final ThreadFactory THREAD_FACTORY = new HeartbeatThreadFactory();
   private static final CoordinatorStreamValueSerde SERDE = new CoordinatorStreamValueSerde(SetConfig.TYPE);
-  private static final int RETRY_COUNT = 5;
-  private static final int SLEEP_DURATION_FOR_RECONNECT_WITH_AM_MS = 10000;
 
   @VisibleForTesting
   static final int SCHEDULE_MS = 60000;
@@ -53,22 +51,25 @@ public class ContainerHeartbeatMonitor {
   private final MetadataStore coordinatorStreamStore;
   private final long sleepDurationForReconnectWithAM;
   private final boolean isJobCoordinatorHighAvailabilityEnabled;
+  private final long retryCount;
 
   private ContainerHeartbeatClient containerHeartbeatClient;
   private String coordinatorUrl;
   private boolean started = false;
 
   public ContainerHeartbeatMonitor(Runnable onContainerExpired, String coordinatorUrl, String containerExecutionId,
-      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled) {
+      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled, long retryCount,
+      long sleepDurationForReconnectWithAM) {
     this(onContainerExpired, new ContainerHeartbeatClient(coordinatorUrl, containerExecutionId),
         Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY), coordinatorUrl, containerExecutionId,
-        coordinatorStreamStore, isJobCoordinatorHighAvailabilityEnabled, SLEEP_DURATION_FOR_RECONNECT_WITH_AM_MS);
+        coordinatorStreamStore, isJobCoordinatorHighAvailabilityEnabled, retryCount, sleepDurationForReconnectWithAM);
   }
 
   @VisibleForTesting
   ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient,
       ScheduledExecutorService scheduler, String coordinatorUrl, String containerExecutionId,
-      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled, long sleepDurationForReconnectWithAM) {
+      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled,
+      long retryCount, long sleepDurationForReconnectWithAM) {
     this.onContainerExpired = onContainerExpired;
     this.containerHeartbeatClient = containerHeartbeatClient;
     this.scheduler = scheduler;
@@ -76,6 +77,7 @@ public class ContainerHeartbeatMonitor {
     this.containerExecutionId = containerExecutionId;
     this.coordinatorStreamStore = coordinatorStreamStore;
     this.isJobCoordinatorHighAvailabilityEnabled = isJobCoordinatorHighAvailabilityEnabled;
+    this.retryCount = retryCount;
     this.sleepDurationForReconnectWithAM = sleepDurationForReconnectWithAM;
   }
 
@@ -117,7 +119,7 @@ public class ContainerHeartbeatMonitor {
     boolean response = false;
     int attempt = 1;
 
-    while (attempt <= RETRY_COUNT) {
+    while (attempt <= retryCount) {
       String newCoordinatorUrl = SERDE.fromBytes(coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL));
       try {
         if (coordinatorUrl.equals(newCoordinatorUrl)) {
@@ -126,7 +128,7 @@ public class ContainerHeartbeatMonitor {
         } else {
           LOG.info("Found new AM: {}. Establishing heartbeat with the new AM.", newCoordinatorUrl);
           coordinatorUrl = newCoordinatorUrl;
-          containerHeartbeatClient = getContainerHeartbeatClient();
+          containerHeartbeatClient = createContainerHeartbeatClient(coordinatorUrl, containerExecutionId);
           response = containerHeartbeatClient.requestHeartbeat().isAlive();
           LOG.info("Received heartbeat response: {} from new AM: {}", response, this.coordinatorUrl);
           break;
@@ -141,7 +143,7 @@ public class ContainerHeartbeatMonitor {
   }
 
   @VisibleForTesting
-  ContainerHeartbeatClient getContainerHeartbeatClient() {
+  ContainerHeartbeatClient createContainerHeartbeatClient(String coordinatorUrl, String containerExecutionId) {
     return new ContainerHeartbeatClient(coordinatorUrl, containerExecutionId);
   }
 

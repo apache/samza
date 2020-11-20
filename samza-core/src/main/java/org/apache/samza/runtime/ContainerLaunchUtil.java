@@ -143,11 +143,14 @@ public class ContainerLaunchUtil {
           listener = new ClusterBasedProcessorLifecycleListener(config, processorLifecycleListener, container::shutdown);
       container.setContainerListener(listener);
 
-      boolean isJobCoordinatorHighAvailabilityEnabled = new JobConfig(config).getJobCoordinatorHighAvailabilityEnabled();
+      JobConfig jobConfig = new JobConfig(config);
+      boolean isJobCoordinatorHighAvailabilityEnabled = jobConfig.getJobCoordinatorHighAvailabilityEnabled();
+      long retryCount = jobConfig.getJobCoordinatorDynamicHeartbeatRetryCount();
+      long sleepDurationForReconnectWithAM = jobConfig.getJobCoordinatorHeartbeatReconnectSleepDurationWithAmMs();
       ContainerHeartbeatMonitor heartbeatMonitor =
           createContainerHeartbeatMonitor(container,
               new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE),
-              isJobCoordinatorHighAvailabilityEnabled);
+              isJobCoordinatorHighAvailabilityEnabled, retryCount, sleepDurationForReconnectWithAM);
       if (heartbeatMonitor != null) {
         heartbeatMonitor.start();
       }
@@ -199,7 +202,8 @@ public class ContainerLaunchUtil {
    * @return a new {@link ContainerHeartbeatMonitor} instance, or null if could not create one
    */
   private static ContainerHeartbeatMonitor createContainerHeartbeatMonitor(SamzaContainer container,
-      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled) {
+      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled, long retryCount,
+      long sleepDurationForReconnectWithAM) {
     String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
     String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID);
     if (executionEnvContainerId != null) {
@@ -212,7 +216,8 @@ public class ContainerLaunchUtil {
           log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
           System.exit(1);
         }
-      }, coordinatorUrl, executionEnvContainerId, coordinatorStreamStore, isJobCoordinatorHighAvailabilityEnabled);
+      }, coordinatorUrl, executionEnvContainerId, coordinatorStreamStore, isJobCoordinatorHighAvailabilityEnabled,
+          retryCount, sleepDurationForReconnectWithAM);
     } else {
       log.warn("Execution environment container id not set. Container heartbeat monitor will not be created");
       return null;

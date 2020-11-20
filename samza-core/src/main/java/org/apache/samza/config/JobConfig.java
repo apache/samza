@@ -147,10 +147,20 @@ public class JobConfig extends MapConfig {
 
   private static final String JOB_STARTPOINT_ENABLED = "job.startpoint.enabled";
 
-  // Enable ClusterBasedJobCoordinator aka ApplicationMaster High Availability.
+  // Enable ClusterBasedJobCoordinator aka ApplicationMaster High Availability (AM-HA).
   // High availability allows new AM to establish connection with already running containers
   public static final String JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED = "job.coordinator.high-availability.enabled";
   public static final boolean JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED_DEFAULT = false;
+
+  // If AM-HA is enabled, when a running container loses heartbeat with AM,
+  // this count gives the number of times an already running container will attempt to establish heartbeat with new AM.
+  public static final String JOB_COORDINATOR_DYNAMIC_HEARTBEAT_RETRY_COUNT = "job.coordinator.dynamic-heartbeat.retry.count";
+  public static final long JOB_COORDINATOR_DYNAMIC_HEARTBEAT_RETRY_COUNT_DEFAULT = 5;
+
+  // If AM-HA is enabled, when a running container loses heartbeat with AM,
+  // this duration gives the amount of time a running container will sleep between attempts to establish heartbeat with new AM.
+  public static final String JOB_COORDINATOR_HEARTBEAT_RECONNECT_SLEEP_DURATION_WITH_AM_MS = "job.coordinator.dynamic-heartbeat.reconnect-sleep-duration.ms";
+  public static final long JOB_COORDINATOR_HEARTBEAT_RECONNECT_SLEEP_DURATION_WITH_AM_MS_DEFAULT = 10000;
 
   public JobConfig(Config config) {
     super(config);
@@ -405,6 +415,14 @@ public class JobConfig extends MapConfig {
 
   public boolean getJobCoordinatorHighAvailabilityEnabled() {
     return getBoolean(JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED, JOB_COORDINATOR_HIGH_AVAILABILITY_ENABLED_DEFAULT);
+  }
+
+  public long getJobCoordinatorDynamicHeartbeatRetryCount() {
+    return getLong(JOB_COORDINATOR_DYNAMIC_HEARTBEAT_RETRY_COUNT, JOB_COORDINATOR_DYNAMIC_HEARTBEAT_RETRY_COUNT_DEFAULT);
+  }
+
+  public long getJobCoordinatorHeartbeatReconnectSleepDurationWithAmMs() {
+    return getLong(JOB_COORDINATOR_HEARTBEAT_RECONNECT_SLEEP_DURATION_WITH_AM_MS, JOB_COORDINATOR_HEARTBEAT_RECONNECT_SLEEP_DURATION_WITH_AM_MS_DEFAULT);
   }
 
   /**
