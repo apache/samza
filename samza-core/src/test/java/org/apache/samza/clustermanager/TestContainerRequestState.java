@@ -52,9 +52,10 @@ public class TestContainerRequestState {
    */
   @Test
   public void testUpdateRequestState() {
+    String[] racks = new String[]{"A", "B", "C"};
     // Host-affinity is enabled
     ResourceRequestState state = new ResourceRequestState(true, manager);
-    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0");
+    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0", racks);
     state.addResourceRequest(request);
 
     assertNotNull(manager.resourceRequests);
@@ -71,7 +72,7 @@ public class TestContainerRequestState {
 
     // Host-affinity is not enabled
     ResourceRequestState state1 = new ResourceRequestState(false, manager);
-    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, null, "1");
+    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, null, "1", racks);
     state1.addResourceRequest(request1);
 
     assertNotNull(manager.resourceRequests);
@@ -90,6 +91,7 @@ public class TestContainerRequestState {
    */
   @Test
   public void testAddContainer() {
+    String[] racks = new String[]{"A", "B", "C"};
     // Add container to ANY_LIST when host-affinity is not enabled
     ResourceRequestState state = new ResourceRequestState(false, manager);
     SamzaResource resource = new SamzaResource(1, 1024, "abc", "id1");
@@ -115,13 +117,13 @@ public class TestContainerRequestState {
     assertEquals(container1, state1.getResourcesOnAHost(ANY_HOST).get(0));
 
     // Container Allocated on a Requested Host
-    state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "abc", "0"));
+    state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "abc", "0", racks));
 
     // Delayed request
     state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "def", "1",
-        Instant.now().plus(Duration.ofHours(1))));
+        Instant.now().plus(Duration.ofHours(1)), racks));
     state1.addResourceRequest(new SamzaResourceRequest(1, 1024, "ghi", "2",
-        Instant.now().plus(Duration.ofHours(2))));
+        Instant.now().plus(Duration.ofHours(2)), racks));
 
     assertEquals(1, state1.numPendingRequests());
     assertEquals(2, state1.numDelayedRequests());
@@ -164,11 +166,12 @@ public class TestContainerRequestState {
    */
   @Test
   public void testContainerAssignment() throws Exception {
+    String[] racks = new String[]{"A", "B", "C"};
     // Host-affinity enabled
     ResourceRequestState state = new ResourceRequestState(true, manager);
-    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0");
+    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0", racks);
 
-    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", "0");
+    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", "0", racks);
 
     state.addResourceRequest(request);
     state.addResourceRequest(request1);
@@ -219,11 +222,12 @@ public class TestContainerRequestState {
 
   @Test
   public void testReleaseResource() {
+    String[] racks = new String[]{"A", "B", "C"};
     // Host-affinity is enabled
     ResourceRequestState state = new ResourceRequestState(true, manager);
 
-    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0");
-    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", "0");
+    SamzaResourceRequest request = new SamzaResourceRequest(1, 1024, "abc", "0", racks);
+    SamzaResourceRequest request1 = new SamzaResourceRequest(1, 1024, "def", "0", racks);
     state.addResourceRequest(request);
     state.addResourceRequest(request1);
 
@@ -301,12 +305,12 @@ public class TestContainerRequestState {
   SamzaResourceRequest createRequestForActive(Instant requestTime) {
     String randomHost = RandomStringUtils.randomAlphanumeric(4);
     String randomId = RandomStringUtils.randomAlphanumeric(8);
-    return new SamzaResourceRequest(1, 1, randomHost, randomId, requestTime);
+    return new SamzaResourceRequest(1, 1, randomHost, randomId, requestTime, new String[]{"A", "B", "C"});
   }
 
   SamzaResourceRequest createRequestForStandby(Instant requestTime) {
     String randomHost = RandomStringUtils.randomAlphanumeric(4);
     String randomId = RandomStringUtils.randomAlphanumeric(8) + "-standby"; // hyphen in ID denotes a standby processor
-    return new SamzaResourceRequest(1, 1, randomHost, randomId, requestTime);
+    return new SamzaResourceRequest(1, 1, randomHost, randomId, new String[]{"A", "B", "C"});
   }
 }

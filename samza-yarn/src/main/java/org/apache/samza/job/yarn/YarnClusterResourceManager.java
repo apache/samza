@@ -33,7 +33,9 @@ import org.apache.hadoop.yarn.api.records.*;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
+import org.apache.hadoop.yarn.client.api.impl.YarnClientImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
@@ -232,6 +234,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     String processorId = resourceRequest.getProcessorId();
     String requestId = resourceRequest.getRequestId();
     String preferredHost = resourceRequest.getPreferredHost();
+    String[] racks = resourceRequest.getRacks();
     int memoryMb = resourceRequest.getMemoryMB();
     int cpuCores = resourceRequest.getNumCores();
     Resource capability = Resource.newInstance(memoryMb, cpuCores);
@@ -248,25 +251,45 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
      * should specify a different priority-level. We can safely set priority of preferred-host requests to be higher than
      * any-host requests since data-locality is critical.
      */
+    boolean relaxLocality = false;
     if (preferredHost.equals("ANY_HOST")) {
       Priority priority = Priority.newInstance(ANY_HOST_PRIORITY);
-      boolean relaxLocality = true;
       log.info("Requesting resources for Processor ID: {} on nodes: {} on racks: {} with capability: {}, priority: {}, relaxLocality: {}, nodeLabelsExpression: {}",
-          processorId, null, null, capability, priority, relaxLocality, nodeLabelsExpression);
-      issuedRequest = new AMRMClient.ContainerRequest(capability, null, null, priority, relaxLocality, nodeLabelsExpression);
+          processorId, null, Arrays.toString(racks), capability, priority, relaxLocality, nodeLabelsExpression);
+      issuedRequest = new AMRMClient.ContainerRequest(capability, null, racks, priority, relaxLocality, nodeLabelsExpression);
     } else {
       String[] nodes = {preferredHost};
       Priority priority = Priority.newInstance(PREFERRED_HOST_PRIORITY);
-      boolean relaxLocality = false;
       log.info("Requesting resources for Processor ID: {} on nodes: {} on racks: {} with capability: {}, priority: {}, relaxLocality: {}, nodeLabelsExpression: {}",
-          processorId, Arrays.toString(nodes), null, capability, priority, relaxLocality, nodeLabelsExpression);
-      issuedRequest = new AMRMClient.ContainerRequest(capability, nodes, null, priority, relaxLocality, nodeLabelsExpression);
+          processorId, Arrays.toString(nodes), Arrays.toString(racks), capability, priority, relaxLocality, nodeLabelsExpression);
+      issuedRequest = new AMRMClient.ContainerRequest(capability, nodes, racks, priority, relaxLocality, nodeLabelsExpression);
     }
     // ensure that updating the state and making the request are done atomically.
     synchronized (lock) {
       requestsMap.put(resourceRequest, issuedRequest);
       amClient.addContainerRequest(issuedRequest);
     }
+  }
+
+  /**
+   * Get the node to rack (fault domain for Yarn) mapping from Yarn for all running nodes.
+   * @return A map of hostname to rack name.
+   */
+  @Override
+  public Map<String, String> getNodeToFaultDomainMap() {
+    YarnClientImpl yarnClient = new YarnClientImpl();
+    Map<String, String> nodeToRackMap = new HashMap<>();
+    try {
+      List<NodeReport> nodeReport = yarnClient.getNodeReports(NodeState.RUNNING);
+      nodeReport.forEach(report -> {
+        nodeToRackMap.put(report.getNodeId().getHost(), report.getRackName());
+      });
+    } catch (YarnException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return nodeToRackMap;
   }
 
   /**

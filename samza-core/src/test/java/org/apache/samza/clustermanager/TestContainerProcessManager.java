@@ -571,7 +571,7 @@ public class TestContainerProcessManager {
       // For the sake of testing the mocked 4th failure below, send delayed requests now.
       SamzaResourceRequest request = allocator.getContainerRequestState().getDelayedRequestsQueue().poll();
       SamzaResourceRequest fastForwardRequest =
-          new SamzaResourceRequest(request.getNumCores(), request.getMemoryMB(), request.getPreferredHost(), request.getProcessorId(), Instant.now().minusSeconds(1));
+          new SamzaResourceRequest(request.getNumCores(), request.getMemoryMB(), request.getPreferredHost(), request.getProcessorId(), Instant.now().minusSeconds(1), new String[0]);
       allocator.getContainerRequestState().getDelayedRequestsQueue().add(fastForwardRequest);
       int numSent = allocator.getContainerRequestState().sendPendingDelayedResourceRequests();
       assertEquals(1, numSent);

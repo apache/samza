@@ -19,6 +19,7 @@
 
 package org.apache.samza.clustermanager;
 
+import java.util.Map;
 import org.apache.samza.job.CommandBuilder;
 
 import java.util.List;
@@ -86,6 +87,12 @@ public abstract class ClusterResourceManager {
    * @param resourceRequest the resourceRequest being made
    */
   public abstract void requestResources(SamzaResourceRequest resourceRequest);
+
+  /**
+   * Get the node to fault domain map from the cluster resource manager.
+   * @return A map of the nodes to the fault domain they reside in.
+   */
+  public abstract Map<String, String> getNodeToFaultDomainMap();
 
   /***
    * Remove a previously submitted resource request. The previous resource request may

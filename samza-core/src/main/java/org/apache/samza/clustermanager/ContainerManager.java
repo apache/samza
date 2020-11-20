@@ -158,7 +158,7 @@ public class ContainerManager {
           // Release unstartable container
           standbyContainerManager.get().releaseUnstartableContainer(request, allocatedResource, preferredHost, resourceRequestState);
           // Fallback to source host since the new allocated resource does not meet standby constraints
-          allocator.requestResource(processorId, actionMetaData.getSourceHost());
+          allocator.requestResource(processorId, actionMetaData.getSourceHost(), new String[0]);
           markContainerPlacementActionFailed(actionMetaData,
               String.format("allocated resource %s does not meet standby constraints now, falling back to source host", allocatedResource));
         } else {
@@ -208,7 +208,7 @@ public class ContainerManager {
               preferredHostRetryDelay);
     } else {
       // If StandbyTasks are not enabled, we simply make a request for the preferredHost
-      containerAllocator.requestResourceWithDelay(processorId, preferredHost, preferredHostRetryDelay);
+      containerAllocator.requestResourceWithDelay(processorId, preferredHost, new String[0], preferredHostRetryDelay);
     }
   }
 
@@ -234,13 +234,13 @@ public class ContainerManager {
       markContainerPlacementActionFailed(metaData,
           String.format("failed to start container on destination host %s, attempting to start on source host %s",
               preferredHost, sourceHost));
-      containerAllocator.requestResource(processorId, sourceHost);
+      containerAllocator.requestResource(processorId, sourceHost, new String[0]);
     } else if (processorId != null && standbyContainerManager.isPresent()) {
       standbyContainerManager.get().handleContainerLaunchFail(processorId, containerId, containerAllocator);
     } else if (processorId != null) {
       LOG.info("Falling back to ANY_HOST for Processor ID: {} since launch failed for Container ID: {} on host: {}",
           processorId, containerId, preferredHost);
-      containerAllocator.requestResource(processorId, ResourceRequestState.ANY_HOST);
+      containerAllocator.requestResource(processorId, ResourceRequestState.ANY_HOST, new String[0]);
     } else {
       LOG.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. "
           + "Ignoring invalid/redundant notification.", containerId, preferredHost);
@@ -337,7 +337,7 @@ public class ContainerManager {
       LOG.info("Request for Processor ID: {} on host: {} has expired. Requesting additional resources on ANY_HOST.",
           processorId, preferredHost);
       resourceRequestState.cancelResourceRequest(request);
-      allocator.requestResource(processorId, ResourceRequestState.ANY_HOST);
+      allocator.requestResource(processorId, ResourceRequestState.ANY_HOST, new String[0]);
     }
   }
 
@@ -356,7 +356,7 @@ public class ContainerManager {
         resource, request.getProcessorId(), request);
     resourceRequestState.releaseUnstartableContainer(resource, preferredHost);
     resourceRequestState.cancelResourceRequest(request);
-    SamzaResourceRequest newResourceRequest = allocator.getResourceRequest(request.getProcessorId(), request.getPreferredHost());
+    SamzaResourceRequest newResourceRequest = allocator.getResourceRequest(request.getProcessorId(), request.getPreferredHost(), new String[0]);
     if (hasActiveContainerPlacementAction(newResourceRequest.getProcessorId())) {
       ContainerPlacementMetadata metadata = getPlacementActionMetadata(request.getProcessorId()).get();
       metadata.recordResourceRequest(newResourceRequest);
@@ -447,7 +447,7 @@ public class ContainerManager {
       actionMetaData.setContainerStatus(ContainerPlacementMetadata.ContainerStatus.STOPPED);
     }
 
-    SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequest(processorId, destinationHost);
+    SamzaResourceRequest resourceRequest = containerAllocator.getResourceRequest(processorId, destinationHost, new String[0]);
     // Record the resource request for monitoring
     actionMetaData.recordResourceRequest(resourceRequest);
     actions.put(processorId, actionMetaData);

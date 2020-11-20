@@ -22,6 +22,7 @@ package org.apache.samza.clustermanager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import java.time.Duration;
+import java.util.Map;
 import org.apache.samza.job.CommandBuilder;
 import org.junit.Assert;
 
@@ -64,6 +65,11 @@ public class MockClusterResourceManager extends ClusterResourceManager {
     resourceRequests.add(resource);
     requestCountSemaphore.release();
     clusterManagerCallback.onResourcesAvailable(ImmutableList.of(resource));
+  }
+
+  @Override
+  public Map<String, String> getNodeToFaultDomainMap() {
+    return null;
   }
 
   @Override

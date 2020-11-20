@@ -49,6 +49,10 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
    */
   private final String preferredHost;
   /**
+   * The set of racks on which the resource must be allocated.
+   */
+  private final String[] racks;
+  /**
    * A request is identified by an unique identifier.
    */
   private final String requestId;
@@ -62,17 +66,18 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
    */
   private final Instant requestTimestamp;
 
-  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId) {
-    this(numCores, memoryMB, preferredHost, processorId, Instant.now());
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, String[] racks) {
+    this(numCores, memoryMB, preferredHost, processorId, Instant.now(), racks);
   }
 
-  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp) {
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp, String[] racks) {
     this.numCores = numCores;
     this.memoryMB = memoryMB;
     this.preferredHost = preferredHost;
     this.requestId = UUID.randomUUID().toString();
     this.processorId = processorId;
     this.requestTimestamp = requestTimestamp;
+    this.racks = racks;
     log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
   }
 
@@ -94,6 +99,10 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
 
   public String getPreferredHost() {
     return preferredHost;
+  }
+
+  public String[] getRacks() {
+    return racks;
   }
 
   public int getMemoryMB() {

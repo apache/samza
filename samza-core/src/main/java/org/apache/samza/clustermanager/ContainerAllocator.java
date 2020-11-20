@@ -307,7 +307,7 @@ public class ContainerAllocator implements Runnable {
         LOG.info("No preferred host mapping found for Processor ID: {}. Requesting resource on ANY_HOST", processorId);
         preferredHost = ResourceRequestState.ANY_HOST;
       }
-      requestResource(processorId, preferredHost);
+      requestResource(processorId, preferredHost, new String[0]);
     }
   }
 
@@ -336,8 +336,8 @@ public class ContainerAllocator implements Runnable {
    * @param processorId Samza processor ID that will be run when a resource is allocated for this request
    * @param preferredHost name of the host that you prefer to run the processor on
    */
-  public final void requestResource(String processorId, String preferredHost) {
-    requestResourceWithDelay(processorId, preferredHost, Duration.ZERO);
+  public final void requestResource(String processorId, String preferredHost, String[] racks) {
+    requestResourceWithDelay(processorId, preferredHost, racks, Duration.ZERO);
   }
 
   /**
@@ -346,8 +346,8 @@ public class ContainerAllocator implements Runnable {
    * @param preferredHost name of the host that you prefer to run the processor on
    * @param delay the {@link Duration} to add to the request timestamp
    */
-  public final void requestResourceWithDelay(String processorId, String preferredHost, Duration delay) {
-    SamzaResourceRequest request = getResourceRequestWithDelay(processorId, preferredHost, delay);
+  public final void requestResourceWithDelay(String processorId, String preferredHost, String[] racks, Duration delay) {
+    SamzaResourceRequest request = getResourceRequestWithDelay(processorId, preferredHost, racks, delay);
     issueResourceRequest(request);
   }
 
@@ -357,8 +357,8 @@ public class ContainerAllocator implements Runnable {
    * @param preferredHost name of the host that you prefer to run the processor on
    * @return the created request
    */
-  public final SamzaResourceRequest getResourceRequest(String processorId, String preferredHost) {
-    return getResourceRequestWithDelay(processorId, preferredHost, Duration.ZERO);
+  public final SamzaResourceRequest getResourceRequest(String processorId, String preferredHost, String[] racks) {
+    return getResourceRequestWithDelay(processorId, preferredHost, racks, Duration.ZERO);
   }
 
   /**
@@ -369,8 +369,8 @@ public class ContainerAllocator implements Runnable {
    * @param delay the {@link Duration} to add to the request timestamp
    * @return the created request
    */
-  public final SamzaResourceRequest getResourceRequestWithDelay(String processorId, String preferredHost, Duration delay) {
-    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId, Instant.now().plus(delay));
+  public final SamzaResourceRequest getResourceRequestWithDelay(String processorId, String preferredHost, String[] racks, Duration delay) {
+    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId, Instant.now().plus(delay), racks);
   }
 
   public final void issueResourceRequest(SamzaResourceRequest request) {

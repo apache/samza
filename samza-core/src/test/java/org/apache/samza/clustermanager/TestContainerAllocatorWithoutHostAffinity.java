@@ -254,7 +254,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
     allocatorThread.start();
 
-    containerAllocator.requestResource("0", "abc");
+    containerAllocator.requestResource("0", "abc", new String[0]);
 
     containerAllocator.addResource(resource);
     containerAllocator.addResource(resource1);

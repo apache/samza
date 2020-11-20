@@ -226,7 +226,7 @@ public class TestContainerAllocatorWithHostAffinity {
 
     allocatorThread.start();
 
-    containerAllocator.requestResource("0", "abc");
+    containerAllocator.requestResource("0", "abc", new String[0]);
 
     containerAllocator.addResource(resource0);
     containerAllocator.addResource(resource1);
@@ -265,10 +265,11 @@ public class TestContainerAllocatorWithHostAffinity {
 
   @Test
   public void testDelayedRequestedContainers() {
-    containerAllocator.requestResource("0", "abc");
-    containerAllocator.requestResourceWithDelay("0", "efg", Duration.ofHours(2));
-    containerAllocator.requestResourceWithDelay("0", "hij", Duration.ofHours(3));
-    containerAllocator.requestResourceWithDelay("0", "klm", Duration.ofHours(4));
+    String[] racks = new String[0];
+    containerAllocator.requestResource("0", "abc", racks);
+    containerAllocator.requestResourceWithDelay("0", "efg", racks, Duration.ofHours(2));
+    containerAllocator.requestResourceWithDelay("0", "hij", racks, Duration.ofHours(3));
+    containerAllocator.requestResourceWithDelay("0", "klm", racks, Duration.ofHours(4));
 
     assertNotNull(clusterResourceManager.resourceRequests);
     assertEquals(clusterResourceManager.resourceRequests.size(), 1);
