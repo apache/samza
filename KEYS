@@ -6,8 +6,12 @@ Developers:
   Create a key:
     gpg --gen-key
 
+  Private keys is stored in ~/.gnupg
+
   Adding your key to this file:
     (gpg --list-sigs <key id> && gpg --armor --export <key id>) >> this file.
+
+  
 
   Publish the key:
     gpg --keyserver pgp.mit.edu --send-keys <key id>
@@ -17,6 +21,13 @@ Developers:
     gpg --keyserver pgp.mit.edu --recv-keys <key id>
     gpg --sign-key <key id>
     gpg --keyserver pgp.mit.edu --send-keys <key id>
+
+  Siggning release with the key *may* require the following some of these steps:
+  git config --global gpg.program gpg2
+  git config --global user.signingkey D2103453 // where D2103453 is your key
+
+  export GPG_TTY=$(tty) // to allow passphrase entry
+  
 
   Additional Information:
     http://www.apache.org/dev/openpgp.html#generate-key
