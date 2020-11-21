@@ -447,9 +447,10 @@ public class LocalApplicationRunner implements ApplicationRunner {
           if (sp.getRight() != null) {
             sp.getRight().close();
           }
-          processors.remove(sp);
         }
       });
+      processors.removeIf(pair -> pair.getLeft().equals(processor));
+
       // the processor stopped with failure, this is logging the first processor's failure as the cause of
       // the whole application failure
       if (failure.compareAndSet(null, t)) {
