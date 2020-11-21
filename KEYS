@@ -11,10 +11,9 @@ Developers:
   Adding your key to this file:
     (gpg --list-sigs <key id> && gpg --armor --export <key id>) >> this file.
 
-  
-
   Publish the key:
     gpg --keyserver pgp.mit.edu --send-keys <key id>
+    gpg --keyserver keyserver.ubuntu.com --send-keys <key id>
 
   Signing another developers key:
     gpg --keyserver pgp.mit.edu --search-keys <name or email>
