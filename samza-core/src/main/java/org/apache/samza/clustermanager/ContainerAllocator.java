@@ -237,7 +237,8 @@ public class ContainerAllocator implements Runnable {
           // SAMZA-2601: to prevent infinite looping and logs filling up the disk, when host affinity is disabled,
           // we explicitly break the loop here and the whole process gets retried in run() after allocatorSleepIntervalMs
           if (!hostAffinityEnabled) {
-            LOG.info("Host affinity is disabled on expired request.");
+            LOG.info("Waiting for resources to get allocated for request {},"
+                + " no retries will be issued since host affinity is disabled", request);
             break;
           }
         } else {
