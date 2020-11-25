@@ -83,7 +83,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
   /**
     * Create checkpoint stream prior to start.
-    * Need to close KafkaCheckPointManager after createResources
+    *
     */
   override def createResources(): Unit = {
     val systemAdmin = systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
