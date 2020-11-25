@@ -50,7 +50,7 @@ public class ContainerHeartbeatMonitor {
   private final String containerExecutionId;
   private final MetadataStore coordinatorStreamStore;
   private final long sleepDurationForReconnectWithAM;
-  private final boolean isJobCoordinatorHighAvailabilityEnabled;
+  private final boolean isApplicationMasterHighAvailabilityEnabled;
   private final long retryCount;
 
   private ContainerHeartbeatClient containerHeartbeatClient;
@@ -58,17 +58,17 @@ public class ContainerHeartbeatMonitor {
   private boolean started = false;
 
   public ContainerHeartbeatMonitor(Runnable onContainerExpired, String coordinatorUrl, String containerExecutionId,
-      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled, long retryCount,
+      MetadataStore coordinatorStreamStore, boolean isApplicationMasterHighAvailabilityEnabled, long retryCount,
       long sleepDurationForReconnectWithAM) {
     this(onContainerExpired, new ContainerHeartbeatClient(coordinatorUrl, containerExecutionId),
         Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY), coordinatorUrl, containerExecutionId,
-        coordinatorStreamStore, isJobCoordinatorHighAvailabilityEnabled, retryCount, sleepDurationForReconnectWithAM);
+        coordinatorStreamStore, isApplicationMasterHighAvailabilityEnabled, retryCount, sleepDurationForReconnectWithAM);
   }
 
   @VisibleForTesting
   ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient,
       ScheduledExecutorService scheduler, String coordinatorUrl, String containerExecutionId,
-      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled,
+      MetadataStore coordinatorStreamStore, boolean isApplicationMasterHighAvailabilityEnabled,
       long retryCount, long sleepDurationForReconnectWithAM) {
     this.onContainerExpired = onContainerExpired;
     this.containerHeartbeatClient = containerHeartbeatClient;
@@ -76,7 +76,7 @@ public class ContainerHeartbeatMonitor {
     this.coordinatorUrl = coordinatorUrl;
     this.containerExecutionId = containerExecutionId;
     this.coordinatorStreamStore = coordinatorStreamStore;
-    this.isJobCoordinatorHighAvailabilityEnabled = isJobCoordinatorHighAvailabilityEnabled;
+    this.isApplicationMasterHighAvailabilityEnabled = isApplicationMasterHighAvailabilityEnabled;
     this.retryCount = retryCount;
     this.sleepDurationForReconnectWithAM = sleepDurationForReconnectWithAM;
   }
@@ -90,7 +90,7 @@ public class ContainerHeartbeatMonitor {
     scheduler.scheduleAtFixedRate(() -> {
       ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
       if (!response.isAlive()) {
-        if (isJobCoordinatorHighAvailabilityEnabled) {
+        if (isApplicationMasterHighAvailabilityEnabled) {
           LOG.warn("Failed to establish connection with {}. Checking for new AM", coordinatorUrl);
           if (checkAndEstablishConnectionWithNewAM()) {
             return;

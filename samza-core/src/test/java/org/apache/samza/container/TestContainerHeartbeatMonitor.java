@@ -59,6 +59,8 @@ public class TestContainerHeartbeatMonitor {
   private ContainerHeartbeatMonitor containerHeartbeatMonitor;
 
   private static final String COORDINATOR_URL = "http://some-host.prod.linkedin.com";
+  private static final ContainerHeartbeatResponse FAILURE_RESPONSE = new ContainerHeartbeatResponse(false);
+  private static final ContainerHeartbeatResponse SUCCESS_RESPONSE = new ContainerHeartbeatResponse(true);
 
   @Before
   public void setup() {
@@ -111,9 +113,7 @@ public class TestContainerHeartbeatMonitor {
         spy(new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
             containerExecutionId, coordinatorStreamStore, true, 5, 10));
     CoordinatorStreamValueSerde serde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
-    ContainerHeartbeatResponse response1 = new ContainerHeartbeatResponse(false);
-    ContainerHeartbeatResponse response2 = new ContainerHeartbeatResponse(true);
-    when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(response1).thenReturn(response2);
+    when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(FAILURE_RESPONSE).thenReturn(SUCCESS_RESPONSE);
     when(this.containerHeartbeatMonitor.createContainerHeartbeatClient(newCoordinatorUrl, containerExecutionId)).thenReturn(this.containerHeartbeatClient);
     when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL)).thenReturn(serde.toBytes(newCoordinatorUrl));
 
@@ -135,8 +135,7 @@ public class TestContainerHeartbeatMonitor {
         spy(new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
             "0", coordinatorStreamStore, true, 5, 10));
     CoordinatorStreamValueSerde serde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
-    ContainerHeartbeatResponse response1 = new ContainerHeartbeatResponse(false);
-    when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(response1);
+    when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(FAILURE_RESPONSE);
     when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL)).thenReturn(serde.toBytes(COORDINATOR_URL));
     this.containerHeartbeatMonitor.start();
     // wait for the executor to finish the heartbeat check task
@@ -159,8 +158,7 @@ public class TestContainerHeartbeatMonitor {
         spy(new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
             containerExecutionId, coordinatorStreamStore, true, 5, 10));
     CoordinatorStreamValueSerde serde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
-    ContainerHeartbeatResponse response1 = new ContainerHeartbeatResponse(false);
-    when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(response1);
+    when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(FAILURE_RESPONSE);
     when(this.containerHeartbeatMonitor.createContainerHeartbeatClient(newCoordinatorUrl, containerExecutionId)).thenReturn(this.containerHeartbeatClient);
     when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL)).thenReturn(serde.toBytes(newCoordinatorUrl));
 

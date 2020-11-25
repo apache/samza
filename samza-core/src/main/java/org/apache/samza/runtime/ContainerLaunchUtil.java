@@ -144,13 +144,11 @@ public class ContainerLaunchUtil {
       container.setContainerListener(listener);
 
       JobConfig jobConfig = new JobConfig(config);
-      boolean isJobCoordinatorHighAvailabilityEnabled = jobConfig.getJobCoordinatorHighAvailabilityEnabled();
-      long retryCount = jobConfig.getJobCoordinatorDynamicHeartbeatRetryCount();
-      long sleepDurationForReconnectWithAM = jobConfig.getJobCoordinatorHeartbeatReconnectSleepDurationWithAmMs();
       ContainerHeartbeatMonitor heartbeatMonitor =
           createContainerHeartbeatMonitor(container,
               new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE),
-              isJobCoordinatorHighAvailabilityEnabled, retryCount, sleepDurationForReconnectWithAM);
+              jobConfig.getApplicationMasterHighAvailabilityEnabled(), jobConfig.getContainerHeartbeatRetryCount(),
+              jobConfig.getContainerHeartbeatRetrySleepDurationMs());
       if (heartbeatMonitor != null) {
         heartbeatMonitor.start();
       }
@@ -198,11 +196,13 @@ public class ContainerLaunchUtil {
    * Creates a new container heartbeat monitor if possible.
    * @param container the container to monitor
    * @param coordinatorStreamStore the metadata store to fetch coordinator url from
-   * @param isJobCoordinatorHighAvailabilityEnabled whether coordinator HA is enabled to fetch new coordinator url
+   * @param isApplicaitonMasterHighAvailabilityEnabled whether AM HA is enabled to fetch new AM url
+   * @param retryCount number of times to retry connecting to new AM when heartbeat expires
+   * @param sleepDurationForReconnectWithAM sleep duration between retries to connect to new AM when heartbeat expires
    * @return a new {@link ContainerHeartbeatMonitor} instance, or null if could not create one
    */
   private static ContainerHeartbeatMonitor createContainerHeartbeatMonitor(SamzaContainer container,
-      MetadataStore coordinatorStreamStore, boolean isJobCoordinatorHighAvailabilityEnabled, long retryCount,
+      MetadataStore coordinatorStreamStore, boolean isApplicaitonMasterHighAvailabilityEnabled, long retryCount,
       long sleepDurationForReconnectWithAM) {
     String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
     String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID);
@@ -216,7 +216,7 @@ public class ContainerLaunchUtil {
           log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
           System.exit(1);
         }
-      }, coordinatorUrl, executionEnvContainerId, coordinatorStreamStore, isJobCoordinatorHighAvailabilityEnabled,
+      }, coordinatorUrl, executionEnvContainerId, coordinatorStreamStore, isApplicaitonMasterHighAvailabilityEnabled,
           retryCount, sleepDurationForReconnectWithAM);
     } else {
       log.warn("Execution environment container id not set. Container heartbeat monitor will not be created");
