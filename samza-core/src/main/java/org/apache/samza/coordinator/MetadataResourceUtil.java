@@ -55,7 +55,6 @@ public class MetadataResourceUtil {
   public void createResources() {
     if (checkpointManager != null) {
       checkpointManager.createResources();
-      checkpointManager.stop();
     }
     createChangelogStreams();
   }

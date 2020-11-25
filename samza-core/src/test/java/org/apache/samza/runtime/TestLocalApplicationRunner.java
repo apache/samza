@@ -62,6 +62,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -75,13 +77,8 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({LocalJobPlanner.class, LocalApplicationRunner.class, ZkMetadataStoreFactory.class})
@@ -135,7 +132,7 @@ public class TestLocalApplicationRunner {
     runner.run(externalContext);
 
     verify(metadataStore).init();
-    verify(metadataStore, never()).close();
+    verify(metadataStore).close();
 
     assertEquals(ApplicationStatus.SuccessfulFinish, runner.status());
   }
@@ -171,7 +168,7 @@ public class TestLocalApplicationRunner {
     runner.run();
 
     verify(metadataStore).init();
-    verify(metadataStore, never()).close();
+    verify(metadataStore).close();
 
     assertEquals(ApplicationStatus.SuccessfulFinish, runner.status());
   }
@@ -209,7 +206,7 @@ public class TestLocalApplicationRunner {
     runner.waitForFinish();
 
     verify(coordinatorStreamStore).init();
-    verify(coordinatorStreamStore, never()).close();
+    verify(coordinatorStreamStore).close();
 
     assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
@@ -311,10 +308,17 @@ public class TestLocalApplicationRunner {
       return null;
     }).when(sp).start();
 
-    doAnswer(i -> {
-      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-      listener.afterStop();
-      return null;
+    doAnswer(new Answer() {
+      private int count = 0;
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        if (++count == 1) {
+          ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+          listener.afterStop();
+          return null;
+        }
+        return null;
+      }
     }).when(sp).stop();
 
     ExternalContext externalContext = mock(ExternalContext.class);
@@ -326,7 +330,7 @@ public class TestLocalApplicationRunner {
     runner.kill();
 
     verify(coordinatorStreamStore).init();
-    verify(coordinatorStreamStore).close();
+    verify(coordinatorStreamStore, atLeastOnce()).close();
 
     assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
@@ -353,10 +357,17 @@ public class TestLocalApplicationRunner {
       return null;
     }).when(sp).start();
 
-    doAnswer(i -> {
-      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-      listener.afterStop();
-      return null;
+    doAnswer(new Answer() {
+      private int count = 0;
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        if (++count == 1) {
+          ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+          listener.afterStop();
+          return null;
+        }
+        return null;
+      }
     }).when(sp).stop();
 
     ExternalContext externalContext = mock(ExternalContext.class);
