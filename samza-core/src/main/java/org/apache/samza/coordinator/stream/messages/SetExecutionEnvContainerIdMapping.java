@@ -20,39 +20,39 @@
 package org.apache.samza.coordinator.stream.messages;
 
 /**
- * SetContainerIdExecutionContainerIdMapping is used internally by the Samza framework to
- * persist the container processorId-to-executionEnvContainerId mappings.
+ * SetExecutionEnvContainerIdMapping is used internally by the Samza framework to
+ * persist the processorId-to-executionEnvContainerId mappings.
  *
  * Structure of the message looks like:
  * {
- *     Key: $ContainerId
- *     Type: set-container-id-execution-id-assignment
- *     Source: "SamzaContainer-$ContainerId"
+ *     Key: $ProcessorId
+ *     Type: set-execution-env-container-id-mapping
+ *     Source: "SamzaContainer-$ProcessorId"
  *     MessageMap:
  *     {
  *         execution-env-container-id: execution environment container id
  *     }
  * }
  * */
-public class SetExecutionContainerIdMapping extends CoordinatorStreamMessage {
-  public static final String TYPE = "set-container-id-execution-id-assignment";
+public class SetExecutionEnvContainerIdMapping extends CoordinatorStreamMessage {
+  public static final String TYPE = "set-execution-env-container-id-mapping";
   public static final String EXEC_ENV_ID_KEY = "execution-env-container-id";
 
   /**
-   * SteContainerToHostMapping is used to set the container to host mapping information.
-   * @param message which holds the container to host information.
+   * SetExecutionEnvContainerIdMapping is used to set the processor id to execution environment id mapping information.
+   * @param message which holds the processor id to execution environment id mapping information.
    */
-  public SetExecutionContainerIdMapping(CoordinatorStreamMessage message) {
+  public SetExecutionEnvContainerIdMapping(CoordinatorStreamMessage message) {
     super(message.getKeyArray(), message.getMessageMap());
   }
 
   /**
-   * SteContainerToHostMapping is used to set the container to host mapping information.
+   * SetExecutionEnvContainerIdMapping is used to set the processor id to execution environment id mapping information.
    * @param source the source of the message
    * @param key the key which is used to persist the message
    * @param executionEnvContainerId the execution environment container id
    */
-  public SetExecutionContainerIdMapping(String source, String key, String executionEnvContainerId) {
+  public SetExecutionEnvContainerIdMapping(String source, String key, String executionEnvContainerId) {
     super(source);
     setType(TYPE);
     setKey(key);

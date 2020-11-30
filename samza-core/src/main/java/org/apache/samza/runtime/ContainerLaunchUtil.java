@@ -41,7 +41,7 @@ import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.apache.samza.coordinator.stream.messages.SetExecutionContainerIdMapping;
+import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -99,7 +99,7 @@ public class ContainerLaunchUtil {
       String jobName,
       String jobId,
       String containerId,
-      Optional<String> execEnvContainerId,
+      Optional<String> execEnvContainerIdOptional,
       JobModel jobModel,
       Config config,
       Optional<ExternalContext> externalContextOptional) {
@@ -119,7 +119,7 @@ public class ContainerLaunchUtil {
       Map<String, MetricsReporter> metricsReporters = loadMetricsReporters(appDesc, containerId, config);
 
       // Creating diagnostics manager and reporter, and wiring it respectively
-      Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, execEnvContainerId, config);
+      Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, execEnvContainerIdOptional, config);
       Option<DiagnosticsManager> diagnosticsManager = Option.empty();
       if (diagnosticsManagerReporterPair.isPresent()) {
         diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
@@ -151,10 +151,9 @@ public class ContainerLaunchUtil {
 
       if (new JobConfig(config).getJobCoordinatorHighAvailabilityEnabled()) {
         ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
-            new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetExecutionContainerIdMapping.TYPE));
-        if (executionContainerIdManager != null && execEnvContainerId.isPresent()) {
-          executionContainerIdManager.writeExecutionEnvironmentContainerIdMapping(containerId, execEnvContainerId.get());
-        }
+            new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetExecutionEnvContainerIdMapping.TYPE));
+        execEnvContainerIdOptional.ifPresent(execEnvContainerId ->
+            executionContainerIdManager.writeExecutionEnvironmentContainerIdMapping(containerId, execEnvContainerId));
       }
 
       container.run();

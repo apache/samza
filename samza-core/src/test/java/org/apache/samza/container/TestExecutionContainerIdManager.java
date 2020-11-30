@@ -28,7 +28,7 @@ import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
-import org.apache.samza.coordinator.stream.messages.SetExecutionContainerIdMapping;
+import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.junit.After;
 import org.junit.Before;
@@ -55,7 +55,7 @@ public class TestExecutionContainerIdManager {
     coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(CONFIG);
     coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
     store = Mockito.spy(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore,
-        SetExecutionContainerIdMapping.TYPE));
+        SetExecutionEnvContainerIdMapping.TYPE));
     executionContainerIdManager = new ExecutionContainerIdManager(store);
 
   }
@@ -85,7 +85,7 @@ public class TestExecutionContainerIdManager {
 
     ArgumentCaptor<byte[]> argument1 = ArgumentCaptor.forClass(byte[].class);
     Mockito.verify(store).put(Mockito.eq(processorId), argument1.capture());
-    CoordinatorStreamValueSerde valueSerde =new CoordinatorStreamValueSerde(SetExecutionContainerIdMapping.TYPE);
+    CoordinatorStreamValueSerde valueSerde = new CoordinatorStreamValueSerde(SetExecutionEnvContainerIdMapping.TYPE);
     assertEquals(physicalId, valueSerde.fromBytes(argument1.getValue()));
   }
 
