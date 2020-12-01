@@ -208,7 +208,7 @@ public class ClusterBasedJobCoordinator {
     this.localityManager =
         new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE));
 
-    if (new JobConfig(config).getJobCoordinatorHighAvailabilityEnabled()) {
+    if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
       ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
           new NamespaceAwareCoordinatorStreamStore(metadataStore, SetExecutionEnvContainerIdMapping.TYPE));
 
