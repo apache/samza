@@ -150,10 +150,11 @@ public class ContainerLaunchUtil {
       }
 
       if (new JobConfig(config).getJobCoordinatorHighAvailabilityEnabled()) {
-        ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
-            new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetExecutionEnvContainerIdMapping.TYPE));
-        execEnvContainerIdOptional.ifPresent(execEnvContainerId ->
-            executionContainerIdManager.writeExecutionEnvironmentContainerIdMapping(containerId, execEnvContainerId));
+        execEnvContainerIdOptional.ifPresent(execEnvContainerId -> {
+          ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
+              new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetExecutionEnvContainerIdMapping.TYPE));
+          executionContainerIdManager.writeExecutionEnvironmentContainerIdMapping(containerId, execEnvContainerId);
+        });
       }
 
       container.run();
