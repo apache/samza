@@ -23,6 +23,7 @@ import java.util.Map;
 import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
@@ -51,7 +52,10 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
   public String fromBytes(byte[] bytes) {
     Map<String, Object> values = messageSerde.fromBytes(bytes);
     CoordinatorStreamMessage message = new CoordinatorStreamMessage(new Object[]{}, values);
-    if (type.equalsIgnoreCase(SetContainerHostMapping.TYPE)) {
+    if (type.equalsIgnoreCase(SetExecutionEnvContainerIdMapping.TYPE)) {
+      SetExecutionEnvContainerIdMapping executionContainerIdMapping = new SetExecutionEnvContainerIdMapping(message);
+      return executionContainerIdMapping.getExecutionEnvironmentContainerId();
+    } else if (type.equalsIgnoreCase(SetContainerHostMapping.TYPE)) {
       SetContainerHostMapping hostMapping = new SetContainerHostMapping(message);
       return hostMapping.getHostLocality();
     } else if (type.equalsIgnoreCase(SetTaskContainerMapping.TYPE)) {
@@ -76,7 +80,11 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
 
   @Override
   public byte[] toBytes(String value) {
-    if (type.equalsIgnoreCase(SetContainerHostMapping.TYPE)) {
+    if (type.equalsIgnoreCase(SetExecutionEnvContainerIdMapping.TYPE)) {
+      SetExecutionEnvContainerIdMapping
+          executionEnvContainerIdMapping = new SetExecutionEnvContainerIdMapping(SOURCE, "", value);
+      return messageSerde.toBytes(executionEnvContainerIdMapping.getMessageMap());
+    } else if (type.equalsIgnoreCase(SetContainerHostMapping.TYPE)) {
       SetContainerHostMapping hostMapping = new SetContainerHostMapping(SOURCE, "", value, "", "");
       return messageSerde.toBytes(hostMapping.getMessageMap());
     } else if (type.equalsIgnoreCase(SetTaskContainerMapping.TYPE)) {
