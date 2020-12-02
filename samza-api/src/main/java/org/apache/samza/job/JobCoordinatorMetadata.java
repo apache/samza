@@ -18,9 +18,8 @@
  */
 package org.apache.samza.job;
 
-import com.google.common.base.Objects;
+import java.util.Objects;
 import org.apache.samza.annotation.InterfaceStability;
-
 
 /**
  * A data model to represent the metadata of the job coordinator. The metadata refers to attributes of job coordinator
@@ -91,13 +90,13 @@ public class JobCoordinatorMetadata {
       return false;
     }
     JobCoordinatorMetadata metadata = (JobCoordinatorMetadata) o;
-    return Objects.equal(configId, metadata.configId) && Objects.equal(epochId, metadata.epochId) && Objects.equal(
-        jobModelId, metadata.jobModelId);
+    return Objects.equals(configId, metadata.configId) && Objects.equals(epochId, metadata.epochId)
+        && Objects.equals(jobModelId, metadata.jobModelId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(configId, epochId, jobModelId);
+    return Objects.hash(configId, epochId, jobModelId);
   }
 
   @Override

@@ -43,7 +43,6 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
  * A class to manage read and writes of {@link JobCoordinatorMetadata} to {@link MetadataStore}. It also provides
  * additional helper functionalities to generate {@link JobCoordinatorMetadata} and check for changes across runs.

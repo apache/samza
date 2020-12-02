@@ -22,7 +22,6 @@ import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonIgnoreProperties;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-
 /**
  * A mix-in Jackson class to convert {@link org.apache.samza.job.JobCoordinatorMetadata} to/from JSON
  */
