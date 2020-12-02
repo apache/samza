@@ -24,6 +24,7 @@ import org.apache.samza.coordinator.stream.messages.CoordinatorStreamMessage;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
+import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMessage;
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
@@ -73,6 +74,9 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
     } else if (type.equalsIgnoreCase(SetTaskPartitionMapping.TYPE)) {
       SetTaskPartitionMapping setTaskPartitionMapping = new SetTaskPartitionMapping(message);
       return setTaskPartitionMapping.getTaskNames();
+    } else if (type.equalsIgnoreCase(SetJobCoordinatorMetadataMessage.TYPE)) {
+      SetJobCoordinatorMetadataMessage jobCoordinatorMetadataMessage = new SetJobCoordinatorMetadataMessage(message);
+      return jobCoordinatorMetadataMessage.getJobCoordinatorMetadata();
     } else {
       throw new SamzaException(String.format("Unknown coordinator stream message type: %s", type));
     }
@@ -102,6 +106,9 @@ public class CoordinatorStreamValueSerde implements Serde<String> {
     } else if (type.equalsIgnoreCase(SetTaskPartitionMapping.TYPE)) {
       SetTaskPartitionMapping setTaskPartitionMapping = new SetTaskPartitionMapping(SOURCE, "", value);
       return messageSerde.toBytes(setTaskPartitionMapping.getMessageMap());
+    } else if (type.equalsIgnoreCase(SetJobCoordinatorMetadataMessage.TYPE)) {
+      SetJobCoordinatorMetadataMessage jobCoordinatorMetadataMessage = new SetJobCoordinatorMetadataMessage(SOURCE, "", value);
+      return messageSerde.toBytes(jobCoordinatorMetadataMessage.getMessageMap());
     } else {
       throw new SamzaException(String.format("Unknown coordinator stream message type: %s", type));
     }
