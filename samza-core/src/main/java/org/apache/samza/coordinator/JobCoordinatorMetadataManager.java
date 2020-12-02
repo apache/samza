@@ -211,7 +211,7 @@ public final class JobCoordinatorMetadataManager {
 
   /**
    * Generate the epoch id using the execution container id that is passed through system environment. This isn't ideal
-   * way of generating this ID and we will need some contract between the underlying cluster manager & samza engine
+   * way of generating this ID and we will need some contract between the underlying cluster manager and samza engine
    * around what the epoch ID should be like and what is needed to generate is across different cluster offerings.
    * Due to unknowns defined above, we leave it as is and keep it simple for now. It is favorable to keep it this way
    * instead of introducing a loosely defined interface/API and marking it unstable.
@@ -238,7 +238,7 @@ public final class JobCoordinatorMetadataManager {
    */
   private static class ConfigHashFunnel implements Funnel<Config> {
     private static final Logger LOG = LoggerFactory.getLogger(ConfigHashFunnel.class);
-    // using sorted set to ensure the hash computation on configurations is reproducible & deterministic
+    // using sorted set to ensure the hash computation on configurations is reproducible and deterministic
     private static final SortedSet<String> ALLOWED_PREFIXES = ImmutableSortedSet.of("job.autosizing");
     @Override
     public void funnel(Config from, PrimitiveSink into) {

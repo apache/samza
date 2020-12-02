@@ -24,7 +24,7 @@ import org.apache.samza.annotation.InterfaceStability;
 
 /**
  * A data model to represent the metadata of the job coordinator. The metadata refers to attributes of job coordinator
- * scoped to attempt within a deployment. For the purpose of this data model, deployment & attempt as defined
+ * scoped to attempt within a deployment. For the purpose of this data model, deployment and attempt as defined
  * as follows
  *
  * Deployment - Set of actions to stop an existing application, install new binaries and submit a request to run the new binaries
@@ -44,14 +44,14 @@ import org.apache.samza.annotation.InterfaceStability;
  * Config ID - An identifier associated with a subset of configuration snapshot used by the job in an application attempt.
  * Current prefixes that impacts the identifier are job.autosizing.*
  * The properties of the config identifier are as follows
- *    1. Reproducible & deterministic
+ *    1. Reproducible and deterministic
  *    2. Remains unchanged across application attempts as long as the subset of configuration remains unchanged.
  *
  * Job Model ID - An identifier associated with the JobModel used by the job in an application attempt. JobModel
- * has both configurations & list of container model. We don't account for changes in the configuration as part of this
- * identifier since it is separately tracked & handled by Config ID.
+ * has both configurations and list of container model. We don't account for changes in the configuration as part of this
+ * identifier since it is separately tracked and handled by Config ID.
  * The properties of the job model identifier are as follows
- *    1. Reproducible & deterministic
+ *    1. Reproducible and deterministic
  *    2. Remains unchanged across application attempts as long as the work assignment remains unchanged
  *
  * Notes on interface stability - It is used internally by Samza for job coordinator high availability in YARN
