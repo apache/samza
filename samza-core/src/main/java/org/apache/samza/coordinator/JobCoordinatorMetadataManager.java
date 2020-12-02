@@ -137,7 +137,7 @@ public final class JobCoordinatorMetadataManager {
 
     if (previousMetadata == null) {
       newDeployment.set(1);
-    } else if(!previousMetadata.getEpochId().equals(newMetadata.getEpochId())) {
+    } else if (!previousMetadata.getEpochId().equals(newMetadata.getEpochId())) {
       newDeployment.set(1);
     } else if (!previousMetadata.getJobModelId().equals(newMetadata.getJobModelId())) {
       jobModelChangedAcrossApplicationAttempt.set(1);
