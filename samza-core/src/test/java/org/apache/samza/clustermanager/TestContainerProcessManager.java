@@ -229,8 +229,9 @@ public class TestContainerProcessManager {
 
   @Test
   public void testOnInitAMHighAvailability() throws Exception {
-    configVals.put(JobConfig.YARN_AM_HIGH_AVAILABILITY_ENABLED, "true");
-    Config conf = new MapConfig(configVals);
+    Map<String, String> configMap = new HashMap<>(configVals);
+    configMap.put(JobConfig.YARN_AM_HIGH_AVAILABILITY_ENABLED, "true");
+    Config conf = new MapConfig(configMap);
 
     SamzaApplicationState state = new SamzaApplicationState(getJobModelManager(2));
     state.runningProcessors.put("0", new SamzaResource(1, 1024, "host", "0"));

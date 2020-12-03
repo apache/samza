@@ -217,7 +217,12 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     amClient.start();
     nmClientAsync.init(yarnConfiguration);
     nmClientAsync.start();
-    lifecycle.onInit();
+    Map<ContainerId, YarnContainer> previousAttemptsContainers = lifecycle.onInit();
+
+    if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
+      log.info("Received running containers from previous attempt. Invoking launch success for them.");
+      previousAttemptsContainers.forEach(this::invokeSucessCallbackForRunningProcessor);
+    }
 
     if (lifecycle.shouldShutdown()) {
       clusterManagerCallback.onError(new SamzaException("Invalid resource request."));
@@ -279,6 +284,10 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void releaseResources(SamzaResource resource) {
+    if (resource == null) {
+      log.error("Attempting to release a non existent resource");
+      return;
+    }
     log.info("Releasing Container ID: {} on host: {}", resource.getContainerId(), resource.getHost());
     // ensure that updating state and removing the request are done atomically
     synchronized (lock) {
@@ -324,9 +333,11 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
   public void stopStreamProcessor(SamzaResource resource) {
     synchronized (lock) {
-      log.info("Stopping Container ID: {} on host: {}", resource.getContainerId(), resource.getHost());
-      this.nmClientAsync.stopContainerAsync(allocatedResources.get(resource).getId(),
-          allocatedResources.get(resource).getNodeId());
+      Container container = allocatedResources.get(resource);
+      if (container != null) {
+        log.info("Stopping Container ID: {} on host: {}", resource.getContainerId(), resource.getHost());
+        this.nmClientAsync.stopContainerAsync(container.getId(), container.getNodeId());
+      }
     }
   }
 
@@ -524,13 +535,17 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       state.runningProcessors.put(processorId, container);
 
       // 2. Invoke the success callback.
-      SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
-          container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
-      clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
+      invokeSucessCallbackForRunningProcessor(containerId, container);
     } else {
       log.warn("Did not find the Processor ID for the start notification for Container ID: {}. " +
           "Ignoring notification.", containerId);
     }
+  }
+
+  private void invokeSucessCallbackForRunningProcessor(ContainerId containerId, YarnContainer container) {
+    SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
+        container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
+    clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
   }
 
   @Override

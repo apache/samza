@@ -20,9 +20,10 @@
 package org.apache.samza.job.yarn
 
 import java.io.IOException
+import java.util
 import java.util.HashMap
 
-import org.apache.hadoop.yarn.api.records.{Container, FinalApplicationStatus}
+import org.apache.hadoop.yarn.api.records.{Container, ContainerId, FinalApplicationStatus}
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync
 import org.apache.hadoop.yarn.exceptions.{InvalidApplicationMasterRequestException, YarnException}
@@ -44,7 +45,7 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
   var validResourceRequest = true
   var shutdownMessage: String = null
   var webApp: SamzaYarnAppMasterService = null
-  def onInit() {
+  def onInit(): util.Map[ContainerId, YarnContainer] = {
     val host = state.nodeHost
     val response = amClient.registerApplicationMaster(host, state.rpcUrl.getPort, "%s:%d" format (host, state.trackingUrl.getPort))
 
@@ -52,17 +53,18 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
     val maxCapability = response.getMaximumResourceCapability
     val maxMem = maxCapability.getMemory
     val maxCpu = maxCapability.getVirtualCores
+    val previousAttemptContainers = new HashMap[ContainerId, YarnContainer]()
     if (isApplicationMasterHighAvailabilityEnabled) {
       val yarnIdToprocIdMap = new HashMap[String, String]()
       samzaAppState.processorToExecutionId.asScala foreach { entry => yarnIdToprocIdMap.put(entry._2, entry._1) }
       response.getContainersFromPreviousAttempts.asScala foreach { (ctr: Container) =>
         val samzaProcId = yarnIdToprocIdMap.get(ctr.getId.toString)
-        if (samzaProcId != null) {
-          info("Received container from previous attempt with samza processor id %s and yarn container id %s" format(samzaProcId, ctr.getId.toString))
-          samzaAppState.runningProcessors.put(samzaProcId,
-            new SamzaResource(ctr.getResource.getVirtualCores, ctr.getResource.getMemory, ctr.getNodeId.getHost, ctr.getId.toString))
-          state.runningProcessors.put(samzaProcId, new YarnContainer(ctr))
-        }
+        info("Received container from previous attempt with samza processor id %s and yarn container id %s" format(samzaProcId, ctr.getId.toString))
+        samzaAppState.runningProcessors.put(samzaProcId,
+          new SamzaResource(ctr.getResource.getVirtualCores, ctr.getResource.getMemory, ctr.getNodeId.getHost, ctr.getId.toString))
+        val yarnContainer = new YarnContainer(ctr)
+        state.runningProcessors.put(ctr.getId.toString, yarnContainer)
+        previousAttemptContainers.put(ctr.getId, yarnContainer)
       }
     }
     info("Got AM register response. The YARN RM supports container requests with max-mem: %s, max-cpu: %s" format (maxMem, maxCpu))
@@ -74,6 +76,7 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
       samzaAppState.status = SamzaAppStatus.FAILED;
       samzaAppState.jobHealthy.set(false)
     }
+    previousAttemptContainers
   }
 
   def onReboot() {

@@ -20,7 +20,10 @@
 package org.apache.samza.job.yarn;
 
 import java.io.IOException;
+import java.net.URL;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -39,8 +42,12 @@ import org.apache.samza.clustermanager.ClusterResourceManager;
 import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.clustermanager.SamzaResource;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
@@ -164,5 +171,51 @@ public class TestYarnClusterResourceManager {
     verify(asyncNMClient, times(1)).stop();
     verify(service, times(1)).onShutdown();
     verify(metrics, times(1)).stop();
+  }
+
+  @Test
+  public void testAMHACallbackInvokedForPreviousAttemptContainers() throws IOException, YarnException {
+    String PREVIOUS_ATTEMPT_CONTAINER_ID = "0";
+    // create mocks
+    YarnConfiguration yarnConfiguration = mock(YarnConfiguration.class);
+    SamzaAppMasterMetrics metrics = mock(SamzaAppMasterMetrics.class);
+    AMRMClientAsync asyncClient = mock(AMRMClientAsync.class);
+    YarnAppState yarnAppState = Mockito.spy(new YarnAppState(0, mock(ContainerId.class), "host", 8080, 8081));
+    SamzaYarnAppMasterLifecycle lifecycle = mock(SamzaYarnAppMasterLifecycle.class);
+    SamzaYarnAppMasterService service = mock(SamzaYarnAppMasterService.class);
+    NMClientAsync asyncNMClient = mock(NMClientAsync.class);
+    ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
+
+    ContainerId containerId = mock(ContainerId.class);
+    when(containerId.toString()).thenReturn(PREVIOUS_ATTEMPT_CONTAINER_ID);
+
+    YarnContainer yarnContainer = mock(YarnContainer.class);
+    Resource resource = mock(Resource.class);
+    when(resource.getMemory()).thenReturn(1024);
+    Mockito.when(resource.getVirtualCores()).thenReturn(1);
+    Mockito.when(yarnContainer.resource()).thenReturn(resource);
+    NodeId nodeId = mock(NodeId.class);
+    when(nodeId.getHost()).thenReturn("host");
+    when(yarnContainer.nodeId()).thenReturn(nodeId);
+
+    Map<ContainerId, YarnContainer> previousAttemptContainers = new HashMap<>();
+    previousAttemptContainers.put(containerId, yarnContainer);
+    when(lifecycle.onInit()).thenReturn(previousAttemptContainers);
+
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.YARN_AM_HIGH_AVAILABILITY_ENABLED, "true");
+    Config config = new MapConfig(configMap);
+
+    // start the cluster manager
+    YarnClusterResourceManager yarnClusterResourceManager =
+        new YarnClusterResourceManager(asyncClient, asyncNMClient, callback, yarnAppState, lifecycle, service, metrics,
+            yarnConfiguration, config);
+
+    yarnClusterResourceManager.start();
+    verify(lifecycle).onInit();
+    ArgumentCaptor<SamzaResource> samzaResourceArgumentCaptor = ArgumentCaptor.forClass(SamzaResource.class);
+    verify(callback).onStreamProcessorLaunchSuccess(samzaResourceArgumentCaptor.capture());
+    SamzaResource samzaResource = samzaResourceArgumentCaptor.getValue();
+    assertEquals(PREVIOUS_ATTEMPT_CONTAINER_ID, samzaResource.getContainerId());
   }
 }

@@ -236,11 +236,20 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       diagnosticsManager.get().start();
     }
 
+    if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
+      LOG.info(
+          "Set neededProcessors prior to starting clusterResourceManager because it gets running containres from prev attempts in AM HA.");
+      state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
+      state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
+    }
+
     LOG.info("Starting the cluster resource manager");
     clusterResourceManager.start();
 
-    state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
-    state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
+    if (!jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
+      state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
+      state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
+    }
     // Request initial set of containers
     LocalityModel localityModel = localityManager.readLocality();
     Map<String, String> processorToHost = new HashMap<>();
@@ -403,29 +412,23 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
   @Override
   public void onStreamProcessorLaunchSuccess(SamzaResource resource) {
-    String containerId = resource.getContainerId();
-    String containerHost = resource.getHost();
-
-    // 1. Obtain the processor ID for the pending container on this resource.
-    String processorId = getPendingProcessorId(containerId);
-    LOG.info("Successfully started Processor ID: {} on Container ID: {} on host: {}",
-        processorId, containerId, containerHost);
-
-    // 2. Remove the container from the pending buffer and add it to the running buffer. Additionally, update the
-    // job-health metric.
-    if (processorId != null) {
-      LOG.info("Moving Processor ID: {} on Container ID: {} on host: {} from pending to running state.",
-          processorId, containerId, containerHost);
-      state.pendingProcessors.remove(processorId);
-      state.runningProcessors.put(processorId, resource);
-      if (state.neededProcessors.decrementAndGet() == 0) {
-        state.jobHealthy.set(true);
-      }
-      containerManager.handleContainerLaunchSuccess(processorId, containerHost);
-    } else {
-      LOG.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. " +
-          "Ignoring invalid/redundant notification.", containerId, containerHost);
+    // Scenario 1: processor belongs to current attempt of the job.
+    // This means, the current AM had placed a request for the processor
+    // and hence containerId should be found in the pendingProcessor map
+    if (state.pendingProcessors.containsValue(resource)) {
+      handleNewProcessorLaunchSuccess(resource);
+      return;
     }
+    // Scenario 2: Due to AM HA, processor could belong to the previous attempt of the job.
+    // This means, the current AM did not place a request for the processor as it was already running.
+    // Hence it will be in the runningProcessors map and not in the pendingProcessor Map
+    if (jobConfig.getApplicationMasterHighAvailabilityEnabled() && state.runningProcessors.containsValue(resource)) {
+      handleRunningProcessorLaunchSuccess(resource);
+      return;
+    }
+
+    LOG.warn("Did not find a pending Processor ID for Container ID: {} on host: {}. "
+        + "Ignoring invalid/redundant notification.", resource.getContainerId(), resource.getHost());
   }
 
   @Override
@@ -653,6 +656,20 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     return null;
   }
 
+  /**
+   * Obtains the ID of the processor which is already running at a resource.
+   * @param resource where the processor is running
+   * @return the logical processorId of the processor (e.g., 0, 1, 2 ..)
+   */
+  private String getRunningProcessorId(SamzaResource resource) {
+    return state.runningProcessors.entrySet()
+        .stream()
+        .filter(e -> e.getValue().equals(resource))
+        .map(Map.Entry::getKey)
+        .findFirst()
+        .orElse(null);
+  }
+
   private Pair<String, String> getRunningProcessor(String containerId) {
     for (Map.Entry<String, SamzaResource> entry: state.runningProcessors.entrySet()) {
       if (entry.getValue().getContainerId().equals(containerId)) {
@@ -672,5 +689,54 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private void handleContainerStop(String processorId, String containerId, String preferredHost, int exitStatus, Duration preferredHostRetryDelay) {
     containerManager.handleContainerStop(processorId, containerId, preferredHost, exitStatus, preferredHostRetryDelay, containerAllocator);
+  }
+
+  /**
+   * handle launch success of a new processor which was requested by AM.
+   * @param resource where the processor is launched
+   */
+  private void handleNewProcessorLaunchSuccess(SamzaResource resource) {
+    String containerId = resource.getContainerId();
+    String containerHost = resource.getHost();
+
+    // 1. Obtain the processor ID for the pending container on this resource.
+    String processorId = getPendingProcessorId(containerId);
+    // 2. Remove the container from the pending buffer and add it to the running buffer. Additionally, update the
+    // job-health metric.
+    if (processorId != null) {
+      LOG.info("Successfully started Processor ID: {} on Container ID: {} on host: {}", processorId, containerId,
+          containerHost);
+      LOG.info("Moving Processor ID: {} on Container ID: {} on host: {} from pending to running state.", processorId,
+          containerId, containerHost);
+      state.pendingProcessors.remove(processorId);
+      state.runningProcessors.put(processorId, resource);
+      checkAndSetJobHealthy();
+      containerManager.handleContainerLaunchSuccess(processorId, containerHost);
+    }
+  }
+
+  /**
+   * AM High Availability:
+   * handle launch success of an already running processor which was NOT requested by this AM.
+   * this processor is already in the state.runningProcessors map and not in the state.pendingProcessors map.
+   * Need to check & set job health metric
+   * @param resource where the processor is launched
+   */
+  private void handleRunningProcessorLaunchSuccess(SamzaResource resource) {
+    String containerHost = resource.getHost();
+    // 1. Obtain the processor ID for the pending container on this resource.
+    String processorId = getRunningProcessorId(resource);
+    // 2. update the job-health metric.
+    if (processorId != null) {
+      LOG.info("Found processor with processorId: {} on host {} in running processors map, possibly from previous attempt processors", processorId, containerHost);
+      checkAndSetJobHealthy();
+      containerManager.handleContainerLaunchSuccess(processorId, containerHost);
+    }
+  }
+
+  private void checkAndSetJobHealthy() {
+    if (state.neededProcessors.decrementAndGet() == 0) {
+      state.jobHealthy.set(true);
+    }
   }
 }
