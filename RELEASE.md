@@ -53,7 +53,7 @@ To release to a local Maven repository:
     ./gradlew clean publishToMavenLocal
 ```
 
-To build a tarball suitable for an ASF source release (and its accompanying MD5 file):
+To build a tarball suitable for an ASF source release (and its accompanying md5 file):
 
 First, clean any non-checked-in files from git (this removes all such files without prompting):
 
@@ -179,7 +179,7 @@ previous step to the new directory:
    cd samza-dist
    mkdir $VERSION
    cp ${SAMZA_SRC_ROOT}/build/distribution/source/apache-samza-$VERSION-src.tgz $VERSION
-   cp ${SAMZA_SRC_ROOT}/build/distribution/source/apache-samza-$VERSION-src.tgz.MD5 $VERSION
+   cp ${SAMZA_SRC_ROOT}/build/distribution/source/apache-samza-$VERSION-src.tgz.md5 $VERSION
    cp ${SAMZA_SRC_ROOT}/build/distribution/source/apache-samza-$VERSION-src.tgz.asc $VERSION
    svn add $VERSION
    ```

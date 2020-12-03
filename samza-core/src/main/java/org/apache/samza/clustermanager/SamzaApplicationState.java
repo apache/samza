@@ -110,14 +110,9 @@ public class SamzaApplicationState {
    * This map will be used during the start up phase of new AM in AM-HA.
    *
    * This map is populated at startup of ClusterBasedJobCoordinator.
-   * It initially holds the processId to execution id mapping (if any) present in the coordinator stream.
-   * This could correspond to containers currently running or from previous attempt or previous deploy.
-   *
-   * If # of containers in map is same as current JobModel's containers, and mapping is from previous deploy,
-   * then they will get overwritten by new container incarnations in the current deploy in {@link ContainerProcessManager}.onStreamProcessorLaunchSuccess.
-   * If # of containers in map is lesser, then map entries will get overwritten by current containers and new ones will be added to map.
-   * If # of containers in map is greater, this map is wiped clear in {@link ContainerProcessManager}.start
-   * to avoid having mapping for containers which are not part of the current JobModel.
+   * It initially holds the processorId to execution id mapping (if any) present in the coordinator stream.
+   * This could correspond to processors currently running or from previous attempt or previous deploy.
+   * TODO: SAMZA-2607 : remove this map and all its usages.
    */
   public final ConcurrentMap<String, String> processorToExecutionId = new ConcurrentHashMap<>(0);
 

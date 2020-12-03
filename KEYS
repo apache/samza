@@ -6,17 +6,27 @@ Developers:
   Create a key:
     gpg --gen-key
 
+  Private keys is stored in ~/.gnupg
+
   Adding your key to this file:
     (gpg --list-sigs <key id> && gpg --armor --export <key id>) >> this file.
 
   Publish the key:
     gpg --keyserver pgp.mit.edu --send-keys <key id>
+    gpg --keyserver keyserver.ubuntu.com --send-keys <key id>
 
   Signing another developers key:
     gpg --keyserver pgp.mit.edu --search-keys <name or email>
     gpg --keyserver pgp.mit.edu --recv-keys <key id>
     gpg --sign-key <key id>
     gpg --keyserver pgp.mit.edu --send-keys <key id>
+
+  Siggning release with the key *may* require the following some of these steps:
+  git config --global gpg.program gpg2
+  git config --global user.signingkey D2103453 // where D2103453 is your key
+
+  export GPG_TTY=$(tty) // to allow passphrase entry
+  
 
   Additional Information:
     http://www.apache.org/dev/openpgp.html#generate-key
@@ -917,4 +927,41 @@ ZT6JtXJZhMd39lNhESsu0caOhTJ97l2wWeVkP804/ftst9k8M6Z2OUL8n+rv6kgq
 VIKHuMr6Y25hGISQ/8FK8kGB3nu5VDNZ0aLsaZdq5izIBHADT6WN3dlIMrk66kzq
 VcSdqZkA/iKbC7Fv6xS7fTmhnLmAJ40h
 =Ja6V
+-----END PGP PUBLIC KEY BLOCK-----
+pub   2048R/D2103453 2020-11-19 [expires: 2023-11-19]
+uid                  Boris Shkolnik (Linkedin Samza) <boryas@apache.org>
+sig 3        D2103453 2020-11-19  Boris Shkolnik (Linkedin Samza) <boryas@apache.org>
+sub   2048R/4C01BF41 2020-11-19 [expires: 2023-11-19]
+sig          D2103453 2020-11-19  Boris Shkolnik (Linkedin Samza) <boryas@apache.org>
+
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+mQENBF+2rJsBCACpNvGmT730xGXb0/lELUhzBu10BhdXfkr6FupYU6IxNMSZc/W4
+LKjB0ptF/OfodjdOhA2Gbv0kZt4mRBgmwe+vIJkFAXOZccq+G708ZPBsjifUDESN
+oG9/juCJSSrYGcclWiPg0Fe3bBWm5KPWSkYG1OnHTWnqT7a5n6comgZmNori5tmA
+aPN/RnEywEY7vnqyvcJnfPKysvvaoTUbfoUaiGIVGwprYnQ3huvq+o81etWAOVvZ
+qry+6m6fA5l35bmr29xlbiK7lYCShie7u03U9eRiaLGevFSziViq/cp7OlcAXVN4
+hGtuXh+NVMgaxsy7HIs4H+x9oc9IO+WpdNS5ABEBAAG0M0JvcmlzIFNoa29sbmlr
+IChMaW5rZWRpbiBTYW16YSkgPGJvcnlhc0BhcGFjaGUub3JnPokBPwQTAQIAKQUC
+X7asmwIbAwUJBaOagAcLCQgHAwIBBhUIAgkKCwQWAgMBAh4BAheAAAoJED6OsXvS
+EDRTz4IH/iWHlHFlvasnLCgVU+29NMrx+jFRXMG5pDzd/bNocrlD+E42ocpOU1vo
+bGwvey0I4Hi8DCGKR2p14IAs2tzaKYZR0kel1QesciI+ngyE/zWEI3xKv8OXiS8A
+XdQC1Eq8Q+BJhun3A8zuQU095r9/sygTFBWlOtQ1Wn2qJ5oC6005qDDbyDAbEsxp
+4m+VaM7faHGjpNOSekHCJW2wue55I+IEF/eH8BsRbw6DGlIFhspsl17wJQAcnmRu
+wakPKZGtEyjgwVYdmUpne7GW87n18JdT/6ywfTqw17/ly0zBJhl2M0JTq0d0+Z9P
+NFwt1pWDDJOtmMClMrj3PcAk5DVVPFG5AQ0EX7asmwEIALMe7kvm6j5bgrj2fZVg
+663bqvTSdn90WQ+lQgpURYXMz4VAFNKlaqDGOX2L94vdI4pIEvPfedQ0C9wZQFz3
+NujaRL4gsxx9CHolKzTs68DE7pyiikzpZFuSIKfv0bukSmzqgvz83VKH33jAZiqd
+HFzRh6ad0iMhDpF4g//E6SLnqJdrf335JAB1P/v9LH579XWfbGWegIkXOwG8QTPB
+LSslAKah8JFBILQfeL4MmbJnwb/BQqLIWVyK5hjzon+mxKEWHQNLaxM4R517JCFQ
+DNzBYyoqO517XXEbCdUQ/ZXCRH2+gCFEWj9kA2b6Frqf4B1PD8BUWBjBYDv1RNNd
+kfsAEQEAAYkBJQQYAQIADwUCX7asmwIbDAUJBaOagAAKCRA+jrF70hA0U/trB/9G
+gqyT6JSlmBY+8ep9NW+bDaoWQZY0f4kAR2JyehUM8kLrLqB7D3moah7XrR6nOoWt
+e56yp81+3hGLTcHK2WKapTgYssPrm/nv7NySMUw04UvRMrn+wV5U+7MUtdBxO23R
+hSRuqb40wPBzo97Lb7LOEqLF0OHNMiFSV1qLuhyDGg87zEkfJM+o52Y/CT9nh60Z
+5OXa1fCQhpPC29d7OsBJklE3EtwokCyeeqxJFpcDBNTqM+5GLWbRZp6YQfnNdoPB
+XgSlVbifAXWaMZr8kFpNF6H+zm6tZ3rclihqgWhUqrAAmT11qtMacbK8dRVw3im5
+oZPFXmvDQy/353sy1WRs
+=MLmR
 -----END PGP PUBLIC KEY BLOCK-----

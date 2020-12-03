@@ -46,7 +46,7 @@ import org.apache.samza.coordinator.StreamRegexMonitor;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.apache.samza.coordinator.stream.messages.SetExecutionContainerIdMapping;
+import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.JobModelUtil;
@@ -210,7 +210,7 @@ public class ClusterBasedJobCoordinator {
 
     if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
       ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
-          new NamespaceAwareCoordinatorStreamStore(metadataStore, SetExecutionContainerIdMapping.TYPE));
+          new NamespaceAwareCoordinatorStreamStore(metadataStore, SetExecutionEnvContainerIdMapping.TYPE));
 
       state.processorToExecutionId.putAll(executionContainerIdManager.readExecutionEnvironmentContainerIdMapping());
     }
