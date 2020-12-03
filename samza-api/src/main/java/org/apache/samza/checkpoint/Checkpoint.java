@@ -19,6 +19,8 @@
 
 package org.apache.samza.checkpoint;
 
+import java.util.List;
+import java.util.Objects;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.Collections;
@@ -30,22 +32,47 @@ import java.util.Map;
  * of restarting a failed container within a running job.
  */
 public class Checkpoint {
-  private final Map<SystemStreamPartition, String> offsets;
+  private static final short PROTOCOL_VERSION = 1;
+  private final CheckpointId checkpointId;
+  private final Map<SystemStreamPartition, String> inputOffsets;
+  private final Map<String, List<StateCheckpointMarker>> stateCheckpoint;
 
   /**
    * Constructs a new checkpoint based off a map of Samza stream offsets.
    * @param offsets Map of Samza streams to their current offset.
    */
   public Checkpoint(Map<SystemStreamPartition, String> offsets) {
-    this.offsets = offsets;
+    this(CheckpointId.create(), offsets, null);
+  }
+
+  public Checkpoint(CheckpointId id, Map<SystemStreamPartition, String> inputOffsets, Map<String, List<StateCheckpointMarker>> stateCheckpoint) {
+    this.checkpointId = id;
+    this.inputOffsets = inputOffsets;
+    this.stateCheckpoint = stateCheckpoint;
+  }
+
+  /**
+   * Gets the checkpoint id for the checkpoint
+   * @return The timestamp based checkpoint identifier associated with the checkpoint
+   */
+  public CheckpointId getCheckpointId() {
+    return checkpointId;
   }
 
   /**
    * Gets a unmodifiable view of the current Samza stream offsets.
    * @return A unmodifiable view of a Map of Samza streams to their recorded offsets.
    */
-  public Map<SystemStreamPartition, String> getOffsets() {
-    return Collections.unmodifiableMap(offsets);
+  public Map<SystemStreamPartition, String> getInputOffsets() {
+    return Collections.unmodifiableMap(inputOffsets);
+  }
+
+  /**
+   * Gets the stateCheckpointMarkers
+   * @return The state checkpoint markers for the checkpoint
+   */
+  public Map<String, List<StateCheckpointMarker>> getStateCheckpointMarkers() {
+    return stateCheckpoint;
   }
 
   @Override
@@ -55,18 +82,18 @@ public class Checkpoint {
 
     Checkpoint that = (Checkpoint) o;
 
-    if (offsets != null ? !offsets.equals(that.offsets) : that.offsets != null) return false;
-
-    return true;
+    return (checkpointId.equals(that.checkpointId)) &&
+        (Objects.equals(inputOffsets, that.inputOffsets)) &&
+        (Objects.equals(stateCheckpoint, that.stateCheckpoint));
   }
 
   @Override
   public int hashCode() {
-    return offsets != null ? offsets.hashCode() : 0;
+    return inputOffsets != null ? inputOffsets.hashCode() : 0;
   }
 
   @Override
   public String toString() {
-    return "Checkpoint [offsets=" + offsets + "]";
+    return "Checkpoint [inputOffsets=" + inputOffsets + "]";
   }
 }

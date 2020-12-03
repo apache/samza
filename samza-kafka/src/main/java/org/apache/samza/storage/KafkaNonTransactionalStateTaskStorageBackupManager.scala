@@ -56,7 +56,7 @@ class KafkaNonTransactionalStateTaskStorageBackupManager(
     taskStores.asScala.values.foreach(_.flush)
     val newestChangelogSSPOffsets = getNewestChangelogSSPOffsets()
     writeChangelogOffsetFiles(newestChangelogSSPOffsets)
-    StateCheckpointMarkers.fromOffsets(newestChangelogSSPOffsets.asJava, checkpointId)
+    newestChangelogSSPOffsets.asJava
   }
 
   override def upload(checkpointId: CheckpointId,

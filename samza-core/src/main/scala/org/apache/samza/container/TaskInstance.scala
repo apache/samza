@@ -21,16 +21,16 @@ package org.apache.samza.container
 
 
 import java.util.{Collections, Objects, Optional}
-import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
+import java.util.concurrent.{ScheduledExecutorService}
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, StateCheckpointMarker, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, OffsetManager}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
 import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.storage.{ContainerStorageManager, TaskStorageBackupManager, TaskStorageCommitManager}
+import org.apache.samza.storage.{ContainerStorageManager, TaskStorageCommitManager}
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -227,8 +227,8 @@ class TaskInstance(
     val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
     val inputCheckpoint = offsetManager.buildCheckpoint(taskName)
     if (inputCheckpoint != null) {
-      trace("Got input offsets for taskName: %s as: %s" format(taskName, inputCheckpoint.getOffsets))
-      allCheckpointOffsets.putAll(inputCheckpoint.getOffsets)
+      trace("Got input offsets for taskName: %s as: %s" format(taskName, inputCheckpoint.getInputOffsets))
+      allCheckpointOffsets.putAll(inputCheckpoint.getInputOffsets)
     }
 
     trace("Flushing producers for taskName: %s" format taskName)
@@ -248,9 +248,11 @@ class TaskInstance(
 
       if (newestStateCheckpointMakers != null) {
         // Merge input and state checkpoints
+        // TODO @dchen statecheckpointmarker to ssp-offset coversion
         newestStateCheckpointMakers.mergeInto(allCheckpointOffsets)
       }
     }
+    // TODO: @dchen change checkpoint class creation params
     val checkpoint = new Checkpoint(allCheckpointOffsets)
     trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
 
@@ -269,7 +271,7 @@ class TaskInstance(
 
     if (inputCheckpoint != null) {
       trace("Deleting committed input offsets for taskName: %s" format taskName)
-      inputCheckpoint.getOffsets.asScala
+      inputCheckpoint.getInputOffsets.asScala
         .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
         .groupBy { case (ssp, _) => ssp.getSystem }
         .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>

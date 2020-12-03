@@ -34,7 +34,7 @@ import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.apache.samza.checkpoint.StateCheckpointMarker;
+import org.apache.samza.checkpoint.KafkaStateChangelogOffset;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
@@ -240,10 +240,10 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       String checkpointedOffset = null;  // can be null if no message, or message has null offset
       long timeSinceLastCheckpointInMs = Long.MAX_VALUE;
       if (StringUtils.isNotBlank(checkpointMessage)) {
-        StateCheckpointMarker stateCheckpointMarker = StateCheckpointMarker.fromString(checkpointMessage);
-        checkpointedOffset = stateCheckpointMarker.getChangelogOffset();
+        KafkaStateChangelogOffset kafkaStateCheckpointMarker = KafkaStateChangelogOffset.fromString(checkpointMessage);
+        checkpointedOffset = kafkaStateCheckpointMarker.getChangelogOffset();
         timeSinceLastCheckpointInMs = System.currentTimeMillis() -
-            stateCheckpointMarker.getCheckpointId().getMillis();
+            kafkaStateCheckpointMarker.getCheckpointId().getMillis();
       }
 
       // if the clean.store.start config is set, delete current and checkpoint dirs, restore from oldest offset to checkpointed

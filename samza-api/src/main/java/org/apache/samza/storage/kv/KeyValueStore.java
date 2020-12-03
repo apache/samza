@@ -26,6 +26,9 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.ExternalContext;
+import org.apache.samza.context.JobContext;
 
 
 /**
@@ -35,6 +38,18 @@ import org.apache.samza.checkpoint.CheckpointId;
  * @param <V> the type of values maintained by this key-value store.
  */
 public interface KeyValueStore<K, V> {
+
+  /**
+   * Initiates the KeyValueStore
+   *
+   * @param containerContext context of the KeyValueStore's container
+   * @param jobContext context of the job the KeyValueStore is in
+   * @param externalContext any external store required for initialization
+   */
+  default void init(ContainerContext containerContext, JobContext jobContext, ExternalContext externalContext) {
+    throw new UnsupportedOperationException("init() is not supported in " + this.getClass().getName());
+  }
+
   /**
    * Gets the value associated with the specified {@code key}.
    *

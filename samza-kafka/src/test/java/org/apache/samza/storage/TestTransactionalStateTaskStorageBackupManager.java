@@ -76,7 +76,7 @@ public class TestTransactionalStateTaskStorageBackupManager {
     doReturn(mock(Map.class)).when(tsm).getNewestChangelogSSPOffsets(any(), any(), any(), any());
 
     // invoke Kafka flush
-    tsm.snapshot();
+    tsm.snapshot(CheckpointId.create());
 
     // ensure that stores are flushed before we get newest changelog offsets
     InOrder inOrder = inOrder(mockStore, tsm);

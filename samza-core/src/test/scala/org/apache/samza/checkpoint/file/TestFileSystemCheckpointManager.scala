@@ -67,8 +67,8 @@ class TestFileSystemCheckpointManager  {
 
     assertNotNull(readCp)
     cp.equals(readCp)
-    assertEquals(cp.getOffsets.keySet(), readCp.getOffsets.keySet())
-    assertEquals(cp.getOffsets, readCp.getOffsets)
+    assertEquals(cp.getInputOffsets.keySet(), readCp.getInputOffsets.keySet())
+    assertEquals(cp.getInputOffsets, readCp.getInputOffsets)
     assertEquals(cp, readCp)
   }
 

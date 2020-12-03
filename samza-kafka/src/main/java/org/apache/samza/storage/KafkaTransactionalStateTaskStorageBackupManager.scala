@@ -28,12 +28,12 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.WildcardFileFilter
-import org.apache.samza.checkpoint.{CheckpointId, KafkaStateChangelogOffset, StateCheckpointMarker}
-import org.apache.samza.{Partition, SamzaException}
+import org.apache.samza.checkpoint.{CheckpointId, StateCheckpointMarker}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
+import org.apache.samza.{Partition, SamzaException}
 
 import scala.collection.JavaConverters._
 

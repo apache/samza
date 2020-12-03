@@ -39,8 +39,8 @@ class TestCheckpointSerde {
     val systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(777))
     offsets += systemStreamPartition -> "1"
     val deserializedOffsets = serde.fromBytes(serde.toBytes(new Checkpoint(offsets.asJava)))
-    assertEquals("1", deserializedOffsets.getOffsets.get(systemStreamPartition))
-    assertEquals(1, deserializedOffsets.getOffsets.size)
+    assertEquals("1", deserializedOffsets.getInputOffsets.get(systemStreamPartition))
+    assertEquals(1, deserializedOffsets.getInputOffsets.size)
   }
 
   @Test

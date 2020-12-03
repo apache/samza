@@ -80,7 +80,7 @@ class CheckpointSerde extends Serde[Checkpoint] with Logging {
   }
 
   def toBytes(checkpoint: Checkpoint): Array[Byte] = {
-    val offsets = checkpoint.getOffsets
+    val offsets = checkpoint.getInputOffsets
     val asMap = new util.HashMap[String, util.HashMap[String, String]](offsets.size())
 
     offsets.asScala.foreach {

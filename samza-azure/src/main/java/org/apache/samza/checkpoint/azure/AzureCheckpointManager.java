@@ -119,7 +119,7 @@ public class AzureCheckpointManager implements CheckpointManager {
 
     TableBatchOperation batchOperation = new TableBatchOperation();
 
-    Iterator<Map.Entry<SystemStreamPartition, String>> iterator = checkpoint.getOffsets().entrySet().iterator();
+    Iterator<Map.Entry<SystemStreamPartition, String>> iterator = checkpoint.getInputOffsets().entrySet().iterator();
     while (iterator.hasNext()) {
       Map.Entry<SystemStreamPartition, String> entry = iterator.next();
       SystemStreamPartition ssp = entry.getKey();

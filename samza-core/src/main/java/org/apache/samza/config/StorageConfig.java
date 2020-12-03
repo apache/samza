@@ -22,13 +22,16 @@ package org.apache.samza.config;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.StreamUtil;
 
 import static com.google.common.base.Preconditions.*;
@@ -60,6 +63,8 @@ public class StorageConfig extends MapConfig {
   public static final String MIN_COMPACTION_LAG_MS = "min.compaction.lag.ms";
   public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
   public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
+  public static final String STATE_BACKUP_MANAGER_FACTORY = STORE_PREFIX + "state.backup.manager" + FACTORY_SUFFIX;
+  public static final String DEFAULT_STATE_BACKUP_MANAGER_FACTORY = "KafkaChangelogStateBackendFactory";
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -92,6 +97,12 @@ public class StorageConfig extends MapConfig {
       }
     }
     return storeNames;
+  }
+
+  public Map<String, SystemStream> getStoreChangelogs() {
+    return getStoreNames().stream().filter(store -> getChangelogStream(store).isPresent())
+        .collect(Collectors.toMap(Function.identity(),
+            n -> StreamUtil.getSystemStreamFromNames(getChangelogStream(n).get())));
   }
 
   /**
@@ -238,6 +249,10 @@ public class StorageConfig extends MapConfig {
         "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
 
     return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
+  }
+
+  public String getStateRestoreBackupManager() {
+    return get(STATE_BACKUP_MANAGER_FACTORY, DEFAULT_STATE_BACKUP_MANAGER_FACTORY);
   }
 
   /**

@@ -19,16 +19,17 @@
 
 package org.apache.samza.storage
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture
-import java.util.{Map => JMap}
 
-import org.apache.samza.checkpoint.{CheckpointId, StateCheckpointMarker}
+import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.StateCheckpointMarker;
 
 /**
  * <p>
  * TaskStorageBackupManager is the interface that must be implemented for
- * any remote system that Samza persists its state to. The {@link TaskStorageCommitManager} evokes
- * the TaskStorageBackupManager in the following way:
+ * any remote system that Samza persists its state to. The interface will be
+ * evoked in the following way:
  * </p>
  *
  * <ul>
@@ -37,14 +38,14 @@ import org.apache.samza.checkpoint.{CheckpointId, StateCheckpointMarker}
  *   <li>Cleanup is only called after Upload and persistToFilesystem has successfully completed</li>
  * </ul>
  */
-trait TaskStorageBackupManager {
+public interface TaskStorageBackupManager {
 
   /**
    * Commit operation that is synchronous to processing
    * @param checkpointId Checkpoint id of the current commit
-   * @return The SSP to checkpoint map of the snapshotted local store
+   * @return The storename to checkpoint of the snapshotted local store
    */
-  def snapshot(checkpointId: CheckpointId): JMap[String, StateCheckpointMarker]
+  Map<String, StateCheckpointMarker> snapshot(CheckpointId checkpointId);
 
   /**
    * Commit operation that is asynchronous to message processing,
@@ -52,24 +53,24 @@ trait TaskStorageBackupManager {
    * @param stateCheckpointMarkers The map of storename to checkpoint makers returned by the snapshot
    * @return The future of storename to checkpoint map of the uploaded local store
    */
-  def upload(checkpointId: CheckpointId, stateCheckpointMarkers: JMap[String, StateCheckpointMarker]): CompletableFuture[JMap[String, StateCheckpointMarker]]
+  CompletableFuture<Map<String, StateCheckpointMarker>> upload(CheckpointId checkpointId, Map<String, StateCheckpointMarker> stateCheckpointMarkers);
 
   /**
    * Persist the state locally to the file system
    * @param checkpointId The id of the checkpoint to be committed
    * @param stateCheckpointMarkers Uploaded storename to checkpoints markers to be persisted locally
    */
-  def persistToFilesystem(checkpointId: CheckpointId, stateCheckpointMarkers: JMap[String, StateCheckpointMarker]): Unit
+  void persistToFilesystem(CheckpointId checkpointId, Map<String, StateCheckpointMarker> stateCheckpointMarkers);
 
   /**
    * Cleanup any local or remote state for obsolete checkpoint information that are older than checkpointId
    * @param checkpointId The id of the latest successfully committed checkpoint
    */
-  def cleanUp(checkpointId: CheckpointId): Unit
+  void cleanUp(CheckpointId checkpointId);
 
   /**
    * Used for testing as a shutdown hook to cleanup any allocated resources
    */
-  def stop(): Unit
+  void stop();
 
 }

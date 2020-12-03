@@ -188,7 +188,7 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
       val lastCheckpoints = taskNames.map(taskName => {
         taskName -> Option(checkpointManager.readLastCheckpoint(taskName))
           .getOrElse(new Checkpoint(new java.util.HashMap[SystemStreamPartition, String]()))
-          .getOffsets
+          .getInputOffsets
           .asScala
           .toMap
       }).toMap

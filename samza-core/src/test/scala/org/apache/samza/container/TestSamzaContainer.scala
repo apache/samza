@@ -325,7 +325,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       new SystemStreamPartition("changelogSystem1", "store1-changelog", new Partition(10)),
       new SystemStreamPartition("changelogSystem0", "store0-changelog", new Partition(11)),
       new SystemStreamPartition("changelogSystem1", "store1-changelog", new Partition(11)))
-    assertEquals(expected, SamzaContainer.getChangelogSSPsForContainer(containerModel, changeLogSystemStreams))
+    assertEquals(expected, SamzaContainer.getChangelogSSPsForContainer(containerModel, changeLogSystemStreams.asJava))
   }
 
   @Test
@@ -339,7 +339,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       Set(new SystemStreamPartition("input", "stream", new Partition(1))),
       new Partition(11))
     val containerModel = new ContainerModel("processorId", Map(taskName0 -> taskModel0, taskName1 -> taskModel1))
-    assertEquals(Set(), SamzaContainer.getChangelogSSPsForContainer(containerModel, Map()))
+    assertEquals(Set(), SamzaContainer.getChangelogSSPsForContainer(containerModel, new util.HashMap[String, SystemStream]()))
   }
 
   @Test

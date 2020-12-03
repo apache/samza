@@ -52,7 +52,8 @@ import org.apache.samza.util.{Util, _}
 import org.apache.samza.SamzaException
 import org.apache.samza.clustermanager.StandbyTaskUtil
 
-import scala.collection.JavaConversions
+import scala.collection.JavaConversions.mapAsScalaMap
+import scala.collection.{JavaConversions, mutable}
 import scala.collection.JavaConverters._
 
 object SamzaContainer extends Logging {
@@ -343,11 +344,7 @@ object SamzaContainer extends Logging {
 
     debug("Got system stream message serdes: %s" format systemStreamMessageSerdes)
 
-    val storeChangelogs = storageConfig
-      .getStoreNames.asScala
-      .filter(storageConfig.getChangelogStream(_).isPresent)
-      .map(name => (name, storageConfig.getChangelogStream(name).get)).toMap
-      .mapValues(StreamUtil.getSystemStreamFromNames(_))
+    val storeChangelogs = storageConfig.getStoreChangelogs
 
     info("Got change log system streams: %s" format storeChangelogs)
 
@@ -398,7 +395,7 @@ object SamzaContainer extends Logging {
       systemMessageSerdes = systemMessageSerdes,
       systemStreamKeySerdes = systemStreamKeySerdes,
       systemStreamMessageSerdes = systemStreamMessageSerdes,
-      changeLogSystemStreams = storeChangelogs.values.toSet,
+      changeLogSystemStreams = storeChangelogs.asScala.values.toSet,
       controlMessageKeySerdes = controlMessageKeySerdes,
       intermediateMessageSerdes = intermediateStreamMessageSerdes)
 
@@ -523,7 +520,7 @@ object SamzaContainer extends Logging {
       streamMetadataCache,
       changelogSSPMetadataCache,
       systemAdmins,
-      storeChangelogs.asJava,
+      storeChangelogs,
       sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
       storageEngineFactories.asJava,
       systemFactories.asJava,
@@ -541,6 +538,10 @@ object SamzaContainer extends Logging {
       new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
+
+    val stateStorageBackendFactory = {
+      ReflectionUtil.getObj(storageConfig.getStateRestoreBackupManager, classOf[StateBackendFactory])
+    }
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = taskModels
@@ -563,17 +564,10 @@ object SamzaContainer extends Logging {
       val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
-      val storageManager = TaskStorageBackupManagerFactory.create(
-        taskName,
-        containerStorageManager,
-        storeChangelogs,
-        systemAdmins,
-        loggedStorageBaseDir,
-        taskModel.getChangelogPartition,
-        config,
-        taskModel.getTaskMode)
+      val taskBackupManager = stateStorageBackendFactory.getBackupManager(
+        taskModel, containerStorageManager.getAllStores(TaskName), config)
 
-      val commitManager = new TaskStorageCommitManager(storageManager)
+      val commitManager = new TaskStorageCommitManager(taskBackupManager)
 
       val tableManager = new TableManager(config)
 
@@ -604,7 +598,7 @@ object SamzaContainer extends Logging {
 
       val taskInstance = createTaskInstance(task)
 
-      taskStorageManagers += taskInstance.taskName -> storageManager
+      taskStorageManagers += taskInstance.taskName -> taskBackupManager
       (taskName, taskInstance)
     }).toMap
 
@@ -700,7 +694,7 @@ object SamzaContainer extends Logging {
     */
   @VisibleForTesting
   private[container] def getChangelogSSPsForContainer(containerModel: ContainerModel,
-    changeLogSystemStreams: Map[String, SystemStream]): Set[SystemStreamPartition] = {
+    changeLogSystemStreams: util.Map[String, SystemStream]): Set[SystemStreamPartition] = {
     containerModel.getTasks.values().asScala
       .map(taskModel => taskModel.getChangelogPartition)
       .flatMap(changelogPartition => changeLogSystemStreams.map { case (_, systemStream) =>

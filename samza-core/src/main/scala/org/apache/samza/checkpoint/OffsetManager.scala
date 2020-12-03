@@ -340,7 +340,7 @@ class OffsetManager(
 
       if(checkpointManager != null) {
         checkpointManager.writeCheckpoint(taskName, checkpoint)
-        val sspToOffsets = checkpoint.getOffsets
+        val sspToOffsets = checkpoint.getInputOffsets
         if(sspToOffsets != null) {
           sspToOffsets.asScala.foreach {
             case (ssp, cp) => {
@@ -357,7 +357,7 @@ class OffsetManager(
       // changelog SSPs are not registered but may be present in the Checkpoint if transactional state checkpointing
       // is enabled.
       val registeredSSPs = systemStreamPartitions.getOrElse(taskName, Set[SystemStreamPartition]())
-      checkpoint.getOffsets.asScala
+      checkpoint.getInputOffsets.asScala
         .filterKeys(registeredSSPs.contains)
         .groupBy { case (ssp, _) => ssp.getSystem }.foreach {
           case (systemName:String, offsets: Map[SystemStreamPartition, String]) => {
@@ -449,7 +449,7 @@ class OffsetManager(
     val checkpoint = checkpointManager.readLastCheckpoint(taskName)
 
     if (checkpoint != null) {
-      Map(taskName -> checkpoint.getOffsets.asScala.toMap)
+      Map(taskName -> checkpoint.getInputOffsets.asScala.toMap)
     } else {
       info("Did not receive a checkpoint for taskName %s. Proceeding without a checkpoint." format taskName)
 

@@ -23,12 +23,12 @@ import java.util.Collections
 
 import com.google.common.collect.ImmutableSet
 import org.apache.samza.{Partition, SamzaException}
-import org.apache.samza.checkpoint.{Checkpoint, StateCheckpointMarker, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, KafkaStateChangelogOffset, OffsetManager}
 import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
-import org.apache.samza.storage.{KafkaNonTransactionalStateTaskStorageBackupManager, TaskStorageCommitManager}
+import org.apache.samza.storage.{TaskStorageBackupManager, TaskStorageCommitManager}
 import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -69,7 +69,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   @Mock
   private var offsetManager: OffsetManager = null
   @Mock
-  private var taskStorageManager: KafkaNonTransactionalStateTaskStorageBackupManager = null
+  private var taskStorageManager: TaskStorageBackupManager = null
   @Mock
   private var taskTableManager: TableManager = null
   // not a mock; using MockTaskInstanceExceptionHandler
@@ -245,8 +245,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
     mockOrder.verify(offsetManager).writeCheckpoint(any(), captor.capture)
     val cp = captor.getValue
-    assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
-    assertEquals("5", StateCheckpointMarker.fromString(cp.getOffsets.get(changelogSSP)).getChangelogOffset)
+    assertEquals("4", cp.getInputOffsets.get(SYSTEM_STREAM_PARTITION))
+    assertEquals("5", KafkaStateChangelogOffset.fromString(cp.getInputOffsets.get(changelogSSP)).getChangelogOffset)
 
     // Old checkpointed stores should be cleared
     mockOrder.verify(this.taskStorageManager).cleanUp(any())
@@ -269,9 +269,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
     verify(offsetManager).writeCheckpoint(any(), captor.capture)
     val cp = captor.getValue
-    assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
-    val message = cp.getOffsets.get(changelogSSP)
-    val checkpointedOffset = StateCheckpointMarker.fromString(message)
+    assertEquals("4", cp.getInputOffsets.get(SYSTEM_STREAM_PARTITION))
+    val message = cp.getInputOffsets.get(changelogSSP)
+    val checkpointedOffset = KafkaStateChangelogOffset.fromString(message)
     assertNull(checkpointedOffset.getChangelogOffset)
     assertNotNull(checkpointedOffset.getCheckpointId)
     verify(commitsCounter).inc()
@@ -292,8 +292,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
     verify(offsetManager).writeCheckpoint(any(), captor.capture)
     val cp = captor.getValue
-    assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
-    assertEquals(1, cp.getOffsets.size())
+    assertEquals("4", cp.getInputOffsets.get(SYSTEM_STREAM_PARTITION))
+    assertEquals(1, cp.getInputOffsets.size())
     verify(commitsCounter).inc()
   }
 

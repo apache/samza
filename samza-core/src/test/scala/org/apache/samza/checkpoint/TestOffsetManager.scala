@@ -423,7 +423,7 @@ class TestOffsetManager {
     // Should get offset 45 back from the checkpoint manager, which is last processed, and system admin should return 46 as starting offset.
     assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition))
     val offsetsToCheckpoint = new java.util.HashMap[SystemStreamPartition, String]()
-    offsetsToCheckpoint.putAll(offsetManager.buildCheckpoint(taskName).getOffsets)
+    offsetsToCheckpoint.putAll(offsetManager.buildCheckpoint(taskName).getInputOffsets)
     offsetsToCheckpoint.put(unregisteredSystemStreamPartition, "50")
     offsetManager.writeCheckpoint(taskName, new Checkpoint(offsetsToCheckpoint))
 
@@ -619,7 +619,7 @@ class TestOffsetManager {
       def stop { isStopped = true }
 
       // Only for testing purposes - not present in actual checkpoint manager
-      def getOffets = Map(taskName -> checkpoint.getOffsets.asScala.toMap)
+      def getOffets = Map(taskName -> checkpoint.getInputOffsets.asScala.toMap)
     }
   }
 

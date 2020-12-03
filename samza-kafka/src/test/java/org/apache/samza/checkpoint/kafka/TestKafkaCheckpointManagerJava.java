@@ -212,7 +212,7 @@ public class TestKafkaCheckpointManagerJava {
 
     // check that all ten messages are read, and the checkpoint is the newest message
     Checkpoint checkpoint = checkpointManager.readLastCheckpoint(TASK1);
-    Assert.assertEquals(checkpoint.getOffsets(), ImmutableMap.of(ssp, Integer.toString(newestOffset)));
+    Assert.assertEquals(checkpoint.getInputOffsets(), ImmutableMap.of(ssp, Integer.toString(newestOffset)));
   }
 
   /**

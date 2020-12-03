@@ -26,18 +26,18 @@ import org.apache.samza.annotation.InterfaceStability;
  * Checkpointed changelog offset has the format: [checkpointId, offset], separated by a colon.
  */
 @InterfaceStability.Unstable
-public class KafkaStateCheckpointMarker {
+public class KafkaStateChangelogOffset {
   public static final String SEPARATOR = ":";
 
   private final CheckpointId checkpointId;
   private final String changelogOffset;
 
-  public KafkaStateCheckpointMarker(CheckpointId checkpointId, String changelogOffset) {
+  public KafkaStateChangelogOffset(CheckpointId checkpointId, String changelogOffset) {
     this.checkpointId = checkpointId;
     this.changelogOffset = changelogOffset;
   }
 
-  public static KafkaStateCheckpointMarker fromString(String message) {
+  public static KafkaStateChangelogOffset fromString(String message) {
     if (StringUtils.isBlank(message)) {
       throw new IllegalArgumentException("Invalid checkpointed changelog message: " + message);
     }
@@ -51,7 +51,7 @@ public class KafkaStateCheckpointMarker {
       offset = checkpointIdAndOffset[1];
     }
 
-    return new KafkaStateCheckpointMarker(checkpointId, offset);
+    return new KafkaStateChangelogOffset(checkpointId, offset);
   }
 
   public CheckpointId getCheckpointId() {
@@ -71,7 +71,7 @@ public class KafkaStateCheckpointMarker {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    KafkaStateCheckpointMarker that = (KafkaStateCheckpointMarker) o;
+    KafkaStateChangelogOffset that = (KafkaStateChangelogOffset) o;
     return Objects.equals(checkpointId, that.checkpointId) &&
         Objects.equals(changelogOffset, that.changelogOffset);
   }

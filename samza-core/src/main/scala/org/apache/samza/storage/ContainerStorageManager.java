@@ -195,7 +195,7 @@ public class ContainerStorageManager {
         .findAny()
         .isPresent();
     this.sspMetadataCache = sspMetadataCache;
-    this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams); // handling standby tasks
+    this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams, this.taskSideInputStoreSSPs); // handling standby tasks
 
     LOG.info("Starting with changelogSystemStreams = {} taskSideInputStoreSSPs = {}", this.changelogSystemStreams, this.taskSideInputStoreSSPs);
 
@@ -309,9 +309,11 @@ public class ContainerStorageManager {
    *
    * @param containerModel the container's model
    * @param changelogSystemStreams the passed in set of changelogSystemStreams
+   * @param taskSideInputStoreSSPs the passed in map of side input task name to store SSPs to add to, if null only the filter is applied
    * @return A map of changeLogSSP to storeName across all tasks, assuming no two stores have the same changelogSSP
    */
-  private Map<String, SystemStream> getChangelogSystemStreams(ContainerModel containerModel, Map<String, SystemStream> changelogSystemStreams) {
+  public static Map<String, SystemStream> getChangelogSystemStreams(ContainerModel containerModel, Map<String, SystemStream> changelogSystemStreams,
+      Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputStoreSSPs) {
 
     if (MapUtils.invertMap(changelogSystemStreams).size() != changelogSystemStreams.size()) {
       throw new SamzaException("Two stores cannot have the same changelog system-stream");
@@ -323,11 +325,15 @@ public class ContainerStorageManager {
     );
 
     getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
-      this.taskSideInputStoreSSPs.putIfAbsent(taskName, new HashMap<>());
+      if (taskSideInputStoreSSPs != null) {
+        taskSideInputStoreSSPs.putIfAbsent(taskName, new HashMap<>());
+      }
       changelogSystemStreams.forEach((storeName, systemStream) -> {
         SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
         changelogSSPToStore.remove(ssp);
-        this.taskSideInputStoreSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
+        if (taskSideInputStoreSSPs != null) {
+          taskSideInputStoreSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
+        }
       });
     });
 
@@ -642,7 +648,7 @@ public class ContainerStorageManager {
           Set<SystemStream> changelogSystemStreams = new HashSet<>(this.changelogSystemStreams.values());
           Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
           if (checkpoint != null) {
-            checkpoint.getOffsets().forEach((ssp, offset) -> {
+            checkpoint.getInputOffsets().forEach((ssp, offset) -> {
               if (changelogSystemStreams.contains(new SystemStream(ssp.getSystem(), ssp.getStream()))) {
                 checkpointedChangelogSSPOffsets.put(ssp, offset);
               }

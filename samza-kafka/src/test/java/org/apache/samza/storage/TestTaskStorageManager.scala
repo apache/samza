@@ -22,14 +22,15 @@ package org.apache.samza.storage
 import java.io.{File, FileOutputStream, ObjectOutputStream}
 import java.util
 
+import com.google.common.collect.{ImmutableMap, ImmutableSet}
 import org.apache.samza.Partition
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config._
 import org.apache.samza.container.{SamzaContainerMetrics, TaskInstanceMetrics, TaskName}
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.job.model.{ContainerModel, TaskMode, TaskModel}
 import org.apache.samza.serializers.{Serde, StringSerdeFactory}
 import org.apache.samza.storage.StoreProperties.StorePropertiesBuilder
-import org.apache.samza.storage.KafkaNonTransactionalStateTaskStorageBackupManager
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
 import org.apache.samza.task.TaskInstanceCollector
@@ -40,7 +41,7 @@ import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import org.junit.{After, Before, Test}
 import org.mockito.Matchers._
-import org.mockito.{Mockito}
+import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
@@ -49,8 +50,6 @@ import org.scalatest.mockito.MockitoSugar
 import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
-import com.google.common.collect.{ImmutableMap, ImmutableSet}
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 
 /**
   * This test is parameterized on the offsetFileName and is run for both
