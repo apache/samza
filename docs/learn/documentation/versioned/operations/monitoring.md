@@ -369,6 +369,7 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 | | expired-preferred-host-requests | Number of expired resource-requests-for -preferred-host received by the cluster manager. |
 | | expired-any-host-requests | Number of expired resource-requests-for -any-host received by the cluster manager. |
 | | host-affinity-match-pct | Percentage of non-expired preferred host requests. This measures the % of resource-requests for which host-affinity provided the preferred host. |
+| | \<containerId\>-failure-count | Number of times a container identified by containerId has failed |
 
 | **Group** | **Metric name** | **Meaning** |
 | --- | --- | --- |

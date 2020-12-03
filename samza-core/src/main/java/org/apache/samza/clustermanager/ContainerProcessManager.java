@@ -191,7 +191,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.jobConfig = new JobConfig(clusterManagerConfig);
 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
-
+    this.containerProcessManagerMetrics = new ContainerProcessManagerMetrics(jobConfig, state, registry);
     this.clusterResourceManager = resourceManager;
     this.containerManager = containerManager;
     this.diagnosticsManager = Option.empty();
@@ -252,6 +252,11 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       processorToHost.put(containerId, host);
     });
     containerAllocator.requestResources(processorToHost);
+
+    // Initialize the per processor failure count to be 0
+    processorToHostMapping.keySet().forEach(processorId -> {
+      containerProcessManagerMetrics.registerProcessorFailureCountMetric(processorId);
+    });
 
     // Start container allocator thread
     LOG.info("Starting the container allocator thread");
@@ -487,6 +492,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     LOG.info("Container ID: {} for Processor ID: {} failed with exit code: {}.", containerId, processorId, exitStatus);
     Instant now = Instant.now();
     state.failedContainers.incrementAndGet();
+    containerProcessManagerMetrics.incrementProcessorFailureCountMetric(processorId);
     state.jobHealthy.set(false);
 
     state.neededProcessors.incrementAndGet();

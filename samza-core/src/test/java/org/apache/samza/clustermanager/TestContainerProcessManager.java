@@ -87,6 +87,8 @@ public class TestContainerProcessManager {
   };
   private Config config = new MapConfig(configVals);
   private ContainerPlacementMetadataStore containerPlacementMetadataStore;
+  private CoordinatorStreamStore coordinatorStreamStore;
+  private ContainerProcessManager cpm;
 
   private Config getConfig() {
     Map<String, String> map = new HashMap<>();
@@ -117,7 +119,7 @@ public class TestContainerProcessManager {
   public void setup() throws Exception {
     server = new MockHttpServer("/", 7777, null, new ServletHolder(DefaultServlet.class));
     CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(config);
-    CoordinatorStreamStore coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
+    coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
     coordinatorStreamStore.init();
     containerPlacementMetadataStore = new ContainerPlacementMetadataStore(coordinatorStreamStore);
     containerPlacementMetadataStore.start();
@@ -145,8 +147,7 @@ public class TestContainerProcessManager {
         .thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("0", "host1"))));
     ContainerManager containerManager =
         buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false, mockLocalityManager);
-    ContainerProcessManager cpm =
-        buildContainerProcessManager(new ClusterManagerConfig(new MapConfig(conf)), state, clusterResourceManager, Optional.empty());
+    cpm = buildContainerProcessManager(new ClusterManagerConfig(new MapConfig(conf)), state, clusterResourceManager, Optional.empty());
 
     ContainerAllocator allocator =
         (ContainerAllocator) getPrivateFieldFromCpm("containerAllocator", cpm).get(cpm);
@@ -192,8 +193,7 @@ public class TestContainerProcessManager {
         buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
             clusterManagerConfig.getHostAffinityEnabled(), false);
 
-    ContainerProcessManager cpm =
-        buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.empty());
+    cpm = buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.empty());
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -223,7 +223,7 @@ public class TestContainerProcessManager {
     assertEquals(1, state.neededProcessors.get());
     assertEquals(1, allocator.requestedContainers);
 
-    cpm.stop();
+
   }
 
   @Test
@@ -234,8 +234,7 @@ public class TestContainerProcessManager {
     MockClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
 
-    ContainerProcessManager cpm =
-        buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.empty());
+    cpm = buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.empty());
     cpm.start();
 
     Thread allocatorThread = (Thread) getPrivateFieldFromCpm("allocatorThread", cpm).get(cpm);
@@ -266,8 +265,7 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm =
-        spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
+    cpm = spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
 
     // start triggers a request
     cpm.start();
@@ -314,8 +312,7 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm = spy(
-        buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
+    cpm = spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
 
     // start triggers a request
     cpm.start();
@@ -373,7 +370,7 @@ public class TestContainerProcessManager {
     assertTrue(cpm.shouldShutdown());
     assertEquals(SamzaApplicationState.SamzaAppStatus.FAILED, state.status);
 
-    cpm.stop();
+
   }
 
   /**
@@ -413,8 +410,7 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm =
-        buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator));
+    cpm = buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator));
 
     // start triggers a request
     cpm.start();
@@ -467,7 +463,7 @@ public class TestContainerProcessManager {
     assertEquals(false, cpm.getJobFailureCriteriaMet());
     assertEquals(1, cpm.getProcessorFailures().get(processorId).getCount());
 
-    cpm.stop();
+
   }
 
   @Test
@@ -509,8 +505,7 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm =
-        buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator), mockLocalityManager);
+    cpm = buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator), mockLocalityManager);
 
     // start triggers a request
     cpm.start();
@@ -598,7 +593,7 @@ public class TestContainerProcessManager {
     assertEquals(0, allocator.getContainerRequestState().numPendingRequests());
     assertEquals(0, allocator.getContainerRequestState().numDelayedRequests());
 
-    cpm.stop();
+
   }
 
   @Test
@@ -619,8 +614,7 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm =
-        spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
+    cpm = spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
 
     // Start the task clusterResourceManager
     cpm.start();
@@ -700,8 +694,7 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm =
-        spy(buildContainerProcessManager(new ClusterManagerConfig(cfg), state, clusterResourceManager, Optional.of(allocator), mockLocalityManager));
+    cpm = spy(buildContainerProcessManager(new ClusterManagerConfig(cfg), state, clusterResourceManager, Optional.of(allocator), mockLocalityManager));
 
     cpm.start();
     assertFalse(cpm.shouldShutdown());
@@ -765,8 +758,7 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm =
-        spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
+    cpm = spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
 
     // Start the task manager
     cpm.start();
@@ -840,8 +832,7 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm =
-        spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
+    cpm = spy(buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator)));
 
     // Start the task clusterResourceManager
     cpm.start();
@@ -913,13 +904,16 @@ public class TestContainerProcessManager {
     assertFalse(cpm.shouldShutdown());
     assertFalse(state.jobHealthy.get());
     assertEquals(ResourceRequestState.ANY_HOST, allocator.getContainerRequestState().peekPendingRequest().getPreferredHost());
-
-    cpm.stop();
   }
 
   @After
   public void teardown() {
+    if (cpm != null) {
+      cpm.stop();
+    }
     server.stop();
+    containerPlacementMetadataStore.stop();
+    coordinatorStreamStore.close();
   }
 
   private ContainerManager buildContainerManager(ContainerPlacementMetadataStore containerPlacementMetadataStore,
