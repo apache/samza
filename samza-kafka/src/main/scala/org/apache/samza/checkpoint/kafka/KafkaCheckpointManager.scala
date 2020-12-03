@@ -67,13 +67,13 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val checkpointSsp: SystemStreamPartition = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
   val expectedGrouperFactory: String = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
-  val systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry, this.getClass.getSimpleName)
-  val systemAdmin = systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
+  var systemConsumer: SystemConsumer = _
+  var systemAdmin: SystemAdmin = _
 
   var taskNames: Set[TaskName] = Set[TaskName]()
   var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = _
 
-  val producerRef: AtomicReference[SystemProducer] = new AtomicReference[SystemProducer](getSystemProducer())
+  var producerRef: AtomicReference[SystemProducer] = _
   val producerCreationLock: Object = new Object
 
   // if true, systemConsumer can be safely closed after the first call to readLastCheckpoint.
@@ -83,19 +83,24 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
   /**
     * Create checkpoint stream prior to start.
+    *
     */
   override def createResources(): Unit = {
+    val systemAdmin = systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
     Preconditions.checkNotNull(systemAdmin)
 
     systemAdmin.start()
+    try {
+      info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
+        s"partition count: ${checkpointSpec.getPartitionCount}")
+      systemAdmin.createStream(checkpointSpec)
 
-    info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
-      s"partition count: ${checkpointSpec.getPartitionCount}")
-    systemAdmin.createStream(checkpointSpec)
-
-    if (validateCheckpoint) {
-      info(s"Validating checkpoint stream")
-      systemAdmin.validateStream(checkpointSpec)
+      if (validateCheckpoint) {
+        info(s"Validating checkpoint stream")
+        systemAdmin.validateStream(checkpointSpec)
+      }
+    } finally {
+      systemAdmin.stop()
     }
   }
 
@@ -106,7 +111,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     // register and start a producer for the checkpoint topic
     info("Starting the checkpoint SystemProducer")
     producerRef.get().start()
-
+    info("Starting the checkpoint SystemAdmin")
+    systemAdmin.start()
     // register and start a consumer for the checkpoint topic
     val oldestOffset = getOldestOffset(checkpointSsp)
     info(s"Starting the checkpoint SystemConsumer from oldest offset $oldestOffset")
@@ -118,6 +124,10 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     * @inheritdoc
     */
   override def register(taskName: TaskName) {
+    systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry, this.getClass.getSimpleName)
+    systemAdmin =  systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
+    producerRef = new AtomicReference[SystemProducer](getSystemProducer())
+
     debug(s"Registering taskName: $taskName")
     producerRef.get().register(taskName.getTaskName)
     taskNames += taskName
