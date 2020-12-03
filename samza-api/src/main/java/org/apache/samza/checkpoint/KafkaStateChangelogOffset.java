@@ -26,24 +26,18 @@ import org.apache.samza.annotation.InterfaceStability;
  * Checkpointed changelog offset has the format: [checkpointId, offset], separated by a colon.
  */
 @InterfaceStability.Unstable
-public class StateCheckpointMarker {
+public class KafkaStateCheckpointMarker {
   public static final String SEPARATOR = ":";
 
   private final CheckpointId checkpointId;
   private final String changelogOffset;
-  private final RemoteStoreMetadata remoteStoreMetadata;
 
-  public StateCheckpointMarker(CheckpointId checkpointId, String changelogOffset, RemoteStoreMetadata remoteStoreMetadata) {
+  public KafkaStateCheckpointMarker(CheckpointId checkpointId, String changelogOffset) {
     this.checkpointId = checkpointId;
     this.changelogOffset = changelogOffset;
-    this.remoteStoreMetadata = remoteStoreMetadata;
   }
 
-  public StateCheckpointMarker(CheckpointId checkpointId, String changelogOffset) {
-    this(checkpointId, changelogOffset, null);
-  }
-
-  public static StateCheckpointMarker fromString(String message) {
+  public static KafkaStateCheckpointMarker fromString(String message) {
     if (StringUtils.isBlank(message)) {
       throw new IllegalArgumentException("Invalid checkpointed changelog message: " + message);
     }
@@ -56,11 +50,8 @@ public class StateCheckpointMarker {
     if (!"null".equals(checkpointIdAndOffset[1])) {
       offset = checkpointIdAndOffset[1];
     }
-    RemoteStoreMetadata remoteStoreMetadata = null;
-    if (checkpointIdAndOffset.length == 3 && !"null".equals(checkpointIdAndOffset[2])) {
-      remoteStoreMetadata = RemoteStoreMetadata.fromString(checkpointIdAndOffset[2]);
-    }
-    return new StateCheckpointMarker(checkpointId, offset, remoteStoreMetadata);
+
+    return new KafkaStateCheckpointMarker(checkpointId, offset);
   }
 
   public CheckpointId getCheckpointId() {
@@ -71,27 +62,22 @@ public class StateCheckpointMarker {
     return changelogOffset;
   }
 
-  public RemoteStoreMetadata getRemoteStoreMetadata() {
-    return remoteStoreMetadata;
-  }
-
   @Override
   public String toString() {
-    return String.format("%s%s%s%s%s", checkpointId, SEPARATOR, changelogOffset, SEPARATOR, remoteStoreMetadata);
+    return String.format("%s%s%s%s%s", checkpointId, SEPARATOR, changelogOffset);
   }
 
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    StateCheckpointMarker that = (StateCheckpointMarker) o;
+    KafkaStateCheckpointMarker that = (KafkaStateCheckpointMarker) o;
     return Objects.equals(checkpointId, that.checkpointId) &&
-        Objects.equals(changelogOffset, that.changelogOffset) &&
-        Objects.equals(remoteStoreMetadata, that.remoteStoreMetadata);
+        Objects.equals(changelogOffset, that.changelogOffset);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(checkpointId, changelogOffset, remoteStoreMetadata);
+    return Objects.hash(checkpointId, changelogOffset);
   }
 }

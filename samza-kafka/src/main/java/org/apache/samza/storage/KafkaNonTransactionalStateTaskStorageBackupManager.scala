@@ -20,55 +20,59 @@
 package org.apache.samza.storage
 
 import java.io._
+import java.util
+import java.util.concurrent.CompletableFuture
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
-import org.apache.samza.checkpoint.CheckpointId
+import org.apache.samza.checkpoint.{CheckpointId, StateCheckpointMarker}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
 import org.apache.samza.{Partition, SamzaException}
 
+import scala.collection.JavaConversions.mapAsScalaMap
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.collection.mutable
 
 /**
  * Manage all the storage engines for a given task
  */
 class KafkaNonTransactionalStateTaskStorageBackupManager(
   taskName: TaskName,
-  containerStorageManager: ContainerStorageManager,
-  storeChangelogs: Map[String, SystemStream] = Map(),
+  taskStores: util.Map[String, StorageEngine],
+  storeChangelogs: util.Map[String, SystemStream] = new util.HashMap[String, SystemStream](),
   systemAdmins: SystemAdmins,
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition) extends Logging with TaskStorageBackupManager {
 
   private val storageManagerUtil = new StorageManagerUtil
-  private val persistedStores = containerStorageManager.getAllStores(taskName).asScala
+  private val persistedStores = taskStores.asScala
     .filter { case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk }
 
-  override def snapshot(checkpointId: CheckpointId): StateCheckpointMarkers = {
+  override def snapshot(checkpointId: CheckpointId): util.Map[String, StateCheckpointMarker] = {
     debug("Flushing stores.")
-    containerStorageManager.getAllStores(taskName).asScala.values.foreach(_.flush)
+    taskStores.asScala.values.foreach(_.flush)
     val newestChangelogSSPOffsets = getNewestChangelogSSPOffsets()
     writeChangelogOffsetFiles(newestChangelogSSPOffsets)
     StateCheckpointMarkers.fromOffsets(newestChangelogSSPOffsets.asJava, checkpointId)
   }
 
-  override def upload(checkpointId: CheckpointId, stateCheckpointMarkers: StateCheckpointMarkers): Future[StateCheckpointMarkers] = {
-     Future.successful(stateCheckpointMarkers)
+  override def upload(checkpointId: CheckpointId,
+    stateCheckpointMarkers: util.Map[String, StateCheckpointMarker]): CompletableFuture[util.Map[String, StateCheckpointMarker]] = {
+     CompletableFuture.completedFuture(stateCheckpointMarkers)
   }
 
   override def persistToFilesystem(checkpointId: CheckpointId,
-    stateCheckpointMarkers: StateCheckpointMarkers): Unit = {}
+    stateCheckpointMarkers: util.Map[String, StateCheckpointMarker]): Unit = {}
 
   override def cleanUp(checkpointId: CheckpointId): Unit = {}
 
   @VisibleForTesting
   def stop() {
     debug("Stopping stores.")
-    containerStorageManager.stopStores()
+    taskStores.forEach((storeName: String, store: StorageEngine) => store.stop())
   }
 
   /**
@@ -76,8 +80,8 @@ class KafkaNonTransactionalStateTaskStorageBackupManager(
    * @return A map of changelog SSPs for this task to their newest offset (or None if ssp is empty)
    * @throws SamzaException if there was an error fetching newest offset for any SSP
    */
-  private def getNewestChangelogSSPOffsets(): Map[SystemStreamPartition, Option[String]] = {
-    storeChangelogs
+  private def getNewestChangelogSSPOffsets(): mutable.Map[SystemStreamPartition, Option[String]] = {
+    storeChangelogs.asScala
       .map { case (storeName, systemStream) => {
         debug("Fetching newest offset for taskName %s store %s changelog %s" format (taskName, storeName, systemStream))
         val ssp = new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition)
@@ -107,7 +111,7 @@ class KafkaNonTransactionalStateTaskStorageBackupManager(
    * from the changelog e.g. This can happen if the job was run on this host, then another
    * host and back to this host.
    */
-  private def writeChangelogOffsetFiles(newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]) {
+  private def writeChangelogOffsetFiles(newestChangelogOffsets: mutable.Map[SystemStreamPartition, Option[String]]) {
     debug("Writing OFFSET files for logged persistent key value stores for task %s." format(taskName))
 
     storeChangelogs

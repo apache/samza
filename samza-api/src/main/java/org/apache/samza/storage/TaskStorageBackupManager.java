@@ -19,10 +19,10 @@
 
 package org.apache.samza.storage
 
-import org.apache.samza.checkpoint.CheckpointId
-import org.apache.samza.system.SystemStreamPartition
+import java.util.concurrent.CompletableFuture
+import java.util.{Map => JMap}
 
-import scala.concurrent.Future
+import org.apache.samza.checkpoint.{CheckpointId, StateCheckpointMarker}
 
 /**
  * <p>
@@ -44,22 +44,22 @@ trait TaskStorageBackupManager {
    * @param checkpointId Checkpoint id of the current commit
    * @return The SSP to checkpoint map of the snapshotted local store
    */
-  def snapshot(checkpointId: CheckpointId): StateCheckpointMarkers
+  def snapshot(checkpointId: CheckpointId): JMap[String, StateCheckpointMarker]
 
   /**
    * Commit operation that is asynchronous to message processing,
    * @param checkpointId Checkpoint id of the current commit
-   * @param stateCheckpointMarkers The checkpoint makers returned by the snapshot
-   * @return The SSP to checkpoint map of the uploaded local store
+   * @param stateCheckpointMarkers The map of storename to checkpoint makers returned by the snapshot
+   * @return The future of storename to checkpoint map of the uploaded local store
    */
-  def upload(checkpointId: CheckpointId, stateCheckpointMarkers: StateCheckpointMarkers): Future[StateCheckpointMarkers]
+  def upload(checkpointId: CheckpointId, stateCheckpointMarkers: JMap[String, StateCheckpointMarker]): CompletableFuture[JMap[String, StateCheckpointMarker]]
 
   /**
    * Persist the state locally to the file system
    * @param checkpointId The id of the checkpoint to be committed
-   * @param stateCheckpointMarkers Uploaded checkpoints to be persisted locally
+   * @param stateCheckpointMarkers Uploaded storename to checkpoints markers to be persisted locally
    */
-  def persistToFilesystem(checkpointId: CheckpointId, stateCheckpointMarkers: StateCheckpointMarkers): Unit
+  def persistToFilesystem(checkpointId: CheckpointId, stateCheckpointMarkers: JMap[String, StateCheckpointMarker]): Unit
 
   /**
    * Cleanup any local or remote state for obsolete checkpoint information that are older than checkpointId
