@@ -127,8 +127,7 @@ public class JobCoordinatorMetadataManager {
   }
 
   /**
-   * Check for changes between the job coordinator metadata read from the metadata store to the input
-   * job coordinator metadata. Metadata is considered changed if any of the attributes within
+   * Check for changes between the metadata passed as inputs. Metadata is considered changed if any of the attributes within
    * {@linkplain JobCoordinatorMetadata} changes.
    *
    * We intentionally check for each changes to help us track at this granularity. We want to use this information
