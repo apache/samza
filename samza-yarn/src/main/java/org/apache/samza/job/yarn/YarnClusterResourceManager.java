@@ -20,6 +20,7 @@
 package org.apache.samza.job.yarn;
 
 import java.time.Duration;
+import java.util.Set;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -33,9 +34,7 @@ import org.apache.hadoop.yarn.api.records.*;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
-import org.apache.hadoop.yarn.client.api.impl.YarnClientImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
@@ -234,7 +233,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     String processorId = resourceRequest.getProcessorId();
     String requestId = resourceRequest.getRequestId();
     String preferredHost = resourceRequest.getPreferredHost();
-    String[] racks = resourceRequest.getRacks();
+    String[] racks = convertFaultDomainSetToRackArray(resourceRequest.getFaultDomains());
     int memoryMb = resourceRequest.getMemoryMB();
     int cpuCores = resourceRequest.getNumCores();
     Resource capability = Resource.newInstance(memoryMb, cpuCores);
@@ -269,27 +268,6 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       requestsMap.put(resourceRequest, issuedRequest);
       amClient.addContainerRequest(issuedRequest);
     }
-  }
-
-  /**
-   * Get the node to rack (fault domain for Yarn) mapping from Yarn for all running nodes.
-   * @return A map of hostname to rack name.
-   */
-  @Override
-  public Map<String, String> getNodeToFaultDomainMap() {
-    YarnClientImpl yarnClient = new YarnClientImpl();
-    Map<String, String> nodeToRackMap = new HashMap<>();
-    try {
-      List<NodeReport> nodeReport = yarnClient.getNodeReports(NodeState.RUNNING);
-      nodeReport.forEach(report -> {
-        nodeToRackMap.put(report.getNodeId().getHost(), report.getRackName());
-      });
-    } catch (YarnException e) {
-      e.printStackTrace();
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-    return nodeToRackMap;
   }
 
   /**
@@ -748,5 +726,14 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       }
     }
     return null;
+  }
+
+  private String[] convertFaultDomainSetToRackArray(Set<FaultDomain> faultDomains) {
+    String[] racks = new String[faultDomains.size()];
+    int iterator = 0;
+    faultDomains.forEach(faultDomain -> {
+      racks[iterator] = faultDomain.getId();
+    });
+    return racks;
   }
 }

@@ -38,6 +38,9 @@ public class ClusterManagerConfig extends MapConfig {
   private static final String CLUSTER_MANAGER_FACTORY = "samza.cluster-manager.factory";
   private static final String CLUSTER_MANAGER_FACTORY_DEFAULT = "org.apache.samza.job.yarn.YarnResourceManagerFactory";
 
+  private static final String FAULT_DOMAIN_MANAGER_FACTORY = "samza.fault-domain-manager.factory";
+  private static final String FAULT_DOMAIN_MANAGER_FACTORY_DEFAULT = "org.apache.samza.job.yarn.RackManagerFactory";
+
   /**
    * Sleep interval for the allocator thread in milliseconds
    */
@@ -248,6 +251,10 @@ public class ClusterManagerConfig extends MapConfig {
 
   public String getContainerManagerClass() {
     return get(CLUSTER_MANAGER_FACTORY, CLUSTER_MANAGER_FACTORY_DEFAULT);
+  }
+
+  public String getFaultDomainManagerClass() {
+    return get(FAULT_DOMAIN_MANAGER_FACTORY, FAULT_DOMAIN_MANAGER_FACTORY_DEFAULT);
   }
 
   public boolean getJmxEnabledOnJobCoordinator() {

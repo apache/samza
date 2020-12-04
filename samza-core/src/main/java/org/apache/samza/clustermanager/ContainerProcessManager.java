@@ -115,6 +115,11 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final ClusterResourceManager clusterResourceManager;
 
   /**
+   * An interface to get information about nodes and the fault domains they reside on.
+   */
+  private final FaultDomainManager faultDomainManager;
+
+  /**
    * If there are more than job.container.retry.count failures of a container within a job.container.retry.window period,
    * then the ContainerProcessManager will indicate to the ClusterBasedJobCoordinator that the job should shutdown.
    */
@@ -147,6 +152,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     ResourceManagerFactory factory = getContainerProcessManagerFactory(clusterManagerConfig);
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
 
+    FaultDomainManagerFactory faultDomainManagerFactory = getFaultDomainManagerFactory(clusterManagerConfig);
+    this.faultDomainManager = checkNotNull(faultDomainManagerFactory.getFaultDomainManager());
+
     // Initialize metrics
     this.containerProcessManagerMetrics = new ContainerProcessManagerMetrics(config, state, registry);
     this.jvmMetrics = new JvmMetrics(registry);
@@ -170,8 +178,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // Wire all metrics to all reporters
     this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
 
-    this.containerManager = new ContainerManager(metadataStore, state, clusterResourceManager, hostAffinityEnabled,
-        jobConfig.getStandbyTasksEnabled(), localityManager);
+    this.containerManager = new ContainerManager(metadataStore, state, clusterResourceManager, faultDomainManager,
+            hostAffinityEnabled, jobConfig.getStandbyTasksEnabled(), localityManager);
 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
@@ -183,6 +191,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       SamzaApplicationState state,
       MetricsRegistryMap registry,
       ClusterResourceManager resourceManager,
+      FaultDomainManager faultDomainManager,
       Optional<ContainerAllocator> allocator,
       ContainerManager containerManager,
       LocalityManager localityManager) {
@@ -193,6 +202,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
     this.clusterResourceManager = resourceManager;
+    this.faultDomainManager = faultDomainManager;
     this.containerManager = containerManager;
     this.diagnosticsManager = Option.empty();
     this.localityManager = localityManager;
@@ -626,6 +636,26 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       factory = ReflectionUtil.getObj(containerManagerFactoryClass, ResourceManagerFactory.class);
     } catch (Exception e) {
       LOG.error("Error creating the cluster resource manager.", e);
+      throw new SamzaException(e);
+    }
+    return factory;
+  }
+
+  /**
+   * Returns an instantiated {@link FaultDomainManagerFactory} from a {@link ClusterManagerConfig}. The
+   * {@link FaultDomainManagerFactory} is used to return an implementation of a {@link FaultDomainManager}
+   *
+   * @param clusterManagerConfig, the cluster manager config to parse.
+   *
+   */
+  private FaultDomainManagerFactory getFaultDomainManagerFactory(final ClusterManagerConfig clusterManagerConfig) {
+    final String faultDomainManagerFactoryClass = clusterManagerConfig.getFaultDomainManagerClass();
+    final FaultDomainManagerFactory factory;
+
+    try {
+      factory = ReflectionUtil.getObj(faultDomainManagerFactoryClass, FaultDomainManagerFactory.class);
+    } catch (Exception e) {
+      LOG.error("Error creating the fault domain manager.", e);
       throw new SamzaException(e);
     }
     return factory;

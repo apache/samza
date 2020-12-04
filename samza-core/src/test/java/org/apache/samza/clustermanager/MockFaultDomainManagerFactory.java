@@ -18,31 +18,11 @@
  */
 package org.apache.samza.clustermanager;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+public class MockFaultDomainManagerFactory implements FaultDomainManagerFactory {
 
-public class RackManager {
-
-  private final Map<String, String> nodeToRackMap;
-
-  public RackManager(Map<String, String> nodeToRackMap) {
-    this.nodeToRackMap = nodeToRackMap;
-  }
-
-  public String getRackOfNode(String host) {
-    return nodeToRackMap.get(host);
-  }
-
-  public boolean checkHostsOnSameRack(String host1, String host2) {
-    return nodeToRackMap.get(host1).equals(nodeToRackMap.get(host2));
-  }
-
-  public String[] getAllowedRacksForStandbyContainer(String host) {
-    String activeContainerRack = nodeToRackMap.get(host);
-    List<String> standbyRacks = new ArrayList<>(nodeToRackMap.values());
-    standbyRacks.remove(activeContainerRack);
-    return standbyRacks.toArray(new String[0]);
+  @Override
+  public FaultDomainManager getFaultDomainManager() {
+    return new MockFaultDomainManager();
   }
 
 }

@@ -20,6 +20,8 @@
 package org.apache.samza.clustermanager;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,9 +51,9 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
    */
   private final String preferredHost;
   /**
-   * The set of racks on which the resource must be allocated.
+   * The set of fault domains on which the resource must be allocated.
    */
-  private final String[] racks;
+  private final Set<FaultDomain> faultDomains;
   /**
    * A request is identified by an unique identifier.
    */
@@ -66,18 +68,33 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
    */
   private final Instant requestTimestamp;
 
-  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, String[] racks) {
-    this(numCores, memoryMB, preferredHost, processorId, Instant.now(), racks);
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId) {
+    this(numCores, memoryMB, preferredHost, processorId, Instant.now(), null);
   }
 
-  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp, String[] racks) {
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Set<FaultDomain> faultDomains) {
+    this(numCores, memoryMB, preferredHost, processorId, Instant.now(), faultDomains);
+  }
+
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp) {
     this.numCores = numCores;
     this.memoryMB = memoryMB;
     this.preferredHost = preferredHost;
     this.requestId = UUID.randomUUID().toString();
     this.processorId = processorId;
     this.requestTimestamp = requestTimestamp;
-    this.racks = racks;
+    this.faultDomains = new HashSet<>();
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
+  }
+
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp, Set<FaultDomain> faultDomains) {
+    this.numCores = numCores;
+    this.memoryMB = memoryMB;
+    this.preferredHost = preferredHost;
+    this.requestId = UUID.randomUUID().toString();
+    this.processorId = processorId;
+    this.requestTimestamp = requestTimestamp;
+    this.faultDomains = faultDomains;
     log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
   }
 
@@ -101,8 +118,8 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     return preferredHost;
   }
 
-  public String[] getRacks() {
-    return racks;
+  public Set<FaultDomain> getFaultDomains() {
+    return faultDomains;
   }
 
   public int getMemoryMB() {
@@ -118,15 +135,24 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
             ", requestId='" + requestId + '\'' +
             ", processorId=" + processorId +
             ", requestTimestampMs=" + requestTimestamp +
+            ", faultDomains=" + convertFaultDomainSetToString() +
             '}';
   }
 
-  /**
-   * Requests are ordered by the processor type and the time at which they were created.
-   * Requests with timestamps in the future for retries take less precedence than timestamps in the past or current.
-   * Otherwise, active processors take precedence over standby processors, regardless of timestamp.
-   * @param o the other
-   */
+  private String convertFaultDomainSetToString() {
+    StringBuilder faultDomainSb = new StringBuilder();
+    faultDomains.forEach(faultDomain -> {
+      faultDomainSb.append(faultDomain.toString());
+    });
+    return faultDomainSb.toString();
+  }
+
+    /**
+     * Requests are ordered by the processor type and the time at which they were created.
+     * Requests with timestamps in the future for retries take less precedence than timestamps in the past or current.
+     * Otherwise, active processors take precedence over standby processors, regardless of timestamp.
+     * @param o the other
+     */
   @Override
   public int compareTo(SamzaResourceRequest o) {
     if (!StandbyTaskUtil.isStandbyContainer(processorId) && StandbyTaskUtil.isStandbyContainer(o.processorId)) {

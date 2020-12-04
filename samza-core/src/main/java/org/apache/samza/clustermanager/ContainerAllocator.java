@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -307,7 +308,7 @@ public class ContainerAllocator implements Runnable {
         LOG.info("No preferred host mapping found for Processor ID: {}. Requesting resource on ANY_HOST", processorId);
         preferredHost = ResourceRequestState.ANY_HOST;
       }
-      requestResource(processorId, preferredHost, new String[0]);
+      requestResource(processorId, preferredHost);
     }
   }
 
@@ -336,8 +337,18 @@ public class ContainerAllocator implements Runnable {
    * @param processorId Samza processor ID that will be run when a resource is allocated for this request
    * @param preferredHost name of the host that you prefer to run the processor on
    */
-  public final void requestResource(String processorId, String preferredHost, String[] racks) {
-    requestResourceWithDelay(processorId, preferredHost, racks, Duration.ZERO);
+  public final void requestResource(String processorId, String preferredHost) {
+    requestResourceWithDelay(processorId, preferredHost, Duration.ZERO);
+  }
+
+  /**
+   * Requests a resource from the cluster manager
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
+   * @param faultDomains set of fault domains on which to schedule this resource
+   */
+  public final void requestResource(String processorId, String preferredHost, Set<FaultDomain> faultDomains) {
+    requestResourceWithDelay(processorId, preferredHost, faultDomains, Duration.ZERO);
   }
 
   /**
@@ -346,8 +357,20 @@ public class ContainerAllocator implements Runnable {
    * @param preferredHost name of the host that you prefer to run the processor on
    * @param delay the {@link Duration} to add to the request timestamp
    */
-  public final void requestResourceWithDelay(String processorId, String preferredHost, String[] racks, Duration delay) {
-    SamzaResourceRequest request = getResourceRequestWithDelay(processorId, preferredHost, racks, delay);
+  public final void requestResourceWithDelay(String processorId, String preferredHost, Duration delay) {
+    SamzaResourceRequest request = getResourceRequestWithDelay(processorId, preferredHost, delay);
+    issueResourceRequest(request);
+  }
+
+  /**
+   * Requests a resource from the cluster manager with a request timestamp of the current time plus the specified delay.
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
+   * @param faultDomains set of fault domains on which to schedule this resource
+   * @param delay the {@link Duration} to add to the request timestamp
+   */
+  public final void requestResourceWithDelay(String processorId, String preferredHost, Set<FaultDomain> faultDomains, Duration delay) {
+    SamzaResourceRequest request = getResourceRequestWithDelay(processorId, preferredHost, faultDomains, delay);
     issueResourceRequest(request);
   }
 
@@ -357,8 +380,19 @@ public class ContainerAllocator implements Runnable {
    * @param preferredHost name of the host that you prefer to run the processor on
    * @return the created request
    */
-  public final SamzaResourceRequest getResourceRequest(String processorId, String preferredHost, String[] racks) {
-    return getResourceRequestWithDelay(processorId, preferredHost, racks, Duration.ZERO);
+  public final SamzaResourceRequest getResourceRequest(String processorId, String preferredHost) {
+    return getResourceRequestWithDelay(processorId, preferredHost, Duration.ZERO);
+  }
+
+  /**
+   * Creates a {@link SamzaResourceRequest} to send to the cluster manager
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
+   * @param faultDomains set of fault domains on which to schedule this resource
+   * @return the created request
+   */
+  public final SamzaResourceRequest getResourceRequest(String processorId, String preferredHost, Set<FaultDomain> faultDomains) {
+    return getResourceRequestWithDelay(processorId, preferredHost, faultDomains, Duration.ZERO);
   }
 
   /**
@@ -369,8 +403,21 @@ public class ContainerAllocator implements Runnable {
    * @param delay the {@link Duration} to add to the request timestamp
    * @return the created request
    */
-  public final SamzaResourceRequest getResourceRequestWithDelay(String processorId, String preferredHost, String[] racks, Duration delay) {
-    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId, Instant.now().plus(delay), racks);
+  public final SamzaResourceRequest getResourceRequestWithDelay(String processorId, String preferredHost, Duration delay) {
+    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId, Instant.now().plus(delay));
+  }
+
+  /**
+   * Creates a {@link SamzaResourceRequest} to send to the cluster manager with a request timestamp of the current time
+   * plus the specified delay.
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
+   * @param faultDomains set of fault domains on which to schedule this resource
+   * @param delay the {@link Duration} to add to the request timestamp
+   * @return the created request
+   */
+  public final SamzaResourceRequest getResourceRequestWithDelay(String processorId, String preferredHost, Set<FaultDomain> faultDomains, Duration delay) {
+    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId, Instant.now().plus(delay), faultDomains);
   }
 
   public final void issueResourceRequest(SamzaResourceRequest request) {
