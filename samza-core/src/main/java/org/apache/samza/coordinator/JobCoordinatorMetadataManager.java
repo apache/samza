@@ -18,6 +18,7 @@
  */
 package org.apache.samza.coordinator;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.Funnel;
@@ -47,7 +48,7 @@ import org.slf4j.LoggerFactory;
  * A class to manage read and writes of {@link JobCoordinatorMetadata} to {@link MetadataStore}. It also provides
  * additional helper functionalities to generate {@link JobCoordinatorMetadata} and check for changes across runs.
  */
-public final class JobCoordinatorMetadataManager {
+public class JobCoordinatorMetadataManager {
   private static final Logger LOG = LoggerFactory.getLogger(JobCoordinatorMetadataManager.class);
   private static final String APPLICATION_ATTEMPT_COUNT = "applicationAttemptCount";
   private static final String JOB_COORDINATOR_MANAGER_METRICS = "job-coordinator-manager";
@@ -55,6 +56,8 @@ public final class JobCoordinatorMetadataManager {
   private static final String CONFIG_CHANGED = "configChanged";
   private static final String NEW_DEPLOYMENT = "newDeployment";
 
+  static final String CONTAINER_ID_PROPERTY = "CONTAINER_ID";
+  static final String CONTAINER_ID_DELIMITER = "_";
 
   private final Counter applicationAttemptCount;
   private final Gauge<Integer> jobModelChangedAcrossApplicationAttempt;
@@ -66,6 +69,7 @@ public final class JobCoordinatorMetadataManager {
   private final String clusterType;
 
   public JobCoordinatorMetadataManager(MetadataStore metadataStore, String clusterType, MetricsRegistry metricsRegistry) {
+    Preconditions.checkState(StringUtils.isNotBlank(clusterType), "Cluster type cannot be empty");
     this.clusterType = clusterType;
     this.metadataStore = metadataStore;
     this.valueSerde = new CoordinatorStreamValueSerde(SetJobCoordinatorMetadataMessage.TYPE);
@@ -92,6 +96,10 @@ public final class JobCoordinatorMetadataManager {
    * JobModel ID - A unique and reproducible identifier that is generated based on the input {@link JobModel}. It only
    * uses the {@link org.apache.samza.job.model.ContainerModel} within the {@linkplain JobModel} for generation. We
    * serialize the data into bytes and use those bytes to compute the identifier.
+   *
+   * In case of YARN, the epoch identifier is extracted from the application attempt and translates to applicationId
+   * e.g. 1606797336059_0010
+   * Both config & job model identifiers should a 32 bit integer.
    *
    * @param jobModel job model used for generating the metadata
    * @param config config used for generating the metadata
@@ -128,11 +136,11 @@ public final class JobCoordinatorMetadataManager {
    * containers upstream.
    *
    * @param newMetadata new metadata to be compared
+   * @param previousMetadata previous metadata to be compared against
    *
    * @return true if metadata changed, false otherwise
    */
-  public boolean checkForMetadataChanges(JobCoordinatorMetadata newMetadata) {
-    JobCoordinatorMetadata previousMetadata = readJobCoordinatorMetadata();
+  public boolean checkForMetadataChanges(JobCoordinatorMetadata newMetadata, JobCoordinatorMetadata previousMetadata) {
     boolean changed = true;
 
     if (previousMetadata == null) {
@@ -164,8 +172,6 @@ public final class JobCoordinatorMetadataManager {
    * @return job coordinator metadata
    */
   public JobCoordinatorMetadata readJobCoordinatorMetadata() {
-    Preconditions.checkState(StringUtils.isNotBlank(clusterType), "Cluster type cannot be empty");
-
     JobCoordinatorMetadata metadata = null;
     for (Map.Entry<String, byte[]> entry : metadataStore.all().entrySet()) {
       if (clusterType.equals(entry.getKey())) {
@@ -192,7 +198,6 @@ public final class JobCoordinatorMetadataManager {
    * @return true if the write succeeded, false otherwise
    */
   public boolean writeJobCoordinatorMetadata(JobCoordinatorMetadata metadata) {
-    Preconditions.checkState(StringUtils.isNotBlank(clusterType), "Cluster type cannot be empty");
     Preconditions.checkNotNull(metadata, "Job coordinator metadata cannot be null");
 
     boolean writeSucceeded = false;
@@ -206,6 +211,31 @@ public final class JobCoordinatorMetadataManager {
 
     LOG.info("Successfully written job coordinator metadata: {} for cluster {}.", metadata, clusterType);
     return writeSucceeded;
+  }
+
+  @VisibleForTesting
+  Counter getApplicationAttemptCount() {
+    return applicationAttemptCount;
+  }
+
+  @VisibleForTesting
+  Gauge<Integer> getJobModelChangedAcrossApplicationAttempt() {
+    return jobModelChangedAcrossApplicationAttempt;
+  }
+
+  @VisibleForTesting
+  Gauge<Integer> getConfigChangedAcrossApplicationAttempt() {
+    return configChangedAcrossApplicationAttempt;
+  }
+
+  @VisibleForTesting
+  Gauge<Integer> getNewDeployment() {
+    return newDeployment;
+  }
+
+  @VisibleForTesting
+  String getEnvProperty(String propertyName) {
+    return System.getenv(propertyName);
   }
 
   /**
@@ -227,8 +257,8 @@ public final class JobCoordinatorMetadataManager {
    * @return an identifier associated with the job coordinator satisfying the above properties
    */
   private String fetchEpochIdForJobCoordinator() {
-    String[] containerIdParts = System.getenv("CONTAINER_ID").split("_");
-    return containerIdParts[1] + "_" + containerIdParts[2];
+    String[] containerIdParts = getEnvProperty(CONTAINER_ID_PROPERTY).split(CONTAINER_ID_DELIMITER);
+    return containerIdParts[1] + CONTAINER_ID_DELIMITER + containerIdParts[2];
   }
 
   /**

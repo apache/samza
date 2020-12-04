@@ -23,7 +23,7 @@ import org.apache.samza.annotation.InterfaceStability;
 
 /**
  * A data model to represent the metadata of the job coordinator. The metadata refers to attributes of job coordinator
- * scoped to attempt within a deployment. For the purpose of this data model, deployment and attempt as defined
+ * scoped to attempt within a deployment. For the purpose of this data model, deployment and attempt are defined
  * as follows
  *
  * Deployment - Set of actions to stop an existing application, install new binaries and submit a request to run the new binaries
