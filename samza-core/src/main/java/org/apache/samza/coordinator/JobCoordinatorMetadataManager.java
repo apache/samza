@@ -99,7 +99,7 @@ public class JobCoordinatorMetadataManager {
    *
    * In case of YARN, the epoch identifier is extracted from the application attempt and translates to applicationId
    * e.g. 1606797336059_0010
-   * Both config & job model identifiers should a 32 bit integer.
+   * Both config and job model identifiers should a 32 bit integer.
    *
    * @param jobModel job model used for generating the metadata
    * @param config config used for generating the metadata
