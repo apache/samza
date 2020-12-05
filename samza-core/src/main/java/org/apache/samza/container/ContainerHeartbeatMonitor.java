@@ -26,6 +26,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
@@ -92,8 +93,13 @@ public class ContainerHeartbeatMonitor {
       if (!response.isAlive()) {
         if (isApplicationMasterHighAvailabilityEnabled) {
           LOG.warn("Failed to establish connection with {}. Checking for new AM", coordinatorUrl);
-          if (checkAndEstablishConnectionWithNewAM()) {
-            return;
+          try {
+            if (checkAndEstablishConnectionWithNewAM()) {
+              return;
+            }
+          } catch (Exception e) {
+            LOG.warn("Exception trying to connect with new AM", e);
+            throw new SamzaException(e);
           }
         }
         scheduler.schedule(() -> {
@@ -135,7 +141,7 @@ public class ContainerHeartbeatMonitor {
         }
       } catch (InterruptedException e) {
         LOG.warn("Interrupted during sleep.");
-        Thread.currentThread().interrupt();
+        throw new SamzaException(e);
       }
       attempt++;
     }

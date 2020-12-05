@@ -24,6 +24,7 @@ import java.util
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
+import org.apache.samza.coordinator.CoordinationConstants
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer, CoordinatorStreamValueSerde}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
@@ -196,6 +197,11 @@ object CoordinatorStreamUtil extends Logging {
       if (jobConfig.getAutosizingEnabled) {
         // If autosizing is enabled, we retain auto-sizing related configs
         keysToRemove = keysToRemove.filter(configKey => !JobConfig.isAutosizingConfig(configKey))
+      }
+
+      if (jobConfig.getApplicationMasterHighAvailabilityEnabled) {
+        // if AM HA is enabled then retain AM url as running containers are fetching it from c-stream until new AM publishes new AM url.
+        keysToRemove = keysToRemove.filter(configKey => !(configKey.equals(CoordinationConstants.YARN_COORDINATOR_URL)))
       }
 
       info("Deleting old configs that are no longer defined: %s".format(keysToRemove))
