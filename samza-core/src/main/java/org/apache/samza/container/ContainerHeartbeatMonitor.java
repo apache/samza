@@ -98,17 +98,14 @@ public class ContainerHeartbeatMonitor {
               return;
             }
           } catch (Exception e) {
-            LOG.warn("Exception trying to connect with new AM", e);
-            throw new SamzaException(e);
+            // On exception in re-establish connection with new AM, force exit.
+            LOG.error("Exception trying to connect with new AM", e);
+            forceExit("failure in establishing cconnection with new AM", 0);
+            return;
           }
         }
-        scheduler.schedule(() -> {
-          // On timeout of container shutting down, force exit.
-          LOG.error("Graceful shutdown timeout expired. Force exiting.");
-          ThreadUtil.logThreadDump("Thread dump at heartbeat monitor shutdown timeout.");
-          System.exit(1);
-        }, SHUTDOWN_TIMOUT_MS, TimeUnit.MILLISECONDS);
-        onContainerExpired.run();
+        // On timeout of container shutting down, force exit.
+        forceExit("Graceful shutdown timeout expired. Force exiting.", SHUTDOWN_TIMOUT_MS);
       }
     }, 0, SCHEDULE_MS, TimeUnit.MILLISECONDS);
     started = true;
@@ -151,6 +148,15 @@ public class ContainerHeartbeatMonitor {
   @VisibleForTesting
   ContainerHeartbeatClient createContainerHeartbeatClient(String coordinatorUrl, String containerExecutionId) {
     return new ContainerHeartbeatClient(coordinatorUrl, containerExecutionId);
+  }
+
+  private void forceExit(String message, int timeout) {
+    scheduler.schedule(() -> {
+      LOG.error(message);
+      ThreadUtil.logThreadDump("Thread dump at heartbeat monitor: due to "+ message);
+      System.exit(1);
+    }, timeout, TimeUnit.MILLISECONDS);
+    onContainerExpired.run();
   }
 
   private static class HeartbeatThreadFactory implements ThreadFactory {
