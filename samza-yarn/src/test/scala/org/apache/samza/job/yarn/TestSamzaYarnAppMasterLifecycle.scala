@@ -162,17 +162,17 @@ class TestSamzaYarnAppMasterLifecycle {
     saml.onInit
 
     // verify that the samzaApplicationState is updated to reflect a running container from previous attempt
-    assertEquals(1, samzaApplicationState.runningProcessors.size())
-    assertTrue(samzaApplicationState.runningProcessors.containsKey(PROCESSOR_ID))
-    val resource = samzaApplicationState.runningProcessors.get(PROCESSOR_ID)
+    assertEquals(1, samzaApplicationState.pendingProcessors.size())
+    assertTrue(samzaApplicationState.pendingProcessors.containsKey(PROCESSOR_ID))
+    val resource = samzaApplicationState.pendingProcessors.get(PROCESSOR_ID)
     assertEquals(YARN_CONTAINER_ID, resource.getContainerId)
     assertEquals(YARN_CONTAINER_HOST, resource.getHost)
     assertEquals(YARN_CONTAINER_MEM, resource.getMemoryMb)
     assertEquals(YARN_CONTAINER_VCORE, resource.getNumCores)
 
-    assertEquals(1, yarnState.runningProcessors.size())
-    assertTrue(yarnState.runningProcessors.containsKey(PROCESSOR_ID))
-    val yarnCtr = yarnState.runningProcessors.get(PROCESSOR_ID)
+    assertEquals(1, yarnState.pendingProcessors.size())
+    assertTrue(yarnState.pendingProcessors.containsKey(YARN_CONTAINER_ID))
+    val yarnCtr = yarnState.pendingProcessors.get(YARN_CONTAINER_ID)
     assertEquals(YARN_CONTAINER_ID, yarnCtr.id.toString)
     assertEquals(YARN_CONTAINER_HOST, yarnCtr.nodeId.getHost)
     assertEquals(YARN_CONTAINER_MEM, yarnCtr.resource.getMemory)

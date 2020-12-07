@@ -20,6 +20,7 @@
 package org.apache.samza.job.yarn;
 
 import java.time.Duration;
+import java.util.Set;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -217,11 +218,11 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     amClient.start();
     nmClientAsync.init(yarnConfiguration);
     nmClientAsync.start();
-    Map<ContainerId, YarnContainer> previousAttemptsContainers = lifecycle.onInit();
+    Set<ContainerId> previousAttemptsContainers = lifecycle.onInit();
 
     if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
       log.info("Received running containers from previous attempt. Invoking launch success for them.");
-      previousAttemptsContainers.forEach(this::invokeSucessCallbackForRunningProcessor);
+      previousAttemptsContainers.forEach(this::handleOnContainerStarted);
     }
 
     if (lifecycle.shouldShutdown()) {
@@ -526,26 +527,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
 
   @Override
   public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> allServiceResponse) {
-    String processorId = getPendingProcessorId(containerId);
-    if (processorId != null) {
-      log.info("Got start notification for Container ID: {} for Processor ID: {}", containerId, processorId);
-      // 1. Move the processor from pending to running state
-      final YarnContainer container = state.pendingProcessors.remove(processorId);
-
-      state.runningProcessors.put(processorId, container);
-
-      // 2. Invoke the success callback.
-      invokeSucessCallbackForRunningProcessor(containerId, container);
-    } else {
-      log.warn("Did not find the Processor ID for the start notification for Container ID: {}. " +
-          "Ignoring notification.", containerId);
-    }
-  }
-
-  private void invokeSucessCallbackForRunningProcessor(ContainerId containerId, YarnContainer container) {
-    SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
-        container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
-    clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
+    handleOnContainerStarted(containerId);
   }
 
   @Override
@@ -742,5 +724,30 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       }
     }
     return null;
+  }
+
+  /**
+   * Handles container started call back for a yarn container.
+   * updates the YarnAppState's pendingProcessors and runningProcessors
+   * and also invokes clusterManagerCallback.s stream processor launch success
+   * @param containerId yarn container id which has started
+   */
+  private void handleOnContainerStarted(ContainerId containerId) {
+    String processorId = getPendingProcessorId(containerId);
+    if (processorId != null) {
+      log.info("Got start notification for Container ID: {} for Processor ID: {}", containerId, processorId);
+      // 1. Move the processor from pending to running state
+      final YarnContainer container = state.pendingProcessors.remove(processorId);
+
+      state.runningProcessors.put(processorId, container);
+
+      // 2. Invoke the success callback.
+      SamzaResource resource = new SamzaResource(container.resource().getVirtualCores(),
+          container.resource().getMemory(), container.nodeId().getHost(), containerId.toString());
+      clusterManagerCallback.onStreamProcessorLaunchSuccess(resource);
+    } else {
+      log.warn("Did not find the Processor ID for the start notification for Container ID: {}. " +
+          "Ignoring notification.", containerId);
+    }
   }
 }

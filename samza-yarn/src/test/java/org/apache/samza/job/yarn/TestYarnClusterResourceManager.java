@@ -20,10 +20,11 @@
 package org.apache.samza.job.yarn;
 
 import java.io.IOException;
-import java.net.URL;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -47,11 +48,10 @@ import org.apache.samza.config.MapConfig;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.anyObject;
+import static org.junit.Assert.*;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.*;
 
@@ -175,7 +175,7 @@ public class TestYarnClusterResourceManager {
 
   @Test
   public void testAMHACallbackInvokedForPreviousAttemptContainers() throws IOException, YarnException {
-    String PREVIOUS_ATTEMPT_CONTAINER_ID = "0";
+    String previousAttemptContainerId = "0";
     // create mocks
     YarnConfiguration yarnConfiguration = mock(YarnConfiguration.class);
     SamzaAppMasterMetrics metrics = mock(SamzaAppMasterMetrics.class);
@@ -187,19 +187,22 @@ public class TestYarnClusterResourceManager {
     ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
 
     ContainerId containerId = mock(ContainerId.class);
-    when(containerId.toString()).thenReturn(PREVIOUS_ATTEMPT_CONTAINER_ID);
+    when(containerId.toString()).thenReturn(previousAttemptContainerId);
 
     YarnContainer yarnContainer = mock(YarnContainer.class);
     Resource resource = mock(Resource.class);
     when(resource.getMemory()).thenReturn(1024);
     Mockito.when(resource.getVirtualCores()).thenReturn(1);
     Mockito.when(yarnContainer.resource()).thenReturn(resource);
+    Mockito.when(yarnContainer.id()).thenReturn(containerId);
     NodeId nodeId = mock(NodeId.class);
     when(nodeId.getHost()).thenReturn("host");
     when(yarnContainer.nodeId()).thenReturn(nodeId);
 
-    Map<ContainerId, YarnContainer> previousAttemptContainers = new HashMap<>();
-    previousAttemptContainers.put(containerId, yarnContainer);
+    yarnAppState.pendingProcessors.put(containerId.toString(), yarnContainer);
+
+    Set<ContainerId> previousAttemptContainers = new HashSet<>();
+    previousAttemptContainers.add(containerId);
     when(lifecycle.onInit()).thenReturn(previousAttemptContainers);
 
     Map<String, String> configMap = new HashMap<>();
@@ -216,6 +219,6 @@ public class TestYarnClusterResourceManager {
     ArgumentCaptor<SamzaResource> samzaResourceArgumentCaptor = ArgumentCaptor.forClass(SamzaResource.class);
     verify(callback).onStreamProcessorLaunchSuccess(samzaResourceArgumentCaptor.capture());
     SamzaResource samzaResource = samzaResourceArgumentCaptor.getValue();
-    assertEquals(PREVIOUS_ATTEMPT_CONTAINER_ID, samzaResource.getContainerId());
+    assertEquals(previousAttemptContainerId, samzaResource.getContainerId());
   }
 }

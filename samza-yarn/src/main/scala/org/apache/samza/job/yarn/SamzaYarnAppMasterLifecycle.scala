@@ -45,7 +45,7 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
   var validResourceRequest = true
   var shutdownMessage: String = null
   var webApp: SamzaYarnAppMasterService = null
-  def onInit(): util.Map[ContainerId, YarnContainer] = {
+  def onInit(): util.Set[ContainerId] = {
     val host = state.nodeHost
     val response = amClient.registerApplicationMaster(host, state.rpcUrl.getPort, "%s:%d" format (host, state.trackingUrl.getPort))
 
@@ -53,18 +53,17 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
     val maxCapability = response.getMaximumResourceCapability
     val maxMem = maxCapability.getMemory
     val maxCpu = maxCapability.getVirtualCores
-    val previousAttemptContainers = new HashMap[ContainerId, YarnContainer]()
+    val previousAttemptContainers = new util.HashSet[ContainerId]()
     if (isApplicationMasterHighAvailabilityEnabled) {
       val yarnIdToprocIdMap = new HashMap[String, String]()
       samzaAppState.processorToExecutionId.asScala foreach { entry => yarnIdToprocIdMap.put(entry._2, entry._1) }
       response.getContainersFromPreviousAttempts.asScala foreach { (ctr: Container) =>
         val samzaProcId = yarnIdToprocIdMap.get(ctr.getId.toString)
         info("Received container from previous attempt with samza processor id %s and yarn container id %s" format(samzaProcId, ctr.getId.toString))
-        samzaAppState.runningProcessors.put(samzaProcId,
+        samzaAppState.pendingProcessors.put(samzaProcId,
           new SamzaResource(ctr.getResource.getVirtualCores, ctr.getResource.getMemory, ctr.getNodeId.getHost, ctr.getId.toString))
-        val yarnContainer = new YarnContainer(ctr)
-        state.runningProcessors.put(ctr.getId.toString, yarnContainer)
-        previousAttemptContainers.put(ctr.getId, yarnContainer)
+        state.pendingProcessors.put(ctr.getId.toString, new YarnContainer(ctr))
+        previousAttemptContainers.add(ctr.getId)
       }
     }
     info("Got AM register response. The YARN RM supports container requests with max-mem: %s, max-cpu: %s" format (maxMem, maxCpu))
