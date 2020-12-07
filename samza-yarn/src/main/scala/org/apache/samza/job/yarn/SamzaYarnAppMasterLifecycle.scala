@@ -62,7 +62,7 @@ class SamzaYarnAppMasterLifecycle(containerMem: Int, containerCpu: Int, samzaApp
         info("Received container from previous attempt with samza processor id %s and yarn container id %s" format(samzaProcId, ctr.getId.toString))
         samzaAppState.pendingProcessors.put(samzaProcId,
           new SamzaResource(ctr.getResource.getVirtualCores, ctr.getResource.getMemory, ctr.getNodeId.getHost, ctr.getId.toString))
-        state.pendingProcessors.put(ctr.getId.toString, new YarnContainer(ctr))
+        state.pendingProcessors.put(samzaProcId, new YarnContainer(ctr))
         previousAttemptContainers.add(ctr.getId)
       }
     }

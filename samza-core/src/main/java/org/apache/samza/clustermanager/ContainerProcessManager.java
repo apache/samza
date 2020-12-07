@@ -236,20 +236,12 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       diagnosticsManager.get().start();
     }
 
-    if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
-      LOG.info(
-          "Set neededProcessors prior to starting clusterResourceManager because it gets running containres from prev attempts in AM HA.");
-      state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
-      state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
-    }
+    state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
+    state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
 
     LOG.info("Starting the cluster resource manager");
     clusterResourceManager.start();
 
-    if (!jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
-      state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
-      state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
-    }
     // Request initial set of containers
     LocalityModel localityModel = localityManager.readLocality();
     Map<String, String> processorToHost = new HashMap<>();
