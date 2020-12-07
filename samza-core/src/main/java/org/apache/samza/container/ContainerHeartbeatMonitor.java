@@ -153,7 +153,7 @@ public class ContainerHeartbeatMonitor {
   private void forceExit(String message, int timeout) {
     scheduler.schedule(() -> {
       LOG.error(message);
-      ThreadUtil.logThreadDump("Thread dump at heartbeat monitor: due to "+ message);
+      ThreadUtil.logThreadDump("Thread dump at heartbeat monitor: due to " + message);
       System.exit(1);
     }, timeout, TimeUnit.MILLISECONDS);
     onContainerExpired.run();
