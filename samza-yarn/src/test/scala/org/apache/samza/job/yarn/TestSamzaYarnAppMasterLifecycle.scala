@@ -171,8 +171,8 @@ class TestSamzaYarnAppMasterLifecycle {
     assertEquals(YARN_CONTAINER_VCORE, resource.getNumCores)
 
     assertEquals(1, yarnState.pendingProcessors.size())
-    assertTrue(yarnState.pendingProcessors.containsKey(YARN_CONTAINER_ID))
-    val yarnCtr = yarnState.pendingProcessors.get(YARN_CONTAINER_ID)
+    assertTrue(yarnState.pendingProcessors.containsKey(PROCESSOR_ID))
+    val yarnCtr = yarnState.pendingProcessors.get(PROCESSOR_ID)
     assertEquals(YARN_CONTAINER_ID, yarnCtr.id.toString)
     assertEquals(YARN_CONTAINER_HOST, yarnCtr.nodeId.getHost)
     assertEquals(YARN_CONTAINER_MEM, yarnCtr.resource.getMemory)

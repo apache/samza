@@ -236,6 +236,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       diagnosticsManager.get().start();
     }
 
+    // In AM-HA, clusterResourceManager receives already running containers
+    // and invokes onStreamProcessorLaunchSuccess which inturn updates state
+    // hence state has to be set prior to starting clusterResourceManager.
     state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
     state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
 
@@ -254,10 +257,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     });
     if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
       // don't request resource for container that is already running
-      state.runningProcessors.keySet().forEach(containerId -> {
-        processorToHost.remove(containerId);
-        state.neededProcessors.decrementAndGet();
-      });
+      LOG.info("have in samza app state: " + state.runningProcessors.size() + " running processors");
+      LOG.info("have in processorToHost " + processorToHost.size());
+      state.runningProcessors.keySet().forEach(processorToHost::remove);
+      LOG.info("after removing running processors : have in processorToHost " + processorToHost.size());
     }
     containerAllocator.requestResources(processorToHost);
 
@@ -420,6 +423,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       state.pendingProcessors.remove(processorId);
       state.runningProcessors.put(processorId, resource);
       if (state.neededProcessors.decrementAndGet() == 0) {
+        LOG.info("Manasa#: setting job healhty to true");
         state.jobHealthy.set(true);
       }
       containerManager.handleContainerLaunchSuccess(processorId, containerHost);

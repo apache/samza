@@ -270,9 +270,7 @@ public class TestContainerProcessManager {
     // Verify Allocator thread has started running
     assertTrue(isRunning);
 
-    // Verify the remaining state says needed processors is only 1 and not 2
-    // and only 1 was requested with allocator
-    assertEquals(1, state.neededProcessors.get());
+    // Verify only 1 was requested with allocator
     assertEquals(1, allocator.requestedContainers);
 
     cpm.stop();

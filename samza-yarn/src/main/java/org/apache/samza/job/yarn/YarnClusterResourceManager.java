@@ -285,10 +285,6 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
    */
   @Override
   public void releaseResources(SamzaResource resource) {
-    if (resource == null) {
-      log.error("Attempting to release a non existent resource");
-      return;
-    }
     log.info("Releasing Container ID: {} on host: {}", resource.getContainerId(), resource.getHost());
     // ensure that updating state and removing the request are done atomically
     synchronized (lock) {

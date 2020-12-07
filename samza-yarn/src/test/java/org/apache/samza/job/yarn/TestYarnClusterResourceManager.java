@@ -176,6 +176,7 @@ public class TestYarnClusterResourceManager {
   @Test
   public void testAMHACallbackInvokedForPreviousAttemptContainers() throws IOException, YarnException {
     String previousAttemptContainerId = "0";
+    String previousAttemptYarnContainerId = "container_1607304997422_0008_02_000002";
     // create mocks
     YarnConfiguration yarnConfiguration = mock(YarnConfiguration.class);
     SamzaAppMasterMetrics metrics = mock(SamzaAppMasterMetrics.class);
@@ -187,7 +188,7 @@ public class TestYarnClusterResourceManager {
     ClusterResourceManager.Callback callback = mock(ClusterResourceManager.Callback.class);
 
     ContainerId containerId = mock(ContainerId.class);
-    when(containerId.toString()).thenReturn(previousAttemptContainerId);
+    when(containerId.toString()).thenReturn(previousAttemptYarnContainerId);
 
     YarnContainer yarnContainer = mock(YarnContainer.class);
     Resource resource = mock(Resource.class);
@@ -199,7 +200,7 @@ public class TestYarnClusterResourceManager {
     when(nodeId.getHost()).thenReturn("host");
     when(yarnContainer.nodeId()).thenReturn(nodeId);
 
-    yarnAppState.pendingProcessors.put(containerId.toString(), yarnContainer);
+    yarnAppState.pendingProcessors.put(previousAttemptContainerId, yarnContainer);
 
     Set<ContainerId> previousAttemptContainers = new HashSet<>();
     previousAttemptContainers.add(containerId);
@@ -219,6 +220,6 @@ public class TestYarnClusterResourceManager {
     ArgumentCaptor<SamzaResource> samzaResourceArgumentCaptor = ArgumentCaptor.forClass(SamzaResource.class);
     verify(callback).onStreamProcessorLaunchSuccess(samzaResourceArgumentCaptor.capture());
     SamzaResource samzaResource = samzaResourceArgumentCaptor.getValue();
-    assertEquals(previousAttemptContainerId, samzaResource.getContainerId());
+    assertEquals(previousAttemptYarnContainerId, samzaResource.getContainerId());
   }
 }
