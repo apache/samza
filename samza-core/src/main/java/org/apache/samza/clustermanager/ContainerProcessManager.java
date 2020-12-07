@@ -236,11 +236,15 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       diagnosticsManager.get().start();
     }
 
+    // In AM-HA, clusterResourceManager receives already running containers
+    // and invokes onStreamProcessorLaunchSuccess which inturn updates state
+    // hence state has to be set prior to starting clusterResourceManager.
+    state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
+    state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
+
     LOG.info("Starting the cluster resource manager");
     clusterResourceManager.start();
 
-    state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
-    state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
     // Request initial set of containers
     LocalityModel localityModel = localityManager.readLocality();
     Map<String, String> processorToHost = new HashMap<>();
@@ -251,6 +255,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
           .orElse(null);
       processorToHost.put(containerId, host);
     });
+    if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
+      // don't request resource for container that is already running
+      state.runningProcessors.keySet().forEach(processorToHost::remove);
+    }
     containerAllocator.requestResources(processorToHost);
 
     // Start container allocator thread
