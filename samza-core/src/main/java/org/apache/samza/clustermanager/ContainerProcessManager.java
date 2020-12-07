@@ -257,10 +257,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     });
     if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
       // don't request resource for container that is already running
-      LOG.info("have in samza app state: " + state.runningProcessors.size() + " running processors");
-      LOG.info("have in processorToHost " + processorToHost.size());
       state.runningProcessors.keySet().forEach(processorToHost::remove);
-      LOG.info("after removing running processors : have in processorToHost " + processorToHost.size());
     }
     containerAllocator.requestResources(processorToHost);
 
@@ -423,7 +420,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       state.pendingProcessors.remove(processorId);
       state.runningProcessors.put(processorId, resource);
       if (state.neededProcessors.decrementAndGet() == 0) {
-        LOG.info("Manasa#: setting job healhty to true");
         state.jobHealthy.set(true);
       }
       containerManager.handleContainerLaunchSuccess(processorId, containerHost);
