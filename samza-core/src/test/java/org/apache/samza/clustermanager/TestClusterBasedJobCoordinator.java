@@ -32,11 +32,14 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.coordinator.JobCoordinatorMetadataManager;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.execution.RemoteJobPlanner;
+import org.apache.samza.job.JobCoordinatorMetadata;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.MockSystemFactory;
@@ -47,7 +50,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mockito;
 import org.mockito.exceptions.base.MockitoException;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -58,6 +60,8 @@ import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
@@ -150,7 +154,7 @@ public class TestClusterBasedJobCoordinator {
     Config config = new MapConfig(configMap);
     MockitoException stopException = new MockitoException("Stop");
 
-    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(ClusterBasedJobCoordinatorRunner.createFromMetadataStore(config));
+    ClusterBasedJobCoordinator clusterCoordinator = spy(ClusterBasedJobCoordinatorRunner.createFromMetadataStore(config));
     ContainerProcessManager mockContainerProcessManager = mock(ContainerProcessManager.class);
     doReturn(true).when(mockContainerProcessManager).shouldShutdown();
     StartpointManager mockStartpointManager = mock(StartpointManager.class);
@@ -191,5 +195,39 @@ public class TestClusterBasedJobCoordinator {
     // cannot assert expected equals to actual as the order can be different.
     assertEquals(expected.size(), actual.size());
     assertTrue(actual.containsAll(expected));
+  }
+
+  @Test
+  public void testGenerateAndUpdateJobCoordinatorMetadata() {
+    Config jobConfig = new MapConfig(configMap);
+    when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(jobConfig);
+    ClusterBasedJobCoordinator clusterBasedJobCoordinator =
+        spy(ClusterBasedJobCoordinatorRunner.createFromMetadataStore(jobConfig));
+
+    JobCoordinatorMetadata previousMetadata = mock(JobCoordinatorMetadata.class);
+    JobCoordinatorMetadata newMetadata = mock(JobCoordinatorMetadata.class);
+    JobCoordinatorMetadataManager jobCoordinatorMetadataManager = mock(JobCoordinatorMetadataManager.class);
+    JobModel mockJobModel = mock(JobModel.class);
+
+    when(jobCoordinatorMetadataManager.readJobCoordinatorMetadata()).thenReturn(previousMetadata);
+    when(jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(any(), any())).thenReturn(newMetadata);
+    when(jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)).thenReturn(false);
+    when(clusterBasedJobCoordinator.createJobCoordinatorMetadataManager()).thenReturn(jobCoordinatorMetadataManager);
+
+    /*
+     * Verify if there are no changes to metadata, the metadata changed flag remains false and no interactions
+     * with job coordinator metadata manager
+     */
+    clusterBasedJobCoordinator.generateAndUpdateJobCoordinatorMetadata(mockJobModel);
+    assertFalse("JC metadata should remain unchanged", clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts());
+    verify(jobCoordinatorMetadataManager, times(0)).writeJobCoordinatorMetadata(any());
+
+    /*
+     * Verify if there are changes to metadata, we persist the new metadata & update the metadata changed flag
+     */
+    when(jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)).thenReturn(true);
+    clusterBasedJobCoordinator.generateAndUpdateJobCoordinatorMetadata(mockJobModel);
+    assertTrue("JC metadata should be true", clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts());
+    verify(jobCoordinatorMetadataManager, times(1)).writeJobCoordinatorMetadata(newMetadata);
   }
 }
