@@ -153,8 +153,7 @@ public class TestJobCoordinatorMetadataManager {
         .when(jobCoordinatorMetadataManager).fetchEpochIdForJobCoordinator();
 
     try {
-      jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(new JobModel(OLD_CONFIG, containerModelMap)
-          , OLD_CONFIG);
+      jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(new JobModel(OLD_CONFIG, containerModelMap), OLD_CONFIG);
       fail("Expected generate job coordinator metadata to throw exception");
     } catch (Exception e) {
       assertTrue("Expecting SamzaException to be thrown", e instanceof SamzaException);
