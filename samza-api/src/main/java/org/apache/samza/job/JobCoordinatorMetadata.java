@@ -43,15 +43,15 @@ import org.apache.samza.annotation.InterfaceStability;
  * Config ID - An identifier associated with a subset of configuration snapshot used by the job in an application attempt.
  * Current prefixes that impacts the identifier are job.autosizing.*
  * The properties of the config identifier are as follows
- *    1. Reproducible and deterministic
- *    2. Remains unchanged across application attempts as long as the subset of configuration remains unchanged.
+ *    1. Unique and Reproducible
+ *    2. Remains unchanged across application attempts / deployments as long as the subset of configuration remains unchanged.
  *
  * Job Model ID - An identifier associated with the JobModel used by the job in an application attempt. JobModel
  * has both configurations and list of container model. We don't account for changes in the configuration as part of this
  * identifier since it is separately tracked and handled by Config ID.
  * The properties of the job model identifier are as follows
- *    1. Reproducible and deterministic
- *    2. Remains unchanged across application attempts as long as the work assignment remains unchanged
+ *    1. Unique and Reproducible
+ *    2. Remains unchanged across application attempts / deployments as long as the work assignment remains unchanged
  *
  * Notes on interface stability - It is used internally by Samza for job coordinator high availability in YARN
  * deployment offering. It may evolve depending on expanding the scope beyond YARN and hence unstable.

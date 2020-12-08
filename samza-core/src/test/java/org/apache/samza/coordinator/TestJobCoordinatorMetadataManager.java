@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
@@ -33,24 +34,28 @@ import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.apache.samza.coordinator.JobCoordinatorMetadataManager.ClusterType;
 import static org.apache.samza.coordinator.JobCoordinatorMetadataManager.CONTAINER_ID_DELIMITER;
 import static org.apache.samza.coordinator.JobCoordinatorMetadataManager.CONTAINER_ID_PROPERTY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
-
 
 /**
  * A test class for {@link JobCoordinatorMetadataManager}
  */
 public class TestJobCoordinatorMetadataManager {
-  private static final String CLUSTER_TYPE = "YARN";
   private static final String OLD_CONFIG_ID = "1";
   private static final String OLD_JOB_MODEL_ID = "1";
   private static final String OLD_EPOCH_ID = "1606797336059" + CONTAINER_ID_DELIMITER + "0010";
@@ -76,6 +81,7 @@ public class TestJobCoordinatorMetadataManager {
 
   private JobCoordinatorMetadataManager jobCoordinatorMetadataManager;
   private Map<String, ContainerModel> containerModelMap;
+  private MetadataStore metadataStore;
 
   @Before
   public void setup() {
@@ -91,9 +97,10 @@ public class TestJobCoordinatorMetadataManager {
     containerModelMap = ImmutableMap.of("0", containerModel1, "1", containerModel2);
     CoordinatorStreamStoreTestUtil mockCoordinatorStreamStore =
         new CoordinatorStreamStoreTestUtil(COORDINATOR_STORE_CONFIG);
-    jobCoordinatorMetadataManager = spy(new JobCoordinatorMetadataManager(
-        new NamespaceAwareCoordinatorStreamStore(mockCoordinatorStreamStore.getCoordinatorStreamStore(),
-            SetJobCoordinatorMetadataMessage.TYPE), CLUSTER_TYPE, new MetricsRegistryMap()));
+    metadataStore = spy(new NamespaceAwareCoordinatorStreamStore(
+        mockCoordinatorStreamStore.getCoordinatorStreamStore(), SetJobCoordinatorMetadataMessage.TYPE));
+    jobCoordinatorMetadataManager = spy(new JobCoordinatorMetadataManager(metadataStore,
+        ClusterType.YARN, new MetricsRegistryMap()));
   }
 
   @Test
@@ -172,8 +179,7 @@ public class TestJobCoordinatorMetadataManager {
     JobCoordinatorMetadata jobCoordinatorMetadata =
         new JobCoordinatorMetadata(NEW_EPOCH_ID, NEW_CONFIG_ID, NEW_JOB_MODEL_ID);
 
-    boolean writeSucceeded = jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(jobCoordinatorMetadata);
-    assertTrue("Job coordinator metadata write failed", writeSucceeded);
+    jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(jobCoordinatorMetadata);
 
     JobCoordinatorMetadata actualJobCoordinatorMetadata = jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
     assertEquals("Mismatch in job coordinator metadata", jobCoordinatorMetadata, actualJobCoordinatorMetadata);
@@ -182,5 +188,12 @@ public class TestJobCoordinatorMetadataManager {
   @Test (expected = NullPointerException.class)
   public void testWriteNullJobCoordinatorMetadataShouldThrowException() {
     jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(null);
+  }
+
+  @Test (expected = SamzaException.class)
+  public void testWriteJobCoordinatorMetadataBubblesException() {
+    doThrow(new RuntimeException("failed to write to coordinator stream"))
+        .when(metadataStore).put(anyString(), any());
+    jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(mock(JobCoordinatorMetadata.class));
   }
 }

@@ -29,6 +29,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMessage;
@@ -66,10 +67,10 @@ public class JobCoordinatorMetadataManager {
   private final MetadataStore metadataStore;
   private final ObjectMapper metadataMapper = SamzaObjectMapper.getObjectMapper();
   private final Serde<String> valueSerde;
-  private final String clusterType;
+  private final ClusterType clusterType;
 
-  public JobCoordinatorMetadataManager(MetadataStore metadataStore, String clusterType, MetricsRegistry metricsRegistry) {
-    Preconditions.checkState(StringUtils.isNotBlank(clusterType), "Cluster type cannot be empty");
+  public JobCoordinatorMetadataManager(MetadataStore metadataStore, ClusterType clusterType, MetricsRegistry metricsRegistry) {
+    Preconditions.checkNotNull(clusterType, "Cluster type cannot be null");
     this.clusterType = clusterType;
     this.metadataStore = metadataStore;
     this.valueSerde = new CoordinatorStreamValueSerde(SetJobCoordinatorMetadataMessage.TYPE);
@@ -173,7 +174,7 @@ public class JobCoordinatorMetadataManager {
   public JobCoordinatorMetadata readJobCoordinatorMetadata() {
     JobCoordinatorMetadata metadata = null;
     for (Map.Entry<String, byte[]> entry : metadataStore.all().entrySet()) {
-      if (clusterType.equals(entry.getKey())) {
+      if (clusterType.name().equals(entry.getKey())) {
         try {
           String metadataString = valueSerde.fromBytes(entry.getValue());
           metadata = metadataMapper.readValue(metadataString, JobCoordinatorMetadata.class);
@@ -194,22 +195,19 @@ public class JobCoordinatorMetadataManager {
    *
    * @param metadata metadata to be persisted
    *
-   * @return true if the write succeeded, false otherwise
+   * @throws SamzaException in case of exception encountered during the writes to underlying metadata store
    */
-  public boolean writeJobCoordinatorMetadata(JobCoordinatorMetadata metadata) {
+  public void writeJobCoordinatorMetadata(JobCoordinatorMetadata metadata) {
     Preconditions.checkNotNull(metadata, "Job coordinator metadata cannot be null");
 
-    boolean writeSucceeded = false;
     try {
       String metadataValueString = metadataMapper.writeValueAsString(metadata);
-      metadataStore.put(clusterType, valueSerde.toBytes(metadataValueString));
-      writeSucceeded = true;
+      metadataStore.put(clusterType.name(), valueSerde.toBytes(metadataValueString));
+      LOG.info("Successfully written job coordinator metadata: {} for cluster {}.", metadata, clusterType);
     } catch (Exception e) {
       LOG.error("Failed to write the job coordinator metadata to metadata store due to ", e);
+      throw new SamzaException("Failed to write the job coordinator metadata.", e);
     }
-
-    LOG.info("Successfully written job coordinator metadata: {} for cluster {}.", metadata, clusterType);
-    return writeSucceeded;
   }
 
   @VisibleForTesting
@@ -252,6 +250,8 @@ public class JobCoordinatorMetadataManager {
    *
    *  Note: The above properties is something we want keep intact when extracting this into a well defined interface
    *  or contract for YARN AM HA to work.
+   *  The format and property used to generate ID is specific to YARN and the specific format of the container name
+   *  is a public contract by YARN which is likely to remain backward compatible.
    *
    * @return an identifier associated with the job coordinator satisfying the above properties
    */
@@ -279,5 +279,12 @@ public class JobCoordinatorMetadataManager {
         into.putUnencodedChars(value);
       });
     }
+  }
+
+  /**
+   * Type of the cluster deployment associated with the {@link JobCoordinatorMetadataManager}
+   */
+  enum ClusterType {
+    YARN
   }
 }
