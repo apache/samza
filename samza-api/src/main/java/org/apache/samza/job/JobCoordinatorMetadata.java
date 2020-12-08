@@ -18,7 +18,9 @@
  */
 package org.apache.samza.job;
 
+import com.google.common.base.Preconditions;
 import java.util.Objects;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.annotation.InterfaceStability;
 
 /**
@@ -64,6 +66,9 @@ public class JobCoordinatorMetadata {
   private final String jobModelId;
 
   public JobCoordinatorMetadata(String epochId, String configId, String jobModelId) {
+    Preconditions.checkState(StringUtils.isNotBlank(epochId), "Epoch ID cannot be empty");
+    Preconditions.checkState(StringUtils.isNotBlank(configId), "Config ID cannot be empty");
+    Preconditions.checkState(StringUtils.isNotBlank(jobModelId), "Job Model ID cannot be empty");
     this.configId = configId;
     this.epochId = epochId;
     this.jobModelId = jobModelId;
