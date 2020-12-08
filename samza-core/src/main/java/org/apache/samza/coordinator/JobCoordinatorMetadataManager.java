@@ -284,7 +284,7 @@ public class JobCoordinatorMetadataManager {
   /**
    * Type of the cluster deployment associated with the {@link JobCoordinatorMetadataManager}
    */
-  enum ClusterType {
+  public enum ClusterType {
     YARN
   }
 }
