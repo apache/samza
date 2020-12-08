@@ -94,7 +94,6 @@ public class ClusterBasedJobCoordinator {
 
   private static final Logger LOG = LoggerFactory.getLogger(ClusterBasedJobCoordinator.class);
   private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
-  private final static String YARN_CLUSTER = "yarn";
 
   private final Config config;
 

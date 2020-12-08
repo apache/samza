@@ -54,12 +54,18 @@ public class JobCoordinatorMetadataManager {
   private static final String JOB_COORDINATOR_MANAGER_METRICS = "job-coordinator-manager";
   private static final String JOB_MODEL_CHANGED = "jobModelChanged";
   private static final String CONFIG_CHANGED = "configChanged";
+  private static final String METADATA_GENERATION_FAILED_COUNT = "metadataGenerationFailedCount";
+  private static final String METADATA_READ_FAILED_COUNT = "metadataReadFailedCount";
+  private static final String METADATA_WRITE_FAILED_COUNT = "metadataWriteFailedCount";
   private static final String NEW_DEPLOYMENT = "newDeployment";
 
   static final String CONTAINER_ID_PROPERTY = "CONTAINER_ID";
   static final String CONTAINER_ID_DELIMITER = "_";
 
   private final Counter applicationAttemptCount;
+  private final Counter metadataGenerationFailedCount;
+  private final Counter metadataReadFailedCount;
+  private final Counter metadataWriteFailedCount;
   private final Gauge<Integer> jobModelChangedAcrossApplicationAttempt;
   private final Gauge<Integer> configChangedAcrossApplicationAttempt;
   private final Gauge<Integer> newDeployment;
@@ -68,17 +74,30 @@ public class JobCoordinatorMetadataManager {
   private final Serde<String> valueSerde;
   private final ClusterType clusterType;
 
-  public JobCoordinatorMetadataManager(MetadataStore metadataStore, ClusterType clusterType, MetricsRegistry metricsRegistry) {
+  public JobCoordinatorMetadataManager(MetadataStore metadataStore, ClusterType clusterType,
+      MetricsRegistry metricsRegistry) {
+    this(metadataStore, clusterType, metricsRegistry,
+        new CoordinatorStreamValueSerde(SetJobCoordinatorMetadataMessage.TYPE));
+  }
+
+  @VisibleForTesting
+  JobCoordinatorMetadataManager(MetadataStore metadataStore, ClusterType clusterType, MetricsRegistry metricsRegistry,
+      Serde<String> valueSerde) {
     Preconditions.checkNotNull(clusterType, "Cluster type cannot be null");
+
     this.clusterType = clusterType;
     this.metadataStore = metadataStore;
-    this.valueSerde = new CoordinatorStreamValueSerde(SetJobCoordinatorMetadataMessage.TYPE);
+    this.valueSerde = valueSerde;
 
     applicationAttemptCount = metricsRegistry.newCounter(JOB_COORDINATOR_MANAGER_METRICS, APPLICATION_ATTEMPT_COUNT);
     configChangedAcrossApplicationAttempt =
         metricsRegistry.newGauge(JOB_COORDINATOR_MANAGER_METRICS, CONFIG_CHANGED, 0);
     jobModelChangedAcrossApplicationAttempt =
         metricsRegistry.newGauge(JOB_COORDINATOR_MANAGER_METRICS, JOB_MODEL_CHANGED, 0);
+    metadataGenerationFailedCount = metricsRegistry.newCounter(JOB_COORDINATOR_MANAGER_METRICS,
+        METADATA_GENERATION_FAILED_COUNT);
+    metadataReadFailedCount = metricsRegistry.newCounter(JOB_COORDINATOR_MANAGER_METRICS, METADATA_READ_FAILED_COUNT);
+    metadataWriteFailedCount = metricsRegistry.newCounter(JOB_COORDINATOR_MANAGER_METRICS, METADATA_WRITE_FAILED_COUNT);
     newDeployment = metricsRegistry.newGauge(JOB_COORDINATOR_MANAGER_METRICS, NEW_DEPLOYMENT, 0);
   }
 
@@ -121,8 +140,9 @@ public class JobCoordinatorMetadataManager {
       return new JobCoordinatorMetadata(fetchEpochIdForJobCoordinator(), String.valueOf(configId),
           String.valueOf(jobModelId));
     } catch (Exception e) {
+      metadataGenerationFailedCount.inc();
       LOG.error("Failed to generate metadata for the current attempt due to ", e);
-      throw new RuntimeException("Failed to generate the metadata for the current attempt due to ", e);
+      throw new SamzaException("Failed to generate the metadata for the current attempt due to ", e);
     }
   }
 
@@ -179,6 +199,7 @@ public class JobCoordinatorMetadataManager {
           metadata = metadataMapper.readValue(metadataString, JobCoordinatorMetadata.class);
           break;
         } catch (Exception e) {
+          metadataReadFailedCount.inc();
           LOG.error("Failed to read job coordinator metadata due to ", e);
         }
       }
@@ -204,34 +225,10 @@ public class JobCoordinatorMetadataManager {
       metadataStore.put(clusterType.name(), valueSerde.toBytes(metadataValueString));
       LOG.info("Successfully written job coordinator metadata: {} for cluster {}.", metadata, clusterType);
     } catch (Exception e) {
+      metadataWriteFailedCount.inc();
       LOG.error("Failed to write the job coordinator metadata to metadata store due to ", e);
       throw new SamzaException("Failed to write the job coordinator metadata.", e);
     }
-  }
-
-  @VisibleForTesting
-  Counter getApplicationAttemptCount() {
-    return applicationAttemptCount;
-  }
-
-  @VisibleForTesting
-  Gauge<Integer> getJobModelChangedAcrossApplicationAttempt() {
-    return jobModelChangedAcrossApplicationAttempt;
-  }
-
-  @VisibleForTesting
-  Gauge<Integer> getConfigChangedAcrossApplicationAttempt() {
-    return configChangedAcrossApplicationAttempt;
-  }
-
-  @VisibleForTesting
-  Gauge<Integer> getNewDeployment() {
-    return newDeployment;
-  }
-
-  @VisibleForTesting
-  String getEnvProperty(String propertyName) {
-    return System.getenv(propertyName);
   }
 
   /**
@@ -254,9 +251,50 @@ public class JobCoordinatorMetadataManager {
    *
    * @return an identifier associated with the job coordinator satisfying the above properties
    */
-  private String fetchEpochIdForJobCoordinator() {
+  @VisibleForTesting
+  String fetchEpochIdForJobCoordinator() {
     String[] containerIdParts = getEnvProperty(CONTAINER_ID_PROPERTY).split(CONTAINER_ID_DELIMITER);
     return containerIdParts[1] + CONTAINER_ID_DELIMITER + containerIdParts[2];
+  }
+
+  @VisibleForTesting
+  Counter getApplicationAttemptCount() {
+    return applicationAttemptCount;
+  }
+
+  @VisibleForTesting
+  Counter getMetadataGenerationFailedCount() {
+    return metadataGenerationFailedCount;
+  }
+
+  @VisibleForTesting
+  Counter getMetadataReadFailedCount() {
+    return metadataReadFailedCount;
+  }
+
+  @VisibleForTesting
+  Counter getMetadataWriteFailedCount() {
+    return metadataWriteFailedCount;
+  }
+
+  @VisibleForTesting
+  Gauge<Integer> getJobModelChangedAcrossApplicationAttempt() {
+    return jobModelChangedAcrossApplicationAttempt;
+  }
+
+  @VisibleForTesting
+  Gauge<Integer> getConfigChangedAcrossApplicationAttempt() {
+    return configChangedAcrossApplicationAttempt;
+  }
+
+  @VisibleForTesting
+  Gauge<Integer> getNewDeployment() {
+    return newDeployment;
+  }
+
+  @VisibleForTesting
+  String getEnvProperty(String propertyName) {
+    return System.getenv(propertyName);
   }
 
   /**
