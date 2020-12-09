@@ -19,6 +19,7 @@
 
 package org.apache.samza.job.yarn;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.Set;
 import org.apache.hadoop.fs.FileStatus;
@@ -331,9 +332,26 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
   public void stopStreamProcessor(SamzaResource resource) {
     synchronized (lock) {
       Container container = allocatedResources.get(resource);
+      String containerId = resource.getContainerId();
+      String containerHost = resource.getHost();
+      /*
+       * 1. Stop the container through NMClient if the container was instantiated as part of NMClient lifecycle.
+       * 2. Stop the container through AMClient by release the assigned container if the container was from the previous
+       *    attempt and managed by the AM due to AM-HA
+       * 3. Ignore the request if the container associated with the resource isn't present in the book keeping.
+       */
       if (container != null) {
-        log.info("Stopping Container ID: {} on host: {}", resource.getContainerId(), resource.getHost());
+        log.info("Stopping Container ID: {} on host: {}", containerId, containerHost);
         this.nmClientAsync.stopContainerAsync(container.getId(), container.getNodeId());
+      } else {
+        YarnContainer yarnContainer = state.runningProcessors.get(getRunningProcessorId(containerId));
+        if (yarnContainer != null) {
+          log.info("Stopping container from previous attempt with Container ID: {} on host: {}",
+              containerId, containerHost);
+          amClient.releaseAssignedContainer(yarnContainer.id());
+        } else {
+          log.info("No container with Container ID: {} exists. Ignoring the stop request", containerId);
+        }
       }
     }
   }
@@ -745,5 +763,10 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       log.warn("Did not find the Processor ID for the start notification for Container ID: {}. " +
           "Ignoring notification.", containerId);
     }
+  }
+
+  @VisibleForTesting
+  ConcurrentHashMap<SamzaResource, Container> getAllocatedResources() {
+    return allocatedResources;
   }
 }

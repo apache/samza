@@ -29,6 +29,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMessage;
 import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.model.ContainerModel;
@@ -36,6 +37,7 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.serializers.Serde;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -44,7 +46,9 @@ import static org.apache.samza.coordinator.JobCoordinatorMetadataManager.CONTAIN
 import static org.apache.samza.coordinator.JobCoordinatorMetadataManager.CONTAINER_ID_PROPERTY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -144,6 +148,21 @@ public class TestJobCoordinatorMetadataManager {
   }
 
   @Test
+  public void testGenerateJobCoordinatorMetadataFailed() {
+    doThrow(new RuntimeException("Failed to generate epoch id"))
+        .when(jobCoordinatorMetadataManager).fetchEpochIdForJobCoordinator();
+
+    try {
+      jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(new JobModel(OLD_CONFIG, containerModelMap), OLD_CONFIG);
+      fail("Expected generate job coordinator metadata to throw exception");
+    } catch (Exception e) {
+      assertTrue("Expecting SamzaException to be thrown", e instanceof SamzaException);
+      assertEquals("Metadata generation failed count should be 1", 1,
+          jobCoordinatorMetadataManager.getMetadataGenerationFailedCount().getCount());
+    }
+  }
+
+  @Test
   public void testGenerateJobCoordinatorMetadataForRepeatability() {
     when(jobCoordinatorMetadataManager.getEnvProperty(CONTAINER_ID_PROPERTY))
         .thenReturn(OLD_CONTAINER_ID);
@@ -175,6 +194,24 @@ public class TestJobCoordinatorMetadataManager {
   }
 
   @Test
+  public void testReadJobCoordinatorMetadataFailed() {
+    JobCoordinatorMetadata jobCoordinatorMetadata =
+        new JobCoordinatorMetadata(NEW_EPOCH_ID, NEW_CONFIG_ID, NEW_JOB_MODEL_ID);
+    Serde<String> mockSerde = spy(new CoordinatorStreamValueSerde(SetJobCoordinatorMetadataMessage.TYPE));
+    doThrow(new RuntimeException("Failed to read coordinator stream"))
+        .when(mockSerde).fromBytes(any());
+
+    jobCoordinatorMetadataManager = spy(new JobCoordinatorMetadataManager(metadataStore,
+        ClusterType.YARN, new MetricsRegistryMap(), mockSerde));
+    jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(jobCoordinatorMetadata);
+
+    JobCoordinatorMetadata actualMetadata = jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
+    assertNull("Read failed should return null", actualMetadata);
+    assertEquals("Metadata read failed count should be 1", 1,
+        jobCoordinatorMetadataManager.getMetadataReadFailedCount().getCount());
+  }
+
+  @Test
   public void testReadWriteJobCoordinatorMetadata() {
     JobCoordinatorMetadata jobCoordinatorMetadata =
         new JobCoordinatorMetadata(NEW_EPOCH_ID, NEW_CONFIG_ID, NEW_JOB_MODEL_ID);
@@ -190,10 +227,17 @@ public class TestJobCoordinatorMetadataManager {
     jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(null);
   }
 
-  @Test (expected = SamzaException.class)
+  @Test
   public void testWriteJobCoordinatorMetadataBubblesException() {
-    doThrow(new RuntimeException("failed to write to coordinator stream"))
+    doThrow(new RuntimeException("Failed to write to coordinator stream"))
         .when(metadataStore).put(anyString(), any());
-    jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(mock(JobCoordinatorMetadata.class));
+    try {
+      jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(mock(JobCoordinatorMetadata.class));
+      fail("Expected write job coordinator metadata to throw exception");
+    } catch (Exception e) {
+      assertTrue("Expecting SamzaException to be thrown", e instanceof SamzaException);
+      assertEquals("Metadata write failed count should be 1", 1,
+          jobCoordinatorMetadataManager.getMetadataWriteFailedCount().getCount());
+    }
   }
 }

@@ -38,6 +38,7 @@ import org.apache.samza.container.ExecutionContainerIdManager;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.InputStreamsDiscoveredException;
+import org.apache.samza.coordinator.JobCoordinatorMetadataManager;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.PartitionChangeException;
@@ -47,6 +48,8 @@ import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStrea
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
+import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMessage;
+import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.JobModelUtil;
@@ -63,7 +66,6 @@ import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * Implements a JobCoordinator that is completely independent of the underlying cluster
@@ -170,6 +172,11 @@ public class ClusterBasedJobCoordinator {
    */
   private JmxServer jmxServer;
 
+  /*
+   * Denotes if the metadata changed across application attempts. Used only if job coordinator high availability is enabled
+   */
+  private boolean metadataChangedAcrossAttempts = false;
+
   /**
    * Variable to keep the callback exception
    */
@@ -208,11 +215,11 @@ public class ClusterBasedJobCoordinator {
     this.localityManager =
         new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE));
 
-    if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
+    if (isApplicationMasterHighAvailabilityEnabled()) {
       ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
           new NamespaceAwareCoordinatorStreamStore(metadataStore, SetExecutionEnvContainerIdMapping.TYPE));
-
       state.processorToExecutionId.putAll(executionContainerIdManager.readExecutionEnvironmentContainerIdMapping());
+      generateAndUpdateJobCoordinatorMetadata(jobModelManager.jobModel());
     }
     // build metastore for container placement messages
     containerPlacementMetadataStore = new ContainerPlacementMetadataStore(metadataStore);
@@ -260,8 +267,12 @@ public class ClusterBasedJobCoordinator {
       MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, this.metrics, config);
       metadataResourceUtil.createResources();
 
-      // fan out the startpoints if startpoints is enabled
-      if (new JobConfig(config).getStartpointEnabled()) {
+      /*
+       * We fanout startpoint if and only if
+       *  1. Startpoint is enabled in configuration
+       *  2. If AM HA is enabled, fanout only if startpoint enabled and job coordinator metadata changed
+       */
+      if (shouldFanoutStartpoint()) {
         StartpointManager startpointManager = createStartpointManager();
         startpointManager.start();
         try {
@@ -329,6 +340,24 @@ public class ClusterBasedJobCoordinator {
     }
     LOG.info("{} thread is dead issuing a shutdown", containerPlacementRequestAllocatorThread.getName());
     return false;
+  }
+
+  /**
+   * Generate the job coordinator metadata for current application attempt and checks for changes in the
+   * metadata from the previous attempt and writes the updates metadata to coordinator stream.
+   *
+   * @param jobModel job model used to generate the job coordinator metadata
+   */
+  @VisibleForTesting
+  void generateAndUpdateJobCoordinatorMetadata(JobModel jobModel) {
+    JobCoordinatorMetadataManager jobCoordinatorMetadataManager = createJobCoordinatorMetadataManager();
+
+    JobCoordinatorMetadata previousMetadata = jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
+    JobCoordinatorMetadata newMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel, config);
+    if (jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)) {
+      jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(newMetadata);
+      metadataChangedAcrossAttempts = true;
+    }
   }
 
   /**
@@ -456,6 +485,39 @@ public class ClusterBasedJobCoordinator {
 
   @VisibleForTesting
   ContainerProcessManager createContainerProcessManager() {
-    return new ContainerProcessManager(config, state, metrics, containerPlacementMetadataStore, localityManager);
+    return new ContainerProcessManager(config, state, metrics, containerPlacementMetadataStore, localityManager,
+        metadataChangedAcrossAttempts);
+  }
+
+  @VisibleForTesting
+  JobCoordinatorMetadataManager createJobCoordinatorMetadataManager() {
+    return new JobCoordinatorMetadataManager(new NamespaceAwareCoordinatorStreamStore(metadataStore,
+        SetJobCoordinatorMetadataMessage.TYPE), JobCoordinatorMetadataManager.ClusterType.YARN, metrics);
+  }
+
+  @VisibleForTesting
+  boolean isApplicationMasterHighAvailabilityEnabled() {
+    return new JobConfig(config).getApplicationMasterHighAvailabilityEnabled();
+  }
+
+  @VisibleForTesting
+  boolean isMetadataChangedAcrossAttempts() {
+    return metadataChangedAcrossAttempts;
+  }
+
+  /**
+   * We only fanout startpoint if and only if
+   *  1. Startpoint is enabled
+   *  2. If AM HA is enabled, fanout only if startpoint enabled and job coordinator metadata changed
+   *
+   * @return true if it satisfies above conditions, false otherwise
+   */
+  @VisibleForTesting
+  boolean shouldFanoutStartpoint() {
+    JobConfig jobConfig = new JobConfig(config);
+    boolean startpointEnabled = jobConfig.getStartpointEnabled();
+
+    return isApplicationMasterHighAvailabilityEnabled() ?
+        startpointEnabled && isMetadataChangedAcrossAttempts() : startpointEnabled;
   }
 }
