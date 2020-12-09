@@ -208,12 +208,14 @@ public class TestYarnClusterResourceManager {
   @Test
   public void testStopStreamProcessorForContainerFromPreviousAttempt() {
     String containerId = "Yarn_Container_id_0";
+    String processorId = "Container_id_0";
     YarnContainer runningYarnContainer = mock(YarnContainer.class);
     ContainerId previousRunningContainerId = mock(ContainerId.class);
     YarnAppState yarnAppState = Mockito.spy(new YarnAppState(0, mock(ContainerId.class), "host", 8080, 8081));
 
-    yarnAppState.runningProcessors.put(containerId, runningYarnContainer);
+    yarnAppState.runningProcessors.put(processorId, runningYarnContainer);
     when(runningYarnContainer.id()).thenReturn(previousRunningContainerId);
+    when(previousRunningContainerId.toString()).thenReturn(containerId);
 
     YarnClusterResourceManager yarnClusterResourceManager =
         new YarnClusterResourceManager(asyncClient, asyncNMClient, callback, yarnAppState, lifecycle, service, metrics,

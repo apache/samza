@@ -283,12 +283,13 @@ public class TestContainerProcessManager {
     Map<String, String> configMap = new HashMap<>(configVals);
     configMap.put(JobConfig.YARN_AM_HIGH_AVAILABILITY_ENABLED, "true");
     Config conf = new MapConfig(configMap);
+    SamzaResource samzaResource = new SamzaResource(1, 1024, "host", "0");
 
     SamzaApplicationState state = new SamzaApplicationState(getJobModelManager(2));
-    state.runningProcessors.put("0", new SamzaResource(1, 1024, "host", "0"));
+    state.runningProcessors.put("0", samzaResource);
 
     MockClusterResourceManagerCallback callback = new MockClusterResourceManagerCallback();
-    ClusterResourceManager clusterResourceManager = new MockClusterResourceManager(callback, state);
+    ClusterResourceManager clusterResourceManager = spy(new MockClusterResourceManager(callback, state));
     ClusterManagerConfig clusterManagerConfig = spy(new ClusterManagerConfig(conf));
     ContainerManager containerManager =
         buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
@@ -318,6 +319,7 @@ public class TestContainerProcessManager {
       Assert.fail("timed out waiting for the latch to expire");
     }
 
+    verify(clusterResourceManager, times(1)).stopStreamProcessor(samzaResource);
     assertEquals("CPM should stop the running container", 1, callback.resourceStatuses.size());
 
     SamzaResourceStatus actualResourceStatus = callback.resourceStatuses.get(0);

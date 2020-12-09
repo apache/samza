@@ -219,7 +219,8 @@ public class TestClusterBasedJobCoordinator {
      * with job coordinator metadata manager
      */
     clusterBasedJobCoordinator.generateAndUpdateJobCoordinatorMetadata(mockJobModel);
-    assertFalse("JC metadata should remain unchanged", clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts());
+    assertFalse("JC metadata changed should remain unchanged",
+        clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts());
     verify(jobCoordinatorMetadataManager, times(0)).writeJobCoordinatorMetadata(any());
 
     /*
@@ -227,7 +228,7 @@ public class TestClusterBasedJobCoordinator {
      */
     when(jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)).thenReturn(true);
     clusterBasedJobCoordinator.generateAndUpdateJobCoordinatorMetadata(mockJobModel);
-    assertTrue("JC metadata should be true", clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts());
+    assertTrue("JC metadata changed should be true", clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts());
     verify(jobCoordinatorMetadataManager, times(1)).writeJobCoordinatorMetadata(newMetadata);
   }
 }
