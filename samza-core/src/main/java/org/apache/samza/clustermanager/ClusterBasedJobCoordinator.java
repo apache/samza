@@ -268,9 +268,9 @@ public class ClusterBasedJobCoordinator {
       metadataResourceUtil.createResources();
 
       /*
-       * We fan out startpoint if and only if
+       * We fanout startpoint if and only if
        *  1. Startpoint is enabled in configuration
-       *  2. If AM HA is enabled, fan out only if metadata changed
+       *  2. If AM HA is enabled, fanout only if startpoint enabled and job coordinator metadata changed
        */
       if (shouldFanoutStartpoint()) {
         StartpointManager startpointManager = createStartpointManager();
@@ -508,7 +508,7 @@ public class ClusterBasedJobCoordinator {
   /**
    * We only fanout startpoint if and only if
    *  1. Startpoint is enabled
-   *  2. If AM HA is enabled, fanout only if job coordinator metadata also changed
+   *  2. If AM HA is enabled, fanout only if startpoint enabled and job coordinator metadata changed
    *
    * @return true if it satisfies above conditions, false otherwise
    */
