@@ -215,7 +215,7 @@ public class ClusterBasedJobCoordinator {
     this.localityManager =
         new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE));
 
-    if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
+    if (isApplicationMasterHighAvailabilityEnabled()) {
       ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
           new NamespaceAwareCoordinatorStreamStore(metadataStore, SetExecutionEnvContainerIdMapping.TYPE));
       state.processorToExecutionId.putAll(executionContainerIdManager.readExecutionEnvironmentContainerIdMapping());
@@ -267,9 +267,12 @@ public class ClusterBasedJobCoordinator {
       MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, this.metrics, config);
       metadataResourceUtil.createResources();
 
-      // fan out the startpoints if startpoints is enabled and if the metadata changed across attempts.
-      // the metadata changed should be false and only get evaluated if job coordinator high availability is enabled.
-      if (new JobConfig(config).getStartpointEnabled() && !metadataChangedAcrossAttempts) {
+      /*
+       * We fan out startpoint if and only if
+       *  1. Startpoint is enabled in configuration
+       *  2. If AM HA is enabled, fan out only if metadata changed
+       */
+      if (shouldFanoutStartpoint()) {
         StartpointManager startpointManager = createStartpointManager();
         startpointManager.start();
         try {
@@ -493,7 +496,28 @@ public class ClusterBasedJobCoordinator {
   }
 
   @VisibleForTesting
+  boolean isApplicationMasterHighAvailabilityEnabled() {
+    return new JobConfig(config).getApplicationMasterHighAvailabilityEnabled();
+  }
+
+  @VisibleForTesting
   boolean isMetadataChangedAcrossAttempts() {
     return metadataChangedAcrossAttempts;
+  }
+
+  /**
+   * We only fanout startpoint if and only if
+   *  1. Startpoint is enabled
+   *  2. If AM HA is enabled, fanout only if job coordinator metadata also changed
+   *
+   * @return true if it satisfies above conditions, false otherwise
+   */
+  @VisibleForTesting
+  boolean shouldFanoutStartpoint() {
+    JobConfig jobConfig = new JobConfig(config);
+    boolean startpointEnabled = jobConfig.getStartpointEnabled();
+
+    return isApplicationMasterHighAvailabilityEnabled() ?
+        startpointEnabled && isMetadataChangedAcrossAttempts() : startpointEnabled;
   }
 }
