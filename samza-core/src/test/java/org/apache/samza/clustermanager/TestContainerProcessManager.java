@@ -145,7 +145,7 @@ public class TestContainerProcessManager {
     when(mockLocalityManager.readLocality())
         .thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("0", "host1"))));
     ContainerManager containerManager =
-        buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, faultDomainManager, true, false, mockLocalityManager);
+        buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, true, false, mockLocalityManager, faultDomainManager);
     ContainerProcessManager cpm =
         buildContainerProcessManager(new ClusterManagerConfig(new MapConfig(conf)), state, clusterResourceManager, Optional.empty());
 
@@ -169,7 +169,6 @@ public class TestContainerProcessManager {
         state,
         new MetricsRegistryMap(),
         clusterResourceManager,
-        faultDomainManager,
         Optional.empty(),
         containerManager,
         mockLocalityManager
@@ -503,8 +502,8 @@ public class TestContainerProcessManager {
     }
 
     ContainerManager containerManager =
-        buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, faultDomainManager,
-            clusterManagerConfig.getHostAffinityEnabled(), false, mockLocalityManager);
+        buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+            clusterManagerConfig.getHostAffinityEnabled(), false, mockLocalityManager, faultDomainManager);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -659,7 +658,7 @@ public class TestContainerProcessManager {
     when(mockLocalityManager.readLocality())
         .thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("1", "host1"))));
     ContainerManager containerManager = buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
-            faultDomainManager, Boolean.valueOf(config.get(ClusterManagerConfig.HOST_AFFINITY_ENABLED)), false, mockLocalityManager);
+            Boolean.valueOf(config.get(ClusterManagerConfig.HOST_AFFINITY_ENABLED)), false, mockLocalityManager, faultDomainManager);
 
     MockContainerAllocatorWithoutHostAffinity allocator = new MockContainerAllocatorWithoutHostAffinity(
         clusterResourceManager,
@@ -669,7 +668,7 @@ public class TestContainerProcessManager {
 
     ContainerProcessManager manager =
         new ContainerProcessManager(new ClusterManagerConfig(config), state, new MetricsRegistryMap(), clusterResourceManager,
-                faultDomainManager, Optional.of(allocator), containerManager, mockLocalityManager);
+                Optional.of(allocator), containerManager, mockLocalityManager);
 
     manager.start();
     SamzaResource resource = new SamzaResource(1, 1024, "host1", "resource-1");
@@ -697,7 +696,7 @@ public class TestContainerProcessManager {
     when(mockLocalityManager.readLocality())
         .thenReturn(new LocalityModel(ImmutableMap.of("0", new ProcessorLocality("0", "host1"), "1", new ProcessorLocality("1", "host2"))));
     ContainerManager containerManager = buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
-            faultDomainManager, Boolean.parseBoolean(config.get(ClusterManagerConfig.HOST_AFFINITY_ENABLED)), false, mockLocalityManager);
+            Boolean.parseBoolean(config.get(ClusterManagerConfig.HOST_AFFINITY_ENABLED)), false, mockLocalityManager, faultDomainManager);
 
     MockContainerAllocatorWithHostAffinity allocator = new MockContainerAllocatorWithHostAffinity(
         clusterResourceManager,
@@ -934,12 +933,12 @@ public class TestContainerProcessManager {
     FaultDomainManager faultDomainManager = mock(FaultDomainManager.class);
     when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(new HashMap<>()));
     return buildContainerManager(containerPlacementMetadataStore, samzaApplicationState, clusterResourceManager,
-            faultDomainManager, hostAffinityEnabled, standByEnabled, mockLocalityManager);
+            hostAffinityEnabled, standByEnabled, mockLocalityManager, faultDomainManager);
   }
 
   private ContainerManager buildContainerManager(ContainerPlacementMetadataStore containerPlacementMetadataStore,
-      SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager, FaultDomainManager faultDomainManager,
-      boolean hostAffinityEnabled, boolean standByEnabled, LocalityManager localityManager) {
+      SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager, boolean hostAffinityEnabled,
+      boolean standByEnabled, LocalityManager localityManager, FaultDomainManager faultDomainManager) {
     return new ContainerManager(containerPlacementMetadataStore, samzaApplicationState, clusterResourceManager,
             faultDomainManager, hostAffinityEnabled, standByEnabled, localityManager);
   }
@@ -953,8 +952,8 @@ public class TestContainerProcessManager {
 
   private ContainerProcessManager buildContainerProcessManager(ClusterManagerConfig clusterManagerConfig, SamzaApplicationState state,
       ClusterResourceManager clusterResourceManager, FaultDomainManager faultDomainManager, Optional<ContainerAllocator> allocator, LocalityManager localityManager) {
-    return new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(), clusterResourceManager, faultDomainManager,
-        allocator, buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, faultDomainManager,
-        clusterManagerConfig.getHostAffinityEnabled(), false, localityManager), localityManager);
+    return new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(), clusterResourceManager,
+        allocator, buildContainerManager(containerPlacementMetadataStore, state, clusterResourceManager,
+        clusterManagerConfig.getHostAffinityEnabled(), false, localityManager, faultDomainManager), localityManager);
   }
 }

@@ -151,7 +151,7 @@ public class TestContainerPlacementActions {
     containerManager = spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, faultDomainManager, true, false, localityManager));
     allocatorWithHostAffinity = new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     cpm = new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
-            clusterResourceManager, faultDomainManager, Optional.of(allocatorWithHostAffinity), containerManager, localityManager);
+            clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager, localityManager);
   }
 
   @After
@@ -178,7 +178,7 @@ public class TestContainerPlacementActions {
     containerManager = spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, faultDomainManager, true, true, mockLocalityManager));
     allocatorWithHostAffinity = new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     cpm = new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
-        clusterResourceManager, faultDomainManager, Optional.of(allocatorWithHostAffinity), containerManager, mockLocalityManager);
+        clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager, mockLocalityManager);
   }
 
   @Test(timeout = 10000)
@@ -559,7 +559,7 @@ public class TestContainerPlacementActions {
     containerManager = spy(new ContainerManager(containerPlacementMetadataStore, state, clusterResourceManager, faultDomainManager, true, false, localityManager));
     allocatorWithHostAffinity = new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     cpm = new ContainerProcessManager(clusterManagerConfig, state, new MetricsRegistryMap(),
-        clusterResourceManager, faultDomainManager, Optional.of(allocatorWithHostAffinity), containerManager, localityManager);
+        clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager, localityManager);
 
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {
@@ -678,7 +678,7 @@ public class TestContainerPlacementActions {
 
     ContainerProcessManager cpm = new ContainerProcessManager(
         new ClusterManagerConfig(new MapConfig(getConfig(), getConfigWithHostAffinityAndRetries(false, 1, true))), state,
-        new MetricsRegistryMap(), clusterResourceManager, faultDomainManager, Optional.of(allocatorWithoutHostAffinity), containerManager, localityManager);
+        new MetricsRegistryMap(), clusterResourceManager, Optional.of(allocatorWithoutHostAffinity), containerManager, localityManager);
 
     // Mimic Cluster Manager returning any request
     doAnswer(new Answer<Void>() {
@@ -812,7 +812,7 @@ public class TestContainerPlacementActions {
         new MockContainerAllocatorWithHostAffinity(clusterResourceManager, config, state, containerManager);
     ContainerProcessManager cpm = new ContainerProcessManager(
         new ClusterManagerConfig(new MapConfig(getConfig(), getConfigWithHostAffinityAndRetries(true, 1, true))), state,
-        new MetricsRegistryMap(), clusterResourceManager, faultDomainManager, Optional.of(allocatorWithHostAffinity), containerManager, localityManager);
+        new MetricsRegistryMap(), clusterResourceManager, Optional.of(allocatorWithHostAffinity), containerManager, localityManager);
 
     doAnswer(new Answer<Void>() {
       public Void answer(InvocationOnMock invocation) {

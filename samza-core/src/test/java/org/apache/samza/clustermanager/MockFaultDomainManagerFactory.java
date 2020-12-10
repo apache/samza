@@ -18,10 +18,13 @@
  */
 package org.apache.samza.clustermanager;
 
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
+
 public class MockFaultDomainManagerFactory implements FaultDomainManagerFactory {
 
   @Override
-  public FaultDomainManager getFaultDomainManager() {
+  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry) {
     return new MockFaultDomainManager();
   }
 

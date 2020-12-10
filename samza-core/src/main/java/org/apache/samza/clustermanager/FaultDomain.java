@@ -18,12 +18,24 @@
  */
 package org.apache.samza.clustermanager;
 
+import org.apache.samza.SamzaException;
+
+/**
+ * A fault domain is a set of hardware components that share a single point of failure.
+ * This class identifies the type (ex: rack) and ID (ex: rack ID) of the fault domain in question.
+ * A host can belong to multiple fault domains.
+ * A fault domain may have greater than or equal to 1 hosts.
+ * A cluster can comprise of hosts on multiple fault domains.
+ */
 public class FaultDomain {
 
-  FaultDomainType type;
-  String id;
+  private final FaultDomainType type;
+  private final String id;
 
   public FaultDomain(FaultDomainType type, String id) {
+    if (type == null || id == null) {
+      throw new SamzaException("Fault domain type and ID cannot be null.");
+    }
     this.type = type;
     this.id = id;
   }

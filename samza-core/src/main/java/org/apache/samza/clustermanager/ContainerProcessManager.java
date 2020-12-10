@@ -115,11 +115,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   private final ClusterResourceManager clusterResourceManager;
 
   /**
-   * An interface to get information about nodes and the fault domains they reside on.
-   */
-  private final FaultDomainManager faultDomainManager;
-
-  /**
    * If there are more than job.container.retry.count failures of a container within a job.container.retry.window period,
    * then the ContainerProcessManager will indicate to the ClusterBasedJobCoordinator that the job should shutdown.
    */
@@ -153,7 +148,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
 
     FaultDomainManagerFactory faultDomainManagerFactory = getFaultDomainManagerFactory(clusterManagerConfig);
-    this.faultDomainManager = checkNotNull(faultDomainManagerFactory.getFaultDomainManager());
+    FaultDomainManager faultDomainManager = checkNotNull(faultDomainManagerFactory.getFaultDomainManager(config, registry));
 
     // Initialize metrics
     this.containerProcessManagerMetrics = new ContainerProcessManagerMetrics(config, state, registry);
@@ -191,7 +186,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       SamzaApplicationState state,
       MetricsRegistryMap registry,
       ClusterResourceManager resourceManager,
-      FaultDomainManager faultDomainManager,
       Optional<ContainerAllocator> allocator,
       ContainerManager containerManager,
       LocalityManager localityManager) {
@@ -202,7 +196,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.hostAffinityEnabled = clusterManagerConfig.getHostAffinityEnabled();
 
     this.clusterResourceManager = resourceManager;
-    this.faultDomainManager = faultDomainManager;
     this.containerManager = containerManager;
     this.diagnosticsManager = Option.empty();
     this.localityManager = localityManager;

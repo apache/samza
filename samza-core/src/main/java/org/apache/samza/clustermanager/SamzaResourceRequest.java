@@ -84,7 +84,8 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     this.processorId = processorId;
     this.requestTimestamp = requestTimestamp;
     this.faultDomains = new HashSet<>();
-    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}, and the following list of fault domains: {}",
+            this.processorId, this.preferredHost, this.requestTimestamp, this.requestId, this.faultDomains);
   }
 
   public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp, Set<FaultDomain> faultDomains) {
@@ -94,8 +95,13 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     this.requestId = UUID.randomUUID().toString();
     this.processorId = processorId;
     this.requestTimestamp = requestTimestamp;
-    this.faultDomains = faultDomains;
-    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
+    if (faultDomains == null) {
+      this.faultDomains = new HashSet<>();
+    } else {
+      this.faultDomains = faultDomains;
+    }
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {} and the following list of fault domains: {}",
+            this.processorId, this.preferredHost, this.requestTimestamp, this.requestId, this.faultDomains.toString());
   }
 
   public String getProcessorId() {
@@ -135,16 +141,8 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
             ", requestId='" + requestId + '\'' +
             ", processorId=" + processorId +
             ", requestTimestampMs=" + requestTimestamp +
-            ", faultDomains=" + convertFaultDomainSetToString() +
+            ", faultDomains=" + faultDomains.toString() +
             '}';
-  }
-
-  private String convertFaultDomainSetToString() {
-    StringBuilder faultDomainSb = new StringBuilder();
-    faultDomains.forEach(faultDomain -> {
-      faultDomainSb.append(faultDomain.toString());
-    });
-    return faultDomainSb.toString();
   }
 
     /**

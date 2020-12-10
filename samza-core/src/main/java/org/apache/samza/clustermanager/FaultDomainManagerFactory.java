@@ -18,11 +18,16 @@
  */
 package org.apache.samza.clustermanager;
 
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
+
 /**
  * A factory to build a {@link FaultDomainManager}.
  */
+@InterfaceStability.Unstable
 public interface FaultDomainManagerFactory {
 
-  public FaultDomainManager getFaultDomainManager();
+  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry);
 
 }

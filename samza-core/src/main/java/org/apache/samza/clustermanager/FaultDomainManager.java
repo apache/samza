@@ -18,28 +18,33 @@
  */
 package org.apache.samza.clustermanager;
 
-import java.util.Map;
 import java.util.Set;
+import org.apache.samza.annotation.InterfaceStability;
 
 /**
- * This interface gets fault domain information of different nodes from the cluster manager (Yarn/Kubernetes/etc.).
+ *  This interface gets fault domain information of all hosts that are running in the cluster,
+ *  from the cluster manager (Yarn/Kubernetes/etc.).
  *  It also provides other functionality like exposing all the available fault domains, checking if two hosts belong to
- *  the same fault domain, and getting the valid fault domains that a standby container can be placed on.
+ *  the same fault domain, and getting the valid fault domains that a container can be placed on (for ex: based on standby constraints).
+ *  The host to fault domain map used here will always be cached and only updated in case the AM dies or an active
+ *  container is assigned to a host which is not in the map.
+ *  This is not thread-safe.
  */
+@InterfaceStability.Unstable
 public interface FaultDomainManager {
 
   /**
-   * This method returns all the fault domain values in a cluster for RUNNING nodes.
+   * This method returns all the last cached fault domain values in a cluster, for all hosts that are healthy, up and running.
    * @return a set of {@link FaultDomain}s
    */
   Set<FaultDomain> getAllFaultDomains();
 
   /**
-   * This method returns the fault domain a particular node resides on.
+   * This method returns the fault domain a particular host resides on based on the internal cache.
    * @param host the host
    * @return the {@link FaultDomain}
    */
-  FaultDomain getFaultDomainOfNode(String host);
+  Set<FaultDomain> getFaultDomainOfHost(String host);
 
   /**
    * This method checks if the two hostnames provided reside on the same fault domain.
@@ -48,24 +53,5 @@ public interface FaultDomainManager {
    * @return true if the hosts exist on the same fault domain
    */
   boolean checkHostsOnSameFaultDomain(String host1, String host2);
-
-  /**
-   * This method gets the set of fault domains that the given active container's corresponding standby can be placed on.
-   * @param host The hostname of the active container
-   * @return the set of fault domains on which this active container's standby can be scheduled
-   */
-  Set<FaultDomain> getAllowedFaultDomainsForSchedulingContainer(String host);
-
-  /**
-   * This method returns the cached map of nodes to fault domains.
-   * @return stored map of node to the fault domain it resides on
-   */
-  Map<String, FaultDomain> getNodeToFaultDomainMap();
-
-  /**
-   * This method computes the node to fault domain map from the cluster resource manager.
-   * @return map of node to the fault domain it resides on
-   */
-  Map<String, FaultDomain> computeNodeToFaultDomainMap();
 
 }

@@ -20,13 +20,15 @@ package org.apache.samza.job.yarn;
 
 import org.apache.samza.clustermanager.FaultDomainManager;
 import org.apache.samza.clustermanager.FaultDomainManagerFactory;
+import org.apache.samza.config.Config;
+import org.apache.samza.metrics.MetricsRegistry;
 
 /**
- * A factory to build a {@link RackManager}.
+ * A factory to build a {@link YarnFaultDomainManager}.
  */
-public class RackManagerFactory implements FaultDomainManagerFactory {
+public class YarnFaultDomainManagerFactory implements FaultDomainManagerFactory {
   @Override
-  public FaultDomainManager getFaultDomainManager() {
-    return new RackManager();
+  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry) {
+    return new YarnFaultDomainManager();
   }
 }

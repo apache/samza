@@ -18,11 +18,11 @@
  */
 package org.apache.samza.job.yarn;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.NodeState;
@@ -32,31 +32,35 @@ import org.apache.samza.clustermanager.FaultDomain;
 import org.apache.samza.clustermanager.FaultDomainManager;
 import org.apache.samza.clustermanager.FaultDomainType;
 
-public class RackManager implements FaultDomainManager {
+/**
+ * This class functionality works with the assumption that the job.standbytasks.replication.factor is 2.
+ * For values greater than 2, it is possible that the standby containers could be on the same rack as the active, or the already existing standby.
+ */
+public class YarnFaultDomainManager implements FaultDomainManager {
 
-  private final Map<String, FaultDomain> nodeToRackMap;
+  private final Multimap<String, FaultDomain> hostToRackMap;
 
-  public RackManager() {
-        this.nodeToRackMap = computeNodeToFaultDomainMap();
-    }
+  public YarnFaultDomainManager() {
+    this.hostToRackMap = computeHostToFaultDomainMap();
+  }
 
   /**
-   * This method returns all the rack values in a cluster for RUNNING nodes.
+   * This method returns all the last cached rack values in a cluster, for all hosts that are healthy, up and running.
    * @return a set of {@link FaultDomain}s
    */
   @Override
   public Set<FaultDomain> getAllFaultDomains() {
-    return new HashSet<>(nodeToRackMap.values());
+    return new HashSet<>(hostToRackMap.values());
   }
 
   /**
-   * This method returns the rack a particular node resides on.
+   * This method returns all the racks a particular host resides on based on the internal cache.
    * @param host the host
    * @return the {@link FaultDomain}
    */
   @Override
-  public FaultDomain getFaultDomainOfNode(String host) {
-    return nodeToRackMap.get(host);
+  public Set<FaultDomain> getFaultDomainOfHost(String host) {
+    return new HashSet<>(hostToRackMap.get(host));
   }
 
   /**
@@ -67,50 +71,26 @@ public class RackManager implements FaultDomainManager {
    */
   @Override
   public boolean checkHostsOnSameFaultDomain(String host1, String host2) {
-    return nodeToRackMap.get(host1).equals(nodeToRackMap.get(host2));
+    return hostToRackMap.get(host1).equals(hostToRackMap.get(host2));
   }
 
   /**
-   * This method gets the set of racks that the given active container's corresponding standby can be placed on.
-   * @param host The hostname of the active container
-   * @return the set of racks on which this active container's standby can be scheduled
+   * This method computes the host to rack map from Yarn.
+   * Only the hosts that are running in the cluster will be a part of this map.
+   * @return map of the host and the rack it resides on
    */
-  @Override
-  public Set<FaultDomain> getAllowedFaultDomainsForSchedulingContainer(String host) {
-    FaultDomain activeContainerRack = nodeToRackMap.get(host);
-    Set<FaultDomain> standbyRacks = new HashSet<>(nodeToRackMap.values());
-    standbyRacks.remove(activeContainerRack);
-    return standbyRacks;
-  }
-
-  /**
-   * This method returns the cached map of nodes to racks.
-   * @return stored map of node to the rack it resides on
-   */
-  @Override
-  public Map<String, FaultDomain> getNodeToFaultDomainMap() {
-    return nodeToRackMap;
-  }
-
-  /**
-   * This method gets the node to rack (fault domain for Yarn) mapping from Yarn for all running nodes.
-   * @return A map of hostname to rack name.
-   */
-  @Override
-  public Map<String, FaultDomain> computeNodeToFaultDomainMap() {
+  private Multimap<String, FaultDomain> computeHostToFaultDomainMap() {
     YarnClientImpl yarnClient = new YarnClientImpl();
-    Map<String, FaultDomain> nodeToRackMap = new HashMap<>();
+    Multimap<String, FaultDomain> hostToRackMap = HashMultimap.create();
     try {
       List<NodeReport> nodeReport = yarnClient.getNodeReports(NodeState.RUNNING);
       nodeReport.forEach(report -> {
         FaultDomain rack = new FaultDomain(FaultDomainType.RACK, report.getRackName());
-        nodeToRackMap.put(report.getNodeId().getHost(), rack);
+        hostToRackMap.put(report.getNodeId().getHost(), rack);
       });
-    } catch (YarnException e) {
-      e.printStackTrace();
-    } catch (IOException e) {
+    } catch (YarnException | IOException e) {
       e.printStackTrace();
     }
-    return nodeToRackMap;
+    return hostToRackMap;
   }
 }

@@ -90,6 +90,7 @@ public class ContainerManager {
       SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager,
       FaultDomainManager faultDomainManager, boolean hostAffinityEnabled, boolean standByEnabled, LocalityManager localityManager) {
     Preconditions.checkNotNull(localityManager, "Locality manager cannot be null");
+    Preconditions.checkNotNull(faultDomainManager, "Fault domain manager cannot be null");
     this.samzaApplicationState = samzaApplicationState;
     this.clusterResourceManager = clusterResourceManager;
     this.actions = new ConcurrentHashMap<>();
