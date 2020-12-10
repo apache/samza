@@ -28,13 +28,16 @@ import org.apache.samza.util.Clock;
 
 
 public interface StateBackendFactory {
-  TaskStorageBackupManager getBackupManager(TaskModel taskModel,
-      Map<String, StorageEngine> taskStores,
-      Config config);
-
-  TaskRestoreManager getRestoreManager(TaskModel taskModel,
-      JobModel jobModel,
+  TaskBackupManager getBackupManager(JobModel jobModel,
       ContainerModel containerModel,
+      TaskModel taskModel,
+      Map<String, StorageEngine> taskStores,
+      Config config,
+      Clock clock);
+
+  TaskRestoreManager getRestoreManager(JobModel jobModel,
+      ContainerModel containerModel,
+      TaskModel taskModel,
       Map<String, StorageEngine> taskStores,
       Config config,
       Clock clock);

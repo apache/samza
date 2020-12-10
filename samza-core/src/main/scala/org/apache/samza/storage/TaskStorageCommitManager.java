@@ -39,9 +39,9 @@ public class TaskStorageCommitManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(TaskStorageCommitManager.class);
   private static final long COMMIT_TIMEOUT_MS = 30000;
-  private final TaskStorageBackupManager storageBackupManager;
+  private final TaskBackupManager storageBackupManager;
 
-  public TaskStorageCommitManager(TaskStorageBackupManager storageBackupManager) {
+  public TaskStorageCommitManager(TaskBackupManager storageBackupManager) {
     this.storageBackupManager = storageBackupManager;
   }
 

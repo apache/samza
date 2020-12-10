@@ -19,14 +19,10 @@
 
 package org.apache.samza.checkpoint;
 
-import org.apache.samza.storage.StateBackendFactory;
-
 
 /**
  * Interface for State Checkpoint Marker for all TaskStorageBackupManagers
  */
 public interface StateCheckpointMarker {
   String getFactoryName();
-
-  StateBackendFactory getFactory();
 }

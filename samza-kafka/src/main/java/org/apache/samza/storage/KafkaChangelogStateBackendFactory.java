@@ -60,8 +60,8 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   }
 
   @Override
-  public TaskStorageBackupManager getBackupManager(TaskModel taskModel, Map<String, StorageEngine> taskStores,
-      Config config) {
+  public TaskBackupManager getBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
+      Map<String, StorageEngine> taskStores, Config config, Clock clock) {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     StorageConfig storageConfig = new StorageConfig(config);
     Map<String, SystemStream> storeChangelogs = storageConfig.getStoreChangelogs();
@@ -70,18 +70,17 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
     File loggedStoreBaseDir = SamzaContainer.getLoggedStorageBaseDir(new JobConfig(config), defaultFileDir);
 
     if (new TaskConfig(config).getTransactionalStateCheckpointEnabled()) {
-      return new KafkaTransactionalStateTaskStorageBackupManager(taskModel.getTaskName(),
+      return new KafkaTransactionalStateTaskBackupManager(taskModel.getTaskName(),
           taskStores, storeChangelogs, systemAdmins, loggedStoreBaseDir, taskModel.getChangelogPartition(),
           taskModel.getTaskMode(), new StorageManagerUtil());
     } else {
-      return new KafkaNonTransactionalStateTaskStorageBackupManager(taskModel.getTaskName(),
+      return new KafkaNonTransactionalStateTaskBackupManager(taskModel.getTaskName(),
           taskStores, storeChangelogs, systemAdmins, loggedStoreBaseDir, taskModel.getChangelogPartition());
     }
   }
 
   @Override
-  public TaskRestoreManager getRestoreManager(TaskModel taskModel, JobModel jobModel, ContainerModel containerModel,
-      java.util.Map<String, StorageEngine> taskStores, Config config, Clock clock) {
+  public TaskRestoreManager getRestoreManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel, Map<String, StorageEngine> taskStores, Config config, Clock clock) {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     Map<String, SystemStream> storeChangelogs = new StorageConfig(config).getStoreChangelogs();
     Map<String, SystemStream> filteredStoreChangelogs = ContainerStorageManager

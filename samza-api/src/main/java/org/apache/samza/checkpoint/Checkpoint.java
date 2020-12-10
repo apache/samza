@@ -97,7 +97,7 @@ public class Checkpoint {
 
   @Override
   public int hashCode() {
-    return inputOffsets != null ? inputOffsets.hashCode() : 0;
+    return Objects.hash(checkpointId, inputOffsets, stateCheckpoints);
   }
 
   @Override

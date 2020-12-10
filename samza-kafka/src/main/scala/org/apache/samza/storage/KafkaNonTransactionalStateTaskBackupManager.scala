@@ -39,13 +39,13 @@ import scala.collection.mutable
 /**
  * Manage all the storage engines for a given task
  */
-class KafkaNonTransactionalStateTaskStorageBackupManager(
+class KafkaNonTransactionalStateTaskBackupManager(
   taskName: TaskName,
   taskStores: util.Map[String, StorageEngine],
   storeChangelogs: util.Map[String, SystemStream] = new util.HashMap[String, SystemStream](),
   systemAdmins: SystemAdmins,
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
-  partition: Partition) extends Logging with TaskStorageBackupManager {
+  partition: Partition) extends Logging with TaskBackupManager {
 
   private val storageManagerUtil = new StorageManagerUtil
   private val persistedStores = taskStores.asScala
@@ -70,7 +70,7 @@ class KafkaNonTransactionalStateTaskStorageBackupManager(
   override def cleanUp(checkpointId: CheckpointId): Unit = {}
 
   @VisibleForTesting
-  def stop() {
+  def close() {
     debug("Stopping stores.")
     taskStores.forEach((storeName: String, store: StorageEngine) => store.stop())
   }

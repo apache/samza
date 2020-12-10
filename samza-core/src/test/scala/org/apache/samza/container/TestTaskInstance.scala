@@ -30,7 +30,7 @@ import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.metrics.Counter
-import org.apache.samza.storage.{TaskStorageBackupManager, TaskStorageCommitManager}
+import org.apache.samza.storage.{TaskBackupManager, TaskStorageCommitManager}
 import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
@@ -70,7 +70,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   @Mock
   private var offsetManager: OffsetManager = null
   @Mock
-  private var taskStorageManager: TaskStorageBackupManager = null
+  private var taskStorageManager: TaskBackupManager = null
   @Mock
   private var taskTableManager: TableManager = null
   // not a mock; using MockTaskInstanceExceptionHandler

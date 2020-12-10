@@ -61,11 +61,6 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
   }
 
   @Override
-  public StateBackendFactory getFactory() {
-    return new KafkaChangelogStateBackendFactory();
-  }
-
-  @Override
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;

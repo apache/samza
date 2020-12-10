@@ -27,7 +27,7 @@ import org.apache.samza.checkpoint.StateCheckpointMarker;
 
 /**
  * <p>
- * TaskStorageBackupManager is the interface that must be implemented for
+ * TaskBackupManager is the interface that must be implemented for
  * any remote system that Samza persists its state to. The interface will be
  * evoked in the following way:
  * </p>
@@ -38,7 +38,12 @@ import org.apache.samza.checkpoint.StateCheckpointMarker;
  *   <li>Cleanup is only called after Upload and persistToFilesystem has successfully completed</li>
  * </ul>
  */
-public interface TaskStorageBackupManager {
+public interface TaskBackupManager {
+
+  /**
+   * Initiates the TaskBackupManagerIntance
+   */
+  default void init() {}
 
   /**
    * Commit operation that is synchronous to processing
@@ -71,6 +76,6 @@ public interface TaskStorageBackupManager {
   /**
    * Used for testing as a shutdown hook to cleanup any allocated resources
    */
-  void stop();
+  void close();
 
 }

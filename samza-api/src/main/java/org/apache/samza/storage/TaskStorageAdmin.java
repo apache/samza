@@ -22,4 +22,6 @@ package org.apache.samza.storage;
 public interface TaskStorageAdmin {
 
   void createResources();
+
+  void validateResources();
 }

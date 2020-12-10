@@ -42,7 +42,7 @@ public class KafkaStateChangelogOffset {
       throw new IllegalArgumentException("Invalid checkpointed changelog message: " + message);
     }
     String[] checkpointIdAndOffset = message.split(SEPARATOR);
-    if (checkpointIdAndOffset.length < 2 || checkpointIdAndOffset.length > 3) {
+    if (checkpointIdAndOffset.length != 2) {
       throw new IllegalArgumentException("Invalid checkpointed changelog offset: " + message);
     }
     CheckpointId checkpointId = CheckpointId.fromString(checkpointIdAndOffset[0]);
@@ -64,7 +64,7 @@ public class KafkaStateChangelogOffset {
 
   @Override
   public String toString() {
-    return String.format("%s%s%s%s%s", checkpointId, SEPARATOR, changelogOffset);
+    return String.format("%s%s%s", checkpointId, SEPARATOR, changelogOffset);
   }
 
   @Override

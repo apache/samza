@@ -21,9 +21,10 @@ package org.apache.samza.checkpoint;
 
 import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 
 
-public class RemoteStoreMetadata {
+public class BlobStoreCheckpointMarker implements StateCheckpointMarker {
   public static final String SEPARATOR = ";";
   // backwards compatibility for this unstable api
   private static final short PROTOCOL_VERSION = 0;
@@ -33,7 +34,7 @@ public class RemoteStoreMetadata {
   // timestamp of when the upload was completed
   private final long createdMillis;
 
-  public RemoteStoreMetadata(String blobId, long createdMillis) {
+  public BlobStoreCheckpointMarker(String blobId, long createdMillis) {
     this.blobId = blobId;
     this.createdMillis = createdMillis;
   }
@@ -50,19 +51,19 @@ public class RemoteStoreMetadata {
     return PROTOCOL_VERSION;
   }
 
-  public static RemoteStoreMetadata fromString(String message) {
+  public static BlobStoreCheckpointMarker fromString(String message) {
     if (StringUtils.isBlank(message)) {
       throw new IllegalArgumentException("Invalid remote store checkpoint message: " + message);
     }
     String[] parts = message.split(SEPARATOR);
     if (parts.length != 3) {
-      throw new IllegalArgumentException("Invalid checkpointed changelog offset: " + message);
+      throw new IllegalArgumentException("Invalid RemoteStore Metadata offset: " + message);
     }
     if (Short.parseShort(parts[2]) != PROTOCOL_VERSION) {
-      throw new IllegalArgumentException("Using different protocol versions fore RemoteStoreMetadata, expected "
+      throw new IllegalArgumentException("Using different protocol versions fore BlobStoreCheckpointMarker, expected "
           + PROTOCOL_VERSION + ", got " +  parts[2]);
     }
-    return new RemoteStoreMetadata(parts[0], Long.parseLong(parts[1]));
+    return new BlobStoreCheckpointMarker(parts[0], Long.parseLong(parts[1]));
   }
 
   @Override
@@ -74,7 +75,7 @@ public class RemoteStoreMetadata {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    RemoteStoreMetadata that = (RemoteStoreMetadata) o;
+    BlobStoreCheckpointMarker that = (BlobStoreCheckpointMarker) o;
     return Objects.equals(blobId, that.blobId) &&
         Objects.equals(createdMillis, that.createdMillis) &&
         Objects.equals(PROTOCOL_VERSION, that.getProtocolVersion());
@@ -83,5 +84,10 @@ public class RemoteStoreMetadata {
   @Override
   public int hashCode() {
     return Objects.hash(blobId, createdMillis, PROTOCOL_VERSION);
+  }
+
+  @Override
+  public String getFactoryName() {
+    throw new SamzaException("getFactoryName is not supported for BlobStoreCheckpointMarker");
   }
 }

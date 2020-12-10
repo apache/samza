@@ -46,9 +46,7 @@ public interface KeyValueStore<K, V> {
    * @param jobContext context of the job the KeyValueStore is in
    * @param externalContext any external store required for initialization
    */
-  default void init(ContainerContext containerContext, JobContext jobContext, ExternalContext externalContext) {
-    throw new UnsupportedOperationException("init() is not supported in " + this.getClass().getName());
-  }
+  default void init(ContainerContext containerContext, JobContext jobContext, ExternalContext externalContext) { }
 
   /**
    * Gets the value associated with the specified {@code key}.

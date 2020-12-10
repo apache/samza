@@ -20,7 +20,6 @@
 package org.apache.samza.checkpoint;
 
 import java.util.Objects;
-import org.apache.samza.storage.StateBackendFactory;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -44,11 +43,6 @@ public class TestStateCheckpointMarker implements StateCheckpointMarker {
 
   @Override
   public String getFactoryName() {
-    return null;
-  }
-
-  @Override
-  public StateBackendFactory getFactory() {
     return null;
   }
 

@@ -41,7 +41,7 @@ import scala.collection.JavaConverters._
 /**
  * Manage all the storage engines for a given task
  */
-class KafkaTransactionalStateTaskStorageBackupManager(
+class KafkaTransactionalStateTaskBackupManager(
   taskName: TaskName,
   taskStores: util.Map[String, StorageEngine],
   storeChangelogs: util.Map[String, SystemStream] = new util.HashMap[String, SystemStream](),
@@ -49,7 +49,7 @@ class KafkaTransactionalStateTaskStorageBackupManager(
   loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition,
   taskMode: TaskMode,
-  storageManagerUtil: StorageManagerUtil) extends Logging with TaskStorageBackupManager {
+  storageManagerUtil: StorageManagerUtil) extends Logging with TaskBackupManager {
 
   override def snapshot(checkpointId: CheckpointId): util.Map[String, StateCheckpointMarker] = {
     debug("Flushing stores.")
@@ -110,7 +110,7 @@ class KafkaTransactionalStateTaskStorageBackupManager(
   }
 
   @VisibleForTesting
-  def stop() {
+  def close() {
     debug("Stopping stores.")
     taskStores.forEach((storeName: String, store: StorageEngine) => store.stop())
   }

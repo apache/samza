@@ -44,7 +44,7 @@ public interface StorageEngine {
   /**
    * Initiate storage engine
    */
-  default void init(ContainerContext containerContext, JobContext jobContext, ExternalContext externalContext) { };
+  default void init(ExternalContext externalContext, JobContext jobContext, ContainerContext containerContext) { };
 
   /**
    * Restore the content of this StorageEngine from the changelog. Messages are

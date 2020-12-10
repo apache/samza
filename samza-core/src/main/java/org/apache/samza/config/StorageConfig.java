@@ -250,7 +250,7 @@ public class StorageConfig extends MapConfig {
     return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
   }
 
-  public String getStateRestoreBackupManager() {
+  public String getStateBackupManager() {
     return get(STATE_BACKUP_MANAGER_FACTORY, DEFAULT_STATE_BACKUP_MANAGER_FACTORY);
   }
 

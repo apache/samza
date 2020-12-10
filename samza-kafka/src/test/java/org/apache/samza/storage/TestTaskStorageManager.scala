@@ -58,7 +58,7 @@ import scala.collection.mutable
   * @param offsetFileName the name of the offset file.
   */
 @RunWith(value = classOf[Parameterized])
-class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: String) extends MockitoSugar {
+class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) extends MockitoSugar {
 
   val store = "store1"
   val loggedStore = "loggedStore1"
@@ -141,7 +141,7 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
     // Test 3: Update sspMetadata before shutdown and verify that offset file is not updated
     when(mockSystemAdmin.getSSPMetadata(ImmutableSet.of(ssp)))
       .thenReturn(ImmutableMap.of(ssp, new SystemStreamPartitionMetadata("0", "100", "101")))
-    taskManager.stop()
+    taskManager.close()
     verify(mockStorageEngine, times(1)).flush() // only called once during Test 2.
     assertTrue(storeFile.exists())
     assertTrue(offsetFile.exists())
@@ -230,7 +230,7 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
     })
     when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
     when(mockSystemAdmin.getSSPMetadata(ImmutableSet.of(ssp))).thenReturn(ImmutableMap.of(ssp, sspMetadata))
-    taskManager.stop()
+    taskManager.close()
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 4: Initialize again with an updated sspMetadata; Verify that it restores from the earliest offset
@@ -370,7 +370,7 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
       .build
 
     //Invoke test method
-    taskStorageManager.stop()
+    taskStorageManager.close()
 
     //Check conditions
     assertFalse("Offset file doesn't exist!", offsetFile.exists())
@@ -556,7 +556,7 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
       .build
 
     //Invoke test method
-    taskStorageManager.stop()
+    taskStorageManager.close()
 
     //Check conditions
     assertTrue("Offset file should not exist!", !offsetFilePath.exists())
@@ -784,7 +784,7 @@ class TestKafkaNonTransactionalStateTaskStorageBackupManager(offsetFileName: Str
   }
 }
 
-object TestKafkaNonTransactionalStateTaskStorageBackupManager {
+object TestKafkaNonTransactionalStateTaskBackupManager {
 
   @Parameters def parameters: util.Collection[Array[String]] = {
     val offsetFileNames = new util.ArrayList[Array[String]]()
@@ -938,13 +938,13 @@ class TaskStorageManagerBuilder extends MockitoSugar {
 
 
 
-  def build: KafkaNonTransactionalStateTaskStorageBackupManager = {
+  def build: KafkaNonTransactionalStateTaskBackupManager = {
 
     if (containerStorageManager != null) {
       containerStorageManager.start()
     }
 
-    new KafkaNonTransactionalStateTaskStorageBackupManager(
+    new KafkaNonTransactionalStateTaskBackupManager(
       taskName = taskName,
       containerStorageManager = containerStorageManager,
       storeChangelogs = changeLogSystemStreams,
