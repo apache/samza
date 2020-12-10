@@ -57,7 +57,7 @@ public class TaskStorageCommitManager {
     try {
       // TODO: Make async with andThen and add thread management for concurrency
       Map<String, StateCheckpointMarker> uploadMap = uploadFuture.get(COMMIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-      if (uploadMap == null) {
+      if (uploadMap != null) {
         LOG.trace("Checkpointing stores for taskName: {}} with checkpoint id: {}", taskName, checkpointId);
         storageBackupManager.persistToFilesystem(checkpointId, uploadMap);
       }

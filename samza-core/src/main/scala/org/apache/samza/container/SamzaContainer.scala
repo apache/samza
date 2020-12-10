@@ -565,7 +565,7 @@ object SamzaContainer extends Logging {
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
       val taskBackupManager = stateStorageBackendFactory.getBackupManager(
-        taskModel, containerStorageManager.getAllStores(TaskName), config)
+        taskModel, containerStorageManager.getAllStores(taskName), config)
 
       val commitManager = new TaskStorageCommitManager(taskBackupManager)
 

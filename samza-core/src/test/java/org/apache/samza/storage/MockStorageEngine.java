@@ -27,7 +27,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.apache.samza.checkpoint.CheckpointId;
-import org.apache.samza.context.Context;
 import org.apache.samza.system.ChangelogSSPIterator;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
@@ -52,9 +51,6 @@ public class MockStorageEngine implements StorageEngine {
     MockStorageEngine.ssp = changeLogSystemStreamPartition;
     MockStorageEngine.storeProperties = properties;
   }
-
-  @Override
-  public void init(Context context) {}
 
   @Override
   public void restore(ChangelogSSPIterator messagesToRestore) {

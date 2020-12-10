@@ -32,6 +32,7 @@ import org.apache.samza.system.SystemStreamPartition;
 public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
   private static final short PROTO_VERSION = 1;
   private static final String FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
+  private static final String SEPARATOR = ";";
 
   // One offset per SSP
   private final SystemStreamPartition ssp;
@@ -76,6 +77,11 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
   @Override
   public int hashCode() {
   return Objects.hash(PROTO_VERSION, ssp, changelogOffset);
+  }
+
+  @Override
+  public String toString() {
+    return String.format("%s%s%s%s%s", PROTO_VERSION, SEPARATOR, ssp, SEPARATOR, changelogOffset);
   }
 
   public static Map<SystemStreamPartition, String> stateCheckpointMarkerToSSPmap(Map<String, StateCheckpointMarker> markers) {

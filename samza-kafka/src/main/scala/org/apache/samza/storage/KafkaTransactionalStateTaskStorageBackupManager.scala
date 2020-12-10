@@ -28,6 +28,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.WildcardFileFilter
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
 import org.apache.samza.checkpoint.{CheckpointId, StateCheckpointMarker}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
@@ -79,7 +80,7 @@ class KafkaTransactionalStateTaskStorageBackupManager(
       .toMap
 
     writeChangelogOffsetFiles(checkpointPaths, storeChangelogs,
-       .toOffsets.asScala.toMap)
+       KafkaStateCheckpointMarker.stateCheckpointMarkerToSSPmap(stateCheckpointMarkers))
   }
 
   def cleanUp(latestCheckpointId: CheckpointId): Unit = {

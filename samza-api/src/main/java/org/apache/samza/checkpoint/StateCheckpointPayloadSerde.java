@@ -19,7 +19,7 @@
 
 package org.apache.samza.checkpoint;
 
-public interface StateCheckpointPayloadSerde <T extends StateCheckpointMarker> {
+public interface StateCheckpointPayloadSerde<T extends StateCheckpointMarker> {
 
   byte[] serialize(T payload);
 

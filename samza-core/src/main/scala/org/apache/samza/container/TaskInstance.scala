@@ -20,11 +20,12 @@
 package org.apache.samza.container
 
 
+import java.util
 import java.util.{Collections, Objects, Optional}
-import java.util.concurrent.{ScheduledExecutorService}
+import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, OffsetManager, StateCheckpointMarker}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
@@ -240,20 +241,14 @@ class TaskInstance(
     }
 
     val checkpointId = CheckpointId.create()
+    var newestStateCheckpointMakers: util.Map[String, util.List[StateCheckpointMarker]] = null
     // Perform state commit
     if (commitManager != null) {
       trace("Flushing state stores for taskName: %s" format taskName)
-      val newestStateCheckpointMakers = commitManager.commit(taskName, checkpointId)
+      newestStateCheckpointMakers = commitManager.commit(taskName, checkpointId)
       trace("Got newest state checkpoint markers for taskName: %s as: %s " format(taskName, newestStateCheckpointMakers))
-
-      if (newestStateCheckpointMakers != null) {
-        // Merge input and state checkpoints
-        // TODO @dchen statecheckpointmarker to ssp-offset coversion
-        newestStateCheckpointMakers.mergeInto(allCheckpointOffsets)
-      }
     }
-    // TODO: @dchen change checkpoint class creation params
-    val checkpoint = new Checkpoint(allCheckpointOffsets)
+    val checkpoint = new Checkpoint(checkpointId, allCheckpointOffsets, newestStateCheckpointMakers)
     trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
 
     // Commit state and input checkpoints offsets atomically

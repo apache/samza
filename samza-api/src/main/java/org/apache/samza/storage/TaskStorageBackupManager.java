@@ -17,10 +17,10 @@
  * under the License.
  */
 
-package org.apache.samza.storage
+package org.apache.samza.storage;
 
 import java.util.Map;
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
