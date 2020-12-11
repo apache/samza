@@ -19,36 +19,42 @@
 
 package org.apache.samza.checkpoint;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 
 
 public class StateCheckpointMarkerSerde<T extends StateCheckpointMarker> {
-  // TODO @dchen implement SCM serialization scheme
   private static final short PROTOCOL_VERSION = 1;
+  private static final String SCM_SEPARATOR = ":";
 
-  public byte[] serialize(T payload, StateCheckpointPayloadSerde<T> serde) {
-    return new byte[]{};
+  public String serialize(T payload, StateCheckpointPayloadSerde<T> serde) {
+    StringBuilder builder = new StringBuilder();
+    builder.append(PROTOCOL_VERSION);
+    builder.append(SCM_SEPARATOR);
+    builder.append(serde.getClass().getName());
+    builder.append(SCM_SEPARATOR);
+    builder.append(serde.serialize(payload));
+
+    return builder.toString();
   }
 
-  public T deserializePayload(byte[] serializedSCM) {
-    if (PROTOCOL_VERSION != getProtocolVersion(serializedSCM)) {
+  public T deserializePayload(String serializedSCM) {
+    if (StringUtils.isBlank(serializedSCM)) {
+      throw new IllegalArgumentException("Invalid remote store checkpoint message: " + serializedSCM);
+    }
+    String[] parts = serializedSCM.split(SCM_SEPARATOR);
+    if (parts.length != 3) {
+      throw new IllegalArgumentException("Invalid RemoteStore Metadata offset: " + serializedSCM);
+    }
+    if (PROTOCOL_VERSION != Short.parseShort(parts[0])) {
       throw new SamzaException("StateCheckpointMarker deserialize protocol version does not match serialized version");
     }
-
-    String payloadSerdeClassName = getPayloadSerdeClassName(serializedSCM);
+    String payloadSerdeClassName = parts[1];
     try {
       StateCheckpointPayloadSerde<T> serde = (StateCheckpointPayloadSerde<T>) Class.forName(payloadSerdeClassName).newInstance();
-      return serde.deserialize(serializedSCM);
+      return serde.deserialize(parts[2]);
     } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
       throw new SamzaException("StateCheckpoint payload serde not found for class name: " + payloadSerdeClassName, e);
     }
-  }
-
-  private short getProtocolVersion(byte[] data) {
-    return 1;
-  }
-
-  private String getPayloadSerdeClassName(byte[] data) {
-    return "";
   }
 }

@@ -27,7 +27,7 @@ import org.apache.samza.SamzaException;
 public class BlobStoreCheckpointMarker implements StateCheckpointMarker {
   public static final String SEPARATOR = ";";
   // backwards compatibility for this unstable api
-  private static final short PROTOCOL_VERSION = 0;
+  private static final short PROTOCOL_VERSION = 1;
 
   // blob store location id obtained after upload
   private final String blobId;

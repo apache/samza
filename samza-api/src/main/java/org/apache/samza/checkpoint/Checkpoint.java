@@ -39,11 +39,11 @@ public class Checkpoint {
   private final Map<String, List<StateCheckpointMarker>> stateCheckpoints;
 
   /**
-   * Constructs a new checkpoint based off a map of Samza stream offsets.
+   * Constructs a new checkpoint based off a map of Samza stream offsets, using a default checkpoint id
    * @param inputOffsets Map of Samza streams to their current offset.
    */
   public Checkpoint(Map<SystemStreamPartition, String>  inputOffsets) {
-    this(CheckpointId.create(), inputOffsets, new HashMap<>());
+    this(CheckpointId.getPlaceholderCheckpointId(), inputOffsets, new HashMap<>());
   }
 
   /**
@@ -91,8 +91,7 @@ public class Checkpoint {
 
     return (checkpointId.equals(that.checkpointId)) &&
         (Objects.equals(inputOffsets, that.inputOffsets)) &&
-        (Objects.equals(stateCheckpoints, that.stateCheckpoints) &&
-        this.hashCode() == that.hashCode());
+        (Objects.equals(stateCheckpoints, that.stateCheckpoints));
   }
 
   @Override

@@ -20,16 +20,20 @@
 package org.apache.samza.checkpoint.kafka;
 
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.Partition;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.storage.KafkaChangelogStateBackendFactory;
-import org.apache.samza.storage.StateBackendFactory;
 import org.apache.samza.system.SystemStreamPartition;
 
 
-public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
+@InterfaceStability.Unstable
+public class KafkaStateCheckpointMarker implements StateCheckpointMarker, Serializable {
   private static final short PROTO_VERSION = 1;
   private static final String FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
   private static final String SEPARATOR = ";";
@@ -76,7 +80,28 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
 
   @Override
   public String toString() {
-    return String.format("%s%s%s%s%s", PROTO_VERSION, SEPARATOR, ssp, SEPARATOR, changelogOffset);
+    return String.format("%s%s%s%s%s%s%s%s%s", PROTO_VERSION, SEPARATOR,
+      ssp.getSystem(), SEPARATOR, ssp.getStream(), SEPARATOR, ssp.getPartition(), SEPARATOR, changelogOffset);
+  }
+
+  public static KafkaStateCheckpointMarker fromString(String message) {
+    if (StringUtils.isBlank(message)) {
+      throw new IllegalArgumentException("Invalid KafkaStateCheckpointMarker format: " + message);
+    }
+    String[] payload = message.split(KafkaStateCheckpointMarker.SEPARATOR);
+    if (payload.length != 5) {
+      throw new IllegalArgumentException("Invalid KafkaStateCheckpointMarker argument count: " + message);
+    }
+    if (Short.parseShort(payload[0]) != PROTO_VERSION) {
+      throw new IllegalArgumentException("Invalid KafkaStateCheckpointMarker protocol version: " + message);
+    }
+    Partition partition = new Partition(Integer.parseInt(payload[3]));
+    String offset = null;
+    if (!"null".equals(payload[4])) {
+      offset = payload[4];
+    }
+
+    return new KafkaStateCheckpointMarker(new SystemStreamPartition(payload[1], payload[2], partition), offset);
   }
 
   public static Map<SystemStreamPartition, String> stateCheckpointMarkerToSSPmap(Map<String, StateCheckpointMarker> markers) {

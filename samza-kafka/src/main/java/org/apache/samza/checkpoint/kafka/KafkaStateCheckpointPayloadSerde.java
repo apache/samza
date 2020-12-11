@@ -23,14 +23,14 @@ import org.apache.samza.checkpoint.StateCheckpointPayloadSerde;
 
 
 public class KafkaStateCheckpointPayloadSerde implements StateCheckpointPayloadSerde<KafkaStateCheckpointMarker> {
-  // TODO @dchen add Kafka serialization scheme
+
   @Override
-  public byte[] serialize(KafkaStateCheckpointMarker payload) {
-    return new byte[]{};
+  public String serialize(KafkaStateCheckpointMarker payload) {
+    return payload.toString();
   }
 
   @Override
-  public KafkaStateCheckpointMarker deserialize(byte[] data) {
-    return null;
+  public KafkaStateCheckpointMarker deserialize(String data) {
+    return KafkaStateCheckpointMarker.fromString(data);
   }
 }

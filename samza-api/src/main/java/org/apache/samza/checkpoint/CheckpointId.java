@@ -41,6 +41,14 @@ public class CheckpointId {
     this.nanos = nanos;
   }
 
+  /**
+   * Default placeholder checkpointId for backwards compatibility
+   * @return Default placeholder checkpoint id
+   */
+  public static CheckpointId getPlaceholderCheckpointId() {
+    return new CheckpointId(-1, -1);
+  }
+
   public static CheckpointId create() {
     return new CheckpointId(System.currentTimeMillis(), System.nanoTime() % 1000000);
   }

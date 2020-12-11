@@ -397,8 +397,7 @@ class TestOffsetManager {
     val testStreamMetadata2 = new SystemStreamMetadata(systemStream2.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata, systemStream2->testStreamMetadata2)
     val config = new MapConfig
-    val checkpointManager = getCheckpointManager1(systemStreamPartition,
-                                                 new Checkpoint(Map(systemStreamPartition -> "45", systemStreamPartition2 -> "100").asJava),
+    val checkpointManager = getCheckpointManager1(new Checkpoint(Map(systemStreamPartition -> "45", systemStreamPartition2 -> "100").asJava),
                                                  taskName)
     val startpointManagerUtil = getStartpointManagerUtil()
     val consumer = new SystemConsumerWithCheckpointCallback
@@ -602,10 +601,10 @@ class TestOffsetManager {
   }
 
   private def getCheckpointManager(systemStreamPartition: SystemStreamPartition, taskName:TaskName = new TaskName("taskName")) = {
-    getCheckpointManager1(systemStreamPartition, new Checkpoint(Map(systemStreamPartition -> "45").asJava), taskName)
+    getCheckpointManager1(new Checkpoint(Map(systemStreamPartition -> "45").asJava), taskName)
   }
 
-  private def getCheckpointManager1(systemStreamPartition: SystemStreamPartition, checkpoint: Checkpoint, taskName:TaskName = new TaskName("taskName")) = {
+  private def getCheckpointManager1(checkpoint: Checkpoint, taskName:TaskName = new TaskName("taskName")) = {
     new CheckpointManager {
       var isStarted = false
       var isStopped = false

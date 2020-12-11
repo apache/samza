@@ -21,7 +21,7 @@ package org.apache.samza.checkpoint;
 
 public interface StateCheckpointPayloadSerde<T extends StateCheckpointMarker> {
 
-  byte[] serialize(T payload);
+  String serialize(T payload);
 
-  T deserialize(byte[] data);
+  T deserialize(String data);
 }
