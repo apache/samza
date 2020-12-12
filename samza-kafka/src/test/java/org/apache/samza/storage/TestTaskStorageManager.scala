@@ -24,7 +24,7 @@ import java.util
 
 import com.google.common.collect.{ImmutableMap, ImmutableSet}
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointManager}
 import org.apache.samza.config._
 import org.apache.samza.container.{SamzaContainerMetrics, TaskInstanceMetrics, TaskName}
 import org.apache.samza.context.{ContainerContext, JobContext}
@@ -133,8 +133,9 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should update the offset file
-    val snapshot = taskManager.snapshot()
-    taskManager.upload(snapshot)
+    val checkpointId = CheckpointId.create()
+    val snapshot = taskManager.snapshot(checkpointId)
+    taskManager.upload(checkpointId, snapshot)
     assertTrue(offsetFile.exists())
     validateOffsetFileContents(offsetFile, "kafka.testStream-loggedStore1.0", "50")
 
@@ -218,8 +219,9 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     verify(mockSystemConsumer).register(ssp, "0")
 
     // Test 2: flush should NOT create/update the offset file. Store directory has no files
-    val snapshot = taskManager.snapshot()
-    taskManager.upload(snapshot)
+    val checkpointId = CheckpointId.create()
+    val snapshot = taskManager.snapshot(checkpointId)
+    taskManager.upload(checkpointId, snapshot)
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is NOT created
@@ -406,8 +408,9 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .build
 
     //Invoke test method
-    val snapshot = taskStorageManager.snapshot()
-    taskStorageManager.upload(snapshot)
+    val checkpointId = CheckpointId.create()
+    val snapshot = taskStorageManager.snapshot(checkpointId)
+    taskStorageManager.upload(checkpointId, snapshot)
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -452,16 +455,17 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .build
 
     //Invoke test method
-    var snapshot = taskStorageManager.snapshot()
-    taskStorageManager.upload(snapshot)
+    val checkpointId = CheckpointId.create()
+    var snapshot = taskStorageManager.snapshot(checkpointId)
+    taskStorageManager.upload(checkpointId, snapshot)
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
     validateOffsetFileContents(offsetFilePath, "kafka.testStream-loggedStore1.0", "100")
 
     //Invoke test method again
-    snapshot = taskStorageManager.snapshot()
-    taskStorageManager.upload(snapshot)
+    snapshot = taskStorageManager.snapshot(checkpointId)
+    taskStorageManager.upload(checkpointId, snapshot)
 
     //Check conditions
     assertFalse("Offset file for null offset exists!", offsetFilePath.exists())
@@ -499,8 +503,9 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .build
 
     //Invoke test method
-    var snapshot = taskStorageManager.snapshot()
-    taskStorageManager.upload(snapshot)
+    val checkpointId = CheckpointId.create()
+    var snapshot = taskStorageManager.snapshot(checkpointId)
+    taskStorageManager.upload(checkpointId, snapshot)
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -511,8 +516,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .thenReturn(ImmutableMap.of(ssp, new SystemStreamPartitionMetadata("20", "193", "194")))
 
     //Invoke test method
-    snapshot = taskStorageManager.snapshot()
-    taskStorageManager.upload(snapshot)
+    snapshot = taskStorageManager.snapshot(checkpointId)
+    taskStorageManager.upload(checkpointId, snapshot)
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -946,8 +951,8 @@ class TaskStorageManagerBuilder extends MockitoSugar {
 
     new KafkaNonTransactionalStateTaskBackupManager(
       taskName = taskName,
-      containerStorageManager = containerStorageManager,
-      storeChangelogs = changeLogSystemStreams,
+      taskStores = containerStorageManager.getAllStores(taskName),
+      storeChangelogs = changeLogSystemStreams.asJava,
       systemAdmins = buildSystemAdmins(systemAdminsMap),
       loggedStoreBaseDir = loggedStoreBaseDir,
       partition = partition

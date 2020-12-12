@@ -22,8 +22,11 @@ package org.apache.samza.storage;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.FileFilter;
+import org.apache.samza.checkpoint.StateCheckpointMarker;
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import scala.Option;
 import scala.collection.immutable.Map;
+import scala.collection.JavaConversions;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,9 +49,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.eq;
@@ -73,7 +74,7 @@ public class TestTransactionalStateTaskBackupManager {
 
     KafkaTransactionalStateTaskBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
     // stub actual method call
-    doReturn(mock(Map.class)).when(tsm).getNewestChangelogSSPOffsets(any(), any(), any(), any());
+    doReturn(mock(java.util.Map.class)).when(tsm).getNewestChangelogSSPOffsets(any(), any(), any(), any());
 
     // invoke Kafka flush
     tsm.snapshot(CheckpointId.create());
@@ -98,8 +99,8 @@ public class TestTransactionalStateTaskBackupManager {
     Partition changelogPartition = new Partition(0);
     SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
 
-    Map<String, SystemStream> storeChangelogs =
-        ScalaJavaUtil.toScalaMap(ImmutableMap.of(storeName, changelogSystemStream));
+    java.util.Map<String, SystemStream> storeChangelogs = new HashMap<>();
+    storeChangelogs.put(storeName, changelogSystemStream);
 
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     SystemAdmin systemAdmin = mock(SystemAdmin.class);
@@ -110,13 +111,16 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(ImmutableMap.of(changelogSSP, metadata));
 
     // invoke the method
-    Map<SystemStreamPartition, Option<String>> offsets =
+    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
     // verify results
-    assertEquals(1, offsets.size());
-    assertEquals(Option.apply(newestChangelogSSPOffset), offsets.apply(changelogSSP));
+    assertEquals(1, stateCheckpointMarkerMap.size());
+    assertTrue(stateCheckpointMarkerMap.get(storeName) instanceof KafkaStateCheckpointMarker);
+    KafkaStateCheckpointMarker kmarker = (KafkaStateCheckpointMarker) stateCheckpointMarkerMap.get(storeName);
+    assertEquals(newestChangelogSSPOffset, kmarker.getChangelogOffset());
+    assertEquals(changelogSSP, kmarker.getSsp());
   }
 
   @Test
@@ -134,8 +138,8 @@ public class TestTransactionalStateTaskBackupManager {
     Partition changelogPartition = new Partition(0);
     SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
 
-    Map<String, SystemStream> storeChangelogs =
-        ScalaJavaUtil.toScalaMap(ImmutableMap.of(storeName, changelogSystemStream));
+    java.util.Map<String, SystemStream> storeChangelogs = new HashMap<String, SystemStream>();
+    storeChangelogs.put(storeName, changelogSystemStream);
 
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     SystemAdmin systemAdmin = mock(SystemAdmin.class);
@@ -146,13 +150,17 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(ImmutableMap.of(changelogSSP, metadata));
 
     // invoke the method
-    Map<SystemStreamPartition, Option<String>> offsets =
+    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
     // verify results
-    assertEquals(1, offsets.size());
-    assertEquals(Option.empty(), offsets.apply(changelogSSP));
+    assertEquals(1, stateCheckpointMarkerMap.size());
+    StateCheckpointMarker marker = stateCheckpointMarkerMap.get(storeName);
+    assertTrue(stateCheckpointMarkerMap.get(storeName) instanceof KafkaStateCheckpointMarker);
+    KafkaStateCheckpointMarker kmarker = (KafkaStateCheckpointMarker) stateCheckpointMarkerMap.get(storeName);
+    assertEquals(changelogSSP, kmarker.getSsp());
+    assertNull(kmarker.getChangelogOffset());
   }
 
   @Test(expected = SamzaException.class)
@@ -170,8 +178,8 @@ public class TestTransactionalStateTaskBackupManager {
     Partition changelogPartition = new Partition(0);
     SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
 
-    Map<String, SystemStream> storeChangelogs =
-        ScalaJavaUtil.toScalaMap(ImmutableMap.of(storeName, changelogSystemStream));
+    java.util.Map<String, SystemStream> storeChangelogs = new HashMap<>();
+    storeChangelogs.put(storeName, changelogSystemStream);
 
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     SystemAdmin systemAdmin = mock(SystemAdmin.class);
@@ -182,7 +190,7 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(null);
 
     // invoke the method
-    Map<SystemStreamPartition, Option<String>> offsets =
+    java.util.Map<String, StateCheckpointMarker> offsets =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
@@ -205,8 +213,8 @@ public class TestTransactionalStateTaskBackupManager {
     Partition changelogPartition = new Partition(0);
     SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
 
-    Map<String, SystemStream> storeChangelogs =
-        ScalaJavaUtil.toScalaMap(ImmutableMap.of(storeName, changelogSystemStream));
+    java.util.Map<String, SystemStream> storeChangelogs = new HashMap<>();
+    storeChangelogs.put(storeName, changelogSystemStream);
 
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     SystemAdmin systemAdmin = mock(SystemAdmin.class);
@@ -220,7 +228,7 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(metadataMap);
 
     // invoke the method
-    Map<SystemStreamPartition, Option<String>> offsets =
+    java.util.Map<String, StateCheckpointMarker> offsets =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
@@ -243,8 +251,8 @@ public class TestTransactionalStateTaskBackupManager {
     Partition changelogPartition = new Partition(0);
     SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
 
-    Map<String, SystemStream> storeChangelogs =
-        ScalaJavaUtil.toScalaMap(ImmutableMap.of(storeName, changelogSystemStream));
+    java.util.Map<String, SystemStream> storeChangelogs = new HashMap<>();
+    storeChangelogs.put(storeName, changelogSystemStream);
 
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     SystemAdmin systemAdmin = mock(SystemAdmin.class);
@@ -255,7 +263,7 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(null);
 
     // invoke the method
-    Map<SystemStreamPartition, Option<String>> offsets =
+    java.util.Map<String, StateCheckpointMarker> offsets =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
@@ -306,11 +314,14 @@ public class TestTransactionalStateTaskBackupManager {
     ArgumentCaptor<Map> checkpointPathsCaptor = ArgumentCaptor.forClass(Map.class);
     doNothing().when(tsm).writeChangelogOffsetFiles(any(), any(), any());
 
-    Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
-        ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
+    java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
+    offsetsJava.put(new SystemStreamPartition("System", "Stream", new Partition(0)), Option.<String>apply("1"));
+
+    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap = new HashMap<>();
+    stateCheckpointMarkerMap.put("storeName", new KafkaStateCheckpointMarker(mock(SystemStreamPartition.class), "1"));
 
     // invoke checkpoint
-    tsm.persistToFilesystem(CheckpointId.create(), offsets);
+    tsm.persistToFilesystem(CheckpointId.create(), stateCheckpointMarkerMap);
 
     // ensure that checkpoint is never called for non-logged persistent stores since they're
     // always cleared on restart.
@@ -318,7 +329,7 @@ public class TestTransactionalStateTaskBackupManager {
     // ensure that checkpoint is never called for in-memory stores since they're not persistent.
     verify(mockIStore, never()).checkpoint(any());
     verify(mockLIStore, never()).checkpoint(any());
-    verify(tsm).writeChangelogOffsetFiles(checkpointPathsCaptor.capture(), any(), eq(offsets));
+    verify(tsm).writeChangelogOffsetFiles(checkpointPathsCaptor.capture(), any(), any());
     Map<String, Path> checkpointPaths = checkpointPathsCaptor.getValue();
     assertEquals(1, checkpointPaths.size());
     assertEquals(mockPath, checkpointPaths.apply("loggedPersistentStore"));
@@ -340,11 +351,14 @@ public class TestTransactionalStateTaskBackupManager {
 
     KafkaTransactionalStateTaskBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
 
-    Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
-        ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
+    java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
+    offsetsJava.put(mock(SystemStreamPartition.class), Option.<String>apply("1"));
+
+    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap = new HashMap<>();
+    stateCheckpointMarkerMap.put("storeName", new KafkaStateCheckpointMarker(mock(SystemStreamPartition.class), "1"));
 
     // invoke checkpoint
-    tsm.persistToFilesystem(CheckpointId.create(), offsets);
+    tsm.persistToFilesystem(CheckpointId.create(), stateCheckpointMarkerMap);
     verify(tsm, never()).writeChangelogOffsetFiles(any(), any(), any());
     fail("Should have thrown an exception if error creating store checkpoint");
   }
@@ -368,11 +382,14 @@ public class TestTransactionalStateTaskBackupManager {
     doThrow(new SamzaException("Error writing offset file"))
         .when(tsm).writeChangelogOffsetFiles(any(), any(), any());
 
-    Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
-        ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
+    java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
+    offsetsJava.put(mock(SystemStreamPartition.class), Option.<String>apply("1"));
+
+    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap = new HashMap<>();
+    stateCheckpointMarkerMap.put("storeName", new KafkaStateCheckpointMarker(mock(SystemStreamPartition.class), "1"));
 
     // invoke checkpoint
-    tsm.persistToFilesystem(CheckpointId.create(), offsets);
+    tsm.persistToFilesystem(CheckpointId.create(), stateCheckpointMarkerMap);
 
     fail("Should have thrown an exception if error writing offset file.");
   }
@@ -395,18 +412,18 @@ public class TestTransactionalStateTaskBackupManager {
     KafkaTransactionalStateTaskBackupManager tsm = spy(buildTSM(csm, changelogPartition, smu));
 
     String changelogNewestOffset = "1";
-    Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
-        ImmutableMap.of(changelogSSP, Option.apply(changelogNewestOffset)));
+    java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
+    offsetsJava.put(changelogSSP, Option.<String>apply(changelogNewestOffset));
 
     Path checkpointPath = Files.createTempDirectory("store-checkpoint-test").toAbsolutePath();
 
-    Map<String, Path> checkpointPaths = ScalaJavaUtil.toScalaMap(
+    Map<String, Path> checkpointPaths = ScalaJavaUtil.<String, Path>toScalaMap(
         ImmutableMap.of(storeName, checkpointPath));
-    Map<String, SystemStream> storeChangelogs = ScalaJavaUtil.toScalaMap(
-        ImmutableMap.of(storeName, changelogSS));
+    java.util.Map<String, SystemStream> storeChangelogs = new HashMap<>();
+    storeChangelogs.put(storeName, changelogSS);
 
     // invoke method
-    tsm.writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, offsets);
+    tsm.writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, JavaConversions.mapAsScalaMap(offsetsJava));
 
     // verify that offset file was written to the checkpoint dir
     java.util.Map<SystemStreamPartition, String> fileOffsets = new StorageManagerUtil()
@@ -435,18 +452,18 @@ public class TestTransactionalStateTaskBackupManager {
     KafkaTransactionalStateTaskBackupManager tsm = spy(buildTSM(csm, changelogPartition, mockSMU));
 
     String changelogNewestOffset = null;
-    Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(
-        ImmutableMap.of(changelogSSP, Option.apply(changelogNewestOffset)));
+    java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
+    offsetsJava.put(changelogSSP, Option.<String>apply(changelogNewestOffset));
 
     Path checkpointPath = Files.createTempDirectory("store-checkpoint-test").toAbsolutePath();
 
-    Map<String, Path> checkpointPaths = ScalaJavaUtil.toScalaMap(
+    Map<String, Path> checkpointPaths = ScalaJavaUtil.<String, Path>toScalaMap(
         ImmutableMap.of(storeName, checkpointPath));
-    Map<String, SystemStream> storeChangelogs = ScalaJavaUtil.toScalaMap(
-        ImmutableMap.of(storeName, changelogSS));
+    java.util.Map<String, SystemStream> storeChangelogs = new HashMap<>();
+    storeChangelogs.put(storeName, changelogSS);
 
     // invoke method
-    tsm.writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, offsets);
+    tsm.writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, JavaConversions.mapAsScalaMap(offsetsJava));
 
     // verify that the offset files were not written to the checkpoint dir
     assertFalse(Files.exists(new File(checkpointPath.toFile(), StorageManagerUtil.OFFSET_FILE_NAME_LEGACY).toPath()));
@@ -479,16 +496,16 @@ public class TestTransactionalStateTaskBackupManager {
     KafkaTransactionalStateTaskBackupManager tsm = spy(buildTSM(csm, changelogPartition, new StorageManagerUtil()));
 
     // no mapping present for changelog newest offset
-    Map<SystemStreamPartition, Option<String>> offsets = ScalaJavaUtil.toScalaMap(ImmutableMap.of());
+    java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
 
     Path checkpointPath = Files.createTempDirectory("store-checkpoint-test").toAbsolutePath();
-    Map<String, Path> checkpointPaths = ScalaJavaUtil.toScalaMap(
+    Map<String, Path> checkpointPaths = ScalaJavaUtil.<String, Path>toScalaMap(
         ImmutableMap.of(storeName, checkpointPath));
-    Map<String, SystemStream> storeChangelogs = ScalaJavaUtil.toScalaMap(
-        ImmutableMap.of(storeName, changelogSS));
+    java.util.Map<String, SystemStream> storeChangelogs = new HashMap<>();
+    storeChangelogs.put(storeName, changelogSS);
 
     // invoke method
-    tsm.writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, offsets);
+    tsm.writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, JavaConversions.mapAsScalaMap(offsetsJava));
 
     fail("Should have thrown an exception if no changelog offset found for checkpointed store");
   }
@@ -497,7 +514,7 @@ public class TestTransactionalStateTaskBackupManager {
   public void testRemoveOldCheckpointsWhenBaseDirContainsRegularFiles() {
     TaskName taskName = new TaskName("Partition 0");
     ContainerStorageManager containerStorageManager = mock(ContainerStorageManager.class);
-    Map<String, SystemStream> changelogSystemStreams = mock(Map.class);
+    java.util.Map<String, SystemStream> changelogSystemStreams = mock(java.util.Map.class);
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     File loggedStoreBaseDir = mock(File.class);
     Partition changelogPartition = new Partition(0);
@@ -514,7 +531,7 @@ public class TestTransactionalStateTaskBackupManager {
     when(mockStoreDir.listFiles(any(FileFilter.class))).thenReturn(null);
 
     KafkaTransactionalStateTaskBackupManager
-        tsm = new KafkaTransactionalStateTaskBackupManager(taskName, containerStorageManager,
+        tsm = new KafkaTransactionalStateTaskBackupManager(taskName, containerStorageManager.getAllStores(taskName),
         changelogSystemStreams, systemAdmins, loggedStoreBaseDir, changelogPartition, taskMode, storageManagerUtil);
 
     tsm.cleanUp(CheckpointId.create());
@@ -523,13 +540,13 @@ public class TestTransactionalStateTaskBackupManager {
   private KafkaTransactionalStateTaskBackupManager buildTSM(ContainerStorageManager csm, Partition changelogPartition,
       StorageManagerUtil smu) {
     TaskName taskName = new TaskName("Partition 0");
-    Map<String, SystemStream> changelogSystemStreams = mock(Map.class);
+    java.util.Map<String, SystemStream> changelogSystemStreams = mock(java.util.Map.class);
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
     File loggedStoreBaseDir = mock(File.class);
     TaskMode taskMode = TaskMode.Active;
 
     return new KafkaTransactionalStateTaskBackupManager(
-        taskName, csm, changelogSystemStreams, systemAdmins,
+        taskName, csm.getAllStores(taskName), changelogSystemStreams, systemAdmins,
         loggedStoreBaseDir, changelogPartition, taskMode, smu);
   }
 }

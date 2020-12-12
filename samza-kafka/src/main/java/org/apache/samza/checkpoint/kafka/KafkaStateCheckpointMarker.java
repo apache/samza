@@ -20,7 +20,6 @@
 package org.apache.samza.checkpoint.kafka;
 
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -30,10 +29,11 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.storage.KafkaChangelogStateBackendFactory;
 import org.apache.samza.system.SystemStreamPartition;
+import scala.Option;
 
 
 @InterfaceStability.Unstable
-public class KafkaStateCheckpointMarker implements StateCheckpointMarker, Serializable {
+public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
   private static final short PROTO_VERSION = 1;
   private static final String FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
   private static final String SEPARATOR = ";";
@@ -42,7 +42,7 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker, Serial
   private final SystemStreamPartition ssp;
   private final String changelogOffset;
 
-  KafkaStateCheckpointMarker(SystemStreamPartition ssp, String changelogOffset) {
+  public KafkaStateCheckpointMarker(SystemStreamPartition ssp, String changelogOffset) {
     this.ssp = ssp;
     this.changelogOffset = changelogOffset;
   }
@@ -75,7 +75,7 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker, Serial
 
   @Override
   public int hashCode() {
-  return Objects.hash(PROTO_VERSION, ssp, changelogOffset);
+    return Objects.hash(PROTO_VERSION, ssp, changelogOffset);
   }
 
   @Override
@@ -104,12 +104,13 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker, Serial
     return new KafkaStateCheckpointMarker(new SystemStreamPartition(payload[1], payload[2], partition), offset);
   }
 
-  public static Map<SystemStreamPartition, String> stateCheckpointMarkerToSSPmap(Map<String, StateCheckpointMarker> markers) {
-    Map<SystemStreamPartition, String> sspMap = new HashMap<>();
+  public static Map<SystemStreamPartition, Option<String>> stateCheckpointMarkerToSSPmap(Map<String, StateCheckpointMarker> markers) {
+    Map<SystemStreamPartition, Option<String>> sspMap = new HashMap<>();
     if (markers != null) {
       markers.forEach((key, value) -> {
         KafkaStateCheckpointMarker kafkaStateCheckpoint = (KafkaStateCheckpointMarker) value;
-        sspMap.put(new SystemStreamPartition(kafkaStateCheckpoint.getSsp()), kafkaStateCheckpoint.getChangelogOffset());
+        Option<String> offsetOption = Option.<String>apply(kafkaStateCheckpoint.getChangelogOffset());
+        sspMap.put(new SystemStreamPartition(kafkaStateCheckpoint.getSsp()), offsetOption);
       });
     }
     return sspMap;
