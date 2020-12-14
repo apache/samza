@@ -49,6 +49,11 @@ public class YarnConfig extends MapConfig {
    */
   public static final String CONTAINER_LABEL = "yarn.container.label";
 
+  /**
+   * Determines whether standby allocation is rack aware or not.
+   */
+  public static final String RACK_AWARE_STANDBY_ENABLED = "yarn.rack-aware.standby.enabled";
+
   // Configs related to the Samza Application Master (AM)
   /**
    * (Optional) JVM options to include in the command line when executing the AM
@@ -153,6 +158,10 @@ public class YarnConfig extends MapConfig {
 
   public String getContainerLabel() {
     return get(CONTAINER_LABEL, null);
+  }
+
+  public boolean getRackAwareStandbyEnabled() {
+    return getBoolean(RACK_AWARE_STANDBY_ENABLED, false);
   }
 
   public boolean getJmxServerEnabled() {

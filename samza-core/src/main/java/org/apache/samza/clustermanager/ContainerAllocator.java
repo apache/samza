@@ -428,6 +428,9 @@ public class ContainerAllocator implements Runnable {
     } else {
       state.preferredHostRequests.incrementAndGet();
     }
+    if (request.getFaultDomains() != null && !request.getFaultDomains().isEmpty()) {
+      state.faultDomainAwareContainerRequests.incrementAndGet();
+    }
   }
 
   /**
@@ -519,6 +522,9 @@ public class ContainerAllocator implements Runnable {
       state.expiredAnyHostRequests.incrementAndGet();
     } else {
       state.expiredPreferredHostRequests.incrementAndGet();
+    }
+    if (request.getFaultDomains() != null && !request.getFaultDomains().isEmpty()) {
+      state.expiredFaultDomainAwareContainerRequests.incrementAndGet();
     }
   }
 }

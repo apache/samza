@@ -47,11 +47,11 @@ public interface FaultDomainManager {
   Set<FaultDomain> getFaultDomainOfHost(String host);
 
   /**
-   * This method checks if the two hostnames provided reside on the same fault domain.
+   * This method returns true if the fault domains on which these two hosts reside are exactly the same, false otherwise.
    * @param host1 hostname
    * @param host2 hostname
    * @return true if the hosts exist on the same fault domain
    */
-  boolean checkHostsOnSameFaultDomain(String host1, String host2);
+  boolean hasSameFaultDomains(String host1, String host2);
 
 }

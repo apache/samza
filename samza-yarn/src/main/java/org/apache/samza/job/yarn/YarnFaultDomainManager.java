@@ -18,9 +18,11 @@
  */
 package org.apache.samza.job.yarn;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,20 +30,33 @@ import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.client.api.impl.YarnClientImpl;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.FaultDomain;
 import org.apache.samza.clustermanager.FaultDomainManager;
 import org.apache.samza.clustermanager.FaultDomainType;
+import org.apache.samza.clustermanager.SamzaApplicationState;
 
 /**
  * This class functionality works with the assumption that the job.standbytasks.replication.factor is 2.
- * For values greater than 2, it is possible that the standby containers could be on the same rack as the active, or the already existing standby.
+ * For values greater than 2, it is possible that the standby containers could be on the same rack as the active, or the already existing standby racks.
  */
 public class YarnFaultDomainManager implements FaultDomainManager {
 
-  private final Multimap<String, FaultDomain> hostToRackMap;
+  private Multimap<String, FaultDomain> hostToRackMap;
+  private final SamzaApplicationState state;
+  private final YarnClientImpl yarnClient;
 
-  public YarnFaultDomainManager() {
+  public YarnFaultDomainManager(SamzaApplicationState state) {
+    this.state = state;
+    this.yarnClient = new YarnClientImpl();
     this.hostToRackMap = computeHostToFaultDomainMap();
+  }
+
+  @VisibleForTesting
+  YarnFaultDomainManager(SamzaApplicationState state, YarnClientImpl yarnClient, Multimap<String, FaultDomain> hostToRackMap) {
+    this.state = state;
+    this.yarnClient = yarnClient;
+    this.hostToRackMap = hostToRackMap;
   }
 
   /**
@@ -54,12 +69,17 @@ public class YarnFaultDomainManager implements FaultDomainManager {
   }
 
   /**
-   * This method returns all the racks a particular host resides on based on the internal cache.
+   * This method returns the rack a particular host resides on based on the internal cache.
+   * In case the rack of a host does not exist in this cache, we update the cache by computing the host to rack map again using Yarn.
    * @param host the host
    * @return the {@link FaultDomain}
    */
   @Override
   public Set<FaultDomain> getFaultDomainOfHost(String host) {
+    if (!hostToRackMap.containsKey(host)) {
+      hostToRackMap = computeHostToFaultDomainMap();
+      state.hostToFaultDomainCacheUpdates.incrementAndGet();
+    }
     return new HashSet<>(hostToRackMap.get(host));
   }
 
@@ -70,8 +90,12 @@ public class YarnFaultDomainManager implements FaultDomainManager {
    * @return true if the hosts exist on the same rack
    */
   @Override
-  public boolean checkHostsOnSameFaultDomain(String host1, String host2) {
-    return hostToRackMap.get(host1).equals(hostToRackMap.get(host2));
+  public boolean hasSameFaultDomains(String host1, String host2) {
+    if (!hostToRackMap.keySet().contains(host1) || !hostToRackMap.keySet().contains(host2)) {
+      hostToRackMap = computeHostToFaultDomainMap();
+      state.hostToFaultDomainCacheUpdates.incrementAndGet();
+    }
+    return hostToRackMap.get(host1).toString().equals(hostToRackMap.get(host2).toString());
   }
 
   /**
@@ -79,8 +103,8 @@ public class YarnFaultDomainManager implements FaultDomainManager {
    * Only the hosts that are running in the cluster will be a part of this map.
    * @return map of the host and the rack it resides on
    */
-  private Multimap<String, FaultDomain> computeHostToFaultDomainMap() {
-    YarnClientImpl yarnClient = new YarnClientImpl();
+  @VisibleForTesting
+  protected Multimap<String, FaultDomain> computeHostToFaultDomainMap() {
     Multimap<String, FaultDomain> hostToRackMap = HashMultimap.create();
     try {
       List<NodeReport> nodeReport = yarnClient.getNodeReports(NodeState.RUNNING);

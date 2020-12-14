@@ -148,7 +148,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
 
     FaultDomainManagerFactory faultDomainManagerFactory = getFaultDomainManagerFactory(clusterManagerConfig);
-    FaultDomainManager faultDomainManager = checkNotNull(faultDomainManagerFactory.getFaultDomainManager(config, registry));
+    FaultDomainManager faultDomainManager = checkNotNull(faultDomainManagerFactory.getFaultDomainManager(config, registry, state));
 
     // Initialize metrics
     this.containerProcessManagerMetrics = new ContainerProcessManagerMetrics(config, state, registry);

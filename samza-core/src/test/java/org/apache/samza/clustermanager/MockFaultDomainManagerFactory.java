@@ -24,8 +24,8 @@ import org.apache.samza.metrics.MetricsRegistry;
 public class MockFaultDomainManagerFactory implements FaultDomainManagerFactory {
 
   @Override
-  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry) {
-    return new MockFaultDomainManager();
+  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry, SamzaApplicationState state) {
+    return new MockFaultDomainManager(state);
   }
 
 }

@@ -28,6 +28,6 @@ import org.apache.samza.metrics.MetricsRegistry;
 @InterfaceStability.Unstable
 public interface FaultDomainManagerFactory {
 
-  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry);
+  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry, SamzaApplicationState state);
 
 }

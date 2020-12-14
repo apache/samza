@@ -27,7 +27,7 @@ public class MockFaultDomainManager implements FaultDomainManager {
 
   private final Multimap<String, FaultDomain> hostToFaultDomainMap;
 
-  public MockFaultDomainManager() {
+  public MockFaultDomainManager(SamzaApplicationState state) {
     FaultDomain faultDomain1 = new FaultDomain(FaultDomainType.RACK, "rack-1");
     FaultDomain faultDomain2 = new FaultDomain(FaultDomainType.RACK, "rack-2");
     FaultDomain faultDomain3 = new FaultDomain(FaultDomainType.RACK, "rack-1");
@@ -52,7 +52,7 @@ public class MockFaultDomainManager implements FaultDomainManager {
   }
 
   @Override
-  public boolean checkHostsOnSameFaultDomain(String host1, String host2) {
+  public boolean hasSameFaultDomains(String host1, String host2) {
     return hostToFaultDomainMap.get(host1).equals(hostToFaultDomainMap.get(host2));
   }
 

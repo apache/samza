@@ -170,6 +170,31 @@ public class SamzaApplicationState {
    */
   public final AtomicInteger failedContainerPlacementActions = new AtomicInteger(0);
 
+  /**
+   * Number of fault domain aware container requests made for a container.
+   */
+  public final AtomicInteger hostToFaultDomainCacheUpdates = new AtomicInteger(0);
+
+  /**
+   * Number of fault domain aware container requests made for a container.
+   */
+  public final AtomicInteger faultDomainAwareContainerRequests = new AtomicInteger(0);
+
+  /**
+   * Number of fault domain aware container requests made for a container.
+   */
+  public final AtomicInteger faultDomainAwareContainersStarted = new AtomicInteger(0);
+
+  /**
+   * Number of expired fault domain aware container requests made for a container.
+   */
+  public final AtomicInteger expiredFaultDomainAwareContainerRequests = new AtomicInteger(0);
+
+  /**
+   * Number of failed fault domain aware container allocations made for a container.
+   */
+  public final AtomicInteger failedFaultDomainAwareContainerAllocations = new AtomicInteger(0);
+
   public SamzaApplicationState(JobModelManager jobModelManager) {
     this.jobModelManager = jobModelManager;
   }
