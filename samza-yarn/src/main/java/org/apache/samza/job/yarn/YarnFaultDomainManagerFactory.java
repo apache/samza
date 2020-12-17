@@ -20,7 +20,6 @@ package org.apache.samza.job.yarn;
 
 import org.apache.samza.clustermanager.FaultDomainManager;
 import org.apache.samza.clustermanager.FaultDomainManagerFactory;
-import org.apache.samza.clustermanager.SamzaApplicationState;
 import org.apache.samza.config.Config;
 import org.apache.samza.metrics.MetricsRegistry;
 
@@ -29,7 +28,7 @@ import org.apache.samza.metrics.MetricsRegistry;
  */
 public class YarnFaultDomainManagerFactory implements FaultDomainManagerFactory {
   @Override
-  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry, SamzaApplicationState state) {
-    return new YarnFaultDomainManager(state);
+  public FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry) {
+    return new YarnFaultDomainManager(metricsRegistry);
   }
 }

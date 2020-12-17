@@ -65,7 +65,6 @@ class ContainerProcessManagerMetrics(val config: Config,
   val mContainerMemoryMb = newGauge("container-memory-mb", () => clusterManagerConfig.getContainerMemoryMb)
   val mContainerCpuCores = newGauge("container-cpu-cores", () => clusterManagerConfig.getNumCores)
 
-  val mHostToFaultDomainCacheUpdates = newGauge("fault-domain-aware-container-requests", () => state.hostToFaultDomainCacheUpdates.get())
   val mFaultDomainAwareContainerRequests = newGauge("fault-domain-aware-container-requests", () => state.faultDomainAwareContainerRequests.get())
   val mFaultDomainAwareContainersStarted = newGauge("fault-domain-aware-containers-started", () => state.faultDomainAwareContainersStarted.get())
   val mExpiredFaultDomainAwareContainerRequests = newGauge("expired-fault-domain-aware-container-requests", () => state.expiredFaultDomainAwareContainerRequests.get())

@@ -35,6 +35,7 @@ public interface FaultDomainManager {
 
   /**
    * This method returns all the last cached fault domain values in a cluster, for all hosts that are healthy, up and running.
+   * This cache might not be up to date with the state of the cluster, since the cache update is an implementation detail.
    * @return a set of {@link FaultDomain}s
    */
   Set<FaultDomain> getAllFaultDomains();
@@ -44,7 +45,7 @@ public interface FaultDomainManager {
    * @param host the host
    * @return the {@link FaultDomain}
    */
-  Set<FaultDomain> getFaultDomainOfHost(String host);
+  Set<FaultDomain> getFaultDomainsForHost(String host);
 
   /**
    * This method returns true if the fault domains on which these two hosts reside are exactly the same, false otherwise.

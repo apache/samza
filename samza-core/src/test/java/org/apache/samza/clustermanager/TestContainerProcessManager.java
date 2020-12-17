@@ -939,8 +939,7 @@ public class TestContainerProcessManager {
   private ContainerManager buildContainerManager(ContainerPlacementMetadataStore containerPlacementMetadataStore,
       SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager, boolean hostAffinityEnabled,
       boolean standByEnabled, LocalityManager localityManager, FaultDomainManager faultDomainManager) {
-    return new ContainerManager(containerPlacementMetadataStore, samzaApplicationState, clusterResourceManager,
-            faultDomainManager, hostAffinityEnabled, standByEnabled, localityManager);
+    return new ContainerManager(containerPlacementMetadataStore, samzaApplicationState, clusterResourceManager, hostAffinityEnabled, standByEnabled, localityManager, faultDomainManager, config);
   }
   private ContainerProcessManager buildContainerProcessManager(ClusterManagerConfig clusterManagerConfig, SamzaApplicationState state,
       ClusterResourceManager clusterResourceManager, Optional<ContainerAllocator> allocator) {

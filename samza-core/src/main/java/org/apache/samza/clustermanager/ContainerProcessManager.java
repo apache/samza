@@ -148,7 +148,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.clusterResourceManager = checkNotNull(factory.getClusterResourceManager(this, state));
 
     FaultDomainManagerFactory faultDomainManagerFactory = getFaultDomainManagerFactory(clusterManagerConfig);
-    FaultDomainManager faultDomainManager = checkNotNull(faultDomainManagerFactory.getFaultDomainManager(config, registry, state));
+    FaultDomainManager faultDomainManager = checkNotNull(faultDomainManagerFactory.getFaultDomainManager(config, registry));
 
     // Initialize metrics
     this.containerProcessManagerMetrics = new ContainerProcessManagerMetrics(config, state, registry);
@@ -173,8 +173,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     // Wire all metrics to all reporters
     this.metricsReporters.values().forEach(reporter -> reporter.register(METRICS_SOURCE_NAME, registry));
 
-    this.containerManager = new ContainerManager(metadataStore, state, clusterResourceManager, faultDomainManager,
-            hostAffinityEnabled, jobConfig.getStandbyTasksEnabled(), localityManager);
+    this.containerManager = new ContainerManager(metadataStore, state, clusterResourceManager,
+            hostAffinityEnabled, jobConfig.getStandbyTasksEnabled(), localityManager, faultDomainManager, config);
 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");

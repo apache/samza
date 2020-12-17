@@ -173,11 +173,6 @@ public class SamzaApplicationState {
   /**
    * Number of fault domain aware container requests made for a container.
    */
-  public final AtomicInteger hostToFaultDomainCacheUpdates = new AtomicInteger(0);
-
-  /**
-   * Number of fault domain aware container requests made for a container.
-   */
   public final AtomicInteger faultDomainAwareContainerRequests = new AtomicInteger(0);
 
   /**

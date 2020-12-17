@@ -84,7 +84,7 @@ public class TestClusterBasedJobCoordinator {
     configMap.put("task.inputs", "kafka.topic1");
     configMap.put("systems.kafka.samza.factory", "org.apache.samza.system.MockSystemFactory");
     configMap.put("samza.cluster-manager.factory", "org.apache.samza.clustermanager.MockClusterResourceManagerFactory");
-    configMap.put("samza.fault-domain-manager.factory", "org.apache.samza.clustermanager.MockFaultDomainManagerFactory");
+    configMap.put("cluster-manager.fault-domain-manager.factory", "org.apache.samza.clustermanager.MockFaultDomainManagerFactory");
     configMap.put("job.coordinator.monitor-partition-change.frequency.ms", "1");
 
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(0)), new ArrayList<>());

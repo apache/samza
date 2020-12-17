@@ -34,8 +34,8 @@ import org.apache.hadoop.yarn.client.api.impl.YarnClientImpl;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.samza.clustermanager.FaultDomain;
 import org.apache.samza.clustermanager.FaultDomainType;
-import org.apache.samza.clustermanager.SamzaApplicationState;
-import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -78,10 +78,12 @@ public class TestYarnFaultDomainManager {
           rackName1, 1, 1, 2, 1, 2,
           "", 60L, null);
 
-  private final SamzaApplicationState state = new SamzaApplicationState(mock(JobModelManager.class));
-
   @Mock
   YarnClientImpl yarnClient;
+  @Mock
+  ReadableMetricsRegistry mockMetricsRegistry;
+  @Mock
+  Counter mockCounter;
 
   @Before
   public void setup() {
@@ -93,25 +95,27 @@ public class TestYarnFaultDomainManager {
     hostToRackMap.put(hostName3, rack1);
     hostToRackMap.put(hostName4, rack2);
     hostToRackMap.put(hostName5, rack3);
+
+    when(mockMetricsRegistry.newCounter(anyString(), anyString())).thenReturn(mockCounter);
   }
 
   @Test
   public void testGetFaultDomainOfHostWhichExistsInCache() {
-    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(state, yarnClient, hostToRackMap);
+    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(mockMetricsRegistry, yarnClient, hostToRackMap);
 
     Set<FaultDomain> expectedFaultDomainSet = new HashSet<>();
     expectedFaultDomainSet.add(new FaultDomain(FaultDomainType.RACK, rackName1));
 
-    Set<FaultDomain> actualFaultDomainSet = yarnFaultDomainManager.getFaultDomainOfHost(hostName3);
+    Set<FaultDomain> actualFaultDomainSet = yarnFaultDomainManager.getFaultDomainsForHost(hostName3);
 
     assertNotNull(actualFaultDomainSet);
-    assertEquals(expectedFaultDomainSet.iterator().next().toString(), actualFaultDomainSet.iterator().next().toString());
-    assertEquals(0, state.hostToFaultDomainCacheUpdates.get());
+    assertEquals(expectedFaultDomainSet.iterator().next(), actualFaultDomainSet.iterator().next());
+    verify(mockCounter, times(0)).inc();
   }
 
   @Test
   public void testGetFaultDomainOfHostWhichDoesNotExistInCache() throws IOException, YarnException {
-    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(state, yarnClient, hostToRackMap);
+    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(mockMetricsRegistry, yarnClient, hostToRackMap);
 
     Set<FaultDomain> expectedFaultDomainSet = new HashSet<>();
     expectedFaultDomainSet.add(new FaultDomain(FaultDomainType.RACK, rackName1));
@@ -119,16 +123,16 @@ public class TestYarnFaultDomainManager {
     List<NodeReport> updatedNodeReport = ImmutableList.of(nodeReport1, nodeReport2, nodeReport3, nodeReport4, nodeReport5, nodeReport6);
     when(yarnClient.getNodeReports(NodeState.RUNNING)).thenReturn(updatedNodeReport);
 
-    Set<FaultDomain> actualFaultDomainSet = yarnFaultDomainManager.getFaultDomainOfHost(hostName6);
+    Set<FaultDomain> actualFaultDomainSet = yarnFaultDomainManager.getFaultDomainsForHost(hostName6);
 
     assertNotNull(actualFaultDomainSet);
-    assertEquals(expectedFaultDomainSet.iterator().next().toString(), actualFaultDomainSet.iterator().next().toString());
-    assertEquals(1, state.hostToFaultDomainCacheUpdates.get());
+    assertEquals(expectedFaultDomainSet.iterator().next(), actualFaultDomainSet.iterator().next());
+    verify(mockCounter, times(1)).inc();
   }
 
   @Test
   public void testHasSameFaultDomainsWhenTrue() {
-    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(state, yarnClient, hostToRackMap);
+    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(mockMetricsRegistry, yarnClient, hostToRackMap);
 
     boolean result = yarnFaultDomainManager.hasSameFaultDomains(hostName1, hostName3);
 
@@ -137,7 +141,7 @@ public class TestYarnFaultDomainManager {
 
   @Test
   public void testHasSameFaultDomainsWhenFalse() {
-    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(state, yarnClient, hostToRackMap);
+    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(mockMetricsRegistry, yarnClient, hostToRackMap);
 
     boolean result = yarnFaultDomainManager.hasSameFaultDomains(hostName1, hostName2);
 
@@ -146,7 +150,7 @@ public class TestYarnFaultDomainManager {
 
   @Test
   public void testHasSameFaultDomainsWhenHostDoesNotExistInCache() throws IOException, YarnException {
-    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(state, yarnClient, hostToRackMap);
+    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(mockMetricsRegistry, yarnClient, hostToRackMap);
 
     List<NodeReport> updatedNodeReport = ImmutableList.of(nodeReport1, nodeReport2, nodeReport3, nodeReport4, nodeReport5, nodeReport6);
     when(yarnClient.getNodeReports(NodeState.RUNNING)).thenReturn(updatedNodeReport);
@@ -158,7 +162,7 @@ public class TestYarnFaultDomainManager {
 
   @Test
   public void testComputeHostToFaultDomainMap() throws IOException, YarnException {
-    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(mock(SamzaApplicationState.class), yarnClient, null);
+    YarnFaultDomainManager yarnFaultDomainManager = new YarnFaultDomainManager(mockMetricsRegistry, yarnClient, null);
 
     List<NodeReport> nodeReport = ImmutableList.of(nodeReport1, nodeReport2, nodeReport3, nodeReport4, nodeReport5);
     when(yarnClient.getNodeReports(NodeState.RUNNING)).thenReturn(nodeReport);

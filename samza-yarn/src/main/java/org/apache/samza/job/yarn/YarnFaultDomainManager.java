@@ -22,7 +22,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,11 +29,11 @@ import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.client.api.impl.YarnClientImpl;
 import org.apache.hadoop.yarn.exceptions.YarnException;
-import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.FaultDomain;
 import org.apache.samza.clustermanager.FaultDomainManager;
 import org.apache.samza.clustermanager.FaultDomainType;
-import org.apache.samza.clustermanager.SamzaApplicationState;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.MetricsRegistry;
 
 /**
  * This class functionality works with the assumption that the job.standbytasks.replication.factor is 2.
@@ -43,20 +42,24 @@ import org.apache.samza.clustermanager.SamzaApplicationState;
 public class YarnFaultDomainManager implements FaultDomainManager {
 
   private Multimap<String, FaultDomain> hostToRackMap;
-  private final SamzaApplicationState state;
   private final YarnClientImpl yarnClient;
+  private final MetricsRegistry metricsRegistry;
+  private final String groupName = "yarn-fault-domain-manager";
+  private Counter hostToFaultDomainCacheUpdates;
 
-  public YarnFaultDomainManager(SamzaApplicationState state) {
-    this.state = state;
+  public YarnFaultDomainManager(MetricsRegistry metricsRegistry) {
     this.yarnClient = new YarnClientImpl();
     this.hostToRackMap = computeHostToFaultDomainMap();
+    this.metricsRegistry = metricsRegistry;
+    initMetrics();
   }
 
   @VisibleForTesting
-  YarnFaultDomainManager(SamzaApplicationState state, YarnClientImpl yarnClient, Multimap<String, FaultDomain> hostToRackMap) {
-    this.state = state;
+  YarnFaultDomainManager(MetricsRegistry metricsRegistry, YarnClientImpl yarnClient, Multimap<String, FaultDomain> hostToRackMap) {
     this.yarnClient = yarnClient;
     this.hostToRackMap = hostToRackMap;
+    this.metricsRegistry = metricsRegistry;
+    initMetrics();
   }
 
   /**
@@ -75,10 +78,10 @@ public class YarnFaultDomainManager implements FaultDomainManager {
    * @return the {@link FaultDomain}
    */
   @Override
-  public Set<FaultDomain> getFaultDomainOfHost(String host) {
+  public Set<FaultDomain> getFaultDomainsForHost(String host) {
     if (!hostToRackMap.containsKey(host)) {
       hostToRackMap = computeHostToFaultDomainMap();
-      state.hostToFaultDomainCacheUpdates.incrementAndGet();
+      hostToFaultDomainCacheUpdates.inc();
     }
     return new HashSet<>(hostToRackMap.get(host));
   }
@@ -93,9 +96,9 @@ public class YarnFaultDomainManager implements FaultDomainManager {
   public boolean hasSameFaultDomains(String host1, String host2) {
     if (!hostToRackMap.keySet().contains(host1) || !hostToRackMap.keySet().contains(host2)) {
       hostToRackMap = computeHostToFaultDomainMap();
-      state.hostToFaultDomainCacheUpdates.incrementAndGet();
+      hostToFaultDomainCacheUpdates.inc();
     }
-    return hostToRackMap.get(host1).toString().equals(hostToRackMap.get(host2).toString());
+    return hostToRackMap.get(host1).equals(hostToRackMap.get(host2));
   }
 
   /**
@@ -116,5 +119,9 @@ public class YarnFaultDomainManager implements FaultDomainManager {
       e.printStackTrace();
     }
     return hostToRackMap;
+  }
+
+  private void initMetrics() {
+    hostToFaultDomainCacheUpdates = metricsRegistry.newCounter(groupName, "host-to-fault-domain-cache-updates");
   }
 }

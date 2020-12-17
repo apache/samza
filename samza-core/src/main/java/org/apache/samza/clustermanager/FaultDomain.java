@@ -18,7 +18,8 @@
  */
 package org.apache.samza.clustermanager;
 
-import org.apache.samza.SamzaException;
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 
 /**
  * A fault domain is a set of hardware components that share a single point of failure.
@@ -33,9 +34,9 @@ public class FaultDomain {
   private final String id;
 
   public FaultDomain(FaultDomainType type, String id) {
-    if (type == null || id == null) {
-      throw new SamzaException("Fault domain type and ID cannot be null.");
-    }
+    Preconditions.checkNotNull(type, "Fault domain type (ex:rack) cannot be null.");
+    Preconditions.checkNotNull(id, "Fault domain ID (rack ID) cannot be null.");
+
     this.type = type;
     this.id = id;
   }
@@ -62,6 +63,23 @@ public class FaultDomain {
             "type = " + type +
             ", id = " + id +
             "} ";
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    FaultDomain that = (FaultDomain) o;
+    return Objects.equal(type, that.type) && Objects.equal(id, that.id);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(type, id);
   }
 
 }

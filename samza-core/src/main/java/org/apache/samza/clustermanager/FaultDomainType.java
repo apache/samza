@@ -18,6 +18,9 @@
  */
 package org.apache.samza.clustermanager;
 
+/**
+ * This enum defines the type of fault domain used depending on the environment they are in.
+ */
 public enum FaultDomainType {
     RACK
 }
