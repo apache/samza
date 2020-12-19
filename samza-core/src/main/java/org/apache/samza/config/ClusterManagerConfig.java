@@ -45,6 +45,7 @@ public class ClusterManagerConfig extends MapConfig {
    * Determines whether standby allocation is fault domain aware or not.
    */
   public static final String FAULT_DOMAIN_AWARE_STANDBY_ENABLED = "cluster-manager.fault-domain-aware.standby.enabled";
+  public static final boolean FAULT_DOMAIN_AWARE_STANDBY_ENABLED_DEFAULT = false;
 
   /**
    * Sleep interval for the allocator thread in milliseconds
@@ -263,7 +264,7 @@ public class ClusterManagerConfig extends MapConfig {
   }
 
   public boolean getFaultDomainAwareStandbyEnabled() {
-    return getBoolean(FAULT_DOMAIN_AWARE_STANDBY_ENABLED, false);
+    return getBoolean(FAULT_DOMAIN_AWARE_STANDBY_ENABLED, FAULT_DOMAIN_AWARE_STANDBY_ENABLED_DEFAULT);
   }
 
   public boolean getJmxEnabledOnJobCoordinator() {

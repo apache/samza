@@ -34,8 +34,8 @@ import org.apache.samza.annotation.InterfaceStability;
 public interface FaultDomainManager {
 
   /**
-   * This method returns all the last cached fault domain values in a cluster, for all hosts that are healthy, up and running.
-   * This cache might not be up to date with the state of the cluster, since the cache update is an implementation detail.
+   * This method returns all the fault domain values in a cluster, for all hosts that are healthy, up and running.
+   * This set might not be up to date with the current state of the cluster, as its freshness is an implementation detail.
    * @return a set of {@link FaultDomain}s
    */
   Set<FaultDomain> getAllFaultDomains();

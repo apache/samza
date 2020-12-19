@@ -28,6 +28,7 @@ import java.util.Set;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.client.api.impl.YarnClientImpl;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.samza.clustermanager.FaultDomain;
 import org.apache.samza.clustermanager.FaultDomainManager;
@@ -41,25 +42,27 @@ import org.apache.samza.metrics.MetricsRegistry;
  */
 public class YarnFaultDomainManager implements FaultDomainManager {
 
+  private static final String FAULT_DOMAIN_MANAGER_GROUP = "yarn-fault-domain-manager";
+  private static final String HOST_TO_FAULT_DOMAIN_CACHE_UPDATES = "host-to-fault-domain-cache-updates";
   private Multimap<String, FaultDomain> hostToRackMap;
   private final YarnClientImpl yarnClient;
-  private final MetricsRegistry metricsRegistry;
-  private final String groupName = "yarn-fault-domain-manager";
   private Counter hostToFaultDomainCacheUpdates;
 
   public YarnFaultDomainManager(MetricsRegistry metricsRegistry) {
     this.yarnClient = new YarnClientImpl();
+    yarnClient.init(new YarnConfiguration());
+    yarnClient.start();
     this.hostToRackMap = computeHostToFaultDomainMap();
-    this.metricsRegistry = metricsRegistry;
-    initMetrics();
+    hostToFaultDomainCacheUpdates = metricsRegistry.newCounter(FAULT_DOMAIN_MANAGER_GROUP, HOST_TO_FAULT_DOMAIN_CACHE_UPDATES);
   }
 
   @VisibleForTesting
   YarnFaultDomainManager(MetricsRegistry metricsRegistry, YarnClientImpl yarnClient, Multimap<String, FaultDomain> hostToRackMap) {
     this.yarnClient = yarnClient;
+    yarnClient.init(new YarnConfiguration());
+    yarnClient.start();
     this.hostToRackMap = hostToRackMap;
-    this.metricsRegistry = metricsRegistry;
-    initMetrics();
+    hostToFaultDomainCacheUpdates = metricsRegistry.newCounter(FAULT_DOMAIN_MANAGER_GROUP, HOST_TO_FAULT_DOMAIN_CACHE_UPDATES);
   }
 
   /**
@@ -121,7 +124,4 @@ public class YarnFaultDomainManager implements FaultDomainManager {
     return hostToRackMap;
   }
 
-  private void initMetrics() {
-    hostToFaultDomainCacheUpdates = metricsRegistry.newCounter(groupName, "host-to-fault-domain-cache-updates");
-  }
 }

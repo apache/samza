@@ -523,7 +523,7 @@ public class ContainerAllocator implements Runnable {
     } else {
       state.expiredPreferredHostRequests.incrementAndGet();
     }
-    if (request.getFaultDomains() != null && !request.getFaultDomains().isEmpty()) {
+    if (!request.getFaultDomains().isEmpty()) {
       state.expiredFaultDomainAwareContainerRequests.incrementAndGet();
     }
   }

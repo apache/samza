@@ -254,15 +254,16 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
      * should specify a different priority-level. We can safely set priority of preferred-host requests to be higher than
      * any-host requests since data-locality is critical.
      */
-    boolean relaxLocality = false;
     if (preferredHost.equals("ANY_HOST")) {
       Priority priority = Priority.newInstance(ANY_HOST_PRIORITY);
+      boolean relaxLocality = true;
       log.info("Requesting resources for Processor ID: {} on nodes: {} on racks: {} with capability: {}, priority: {}, relaxLocality: {}, nodeLabelsExpression: {}",
           processorId, null, Arrays.toString(racks), capability, priority, relaxLocality, nodeLabelsExpression);
-      issuedRequest = new AMRMClient.ContainerRequest(capability, null, racks, priority, relaxLocality, nodeLabelsExpression);
+      issuedRequest = new AMRMClient.ContainerRequest(capability, null, null, priority, relaxLocality, nodeLabelsExpression);
     } else {
       String[] nodes = {preferredHost};
       Priority priority = Priority.newInstance(PREFERRED_HOST_PRIORITY);
+      boolean relaxLocality = false;
       log.info("Requesting resources for Processor ID: {} on nodes: {} on racks: {} with capability: {}, priority: {}, relaxLocality: {}, nodeLabelsExpression: {}",
           processorId, Arrays.toString(nodes), Arrays.toString(racks), capability, priority, relaxLocality, nodeLabelsExpression);
       issuedRequest = new AMRMClient.ContainerRequest(capability, nodes, racks, priority, relaxLocality, nodeLabelsExpression);

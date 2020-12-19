@@ -57,7 +57,6 @@ public class TestYarnFaultDomainManager {
   private final String rackName1 = "rack1";
   private final String rackName2 = "rack2";
   private final String rackName3 = "rack3";
-  private final String rackName4 = "rack4";
 
   private final NodeReport nodeReport1 = createNodeReport(hostName1, 1, NodeState.RUNNING, "httpAddress1",
           rackName1, 1, 1, 2, 1, 2,
