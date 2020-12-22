@@ -38,6 +38,15 @@ public class ClusterManagerConfig extends MapConfig {
   private static final String CLUSTER_MANAGER_FACTORY = "samza.cluster-manager.factory";
   private static final String CLUSTER_MANAGER_FACTORY_DEFAULT = "org.apache.samza.job.yarn.YarnResourceManagerFactory";
 
+  private static final String FAULT_DOMAIN_MANAGER_FACTORY = "cluster-manager.fault-domain-manager.factory";
+  private static final String FAULT_DOMAIN_MANAGER_FACTORY_DEFAULT = "org.apache.samza.job.yarn.YarnFaultDomainManagerFactory";
+
+  /**
+   * Determines whether standby allocation is fault domain aware or not.
+   */
+  public static final String FAULT_DOMAIN_AWARE_STANDBY_ENABLED = "cluster-manager.fault-domain-aware.standby.enabled";
+  public static final boolean FAULT_DOMAIN_AWARE_STANDBY_ENABLED_DEFAULT = false;
+
   /**
    * Sleep interval for the allocator thread in milliseconds
    */
@@ -248,6 +257,14 @@ public class ClusterManagerConfig extends MapConfig {
 
   public String getContainerManagerClass() {
     return get(CLUSTER_MANAGER_FACTORY, CLUSTER_MANAGER_FACTORY_DEFAULT);
+  }
+
+  public String getFaultDomainManagerClass() {
+    return get(FAULT_DOMAIN_MANAGER_FACTORY, FAULT_DOMAIN_MANAGER_FACTORY_DEFAULT);
+  }
+
+  public boolean getFaultDomainAwareStandbyEnabled() {
+    return getBoolean(FAULT_DOMAIN_AWARE_STANDBY_ENABLED, FAULT_DOMAIN_AWARE_STANDBY_ENABLED_DEFAULT);
   }
 
   public boolean getJmxEnabledOnJobCoordinator() {
