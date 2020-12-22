@@ -63,8 +63,10 @@ public class StandbyContainerManager {
 
   private final Config config;
 
+  private final boolean isFaultDomainAwareStandbyEnabled;
+
   public StandbyContainerManager(SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager,
-                                 FaultDomainManager faultDomainManager, LocalityManager localityManager, Config config) {
+                                 LocalityManager localityManager, Config config, FaultDomainManager faultDomainManager) {
     this.failovers = new ConcurrentHashMap<>();
     this.localityManager = localityManager;
     this.standbyContainerConstraints = new HashMap<>();
@@ -79,6 +81,8 @@ public class StandbyContainerManager {
     this.clusterResourceManager = clusterResourceManager;
     this.faultDomainManager = faultDomainManager;
     this.config = config;
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+    this.isFaultDomainAwareStandbyEnabled = clusterManagerConfig.getFaultDomainAwareStandbyEnabled();
 
     log.info("Populated standbyContainerConstraints map {}", standbyContainerConstraints);
   }
@@ -134,7 +138,13 @@ public class StandbyContainerManager {
 
     if (StandbyTaskUtil.isStandbyContainer(containerID)) {
       log.info("Handling launch fail for standby-container {}, requesting resource on any host {}", containerID);
-      checkFaultDomainAwarenessEnabledAndRequestResource(containerAllocator, containerID, ResourceRequestState.ANY_HOST);
+      Optional<String> activeContainerHostOpt = getActiveContainerHost(containerID);
+      String activeContainerHost = null;
+      if (activeContainerHostOpt.isPresent()) {
+        activeContainerHost = activeContainerHostOpt.get();
+      }
+      SamzaResourceRequest resourceRequest = getResourceRequest(containerAllocator, containerID, ResourceRequestState.ANY_HOST, activeContainerHost);
+      containerAllocator.issueResourceRequest(resourceRequest);
     } else {
       initiateStandbyAwareAllocation(containerID, resourceID, containerAllocator);
     }
@@ -166,17 +176,15 @@ public class StandbyContainerManager {
   }
 
   /**
-   * Given the active/standby container's container ID, this method returns the allowed fault domains that the given
-   * active container's corresponding standby can be placed on.
+   * This method removes the fault domain of the host passed as an argument, from the set of fault domains, and then returns it.
    *
-   * @param containerID Standby or active container container ID
-   * @return The set of fault domains allowed for the given active container's corresponding standby
+   * @param hostToAvoid Standby or active container container ID
+   * @return The set of fault domains which excludes the fault domain that the given host is on
    */
-  public Set<FaultDomain> getAllowedFaultDomainsForStandbyContainerGivenContainerId(String containerID) {
-    Optional<String> activeContainerHost = getActiveContainerHost(containerID);
+  public Set<FaultDomain> getAllowedFaultDomainsForStandbyContainerGivenHostToExclude(String hostToAvoid) {
     Set<FaultDomain> faultDomains;
-    if (activeContainerHost.isPresent()) {
-      faultDomains = getAllowedFaultDomainsForStandbyContainerGivenActiveContainerHost(activeContainerHost.get());
+    if (hostToAvoid != null) {
+      faultDomains = getAllowedFaultDomainsForStandbyContainerGivenActiveContainerHost(hostToAvoid);
     } else {
       faultDomains = faultDomainManager.getAllFaultDomains();
     }
@@ -229,7 +237,8 @@ public class StandbyContainerManager {
       containerAllocator.issueResourceRequest(resourceRequestForActive);
 
       // request any-host for standby container
-      checkFaultDomainAwarenessEnabledAndRequestResource(containerAllocator, standbyContainerID, ResourceRequestState.ANY_HOST);
+      SamzaResourceRequest resourceRequestForStandby = getResourceRequest(containerAllocator, standbyContainerID, ResourceRequestState.ANY_HOST, standbyContainerHostname);
+      containerAllocator.issueResourceRequest(resourceRequestForStandby);
     } else {
       log.info("Issuing request for standby container {} on host {}, since this is not for a failover",
           standbyContainerID, preferredHost);
@@ -247,6 +256,12 @@ public class StandbyContainerManager {
   private void initiateStandbyAwareAllocation(String activeContainerID, String resourceID,
       ContainerAllocator containerAllocator) {
 
+    Optional<String> activeContainerHostOpt = getActiveContainerHost(activeContainerID);
+    String activeContainerHost = null;
+    if (activeContainerHostOpt.isPresent()) {
+      activeContainerHost = activeContainerHostOpt.get();
+    }
+
     String standbyHost = this.selectStandbyHost(activeContainerID, resourceID);
 
     // if the standbyHost returned is anyhost, we proceed with the request directly
@@ -254,7 +269,8 @@ public class StandbyContainerManager {
       log.info("No standby container found for active container {}, making a resource-request for placing {} on {}, active's resourceID: {}",
           activeContainerID, activeContainerID, ResourceRequestState.ANY_HOST, resourceID);
       samzaApplicationState.failoversToAnyHost.incrementAndGet();
-      checkFaultDomainAwarenessEnabledAndRequestResource(containerAllocator, activeContainerID, ResourceRequestState.ANY_HOST);
+      SamzaResourceRequest resourceRequest = getResourceRequest(containerAllocator, activeContainerID, ResourceRequestState.ANY_HOST, activeContainerHost);
+      containerAllocator.issueResourceRequest(resourceRequest);
 
     } else {
 
@@ -275,13 +291,8 @@ public class StandbyContainerManager {
             standbyHost, activeContainerID, standbyHost, resourceID);
         FailoverMetadata failoverMetadata = this.registerActiveContainerFailure(activeContainerID, resourceID);
 
-        Set<FaultDomain> allowedFaultDomains = new HashSet<>();
-        if (isFaultDomainAwareStandbyEnabled()) {
-          allowedFaultDomains = getAllowedFaultDomainsForStandbyContainerGivenContainerId(activeContainerID);
-        }
         // record the resource request, before issuing it to avoid race with allocation-thread
-        SamzaResourceRequest resourceRequestForActive =
-                containerAllocator.getResourceRequest(activeContainerID, standbyHost, allowedFaultDomains);
+        SamzaResourceRequest resourceRequestForActive = getResourceRequest(containerAllocator, activeContainerID, standbyHost, activeContainerHost);
         failoverMetadata.recordResourceRequest(resourceRequestForActive);
         containerAllocator.issueResourceRequest(resourceRequestForActive);
         samzaApplicationState.failoversToStandby.incrementAndGet();
@@ -412,12 +423,13 @@ public class StandbyContainerManager {
    * @param containerAllocator ContainerAllocator object that requests for resources from the resource manager
    * @param containerID Samza container ID that will be run when a resource is allocated for this request
    * @param preferredHost name of the host that you prefer to run the processor on
+   * @param hostToAvoid The hostname to avoid requesting this resource on if fault domain aware standby allocation is enabled
    */
-  void checkFaultDomainAwarenessEnabledAndRequestResource(ContainerAllocator containerAllocator, String containerID, String preferredHost) {
-    if (isFaultDomainAwareStandbyEnabled()) {
-      containerAllocator.requestResource(containerID, preferredHost, getAllowedFaultDomainsForStandbyContainerGivenContainerId(containerID));
+  SamzaResourceRequest getResourceRequest(ContainerAllocator containerAllocator, String containerID, String preferredHost, String hostToAvoid) {
+    if (isFaultDomainAwareStandbyEnabled) {
+      return containerAllocator.getResourceRequest(containerID, preferredHost, getAllowedFaultDomainsForStandbyContainerGivenHostToExclude(hostToAvoid));
     } else {
-      containerAllocator.requestResource(containerID, preferredHost, new HashSet<>());
+      return containerAllocator.getResourceRequest(containerID, preferredHost, new HashSet<>());
     }
   }
 
@@ -436,7 +448,11 @@ public class StandbyContainerManager {
     if (resource == null) {
       resource = samzaApplicationState.runningProcessors.get(activeContainerId);
     }
-    return Optional.ofNullable(resource.getHost());
+    if (resource != null) {
+      return Optional.ofNullable(resource.getHost());
+    } else {
+      return Optional.empty();
+    }
   }
 
   /**
@@ -454,36 +470,37 @@ public class StandbyContainerManager {
       SamzaResource resource = samzaApplicationState.pendingProcessors.get(containerID);
 
       // return false if a conflicting container is pending for launch on the host
-      if (!checkStandbyConstraintsHelper(containerIdToStart, host, resource, containerID, "pending")) {
+      if (resource != null && isFaultDomainAwareStandbyEnabled
+              && faultDomainManager.hasSameFaultDomains(host, resource.getHost())) {
+        log.info("Container {} cannot be started on host {} because container {} is already scheduled on this fault domain",
+                containerIdToStart, host, containerID);
+        if (StandbyTaskUtil.isStandbyContainer(containerIdToStart)) {
+          samzaApplicationState.failedFaultDomainAwareContainerAllocations.incrementAndGet();
+        }
+        return false;
+      } else if (resource != null && resource.getHost().equals(host)) {
+        log.info("Container {} cannot be started on host {} because container {} is already scheduled on this host",
+                containerIdToStart, host, containerID);
         return false;
       }
 
       // return false if a conflicting container is running on the host
       resource = samzaApplicationState.runningProcessors.get(containerID);
-      if (!checkStandbyConstraintsHelper(containerIdToStart, host, resource, containerID, "running")) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  boolean checkStandbyConstraintsHelper(String containerIdToStart, String hostToStartContainerOn,
-                                        SamzaResource existingResource, String existingContainerID, String containerState) {
-    if (existingResource != null) {
-      if (isFaultDomainAwareStandbyEnabled() && faultDomainManager.hasSameFaultDomains(hostToStartContainerOn, existingResource.getHost())) {
-        log.info("Container {} cannot be started on host {} because container {} is already {} on this fault domain",
-                containerIdToStart, hostToStartContainerOn, existingContainerID, containerState);
+      if (resource != null && isFaultDomainAwareStandbyEnabled
+              && faultDomainManager.hasSameFaultDomains(host, resource.getHost())) {
+        log.info("Container {} cannot be started on host {} because container {} is already running on this fault domain",
+                containerIdToStart, host, containerID);
         if (StandbyTaskUtil.isStandbyContainer(containerIdToStart)) {
           samzaApplicationState.failedFaultDomainAwareContainerAllocations.incrementAndGet();
         }
         return false;
-      } else if (existingResource.getHost().equals(hostToStartContainerOn)) {
-        log.info("Container {} cannot be started on host {} because container {} is already {} on this host",
-                containerIdToStart, hostToStartContainerOn, existingContainerID, containerState);
+      } else if (resource != null && resource.getHost().equals(host)) {
+        log.info("Container {} cannot be started on host {} because container {} is already running on this host",
+                containerIdToStart, host, containerID);
         return false;
       }
     }
+
     return true;
   }
 
@@ -503,7 +520,7 @@ public class StandbyContainerManager {
       log.info("Running container {} on {} meets standby constraints, preferredHost = {}", containerID,
           samzaResource.getHost(), preferredHost);
       containerAllocator.runStreamProcessor(request, preferredHost);
-      if (isFaultDomainAwareStandbyEnabled()) {
+      if (isFaultDomainAwareStandbyEnabled && StandbyTaskUtil.isStandbyContainer(containerID)) {
         samzaApplicationState.faultDomainAwareContainersStarted.incrementAndGet();
       }
     } else if (StandbyTaskUtil.isStandbyContainer(containerID)) {
@@ -512,7 +529,13 @@ public class StandbyContainerManager {
           "Running standby container {} on host {} does not meet standby constraints, cancelling resource request, releasing resource, and making a new ANY_HOST request",
           containerID, samzaResource.getHost());
       releaseUnstartableContainer(request, samzaResource, preferredHost, resourceRequestState);
-      checkFaultDomainAwarenessEnabledAndRequestResource(containerAllocator, containerID, ResourceRequestState.ANY_HOST);
+      Optional<String> activeContainerHostOpt = getActiveContainerHost(containerID);
+      String activeContainerHost = null;
+      if (activeContainerHostOpt.isPresent()) {
+        activeContainerHost = activeContainerHostOpt.get();
+      }
+      SamzaResourceRequest resourceRequest = getResourceRequest(containerAllocator, containerID, ResourceRequestState.ANY_HOST, activeContainerHost);
+      containerAllocator.issueResourceRequest(resourceRequest);
       samzaApplicationState.failedStandbyAllocations.incrementAndGet();
     } else {
       // This resource cannot be used to launch this active container, so we initiate a failover
@@ -566,11 +589,6 @@ public class StandbyContainerManager {
     resourceRequestState.cancelResourceRequest(request);
   }
 
-  private boolean isFaultDomainAwareStandbyEnabled() {
-    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
-    return clusterManagerConfig.getFaultDomainAwareStandbyEnabled();
-  }
-
   // Handle an expired resource request that was made for placing a standby container
   private void handleExpiredRequestForStandbyContainer(String containerID, SamzaResourceRequest request,
       Optional<SamzaResource> alternativeResource, ContainerAllocator containerAllocator,
@@ -587,7 +605,13 @@ public class StandbyContainerManager {
       // If there is no alternative-resource for the standby container we make a new anyhost request
       log.info("Handling expired request, requesting anyHost resource for standby container {}", containerID);
       resourceRequestState.cancelResourceRequest(request);
-      checkFaultDomainAwarenessEnabledAndRequestResource(containerAllocator, containerID, ResourceRequestState.ANY_HOST);
+      Optional<String> activeContainerHostOpt = getActiveContainerHost(containerID);
+      String activeContainerHost = null;
+      if (activeContainerHostOpt.isPresent()) {
+        activeContainerHost = activeContainerHostOpt.get();
+      }
+      SamzaResourceRequest resourceRequest = getResourceRequest(containerAllocator, containerID, ResourceRequestState.ANY_HOST, activeContainerHost);
+      containerAllocator.issueResourceRequest(resourceRequest);
     }
   }
 

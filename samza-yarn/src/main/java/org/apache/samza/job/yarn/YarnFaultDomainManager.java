@@ -30,11 +30,14 @@ import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.client.api.impl.YarnClientImpl;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.FaultDomain;
 import org.apache.samza.clustermanager.FaultDomainManager;
 import org.apache.samza.clustermanager.FaultDomainType;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class functionality works with the assumption that the job.standbytasks.replication.factor is 2.
@@ -42,6 +45,7 @@ import org.apache.samza.metrics.MetricsRegistry;
  */
 public class YarnFaultDomainManager implements FaultDomainManager {
 
+  private static final Logger log = LoggerFactory.getLogger(FaultDomainManager.class);
   private static final String FAULT_DOMAIN_MANAGER_GROUP = "yarn-fault-domain-manager";
   private static final String HOST_TO_FAULT_DOMAIN_CACHE_UPDATES = "host-to-fault-domain-cache-updates";
   private Multimap<String, FaultDomain> hostToRackMap;
@@ -110,7 +114,7 @@ public class YarnFaultDomainManager implements FaultDomainManager {
    * @return map of the host and the rack it resides on
    */
   @VisibleForTesting
-  protected Multimap<String, FaultDomain> computeHostToFaultDomainMap() {
+  Multimap<String, FaultDomain> computeHostToFaultDomainMap() {
     Multimap<String, FaultDomain> hostToRackMap = HashMultimap.create();
     try {
       List<NodeReport> nodeReport = yarnClient.getNodeReports(NodeState.RUNNING);
@@ -118,8 +122,9 @@ public class YarnFaultDomainManager implements FaultDomainManager {
         FaultDomain rack = new FaultDomain(FaultDomainType.RACK, report.getRackName());
         hostToRackMap.put(report.getNodeId().getHost(), rack);
       });
+      log.info("Computed the host to rack map successfully from Yarn.");
     } catch (YarnException | IOException e) {
-      e.printStackTrace();
+      throw new SamzaException("Yarn threw an exception while getting NodeReports.", e);
     }
     return hostToRackMap;
   }
