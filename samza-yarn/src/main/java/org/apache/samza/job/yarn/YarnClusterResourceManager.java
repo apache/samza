@@ -236,7 +236,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     String[] racks = null;
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
     if (clusterManagerConfig.getFaultDomainAwareStandbyEnabled()) {
-      racks = convertFaultDomainSetToRackArray(resourceRequest.getFaultDomains());
+      racks = resourceRequest.getFaultDomains().stream().map(FaultDomain::getId).toArray(String[]::new);
     }
     int memoryMb = resourceRequest.getMemoryMB();
     int cpuCores = resourceRequest.getNumCores();
@@ -733,12 +733,4 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     return null;
   }
 
-  private String[] convertFaultDomainSetToRackArray(Set<FaultDomain> faultDomains) {
-    String[] racks = new String[faultDomains.size()];
-    int iterator = 0;
-    faultDomains.forEach(faultDomain -> {
-      racks[iterator] = faultDomain.getId();
-    });
-    return racks;
-  }
 }
