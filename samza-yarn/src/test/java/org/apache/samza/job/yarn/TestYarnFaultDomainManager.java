@@ -187,5 +187,4 @@ public class TestYarnFaultDomainManager {
             Resource.newInstance(memoryUsed, vcoresUsed), Resource.newInstance(totalMemory, totalVcores), numContainers,
             healthReport, lastHealthReportTime, nodeLabels);
   }
-
 }

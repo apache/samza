@@ -128,5 +128,4 @@ public class YarnFaultDomainManager implements FaultDomainManager {
     }
     return hostToRackMap;
   }
-
 }

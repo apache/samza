@@ -131,12 +131,14 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    */
   private final Map<String, ProcessorFailure> processorFailures = new HashMap<>();
 
+  private final boolean restartContainers;
+
   private ContainerProcessManagerMetrics containerProcessManagerMetrics;
   private JvmMetrics jvmMetrics;
   private Map<String, MetricsReporter> metricsReporters;
 
   public ContainerProcessManager(Config config, SamzaApplicationState state, MetricsRegistryMap registry,
-      ContainerPlacementMetadataStore metadataStore, LocalityManager localityManager) {
+      ContainerPlacementMetadataStore metadataStore, LocalityManager localityManager, boolean restartContainers) {
     Preconditions.checkNotNull(localityManager, "Locality manager cannot be null");
     this.state = state;
     this.clusterManagerConfig = new ClusterManagerConfig(config);
@@ -178,6 +180,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    this.restartContainers = restartContainers;
     LOG.info("Finished container process manager initialization.");
   }
 
@@ -188,7 +191,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       ClusterResourceManager resourceManager,
       Optional<ContainerAllocator> allocator,
       ContainerManager containerManager,
-      LocalityManager localityManager) {
+      LocalityManager localityManager,
+      boolean restartContainers) {
     this.state = state;
     this.clusterManagerConfig = clusterManagerConfig;
     this.jobConfig = new JobConfig(clusterManagerConfig);
@@ -203,6 +207,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       () -> new ContainerAllocator(this.clusterResourceManager, clusterManagerConfig, state,
           hostAffinityEnabled, this.containerManager));
     this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    this.restartContainers = restartContainers;
     LOG.info("Finished container process manager initialization");
   }
 
@@ -239,22 +244,36 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       diagnosticsManager.get().start();
     }
 
-    LOG.info("Starting the cluster resource manager");
-    clusterResourceManager.start();
-
+    // In AM-HA, clusterResourceManager receives already running containers
+    // and invokes onStreamProcessorLaunchSuccess which inturn updates state
+    // hence state has to be set prior to starting clusterResourceManager.
     state.processorCount.set(state.jobModelManager.jobModel().getContainers().size());
     state.neededProcessors.set(state.jobModelManager.jobModel().getContainers().size());
+
+    LOG.info("Starting the cluster resource manager");
+    clusterResourceManager.start();
 
     // Request initial set of containers
     LocalityModel localityModel = localityManager.readLocality();
     Map<String, String> processorToHost = new HashMap<>();
-    state.jobModelManager.jobModel().getContainers().keySet().forEach((containerId) -> {
-      String host = Optional.ofNullable(localityModel.getProcessorLocality(containerId))
+    state.jobModelManager.jobModel().getContainers().keySet().forEach((processorId) -> {
+      String host = Optional.ofNullable(localityModel.getProcessorLocality(processorId))
           .map(ProcessorLocality::host)
           .filter(StringUtils::isNotBlank)
           .orElse(null);
-      processorToHost.put(containerId, host);
+      processorToHost.put(processorId, host);
     });
+    if (jobConfig.getApplicationMasterHighAvailabilityEnabled()) {
+      // don't request resource for container that is already running
+      state.runningProcessors.forEach((processorId, samzaResource) -> {
+        LOG.info("Not requesting container for processorId: {} since its already running as containerId: {}",
+            processorId, samzaResource.getContainerId());
+        processorToHost.remove(processorId);
+        if (restartContainers) {
+          clusterResourceManager.stopStreamProcessor(samzaResource);
+        }
+      });
+    }
     containerAllocator.requestResources(processorToHost);
 
     // Start container allocator thread
@@ -337,7 +356,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
       return;
     }
     state.runningProcessors.remove(processorId);
-
     int exitStatus = resourceStatus.getExitCode();
     switch (exitStatus) {
       case SamzaResourceStatus.SUCCESS:
@@ -416,7 +434,6 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
           processorId, containerId, containerHost);
       state.pendingProcessors.remove(processorId);
       state.runningProcessors.put(processorId, resource);
-
       if (state.neededProcessors.decrementAndGet() == 0) {
         state.jobHealthy.set(true);
       }

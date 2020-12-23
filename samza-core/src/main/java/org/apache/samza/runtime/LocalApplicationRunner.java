@@ -431,25 +431,38 @@ public class LocalApplicationRunner implements ApplicationRunner {
       userDefinedProcessorLifecycleListener.afterStart();
     }
 
+    private void closeAndRemoveProcessor() {
+      processors.forEach(sp -> {
+        if (sp.getLeft().equals(processor)) {
+          sp.getLeft().stop();
+          if (sp.getRight() != null) {
+            sp.getRight().close();
+          }
+        }
+      });
+      processors.removeIf(pair -> pair.getLeft().equals(processor));
+    }
     @Override
     public void afterStop() {
-      processors.removeIf(pair -> pair.getLeft().equals(processor));
-
+      closeAndRemoveProcessor();
       // successful shutdown
       handleProcessorShutdown(null);
     }
 
     @Override
     public void afterFailure(Throwable t) {
-      processors.removeIf(pair -> pair.getLeft().equals(processor));
+      // we need to close associated coordinator metadata store, although the processor failed
+      closeAndRemoveProcessor();
 
       // the processor stopped with failure, this is logging the first processor's failure as the cause of
       // the whole application failure
       if (failure.compareAndSet(null, t)) {
         // shutdown the other processors
         processors.forEach(sp -> {
-          sp.getLeft().stop();    // Stop StreamProcessor
-          sp.getRight().close();  // Close associated coordinator metadata store
+          sp.getLeft().stop();     // Stop StreamProcessor
+          if (sp.getRight() != null) {
+            sp.getRight().close(); // Close associated coordinator metadata store
+          }
         });
       }
 

@@ -16,17 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.clustermanager;
+package org.apache.samza.serializers.model;
 
-import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.config.Config;
-import org.apache.samza.metrics.MetricsRegistry;
+import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonIgnoreProperties;
+import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
- * A factory to build a {@link FaultDomainManager}.
+ * A mix-in Jackson class to convert {@link org.apache.samza.job.JobCoordinatorMetadata} to/from JSON
  */
-@InterfaceStability.Unstable
-public interface FaultDomainManagerFactory {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public abstract class JsonJobCoordinatorMetadataMixIn {
 
-  FaultDomainManager getFaultDomainManager(Config config, MetricsRegistry metricsRegistry);
+  @JsonCreator
+  public JsonJobCoordinatorMetadataMixIn(@JsonProperty("epoch-id") String epochId,
+      @JsonProperty("config-id") String configId, @JsonProperty("job-model-id") String jobModelId) {
+  }
+
+  @JsonProperty("epoch-id")
+  abstract String getEpochId();
+
+  @JsonProperty("config-id")
+  abstract String getConfigId();
+
+  @JsonProperty("job-model-id")
+  abstract String getJobModelId();
 }
