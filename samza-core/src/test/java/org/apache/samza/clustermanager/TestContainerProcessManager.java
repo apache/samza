@@ -614,9 +614,16 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm =
-        buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator),
-            mockLocalityManager, false);
+    ContainerProcessManager cpm = new ContainerProcessManager(
+        clusterManagerConfig,
+        state,
+        new MetricsRegistryMap(),
+        clusterResourceManager,
+        Optional.empty(),
+        containerManager,
+        mockLocalityManager,
+        false
+    );
 
     // start triggers a request
     cpm.start();
@@ -1030,7 +1037,7 @@ public class TestContainerProcessManager {
   public void teardown() {
     server.stop();
   }
-  
+
   private ContainerManager buildContainerManager(ContainerPlacementMetadataStore containerPlacementMetadataStore,
       SamzaApplicationState samzaApplicationState, ClusterResourceManager clusterResourceManager,
       boolean hostAffinityEnabled, boolean standByEnabled) {

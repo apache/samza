@@ -180,9 +180,11 @@ public class TestContainerAllocatorWithoutHostAffinity {
     });
     LocalityManager mockLocalityManager = mock(LocalityManager.class);
     when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(new HashMap<>()));
+    ContainerManager containerManager = new ContainerManager(containerPlacementMetadataStore, state, manager, false,
+        false, mockLocalityManager, mock(FaultDomainManager.class), config);
     containerAllocator =
         MockContainerAllocatorWithoutHostAffinity.createContainerAllocatorWithConfigOverride(manager, config, state,
-            new ContainerManager(containerPlacementMetadataStore, state, manager, false, false, mockLocalityManager),
+            containerManager,
             override);
     MockContainerAllocatorWithoutHostAffinity mockAllocator =
         (MockContainerAllocatorWithoutHostAffinity) containerAllocator;
