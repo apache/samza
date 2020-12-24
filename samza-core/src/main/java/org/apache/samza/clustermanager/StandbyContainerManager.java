@@ -246,7 +246,7 @@ public class StandbyContainerManager {
       log.info("No standby container found for active container {}, making a resource-request for placing {} on {}, active's resourceID: {}",
           activeContainerID, activeContainerID, ResourceRequestState.ANY_HOST, resourceID);
       samzaApplicationState.failoversToAnyHost.incrementAndGet();
-      requestResource(containerAllocator, activeContainerID, ResourceRequestState.ANY_HOST, Duration.ZERO, null);
+      containerAllocator.requestResource(activeContainerID, ResourceRequestState.ANY_HOST);
 
     } else {
 
@@ -426,7 +426,7 @@ public class StandbyContainerManager {
     if (resource == null) {
       resource = samzaApplicationState.runningProcessors.get(activeContainerId);
     }
-    return Optional.of(resource)
+    return Optional.ofNullable(resource)
             .map(SamzaResource::getHost);
   }
 
