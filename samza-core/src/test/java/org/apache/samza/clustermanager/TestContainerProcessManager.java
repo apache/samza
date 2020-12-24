@@ -614,16 +614,9 @@ public class TestContainerProcessManager {
         state,
         containerManager);
 
-    ContainerProcessManager cpm = new ContainerProcessManager(
-        clusterManagerConfig,
-        state,
-        new MetricsRegistryMap(),
-        clusterResourceManager,
-        Optional.empty(),
-        containerManager,
-        mockLocalityManager,
-        false
-    );
+    ContainerProcessManager cpm =
+        buildContainerProcessManager(clusterManagerConfig, state, clusterResourceManager, Optional.of(allocator),
+            mockLocalityManager, false, faultDomainManager);
 
     // start triggers a request
     cpm.start();

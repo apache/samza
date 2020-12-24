@@ -241,11 +241,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     String processorId = resourceRequest.getProcessorId();
     String requestId = resourceRequest.getRequestId();
     String preferredHost = resourceRequest.getPreferredHost();
-    String[] racks = null;
-    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
-    if (clusterManagerConfig.getFaultDomainAwareStandbyEnabled()) {
-      racks = resourceRequest.getFaultDomains().stream().map(FaultDomain::getId).toArray(String[]::new);
-    }
+    String[] racks = resourceRequest.getFaultDomains().stream().map(FaultDomain::getId).toArray(String[]::new);
     int memoryMb = resourceRequest.getMemoryMB();
     int cpuCores = resourceRequest.getNumCores();
     Resource capability = Resource.newInstance(memoryMb, cpuCores);

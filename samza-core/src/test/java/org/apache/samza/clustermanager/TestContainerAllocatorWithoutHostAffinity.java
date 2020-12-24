@@ -184,7 +184,8 @@ public class TestContainerAllocatorWithoutHostAffinity {
         false, mockLocalityManager, mock(FaultDomainManager.class), config);
     containerAllocator =
         MockContainerAllocatorWithoutHostAffinity.createContainerAllocatorWithConfigOverride(manager, config, state,
-            containerManager,
+            new ContainerManager(containerPlacementMetadataStore, state, manager, false,
+                    false, mockLocalityManager, faultDomainManager, config),
             override);
     MockContainerAllocatorWithoutHostAffinity mockAllocator =
         (MockContainerAllocatorWithoutHostAffinity) containerAllocator;
