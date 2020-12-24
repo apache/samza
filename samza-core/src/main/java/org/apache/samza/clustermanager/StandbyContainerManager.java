@@ -267,14 +267,9 @@ public class StandbyContainerManager {
             standbyHost, activeContainerID, standbyHost, resourceID);
         FailoverMetadata failoverMetadata = this.registerActiveContainerFailure(activeContainerID, resourceID);
 
-        Set<FaultDomain> allowedFaultDomains = new HashSet<>();
-        if (isFaultDomainAwareStandbyEnabled) {
-          allowedFaultDomains = getAllowedFaultDomainsGivenHostToAvoid(null);
-        }
-
         // record the resource request, before issuing it to avoid race with allocation-thread
         SamzaResourceRequest resourceRequestForActive =
-                containerAllocator.getResourceRequest(activeContainerID, standbyHost, allowedFaultDomains);
+                containerAllocator.getResourceRequest(activeContainerID, standbyHost);
         failoverMetadata.recordResourceRequest(resourceRequestForActive);
         containerAllocator.issueResourceRequest(resourceRequestForActive);
         samzaApplicationState.failoversToStandby.incrementAndGet();
