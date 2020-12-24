@@ -19,6 +19,7 @@
 package org.apache.samza.clustermanager;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -170,33 +171,18 @@ public class StandbyContainerManager {
 
   /**
    * This method removes the fault domain of the host passed as an argument, from the set of fault domains, and then returns it.
-   *
-   * @param hostToAvoid Standby or active container container ID
+   * The set of fault domains returned is based on the set difference between all the available fault domains in the
+   * cluster and the fault domain associated with the host that is passed as input.
+   * @param hostToAvoid hostname whose fault domains are excluded
    * @return The set of fault domains which excludes the fault domain that the given host is on
    */
-  public Set<FaultDomain> getAllowedFaultDomainsForStandbyContainerGivenHostToExclude(String hostToAvoid) {
-    Set<FaultDomain> faultDomains;
-    if (hostToAvoid != null) {
-      faultDomains = getAllowedFaultDomainsForStandbyContainerGivenActiveContainerHost(hostToAvoid);
-    } else {
-      faultDomains = faultDomainManager.getAllFaultDomains();
-    }
-    return faultDomains;
-  }
-
-  /**
-   * Given the active container's hostname, this method gets the set of fault domains that the given active container's
-   * corresponding standby can be placed on.
-   * The set of fault domains returned is based on the set difference between the active container's fault domain,
-   * and all the available fault domains in the cluster based on the host to fault domain cache.
-   * @param host The hostname of the active container
-   * @return the set of fault domains on which this active container's standby can be scheduled
-   */
-  public Set<FaultDomain> getAllowedFaultDomainsForStandbyContainerGivenActiveContainerHost(String host) {
-    Set<FaultDomain> standbyFaultDomain = faultDomainManager.getAllFaultDomains();
-    Set<FaultDomain> activeContainerFaultDomain = faultDomainManager.getFaultDomainsForHost(host);
-    standbyFaultDomain.removeAll(activeContainerFaultDomain);
-    return standbyFaultDomain;
+  public Set<FaultDomain> getAllowedFaultDomainsGivenHostToAvoid(String hostToAvoid) {
+    Set<FaultDomain> allFaultDomains = faultDomainManager.getAllFaultDomains();
+    Set<FaultDomain> faultDomainToAvoid = Optional.ofNullable(hostToAvoid)
+            .map(faultDomainManager::getFaultDomainsForHost)
+            .orElse(Collections.emptySet());
+    allFaultDomains.removeAll(faultDomainToAvoid);
+    return allFaultDomains;
   }
 
   /**
@@ -283,7 +269,7 @@ public class StandbyContainerManager {
 
         Set<FaultDomain> allowedFaultDomains = new HashSet<>();
         if (isFaultDomainAwareStandbyEnabled) {
-          allowedFaultDomains = getAllowedFaultDomainsForStandbyContainerGivenHostToExclude(null);
+          allowedFaultDomains = getAllowedFaultDomainsGivenHostToAvoid(null);
         }
 
         // record the resource request, before issuing it to avoid race with allocation-thread
@@ -424,7 +410,7 @@ public class StandbyContainerManager {
    */
   void requestResource(ContainerAllocator containerAllocator, String containerID, String preferredHost, Duration preferredHostRetryDelay, String hostToAvoid) {
     if (StandbyTaskUtil.isStandbyContainer(containerID) && isFaultDomainAwareStandbyEnabled) {
-      containerAllocator.requestResourceWithDelay(containerID, preferredHost, preferredHostRetryDelay, getAllowedFaultDomainsForStandbyContainerGivenHostToExclude(hostToAvoid));
+      containerAllocator.requestResourceWithDelay(containerID, preferredHost, preferredHostRetryDelay, getAllowedFaultDomainsGivenHostToAvoid(hostToAvoid));
     } else {
       containerAllocator.requestResourceWithDelay(containerID, preferredHost, preferredHostRetryDelay, new HashSet<>());
     }
