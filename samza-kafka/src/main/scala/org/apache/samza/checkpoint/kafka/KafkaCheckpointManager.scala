@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 import com.google.common.annotations.VisibleForTesting
-import com.google.common.base.Preconditions
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.TaskName
@@ -67,13 +66,13 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val checkpointSsp: SystemStreamPartition = new SystemStreamPartition(checkpointSystem, checkpointTopic, new Partition(0))
   val expectedGrouperFactory: String = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
-  var systemConsumer: SystemConsumer = _
-  var systemAdmin: SystemAdmin = _
+  val systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry, this.getClass.getSimpleName)
+  val systemAdmin =  systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
 
   var taskNames: Set[TaskName] = Set[TaskName]()
   var taskNamesToCheckpoints: Map[TaskName, Checkpoint] = _
 
-  var producerRef: AtomicReference[SystemProducer] = _
+  val producerRef: AtomicReference[SystemProducer] = new AtomicReference[SystemProducer](getSystemProducer())
   val producerCreationLock: Object = new Object
 
   // if true, systemConsumer can be safely closed after the first call to readLastCheckpoint.
@@ -86,21 +85,19 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     *
     */
   override def createResources(): Unit = {
-    val systemAdmin = systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
-    Preconditions.checkNotNull(systemAdmin)
-
-    systemAdmin.start()
+    val createResourcesSystemAdmin =  systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName + "createResource")
+    createResourcesSystemAdmin.start()
     try {
       info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
         s"partition count: ${checkpointSpec.getPartitionCount}")
-      systemAdmin.createStream(checkpointSpec)
+      createResourcesSystemAdmin.createStream(checkpointSpec)
 
       if (validateCheckpoint) {
         info(s"Validating checkpoint stream")
-        systemAdmin.validateStream(checkpointSpec)
+        createResourcesSystemAdmin.validateStream(checkpointSpec)
       }
     } finally {
-      systemAdmin.stop()
+      createResourcesSystemAdmin.stop()
     }
   }
 
@@ -124,10 +121,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     * @inheritdoc
     */
   override def register(taskName: TaskName) {
-    systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry, this.getClass.getSimpleName)
-    systemAdmin =  systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
-    producerRef = new AtomicReference[SystemProducer](getSystemProducer())
-
     debug(s"Registering taskName: $taskName")
     producerRef.get().register(taskName.getTaskName)
     taskNames += taskName
