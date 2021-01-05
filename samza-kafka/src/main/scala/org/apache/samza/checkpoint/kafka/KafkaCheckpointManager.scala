@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 import com.google.common.annotations.VisibleForTesting
+import com.google.common.base.Preconditions
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.TaskName
@@ -86,6 +87,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     */
   override def createResources(): Unit = {
     val createResourcesSystemAdmin =  systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName + "createResource")
+    Preconditions.checkNotNull(createResourcesSystemAdmin)
     createResourcesSystemAdmin.start()
     try {
       info(s"Creating checkpoint stream: ${checkpointSpec.getPhysicalName} with " +
