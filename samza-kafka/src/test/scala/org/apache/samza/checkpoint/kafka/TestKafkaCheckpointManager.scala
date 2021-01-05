@@ -84,7 +84,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val checkPointManager = Mockito.spy(new KafkaCheckpointManager(spec, new MockSystemFactory, false, config, new NoOpMetricsRegistry))
     val newKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
 
-    Mockito.when(checkPointManager.getSystemProducer()).thenReturn(mockKafkaProducer).thenReturn(newKafkaProducer)
+    Mockito.doReturn(newKafkaProducer).when(checkPointManager).getSystemProducer()
 
     checkPointManager.register(taskName)
     checkPointManager.start
