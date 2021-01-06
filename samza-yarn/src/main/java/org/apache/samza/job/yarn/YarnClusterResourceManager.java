@@ -220,6 +220,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
     nmClientAsync.init(yarnConfiguration);
     nmClientAsync.start();
     Set<ContainerId> previousAttemptsContainers = lifecycle.onInit();
+    metrics.setContainersFromPreviousAttempts(previousAttemptsContainers.size());
 
     if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
       log.info("Received running containers from previous attempt. Invoking launch success for them.");

@@ -113,11 +113,14 @@ public class TestJobCoordinatorMetadataManager {
     JobCoordinatorMetadata newMetadataWithDifferentEpochId =
         new JobCoordinatorMetadata(NEW_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
 
+    JobCoordinatorMetadataManager.JobCoordinatorMetadataManagerMetrics metrics =
+        jobCoordinatorMetadataManager.getMetrics();
+
     boolean metadataChanged =
         jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithDifferentEpochId);
     assertTrue("Metadata check should return true", metadataChanged);
     assertEquals("New deployment should be 1 since Epoch ID changed", 1,
-        jobCoordinatorMetadataManager.getNewDeployment().getValue().intValue());
+        metrics.getNewDeployment().getValue().intValue());
 
     JobCoordinatorMetadata newMetadataWithDifferentConfigId =
         new JobCoordinatorMetadata(OLD_EPOCH_ID, NEW_CONFIG_ID, OLD_JOB_MODEL_ID);
@@ -125,7 +128,7 @@ public class TestJobCoordinatorMetadataManager {
         jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithDifferentConfigId);
     assertTrue("Metadata check should return true", metadataChanged);
     assertEquals("Config across application attempts should be 1", 1,
-        jobCoordinatorMetadataManager.getConfigChangedAcrossApplicationAttempt().getValue().intValue());
+        metrics.getConfigChangedAcrossApplicationAttempt().getValue().intValue());
 
     JobCoordinatorMetadata newMetadataWithDifferentJobModelId =
         new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, NEW_JOB_MODEL_ID);
@@ -133,18 +136,18 @@ public class TestJobCoordinatorMetadataManager {
         jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithDifferentJobModelId);
     assertTrue("Metadata check should return true", metadataChanged);
     assertEquals("Job model changed across application attempts should be 1", 1,
-        jobCoordinatorMetadataManager.getJobModelChangedAcrossApplicationAttempt().getValue().intValue());
+        metrics.getJobModelChangedAcrossApplicationAttempt().getValue().intValue());
 
     JobCoordinatorMetadata newMetadataWithNoChange =
         new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
     assertEquals("Application attempt count should be 0", 0,
-        jobCoordinatorMetadataManager.getApplicationAttemptCount().getCount());
+        metrics.getApplicationAttemptCount().getCount());
 
     metadataChanged =
         jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithNoChange);
     assertFalse("Metadata check should return false", metadataChanged);
     assertEquals("Application attempt count should be 1", 1,
-        jobCoordinatorMetadataManager.getApplicationAttemptCount().getCount());
+        metrics.getApplicationAttemptCount().getCount());
   }
 
   @Test
@@ -158,7 +161,7 @@ public class TestJobCoordinatorMetadataManager {
     } catch (Exception e) {
       assertTrue("Expecting SamzaException to be thrown", e instanceof SamzaException);
       assertEquals("Metadata generation failed count should be 1", 1,
-          jobCoordinatorMetadataManager.getMetadataGenerationFailedCount().getCount());
+          jobCoordinatorMetadataManager.getMetrics().getMetadataGenerationFailedCount().getCount());
     }
   }
 
@@ -208,7 +211,7 @@ public class TestJobCoordinatorMetadataManager {
     JobCoordinatorMetadata actualMetadata = jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
     assertNull("Read failed should return null", actualMetadata);
     assertEquals("Metadata read failed count should be 1", 1,
-        jobCoordinatorMetadataManager.getMetadataReadFailedCount().getCount());
+        jobCoordinatorMetadataManager.getMetrics().getMetadataReadFailedCount().getCount());
   }
 
   @Test
@@ -237,7 +240,7 @@ public class TestJobCoordinatorMetadataManager {
     } catch (Exception e) {
       assertTrue("Expecting SamzaException to be thrown", e instanceof SamzaException);
       assertEquals("Metadata write failed count should be 1", 1,
-          jobCoordinatorMetadataManager.getMetadataWriteFailedCount().getCount());
+          jobCoordinatorMetadataManager.getMetrics().getMetadataWriteFailedCount().getCount());
     }
   }
 }

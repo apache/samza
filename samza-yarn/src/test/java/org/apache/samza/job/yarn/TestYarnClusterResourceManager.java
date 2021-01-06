@@ -201,8 +201,11 @@ public class TestYarnClusterResourceManager {
     verify(lifecycle).onInit();
     ArgumentCaptor<SamzaResource> samzaResourceArgumentCaptor = ArgumentCaptor.forClass(SamzaResource.class);
     verify(callback).onStreamProcessorLaunchSuccess(samzaResourceArgumentCaptor.capture());
+    ArgumentCaptor<Integer> containerFromPreviousAttemptCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(metrics).setContainersFromPreviousAttempts(containerFromPreviousAttemptCaptor.capture());
     SamzaResource samzaResource = samzaResourceArgumentCaptor.getValue();
     assertEquals(previousAttemptYarnContainerId, samzaResource.getContainerId());
+    assertEquals(1, containerFromPreviousAttemptCaptor.getValue().intValue());
   }
 
   @Test
