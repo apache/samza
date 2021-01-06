@@ -19,7 +19,11 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +53,10 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
    */
   private final String preferredHost;
   /**
+   * The set of fault domains on which the resource must be allocated.
+   */
+  private final Set<FaultDomain> faultDomains;
+  /**
    * A request is identified by an unique identifier.
    */
   private final String requestId;
@@ -63,7 +71,11 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
   private final Instant requestTimestamp;
 
   public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId) {
-    this(numCores, memoryMB, preferredHost, processorId, Instant.now());
+    this(numCores, memoryMB, preferredHost, processorId, Instant.now(), ImmutableSet.of());
+  }
+
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Set<FaultDomain> faultDomains) {
+    this(numCores, memoryMB, preferredHost, processorId, Instant.now(), faultDomains);
   }
 
   public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp) {
@@ -73,7 +85,22 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     this.requestId = UUID.randomUUID().toString();
     this.processorId = processorId;
     this.requestTimestamp = requestTimestamp;
-    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}", this.processorId, this.preferredHost, this.requestTimestamp, this.requestId);
+    this.faultDomains = new HashSet<>();
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {}, and the following list of fault domains: {}",
+            this.processorId, this.preferredHost, this.requestTimestamp, this.requestId, this.faultDomains);
+  }
+
+  public SamzaResourceRequest(int numCores, int memoryMB, String preferredHost, String processorId, Instant requestTimestamp, Set<FaultDomain> faultDomains) {
+    Preconditions.checkNotNull(faultDomains, "Set of fault domains should not be null.");
+    this.numCores = numCores;
+    this.memoryMB = memoryMB;
+    this.preferredHost = preferredHost;
+    this.requestId = UUID.randomUUID().toString();
+    this.processorId = processorId;
+    this.requestTimestamp = requestTimestamp;
+    this.faultDomains = faultDomains;
+    log.info("SamzaResourceRequest created for Processor ID: {} on host: {} at time: {} with Request ID: {} and the following list of fault domains: {}",
+            this.processorId, this.preferredHost, this.requestTimestamp, this.requestId, this.faultDomains.toString());
   }
 
   public String getProcessorId() {
@@ -96,6 +123,10 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
     return preferredHost;
   }
 
+  public Set<FaultDomain> getFaultDomains() {
+    return faultDomains;
+  }
+
   public int getMemoryMB() {
     return memoryMB;
   }
@@ -109,6 +140,7 @@ public class SamzaResourceRequest implements Comparable<SamzaResourceRequest> {
             ", requestId='" + requestId + '\'' +
             ", processorId=" + processorId +
             ", requestTimestampMs=" + requestTimestamp +
+            ", faultDomains=" + faultDomains.toString() +
             '}';
   }
 

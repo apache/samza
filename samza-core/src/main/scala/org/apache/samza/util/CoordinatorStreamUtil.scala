@@ -24,6 +24,7 @@ import java.util
 
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
+import org.apache.samza.coordinator.CoordinationConstants
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore
 import org.apache.samza.coordinator.stream.{CoordinatorStreamSystemConsumer, CoordinatorStreamSystemProducer, CoordinatorStreamValueSerde}
 import org.apache.samza.coordinator.stream.messages.{Delete, SetConfig}
@@ -54,11 +55,12 @@ object CoordinatorStreamUtil extends Logging {
    * @param config to create coordinator stream.
    */
   def createCoordinatorStream(config: Config): Unit = {
-    val systemAdmins = new SystemAdmins(config, this.getClass.getSimpleName)
-
     info("Creating coordinator stream")
     val coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config)
-    val coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem)
+    val systemConfig = new SystemConfig(config)
+    val coordinatorSystemAdmin = systemConfig.getSystemFactories.get(coordinatorSystemStream.getSystem)
+      .getAdmin(coordinatorSystemStream.getSystem, config, classOf[DiagnosticsUtil].getSimpleName)
+
     coordinatorSystemAdmin.start()
     CoordinatorStreamUtil.createCoordinatorStream(coordinatorSystemStream, coordinatorSystemAdmin)
     coordinatorSystemAdmin.stop()
@@ -195,6 +197,11 @@ object CoordinatorStreamUtil extends Logging {
       if (jobConfig.getAutosizingEnabled) {
         // If autosizing is enabled, we retain auto-sizing related configs
         keysToRemove = keysToRemove.filter(configKey => !JobConfig.isAutosizingConfig(configKey))
+      }
+
+      if (jobConfig.getApplicationMasterHighAvailabilityEnabled) {
+        // if AM HA is enabled then retain AM url as running containers are fetching it from c-stream until new AM publishes new AM url.
+        keysToRemove = keysToRemove.filter(configKey => !(configKey.equals(CoordinationConstants.YARN_COORDINATOR_URL)))
       }
 
       info("Deleting old configs that are no longer defined: %s".format(keysToRemove))
