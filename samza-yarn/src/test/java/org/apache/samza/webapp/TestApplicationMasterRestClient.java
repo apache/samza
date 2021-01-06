@@ -116,7 +116,7 @@ public class TestApplicationMasterRestClient {
     assertEquals(samzaAppState.releasedContainers.get(),  amMetricsGroup.get("released-containers"));
     assertEquals(samzaAppState.processorCount.get(),      amMetricsGroup.get("container-count"));
     assertEquals(samzaAppState.jobHealthy.get() ? 1 : 0,  amMetricsGroup.get("job-healthy"));
-    assertEquals(0,amMetricsGroup.get("container-from-previous-attempt"));
+    assertEquals(0, amMetricsGroup.get("container-from-previous-attempt"));
   }
 
   @Test
