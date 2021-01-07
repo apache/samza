@@ -123,7 +123,7 @@ public class ContainerHeartbeatMonitor {
           } catch (Exception e) {
             // On exception in re-establish connection with new AM, force exit.
             LOG.error("Exception trying to connect with new AM", e);
-            forceExit("failure in establishing cconnection with new AM", 0);
+            forceExit("failure in establishing cconnection with new AM", SHUTDOWN_TIMOUT_MS);
             return;
           }
         }
