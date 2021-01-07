@@ -19,9 +19,13 @@
 
 package org.apache.samza.container;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
@@ -31,6 +35,7 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
@@ -43,6 +48,11 @@ import static org.mockito.Mockito.when;
 
 
 public class TestContainerHeartbeatMonitor {
+  private static final String COORDINATOR_URL = "http://some-host.prod.linkedin.com";
+  private static final ContainerHeartbeatResponse FAILURE_RESPONSE = new ContainerHeartbeatResponse(false);
+  private static final ContainerHeartbeatResponse SUCCESS_RESPONSE = new ContainerHeartbeatResponse(true);
+  private static final String CONTAINER_EXECUTION_ID = "0";
+
   @Mock
   private Runnable onExpired;
   @Mock
@@ -58,18 +68,22 @@ public class TestContainerHeartbeatMonitor {
 
   private ContainerHeartbeatMonitor containerHeartbeatMonitor;
 
-  private static final String COORDINATOR_URL = "http://some-host.prod.linkedin.com";
-  private static final ContainerHeartbeatResponse FAILURE_RESPONSE = new ContainerHeartbeatResponse(false);
-  private static final ContainerHeartbeatResponse SUCCESS_RESPONSE = new ContainerHeartbeatResponse(true);
-
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
     this.schedulerFixedRateExecutionLatch = new CountDownLatch(1);
     this.scheduler = buildScheduledExecutorService(this.schedulerFixedRateExecutionLatch);
-    this.containerHeartbeatMonitor =
-        new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
-            "0", coordinatorStreamStore, false, 5, 10);
+    this.containerHeartbeatMonitor = buildContainerHeartbeatMonitor(false);
+  }
+
+  private ContainerHeartbeatMonitor buildContainerHeartbeatMonitor(boolean enableAMHighAvailability) {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.YARN_AM_HIGH_AVAILABILITY_ENABLED, String.valueOf(enableAMHighAvailability));
+    configMap.put(JobConfig.YARN_CONTAINER_HEARTBEAT_RETRY_COUNT, "5");
+    configMap.put(JobConfig.YARN_CONTAINER_HEARTBEAT_RETRY_SLEEP_DURATION_MS, "10");
+
+    return new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
+        CONTAINER_EXECUTION_ID, coordinatorStreamStore, new MapConfig(configMap));
   }
 
   @Test
@@ -81,6 +95,8 @@ public class TestContainerHeartbeatMonitor {
     boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(2, TimeUnit.SECONDS);
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
     // check that the shutdown task got submitted, but don't actually execute it since it will shut down the process
+    assertEquals("Heartbeat expired count should be 1", 1,
+        containerHeartbeatMonitor.getMetrics().getHeartbeatExpiredCount().getCount());
     verify(this.scheduler).schedule(any(Runnable.class), eq((long) ContainerHeartbeatMonitor.SHUTDOWN_TIMOUT_MS),
         eq(TimeUnit.MILLISECONDS));
     verify(this.onExpired).run();
@@ -97,6 +113,8 @@ public class TestContainerHeartbeatMonitor {
     // wait for the executor to finish the heartbeat check task
     boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(2, TimeUnit.SECONDS);
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
+    assertEquals("Heartbeat expired count should be 0", 0,
+        containerHeartbeatMonitor.getMetrics().getHeartbeatExpiredCount().getCount());
     // shutdown task should not have been submitted
     verify(this.scheduler, never()).schedule(any(Runnable.class), anyLong(), any());
     verify(this.onExpired, never()).run();
@@ -107,20 +125,27 @@ public class TestContainerHeartbeatMonitor {
 
   @Test
   public void testReestablishConnectionWithNewAM() throws InterruptedException {
-    String containerExecutionId = "0";
     String newCoordinatorUrl = "http://some-host-2.prod.linkedin.com";
-    this.containerHeartbeatMonitor =
-        spy(new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
-            containerExecutionId, coordinatorStreamStore, true, 5, 10));
+    this.containerHeartbeatMonitor = spy(buildContainerHeartbeatMonitor(true));
     CoordinatorStreamValueSerde serde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+    ContainerHeartbeatMonitor.ContainerHeartbeatMetrics metrics = this.containerHeartbeatMonitor.getMetrics();
+
     when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(FAILURE_RESPONSE).thenReturn(SUCCESS_RESPONSE);
-    when(this.containerHeartbeatMonitor.createContainerHeartbeatClient(newCoordinatorUrl, containerExecutionId)).thenReturn(this.containerHeartbeatClient);
-    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL)).thenReturn(serde.toBytes(newCoordinatorUrl));
+    when(this.containerHeartbeatMonitor
+        .createContainerHeartbeatClient(newCoordinatorUrl, CONTAINER_EXECUTION_ID))
+        .thenReturn(this.containerHeartbeatClient);
+    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL))
+        .thenReturn(serde.toBytes(newCoordinatorUrl));
 
     this.containerHeartbeatMonitor.start();
     // wait for the executor to finish the heartbeat check task
     boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(2, TimeUnit.SECONDS);
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
+    assertEquals("Heartbeat expired count should be 1", 1, metrics.getHeartbeatExpiredCount().getCount());
+    assertEquals("Heartbeat established failure count should be 0", 0,
+        metrics.getHeartbeatEstablishedFailureCount().getCount());
+    assertEquals("Heartbeat established with new AM should be 1", 1,
+        metrics.getHeartbeatEstablishedWithNewAmCount().getCount());
     // shutdown task should not have been submitted
     verify(this.scheduler, never()).schedule(any(Runnable.class), anyLong(), any());
     verify(this.onExpired, never()).run();
@@ -131,16 +156,22 @@ public class TestContainerHeartbeatMonitor {
 
   @Test
   public void testFailedToFetchNewAMCoordinatorUrl() throws InterruptedException {
-    this.containerHeartbeatMonitor =
-        spy(new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
-            "0", coordinatorStreamStore, true, 5, 10));
+    this.containerHeartbeatMonitor = spy(buildContainerHeartbeatMonitor(true));
     CoordinatorStreamValueSerde serde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+    ContainerHeartbeatMonitor.ContainerHeartbeatMetrics metrics = this.containerHeartbeatMonitor.getMetrics();
+
     when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(FAILURE_RESPONSE);
-    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL)).thenReturn(serde.toBytes(COORDINATOR_URL));
+    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL))
+        .thenReturn(serde.toBytes(COORDINATOR_URL));
+
     this.containerHeartbeatMonitor.start();
     // wait for the executor to finish the heartbeat check task
     boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(2, TimeUnit.SECONDS);
+
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
+    assertEquals("Heartbeat expired count should be 1", 1, metrics.getHeartbeatExpiredCount().getCount());
+    assertEquals("Heartbeat established failure count should be 1", 1,
+        metrics.getHeartbeatEstablishedFailureCount().getCount());
     // shutdown task should have been submitted
     verify(this.scheduler).schedule(any(Runnable.class), eq((long) ContainerHeartbeatMonitor.SHUTDOWN_TIMOUT_MS),
         eq(TimeUnit.MILLISECONDS));
@@ -152,20 +183,25 @@ public class TestContainerHeartbeatMonitor {
 
   @Test
   public void testConnectToNewAMFailed() throws InterruptedException {
-    String containerExecutionId = "0";
     String newCoordinatorUrl = "http://some-host-2.prod.linkedin.com";
-    this.containerHeartbeatMonitor =
-        spy(new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
-            containerExecutionId, coordinatorStreamStore, true, 5, 10));
+    this.containerHeartbeatMonitor = spy(buildContainerHeartbeatMonitor(true));
     CoordinatorStreamValueSerde serde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+    ContainerHeartbeatMonitor.ContainerHeartbeatMetrics metrics = this.containerHeartbeatMonitor.getMetrics();
+
     when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(FAILURE_RESPONSE);
-    when(this.containerHeartbeatMonitor.createContainerHeartbeatClient(newCoordinatorUrl, containerExecutionId)).thenReturn(this.containerHeartbeatClient);
-    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL)).thenReturn(serde.toBytes(newCoordinatorUrl));
+    when(this.containerHeartbeatMonitor.createContainerHeartbeatClient(newCoordinatorUrl, CONTAINER_EXECUTION_ID))
+        .thenReturn(this.containerHeartbeatClient);
+    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL))
+        .thenReturn(serde.toBytes(newCoordinatorUrl));
 
     this.containerHeartbeatMonitor.start();
     // wait for the executor to finish the heartbeat check task
     boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(2, TimeUnit.SECONDS);
+
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
+    assertEquals("Heartbeat expired count should be 1", 1, metrics.getHeartbeatExpiredCount().getCount());
+    assertEquals("Heartbeat established failure count should be 1", 1,
+        metrics.getHeartbeatEstablishedFailureCount().getCount());
     // shutdown task should have been submitted
     verify(this.scheduler).schedule(any(Runnable.class), eq((long) ContainerHeartbeatMonitor.SHUTDOWN_TIMOUT_MS),
         eq(TimeUnit.MILLISECONDS));
@@ -177,22 +213,28 @@ public class TestContainerHeartbeatMonitor {
 
   @Test
   public void testConnectToNewAMSerdeException() throws InterruptedException {
-    String containerExecutionId = "0";
     String newCoordinatorUrl = "http://some-host-2.prod.linkedin.com";
-    this.containerHeartbeatMonitor =
-        spy(new ContainerHeartbeatMonitor(this.onExpired, this.containerHeartbeatClient, this.scheduler, COORDINATOR_URL,
-            containerExecutionId, coordinatorStreamStore, true, 5, 10));
+    this.containerHeartbeatMonitor = spy(buildContainerHeartbeatMonitor(true));
     CoordinatorStreamValueSerde serde = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+    ContainerHeartbeatMonitor.ContainerHeartbeatMetrics metrics = this.containerHeartbeatMonitor.getMetrics();
+
     when(this.containerHeartbeatClient.requestHeartbeat()).thenReturn(FAILURE_RESPONSE);
-    when(this.containerHeartbeatMonitor.createContainerHeartbeatClient(newCoordinatorUrl, containerExecutionId)).thenReturn(this.containerHeartbeatClient);
-    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL)).thenThrow(new NullPointerException("serde failed"));
+    when(this.containerHeartbeatMonitor.createContainerHeartbeatClient(newCoordinatorUrl, CONTAINER_EXECUTION_ID))
+        .thenReturn(this.containerHeartbeatClient);
+    when(this.coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL))
+        .thenThrow(new NullPointerException("serde failed"));
 
     this.containerHeartbeatMonitor.start();
     // wait for the executor to finish the heartbeat check task
-    boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(2, TimeUnit.SECONDS);
+    boolean fixedRateTaskCompleted = this.schedulerFixedRateExecutionLatch.await(10, TimeUnit.SECONDS);
+
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
+    assertEquals("Heartbeat expired count should be 1", 1, metrics.getHeartbeatExpiredCount().getCount());
+    assertEquals("Heartbeat established failure count should be 1", 1,
+        metrics.getHeartbeatEstablishedFailureCount().getCount());
     // shutdown task should have been submitted
-    verify(this.scheduler).schedule(any(Runnable.class), eq(0L), eq(TimeUnit.MILLISECONDS));
+    verify(this.scheduler).schedule(any(Runnable.class), eq((long) ContainerHeartbeatMonitor.SHUTDOWN_TIMOUT_MS),
+        eq(TimeUnit.MILLISECONDS));
     verify(this.onExpired).run();
 
     this.containerHeartbeatMonitor.stop();

@@ -50,25 +50,11 @@ import org.slf4j.LoggerFactory;
  */
 public class JobCoordinatorMetadataManager {
   private static final Logger LOG = LoggerFactory.getLogger(JobCoordinatorMetadataManager.class);
-  private static final String APPLICATION_ATTEMPT_COUNT = "applicationAttemptCount";
-  private static final String JOB_COORDINATOR_MANAGER_METRICS = "job-coordinator-manager";
-  private static final String JOB_MODEL_CHANGED = "jobModelChanged";
-  private static final String CONFIG_CHANGED = "configChanged";
-  private static final String METADATA_GENERATION_FAILED_COUNT = "metadataGenerationFailedCount";
-  private static final String METADATA_READ_FAILED_COUNT = "metadataReadFailedCount";
-  private static final String METADATA_WRITE_FAILED_COUNT = "metadataWriteFailedCount";
-  private static final String NEW_DEPLOYMENT = "newDeployment";
 
   static final String CONTAINER_ID_PROPERTY = "CONTAINER_ID";
   static final String CONTAINER_ID_DELIMITER = "_";
 
-  private final Counter applicationAttemptCount;
-  private final Counter metadataGenerationFailedCount;
-  private final Counter metadataReadFailedCount;
-  private final Counter metadataWriteFailedCount;
-  private final Gauge<Integer> jobModelChangedAcrossApplicationAttempt;
-  private final Gauge<Integer> configChangedAcrossApplicationAttempt;
-  private final Gauge<Integer> newDeployment;
+  private final JobCoordinatorMetadataManagerMetrics metrics;
   private final MetadataStore metadataStore;
   private final ObjectMapper metadataMapper = SamzaObjectMapper.getObjectMapper();
   private final Serde<String> valueSerde;
@@ -88,17 +74,7 @@ public class JobCoordinatorMetadataManager {
     this.clusterType = clusterType;
     this.metadataStore = metadataStore;
     this.valueSerde = valueSerde;
-
-    applicationAttemptCount = metricsRegistry.newCounter(JOB_COORDINATOR_MANAGER_METRICS, APPLICATION_ATTEMPT_COUNT);
-    configChangedAcrossApplicationAttempt =
-        metricsRegistry.newGauge(JOB_COORDINATOR_MANAGER_METRICS, CONFIG_CHANGED, 0);
-    jobModelChangedAcrossApplicationAttempt =
-        metricsRegistry.newGauge(JOB_COORDINATOR_MANAGER_METRICS, JOB_MODEL_CHANGED, 0);
-    metadataGenerationFailedCount = metricsRegistry.newCounter(JOB_COORDINATOR_MANAGER_METRICS,
-        METADATA_GENERATION_FAILED_COUNT);
-    metadataReadFailedCount = metricsRegistry.newCounter(JOB_COORDINATOR_MANAGER_METRICS, METADATA_READ_FAILED_COUNT);
-    metadataWriteFailedCount = metricsRegistry.newCounter(JOB_COORDINATOR_MANAGER_METRICS, METADATA_WRITE_FAILED_COUNT);
-    newDeployment = metricsRegistry.newGauge(JOB_COORDINATOR_MANAGER_METRICS, NEW_DEPLOYMENT, 0);
+    this.metrics = new JobCoordinatorMetadataManagerMetrics(metricsRegistry);
   }
 
   /**
@@ -140,7 +116,7 @@ public class JobCoordinatorMetadataManager {
       return new JobCoordinatorMetadata(fetchEpochIdForJobCoordinator(), String.valueOf(configId),
           String.valueOf(jobModelId));
     } catch (Exception e) {
-      metadataGenerationFailedCount.inc();
+      metrics.incrementMetadataGenerationFailedCount();
       LOG.error("Failed to generate metadata for the current attempt due to ", e);
       throw new SamzaException("Failed to generate the metadata for the current attempt due to ", e);
     }
@@ -163,16 +139,16 @@ public class JobCoordinatorMetadataManager {
     boolean changed = true;
 
     if (previousMetadata == null) {
-      newDeployment.set(1);
+      metrics.setNewDeployment(1);
     } else if (!previousMetadata.getEpochId().equals(newMetadata.getEpochId())) {
-      newDeployment.set(1);
+      metrics.setNewDeployment(1);
     } else if (!previousMetadata.getJobModelId().equals(newMetadata.getJobModelId())) {
-      jobModelChangedAcrossApplicationAttempt.set(1);
+      metrics.setJobModelChangedAcrossApplicationAttempt(1);
     } else if (!previousMetadata.getConfigId().equals(newMetadata.getConfigId())) {
-      configChangedAcrossApplicationAttempt.set(1);
+      metrics.setConfigChangedAcrossApplicationAttempt(1);
     } else {
       changed = false;
-      applicationAttemptCount.inc();
+      metrics.incrementApplicationAttemptCount();
     }
 
     if (changed) {
@@ -199,7 +175,7 @@ public class JobCoordinatorMetadataManager {
           metadata = metadataMapper.readValue(metadataString, JobCoordinatorMetadata.class);
           break;
         } catch (Exception e) {
-          metadataReadFailedCount.inc();
+          metrics.incrementMetadataReadFailedCount();
           LOG.error("Failed to read job coordinator metadata due to ", e);
         }
       }
@@ -225,7 +201,7 @@ public class JobCoordinatorMetadataManager {
       metadataStore.put(clusterType.name(), valueSerde.toBytes(metadataValueString));
       LOG.info("Successfully written job coordinator metadata: {} for cluster {}.", metadata, clusterType);
     } catch (Exception e) {
-      metadataWriteFailedCount.inc();
+      metrics.incrementMetadataWriteFailedCount();
       LOG.error("Failed to write the job coordinator metadata to metadata store due to ", e);
       throw new SamzaException("Failed to write the job coordinator metadata.", e);
     }
@@ -258,43 +234,13 @@ public class JobCoordinatorMetadataManager {
   }
 
   @VisibleForTesting
-  Counter getApplicationAttemptCount() {
-    return applicationAttemptCount;
-  }
-
-  @VisibleForTesting
-  Counter getMetadataGenerationFailedCount() {
-    return metadataGenerationFailedCount;
-  }
-
-  @VisibleForTesting
-  Counter getMetadataReadFailedCount() {
-    return metadataReadFailedCount;
-  }
-
-  @VisibleForTesting
-  Counter getMetadataWriteFailedCount() {
-    return metadataWriteFailedCount;
-  }
-
-  @VisibleForTesting
-  Gauge<Integer> getJobModelChangedAcrossApplicationAttempt() {
-    return jobModelChangedAcrossApplicationAttempt;
-  }
-
-  @VisibleForTesting
-  Gauge<Integer> getConfigChangedAcrossApplicationAttempt() {
-    return configChangedAcrossApplicationAttempt;
-  }
-
-  @VisibleForTesting
-  Gauge<Integer> getNewDeployment() {
-    return newDeployment;
-  }
-
-  @VisibleForTesting
   String getEnvProperty(String propertyName) {
     return System.getenv(propertyName);
+  }
+
+  @VisibleForTesting
+  JobCoordinatorMetadataManagerMetrics getMetrics() {
+    return metrics;
   }
 
   /**
@@ -323,5 +269,103 @@ public class JobCoordinatorMetadataManager {
    */
   public enum ClusterType {
     YARN
+  }
+
+  /**
+   * A container class to hold all the metrics related to {@link JobCoordinatorMetadataManager}.
+   */
+  static class JobCoordinatorMetadataManagerMetrics {
+    private static final String APPLICATION_ATTEMPT_COUNT = "application-attempt-count";
+    private static final String GROUP = "JobCoordinatorMetadataManager";
+    private static final String JOB_MODEL_CHANGED = "job-model-changed";
+    private static final String CONFIG_CHANGED = "config-changed";
+    private static final String METADATA_GENERATION_FAILED_COUNT = "metadata-generation-failed-count";
+    private static final String METADATA_READ_FAILED_COUNT = "metadata-read-failed-count";
+    private static final String METADATA_WRITE_FAILED_COUNT = "metadata-write-failed-count";
+    private static final String NEW_DEPLOYMENT = "new-deployment";
+
+    private final Counter applicationAttemptCount;
+    private final Counter metadataGenerationFailedCount;
+    private final Counter metadataReadFailedCount;
+    private final Counter metadataWriteFailedCount;
+    private final Gauge<Integer> jobModelChangedAcrossApplicationAttempt;
+    private final Gauge<Integer> configChangedAcrossApplicationAttempt;
+    private final Gauge<Integer> newDeployment;
+
+    public JobCoordinatorMetadataManagerMetrics(MetricsRegistry registry) {
+      applicationAttemptCount = registry.newCounter(GROUP, APPLICATION_ATTEMPT_COUNT);
+      configChangedAcrossApplicationAttempt =
+          registry.newGauge(GROUP, CONFIG_CHANGED, 0);
+      jobModelChangedAcrossApplicationAttempt =
+          registry.newGauge(GROUP, JOB_MODEL_CHANGED, 0);
+      metadataGenerationFailedCount = registry.newCounter(GROUP,
+          METADATA_GENERATION_FAILED_COUNT);
+      metadataReadFailedCount = registry.newCounter(GROUP, METADATA_READ_FAILED_COUNT);
+      metadataWriteFailedCount = registry.newCounter(GROUP, METADATA_WRITE_FAILED_COUNT);
+      newDeployment = registry.newGauge(GROUP, NEW_DEPLOYMENT, 0);
+    }
+
+    @VisibleForTesting
+    Counter getApplicationAttemptCount() {
+      return applicationAttemptCount;
+    }
+
+    @VisibleForTesting
+    Counter getMetadataGenerationFailedCount() {
+      return metadataGenerationFailedCount;
+    }
+
+    @VisibleForTesting
+    Counter getMetadataReadFailedCount() {
+      return metadataReadFailedCount;
+    }
+
+    @VisibleForTesting
+    Counter getMetadataWriteFailedCount() {
+      return metadataWriteFailedCount;
+    }
+
+    @VisibleForTesting
+    Gauge<Integer> getJobModelChangedAcrossApplicationAttempt() {
+      return jobModelChangedAcrossApplicationAttempt;
+    }
+
+    @VisibleForTesting
+    Gauge<Integer> getConfigChangedAcrossApplicationAttempt() {
+      return configChangedAcrossApplicationAttempt;
+    }
+
+    @VisibleForTesting
+    Gauge<Integer> getNewDeployment() {
+      return newDeployment;
+    }
+
+    void incrementApplicationAttemptCount() {
+      applicationAttemptCount.inc();
+    }
+
+    void incrementMetadataGenerationFailedCount() {
+      metadataGenerationFailedCount.inc();
+    }
+
+    void incrementMetadataReadFailedCount() {
+      metadataReadFailedCount.inc();
+    }
+
+    void incrementMetadataWriteFailedCount() {
+      metadataWriteFailedCount.inc();
+    }
+
+    void setConfigChangedAcrossApplicationAttempt(int value) {
+      configChangedAcrossApplicationAttempt.set(value);
+    }
+
+    void setJobModelChangedAcrossApplicationAttempt(int value) {
+      jobModelChangedAcrossApplicationAttempt.set(value);
+    }
+
+    void setNewDeployment(int value) {
+      newDeployment.set(value);
+    }
   }
 }

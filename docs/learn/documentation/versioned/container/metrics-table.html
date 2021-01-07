@@ -144,6 +144,8 @@
     <li><a href="#elasticsearch-system-producer-metrics">ElasticsearchSystemProducerMetrics</a></li>
     <li><a href="#zookeeper-client-metrics">ZookeeperClientMetrics</a></li>
     <li><a href="#zookeeper-job-coordinator-metrics">ZkJobCoordinatorMetrics</a></li>
+    <li><a href="#job-coordinator-metadata-manager-metrics">JobCoordinatorMetadataManagerMetrics</a></li>
+    <li><a href="#container-heartbeat-monitor-metrics">ContainerHeartbeatMonitorMetrics</a></li>
 </ul>
 <p>Words highlighted like <span class="system">this</span> are placeholders for your own variable names defined in configuration file or system variables defined while starting the job.</p>
 <p id="average-time" style="color: #00a">Note: Average time is calculated for the current time window (set to 300 seconds)</p>
@@ -508,6 +510,10 @@
     <tr>
         <td>heartbeats-expired</td>
         <td>Number of heartbeat requests from containers that are invalid</td>
+    </tr>
+    <tr>
+        <td>container-from-previous-attempt</td>
+        <td>Number of containers carried from previous attempt in YARN. The metrics is applicable only when Application Master High Availability is enabled</td>
     </tr>
 
     <tr>
@@ -976,6 +982,57 @@
     <tr>
         <td>single-barrier-rebalancing-time</td>
         <td><a href="#average-time">Average time</a> taken for all the processors to get the latest version of the job model after single processor change (without the occurence of a barrier timeout)</td>
+    </tr>
+    <tr>
+        <th colspan="2" class="section" id="job-coordinator-metadata-manager-metrics">org.apache.samza.coordinator.JobCoordinatorMetadataManager.JobCoordinatorMetadataManagerMetrics<br><span style="font-weight: normal;margin-left:40px;"><b>Note</b>: The following metrics are applicable when Application Master High Availability is enabled</span></th>
+    </tr>
+    <tr>
+        <td>application-attempt-count</td>
+        <td>Denotes the application attempt count within the scope of a single deployment</td>
+    </tr>
+    <tr>
+        <td>config-changed</td>
+        <td>Denotes the number of times configuration changed across attempts within the scope of a single deployment</td>
+    </tr>
+    <tr>
+        <td>job-model-changed</td>
+        <td>Denotes the number of times job model changed across attempts within the scope of a single deployment</td>
+    </tr>
+    <tr>
+        <td>metadata-read-failed-count</td>
+        <td>Read failure count from the underlying metadata store</td>
+    </tr>
+    <tr>
+        <td>metadata-write-failed-count</td>
+        <td>Write failure count to the underlying metadata store</td>
+    </tr>
+    <tr>
+        <td>metadata-generation-failed-count</td>
+        <td>Number of times the metadata generation failed</td>
+    </tr>
+    <tr>
+        <td>new-deployment</td>
+        <td>Denotes a new deployment due to changes in metadata either attributed to config or job model</td>
+    </tr>
+    </tbody>
+    <tr>
+        <th colspan="2" class="section" id="container-heartbeat-monitor-metrics">org.apache.samza.container.ContainerHeartbeatMonitor.ContainerHeartbeatMetrics<br><span style="font-weight: normal;margin-left:40px;"><b>Note</b>: The following metrics are applicable when Application Master High Availability is enabled</span></th>
+    </tr>
+    <tr>
+        <td>heartbeat-discovery-time-ms</td>
+        <td>Time taken in millis for the container to discover new AM in the event AM changes for heartbeat establishment</td>
+    </tr>
+    <tr>
+        <td>heartbeat-established-failure-count</td>
+        <td>Number of failed attempts to establish heartbeat in the event of AM changes</td>
+    </tr>
+    <tr>
+        <td>heartbeat-established-with-new-am-count</td>
+        <td>Number of times heartbeat is established with the new AM in the event of AM changes</td>
+    </tr>
+    <tr>
+        <td>heartbeat-expired-count</td>
+        <td>Number of times heartbeat expired with the active AM</td>
     </tr>
     </tbody>
 </table>

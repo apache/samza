@@ -20,6 +20,7 @@
 package org.apache.samza.container;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -27,10 +28,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.metrics.Counter;
+import org.apache.samza.metrics.Gauge;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsReporter;
+import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.ThreadUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +50,7 @@ public class ContainerHeartbeatMonitor {
   private static final Logger LOG = LoggerFactory.getLogger(ContainerHeartbeatMonitor.class);
   private static final ThreadFactory THREAD_FACTORY = new HeartbeatThreadFactory();
   private static final CoordinatorStreamValueSerde SERDE = new CoordinatorStreamValueSerde(SetConfig.TYPE);
+  private static final String SOURCE_NAME = "SamzaContainer";
 
   @VisibleForTesting
   static final int SCHEDULE_MS = 60000;
@@ -55,31 +66,35 @@ public class ContainerHeartbeatMonitor {
   private final long retryCount;
 
   private ContainerHeartbeatClient containerHeartbeatClient;
+  private ContainerHeartbeatMetrics metrics;
+  private Map<String, MetricsReporter> reporters;
   private String coordinatorUrl;
   private boolean started = false;
 
   public ContainerHeartbeatMonitor(Runnable onContainerExpired, String coordinatorUrl, String containerExecutionId,
-      MetadataStore coordinatorStreamStore, boolean isApplicationMasterHighAvailabilityEnabled, long retryCount,
-      long sleepDurationForReconnectWithAM) {
+      MetadataStore coordinatorStreamStore, Config config) {
     this(onContainerExpired, new ContainerHeartbeatClient(coordinatorUrl, containerExecutionId),
         Executors.newSingleThreadScheduledExecutor(THREAD_FACTORY), coordinatorUrl, containerExecutionId,
-        coordinatorStreamStore, isApplicationMasterHighAvailabilityEnabled, retryCount, sleepDurationForReconnectWithAM);
+        coordinatorStreamStore, config);
   }
 
   @VisibleForTesting
   ContainerHeartbeatMonitor(Runnable onContainerExpired, ContainerHeartbeatClient containerHeartbeatClient,
       ScheduledExecutorService scheduler, String coordinatorUrl, String containerExecutionId,
-      MetadataStore coordinatorStreamStore, boolean isApplicationMasterHighAvailabilityEnabled,
-      long retryCount, long sleepDurationForReconnectWithAM) {
+      MetadataStore coordinatorStreamStore, Config config) {
     this.onContainerExpired = onContainerExpired;
     this.containerHeartbeatClient = containerHeartbeatClient;
     this.scheduler = scheduler;
     this.coordinatorUrl = coordinatorUrl;
     this.containerExecutionId = containerExecutionId;
     this.coordinatorStreamStore = coordinatorStreamStore;
-    this.isApplicationMasterHighAvailabilityEnabled = isApplicationMasterHighAvailabilityEnabled;
-    this.retryCount = retryCount;
-    this.sleepDurationForReconnectWithAM = sleepDurationForReconnectWithAM;
+
+    JobConfig jobConfig = new JobConfig(config);
+    this.isApplicationMasterHighAvailabilityEnabled = jobConfig.getApplicationMasterHighAvailabilityEnabled();
+    this.retryCount = jobConfig.getContainerHeartbeatRetryCount();
+    this.sleepDurationForReconnectWithAM = jobConfig.getContainerHeartbeatRetrySleepDurationMs();
+
+    initializeMetrics(config);
   }
 
   public void start() {
@@ -91,6 +106,7 @@ public class ContainerHeartbeatMonitor {
     scheduler.scheduleAtFixedRate(() -> {
       ContainerHeartbeatResponse response = containerHeartbeatClient.requestHeartbeat();
       if (!response.isAlive()) {
+        metrics.incrementHeartbeatExpiredCount();
         if (isApplicationMasterHighAvailabilityEnabled) {
           LOG.warn("Failed to establish connection with {}. Checking for new AM", coordinatorUrl);
           try {
@@ -100,7 +116,8 @@ public class ContainerHeartbeatMonitor {
           } catch (Exception e) {
             // On exception in re-establish connection with new AM, force exit.
             LOG.error("Exception trying to connect with new AM", e);
-            forceExit("failure in establishing cconnection with new AM", 0);
+            metrics.incrementHeartbeatEstablishedFailureCount();
+            forceExit("failure in establishing connection with new AM", SHUTDOWN_TIMOUT_MS);
             return;
           }
         }
@@ -115,6 +132,7 @@ public class ContainerHeartbeatMonitor {
     if (started) {
       LOG.info("Stopping ContainerHeartbeatMonitor");
       scheduler.shutdown();
+      reporters.values().forEach(MetricsReporter::stop);
     }
   }
 
@@ -122,6 +140,7 @@ public class ContainerHeartbeatMonitor {
     boolean response = false;
     int attempt = 1;
 
+    long startTime = System.currentTimeMillis();
     while (attempt <= retryCount) {
       String newCoordinatorUrl = SERDE.fromBytes(coordinatorStreamStore.get(CoordinationConstants.YARN_COORDINATOR_URL));
       try {
@@ -142,7 +161,22 @@ public class ContainerHeartbeatMonitor {
       }
       attempt++;
     }
+
+    metrics.setHeartbeatDiscoveryTime(System.currentTimeMillis() - startTime);
+    if (response) {
+      metrics.incrementHeartbeatEstablishedWithNewAmCount();
+    } else {
+      metrics.incrementHeartbeatEstablishedFailureCount();
+    }
+
     return response;
+  }
+
+  private void initializeMetrics(Config config) {
+    reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), SOURCE_NAME);
+    MetricsRegistryMap registryMap = new MetricsRegistryMap();
+    metrics = new ContainerHeartbeatMetrics(registryMap);
+    reporters.values().forEach(reporter -> reporter.register(SOURCE_NAME, registryMap));
   }
 
   @VisibleForTesting
@@ -150,8 +184,17 @@ public class ContainerHeartbeatMonitor {
     return new ContainerHeartbeatClient(coordinatorUrl, containerExecutionId);
   }
 
+  @VisibleForTesting
+  ContainerHeartbeatMetrics getMetrics() {
+    return metrics;
+  }
+
   private void forceExit(String message, int timeout) {
     scheduler.schedule(() -> {
+      if (started) {
+        reporters.values().forEach(MetricsReporter::stop);
+      }
+
       LOG.error(message);
       ThreadUtil.logThreadDump("Thread dump at heartbeat monitor: due to " + message);
       System.exit(1);
@@ -168,6 +211,57 @@ public class ContainerHeartbeatMonitor {
       Thread t = new Thread(runnable, PREFIX + INSTANCE_NUM.getAndIncrement());
       t.setDaemon(true);
       return t;
+    }
+  }
+
+  static final class ContainerHeartbeatMetrics {
+    private static final String GROUP = "ContainerHeartbeatMonitor";
+    private static final String HEARTBEAT_DISCOVERY_TIME_MS = "heartbeat-discovery-time-ms";
+    private static final String HEARTBEAT_ESTABLISHED_FAILURE_COUNT = "heartbeat-established-failure-count";
+    private static final String HEARTBEAT_ESTABLISHED_WITH_NEW_AM_COUNT = "heartbeat-established-with-new-am-count";
+    private static final String HEARTBEAT_EXPIRED_COUNT = "heartbeat-expired-count";
+
+    private final Counter heartbeatEstablishedFailureCount;
+    private final Counter heartbeatEstablishedWithNewAmCount;
+    private final Counter heartbeatExpiredCount;
+    private final Gauge<Long> heartbeatDiscoveryTime;
+
+    public ContainerHeartbeatMetrics(MetricsRegistry registry) {
+      heartbeatEstablishedFailureCount = registry.newCounter(GROUP, HEARTBEAT_ESTABLISHED_FAILURE_COUNT);
+      heartbeatEstablishedWithNewAmCount = registry.newCounter(GROUP, HEARTBEAT_ESTABLISHED_WITH_NEW_AM_COUNT);
+      heartbeatExpiredCount = registry.newCounter(GROUP, HEARTBEAT_EXPIRED_COUNT);
+      heartbeatDiscoveryTime = registry.newGauge(GROUP, HEARTBEAT_DISCOVERY_TIME_MS, 0L);
+    }
+
+    @VisibleForTesting
+    Counter getHeartbeatEstablishedFailureCount() {
+      return heartbeatEstablishedFailureCount;
+    }
+
+    @VisibleForTesting
+    Counter getHeartbeatEstablishedWithNewAmCount() {
+      return heartbeatEstablishedWithNewAmCount;
+    }
+
+    @VisibleForTesting
+    Counter getHeartbeatExpiredCount() {
+      return heartbeatExpiredCount;
+    }
+
+    private void incrementHeartbeatEstablishedFailureCount() {
+      heartbeatEstablishedFailureCount.inc();
+    }
+
+    private void incrementHeartbeatEstablishedWithNewAmCount() {
+      heartbeatEstablishedWithNewAmCount.inc();
+    }
+
+    private void incrementHeartbeatExpiredCount() {
+      heartbeatExpiredCount.inc();
+    }
+
+    private void setHeartbeatDiscoveryTime(long timeInMillis) {
+      heartbeatDiscoveryTime.set(timeInMillis);
     }
   }
 }
