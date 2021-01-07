@@ -97,13 +97,6 @@ public class ContainerHeartbeatMonitor {
     initializeMetrics(config);
   }
 
-  private void initializeMetrics(Config config) {
-    reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), SOURCE_NAME);
-    MetricsRegistryMap registryMap = new MetricsRegistryMap();
-    metrics = new ContainerHeartbeatMetrics(registryMap);
-    reporters.values().forEach(reporter -> reporter.register(SOURCE_NAME, registryMap));
-  }
-
   public void start() {
     if (started) {
       LOG.warn("Skipping attempt to start an already started ContainerHeartbeatMonitor.");
@@ -123,7 +116,8 @@ public class ContainerHeartbeatMonitor {
           } catch (Exception e) {
             // On exception in re-establish connection with new AM, force exit.
             LOG.error("Exception trying to connect with new AM", e);
-            forceExit("failure in establishing cconnection with new AM", SHUTDOWN_TIMOUT_MS);
+            metrics.incrementHeartbeatEstablishedFailureCount();
+            forceExit("failure in establishing connection with new AM", SHUTDOWN_TIMOUT_MS);
             return;
           }
         }
@@ -176,6 +170,13 @@ public class ContainerHeartbeatMonitor {
     }
 
     return response;
+  }
+
+  private void initializeMetrics(Config config) {
+    reporters = MetricsReporterLoader.getMetricsReporters(new MetricsConfig(config), SOURCE_NAME);
+    MetricsRegistryMap registryMap = new MetricsRegistryMap();
+    metrics = new ContainerHeartbeatMetrics(registryMap);
+    reporters.values().forEach(reporter -> reporter.register(SOURCE_NAME, registryMap));
   }
 
   @VisibleForTesting

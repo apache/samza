@@ -230,6 +230,8 @@ public class TestContainerHeartbeatMonitor {
 
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
     assertEquals("Heartbeat expired count should be 1", 1, metrics.getHeartbeatExpiredCount().getCount());
+    assertEquals("Heartbeat established failure count should be 1", 1,
+        metrics.getHeartbeatEstablishedFailureCount().getCount());
     // shutdown task should have been submitted
     verify(this.scheduler).schedule(any(Runnable.class), eq((long) ContainerHeartbeatMonitor.SHUTDOWN_TIMOUT_MS),
         eq(TimeUnit.MILLISECONDS));
