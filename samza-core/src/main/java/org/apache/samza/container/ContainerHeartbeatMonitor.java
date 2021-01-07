@@ -220,21 +220,21 @@ public class ContainerHeartbeatMonitor {
     private static final String HEARTBEAT_ESTABLISHED_WITH_NEW_AM_COUNT = "heartbeat-established-with-new-am-count";
     private static final String HEARTBEAT_EXPIRED_COUNT = "heartbeat-expired-count";
 
-    private final Counter heartbeatEstablishFailureCount;
+    private final Counter heartbeatEstablishedFailureCount;
     private final Counter heartbeatEstablishedWithNewAmCount;
     private final Counter heartbeatExpiredCount;
     private final Gauge<Long> heartbeatDiscoveryTime;
 
     public ContainerHeartbeatMetrics(MetricsRegistry registry) {
-      heartbeatEstablishFailureCount = registry.newCounter(GROUP, HEARTBEAT_ESTABLISHED_FAILURE_COUNT);
+      heartbeatEstablishedFailureCount = registry.newCounter(GROUP, HEARTBEAT_ESTABLISHED_FAILURE_COUNT);
       heartbeatEstablishedWithNewAmCount = registry.newCounter(GROUP, HEARTBEAT_ESTABLISHED_WITH_NEW_AM_COUNT);
       heartbeatExpiredCount = registry.newCounter(GROUP, HEARTBEAT_EXPIRED_COUNT);
       heartbeatDiscoveryTime = registry.newGauge(GROUP, HEARTBEAT_DISCOVERY_TIME_MS, 0L);
     }
 
     @VisibleForTesting
-    Counter getHeartbeatEstablishFailureCount() {
-      return heartbeatEstablishFailureCount;
+    Counter getHeartbeatEstablishedFailureCount() {
+      return heartbeatEstablishedFailureCount;
     }
 
     @VisibleForTesting
@@ -248,7 +248,7 @@ public class ContainerHeartbeatMonitor {
     }
 
     private void incrementHeartbeatEstablishedFailureCount() {
-      heartbeatEstablishFailureCount.inc();
+      heartbeatEstablishedFailureCount.inc();
     }
 
     private void incrementHeartbeatEstablishedWithNewAmCount() {

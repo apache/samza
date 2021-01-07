@@ -143,7 +143,7 @@ public class TestContainerHeartbeatMonitor {
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
     assertEquals("Heartbeat expired count should be 1", 1, metrics.getHeartbeatExpiredCount().getCount());
     assertEquals("Heartbeat established failure count should be 0", 0,
-        metrics.getHeartbeatEstablishFailureCount().getCount());
+        metrics.getHeartbeatEstablishedFailureCount().getCount());
     assertEquals("Heartbeat established with new AM should be 1", 1,
         metrics.getHeartbeatEstablishedWithNewAmCount().getCount());
     // shutdown task should not have been submitted
@@ -171,7 +171,7 @@ public class TestContainerHeartbeatMonitor {
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
     assertEquals("Heartbeat expired count should be 1", 1, metrics.getHeartbeatExpiredCount().getCount());
     assertEquals("Heartbeat established failure count should be 1", 1,
-        metrics.getHeartbeatEstablishFailureCount().getCount());
+        metrics.getHeartbeatEstablishedFailureCount().getCount());
     // shutdown task should have been submitted
     verify(this.scheduler).schedule(any(Runnable.class), eq((long) ContainerHeartbeatMonitor.SHUTDOWN_TIMOUT_MS),
         eq(TimeUnit.MILLISECONDS));
@@ -201,7 +201,7 @@ public class TestContainerHeartbeatMonitor {
     assertTrue("Did not complete heartbeat check", fixedRateTaskCompleted);
     assertEquals("Heartbeat expired count should be 1", 1, metrics.getHeartbeatExpiredCount().getCount());
     assertEquals("Heartbeat established failure count should be 1", 1,
-        metrics.getHeartbeatEstablishFailureCount().getCount());
+        metrics.getHeartbeatEstablishedFailureCount().getCount());
     // shutdown task should have been submitted
     verify(this.scheduler).schedule(any(Runnable.class), eq((long) ContainerHeartbeatMonitor.SHUTDOWN_TIMOUT_MS),
         eq(TimeUnit.MILLISECONDS));
