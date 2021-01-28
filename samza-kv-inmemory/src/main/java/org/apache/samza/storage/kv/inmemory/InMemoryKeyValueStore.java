@@ -88,6 +88,7 @@ public class InMemoryKeyValueStore implements KeyValueStore<byte[], byte[]> {
   @Override
   public void delete(byte[] key) {
     // TODO Bug: SAMZA-2563: This double counts deletes for metrics, because put also counts a delete
+    // TODO
     metrics.deletes().inc();
     put(key, null);
   }
