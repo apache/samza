@@ -25,7 +25,7 @@ exclude: [_docs]
 baseurl: http://samza.apache.org
 version: latest
 # this is the version you will go if you click 'switch version' in "latest" pages.
-latest-release: '1.5.1'
+latest-release: '1.6.0'
 collections:
   menu:
     output: false

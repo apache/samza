@@ -48,7 +48,7 @@ Run the following commands:
 {% highlight bash %}
 cd samza-rest/build/distributions/
 mkdir -p deploy/samza-rest
-tar -xvf ./samza-rest_2.11-1.6.0-SNAPSHOT.tgz -C deploy/samza-rest
+tar -xvf ./samza-rest_2.11-1.7.0-SNAPSHOT.tgz -C deploy/samza-rest
 {% endhighlight %}
 
 #### Configure the Installations Path
