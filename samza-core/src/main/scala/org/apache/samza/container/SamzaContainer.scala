@@ -617,13 +617,18 @@ object SamzaContainer extends Logging {
       taskConfig,
       clock)
 
+    val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
+
     val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
     memoryStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
       override def onUpdate(sample: SystemMemoryStatistics): Unit = {
         val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
         val physicalMemoryMb : Double = physicalMemoryBytes / (1024.0 * 1024.0)
+        val memoryUtilization : Float = physicalMemoryMb.toFloat / containerMemoryMb
         logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
+        logger.debug("Container memory utilization: " + memoryUtilization)
         samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
+        samzaContainerMetrics.containerMemoryUtilization.set(memoryUtilization);
       }
     })
 
