@@ -393,6 +393,7 @@ All \<system\>, \<stream\>, \<partition\>, \<store-name\>, \<topic\>, are popula
 | | disk-quota-bytes | Disk memory usage quota for key-value stores (in bytes). |
 | | executor-work-factor | The work factor of the run loop. A work factor of 1 indicates full throughput, while a work factor of less than 1 will introduce delays into the execution to approximate the requested work factor. The work factor is set by the disk space monitor in accordance with the disk quota policy. Given the latest percentage of available disk quota, this policy returns the work factor that should be applied. |
 | | physical-memory-mb | The physical memory used by the Samza container process (native + on heap) (in MBs). |
+| | physical-memory-utilization | The ratio between the physical memory used by the Samza container process (native + on heap) and the total physical memory of the Samza container. |
 | | <TaskName\>-<StoreName\>-restore-time | Time taken to restore task stores (per task store). |
 
 
