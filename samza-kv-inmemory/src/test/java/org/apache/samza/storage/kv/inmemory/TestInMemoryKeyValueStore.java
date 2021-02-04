@@ -239,11 +239,7 @@ public class TestInMemoryKeyValueStore {
     this.inMemoryKeyValueStore.delete(key(0));
     assertNull(this.inMemoryKeyValueStore.get(key(0)));
 
-    /*
-     * There is a bug in which deletes are double counted in metrics. This deletesCounter should only be invoked once
-     * when the bug is fixed.
-     */
-    verify(this.deletesCounter, times(2)).inc();
+    verify(this.deletesCounter, times(1)).inc();
   }
 
   @Test
@@ -251,11 +247,8 @@ public class TestInMemoryKeyValueStore {
     this.inMemoryKeyValueStore.delete(key(0));
 
     assertNull(this.inMemoryKeyValueStore.get(key(0)));
-    /*
-     * There is a bug in which deletes are double counted in metrics. This deletesCounter should only be invoked once
-     * when the bug is fixed.
-     */
-    verify(this.deletesCounter, times(2)).inc();
+
+    verify(this.deletesCounter, times(1)).inc();
   }
 
   @Test
