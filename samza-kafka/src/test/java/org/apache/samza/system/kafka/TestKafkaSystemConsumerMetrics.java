@@ -20,7 +20,7 @@ package org.apache.samza.system.kafka;
 
 import java.util.HashMap;
 import java.util.Map;
-import kafka.common.TopicAndPartition;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.metrics.Metric;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
@@ -32,8 +32,8 @@ public class TestKafkaSystemConsumerMetrics {
   @Test
   public void testKafkaSystemConsumerMetrics() {
     String systemName = "system";
-    TopicAndPartition tp1 = new TopicAndPartition("topic1", 1);
-    TopicAndPartition tp2 = new TopicAndPartition("topic2", 2);
+    TopicPartition tp1 = new TopicPartition("topic1", 1);
+    TopicPartition tp2 = new TopicPartition("topic2", 2);
     String clientName = "clientName";
 
     // record expected values for further comparison
@@ -43,8 +43,8 @@ public class TestKafkaSystemConsumerMetrics {
     KafkaSystemConsumerMetrics metrics = new KafkaSystemConsumerMetrics(systemName, registry);
 
     // initialize the metrics for the partitions
-    metrics.registerTopicAndPartition(tp1);
-    metrics.registerTopicAndPartition(tp2);
+    metrics.registerTopicPartition(tp1);
+    metrics.registerTopicPartition(tp2);
 
     // initialize the metrics for the host:port
     metrics.registerClientProxy(clientName);

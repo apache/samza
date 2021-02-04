@@ -161,6 +161,8 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
         emptyPollCount++;
       }
     }
+    consumer.commitSync();
+    consumer.unsubscribe();
     return recordList;
   }
 
