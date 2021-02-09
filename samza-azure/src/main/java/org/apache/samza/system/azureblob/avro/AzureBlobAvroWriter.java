@@ -195,7 +195,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
   @Override
   public void flush() throws IOException {
     synchronized (currentDataFileWriterLock) {
-      if ( !isClosed && currentBlobWriterComponents != null) {
+      if (!isClosed && currentBlobWriterComponents != null) {
         currentBlobWriterComponents.dataFileWriter.flush();
       }
     }
