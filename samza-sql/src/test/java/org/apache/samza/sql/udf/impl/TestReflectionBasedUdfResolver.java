@@ -50,7 +50,7 @@ public class TestReflectionBasedUdfResolver {
     Collection<UdfMetadata> udfMetadataList = reflectionBasedUdfResolver.getUdfs();
 
     Method method = TestSamzaSqlUdf.class.getMethod("execute", String.class);
-    UdfMetadata udfMetadata = new UdfMetadata("TESTSAMZASQLUDF",
+    UdfMetadata udfMetadata = new UdfMetadata("TestSamzaSqlUdf",
             "Test samza sql udf implementation", method, new MapConfig(), ImmutableList.of(SamzaSqlFieldType.STRING),
                SamzaSqlFieldType.STRING, true);
 

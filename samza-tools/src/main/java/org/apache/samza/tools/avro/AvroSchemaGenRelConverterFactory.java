@@ -38,6 +38,6 @@ public class AvroSchemaGenRelConverterFactory implements SamzaRelConverterFactor
   @Override
   public SamzaRelConverter create(SystemStream systemStream, RelSchemaProvider relSchemaProvider, Config config) {
     return relConverters.computeIfAbsent(systemStream,
-        ss -> new AvroSchemaGenRelConverter(ss, (AvroRelSchemaProvider) relSchemaProvider, config));
+      ss -> new AvroSchemaGenRelConverter(ss, (AvroRelSchemaProvider) relSchemaProvider, config));
   }
 }

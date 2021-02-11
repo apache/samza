@@ -142,11 +142,11 @@ public class ZkJobCoordinator implements JobCoordinator {
     this.debounceTimeMs = new JobConfig(config).getDebounceTimeMs();
     debounceTimer = new ScheduleAfterDebounceTime(processorId);
     debounceTimer.setScheduledTaskCallback(throwable -> {
-        LOG.error("Received exception in debounce timer! Stopping the job coordinator", throwable);
-        stop();
-      });
+      LOG.error("Received exception in debounce timer! Stopping the job coordinator", throwable);
+      stop();
+    });
     this.barrier =  new ZkBarrierForVersionUpgrade(zkUtils.getKeyBuilder().getJobModelVersionBarrierPrefix(), zkUtils, new ZkBarrierListenerImpl(), debounceTimer);
-    systemAdmins = new SystemAdmins(config);
+    systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
     streamMetadataCache = new StreamMetadataCache(systemAdmins, METADATA_CACHE_TTL_MS, SystemClock.instance());
     LocationIdProviderFactory locationIdProviderFactory =
         ReflectionUtil.getObj(new JobConfig(config).getLocationIdProviderFactory(), LocationIdProviderFactory.class);
@@ -324,14 +324,17 @@ public class ZkJobCoordinator implements JobCoordinator {
           byte[] serializedValue = jsonSerde.toBytes(entry.getValue());
           configStore.put(entry.getKey(), serializedValue);
         }
+        configStore.flush();
 
-        // fan out the startpoints
-        StartpointManager startpointManager = createStartpointManager();
-        startpointManager.start();
-        try {
-          startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
-        } finally {
-          startpointManager.stop();
+        if (new JobConfig(config).getStartpointEnabled()) {
+          // fan out the startpoints
+          StartpointManager startpointManager = createStartpointManager();
+          startpointManager.start();
+          try {
+            startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+          } finally {
+            startpointManager.stop();
+          }
         }
       } else {
         LOG.warn("No metadata store registered to this job coordinator. Config not written to the metadata store and no Startpoints fan out.");
@@ -372,11 +375,11 @@ public class ZkJobCoordinator implements JobCoordinator {
     Set<SystemStream> inputStreamsToMonitor = new TaskConfig(config).getAllInputStreams();
 
     return new StreamPartitionCountMonitor(
-            inputStreamsToMonitor,
-            streamMetadata,
-            metrics.getMetricsRegistry(),
-            new JobConfig(config).getMonitorPartitionChangeFrequency(),
-            streamsChanged -> {
+        inputStreamsToMonitor,
+        streamMetadata,
+        metrics.getMetricsRegistry(),
+        new JobConfig(config).getMonitorPartitionChangeFrequency(),
+      streamsChanged -> {
         if (leaderElector.amILeader()) {
           debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this::doOnProcessorChange);
         }
@@ -463,20 +466,20 @@ public class ZkJobCoordinator implements JobCoordinator {
       metrics.singleBarrierRebalancingTime.update(System.nanoTime() - startTime);
       if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
         debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> {
-            LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
+          LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
 
-            // read the new Model
-            JobModel jobModel = getJobModel();
-            // start the container with the new model
-            if (coordinatorListener != null) {
-              for (ContainerModel containerModel : jobModel.getContainers().values()) {
-                for (TaskName taskName : containerModel.getTasks().keySet()) {
-                  zkUtils.writeTaskLocality(taskName, locationId);
-                }
+          // read the new Model
+          JobModel jobModel = getJobModel();
+          // start the container with the new model
+          if (coordinatorListener != null) {
+            for (ContainerModel containerModel : jobModel.getContainers().values()) {
+              for (TaskName taskName : containerModel.getTasks().keySet()) {
+                zkUtils.writeTaskLocality(taskName, locationId);
               }
-              coordinatorListener.onNewJobModel(processorId, jobModel);
             }
-          });
+            coordinatorListener.onNewJobModel(processorId, jobModel);
+          }
+        });
       } else {
         if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
           // no-op for non-leaders
@@ -536,26 +539,26 @@ public class ZkJobCoordinator implements JobCoordinator {
     @Override
     public void doHandleDataChange(String dataPath, Object data) {
       debounceTimer.scheduleAfterDebounceTime(JOB_MODEL_VERSION_CHANGE, 0, () -> {
-          String jobModelVersion = (String) data;
+        String jobModelVersion = (String) data;
 
-          LOG.info("Got a notification for new JobModel version. Path = {} Version = {}", dataPath, data);
+        LOG.info("Got a notification for new JobModel version. Path = {} Version = {}", dataPath, data);
 
-          newJobModel = readJobModelFromMetadataStore(jobModelVersion);
-          LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + newJobModel);
+        newJobModel = readJobModelFromMetadataStore(jobModelVersion);
+        LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + newJobModel);
 
-          if (!newJobModel.getContainers().containsKey(processorId)) {
-            LOG.info("New JobModel does not contain pid={}. Stopping this processor. New JobModel: {}",
-                processorId, newJobModel);
-            stop();
-          } else {
-            // stop current work
-            if (coordinatorListener != null) {
-              coordinatorListener.onJobModelExpired();
-            }
-            // update ZK and wait for all the processors to get this new version
-            barrier.join(jobModelVersion, processorId);
+        if (!newJobModel.getContainers().containsKey(processorId)) {
+          LOG.info("New JobModel does not contain pid={}. Stopping this processor. New JobModel: {}",
+              processorId, newJobModel);
+          stop();
+        } else {
+          // stop current work
+          if (coordinatorListener != null) {
+            coordinatorListener.onJobModelExpired();
           }
-        });
+          // update ZK and wait for all the processors to get this new version
+          barrier.join(jobModelVersion, processorId);
+        }
+      });
     }
 
     @Override
@@ -604,10 +607,10 @@ public class ZkJobCoordinator implements JobCoordinator {
           LOG.info("Cancelling all scheduled actions in session expiration for processorId: {}.", processorId);
           debounceTimer.cancelAllScheduledActions();
           debounceTimer.scheduleAfterDebounceTime(ZK_SESSION_EXPIRED, 0, () -> {
-              if (coordinatorListener != null) {
-                coordinatorListener.onJobModelExpired();
-              }
-            });
+            if (coordinatorListener != null) {
+              coordinatorListener.onJobModelExpired();
+            }
+          });
 
           return;
         case Disconnected:

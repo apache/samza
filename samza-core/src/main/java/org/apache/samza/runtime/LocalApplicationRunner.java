@@ -226,15 +226,15 @@ public class LocalApplicationRunner implements ApplicationRunner {
         throw new SamzaException("No jobs to run.");
       }
       jobConfigs.forEach(jobConfig -> {
-          LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
-          if (coordinatorStreamStore != null) {
-            coordinatorStreamStore.init();
-          }
-          StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
-              sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig), Optional.ofNullable(externalContext), coordinatorStreamStore);
-          processors.add(Pair.of(processor, coordinatorStreamStore));
-        });
+        LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+        MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
+        if (coordinatorStreamStore != null) {
+          coordinatorStreamStore.init();
+        }
+        StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
+          sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig), Optional.ofNullable(externalContext), coordinatorStreamStore);
+        processors.add(Pair.of(processor, coordinatorStreamStore));
+      });
       numProcessorsToStart.set(processors.size());
 
       // start the StreamProcessors
@@ -251,13 +251,13 @@ public class LocalApplicationRunner implements ApplicationRunner {
   @Override
   public void kill() {
     processors.forEach(sp -> {
-        sp.getLeft().stop();    // Stop StreamProcessor
+      sp.getLeft().stop();    // Stop StreamProcessor
 
-        // Coordinator stream isn't required so a null check is necessary
-        if (sp.getRight() != null) {
-          sp.getRight().close();  // Close associated coordinator metadata store
-        }
-      });
+      // Coordinator stream isn't required so a null check is necessary
+      if (sp.getRight() != null) {
+        sp.getRight().close();  // Close associated coordinator metadata store
+      }
+    });
     cleanup();
   }
 
@@ -338,7 +338,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
       return false;
     }
     SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
-    SystemAdmins systemAdmins = new SystemAdmins(config);
+    SystemAdmins systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
     systemAdmins.start();
     try {
       SystemAdmin coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
@@ -431,26 +431,39 @@ public class LocalApplicationRunner implements ApplicationRunner {
       userDefinedProcessorLifecycleListener.afterStart();
     }
 
+    private void closeAndRemoveProcessor() {
+      processors.forEach(sp -> {
+        if (sp.getLeft().equals(processor)) {
+          sp.getLeft().stop();
+          if (sp.getRight() != null) {
+            sp.getRight().close();
+          }
+        }
+      });
+      processors.removeIf(pair -> pair.getLeft().equals(processor));
+    }
     @Override
     public void afterStop() {
-      processors.removeIf(pair -> pair.getLeft().equals(processor));
-
+      closeAndRemoveProcessor();
       // successful shutdown
       handleProcessorShutdown(null);
     }
 
     @Override
     public void afterFailure(Throwable t) {
-      processors.removeIf(pair -> pair.getLeft().equals(processor));
+      // we need to close associated coordinator metadata store, although the processor failed
+      closeAndRemoveProcessor();
 
       // the processor stopped with failure, this is logging the first processor's failure as the cause of
       // the whole application failure
       if (failure.compareAndSet(null, t)) {
         // shutdown the other processors
         processors.forEach(sp -> {
-            sp.getLeft().stop();    // Stop StreamProcessor
-            sp.getRight().close();  // Close associated coordinator metadata store
-          });
+          sp.getLeft().stop();     // Stop StreamProcessor
+          if (sp.getRight() != null) {
+            sp.getRight().close(); // Close associated coordinator metadata store
+          }
+        });
       }
 
       // handle the current processor's shutdown failure.

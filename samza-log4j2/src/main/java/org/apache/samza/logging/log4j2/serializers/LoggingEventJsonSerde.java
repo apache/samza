@@ -114,7 +114,7 @@ public class LoggingEventJsonSerde implements Serde<LogEvent> {
     logstashEvent.put("@version", VERSION);
     logstashEvent.put("@timestamp", dateFormat(timestamp));
     logstashEvent.put("source_host", getHostname());
-    logstashEvent.put("message", loggingEvent.getMessage());
+    logstashEvent.put("message", loggingEvent.getMessage().getFormattedMessage());
 
     if (loggingEvent.getThrown() != null) {
       final Throwable throwableInformation = loggingEvent.getThrown();

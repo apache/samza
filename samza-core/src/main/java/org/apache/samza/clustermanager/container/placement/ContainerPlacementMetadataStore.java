@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,6 +120,7 @@ public class ContainerPlacementMetadataStore {
     try {
       containerPlacementMessageStore.put(toContainerPlacementMessageKey(message.getUuid(), message.getClass()),
           objectMapper.writeValueAsBytes(message));
+      containerPlacementMessageStore.flush();
     } catch (Exception ex) {
       throw new SamzaException(
           String.format("ContainerPlacementRequestMessage might have been not written to metastore %s", message), ex);
@@ -131,12 +133,13 @@ public class ContainerPlacementMetadataStore {
    * only to write responses to Container Placement Action
    * @param message
    */
-  void writeContainerPlacementResponseMessage(ContainerPlacementResponseMessage message) {
+  public void writeContainerPlacementResponseMessage(ContainerPlacementResponseMessage message) {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(message);
     try {
       containerPlacementMessageStore.put(toContainerPlacementMessageKey(message.getUuid(), message.getClass()),
           objectMapper.writeValueAsBytes(message));
+      containerPlacementMessageStore.flush();
     } catch (Exception ex) {
       throw new SamzaException(
           String.format("ContainerPlacementResponseMessage might have been not written to metastore %s", message), ex);
@@ -199,6 +202,7 @@ public class ContainerPlacementMetadataStore {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(uuid, "uuid cannot be null");
     containerPlacementMessageStore.delete(toContainerPlacementMessageKey(uuid, ContainerPlacementRequestMessage.class));
+    containerPlacementMessageStore.flush();
   }
 
   /**
@@ -209,6 +213,7 @@ public class ContainerPlacementMetadataStore {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(uuid, "uuid cannot be null");
     containerPlacementMessageStore.delete(toContainerPlacementMessageKey(uuid, ContainerPlacementResponseMessage.class));
+    containerPlacementMessageStore.flush();
   }
 
   /**
@@ -230,6 +235,7 @@ public class ContainerPlacementMetadataStore {
     for (String key : requestKeys) {
       containerPlacementMessageStore.delete(key);
     }
+    containerPlacementMessageStore.flush();
   }
 
   static String toContainerPlacementMessageKey(UUID uuid, Class<?> messageType) {
@@ -259,6 +265,8 @@ public class ContainerPlacementMetadataStore {
         throw new SamzaException(e);
       }
     }
+    // Sort the actions in order of timestamp
+    newActions.sort(Comparator.comparingLong(ContainerPlacementRequestMessage::getTimestamp));
     return newActions;
   }
 

@@ -220,7 +220,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     config.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY);
     config.put(ApplicationConfig.APP_NAME, appName);
     config.put(ApplicationConfig.APP_ID, appId);
-    config.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    config.put(ApplicationConfig.APP_RUNNER_CLASS, "org.apache.samza.runtime.LocalApplicationRunner");
     config.put(String.format("systems.%s.samza.factory", TestZkLocalApplicationRunner.TEST_SYSTEM), TEST_SYSTEM_FACTORY);
     config.put(JobConfig.JOB_NAME, appName);
     config.put(JobConfig.JOB_ID, appId);
@@ -236,10 +236,10 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
       config.put(ClusterManagerConfig.HOST_AFFINITY_ENABLED, "false");
     }
     storeName.ifPresent(s -> {
-        config.put(String.format(StorageConfig.FACTORY, s), MockStoreFactory.class.getName());
-        config.put(String.format(StorageConfig.KEY_SERDE, s), "string");
-        config.put(String.format(StorageConfig.MSG_SERDE, s), "string");
-      });
+      config.put(String.format(StorageConfig.FACTORY, s), MockStoreFactory.class.getName());
+      config.put(String.format(StorageConfig.KEY_SERDE, s), "string");
+      config.put(String.format(StorageConfig.MSG_SERDE, s), "string");
+    });
     Map<String, String> samzaContainerConfig = ImmutableMap.<String, String>builder().putAll(config).build();
     Map<String, String> applicationConfig = Maps.newHashMap(samzaContainerConfig);
     applicationConfig.putAll(StandaloneTestUtils.getKafkaSystemConfigs(coordinatorSystemName, bootstrapServers(), zkConnect(), null, StandaloneTestUtils.SerdeAlias.STRING, true));
@@ -274,11 +274,11 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     final CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
 
     zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
-        // When appRunner2 with id: PROCESSOR_IDS[1] is registered, run processing message in appRunner1.
-        if (currentChilds.contains(PROCESSOR_IDS[1])) {
-          secondProcessorRegistered.countDown();
-        }
-      });
+      // When appRunner2 with id: PROCESSOR_IDS[1] is registered, run processing message in appRunner1.
+      if (currentChilds.contains(PROCESSOR_IDS[1])) {
+        secondProcessorRegistered.countDown();
+      }
+    });
 
     // Set up stream app appRunner2.
     CountDownLatch processedMessagesLatch = new CountDownLatch(NUM_KAFKA_EVENTS);
@@ -356,11 +356,11 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     final CountDownLatch secondProcessorRegistered = new CountDownLatch(1);
 
     zkUtils.subscribeToProcessorChange((parentPath, currentChilds) -> {
-        // When appRunner2 with id: PROCESSOR_IDS[1] is registered, start processing message in appRunner1.
-        if (currentChilds.contains(PROCESSOR_IDS[1])) {
-          secondProcessorRegistered.countDown();
-        }
-      });
+      // When appRunner2 with id: PROCESSOR_IDS[1] is registered, start processing message in appRunner1.
+      if (currentChilds.contains(PROCESSOR_IDS[1])) {
+        secondProcessorRegistered.countDown();
+      }
+    });
 
     // Set up appRunner2.
     CountDownLatch processedMessagesLatch = new CountDownLatch(NUM_KAFKA_EVENTS * 2);
@@ -755,10 +755,10 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     Map<String, String> configMap = new HashMap<>();
     CoordinatorStreamValueSerde jsonSerde = new CoordinatorStreamValueSerde("set-config");
     metadataStore.all().forEach((key, value) -> {
-        CoordinatorStreamStore.CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(key);
-        String deserializedValue = jsonSerde.fromBytes(value);
-        configMap.put(coordinatorMessageKey.getKey(), deserializedValue);
-      });
+      CoordinatorStreamStore.CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(key);
+      String deserializedValue = jsonSerde.fromBytes(value);
+      configMap.put(coordinatorMessageKey.getKey(), deserializedValue);
+    });
     return new MapConfig(configMap);
   }
 
@@ -1279,8 +1279,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   private static List<SystemStreamPartition> getSystemStreamPartitions(JobModel jobModel) {
     List<SystemStreamPartition> ssps = new ArrayList<>();
     jobModel.getContainers().forEach((containerName, containerModel) -> {
-        containerModel.getTasks().forEach((taskName, taskModel) -> ssps.addAll(taskModel.getSystemStreamPartitions()));
-      });
+      containerModel.getTasks().forEach((taskName, taskModel) -> ssps.addAll(taskModel.getSystemStreamPartitions()));
+    });
     return ssps;
   }
 

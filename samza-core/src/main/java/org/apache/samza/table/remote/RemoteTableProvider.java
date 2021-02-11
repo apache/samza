@@ -100,33 +100,33 @@ public class RemoteTableProvider extends BaseTableProvider {
     if (callbackPoolSize > 0) {
       callbackExecutors.computeIfAbsent(tableId, (arg) ->
           Executors.newFixedThreadPool(callbackPoolSize, (runnable) -> {
-              Thread thread = new Thread(runnable);
-              thread.setName("table-" + tableId + "-async-callback-pool");
-              thread.setDaemon(true);
-              return thread;
-            }));
+            Thread thread = new Thread(runnable);
+            thread.setName("table-" + tableId + "-async-callback-pool");
+            thread.setDaemon(true);
+            return thread;
+          }));
     }
 
     boolean isRateLimited = readRateLimiter != null || writeRateLimiter != null;
     if (isRateLimited) {
       rateLimitingExecutors.computeIfAbsent(tableId, (arg) ->
           Executors.newSingleThreadExecutor(runnable -> {
-              Thread thread = new Thread(runnable);
-              thread.setName("table-" + tableId + "-async-executor");
-              thread.setDaemon(true);
-              return thread;
-            }));
+            Thread thread = new Thread(runnable);
+            thread.setName("table-" + tableId + "-async-executor");
+            thread.setDaemon(true);
+            return thread;
+          }));
     }
 
     BatchProvider batchProvider = deserializeObject(tableConfig, RemoteTableDescriptor.BATCH_PROVIDER);
     if (batchProvider != null) {
       batchExecutors.computeIfAbsent(tableId, (arg) ->
           Executors.newSingleThreadScheduledExecutor(runnable -> {
-              Thread thread = new Thread(runnable);
-              thread.setName("table-" + tableId + "-batch-scheduled-executor");
-              thread.setDaemon(true);
-              return thread;
-            }));
+            Thread thread = new Thread(runnable);
+            thread.setName("table-" + tableId + "-batch-scheduled-executor");
+            thread.setDaemon(true);
+            return thread;
+          }));
     }
 
 
@@ -162,11 +162,11 @@ public class RemoteTableProvider extends BaseTableProvider {
 
   private ScheduledExecutorService createRetryExecutor() {
     return Executors.newSingleThreadScheduledExecutor(runnable -> {
-        Thread thread = new Thread(runnable);
-        thread.setName("table-retry-executor");
-        thread.setDaemon(true);
-        return thread;
-      });
+      Thread thread = new Thread(runnable);
+      thread.setName("table-retry-executor");
+      thread.setDaemon(true);
+      return thread;
+    });
   }
 }
 

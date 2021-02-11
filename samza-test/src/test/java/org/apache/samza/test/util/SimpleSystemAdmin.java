@@ -53,19 +53,19 @@ public class SimpleSystemAdmin implements SystemAdmin {
   public Map<String, SystemStreamMetadata> getSystemStreamMetadata(Set<String> streamNames) {
     return streamNames.stream()
         .collect(Collectors.toMap(Function.identity(), streamName -> {
-            int messageCount = isBootstrapStream(streamName) ? getMessageCount(streamName) : -1;
-            String oldestOffset = messageCount < 0 ? null : "0";
-            String newestOffset = messageCount < 0 ? null : String.valueOf(messageCount - 1);
-            String upcomingOffset = messageCount < 0 ? null : String.valueOf(messageCount);
-            Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> metadataMap = new HashMap<>();
-            int partitionCount = config.getInt("streams." + streamName + ".partitionCount", 1);
-            for (int i = 0; i < partitionCount; i++) {
-              metadataMap.put(new Partition(i), new SystemStreamMetadata.SystemStreamPartitionMetadata(
-                  oldestOffset, newestOffset, upcomingOffset
-              ));
-            }
-            return new SystemStreamMetadata(streamName, metadataMap);
-          }));
+          int messageCount = isBootstrapStream(streamName) ? getMessageCount(streamName) : -1;
+          String oldestOffset = messageCount < 0 ? null : "0";
+          String newestOffset = messageCount < 0 ? null : String.valueOf(messageCount - 1);
+          String upcomingOffset = messageCount < 0 ? null : String.valueOf(messageCount);
+          Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> metadataMap = new HashMap<>();
+          int partitionCount = config.getInt("streams." + streamName + ".partitionCount", 1);
+          for (int i = 0; i < partitionCount; i++) {
+            metadataMap.put(new Partition(i), new SystemStreamMetadata.SystemStreamPartitionMetadata(
+                oldestOffset, newestOffset, upcomingOffset
+            ));
+          }
+          return new SystemStreamMetadata(streamName, metadataMap);
+        }));
   }
 
   @Override

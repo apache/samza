@@ -83,11 +83,18 @@ public abstract class JobPlanner {
       if (StringUtils.isBlank(userConfig.get(TaskConfig.INPUT_STREAMS))) {
         allowedUserConfig.remove(TaskConfig.INPUT_STREAMS);
       }
-      generatedConfig.putAll(getGeneratedConfig(runId));
+      generatedConfig.putAll(getGeneratedConfig());
     }
 
     if (ApplicationConfig.ApplicationMode.BATCH.name().equals(generatedConfig.get(ApplicationConfig.APP_MODE))) {
       allowedUserConfig.remove(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED);
+    }
+
+    // APP_RUN_ID should be generated for both LegacyTaskApplications & descriptor based applications
+    // This config is used in BATCH mode to create new intermediate streams on runs and in stream mode use by
+    // Container Placements to identify a deployment of Samza
+    if (StringUtils.isNoneEmpty(runId)) {
+      generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
     }
 
     // merge user-provided configuration with generated configuration. generated configuration has lower priority.
@@ -111,7 +118,7 @@ public abstract class JobPlanner {
   final void writePlanJsonFile(String planJson) {
     try {
       String content = "plan='" + planJson + "'";
-      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR());
+      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR);
       if (planPath != null && !planPath.isEmpty()) {
         // Write the plan json to plan path
         File file = new File(planPath + "/plan.json");
@@ -125,11 +132,8 @@ public abstract class JobPlanner {
     }
   }
 
-  private Map<String, String> getGeneratedConfig(String runId) {
+  private Map<String, String> getGeneratedConfig() {
     Map<String, String> generatedConfig = new HashMap<>();
-    if (StringUtils.isNoneEmpty(runId)) {
-      generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
-    }
 
     Map<String, String> systemStreamConfigs = generateSystemStreamConfigs(appDesc);
     generatedConfig.putAll(systemStreamConfigs);

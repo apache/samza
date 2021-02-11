@@ -46,7 +46,7 @@ import static junit.framework.TestCase.*;
 
 public class TestLocalStoreMonitor {
 
-  private static Logger LOG = LoggerFactory.getLogger(TestLocalStoreMonitor.class);
+  private static final Logger LOG = LoggerFactory.getLogger(TestLocalStoreMonitor.class);
 
   private File localStoreDir;
 

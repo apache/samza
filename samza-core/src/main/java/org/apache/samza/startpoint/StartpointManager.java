@@ -145,6 +145,7 @@ public class StartpointManager {
 
     try {
       readWriteStore.put(toReadWriteStoreKey(ssp, taskName), objectMapper.writeValueAsBytes(startpoint));
+      readWriteStore.flush();
     } catch (Exception ex) {
       throw new SamzaException(String.format(
           "Startpoint for SSP: %s and task: %s may not have been written to the metadata store.", ssp, taskName), ex);
@@ -157,8 +158,24 @@ public class StartpointManager {
    * @return {@link Optional} of {@link Startpoint} for the {@link SystemStreamPartition}.
    *         It is empty if it does not exist or if it is too stale.
    */
+  @VisibleForTesting
   public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp) {
-    return readStartpoint(ssp, null);
+    Map<String, byte[]> startpointBytes = readWriteStore.all();
+    // there is no task-name to use as key for the startpoint in this case (only the ssp), so we use a null task-name
+    return readStartpoint(startpointBytes, ssp, null);
+  }
+
+  /**
+   * Returns the last {@link Startpoint} that defines the start position for a {@link SystemStreamPartition} and {@link TaskName}.
+   * @param ssp The {@link SystemStreamPartition} to fetch the {@link Startpoint} for.
+   * @param taskName the {@link TaskName} to fetch the {@link Startpoint} for.
+   * @return {@link Optional} of {@link Startpoint} for the {@link SystemStreamPartition}.
+   *         It is empty if it does not exist or if it is too stale.
+   */
+  @VisibleForTesting
+  public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp, TaskName taskName) {
+    Map<String, byte[]> startpointBytes = readWriteStore.all();
+    return readStartpoint(startpointBytes, ssp, taskName);
   }
 
   /**
@@ -168,11 +185,11 @@ public class StartpointManager {
    * @return {@link Optional} of {@link Startpoint} for the {@link SystemStreamPartition} and {@link TaskName}.
    *         It is empty if it does not exist or if it is too stale.
    */
-  public Optional<Startpoint> readStartpoint(SystemStreamPartition ssp, TaskName taskName) {
+  public Optional<Startpoint> readStartpoint(Map<String, byte[]> startpointMap, SystemStreamPartition ssp, TaskName taskName) {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
 
-    byte[] startpointBytes = readWriteStore.get(toReadWriteStoreKey(ssp, taskName));
+    byte[] startpointBytes = startpointMap.get(toReadWriteStoreKey(ssp, taskName));
 
     if (ArrayUtils.isNotEmpty(startpointBytes)) {
       try {
@@ -189,6 +206,7 @@ public class StartpointManager {
 
     return Optional.empty();
   }
+
 
   /**
    * Deletes the {@link Startpoint} for a {@link SystemStreamPartition}
@@ -208,6 +226,7 @@ public class StartpointManager {
     Preconditions.checkNotNull(ssp, "SystemStreamPartition cannot be null");
 
     readWriteStore.delete(toReadWriteStoreKey(ssp, taskName));
+    readWriteStore.flush();
   }
 
   /**
@@ -218,6 +237,7 @@ public class StartpointManager {
     for (String key : readWriteKeys) {
       readWriteStore.delete(key);
     }
+    readWriteStore.flush();
   }
 
   /**
@@ -237,6 +257,8 @@ public class StartpointManager {
     Instant now = Instant.now();
     HashMultimap<SystemStreamPartition, TaskName> deleteKeys = HashMultimap.create();
     HashMap<TaskName, StartpointFanOutPerTask> fanOuts = new HashMap<>();
+    Map<String, byte[]> startpointMap = readWriteStore.all();
+
     for (TaskName taskName : taskToSSPs.keySet()) {
       Set<SystemStreamPartition> ssps = taskToSSPs.get(taskName);
       if (CollectionUtils.isEmpty(ssps)) {
@@ -244,10 +266,10 @@ public class StartpointManager {
         continue;
       }
       for (SystemStreamPartition ssp : ssps) {
-        Optional<Startpoint> startpoint = readStartpoint(ssp); // Read SSP-only key
+        Optional<Startpoint> startpoint = readStartpoint(startpointMap, ssp, null); // Read SSP-only key
         startpoint.ifPresent(sp -> deleteKeys.put(ssp, null));
 
-        Optional<Startpoint> startpointForTask = readStartpoint(ssp, taskName); // Read SSP+taskName key
+        Optional<Startpoint> startpointForTask = readStartpoint(startpointMap, ssp, taskName); // Read SSP+taskName key
         startpointForTask.ifPresent(sp -> deleteKeys.put(ssp, taskName));
 
         Optional<Startpoint> startpointWithPrecedence = resolveStartpointPrecendence(startpoint, startpointForTask);
@@ -273,6 +295,7 @@ public class StartpointManager {
       StartpointFanOutPerTask newFanOut = fanOuts.get(taskName);
       fanOutStore.put(fanOutKey, objectMapper.writeValueAsBytes(newFanOut));
     }
+    fanOutStore.flush();
 
     for (SystemStreamPartition ssp : deleteKeys.keySet()) {
       for (TaskName taskName : deleteKeys.get(ssp)) {
@@ -314,6 +337,7 @@ public class StartpointManager {
     Preconditions.checkNotNull(taskName, "TaskName cannot be null");
 
     fanOutStore.delete(toFanOutStoreKey(taskName));
+    fanOutStore.flush();
   }
 
   /**
@@ -324,6 +348,7 @@ public class StartpointManager {
     for (String key : fanOutKeys) {
       fanOutStore.delete(key);
     }
+    fanOutStore.flush();
   }
 
   @VisibleForTesting

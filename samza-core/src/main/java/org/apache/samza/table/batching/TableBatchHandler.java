@@ -64,15 +64,15 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
         table.getAllAsync(gets) : table.getAllAsync(gets, args);
 
     getsFuture.whenComplete((map, throwable) -> {
-        operations.forEach(operation -> {
-            GetOperation<K, V> getOperation = (GetOperation<K, V>) operation;
-            if (throwable != null) {
-              getOperation.completeExceptionally(throwable);
-            } else {
-              getOperation.complete(map.get(operation.getKey()));
-            }
-          });
+      operations.forEach(operation -> {
+        GetOperation<K, V> getOperation = (GetOperation<K, V>) operation;
+        if (throwable != null) {
+          getOperation.completeExceptionally(throwable);
+        } else {
+          getOperation.complete(map.get(operation.getKey()));
+        }
       });
+    });
     return getsFuture;
   }
 
@@ -151,11 +151,11 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
         handleBatchDelete(getDeleteOperations(batch)),
         handleBatchGet(getQueryOperations(batch)))
         .whenComplete((val, throwable) -> {
-            if (throwable != null) {
-              batch.completeExceptionally(throwable);
-            } else {
-              batch.complete();
-            }
-          });
+          if (throwable != null) {
+            batch.completeExceptionally(throwable);
+          } else {
+            batch.complete();
+          }
+        });
   }
 }

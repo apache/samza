@@ -19,9 +19,9 @@
 
 package org.apache.samza.system.azureblob.avro;
 
-import com.azure.core.http.rest.SimpleResponse;
-import com.azure.core.implementation.util.FluxUtil;
 import java.util.Arrays;
+import java.util.HashMap;
+import org.apache.samza.AzureException;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
@@ -34,6 +34,10 @@ import java.util.Map;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.Config;
+import org.apache.samza.system.azureblob.utils.BlobMetadataContext;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGenerator;
+import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -42,14 +46,18 @@ import org.mockito.ArgumentCaptor;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.anyMap;
+import static org.mockito.Mockito.anyObject;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -71,6 +79,12 @@ public class TestAzureBlobOutputStream {
   private static final byte[] COMPRESSED_BYTES = RANDOM_STRING.substring(0, THRESHOLD / 2).getBytes();
   private AzureBlobWriterMetrics mockMetrics;
   private Compression mockCompression;
+  private static final String FAKE_STREAM = "FAKE_STREAM";
+  private static final String BLOB_RAW_SIZE_BYTES_METADATA = "rawSizeBytes";
+  private static final String BLOB_STREAM_NAME_METADATA = "streamName";
+  private static final String BLOB_RECORD_NUMBER_METADATA = "numberOfRecords";
+  private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory = mock(BlobMetadataGeneratorFactory.class);
+  private final Config blobMetadataGeneratorConfig = mock(Config.class);
 
   @Before
   public void setup() throws Exception {
@@ -81,10 +95,6 @@ public class TestAzureBlobOutputStream {
     mockByteArrayOutputStream = spy(new ByteArrayOutputStream(THRESHOLD));
 
     mockBlobAsyncClient = PowerMockito.mock(BlockBlobAsyncClient.class);
-    when(mockBlobAsyncClient.stageBlock(anyString(), any(), anyLong())).thenReturn(
-        Mono.just(new SimpleResponse(null, 200, null, null)).flatMap(FluxUtil::toMono));
-    when(mockBlobAsyncClient.commitBlockListWithResponse(any(), any(), any(), any(), any())).thenReturn(
-        Mono.just(new SimpleResponse(null, 200, null, null)));
 
     when(mockBlobAsyncClient.getBlobUrl()).thenReturn("https://samza.blob.core.windows.net/fake-blob-url");
 
@@ -93,15 +103,34 @@ public class TestAzureBlobOutputStream {
     mockCompression = mock(Compression.class);
     doReturn(COMPRESSED_BYTES).when(mockCompression).compress(BYTES);
 
+    BlobMetadataGenerator mockBlobMetadataGenerator = mock(BlobMetadataGenerator.class);
+    doAnswer(invocation -> {
+      BlobMetadataContext blobMetadataContext = invocation.getArgumentAt(0, BlobMetadataContext.class);
+      String streamName = blobMetadataContext.getStreamName();
+      Long blobSize = blobMetadataContext.getBlobSize();
+      Long numberOfRecords = blobMetadataContext.getNumberOfMessagesInBlob();
+      Map<String, String> metadataProperties = new HashMap<>();
+      metadataProperties.put(BLOB_STREAM_NAME_METADATA, streamName);
+      metadataProperties.put(BLOB_RAW_SIZE_BYTES_METADATA, Long.toString(blobSize));
+      metadataProperties.put(BLOB_RECORD_NUMBER_METADATA, Long.toString(numberOfRecords));
+      return metadataProperties;
+    }).when(mockBlobMetadataGenerator).getBlobMetadata(anyObject());
+
     azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
+        blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
         60000, THRESHOLD, mockByteArrayOutputStream, mockCompression));
+
+    doNothing().when(azureBlobOutputStream).commitBlob(any(ArrayList.class), anyMap());
+    doNothing().when(azureBlobOutputStream).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
+    doNothing().when(azureBlobOutputStream).clearAndMarkClosed();
+    doReturn(mockBlobMetadataGenerator).when(azureBlobOutputStream).getBlobMetadataGenerator();
   }
 
   @Test
   public void testWrite() {
     byte[] b = new byte[THRESHOLD - 10];
     azureBlobOutputStream.write(b, 0, THRESHOLD - 10);
-    verify(mockBlobAsyncClient, never()).stageBlock(any(), any(), anyLong()); // since size of byte[] written is less than threshold
+    verify(azureBlobOutputStream, never()).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
     verify(mockMetrics).updateWriteByteMetrics(THRESHOLD - 10);
     verify(mockMetrics, never()).updateAzureUploadMetrics();
   }
@@ -125,12 +154,12 @@ public class TestAzureBlobOutputStream {
     // invoked 2 times for the data which is 2*threshold
     verify(mockCompression).compress(largeRecordFirstHalf);
     verify(mockCompression).compress(largeRecordSecondHalf);
-    ArgumentCaptor<Flux> argument0 = ArgumentCaptor.forClass(Flux.class);
-    ArgumentCaptor<Flux> argument1 = ArgumentCaptor.forClass(Flux.class);
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument0.capture(), eq((long) compressB1.length));
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(1)), argument1.capture(), eq((long) compressB2.length));
-    Assert.assertEquals(ByteBuffer.wrap(compressB1), argument0.getAllValues().get(0).blockFirst());
-    Assert.assertEquals(ByteBuffer.wrap(compressB2), argument1.getAllValues().get(0).blockFirst());
+    ArgumentCaptor<ByteBuffer> argument0 = ArgumentCaptor.forClass(ByteBuffer.class);
+    ArgumentCaptor<ByteBuffer> argument1 = ArgumentCaptor.forClass(ByteBuffer.class);
+    verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(0)), argument0.capture(), eq((int) compressB1.length));
+    verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(1)), argument1.capture(), eq((int) compressB2.length));
+    Assert.assertEquals(ByteBuffer.wrap(compressB1), argument0.getAllValues().get(0));
+    Assert.assertEquals(ByteBuffer.wrap(compressB2), argument1.getAllValues().get(0));
     verify(mockMetrics).updateWriteByteMetrics(2 * THRESHOLD);
     verify(mockMetrics, times(2)).updateAzureUploadMetrics();
   }
@@ -161,15 +190,15 @@ public class TestAzureBlobOutputStream {
     verify(mockCompression, times(2)).compress(fullBlock);
     verify(mockCompression).compress(halfBlock);
 
-    ArgumentCaptor<Flux> argument = ArgumentCaptor.forClass(Flux.class);
-    ArgumentCaptor<Flux> argument2 = ArgumentCaptor.forClass(Flux.class);
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((long) fullBlockCompressedByte.length));
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(1)), argument.capture(), eq((long) fullBlockCompressedByte.length));
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(2)), argument2.capture(), eq((long) halfBlockCompressedByte.length));
-    argument.getAllValues().forEach(flux -> {
-        Assert.assertEquals(ByteBuffer.wrap(fullBlockCompressedByte), flux.blockFirst());
-      });
-    Assert.assertEquals(ByteBuffer.wrap(halfBlockCompressedByte), ((Flux) argument2.getValue()).blockFirst());
+    ArgumentCaptor<ByteBuffer> argument = ArgumentCaptor.forClass(ByteBuffer.class);
+    ArgumentCaptor<ByteBuffer> argument2 = ArgumentCaptor.forClass(ByteBuffer.class);
+    verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((int) fullBlockCompressedByte.length));
+    verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(1)), argument.capture(), eq((int) fullBlockCompressedByte.length));
+    verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(2)), argument2.capture(), eq((int) halfBlockCompressedByte.length));
+    argument.getAllValues().forEach(byteBuffer -> {
+      Assert.assertEquals(ByteBuffer.wrap(fullBlockCompressedByte), byteBuffer);
+    });
+    Assert.assertEquals(ByteBuffer.wrap(halfBlockCompressedByte), argument2.getAllValues().get(0));
     verify(mockMetrics, times(3)).updateAzureUploadMetrics();
   }
 
@@ -182,16 +211,17 @@ public class TestAzureBlobOutputStream {
     azureBlobOutputStream.close();
 
     verify(mockCompression).compress(BYTES);
-    ArgumentCaptor<Flux> argument = ArgumentCaptor.forClass(Flux.class);
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((long) COMPRESSED_BYTES.length)); // since size of byte[] written is less than threshold
-    Assert.assertEquals(ByteBuffer.wrap(COMPRESSED_BYTES), ((Flux) argument.getValue()).blockFirst());
+    ArgumentCaptor<ByteBuffer> argument = ArgumentCaptor.forClass(ByteBuffer.class);
+    verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((int) COMPRESSED_BYTES.length)); // since size of byte[] written is less than threshold
+    Assert.assertEquals(ByteBuffer.wrap(COMPRESSED_BYTES), argument.getAllValues().get(0));
     verify(mockMetrics, times(2)).updateWriteByteMetrics(THRESHOLD / 2);
     verify(mockMetrics, times(1)).updateAzureUploadMetrics();
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test(expected = AzureException.class)
   public void testWriteFailed() {
-    when(mockBlobAsyncClient.stageBlock(anyString(), any(), anyLong())).thenThrow(new Exception("Test Failed"));
+    when(mockBlobAsyncClient.stageBlock(anyString(), any(), anyLong()))
+        .thenReturn(Mono.error(new Exception("Test Failed")));
 
     byte[] b = new byte[100];
     azureBlobOutputStream.write(b, 0, THRESHOLD); // threshold crossed so stageBlock is scheduled.
@@ -202,27 +232,30 @@ public class TestAzureBlobOutputStream {
   @Test
   public void testClose() {
     azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
+    azureBlobOutputStream.incrementNumberOfRecordsInBlob();
     int blockNum = 0;
     String blockId = String.format("%05d", blockNum);
     String blockIdEncoded = Base64.getEncoder().encodeToString(blockId.getBytes());
 
-    PowerMockito.doAnswer(invocation -> {
-        ArrayList<String> blockListArg = (ArrayList<String>) invocation.getArguments()[0];
-        String blockIdArg = (String) blockListArg.toArray()[0];
-        Assert.assertEquals(blockIdEncoded, blockIdArg);
-        Map<String, String> blobMetadata = (Map<String, String>) invocation.getArguments()[2];
-        Assert.assertEquals(blobMetadata.get(AzureBlobOutputStream.BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(THRESHOLD));
-        return Mono.just(new SimpleResponse(null, 200, null, null));
-      }).when(mockBlobAsyncClient).commitBlockListWithResponse(anyList(), any(), any(), any(), any());
-
     azureBlobOutputStream.close();
     verify(mockMetrics).updateAzureCommitMetrics();
+
+    ArgumentCaptor<ArrayList> blockListArgument = ArgumentCaptor.forClass(ArrayList.class);
+    ArgumentCaptor<Map> blobMetadataArg = ArgumentCaptor.forClass(Map.class);
+    verify(azureBlobOutputStream).commitBlob(blockListArgument.capture(), blobMetadataArg.capture());
+    Assert.assertEquals(Arrays.asList(blockIdEncoded), blockListArgument.getAllValues().get(0));
+    Map<String, String> blobMetadata = (Map<String, String>) blobMetadataArg.getAllValues().get(0);
+    Assert.assertEquals(blobMetadata.get(BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(THRESHOLD));
+    Assert.assertEquals(blobMetadata.get(BLOB_STREAM_NAME_METADATA), FAKE_STREAM);
+    Assert.assertEquals(blobMetadata.get(BLOB_RECORD_NUMBER_METADATA), Long.toString(1));
   }
 
   @Test
   public void testCloseMultipleBlocks() {
     azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
+    azureBlobOutputStream.incrementNumberOfRecordsInBlob();
     azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
+    azureBlobOutputStream.incrementNumberOfRecordsInBlob();
 
     int blockNum = 0;
     String blockId = String.format("%05d", blockNum);
@@ -231,24 +264,30 @@ public class TestAzureBlobOutputStream {
     int blockNum1 = 1;
     String blockId1 = String.format("%05d", blockNum1);
     String blockIdEncoded1 = Base64.getEncoder().encodeToString(blockId1.getBytes());
-
-    PowerMockito.doAnswer(invocation -> {
-        ArrayList<String> blockListArg = (ArrayList<String>) invocation.getArguments()[0];
-        Assert.assertEquals(Arrays.asList(blockIdEncoded, blockIdEncoded1), blockListArg);
-        Map<String, String> blobMetadata = (Map<String, String>) invocation.getArguments()[2];
-        Assert.assertEquals(blobMetadata.get(AzureBlobOutputStream.BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(2 * THRESHOLD));
-        return Mono.just(new SimpleResponse(null, 200, null, null));
-      }).when(mockBlobAsyncClient).commitBlockListWithResponse(anyList(), any(), any(), any(), any());
-
     azureBlobOutputStream.close();
     verify(mockMetrics).updateAzureCommitMetrics();
+    ArgumentCaptor<ArrayList> blockListArgument = ArgumentCaptor.forClass(ArrayList.class);
+    ArgumentCaptor<Map> blobMetadataArg = ArgumentCaptor.forClass(Map.class);
+    verify(azureBlobOutputStream).commitBlob(blockListArgument.capture(), blobMetadataArg.capture());
+    Assert.assertEquals(blockIdEncoded, blockListArgument.getAllValues().get(0).toArray()[0]);
+    Assert.assertEquals(blockIdEncoded1, blockListArgument.getAllValues().get(0).toArray()[1]);
+    Map<String, String> blobMetadata = (Map<String, String>) blobMetadataArg.getAllValues().get(0);
+    Assert.assertEquals(blobMetadata.get(BLOB_RAW_SIZE_BYTES_METADATA), Long.toString(2 * THRESHOLD));
+    Assert.assertEquals(blobMetadata.get(BLOB_STREAM_NAME_METADATA), FAKE_STREAM);
+    Assert.assertEquals(blobMetadata.get(BLOB_RECORD_NUMBER_METADATA), Long.toString(2));
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test(expected = AzureException.class)
   public void testCloseFailed() {
-    when(mockBlobAsyncClient.commitBlockListWithResponse(anyList(), any(), any(), any(), any()))
-        .thenReturn(Mono.error(new Exception("Test Failed")));
 
+    azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
+        blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
+        60000, THRESHOLD, mockByteArrayOutputStream, mockCompression));
+
+    //doNothing().when(azureBlobOutputStream).commitBlob(any(ArrayList.class), anyMap());
+    doNothing().when(azureBlobOutputStream).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
+    doThrow(new IllegalArgumentException("Test Failed")).when(azureBlobOutputStream).commitBlob(any(ArrayList.class), anyMap());
+    doNothing().when(azureBlobOutputStream).clearAndMarkClosed();
     byte[] b = new byte[100];
     azureBlobOutputStream.write(b, 0, THRESHOLD);
     azureBlobOutputStream.close();
@@ -273,17 +312,25 @@ public class TestAzureBlobOutputStream {
     String blockIdEncoded = Base64.getEncoder().encodeToString(blockId.getBytes());
 
     verify(mockCompression).compress(BYTES);
-    ArgumentCaptor<Flux> argument = ArgumentCaptor.forClass(Flux.class);
-    verify(mockBlobAsyncClient).stageBlock(eq(blockIdEncoded), argument.capture(), eq((long) COMPRESSED_BYTES.length)); // since size of byte[] written is less than threshold
-    Assert.assertEquals(ByteBuffer.wrap(COMPRESSED_BYTES), ((Flux) argument.getValue()).blockFirst());
+    ArgumentCaptor<ByteBuffer> argument = ArgumentCaptor.forClass(ByteBuffer.class);
+    // since size of byte[] written is less than threshold
+    verify(azureBlobOutputStream).stageBlock(eq(blockIdEncoded(0)), argument.capture(), eq((int) COMPRESSED_BYTES.length));
+    Assert.assertEquals(ByteBuffer.wrap(COMPRESSED_BYTES), argument.getAllValues().get(0));
     verify(mockMetrics).updateAzureUploadMetrics();
   }
 
-  @Test (expected = RuntimeException.class)
+  @Test (expected = AzureException.class)
   public void testFlushFailed() throws IOException {
+    azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
+        blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
+        60000, THRESHOLD, mockByteArrayOutputStream, mockCompression));
+
+    doNothing().when(azureBlobOutputStream).commitBlob(any(ArrayList.class), anyMap());
+    //doNothing().when(azureBlobOutputStream).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
+    doThrow(new IllegalArgumentException("Test Failed")).when(azureBlobOutputStream).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
+    doNothing().when(azureBlobOutputStream).clearAndMarkClosed();
+
     azureBlobOutputStream.write(BYTES);
-    when(mockBlobAsyncClient.stageBlock(anyString(), any(), anyLong()))
-           .thenReturn(Mono.error(new Exception("Test Failed")));
 
     azureBlobOutputStream.flush();
     // azureBlobOutputStream.close waits on the CompletableFuture which does the actual stageBlock in uploadBlockAsync
@@ -312,14 +359,14 @@ public class TestAzureBlobOutputStream {
     // mockByteArrayOutputStream.close called only once during releaseBuffer and not during azureBlobOutputStream.close
     verify(mockByteArrayOutputStream).close();
     // azureBlobOutputStream.close still commits the list of blocks.
-    verify(mockBlobAsyncClient).commitBlockListWithResponse(any(), any(), any(), any(), any());
+    verify(azureBlobOutputStream).commitBlob(any(ArrayList.class), anyMap());
   }
 
   @Test
   public void testFlushAfterReleaseBuffer() throws Exception {
     azureBlobOutputStream.releaseBuffer();
     azureBlobOutputStream.flush(); // becomes no-op after release buffer
-    verify(mockBlobAsyncClient, never()).stageBlock(anyString(), any(), anyLong());
+    verify(azureBlobOutputStream, never()).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
   }
 
   @Test

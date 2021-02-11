@@ -285,15 +285,15 @@ import org.slf4j.LoggerFactory;
    */
   private void validateInputStreams() {
     inputStreams.forEach(edge -> {
-        if (!edge.getSourceNodes().isEmpty()) {
-          throw new IllegalArgumentException(
-              String.format("Source stream %s should not have producers.", edge.getName()));
-        }
-        if (edge.getTargetNodes().isEmpty()) {
-          throw new IllegalArgumentException(
-              String.format("Source stream %s should have consumers.", edge.getName()));
-        }
-      });
+      if (!edge.getSourceNodes().isEmpty()) {
+        throw new IllegalArgumentException(
+            String.format("Source stream %s should not have producers.", edge.getName()));
+      }
+      if (edge.getTargetNodes().isEmpty()) {
+        throw new IllegalArgumentException(
+            String.format("Source stream %s should have consumers.", edge.getName()));
+      }
+    });
   }
 
   /**
@@ -301,15 +301,15 @@ import org.slf4j.LoggerFactory;
    */
   private void validateOutputStreams() {
     outputStreams.forEach(edge -> {
-        if (!edge.getTargetNodes().isEmpty()) {
-          throw new IllegalArgumentException(
-              String.format("Sink stream %s should not have consumers", edge.getName()));
-        }
-        if (edge.getSourceNodes().isEmpty()) {
-          throw new IllegalArgumentException(
-              String.format("Sink stream %s should have producers", edge.getName()));
-        }
-      });
+      if (!edge.getTargetNodes().isEmpty()) {
+        throw new IllegalArgumentException(
+            String.format("Sink stream %s should not have consumers", edge.getName()));
+      }
+      if (edge.getSourceNodes().isEmpty()) {
+        throw new IllegalArgumentException(
+            String.format("Sink stream %s should have producers", edge.getName()));
+      }
+    });
   }
 
   /**
@@ -322,11 +322,11 @@ import org.slf4j.LoggerFactory;
     internalEdges.removeAll(outputStreams);
 
     internalEdges.forEach(edge -> {
-        if (edge.getSourceNodes().isEmpty() || edge.getTargetNodes().isEmpty()) {
-          throw new IllegalArgumentException(
-              String.format("Internal stream %s should have both producers and consumers", edge.getName()));
-        }
-      });
+      if (edge.getSourceNodes().isEmpty() || edge.getTargetNodes().isEmpty()) {
+        throw new IllegalArgumentException(
+            String.format("Internal stream %s should have both producers and consumers", edge.getName()));
+      }
+    });
   }
 
   /**
@@ -352,19 +352,19 @@ import org.slf4j.LoggerFactory;
     Set<JobNode> visited = new HashSet<>();
 
     inputStreams.forEach(input -> {
-        List<JobNode> next = input.getTargetNodes();
-        queue.addAll(next);
-        visited.addAll(next);
-      });
+      List<JobNode> next = input.getTargetNodes();
+      queue.addAll(next);
+      visited.addAll(next);
+    });
 
     while (!queue.isEmpty()) {
       JobNode node = queue.poll();
       node.getOutEdges().values().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(target -> {
-          if (!visited.contains(target)) {
-            visited.add(target);
-            queue.offer(target);
-          }
-        });
+        if (!visited.contains(target)) {
+          visited.add(target);
+          queue.offer(target);
+        }
+      });
     }
 
     return visited;
@@ -385,17 +385,17 @@ import org.slf4j.LoggerFactory;
     Map<String, Long> indegree = new HashMap<>();
     Set<JobNode> visited = new HashSet<>();
     pnodes.forEach(node -> {
-        String nid = node.getJobNameAndId();
-        //only count the degrees of intermediate streams
-        long degree = node.getInEdges().values().stream().filter(e -> !inputStreams.contains(e)).count();
-        indegree.put(nid, degree);
+      String nid = node.getJobNameAndId();
+      //only count the degrees of intermediate streams
+      long degree = node.getInEdges().values().stream().filter(e -> !inputStreams.contains(e)).count();
+      indegree.put(nid, degree);
 
-        if (degree == 0L) {
-          // start from the nodes that has no intermediate input streams, so it only consumes from input streams
-          q.add(node);
-          visited.add(node);
-        }
-      });
+      if (degree == 0L) {
+        // start from the nodes that has no intermediate input streams, so it only consumes from input streams
+        q.add(node);
+        visited.add(node);
+      }
+    });
 
     List<JobNode> sortedNodes = new ArrayList<>();
     Set<JobNode> reachable = new HashSet<>();
@@ -413,15 +413,15 @@ import org.slf4j.LoggerFactory;
         JobNode node = q.poll();
         sortedNodes.add(node);
         node.getOutEdges().values().stream().flatMap(edge -> edge.getTargetNodes().stream()).forEach(n -> {
-            String nid = n.getJobNameAndId();
-            Long degree = indegree.get(nid) - 1;
-            indegree.put(nid, degree);
-            if (degree == 0L && !visited.contains(n)) {
-              q.add(n);
-              visited.add(n);
-            }
-            reachable.add(n);
-          });
+          String nid = n.getJobNameAndId();
+          Long degree = indegree.get(nid) - 1;
+          indegree.put(nid, degree);
+          if (degree == 0L && !visited.contains(n)) {
+            q.add(n);
+            visited.add(n);
+          }
+          reachable.add(n);
+        });
       }
 
       if (sortedNodes.size() < pnodes.size()) {

@@ -62,7 +62,7 @@ public class QueryResultLogView implements CliView {
 
   // -- implementation of CliView -------------------------------------------
 
-  public void open(CliShell shell, QueryResult queryResult) throws ExecutorException{
+  public void open(CliShell shell, QueryResult queryResult) throws ExecutorException {
     terminal = shell.getTerminal();
     executor = shell.getExecutor();
     exeContext = shell.getExeContext();
@@ -98,7 +98,7 @@ public class QueryResultLogView implements CliView {
 
   // ------------------------------------------------------------------------
 
-  private void display() throws ExecutorException{
+  private void display() throws ExecutorException {
     updateTerminalSize();
     int rowsInBuffer = executor.getRowCount();
     if (rowsInBuffer <= 0 || paused) {
@@ -164,11 +164,11 @@ public class QueryResultLogView implements CliView {
     TerminalStatus prevStatus = new TerminalStatus();
 
     // Signal handlers
-    prevStatus.handler_INT = terminal.handle(Terminal.Signal.INT, this::handleSignal);
-    prevStatus.handler_QUIT = terminal.handle(Terminal.Signal.QUIT, this::handleSignal);
-    prevStatus.handler_TSTP = terminal.handle(Terminal.Signal.TSTP, this::handleSignal);
-    prevStatus.handler_CONT = terminal.handle(Terminal.Signal.CONT, this::handleSignal);
-    prevStatus.handler_WINCH = terminal.handle(Terminal.Signal.WINCH, this::handleSignal);
+    prevStatus.handlerInt = terminal.handle(Terminal.Signal.INT, this::handleSignal);
+    prevStatus.handlerQuit = terminal.handle(Terminal.Signal.QUIT, this::handleSignal);
+    prevStatus.handlerTstp = terminal.handle(Terminal.Signal.TSTP, this::handleSignal);
+    prevStatus.handlerCont = terminal.handle(Terminal.Signal.CONT, this::handleSignal);
+    prevStatus.handlerWinch = terminal.handle(Terminal.Signal.WINCH, this::handleSignal);
 
     // Attributes
     prevStatus.attributes = terminal.getAttributes();
@@ -208,11 +208,11 @@ public class QueryResultLogView implements CliView {
 
   private void restoreTerminal(TerminalStatus status) {
     // Signal handlers
-    terminal.handle(Terminal.Signal.INT, status.handler_INT);
-    terminal.handle(Terminal.Signal.QUIT, status.handler_QUIT);
-    terminal.handle(Terminal.Signal.TSTP, status.handler_TSTP);
-    terminal.handle(Terminal.Signal.CONT, status.handler_CONT);
-    terminal.handle(Terminal.Signal.WINCH, status.handler_WINCH);
+    terminal.handle(Terminal.Signal.INT, status.handlerInt);
+    terminal.handle(Terminal.Signal.QUIT, status.handlerQuit);
+    terminal.handle(Terminal.Signal.TSTP, status.handlerTstp);
+    terminal.handle(Terminal.Signal.CONT, status.handlerCont);
+    terminal.handle(Terminal.Signal.WINCH, status.handlerWinch);
 
     // Attributes
     terminal.setAttributes(status.attributes);
@@ -259,11 +259,11 @@ public class QueryResultLogView implements CliView {
   }
 
   private static class TerminalStatus {
-    Terminal.SignalHandler handler_INT;
-    Terminal.SignalHandler handler_QUIT;
-    Terminal.SignalHandler handler_TSTP;
-    Terminal.SignalHandler handler_CONT;
-    Terminal.SignalHandler handler_WINCH;
+    Terminal.SignalHandler handlerInt;
+    Terminal.SignalHandler handlerQuit;
+    Terminal.SignalHandler handlerTstp;
+    Terminal.SignalHandler handlerCont;
+    Terminal.SignalHandler handlerWinch;
 
     Attributes attributes;
   }

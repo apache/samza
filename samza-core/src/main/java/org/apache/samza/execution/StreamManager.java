@@ -48,7 +48,7 @@ public class StreamManager {
   private final SystemAdmins systemAdmins;
 
   public StreamManager(Config config) {
-    this(new SystemAdmins(config));
+    this(new SystemAdmins(config, StreamManager.class.getSimpleName()));
   }
 
   @VisibleForTesting
@@ -117,9 +117,9 @@ public class StreamManager {
           .map(id -> new StreamSpec(id, streamConfig.getPhysicalName(id), streamConfig.getSystem(id)))
           .collect(Collectors.toSet());
       intStreams.forEach(stream -> {
-          LOGGER.info("Clear intermediate stream {} in system {}", stream.getPhysicalName(), stream.getSystemName());
-          systemAdmins.getSystemAdmin(stream.getSystemName()).clearStream(stream);
-        });
+        LOGGER.info("Clear intermediate stream {} in system {}", stream.getPhysicalName(), stream.getSystemName());
+        systemAdmins.getSystemAdmin(stream.getSystemName()).clearStream(stream);
+      });
 
       //Find checkpoint stream and clean up
       TaskConfig taskConfig = new TaskConfig(prevConfig);

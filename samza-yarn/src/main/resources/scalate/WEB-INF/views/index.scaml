@@ -137,8 +137,7 @@
               %td
                 Up time: #{container.upTimeStr()}
               %td
-                Ordinary: #{samzaAppState.jobModelManager.jobModel.getContainerToHostValue(processorId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_URL_KEY)}
-                Tunneling: #{samzaAppState.jobModelManager.jobModel.getContainerToHostValue(processorId, org.apache.samza.coordinator.stream.messages.SetContainerHostMapping.JMX_TUNNELING_URL_KEY)}
+                %a(target="_blank" href="#{state.coordinatorUrl.toString}locality?processorId=#{processorId.toString}") JMX
 
       %h2 Failed Containers
       %table.table.table-striped.table-bordered.tablesorter#containers-table

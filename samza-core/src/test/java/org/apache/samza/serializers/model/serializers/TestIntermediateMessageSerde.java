@@ -24,15 +24,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.Arrays;
 import org.apache.samza.serializers.IntermediateMessageSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.system.WatermarkMessage;
+import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.*;
 
 
 public class TestIntermediateMessageSerde {
@@ -125,5 +130,27 @@ public class TestIntermediateMessageSerde {
     assertEquals(MessageType.of(de), MessageType.END_OF_STREAM);
     assertEquals(de.getTaskName(), taskName);
     assertEquals(de.getVersion(), 1);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testUserMessageSerdeException() {
+    Serde<?> mockUserMessageSerde = mock(Serde.class);
+    when(mockUserMessageSerde.fromBytes(anyObject())).then(new Answer<Object>() {
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        byte[] bytes = invocation.getArgumentAt(0, byte[].class);
+        if (Arrays.equals(bytes, new byte[]{1, 2})) {
+          throw new IllegalArgumentException("User message serde failed to deserialize this message.");
+        } else {
+          // Intermediate message serde shouldn't try to deserialize user message with wrong bytes
+          Assert.fail();
+          return null;
+        }
+      }
+    });
+
+    IntermediateMessageSerde imserde = new IntermediateMessageSerde(mockUserMessageSerde);
+    byte[] bytes = new byte[]{0, 1, 2};
+    imserde.fromBytes(bytes);
   }
 }

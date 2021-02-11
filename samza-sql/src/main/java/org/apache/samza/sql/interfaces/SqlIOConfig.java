@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StreamConfig;
@@ -81,11 +81,13 @@ public class SqlIOConfig {
     this.streamId = String.format("%s-%s", systemName, streamName);
 
     samzaRelConverterName = streamConfigs.get(CFG_SAMZA_REL_CONVERTER);
-    Validate.notEmpty(samzaRelConverterName, String.format("System %s is not supported. Please check if the system name is provided correctly.", systemName));
+    Validate.notEmpty(samzaRelConverterName, String.format("System %s is not supported."
+        + "Please check if the system name is provided correctly.", systemName));
 
     if (isRemoteTable()) {
       samzaRelTableKeyConverterName = streamConfigs.get(CFG_SAMZA_REL_TABLE_KEY_CONVERTER);
-      Validate.notEmpty(samzaRelTableKeyConverterName, String.format("System %s is not supported. Please check if the system name is provided correctly.", systemName));
+      Validate.notEmpty(samzaRelTableKeyConverterName, String.format("System %s is not supported. "
+          + "Please check if the system name is provided correctly.", systemName));
     } else {
       samzaRelTableKeyConverterName = "";
     }

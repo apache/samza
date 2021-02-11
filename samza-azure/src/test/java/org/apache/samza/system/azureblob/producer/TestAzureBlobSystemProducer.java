@@ -45,6 +45,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -95,7 +96,7 @@ public class TestAzureBlobSystemProducer {
 
     systemProducer = spy(new AzureBlobSystemProducer(SYSTEM_NAME, azureBlobConfig, mockMetricsRegistry));
     // use mock writer impl
-    doReturn(mockAzureWriter).when(systemProducer).createNewWriter(anyString(), any());
+    setupWriterForProducer(systemProducer, mockAzureWriter, STREAM);
     // bypass Azure connection setup
     doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
   }
@@ -415,7 +416,7 @@ public class TestAzureBlobSystemProducer {
     systemProducer.register(source1);
     systemProducer.start();
 
-    doReturn(mockAzureWriter1).when(systemProducer).createNewWriter(anyString(), any());
+    setupWriterForProducer(systemProducer, mockAzureWriter1, stream1);
 
     Thread t1 = sendFlushInThread(source1, ome1, systemProducer, sendsInFirstThread);
     Thread t2 = sendFlushInThread(source1, ome1, systemProducer, sendsInSecondThread);
@@ -451,7 +452,7 @@ public class TestAzureBlobSystemProducer {
     // bypass Azure connection setup
     doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
 
-    doReturn(mockAzureWriter1).when(systemProducer).createNewWriter(anyString(), any());
+    setupWriterForProducer(systemProducer, mockAzureWriter1, stream1);
 
     systemProducer.register(source1);
     systemProducer.start();
@@ -493,7 +494,7 @@ public class TestAzureBlobSystemProducer {
     // bypass Azure connection setup
     doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
 
-    doReturn(mockAzureWriter1).when(systemProducer).createNewWriter(anyString(), any());
+    setupWriterForProducer(systemProducer, mockAzureWriter1, STREAM);
 
     systemProducer.register(source1);
     systemProducer.start();
@@ -590,5 +591,16 @@ public class TestAzureBlobSystemProducer {
     bareConfigs.put(String.format(AzureBlobConfig.SYSTEM_CLOSE_TIMEOUT_MS, SYSTEM_NAME), "1000");
     Config config = new MapConfig(bareConfigs);
     return config;
+  }
+
+  private void setupWriterForProducer(AzureBlobSystemProducer azureBlobSystemProducer,
+      AzureBlobWriter mockAzureBlobWriter, String stream) {
+    doAnswer(invocation -> {
+      String blobUrl = invocation.getArgumentAt(0, String.class);
+      String streamName = invocation.getArgumentAt(2, String.class);
+      Assert.assertEquals(stream, streamName);
+      Assert.assertEquals(stream, blobUrl);
+      return mockAzureBlobWriter;
+    }).when(azureBlobSystemProducer).createNewWriter(anyString(), any(), anyString());
   }
 }

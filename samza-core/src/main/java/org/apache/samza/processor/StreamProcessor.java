@@ -396,14 +396,16 @@ public class StreamProcessor {
     // Metadata store lifecycle managed outside of the SamzaContainer.
     // All manager lifecycles are managed in the SamzaContainer including startpointManager
     StartpointManager startpointManager = null;
-    if (metadataStore != null) {
+    if (metadataStore != null && new JobConfig(config).getStartpointEnabled()) {
       startpointManager = new StartpointManager(metadataStore);
+    } else if (!new JobConfig(config).getStartpointEnabled()) {
+      LOGGER.warn("StartpointManager not instantiated because startpoints is not enabled");
     } else {
       LOGGER.warn("StartpointManager cannot be instantiated because no metadata store defined for this stream processor");
     }
 
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
-        this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
+        this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config, jobModel),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
         Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager,

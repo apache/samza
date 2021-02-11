@@ -88,7 +88,7 @@ public class RemoteStoreIOResolverTestFactory implements SqlIOResolverFactory {
   }
 
   private class TestRemoteStoreIOResolver implements SqlIOResolver {
-    private final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
+    private static final String SAMZA_SQL_QUERY_TABLE_KEYWORD = "$table";
     private final Config config;
     private final Map<String, TableDescriptor> tableDescMap = new HashMap<>();
     private final String changeLogStorePrefix;

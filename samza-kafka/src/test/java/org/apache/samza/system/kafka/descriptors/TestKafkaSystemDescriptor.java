@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import org.apache.samza.system.SystemStreamMetadata;
-import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -37,7 +36,7 @@ public class TestKafkaSystemDescriptor {
             .withProducerBootstrapServers(ImmutableList.of("localhost:567", "localhost:890"))
             .withDefaultStreamOffsetDefault(SystemStreamMetadata.OffsetType.OLDEST)
             .withConsumerAutoOffsetReset("smallest")
-            .withConsumerFetchMessageMaxBytes(1024*1024)
+            .withConsumerFetchMessageMaxBytes(1024 * 1024)
             .withSamzaFetchThreshold(10000)
             .withSamzaFetchThresholdBytes(1024 * 1024)
             .withConsumerConfigs(ImmutableMap.of("custom-consumer-config-key", "custom-consumer-config-value"))

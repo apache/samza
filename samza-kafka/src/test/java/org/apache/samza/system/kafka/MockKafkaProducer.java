@@ -41,14 +41,13 @@ import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.record.Record;
 import org.apache.kafka.common.record.RecordBatch;
 import org.apache.kafka.test.TestUtils;
 
 public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
-  private Cluster _cluster;
-  private List<FutureTask<RecordMetadata>> _callbacksList = new ArrayList<FutureTask<RecordMetadata>>();
+  private Cluster cluster;
+  private List<FutureTask<RecordMetadata>> callbacksList = new ArrayList<FutureTask<RecordMetadata>>();
   private boolean shouldBuffer = false;
   private boolean errorNext = false;
   private boolean errorInCallback = true;
@@ -70,7 +69,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
    *  - "Offset" in RecordMetadata is not guranteed to be correct
    */
   public MockKafkaProducer(int numNodes, String topicName, int numPartitions) {
-    this._cluster = TestUtils.clusterWith(numNodes, topicName, numPartitions);
+    this.cluster = TestUtils.clusterWith(numNodes, topicName, numPartitions);
   }
 
   public void setShouldBuffer(boolean shouldBuffer) {
@@ -110,7 +109,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
     if (errorNext) {
       if (!errorInCallback) {
         this.errorNext = false;
-        throw (RuntimeException)exception;
+        throw (RuntimeException) exception;
       }
       if (shouldBuffer) {
         FutureTask<RecordMetadata> f = new FutureTask<RecordMetadata>(new Callable<RecordMetadata>() {
@@ -121,7 +120,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
             return getRecordMetadata(record);
           }
         });
-        _callbacksList.add(f);
+        callbacksList.add(f);
         this.errorNext = false;
         return f;
       } else {
@@ -141,7 +140,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
             return metadata;
           }
         });
-        _callbacksList.add(f);
+        callbacksList.add(f);
         return f;
       } else {
         int offset = msgsSent.incrementAndGet();
@@ -154,7 +153,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
   @Override
   public List<PartitionInfo> partitionsFor(String topic) {
-    return this._cluster.partitionsForTopic(topic);
+    return this.cluster.partitionsForTopic(topic);
   }
 
   @Override
@@ -187,7 +186,7 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
     return openCount;
   }
 
-  public synchronized void flush () {
+  public synchronized void flush() {
     new FlushRunnable(0).run();
   }
 
@@ -248,11 +247,11 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   private static class FutureSuccess implements Future<RecordMetadata> {
 
     private ProducerRecord record;
-    private final RecordMetadata _metadata;
+    private final RecordMetadata metadata;
 
     public FutureSuccess(ProducerRecord record, int offset) {
       this.record = record;
-      this._metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset, RecordBatch.NO_TIMESTAMP, -1L, -1, -1);
+      this.metadata = new RecordMetadata(new TopicPartition(record.topic(), record.partition() == null ? 0 : record.partition()), 0, offset, RecordBatch.NO_TIMESTAMP, -1L, -1, -1);
     }
 
     @Override
@@ -262,12 +261,12 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
 
     @Override
     public RecordMetadata get() throws ExecutionException {
-      return this._metadata;
+      return this.metadata;
     }
 
     @Override
     public RecordMetadata get(long timeout, TimeUnit unit) throws ExecutionException {
-      return this._metadata;
+      return this.metadata;
     }
 
     @Override
@@ -282,21 +281,21 @@ public class MockKafkaProducer implements Producer<byte[], byte[]> {
   }
 
   private class FlushRunnable implements Runnable {
-    private final int _sleepTime;
+    private final int sleepTime;
 
     public FlushRunnable(int sleepTime) {
-      _sleepTime = sleepTime;
+      this.sleepTime = sleepTime;
     }
 
     public void run() {
-      FutureTask[] callbackArray = new FutureTask[_callbacksList.size()];
-      AtomicReferenceArray<FutureTask> _bufferList =
-          new AtomicReferenceArray<FutureTask>(_callbacksList.toArray(callbackArray));
+      FutureTask[] callbackArray = new FutureTask[callbacksList.size()];
+      AtomicReferenceArray<FutureTask> bufferList =
+          new AtomicReferenceArray<FutureTask>(callbacksList.toArray(callbackArray));
       ExecutorService executor = Executors.newFixedThreadPool(10);
       try {
-        for (int i = 0; i < _bufferList.length(); i++) {
-          Thread.sleep(_sleepTime);
-          FutureTask f = _bufferList.get(i);
+        for (int i = 0; i < bufferList.length(); i++) {
+          Thread.sleep(sleepTime);
+          FutureTask f = bufferList.get(i);
           if (!f.isDone()) {
             executor.submit(f).get();
           }

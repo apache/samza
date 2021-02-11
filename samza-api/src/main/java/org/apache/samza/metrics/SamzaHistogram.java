@@ -48,7 +48,7 @@ public class SamzaHistogram {
     this.gauges = this.percentiles.stream()
         .filter(x -> x > 0 && x <= 100)
         .collect(Collectors.toMap(Function.identity(),
-            x -> registry.newGauge(group, new HistogramGauge(x, name + "_" + String.valueOf(x), 0D))));
+          x -> registry.newGauge(group, new HistogramGauge(x, name + "_" + String.valueOf(x), 0D))));
   }
 
   public void update(long value) {
@@ -72,8 +72,25 @@ public class SamzaHistogram {
     }
 
     public void visit(MetricsVisitor visitor) {
-      updateGaugeValues(percentile);
       visitor.gauge(this);
+    }
+
+    /**
+     * We update the percentile gauge values when value is being polled.
+     * This is needed for reporters which do not implement MetricsReporter
+     * and do not have MetricsReporter to update the values.
+     */
+    public Double getValue() {
+      /*
+       * We cannot updateGaugeValues if the histogram gauges are being instantiated
+       * and getValue is called in this context.
+       */
+      if (gauges == null) {
+        return 0.0;
+      }
+
+      updateGaugeValues(percentile);
+      return super.getValue();
     }
   }
 }

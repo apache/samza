@@ -19,10 +19,10 @@
 
 package org.apache.samza.validation;
 
-import java.util.Map;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptReport;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
@@ -35,17 +35,18 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
+import org.apache.samza.job.model.ProcessorLocality;
+import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.job.yarn.ClientHelper;
 import org.apache.samza.metrics.JmxMetricsAccessor;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsValidator;
-import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.util.CommandLine;
-import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.hadoop.HttpFileSystem;
 import org.slf4j.Logger;
@@ -61,7 +62,7 @@ import org.slf4j.LoggerFactory;
  *
  * When running this tool, please provide the configuration URI of job. For example:
  *
- * deploy/samza/bin/validate-yarn-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties [--metrics-validator=com.foo.bar.SomeMetricsValidator]
+ * deploy/samza/bin/validate-yarn-job.sh --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory --config job.config.loader.properties.path=$PWD/deploy/samza/config/wikipedia-feed.properties [--metrics-validator=com.foo.bar.SomeMetricsValidator]
  *
  * The tool prints out the validation result in each step and throws an exception when the
  * validation fails.
@@ -93,7 +94,7 @@ public class YarnJobValidationTool {
       appId = validateAppId();
       attemptId = validateRunningAttemptId(appId);
       validateContainerCount(attemptId);
-      if(validator != null) {
+      if (validator != null) {
         validateJmxMetrics();
       }
 
@@ -108,10 +109,10 @@ public class YarnJobValidationTool {
     // fetch only the last created application with the job name and id
     // i.e. get the application with max appId
     ApplicationId appId = null;
-    for(ApplicationReport applicationReport : this.client.getApplications()) {
-      if(applicationReport.getName().equals(this.jobName)) {
+    for (ApplicationReport applicationReport : this.client.getApplications()) {
+      if (applicationReport.getName().equals(this.jobName)) {
         ApplicationId id = applicationReport.getApplicationId();
-        if(appId == null || appId.compareTo(id) < 0) {
+        if (appId == null || appId.compareTo(id) < 0) {
           appId = id;
         }
       }
@@ -137,8 +138,8 @@ public class YarnJobValidationTool {
 
   public int validateContainerCount(ApplicationAttemptId attemptId) throws Exception {
     int runningContainerCount = 0;
-    for(ContainerReport containerReport : this.client.getContainers(attemptId)) {
-      if(containerReport.getContainerState() == ContainerState.RUNNING) {
+    for (ContainerReport containerReport : this.client.getContainers(attemptId)) {
+      if (containerReport.getContainerState() == ContainerState.RUNNING) {
         ++runningContainerCount;
       }
     }
@@ -157,31 +158,32 @@ public class YarnJobValidationTool {
     MetricsRegistry metricsRegistry = new MetricsRegistryMap();
     CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(config, metricsRegistry);
     coordinatorStreamStore.init();
-    try{
-      Config configFromCoordinatorStream = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
-      ChangelogStreamManager changelogStreamManager = new ChangelogStreamManager(coordinatorStreamStore);
-      JobModelManager jobModelManager =
-          JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
-              coordinatorStreamStore, metricsRegistry);
+    try {
+      LocalityManager localityManager =
+          new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE));
       validator.init(config);
-      Map<String, String> jmxUrls = jobModelManager.jobModel().getAllContainerToHostValues(SetContainerHostMapping.JMX_TUNNELING_URL_KEY);
-      for (Map.Entry<String, String> entry : jmxUrls.entrySet()) {
-        String containerId = entry.getKey();
-        String jmxUrl = entry.getValue();
-        log.info("validate container " + containerId + " metrics with JMX: " + jmxUrl);
-        JmxMetricsAccessor jmxMetrics = new JmxMetricsAccessor(jmxUrl);
-        jmxMetrics.connect();
-        validator.validate(jmxMetrics);
-        jmxMetrics.close();
-        log.info("validate container " + containerId + " successfully");
+      LocalityModel localityModel = localityManager.readLocality();
+
+      for (ProcessorLocality processorLocality : localityModel.getProcessorLocalities().values()) {
+        String containerId = processorLocality.id();
+        String jmxUrl = processorLocality.jmxTunnelingUrl();
+        if (StringUtils.isNotBlank(jmxUrl)) {
+          log.info("validate container " + containerId + " metrics with JMX: " + jmxUrl);
+          JmxMetricsAccessor jmxMetrics = new JmxMetricsAccessor(jmxUrl);
+          jmxMetrics.connect();
+          validator.validate(jmxMetrics);
+          jmxMetrics.close();
+          log.info("validate container " + containerId + " successfully");
+        }
       }
+
       validator.complete();
     } finally {
       coordinatorStreamStore.close();
     }
   }
 
-  public static void main(String [] args) throws Exception {
+  public static void main(String[] args) throws Exception {
     CommandLine cmdline = new CommandLine();
     OptionParser parser = cmdline.parser();
     OptionSpec<String> validatorOpt = parser.accepts("metrics-validator", "The metrics validator class.")

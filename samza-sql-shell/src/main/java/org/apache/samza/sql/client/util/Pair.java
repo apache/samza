@@ -19,20 +19,20 @@
 
 package org.apache.samza.sql.client.util;
 
-public class Pair<L,R> {
+public class Pair<L, R> {
   private L l;
   private R r;
 
-  public Pair(L l, R r){
+  public Pair(L l, R r) {
     this.l = l;
     this.r = r;
   }
 
-  public L getL(){
+  public L getL() {
     return l;
   }
 
-  public R getR(){
+  public R getR() {
     return r;
   }
 
@@ -40,7 +40,7 @@ public class Pair<L,R> {
     this.l = l;
   }
 
-  public void setR(R r){
+  public void setR(R r) {
     this.r = r;
   }
 }

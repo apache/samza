@@ -51,6 +51,7 @@ public class TestRunIdGenerator {
     verify(membership, Mockito.times(1)).registerProcessor();
     verify(membership, Mockito.times(1)).getNumberOfProcessors();
     verify(metadataStore, Mockito.times(1)).put(eq(CoordinationConstants.RUNID_STORE_KEY), any(byte[].class));
+    verify(metadataStore, Mockito.times(1)).flush();
   }
 
   @Test

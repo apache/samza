@@ -18,26 +18,23 @@
  */
 package org.apache.samza.config;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory;
 import org.apache.samza.container.grouper.stream.HashSystemStreamPartitionMapperFactory;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory;
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory;
+import org.junit.Assert;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 
 public class TestJobConfig {
@@ -550,15 +547,13 @@ public class TestJobConfig {
 
   @Test
   public void testGetClusterBasedJobCoordinatorDependencyIsolationEnabled() {
-    Config config =
-        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "true"));
-    assertTrue(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
+    Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_SPLIT_DEPLOYMENT_ENABLED, "true"));
+    assertTrue(new JobConfig(config).isSplitDeploymentEnabled());
 
-    config =
-        new MapConfig(ImmutableMap.of(JobConfig.CLUSTER_BASED_JOB_COORDINATOR_DEPENDENCY_ISOLATION_ENABLED, "false"));
-    assertFalse(new JobConfig(config).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
+    config = new MapConfig(ImmutableMap.of(JobConfig.JOB_SPLIT_DEPLOYMENT_ENABLED, "false"));
+    assertFalse(new JobConfig(config).isSplitDeploymentEnabled());
 
-    assertFalse(new JobConfig(new MapConfig()).getClusterBasedJobCoordinatorDependencyIsolationEnabled());
+    assertFalse(new JobConfig(new MapConfig()).isSplitDeploymentEnabled());
   }
 
   @Test
@@ -581,5 +576,29 @@ public class TestJobConfig {
 
     jobConfig = new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.COORDINATOR_STREAM_FACTORY, "specific_coordinator_stream")));
     assertEquals(jobConfig.getCoordinatorStreamFactory(), "specific_coordinator_stream");
+  }
+
+  @Test
+  public void testAutosizingConfig() {
+    Map<String, String> config = new HashMap<>();
+    config.put("job.autosizing.enabled", "true");
+    config.put("job.container.count", "1");
+    config.put("job.autosizing.container.count", "2");
+    config.put("job.container.thread.pool.size", "1");
+    config.put("job.autosizing.container.thread.pool.size", "3");
+    config.put("job.autosizing.container.maxheap.mb", "500");
+
+    config.put("cluster-manager.container.memory.mb", "500");
+    config.put("job.autosizing.container.memory.mb", "900");
+    config.put("cluster-manager.container.cpu.cores", "1");
+    config.put("job.autosizing.container.cpu.cores", "2");
+    JobConfig jobConfig = new JobConfig(new MapConfig(config));
+    Assert.assertTrue(jobConfig.getAutosizingEnabled());
+    Assert.assertEquals(2, jobConfig.getContainerCount());
+    Assert.assertEquals(3, jobConfig.getThreadPoolSize());
+
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(new MapConfig(config));
+    Assert.assertEquals(900, clusterManagerConfig.getContainerMemoryMb());
+    Assert.assertEquals(2, clusterManagerConfig.getNumCores());
   }
 }

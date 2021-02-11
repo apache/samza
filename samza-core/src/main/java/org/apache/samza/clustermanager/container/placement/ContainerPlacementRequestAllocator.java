@@ -18,14 +18,18 @@
  */
 package org.apache.samza.clustermanager.container.placement;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.samza.clustermanager.ContainerProcessManager;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Stateless handler that periodically dispatches {@link ContainerPlacementRequestMessage} read from Metadata store to Job Coordinator
+ * Container placement requests from the previous deployment are deleted from the metadata store, ContainerPlacementRequestAllocatorThread
+ * does this cleanup
  */
 public class ContainerPlacementRequestAllocator implements Runnable {
 
@@ -43,13 +47,37 @@ public class ContainerPlacementRequestAllocator implements Runnable {
    * State that controls the lifecycle of the ContainerPlacementRequestAllocator thread
    */
   private volatile boolean isRunning;
-
-  public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager) {
+  /**
+   * RunId of the app
+   */
+  private final String appRunId;
+  /**
+   * Sleep time for container placement handler thread
+   */
+  private final int containerPlacementHandlerSleepMs;
+  public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager, ApplicationConfig config) {
     Preconditions.checkNotNull(containerPlacementMetadataStore, "containerPlacementMetadataStore cannot be null");
     Preconditions.checkNotNull(manager, "ContainerProcessManager cannot be null");
     this.containerProcessManager = manager;
     this.containerPlacementMetadataStore = containerPlacementMetadataStore;
     this.isRunning = true;
+    this.appRunId = config.getRunId();
+    this.containerPlacementHandlerSleepMs = DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS;
+  }
+
+  @VisibleForTesting
+  /**
+   * Should only get used for testing, cannot make it package private because end to end integeration test
+   * need package private methods which live in org.apache.samza.clustermanager
+   */
+  public ContainerPlacementRequestAllocator(ContainerPlacementMetadataStore containerPlacementMetadataStore, ContainerProcessManager manager, ApplicationConfig config, int containerPlacementHandlerSleepMs) {
+    Preconditions.checkNotNull(containerPlacementMetadataStore, "containerPlacementMetadataStore cannot be null");
+    Preconditions.checkNotNull(manager, "ContainerProcessManager cannot be null");
+    this.containerProcessManager = manager;
+    this.containerPlacementMetadataStore = containerPlacementMetadataStore;
+    this.isRunning = true;
+    this.appRunId = config.getRunId();
+    this.containerPlacementHandlerSleepMs = containerPlacementHandlerSleepMs;
   }
 
   @Override
@@ -59,10 +87,15 @@ public class ContainerPlacementRequestAllocator implements Runnable {
         for (ContainerPlacementRequestMessage message : containerPlacementMetadataStore.readAllContainerPlacementRequestMessages()) {
           // We do not need to dispatch ContainerPlacementResponseMessage because they are written from JobCoordinator
           // in response to a Container Placement Action
-          LOG.info("Received a container placement message {}", message);
-          containerProcessManager.registerContainerPlacementAction(message);
+          if (message.getDeploymentId().equals(appRunId)) {
+            LOG.debug("Received a container placement message {}", message);
+            containerProcessManager.registerContainerPlacementAction(message);
+          } else {
+            // Delete the ContainerPlacementMessages from the previous deployment
+            containerPlacementMetadataStore.deleteAllContainerPlacementMessages(message.getUuid());
+          }
         }
-        Thread.sleep(DEFAULT_CLUSTER_MANAGER_CONTAINER_PLACEMENT_HANDLER_SLEEP_MS);
+        Thread.sleep(containerPlacementHandlerSleepMs);
       } catch (InterruptedException e) {
         LOG.warn("Got InterruptedException in ContainerPlacementRequestAllocator thread.", e);
         Thread.currentThread().interrupt();

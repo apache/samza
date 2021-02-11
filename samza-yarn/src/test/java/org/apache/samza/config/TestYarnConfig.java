@@ -19,12 +19,10 @@
 package org.apache.samza.config;
 
 import java.util.Collections;
-import java.util.Optional;
 import org.apache.samza.SamzaException;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 
 public class TestYarnConfig {

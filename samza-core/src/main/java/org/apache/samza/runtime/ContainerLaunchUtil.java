@@ -30,8 +30,8 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.ShellCommandConfig;
-import org.apache.samza.container.ContainerHeartbeatClient;
 import org.apache.samza.container.ContainerHeartbeatMonitor;
+import org.apache.samza.container.ExecutionContainerIdManager;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainer$;
@@ -39,9 +39,12 @@ import org.apache.samza.context.ExternalContext;
 import org.apache.samza.context.JobContextImpl;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
+import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
@@ -52,6 +55,7 @@ import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ScalaJavaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import scala.Option;
 
 
@@ -65,7 +69,7 @@ public class ContainerLaunchUtil {
    * Any change here needs to take Beam into account.
    */
   public static void run(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,  String containerId, JobModel jobModel) {
-    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID()));
+    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID));
     JobConfig jobConfig = new JobConfig(jobModel.getConfig());
     ContainerLaunchUtil.run(appDesc, jobConfig.getName().get(), jobConfig.getJobId(), containerId, execEnvContainerId, jobModel);
   }
@@ -77,6 +81,12 @@ public class ContainerLaunchUtil {
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
       String jobName, String jobId, String containerId, Optional<String> execEnvContainerId,
       JobModel jobModel) {
+
+    // populate MDC for logging
+    MDC.put("containerName", "samza-container-" + containerId);
+    MDC.put("jobName", jobName);
+    MDC.put("jobId", jobId);
+
 
     Config config = jobModel.getConfig();
     DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
@@ -90,7 +100,7 @@ public class ContainerLaunchUtil {
       String jobName,
       String jobId,
       String containerId,
-      Optional<String> execEnvContainerId,
+      Optional<String> execEnvContainerIdOptional,
       JobModel jobModel,
       Config config,
       Optional<ExternalContext> externalContextOptional) {
@@ -102,12 +112,15 @@ public class ContainerLaunchUtil {
       LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
 
       // StartpointManager wraps the coordinatorStreamStore in the namespaces internally
-      StartpointManager startpointManager = new StartpointManager(coordinatorStreamStore);
+      StartpointManager startpointManager = null;
+      if (new JobConfig(config).getStartpointEnabled()) {
+        startpointManager = new StartpointManager(coordinatorStreamStore);
+      }
 
       Map<String, MetricsReporter> metricsReporters = loadMetricsReporters(appDesc, containerId, config);
 
       // Creating diagnostics manager and reporter, and wiring it respectively
-      Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, execEnvContainerId, config);
+      Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, execEnvContainerIdOptional, config);
       Option<DiagnosticsManager> diagnosticsManager = Option.empty();
       if (diagnosticsManagerReporterPair.isPresent()) {
         diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
@@ -118,7 +131,7 @@ public class ContainerLaunchUtil {
           containerId, jobModel,
           ScalaJavaUtil.toScalaMap(metricsReporters),
           taskFactory,
-          JobContextImpl.fromConfigWithDefaults(config),
+          JobContextImpl.fromConfigWithDefaults(config, jobModel),
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),
           Option.apply(appDesc.getApplicationTaskContextFactory().orElse(null)),
           Option.apply(externalContextOptional.orElse(null)),
@@ -132,9 +145,18 @@ public class ContainerLaunchUtil {
           listener = new ClusterBasedProcessorLifecycleListener(config, processorLifecycleListener, container::shutdown);
       container.setContainerListener(listener);
 
-      ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container);
+      ContainerHeartbeatMonitor heartbeatMonitor = createContainerHeartbeatMonitor(container,
+          new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetConfig.TYPE), config);
       if (heartbeatMonitor != null) {
         heartbeatMonitor.start();
+      }
+
+      if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
+        execEnvContainerIdOptional.ifPresent(execEnvContainerId -> {
+          ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
+              new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetExecutionEnvContainerIdMapping.TYPE));
+          executionContainerIdManager.writeExecutionEnvironmentContainerIdMapping(containerId, execEnvContainerId);
+        });
       }
 
       container.run();
@@ -179,22 +201,25 @@ public class ContainerLaunchUtil {
   /**
    * Creates a new container heartbeat monitor if possible.
    * @param container the container to monitor
+   * @param coordinatorStreamStore the metadata store to fetch coordinator url from
+   * @param config the job configuration
    * @return a new {@link ContainerHeartbeatMonitor} instance, or null if could not create one
    */
-  private static ContainerHeartbeatMonitor createContainerHeartbeatMonitor(SamzaContainer container) {
-    String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
-    String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID());
+  private static ContainerHeartbeatMonitor createContainerHeartbeatMonitor(SamzaContainer container,
+      MetadataStore coordinatorStreamStore, Config config) {
+    String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
+    String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID);
     if (executionEnvContainerId != null) {
       log.info("Got execution environment container id: {}", executionEnvContainerId);
       return new ContainerHeartbeatMonitor(() -> {
-          try {
-            container.shutdown();
-            containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
-          } catch (Exception e) {
-            log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
-            System.exit(1);
-          }
-        }, new ContainerHeartbeatClient(coordinatorUrl, executionEnvContainerId));
+        try {
+          container.shutdown();
+          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+        } catch (Exception e) {
+          log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
+          System.exit(1);
+        }
+      }, coordinatorUrl, executionEnvContainerId, coordinatorStreamStore, config);
     } else {
       log.warn("Execution environment container id not set. Container heartbeat monitor will not be created");
       return null;

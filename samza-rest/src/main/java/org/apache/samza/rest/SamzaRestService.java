@@ -18,9 +18,7 @@
  */
 package org.apache.samza.rest;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.Map;
-import java.util.concurrent.ThreadFactory;
 import joptsimple.OptionSet;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -29,7 +27,6 @@ import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
 import org.apache.samza.monitor.SamzaMonitorService;
-import org.apache.samza.monitor.ScheduledExecutorSchedulingProvider;
 import org.apache.samza.util.CommandLine;
 import org.apache.samza.util.MetricsReporterLoader;
 import org.apache.samza.util.Util;
@@ -42,8 +39,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.servlet.Servlet;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 
 /**
@@ -82,12 +77,13 @@ public class SamzaRestService {
    * Command line interface to run the server.
    *
    * @param args arguments supported by {@link org.apache.samza.util.CommandLine}.
-   *             In particular, --config-path and --config-factory are used to read the Samza REST config file.
+   *             In particular, --config job.config.loader.properties.path and
+   *             --config job.config.loader.factory are used to read the Samza REST config file.
    * @throws Exception if the server could not be successfully started.
    */
   public static void main(String[] args)
       throws Exception {
-    ScheduledExecutorSchedulingProvider schedulingProvider = null;
+    SamzaMonitorService monitorService = null;
     try {
       SamzaRestConfig config = parseConfig(args);
       ReadableMetricsRegistry metricsRegistry = new MetricsRegistryMap();
@@ -103,24 +99,15 @@ public class SamzaRestService {
       ServletContainer container = new ServletContainer(samzaRestApplication);
       restService.addServlet(container, "/*");
 
-      // Schedule monitors to run
-      ThreadFactory threadFactory = new ThreadFactoryBuilder().setDaemon(true)
-                                                              .setNameFormat("MonitorThread-%d")
-                                                              .build();
-      ScheduledExecutorService schedulingService = Executors.newScheduledThreadPool(1, threadFactory);
-      schedulingProvider = new ScheduledExecutorSchedulingProvider(schedulingService);
-      SamzaMonitorService monitorService = new SamzaMonitorService(config,
-          metricsRegistry,
-          schedulingProvider);
+      monitorService = new SamzaMonitorService(config, metricsRegistry);
       monitorService.start();
 
       restService.runBlocking();
-      monitorService.stop();
     } catch (Throwable t) {
       log.error("Exception in main.", t);
     } finally {
-      if (schedulingProvider != null){
-        schedulingProvider.stop();
+      if (monitorService != null) {
+        monitorService.stop();
       }
     }
   }

@@ -19,9 +19,14 @@
 
 package org.apache.samza.runtime;
 
+import java.util.HashMap;
+import java.util.Map;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigLoader;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.loaders.PropertiesConfigLoader;
 import org.apache.samza.util.CommandLine;
 
 
@@ -32,20 +37,40 @@ import org.apache.samza.util.CommandLine;
 public class ApplicationRunnerMain {
 
   public static class ApplicationRunnerCommandLine extends CommandLine {
-    public OptionSpec<String> operationOpt =
+    OptionSpec<String> operationOpt =
         parser().accepts("operation", "The operation to perform; run, status, kill.")
             .withRequiredArg()
             .ofType(String.class)
             .describedAs("operation=run")
             .defaultsTo("run");
 
-    public ApplicationRunnerOperation getOperation(OptionSet options) {
+    OptionSpec<String> configPathOpt =
+        parser().accepts("config-path", "File path to submission properties file.")
+            .withOptionalArg()
+            .ofType(String.class)
+            .describedAs("path");
+
+    ApplicationRunnerOperation getOperation(OptionSet options) {
       String rawOp = options.valueOf(operationOpt);
       return ApplicationRunnerOperation.fromString(rawOp);
     }
+
+    @Override
+    public Config loadConfig(OptionSet options) {
+      Map<String, String> submissionConfig = new HashMap<>();
+
+      if (options.has(configPathOpt)) {
+        ConfigLoader loader = new PropertiesConfigLoader(options.valueOf(configPathOpt));
+        submissionConfig.putAll(loader.getConfig());
+      }
+
+      submissionConfig.putAll(getConfigOverrides(options));
+
+      return new MapConfig(submissionConfig);
+    }
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     ApplicationRunnerCommandLine cmdLine = new ApplicationRunnerCommandLine();
     OptionSet options = cmdLine.parser().parse(args);
     Config orgConfig = cmdLine.loadConfig(options);

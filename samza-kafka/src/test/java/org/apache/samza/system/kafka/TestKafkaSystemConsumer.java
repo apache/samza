@@ -1,5 +1,4 @@
 /*
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,9 +15,7 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- *
  */
-
 package org.apache.samza.system.kafka;
 
 import java.util.HashMap;
@@ -173,7 +170,7 @@ public class TestKafkaSystemConsumer {
     int partitionsNum = 2;
     int ime0Size = Integer.valueOf(FETCH_THRESHOLD_MSGS) / partitionsNum; // fake size, upto the limit
     int ime1Size = Integer.valueOf(FETCH_THRESHOLD_MSGS) / partitionsNum - 100; // fake size, below the limit
-    int ime11Size = 20;// event with the second message still below the size limit
+    int ime11Size = 20; // event with the second message still below the size limit
     ByteArraySerializer bytesSerde = new ByteArraySerializer();
     IncomingMessageEnvelope ime0 = new IncomingMessageEnvelope(ssp0, "0", bytesSerde.serialize("", "key0".getBytes()),
         bytesSerde.serialize("", "value0".getBytes()), ime0Size);

@@ -168,7 +168,7 @@ public class TestSamzaSqlApplicationConfig {
               .collect(Collectors.toList()),
           queryInfo.stream().map(SamzaSqlQueryParser.QueryInfo::getSink).collect(Collectors.toList()));
       Assert.fail();
-    } catch (IllegalArgumentException e) {
+    } catch (NullPointerException e) {
       // swallow
     }
   }

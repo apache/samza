@@ -72,14 +72,14 @@ public class TestStandbyAllocator {
           containerConstraints.contains(containerID));
 
       containerConstraints.forEach(containerConstraintID -> {
-          Assert.assertTrue("Constrained containers IDs should correspond to the active container",
-              containerID.split("-")[0].equals(containerConstraintID.split("-")[0]));
-        });
+        Assert.assertTrue("Constrained containers IDs should correspond to the active container",
+            containerID.split("-")[0].equals(containerConstraintID.split("-")[0]));
+      });
     }
   }
 
   // Helper method to create a jobmodel with given number of containers, tasks and replication factor
-  private JobModel getJobModelWithStandby(int nContainers, int nTasks, int replicationFactor) {
+  public static JobModel getJobModelWithStandby(int nContainers, int nTasks, int replicationFactor) {
     Map<String, ContainerModel> containerModels = new HashMap<>();
     int taskID = 0;
 
@@ -113,14 +113,14 @@ public class TestStandbyAllocator {
   }
 
   // Helper method to create standby-taskModels from active-taskModels
-  private Map<TaskName, TaskModel> getStandbyTasks(Map<TaskName, TaskModel> tasks, int replicaNum) {
+  private static Map<TaskName, TaskModel> getStandbyTasks(Map<TaskName, TaskModel> tasks, int replicaNum) {
     Map<TaskName, TaskModel> standbyTasks = new HashMap<>();
     tasks.forEach((taskName, taskModel) -> {
-        TaskName standbyTaskName = StandbyTaskUtil.getStandbyTaskName(taskName, replicaNum);
-        standbyTasks.put(standbyTaskName,
-            new TaskModel(standbyTaskName, taskModel.getSystemStreamPartitions(), taskModel.getChangelogPartition(),
-                TaskMode.Standby));
-      });
+      TaskName standbyTaskName = StandbyTaskUtil.getStandbyTaskName(taskName, replicaNum);
+      standbyTasks.put(standbyTaskName,
+          new TaskModel(standbyTaskName, taskModel.getSystemStreamPartitions(), taskModel.getChangelogPartition(),
+              TaskMode.Standby));
+    });
     return standbyTasks;
   }
 }

@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -110,9 +111,10 @@ public class ContainerAllocator implements Runnable {
    */
   protected final ResourceRequestState resourceRequestState;
   /**
-   * Tracks the expiration of a request for resources.
+   * Tracks the configured expiration of a resource request defaults to {@code ClusterManagerConfig#CLUSTER_MANAGER_REQUEST_TIMEOUT_MS}
+   * if specified or {@code ClusterManagerConfig#DEFAULT_CONTAINER_REQUEST_TIMEOUT_MS} otherwise
    */
-  private final int requestExpiryTimeout;
+  private final int configuredRequestExpiryTimeout;
 
   private final ContainerManager containerManager;
 
@@ -132,7 +134,7 @@ public class ContainerAllocator implements Runnable {
     this.config = config;
     this.hostAffinityEnabled = hostAffinityEnabled;
     this.containerManager = containerManager;
-    this.requestExpiryTimeout = clusterManagerConfig.getContainerRequestTimeout();
+    this.configuredRequestExpiryTimeout = clusterManagerConfig.getContainerRequestTimeout();
   }
 
   /**
@@ -170,20 +172,29 @@ public class ContainerAllocator implements Runnable {
    * and tries to allocate any unsatisfied request that is still in the request queue {@link ResourceRequestState})
    * with allocated resources.
    *
-   * When host-affinity is disabled, all allocated resources are buffered by the key "ANY_HOST".
+   * When host-affinity is disabled, all allocated resources are buffered by the key "ANY_HOST"
    * When host-affinity is enabled, all allocated resources are buffered by the hostName as key
    *
    * If the requested host is not available, the thread checks to see if the request has expired. If it has expired
-   * then two cases are handled separately
+   * then following cases are possible
    *
-   * Case 1: host-affinity is enabled, looks for allocated resouces on ANY_HOST and issues a container start if available,
-   *         otherwise issues an ANY_HOST request
-   * Case 2: host-affinity is disabled, expired requests are not handled, allocator waits for cluster manager to issue
-   *         resources
-   *         TODO: SAMZA-2330 Hadle expired request for host affinity disabled case
+   * Case 1. If this expired request is due to a container placement action mark the request as failed and return
+   * Case 2: Otherwise for a normal resource request following cases are possible
+   *    Case 2.1  If StandbyContainer is present refer to {@code StandbyContainerManager#handleExpiredResourceRequest}
+   *    Case 2.2: host-affinity is enabled, allocator thread looks for allocated resources on ANY_HOST and issues a
+   *              container start if available, otherwise issue an ANY_HOST request
+   *    Case 2.2: host-affinity is disabled, allocator thread does not handle expired requests, it waits for cluster
+   *              manager to return resources on ANY_HOST
+   *         TODO: SAMZA-2330 Handle expired request for host affinity disabled case
+   *
+   * If the requested host is available then following cases are possible
+   * Case 1. If the container launch request is due to an existing container placement action, issue a stop on active
+   *         container & wait for the active container to be stopped before issuing a start.
+   * Case 2. If StandbyContainer is present refer to {@code StandbyContainerManager#checkStandbyConstraintsAndRunStreamProcessor}
+   * Case 3. Otherwise just invoke a container start on the allocated resource for the pending request
    *
    * When host-affinity is enabled and a {@code StandbyContainerManager} is present, the allocator transfers the request
-   * to it for checking StandByConstraints before launcing a processor
+   * to it for checking StandByConstraints before launching a processor
    */
   void assignResourceRequests() {
     while (hasReadyPendingRequest()) {
@@ -192,7 +203,7 @@ public class ContainerAllocator implements Runnable {
       String preferredHost = hostAffinityEnabled ? request.getPreferredHost() : ResourceRequestState.ANY_HOST;
       Instant requestCreationTime = request.getRequestTimestamp();
 
-      LOG.info("Handling assignment request for Processor ID: {} on host: {}.", processorId, preferredHost);
+      LOG.info("Handling assignment for Processor ID: {} with request {}", processorId, request);
       if (hasAllocatedResource(preferredHost)) {
 
         // Found allocated container on preferredHost
@@ -203,23 +214,38 @@ public class ContainerAllocator implements Runnable {
           state.matchedResourceRequests.incrementAndGet();
         }
 
-        containerManager.handleContainerLaunch(request, preferredHost, peekAllocatedResource(preferredHost), resourceRequestState, this);
+        boolean containerLaunchComplete =
+            containerManager.handleContainerLaunch(request, preferredHost, peekAllocatedResource(preferredHost),
+                resourceRequestState, this);
+
+        /**
+         * Some Container launch requests are due to Container Placement actions like move, restarts. Under those
+         * circumstances a container launch needs to wait for the previous container incarnation to stop. In this scenario
+         * the allocator thread needs to sleep and recheck the stop again
+         */
+        if (!containerLaunchComplete) {
+          break;
+        }
 
       } else {
 
         LOG.info("Did not find any allocated containers for running Processor ID: {} on the host: {}.",
             processorId, preferredHost);
-        boolean expired = isRequestExpired(request);
 
-        if (expired) {
+        if (isRequestExpired(request)) {
           updateExpiryMetrics(request);
-          if (hostAffinityEnabled) {
-            containerManager.handleExpiredRequestWithHostAffinityEnabled(processorId, preferredHost, request, this, resourceRequestState);
+          containerManager.handleExpiredRequest(processorId, preferredHost, request, this, resourceRequestState);
+          // SAMZA-2601: to prevent infinite looping and logs filling up the disk, when host affinity is disabled,
+          // we explicitly break the loop here and the whole process gets retried in run() after allocatorSleepIntervalMs
+          if (!hostAffinityEnabled) {
+            LOG.info("Waiting for resources to get allocated for request {},"
+                + " no retries will be issued since host affinity is disabled", request);
+            break;
           }
         } else {
           LOG.info("Request for Processor ID: {} on preferred host {} has not expired yet."
                   + "Request creation time: {}. Current Time: {}. Request timeout: {} ms", processorId, preferredHost,
-              requestCreationTime, System.currentTimeMillis(), requestExpiryTimeout);
+              requestCreationTime, System.currentTimeMillis(), getRequestTimeout(request).toMillis());
           break;
         }
       }
@@ -243,6 +269,14 @@ public class ContainerAllocator implements Runnable {
       throw new SamzaException("Expected resource for Processor ID: " + request.getProcessorId() + " was unavailable on host: " + preferredHost);
     }
 
+    /**
+     * If the allocated resource has expired then release the expired resource and re-request the resources from {@link ClusterResourceManager}
+     */
+    if (clusterResourceManager.isResourceExpired(resource)) {
+      containerManager.handleExpiredResource(request, resource, preferredHost, resourceRequestState, this);
+      return;
+    }
+
     // Update state
     resourceRequestState.updateStateAfterAssignment(request, preferredHost, resource);
     String processorId = request.getProcessorId();
@@ -255,6 +289,7 @@ public class ContainerAllocator implements Runnable {
     // prior to issuing the request. Otherwise, there's a race where the response callback may arrive sooner and not see
     // the processor as "pending" (SAMZA-2117)
 
+    state.failedProcessors.remove(processorId);
     state.pendingProcessors.put(processorId, resource);
 
     clusterResourceManager.launchStreamProcessor(resource, builder);
@@ -314,6 +349,16 @@ public class ContainerAllocator implements Runnable {
   }
 
   /**
+   * Requests a resource from the cluster manager
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
+   * @param faultDomains set of fault domains on which to schedule this resource
+   */
+  public final void requestResource(String processorId, String preferredHost, Set<FaultDomain> faultDomains) {
+    requestResourceWithDelay(processorId, preferredHost, Duration.ZERO, faultDomains);
+  }
+
+  /**
    * Requests a resource from the cluster manager with a request timestamp of the current time plus the specified delay.
    * @param processorId Samza processor ID that will be run when a resource is allocated for this request
    * @param preferredHost name of the host that you prefer to run the processor on
@@ -321,6 +366,18 @@ public class ContainerAllocator implements Runnable {
    */
   public final void requestResourceWithDelay(String processorId, String preferredHost, Duration delay) {
     SamzaResourceRequest request = getResourceRequestWithDelay(processorId, preferredHost, delay);
+    issueResourceRequest(request);
+  }
+
+  /**
+   * Requests a resource from the cluster manager with a request timestamp of the current time plus the specified delay.
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
+   * @param delay the {@link Duration} to add to the request timestamp
+   * @param faultDomains set of fault domains on which to schedule this resource
+   */
+  public final void requestResourceWithDelay(String processorId, String preferredHost, Duration delay, Set<FaultDomain> faultDomains) {
+    SamzaResourceRequest request = getResourceRequestWithDelay(processorId, preferredHost, delay, faultDomains);
     issueResourceRequest(request);
   }
 
@@ -335,6 +392,17 @@ public class ContainerAllocator implements Runnable {
   }
 
   /**
+   * Creates a {@link SamzaResourceRequest} to send to the cluster manager
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
+   * @param faultDomains set of fault domains on which to schedule this resource
+   * @return the created request
+   */
+  public final SamzaResourceRequest getResourceRequest(String processorId, String preferredHost, Set<FaultDomain> faultDomains) {
+    return getResourceRequestWithDelay(processorId, preferredHost, Duration.ZERO, faultDomains);
+  }
+
+  /**
    * Creates a {@link SamzaResourceRequest} to send to the cluster manager with a request timestamp of the current time
    * plus the specified delay.
    * @param processorId Samza processor ID that will be run when a resource is allocated for this request
@@ -346,6 +414,19 @@ public class ContainerAllocator implements Runnable {
     return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId, Instant.now().plus(delay));
   }
 
+  /**
+   * Creates a {@link SamzaResourceRequest} to send to the cluster manager with a request timestamp of the current time
+   * plus the specified delay.
+   * @param processorId Samza processor ID that will be run when a resource is allocated for this request
+   * @param preferredHost name of the host that you prefer to run the processor on
+   * @param delay the {@link Duration} to add to the request timestamp
+   * @param faultDomains set of fault domains on which to schedule this resource
+   * @return the created request
+   */
+  public final SamzaResourceRequest getResourceRequestWithDelay(String processorId, String preferredHost, Duration delay, Set<FaultDomain> faultDomains) {
+    return new SamzaResourceRequest(this.containerNumCpuCores, this.containerMemoryMb, preferredHost, processorId, Instant.now().plus(delay), faultDomains);
+  }
+
   public final void issueResourceRequest(SamzaResourceRequest request) {
     resourceRequestState.addResourceRequest(request);
     state.containerRequests.incrementAndGet();
@@ -353,6 +434,9 @@ public class ContainerAllocator implements Runnable {
       state.anyHostRequests.incrementAndGet();
     } else {
       state.preferredHostRequests.incrementAndGet();
+    }
+    if (!request.getFaultDomains().isEmpty()) {
+      state.faultDomainAwareContainerRequests.incrementAndGet();
     }
   }
 
@@ -416,17 +500,27 @@ public class ContainerAllocator implements Runnable {
 
   /**
    * Checks if a request has expired.
+   *
    * @param request the request to check
    * @return true if request has expired
    */
-  private boolean isRequestExpired(SamzaResourceRequest request) {
+  protected boolean isRequestExpired(SamzaResourceRequest request) {
     long currTime = Instant.now().toEpochMilli();
-    boolean requestExpired =  currTime - request.getRequestTimestamp().toEpochMilli() > requestExpiryTimeout;
+    boolean requestExpired =  currTime - request.getRequestTimestamp().toEpochMilli() > getRequestTimeout(request).toMillis();
     if (requestExpired) {
       LOG.info("Request for Processor ID: {} on host: {} with creation time: {} has expired at current time: {} after timeout: {} ms.",
-          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestamp(), currTime, requestExpiryTimeout);
+          request.getProcessorId(), request.getPreferredHost(), request.getRequestTimestamp(), currTime, getRequestTimeout(request).toMillis());
     }
     return requestExpired;
+  }
+
+  /**
+   * Determines the request expiry timeout. Container placement actions like move, restarts can optionally override
+   * request expiry timeout. Otherwise it defaults to { @code configuredRequestExpiryTimeout }
+   */
+  private Duration getRequestTimeout(SamzaResourceRequest request) {
+    Optional<Duration> controlActionRequestExpiryTimeout = containerManager.getActionExpiryTimeout(request);
+    return controlActionRequestExpiryTimeout.orElse(Duration.ofMillis(configuredRequestExpiryTimeout));
   }
 
   private void updateExpiryMetrics(SamzaResourceRequest request) {
@@ -435,6 +529,9 @@ public class ContainerAllocator implements Runnable {
       state.expiredAnyHostRequests.incrementAndGet();
     } else {
       state.expiredPreferredHostRequests.incrementAndGet();
+    }
+    if (!request.getFaultDomains().isEmpty()) {
+      state.expiredFaultDomainAwareContainerRequests.incrementAndGet();
     }
   }
 }

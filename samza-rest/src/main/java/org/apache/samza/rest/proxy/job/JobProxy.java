@@ -21,7 +21,6 @@ package org.apache.samza.rest.proxy.job;
 import java.io.IOException;
 import java.util.List;
 import org.apache.samza.rest.model.Job;
-import org.apache.samza.rest.model.JobStatus;
 
 
 /**
@@ -57,8 +56,8 @@ public interface JobProxy {
 
   /**
    * Starts the job instance specified by jobName and jobId. When this method returns, the status of the job
-   * should be {@link JobStatus#STARTING} or
-   * {@link JobStatus#STARTED} depending on the implementation.
+   * should be {@link org.apache.samza.rest.model.JobStatus#STARTING} or
+   * {@link org.apache.samza.rest.model.JobStatus#STARTED} depending on the implementation.
    *
    * @param jobInstance the instance of the job to start.
    * @throws Exception  if the job could not be successfully started.
@@ -68,7 +67,7 @@ public interface JobProxy {
 
   /**
    * Stops the job instance specified by jobName and jobId. When this method returns, the status of the job
-   * should be {@link JobStatus#STOPPED}.
+   * should be {@link org.apache.samza.rest.model.JobStatus#STOPPED}.
    *
    * @param jobInstance the instance of the job to stop.
    * @throws Exception  if the job could not be successfully stopped.

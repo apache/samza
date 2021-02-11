@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
@@ -59,6 +61,8 @@ public class DiagnosticsStreamMessage {
   private static final String CONTAINER_MAX_CONFIGURED_HEAP_METRIC_NAME = "maxHeap";
   private static final String CONTAINER_THREAD_POOL_SIZE_METRIC_NAME = "containerThreadPoolSize";
   private static final String CONTAINER_MODELS_METRIC_NAME = "containerModels";
+  private static final String AUTOSIZING_ENABLED_METRIC_NAME = "autosizingEnabled";
+  private static final String CONFIG_METRIC_NAME = "config";
 
   private final MetricsHeader metricsHeader;
   private final Map<String, Map<String, Object>> metricsMessage;
@@ -127,6 +131,14 @@ public class DiagnosticsStreamMessage {
   }
 
   /**
+   * Add the current auto-scaling setting.
+   * @param autosizingEnabled the parameter value.
+   */
+  public void addAutosizingEnabled(Boolean autosizingEnabled) {
+    addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, AUTOSIZING_ENABLED_METRIC_NAME, autosizingEnabled);
+  }
+
+  /**
    * Add a list of {@link DiagnosticsExceptionEvent}s to the message.
    * @param exceptionList the list to add.
    */
@@ -144,6 +156,14 @@ public class DiagnosticsStreamMessage {
     if (stopEventList != null && !stopEventList.isEmpty()) {
       addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, STOP_EVENT_LIST_METRIC_NAME, stopEventList);
     }
+  }
+
+  /**
+   * Add the job's config to the message.
+   * @param config the config to add.
+   */
+  public void addConfig(Config config) {
+    addToMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONFIG_METRIC_NAME, (Map<String, String>) config);
   }
 
   /**
@@ -215,6 +235,18 @@ public class DiagnosticsStreamMessage {
     return deserializeContainerModelMap((String) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONTAINER_MODELS_METRIC_NAME));
   }
 
+  public Boolean getAutosizingEnabled() {
+    return (Boolean) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, AUTOSIZING_ENABLED_METRIC_NAME);
+  }
+
+  /**
+   * This method gets the config of the job from the MetricsMessage.
+   * @return the config of the job.
+   */
+  public Config getConfig() {
+    return new MapConfig((Map<String, String>) getFromMetricsMessage(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER, CONFIG_METRIC_NAME));
+  }
+
   // Helper method to get a {@link DiagnosticsStreamMessage} from a {@link MetricsSnapshot}.
   //   * This is typically used when deserializing messages from a diagnostics-stream.
   //   * @param metricsSnapshot
@@ -239,8 +271,9 @@ public class DiagnosticsStreamMessage {
       diagnosticsStreamMessage.addContainerModels(deserializeContainerModelMap((String) diagnosticsManagerGroupMap.get(CONTAINER_MODELS_METRIC_NAME)));
       diagnosticsStreamMessage.addMaxHeapSize((Long) diagnosticsManagerGroupMap.get(CONTAINER_MAX_CONFIGURED_HEAP_METRIC_NAME));
       diagnosticsStreamMessage.addContainerThreadPoolSize((Integer) diagnosticsManagerGroupMap.get(CONTAINER_THREAD_POOL_SIZE_METRIC_NAME));
-
       diagnosticsStreamMessage.addProcessorStopEvents((List<ProcessorStopEvent>) diagnosticsManagerGroupMap.get(STOP_EVENT_LIST_METRIC_NAME));
+      diagnosticsStreamMessage.addAutosizingEnabled((Boolean) diagnosticsManagerGroupMap.get(AUTOSIZING_ENABLED_METRIC_NAME));
+      diagnosticsStreamMessage.addConfig(new MapConfig((Map<String, String>) diagnosticsManagerGroupMap.get(CONFIG_METRIC_NAME)));
     }
 
     if (containerMetricsGroupMap != null && containerMetricsGroupMap.containsKey(EXCEPTION_LIST_METRIC_NAME)) {

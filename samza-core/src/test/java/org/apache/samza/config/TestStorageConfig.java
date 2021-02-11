@@ -20,7 +20,9 @@
 package org.apache.samza.config;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -313,13 +315,18 @@ public class TestStorageConfig {
   @Test
   public void testGetChangelogMinCompactionLagMs() {
     // empty config, return default lag ms
+    Map<String, String> configMap = new HashMap<>();
     assertEquals(DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS,
-        new StorageConfig(new MapConfig()).getChangelogMinCompactionLagMs(STORE_NAME0));
+        new StorageConfig(new MapConfig(configMap)).getChangelogMinCompactionLagMs(STORE_NAME0));
 
-    long lagOverride = TimeUnit.HOURS.toMillis(6);
-    StorageConfig storageConfig = new StorageConfig(
-        new MapConfig(ImmutableMap.of(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, STORE_NAME0),
-            String.valueOf(lagOverride))));
-    assertEquals(lagOverride, storageConfig.getChangelogMinCompactionLagMs(STORE_NAME0));
+    // override with configured default
+    long defaultLagOverride = TimeUnit.HOURS.toMillis(8);
+    configMap.put(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, "default"), String.valueOf(defaultLagOverride));
+    assertEquals(defaultLagOverride, new StorageConfig(new MapConfig(configMap)).getChangelogMinCompactionLagMs(STORE_NAME0));
+
+    // override for specific store
+    long storeSpecificLagOverride = TimeUnit.HOURS.toMillis(6);
+    configMap.put(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, STORE_NAME0), String.valueOf(storeSpecificLagOverride));
+    assertEquals(storeSpecificLagOverride, new StorageConfig(new MapConfig(configMap)).getChangelogMinCompactionLagMs(STORE_NAME0));
   }
 }

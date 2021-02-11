@@ -21,7 +21,6 @@ package org.apache.samza.job.yarn.util;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.apache.hadoop.yarn.api.records.Container;
 
 import static org.junit.Assert.assertTrue;
 

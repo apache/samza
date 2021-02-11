@@ -105,11 +105,13 @@ public class TaskConfig extends MapConfig {
   private static final String BROADCAST_STREAM_PATTERN = "^[\\d]+$";
   private static final String BROADCAST_STREAM_RANGE_PATTERN = "^\\[[\\d]+\\-[\\d]+\\]$";
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
+  // standby containers use this flag to indicate that checkpoints will be polled continually, rather than only once at startup like in an active container
+  public static final String INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ = "samza.internal.task.checkpoint.consumer.stop.after.first.read";
 
   public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
   public static final String TRANSACTIONAL_STATE_RESTORE_ENABLED = "task.transactional.state.restore.enabled";
-  private static final boolean DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED = false;
+  private static final boolean DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED = true;
   public static final String TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE =
       "task.transactional.state.retain.existing.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
@@ -214,6 +216,14 @@ public class TaskConfig extends MapConfig {
   }
 
   /**
+   * Internal config to indicate whether the SystemConsumer underlying a CheckpointManager should be stopped after
+   * initial read of checkpoints.
+   */
+  public boolean getCheckpointManagerConsumerStopAfterFirstRead() {
+    return getBoolean(INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, true);
+  }
+
+  /**
    * Get the systemStreamPartitions of the broadcast stream. Specifying
    * one partition for one stream or a range of the partitions for one
    * stream is allowed.
@@ -310,7 +320,15 @@ public class TaskConfig extends MapConfig {
   }
 
   public boolean getTransactionalStateRestoreEnabled() {
-    return getBoolean(TRANSACTIONAL_STATE_RESTORE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED);
+    JobConfig jobConfig = new JobConfig(this);
+
+    boolean standByEnabled = jobConfig.getStandbyTasksEnabled();
+    boolean asyncCommitEnabled = getAsyncCommit();
+
+    // TODO remove check of standby enabled when SAMZA-2353 is completed
+    // TODO remove check of async commit when SAMZA-2505 is completed
+    // transactional state restore must remain disabled until it is supported in the above use cases
+    return !standByEnabled && !asyncCommitEnabled && getBoolean(TRANSACTIONAL_STATE_RESTORE_ENABLED, DEFAULT_TRANSACTIONAL_STATE_RESTORE_ENABLED);
   }
 
   public boolean getTransactionalStateRetainExistingState() {

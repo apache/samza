@@ -47,11 +47,11 @@ public class TestUtil {
   @Test
   public void testEnvVarEscape() {
     // no special characters in original
-    String noSpecialCharacters = "hello world 123 .?!";
+    String noSpecialCharacters = "hello world 123 .?! '";
     assertEquals(noSpecialCharacters, Util.envVarEscape(noSpecialCharacters));
 
-    String withSpecialCharacters = "quotation \" apostrophe '";
-    String escaped = "quotation \\\" apostrophe \\'";
+    String withSpecialCharacters = "quotation \" backslash \\ grave accent `";
+    String escaped = "quotation \\\" backslash \\\\ grave accent \\`";
     assertEquals(escaped, Util.envVarEscape(withSpecialCharacters));
   }
 

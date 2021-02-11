@@ -254,6 +254,17 @@ public class TestRemoteTableDescriptor {
         "{\"exponentialFactor\":0.0,\"backoffType\":\"NONE\",\"retryPredicate\":{}}");
   }
 
+  @Test
+  public void testReadWriteRateLimitToConfig() {
+    Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(createMockTableReadFunction())
+        .withReadRetryPolicy(new TableRetryPolicy())
+        .withWriteRateLimit(1000)
+        .withReadRateLimit(2000)
+        .toConfig(new MapConfig());
+    Assert.assertEquals(String.valueOf(2000), tableConfig.get("tables.1.io.read.credits"));
+    Assert.assertEquals(String.valueOf(1000), tableConfig.get("tables.1.io.write.credits"));
+  }
+
   private Context createMockContext(TableDescriptor tableDescriptor) {
     Context context = mock(Context.class);
 

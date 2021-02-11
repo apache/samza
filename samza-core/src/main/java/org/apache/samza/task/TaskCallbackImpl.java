@@ -19,12 +19,14 @@
 
 package org.apache.samza.task;
 
+import com.google.common.base.Preconditions;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemStreamPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,13 +40,16 @@ public class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackIm
   private static final Logger log = LoggerFactory.getLogger(TaskCallbackImpl.class);
 
   final TaskName taskName;
-  final IncomingMessageEnvelope envelope;
   final ReadableCoordinator coordinator;
   final long timeCreatedNs;
+
   private final AtomicBoolean isComplete = new AtomicBoolean(false);
-  private final TaskCallbackListener listener;
-  private ScheduledFuture scheduledFuture = null;
   private final long seqNum;
+  private final TaskCallbackListener listener;
+  private final String offset;
+  private final SystemStreamPartition systemStreamPartition;
+
+  private ScheduledFuture scheduledFuture = null;
 
   public TaskCallbackImpl(TaskCallbackListener listener,
       TaskName taskName,
@@ -52,9 +57,11 @@ public class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackIm
       ReadableCoordinator coordinator,
       long seqNum,
       long timeCreatedNs) {
+    Preconditions.checkNotNull(envelope, "Incoming message envelope cannot be null");
     this.listener = listener;
     this.taskName = taskName;
-    this.envelope = envelope;
+    this.offset = envelope.getOffset();
+    this.systemStreamPartition = envelope.getSystemStreamPartition();
     this.coordinator = coordinator;
     this.seqNum = seqNum;
     this.timeCreatedNs = timeCreatedNs;
@@ -64,8 +71,12 @@ public class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackIm
     return taskName;
   }
 
-  public IncomingMessageEnvelope getEnvelope() {
-    return envelope;
+  public String getOffset() {
+    return offset;
+  }
+
+  public SystemStreamPartition getSystemStreamPartition() {
+    return systemStreamPartition;
   }
 
   public ReadableCoordinator getCoordinator() {
@@ -82,13 +93,13 @@ public class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackIm
       scheduledFuture.cancel(true);
     }
     log.trace("Callback complete for task {}, ssp {}, offset {}.",
-        new Object[] {taskName, envelope.getSystemStreamPartition(), envelope.getOffset()});
+        new Object[] {taskName, systemStreamPartition, offset});
 
     if (isComplete.compareAndSet(false, true)) {
       listener.onComplete(this);
     } else {
       String msg = String.format("Callback complete was invoked after completion for task %s, ssp %s, offset %s.",
-          taskName, envelope.getSystemStreamPartition(), envelope.getOffset());
+          taskName, systemStreamPartition, offset);
       listener.onFailure(this, new IllegalStateException(msg));
     }
   }
@@ -101,11 +112,11 @@ public class TaskCallbackImpl implements TaskCallback, Comparable<TaskCallbackIm
 
     if (isComplete.compareAndSet(false, true)) {
       String msg = String.format("Callback failed for task %s, ssp %s, offset %s.",
-          taskName, envelope.getSystemStreamPartition(), envelope.getOffset());
+          taskName, systemStreamPartition, offset);
       listener.onFailure(this, new SamzaException(msg, t));
     } else {
       String msg = String.format("Task callback failure was invoked after completion for task %s, ssp %s, offset %s.",
-          taskName, envelope.getSystemStreamPartition(), envelope.getOffset());
+          taskName, systemStreamPartition, offset);
       listener.onFailure(this, new IllegalStateException(msg, t));
     }
   }

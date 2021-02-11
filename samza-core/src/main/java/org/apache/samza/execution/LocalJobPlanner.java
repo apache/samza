@@ -97,7 +97,6 @@ public class LocalJobPlanner extends JobPlanner {
     }
 
     // 2. create the necessary streams
-    // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
     // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
     // to be used for the whole application
     JobConfig jobConfig = jobConfigs.get(0);
@@ -190,6 +189,7 @@ public class LocalJobPlanner extends JobPlanner {
           streamManager.createStreams(intStreams);
           String streamCreatedMessage = "Streams created by processor " + processorId;
           metadataStore.put(String.format(STREAM_CREATED_STATE_KEY, lockId), streamCreatedMessage.getBytes("UTF-8"));
+          metadataStore.flush();
           distributedLock.unlock();
           break;
         } else {

@@ -45,10 +45,10 @@ public class TestTableRateLimiter {
   public TableRateLimiter<String, String> getThrottler(String tag) {
     TableRateLimiter.CreditFunction<String, String> credFn =
         (TableRateLimiter.CreditFunction<String, String>) (key, value, args) -> {
-      int credits = key == null ? 0 : 3;
-      credits += value == null ? 0 : 3;
-      return credits;
-    };
+          int credits = key == null ? 0 : 3;
+          credits += value == null ? 0 : 3;
+          return credits;
+        };
     RateLimiter rateLimiter = mock(RateLimiter.class);
     doReturn(Collections.singleton(tag)).when(rateLimiter).getSupportedTags();
     TableRateLimiter<String, String> rateLimitHelper = new TableRateLimiter<>("foo", rateLimiter, credFn, tag);

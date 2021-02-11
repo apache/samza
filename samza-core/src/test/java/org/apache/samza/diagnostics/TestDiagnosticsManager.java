@@ -18,6 +18,7 @@
  */
 package org.apache.samza.diagnostics;
 
+import com.google.common.collect.ImmutableMap;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
@@ -44,6 +47,7 @@ import org.mockito.Mockito;
 public class TestDiagnosticsManager {
   private DiagnosticsManager diagnosticsManager;
   private MockSystemProducer mockSystemProducer;
+  private ScheduledExecutorService mockExecutorService;
   private SystemStream diagnosticsSystemStream = new SystemStream("kafka", "test stream");
 
   private String jobName = "Testjob";
@@ -57,6 +61,10 @@ public class TestDiagnosticsManager {
   private long maxHeapSize = 900;
   private int numPersistentStores = 2;
   private int containerNumCores = 2;
+  private boolean autosizingEnabled = false;
+  private Config config = new MapConfig(ImmutableMap.of("job.name", jobName, "job.id", jobId,
+      "cluster-manager.container.memory.mb", "1024", "cluster-manager.container. cpu.cores", "1",
+      "cluster-manager.container.retry.count", "8"));
   private Map<String, ContainerModel> containerModels = TestDiagnosticsStreamMessage.getSampleContainerModels();
   private Collection<DiagnosticsExceptionEvent> exceptionEventList = TestDiagnosticsStreamMessage.getExceptionList();
 
@@ -67,23 +75,80 @@ public class TestDiagnosticsManager {
     mockSystemProducer = new MockSystemProducer();
 
     // Mocked scheduled executor service which does a synchronous run() on scheduling
-    ScheduledExecutorService mockExecutorService = Mockito.mock(ScheduledExecutorService.class);
+    mockExecutorService = Mockito.mock(ScheduledExecutorService.class);
     Mockito.when(mockExecutorService.scheduleWithFixedDelay(Mockito.any(), Mockito.anyLong(), Mockito.anyLong(),
         Mockito.eq(TimeUnit.SECONDS))).thenAnswer(invocation -> {
-            ((Runnable) invocation.getArguments()[0]).run();
-            return Mockito.
-                mock(ScheduledFuture.class);
-          });
+          ((Runnable) invocation.getArguments()[0]).run();
+          return Mockito
+              .mock(ScheduledFuture.class);
+        });
 
     this.diagnosticsManager =
         new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores, maxHeapSize, containerThreadPoolSize,
             "0", executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticsSystemStream,
-            mockSystemProducer, Duration.ofSeconds(1), mockExecutorService);
+            mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, autosizingEnabled, config);
 
     exceptionEventList.forEach(
-        diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
+      diagnosticsExceptionEvent -> this.diagnosticsManager.addExceptionEvent(diagnosticsExceptionEvent));
 
     this.diagnosticsManager.addProcessorStopEvent("0", executionEnvContainerId, hostname, 101);
+  }
+
+  @Test
+  public void testDiagnosticsManagerStart() {
+    SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
+    DiagnosticsManager diagnosticsManager =
+        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
+            maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
+            hostname, diagnosticsSystemStream, mockSystemProducer, Duration.ofSeconds(1), mockExecutorService,
+            autosizingEnabled, config);
+
+    diagnosticsManager.start();
+
+    Mockito.verify(mockSystemProducer, Mockito.times(1)).start();
+    Mockito.verify(mockExecutorService, Mockito.times(1))
+        .scheduleWithFixedDelay(Mockito.any(Runnable.class), Mockito.anyLong(), Mockito.anyLong(),
+            Mockito.any(TimeUnit.class));
+  }
+
+  @Test
+  public void testDiagnosticsManagerStop() throws InterruptedException {
+    SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
+    Mockito.when(mockExecutorService.isTerminated()).thenReturn(true);
+    Duration terminationDuration = Duration.ofSeconds(1);
+    DiagnosticsManager diagnosticsManager =
+        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
+            maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
+            hostname, diagnosticsSystemStream, mockSystemProducer, terminationDuration, mockExecutorService,
+            autosizingEnabled, config);
+
+    diagnosticsManager.stop();
+
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdown();
+    Mockito.verify(mockExecutorService, Mockito.times(1))
+        .awaitTermination(terminationDuration.toMillis(), TimeUnit.MILLISECONDS);
+    Mockito.verify(mockExecutorService, Mockito.never()).shutdownNow();
+    Mockito.verify(mockSystemProducer, Mockito.times(1)).stop();
+  }
+
+  @Test
+  public void testDiagnosticsManagerForceStop() throws InterruptedException {
+    SystemProducer mockSystemProducer = Mockito.mock(SystemProducer.class);
+    Mockito.when(mockExecutorService.isTerminated()).thenReturn(false);
+    Duration terminationDuration = Duration.ofSeconds(1);
+    DiagnosticsManager diagnosticsManager =
+        new DiagnosticsManager(jobName, jobId, containerModels, containerMb, containerNumCores, numPersistentStores,
+            maxHeapSize, containerThreadPoolSize, "0", executionEnvContainerId, taskClassVersion, samzaVersion,
+            hostname, diagnosticsSystemStream, mockSystemProducer, terminationDuration, mockExecutorService,
+            autosizingEnabled, config);
+
+    diagnosticsManager.stop();
+
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdown();
+    Mockito.verify(mockExecutorService, Mockito.times(1))
+        .awaitTermination(terminationDuration.toMillis(), TimeUnit.MILLISECONDS);
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
+    Mockito.verify(mockSystemProducer, Mockito.times(1)).stop();
   }
 
   @Test
@@ -212,6 +277,8 @@ public class TestDiagnosticsManager {
     Assert.assertEquals(containerModels, diagnosticsStreamMessage.getContainerModels());
     Assert.assertEquals(containerNumCores, diagnosticsStreamMessage.getContainerNumCores().intValue());
     Assert.assertEquals(numPersistentStores, diagnosticsStreamMessage.getNumPersistentStores().intValue());
+    Assert.assertEquals(autosizingEnabled, diagnosticsStreamMessage.getAutosizingEnabled());
+    Assert.assertEquals(config, diagnosticsStreamMessage.getConfig());
   }
 
   private class MockSystemProducer implements SystemProducer {

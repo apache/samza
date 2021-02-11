@@ -19,55 +19,52 @@
 
 package org.apache.samza.clustermanager;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.MockStreamApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.loaders.PropertiesConfigLoaderFactory;
+import org.apache.samza.coordinator.JobCoordinatorMetadataManager;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
 import org.apache.samza.coordinator.stream.MockCoordinatorStreamSystemFactory;
 import org.apache.samza.execution.RemoteJobPlanner;
+import org.apache.samza.job.JobCoordinatorMetadata;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.MockSystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mockito;
 import org.mockito.exceptions.base.MockitoException;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
-import static org.mockito.AdditionalMatchers.aryEq;
+import static org.junit.Assert.*;
 import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.powermock.api.mockito.PowerMockito.mock;
-import static org.powermock.api.mockito.PowerMockito.verifyPrivate;
-import static org.powermock.api.mockito.PowerMockito.verifyNew;
 
 
 /**
@@ -76,7 +73,7 @@ import static org.powermock.api.mockito.PowerMockito.verifyNew;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({
     CoordinatorStreamUtil.class,
-    ClusterBasedJobCoordinator.class,
+    ClusterBasedJobCoordinatorRunner.class,
     CoordinatorStreamStore.class,
     RemoteJobPlanner.class})
 public class TestClusterBasedJobCoordinator {
@@ -91,6 +88,7 @@ public class TestClusterBasedJobCoordinator {
     configMap.put("task.inputs", "kafka.topic1");
     configMap.put("systems.kafka.samza.factory", "org.apache.samza.system.MockSystemFactory");
     configMap.put("samza.cluster-manager.factory", "org.apache.samza.clustermanager.MockClusterResourceManagerFactory");
+    configMap.put("cluster-manager.fault-domain-manager.factory", "org.apache.samza.clustermanager.MockFaultDomainManagerFactory");
     configMap.put("job.coordinator.monitor-partition-change.frequency.ms", "1");
 
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(0)), new ArrayList<>());
@@ -119,7 +117,7 @@ public class TestClusterBasedJobCoordinator {
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
-    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinator.createFromMetadataStore(config);
+    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinatorRunner.createFromMetadataStore(config);
 
     // change the input system stream metadata
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(1)), new ArrayList<>());
@@ -139,7 +137,7 @@ public class TestClusterBasedJobCoordinator {
     CoordinatorStreamSystemProducer producer = new CoordinatorStreamSystemProducer(config, mock(MetricsRegistry.class));
     producer.writeConfig("test-job", config);
 
-    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinator.createFromMetadataStore(config);
+    ClusterBasedJobCoordinator clusterCoordinator = ClusterBasedJobCoordinatorRunner.createFromMetadataStore(config);
 
     // change the input system stream metadata
     MockSystemFactory.MSG_QUEUES.put(new SystemStreamPartition("kafka", "topic1", new Partition(1)), new ArrayList<>());
@@ -157,7 +155,7 @@ public class TestClusterBasedJobCoordinator {
     Config config = new MapConfig(configMap);
     MockitoException stopException = new MockitoException("Stop");
 
-    ClusterBasedJobCoordinator clusterCoordinator = Mockito.spy(ClusterBasedJobCoordinator.createFromMetadataStore(config));
+    ClusterBasedJobCoordinator clusterCoordinator = spy(ClusterBasedJobCoordinatorRunner.createFromMetadataStore(config));
     ContainerProcessManager mockContainerProcessManager = mock(ContainerProcessManager.class);
     doReturn(true).when(mockContainerProcessManager).shouldShutdown();
     StartpointManager mockStartpointManager = mock(StartpointManager.class);
@@ -181,63 +179,94 @@ public class TestClusterBasedJobCoordinator {
   }
 
   @Test
-  public void testRunWithClassLoader() throws Exception {
-    // partially mock ClusterBasedJobCoordinator (mock runClusterBasedJobCoordinator method only)
-    PowerMockito.spy(ClusterBasedJobCoordinator.class);
-    // save the context classloader to make sure that it gets set properly once the test is finished
-    ClassLoader previousContextClassLoader = Thread.currentThread().getContextClassLoader();
-    ClassLoader classLoader = mock(ClassLoader.class);
-    String[] args = new String[]{"arg0", "arg1"};
-    doReturn(ClusterBasedJobCoordinator.class).when(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
+  public void testVerifyShouldFanoutStartpointWithoutAMHA() {
+    Config jobConfig = new MapConfig(configMap);
 
-    // stub the private static method which is called by reflection
-    PowerMockito.doAnswer(invocation -> {
-        // make sure the only calls to this method has the expected arguments
-        assertArrayEquals(args, invocation.getArgumentAt(0, String[].class));
-        // checks that the context classloader is set correctly
-        assertEquals(classLoader, Thread.currentThread().getContextClassLoader());
-        return null;
-      }).when(ClusterBasedJobCoordinator.class, "runClusterBasedJobCoordinator", any());
+    when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(jobConfig);
+    ClusterBasedJobCoordinator clusterBasedJobCoordinator =
+        spy(ClusterBasedJobCoordinatorRunner.createFromMetadataStore(jobConfig));
 
-    try {
-      ClusterBasedJobCoordinator.runWithClassLoader(classLoader, args);
-      assertEquals(previousContextClassLoader, Thread.currentThread().getContextClassLoader());
-    } finally {
-      // reset it explicitly just in case runWithClassLoader throws an exception
-      Thread.currentThread().setContextClassLoader(previousContextClassLoader);
-    }
-    // make sure that the classloader got used
-    verify(classLoader).loadClass(ClusterBasedJobCoordinator.class.getName());
-    // make sure runClusterBasedJobCoordinator only got called once
-    verifyPrivate(ClusterBasedJobCoordinator.class).invoke("runClusterBasedJobCoordinator", new Object[]{aryEq(args)});
-  }
+    when(clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts()).thenReturn(true);
+    assertTrue("Startpoint should fanout even if metadata changed",
+        clusterBasedJobCoordinator.shouldFanoutStartpoint());
 
-  @Test(expected = SamzaException.class)
-  public void testCreateFromConfigLoaderWithoutConfigLoaderFactory() {
-    ClusterBasedJobCoordinator.createFromConfigLoader(new MapConfig());
+    when(clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts()).thenReturn(false);
+    assertTrue("Startpoint should fanout even if metadata remains unchanged",
+        clusterBasedJobCoordinator.shouldFanoutStartpoint());
   }
 
   @Test
-  public void testCreateFromConfigLoader() throws Exception {
-    Map<String, String> config = new HashMap<>();
-    config.put(ApplicationConfig.APP_CLASS, MockStreamApplication.class.getCanonicalName());
-    config.put(JobConfig.CONFIG_LOADER_FACTORY, PropertiesConfigLoaderFactory.class.getCanonicalName());
-    config.put(PropertiesConfigLoaderFactory.CONFIG_LOADER_PROPERTIES_PREFIX + "path",
-        getClass().getResource("/test.properties").getPath());
-    Config submissionConfig = new MapConfig(config);
-    JobConfig fullJobConfig = new JobConfig(ConfigUtil.loadConfig(submissionConfig));
+  public void testVerifyShouldFanoutStartpointWithAMHA() {
+    Config jobConfig = new MapConfig(configMap);
 
-    RemoteJobPlanner mockJobPlanner = mock(RemoteJobPlanner.class);
-    CoordinatorStreamStore mockCoordinatorStreamStore = mock(CoordinatorStreamStore.class);
+    when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(jobConfig);
+    ClusterBasedJobCoordinator clusterBasedJobCoordinator =
+        spy(ClusterBasedJobCoordinatorRunner.createFromMetadataStore(jobConfig));
 
-    PowerMockito.whenNew(ClusterBasedJobCoordinator.class).withAnyArguments().thenReturn(mock(ClusterBasedJobCoordinator.class));
-    PowerMockito.doReturn(new MapConfig()).when(CoordinatorStreamUtil.class, "buildCoordinatorStreamConfig", any());
-    PowerMockito.whenNew(CoordinatorStreamStore.class).withAnyArguments().thenReturn(mockCoordinatorStreamStore);
-    PowerMockito.whenNew(RemoteJobPlanner.class).withAnyArguments().thenReturn(mockJobPlanner);
-    when(mockJobPlanner.prepareJobs()).thenReturn(Collections.singletonList(fullJobConfig));
+    when(clusterBasedJobCoordinator.isApplicationMasterHighAvailabilityEnabled()).thenReturn(true);
 
-    ClusterBasedJobCoordinator.createFromConfigLoader(submissionConfig);
+    when(clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts()).thenReturn(true);
+    assertTrue("Startpoint should fanout with change in metadata",
+        clusterBasedJobCoordinator.shouldFanoutStartpoint());
 
-    verifyNew(ClusterBasedJobCoordinator.class).withArguments(any(MetricsRegistryMap.class), eq(mockCoordinatorStreamStore), eq(fullJobConfig));
+    when(clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts()).thenReturn(false);
+    assertFalse("Startpoint fan out shouldn't happen when metadata is unchanged",
+        clusterBasedJobCoordinator.shouldFanoutStartpoint());
+
+  }
+
+  @Test
+  public void testToArgs() {
+    ApplicationConfig appConfig = new ApplicationConfig(new MapConfig(ImmutableMap.of(
+        JobConfig.JOB_NAME, "test1",
+        ApplicationConfig.APP_CLASS, "class1",
+        ApplicationConfig.APP_MAIN_ARGS, "--runner=SamzaRunner --maxSourceParallelism=1024"
+    )));
+
+    List<String> expected = Arrays.asList(
+        "--config", "job.name=test1",
+        "--config", "app.class=class1",
+        "--runner=SamzaRunner",
+        "--maxSourceParallelism=1024");
+    List<String> actual = Arrays.asList(ClusterBasedJobCoordinatorRunner.toArgs(appConfig));
+
+    // cannot assert expected equals to actual as the order can be different.
+    assertEquals(expected.size(), actual.size());
+    assertTrue(actual.containsAll(expected));
+  }
+
+  @Test
+  public void testGenerateAndUpdateJobCoordinatorMetadata() {
+    Config jobConfig = new MapConfig(configMap);
+    when(CoordinatorStreamUtil.readConfigFromCoordinatorStream(anyObject())).thenReturn(jobConfig);
+    ClusterBasedJobCoordinator clusterBasedJobCoordinator =
+        spy(ClusterBasedJobCoordinatorRunner.createFromMetadataStore(jobConfig));
+
+    JobCoordinatorMetadata previousMetadata = mock(JobCoordinatorMetadata.class);
+    JobCoordinatorMetadata newMetadata = mock(JobCoordinatorMetadata.class);
+    JobCoordinatorMetadataManager jobCoordinatorMetadataManager = mock(JobCoordinatorMetadataManager.class);
+    JobModel mockJobModel = mock(JobModel.class);
+
+    when(jobCoordinatorMetadataManager.readJobCoordinatorMetadata()).thenReturn(previousMetadata);
+    when(jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(any(), any())).thenReturn(newMetadata);
+    when(jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)).thenReturn(false);
+    when(clusterBasedJobCoordinator.createJobCoordinatorMetadataManager()).thenReturn(jobCoordinatorMetadataManager);
+
+    /*
+     * Verify if there are no changes to metadata, the metadata changed flag remains false and no interactions
+     * with job coordinator metadata manager
+     */
+    clusterBasedJobCoordinator.generateAndUpdateJobCoordinatorMetadata(mockJobModel);
+    assertFalse("JC metadata changed should remain unchanged",
+        clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts());
+    verify(jobCoordinatorMetadataManager, times(0)).writeJobCoordinatorMetadata(any());
+
+    /*
+     * Verify if there are changes to metadata, we persist the new metadata & update the metadata changed flag
+     */
+    when(jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)).thenReturn(true);
+    clusterBasedJobCoordinator.generateAndUpdateJobCoordinatorMetadata(mockJobModel);
+    assertTrue("JC metadata changed should be true", clusterBasedJobCoordinator.isMetadataChangedAcrossAttempts());
+    verify(jobCoordinatorMetadataManager, times(1)).writeJobCoordinatorMetadata(newMetadata);
   }
 }

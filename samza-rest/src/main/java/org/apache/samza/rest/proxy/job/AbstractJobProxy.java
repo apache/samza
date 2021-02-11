@@ -74,8 +74,8 @@ public abstract class AbstractJobProxy implements JobProxy {
       throws IOException, InterruptedException {
     List<Job> allJobs = new ArrayList<>();
     Collection<JobInstance> jobInstances = getAllJobInstances();
-    for(JobInstance jobInstance : jobInstances) {
-        allJobs.add(new Job(jobInstance.getJobName(), jobInstance.getJobId()));
+    for (JobInstance jobInstance : jobInstances) {
+      allJobs.add(new Job(jobInstance.getJobName(), jobInstance.getJobId()));
     }
     getJobStatusProvider().getJobStatuses(allJobs);
 

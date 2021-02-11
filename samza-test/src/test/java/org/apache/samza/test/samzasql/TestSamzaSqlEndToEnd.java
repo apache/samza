@@ -27,11 +27,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.sql.planner.SamzaSqlValidator;
@@ -422,15 +422,14 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndFlatten() throws Exception {
+  public void testEndToEndFlatten() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
-    LOG.info(" Class Path : " + RelOptUtil.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath());
     String sql1 =
-        "Insert into testavro.outputTopic(string_value, id, bool_value, bytes_value, fixed_value, float_value0) "
-            + " select Flatten(array_values) as string_value, id, NOT(id = 5) as bool_value, bytes_value, fixed_value, float_value0 "
+        "Insert into testavro.outputTopic(string_value, id, bool_value, bytes_value, fixed_value, float_value0, array_values) "
+            + " select Flatten(array_values) as string_value, id, NOT(id = 5) as bool_value, bytes_value, fixed_value, float_value0, array_values"
             + " from testavro.COMPLEX1";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
@@ -442,12 +441,29 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
-    int expectedMessages = 0;
-    // Flatten de-normalizes the data. So there is separate record for each entry in the array.
-    for (int index = 1; index < numMessages; index++) {
-      expectedMessages = expectedMessages + Math.max(1, index);
-    }
+    // Test invariant for each input Row with rank i will contain a column array_values with i elements $\sum_1^n{i}$.
+    int expectedMessages = (numMessages * (numMessages - 1)) / 2;
+    //Assert.assertEquals(outMessages.size(), actualList.size());
     Assert.assertEquals(expectedMessages, outMessages.size());
+
+    // check that values are actually not null and within the expected range
+    Optional<GenericRecord> nullValueRecord = outMessages.stream()
+        .map(x -> (GenericRecord) x.getMessage())
+        .filter(x -> x.get("string_value") == null)
+        .findFirst();
+    // The String value column is result of dot product thus must be present in the Array column
+    Optional<GenericRecord> missingValue = outMessages.stream().map(x -> (GenericRecord) x.getMessage()).filter(x -> {
+      String value = (String) x.get("string_value");
+      List<Object> arrayValues = (List<Object>) x.get("array_values");
+      if (arrayValues == null) {
+        return true;
+      }
+      Optional<Object> notThere = arrayValues.stream().filter(v -> v.toString().equalsIgnoreCase(value)).findAny();
+      return !notThere.isPresent();
+    }).findFirst();
+
+    Assert.assertFalse("Null value " +  nullValueRecord.orElse(null), nullValueRecord.isPresent());
+    Assert.assertFalse("Absent Value " + missingValue.orElse(null), missingValue.isPresent());
   }
 
 
@@ -475,7 +491,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndWithFloatToStringConversion() throws Exception {
+  public void testEndToEndWithFloatToStringConversion() {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -499,7 +515,6 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     Assert.assertEquals(IntStream.range(0, numMessages).boxed().collect(Collectors.toList()), outMessages);
   }
 
-  @Ignore
   @Test
   public void testEndToEndNestedRecord() throws SamzaSqlValidatorException {
     int numMessages = 10;
@@ -507,9 +522,12 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
 
     String sql1 =
-        "Insert into testavro.outputTopic"
-            + " select `phoneNumbers`[0].`kind`"
-            + " from testavro.PROFILE as p";
+        "Insert into testavro.outputTopic (id, bool_value)"
+            // SQL array is one indexed.
+            + " select `phoneNumbers`[1].`kind` as string_value, p.address.streetnum.number as id, "
+            + " `phoneNumbers`[1].`kind` = 'Home' as bool_value, cast(p.address.zip as bigint) as long_value"
+            + " from testavro.PROFILE as p where p.address.zip > 0 and p.address.zip < 100003 ";
+
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
 
@@ -520,6 +538,72 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
+    Assert.assertEquals(numMessages, outMessages.size());
+  }
+
+  /**
+   * Testing the getNestedField built in operator
+   * @throws SamzaSqlValidatorException
+   */
+  @Test
+  public void testEndToEndGetNestedFieldOperator() throws SamzaSqlValidatorException {
+    int numMessages = 10;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+    String sql1 =
+        "Insert into testavro.outputTopic (string_value, id, bool_value, double_value, map_values, long_value)"
+            + " select GetNestedField(address, 'streetnum.number') * getNestedField(mapValues['key'], 'id') as id, "
+            + " cast(GetNestedField(address, 'streetnum').number * 1.0 as double) as double_value, mapValues as map_values, "
+            + " GetNestedField(phoneNumbers[1] ,'kind') = 'Home' as bool_value, cast( mapValues['key'].id as bigint) as long_value , "
+            + " GetNestedField(mapValues['key'], 'name') as string_value "
+            + " from testavro.PROFILE as p  where GetNestedField(address, 'zip') > 0 and GetNestedField(address, 'zip') < 100003";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+    runApplication(config);
+
+    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
+    // check that the projected values are not null, correct types and good values when easy to check.
+    List<GenericRecord> actualResult = outMessages.stream()
+        .map(x -> (GenericRecord) x.getMessage())
+        .filter(x -> (Boolean) x.get("bool_value"))
+        .filter(x -> x.get("string_value") != null && !x.get("string_value").toString().isEmpty())
+        .filter(x -> x.get("map_values") instanceof Map)
+        .filter(x -> x.get("id") instanceof Integer)
+        .filter(x -> (Long) x.get("long_value") < 10 && (Long) x.get("long_value") >= 0)
+        .filter(x -> x.get("double_value") instanceof Double && (Double) x.get("double_value") >= 1234.0)
+        .collect(Collectors.toList());
+    Assert.assertEquals(
+        "Wrong results size, check the test condition against the Actual outputs -> " + outMessages.toString(),
+        numMessages, actualResult.size());
+  }
+
+
+  @Test
+  public void testEndToEndNestedRecordProjectFilter() throws SamzaSqlValidatorException {
+    int numMessages = 10;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+
+    String sql1 = " Insert into testavro.PROFILE1 select (p.address.streetnum.number * p.address.zip) as id , "
+        + " p.address, `phoneNumbers`[1].`kind` = 'Home' as selfEmployed, "
+        + " MAP[cast(id as varchar), `phoneNumbers`[1].number] as mapValues, phoneNumbers, "
+        + " cast(companyId as varchar) || name ||`phoneNumbers`[1].number || 'concat' as name , "
+        + " 100 * ((companyId + 122) / 3 ) as companyId "
+        + " from testavro.PROFILE as p where p.address.zip > 0 "
+        + " and p.address.zip < 100003 and p.address.streetnum.number > 0 ";
+
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
+
+    List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
     Assert.assertEquals(numMessages, outMessages.size());
   }
 
@@ -541,16 +625,34 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
-    int expectedMessages = 0;
+    // Test invariant for each input Row with rank i will contain a column array_values with i elements $\sum_1^n{i}$.
+    int expectedMessages = (numMessages * (numMessages - 1)) / 2;
     // Flatten de-normalizes the data. So there is separate record for each entry in the array.
-    for (int index = 1; index < numMessages; index++) {
-      expectedMessages = expectedMessages + Math.max(1, index);
-    }
     Assert.assertEquals(expectedMessages, outMessages.size());
+
+    // check that values are actually not null and within the expected range
+    Optional<GenericRecord> nullValueRecord = outMessages.stream()
+        .map(x -> (GenericRecord) x.getMessage())
+        .filter(x -> x.get("id") == null)
+        .findFirst();
+    Assert.assertFalse("Null value " +  nullValueRecord.orElse(null), nullValueRecord.isPresent());
+    //TODO this is failing for now and that is because of udf weak type system, fixing it will be beyond this work.
+   /* // The String value column is result of dot product thus must be present in the Array column
+    Optional<GenericRecord> missingValue = outMessages.stream().map(x -> (GenericRecord) x.getMessage()).filter(x -> {
+      String value = (String) x.get("string_value");
+      List<Object> arrayValues = (List<Object>) x.get("array_values");
+      if (arrayValues == null) {
+        return true;
+      }
+      Optional<Object> notThere = arrayValues.stream().filter(v -> v.toString().equalsIgnoreCase(value)).findAny();
+      return !notThere.isPresent();
+    }).findFirst();
+    Assert.assertFalse("Absent Value " + missingValue.orElse(null), missingValue.isPresent());
+    */
   }
 
   @Test
-  public void testEndToEndSubQuery() throws Exception {
+  public void testEndToEndSubQuery() {
     int numMessages = 20;
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
@@ -567,12 +669,32 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<OutgoingMessageEnvelope> outMessages = new ArrayList<>(TestAvroSystemFactory.messages);
 
-    int expectedMessages = 0;
+    // Test invariant for each input Row with rank i will contain a column array_values with i elements $\sum_1^n{i}$.
+    int expectedMessages = (numMessages * (numMessages - 1)) / 2;
     // Flatten de-normalizes the data. So there is separate record for each entry in the array.
-    for (int index = 1; index < numMessages; index++) {
-      expectedMessages = expectedMessages + Math.max(1, index);
-    }
     Assert.assertEquals(expectedMessages, outMessages.size());
+
+    // check that values are actually not null and within the expected range
+    Optional<GenericRecord> nullValueRecord = outMessages.stream()
+        .map(x -> (GenericRecord) x.getMessage())
+        .filter(x -> x.get("id") == null)
+        .findFirst();
+    Assert.assertFalse("Null value " +  nullValueRecord.orElse(null), nullValueRecord.isPresent());
+
+    //TODO this is failing for now and that is because of udf weak type system, fixing it will be beyond this work.
+   /* // The String value column is result of dot product thus must be present in the Array column
+    Optional<GenericRecord> missingValue = outMessages.stream().map(x -> (GenericRecord) x.getMessage()).filter(x -> {
+      String value = (String) x.get("string_value");
+      List<Object> arrayValues = (List<Object>) x.get("array_values");
+      if (arrayValues == null) {
+        return true;
+      }
+      Optional<Object> notThere = arrayValues.stream().filter(v -> v.toString().equalsIgnoreCase(value)).findAny();
+      return !notThere.isPresent();
+    }).findFirst();
+    Assert.assertFalse("Absent Value " + missingValue.orElse(null), missingValue.isPresent());
+    */
+
   }
 
   @Test
@@ -597,6 +719,20 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
         .sorted()
         .collect(Collectors.toList());
     Assert.assertEquals(outMessages.size(), numMessages);
+  }
+
+  @Test(expected = SamzaSqlValidatorException.class)
+  public void testMismatchedUdfArgumentTypeShouldFailWithException() {
+    int numMessages = 20;
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+    String sql1 = "Insert into testavro.outputTopic(long_value) "
+            + "select MyTestObj(pageKey) as long_value from testavro.PAGEVIEW";
+    List<String> sqlStmts = Collections.singletonList(sql1);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
   }
 
   @Test
@@ -633,7 +769,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     TestAvroSystemFactory.messages.clear();
     Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
     String sql1 = "Insert into testavro.PROFILE1(id, address) "
-        + "select id, BuildOutputRecord('key', GetNestedField(address, 'zip')) as address from testavro.PROFILE";
+        + "select id, BuildOutputRecord('key', p.address.zip) as address from testavro.PROFILE as p";
     List<String> sqlStmts = Collections.singletonList(sql1);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
     runApplication(new MapConfig(staticConfigs));
@@ -710,7 +846,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
             + "       p.name as profileName, p.address as profileAddress "
             + "from testavro.PROFILE.`$table` as p "
             + "join testavro.PAGEVIEW as pv "
-            + " on p.id = pv.profileId";
+            + " on p.id = pv.profileId where p.name = 'Mike' or p.name is not null";
 
     List<String> sqlStmts = Arrays.asList(sql);
     staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
@@ -731,7 +867,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndStreamTableInnerJoinWithPrimaryKey() throws Exception {
+  public void testEndToEndStreamTableInnerJoinWithPrimaryKey() {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -850,13 +986,13 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
 
     List<String> outMessages = TestAvroSystemFactory.messages.stream()
         .map(x -> {
-            GenericRecord profileAddr = (GenericRecord) ((GenericRecord) x.getMessage()).get("profileAddress");
-            GenericRecord streetNum = (GenericRecord) (profileAddr.get("streetnum"));
-            return ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
-                + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
-                ((GenericRecord) x.getMessage()).get("profileName").toString()) + ","
-                + profileAddr.get("zip") + "," + streetNum.get("number");
-          })
+          GenericRecord profileAddr = (GenericRecord) ((GenericRecord) x.getMessage()).get("profileAddress");
+          GenericRecord streetNum = (GenericRecord) (profileAddr.get("streetnum"));
+          return ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
+              + (((GenericRecord) x.getMessage()).get("profileName") == null ? "null" :
+              ((GenericRecord) x.getMessage()).get("profileName").toString()) + ","
+              + profileAddr.get("zip") + "," + streetNum.get("number");
+        })
         .collect(Collectors.toList());
     Assert.assertEquals(numMessages, outMessages.size());
     List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileNameAddressJoin(numMessages);
@@ -1038,7 +1174,7 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndStreamTableTableJoinWithPrimaryKeys() throws Exception {
+  public void testEndToEndStreamTableNestedJoinWithPrimaryKeys() throws Exception {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -1072,7 +1208,42 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEndStreamTableTableJoinWithCompositeKey() throws Exception {
+  public void testEndToEndStreamTableNestedJoinWithSubQuery() throws Exception {
+    int numMessages = 20;
+
+    TestAvroSystemFactory.messages.clear();
+    Map<String, String> staticConfigs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(numMessages);
+    String sql =
+      "Insert into testavro.enrichedPageViewTopic "
+            + "select t.pageKey as __key__, t.pageKey as pageKey, c.name as companyName, t.profileName as profileName,"
+            + "       address as profileAddress "
+            + "from (select p.companyId as companyId, p.name as profileName, p.address as address, pv.pageKey as pageKey"
+            + "      from testavro.PAGEVIEW as pv "
+            + "      join testavro.PROFILE.`$table` as p "
+            + "      on MyTest(p.__key__) = MyTest(pv.profileId)) as t "
+            + "join testavro.COMPANY.`$table` as c "
+            + "on MyTest(t.companyId) = MyTest(c.__key__)";
+
+    List<String> sqlStmts = Arrays.asList(sql);
+    staticConfigs.put(SamzaSqlApplicationConfig.CFG_SQL_STMTS_JSON, JsonUtil.toJson(sqlStmts));
+
+    Config config = new MapConfig(staticConfigs);
+    new SamzaSqlValidator(config).validate(sqlStmts);
+
+    runApplication(config);
+
+    List<String> outMessages = TestAvroSystemFactory.messages.stream()
+        .map(x -> ((GenericRecord) x.getMessage()).get("pageKey").toString() + ","
+            + ((GenericRecord) x.getMessage()).get("profileName").toString() + ","
+            + ((GenericRecord) x.getMessage()).get("companyName").toString())
+        .collect(Collectors.toList());
+    Assert.assertEquals(numMessages, outMessages.size());
+    List<String> expectedOutMessages = TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(numMessages);
+    Assert.assertEquals(expectedOutMessages, outMessages);
+  }
+
+  @Test
+  public void testEndToEndStreamTableNestedJoinWithCompositeKey() throws Exception {
     int numMessages = 20;
 
     TestAvroSystemFactory.messages.clear();
@@ -1100,9 +1271,9 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
             + ((GenericRecord) x.getMessage()).get("profileName").toString() + ","
             + ((GenericRecord) x.getMessage()).get("companyName").toString())
         .collect(Collectors.toList());
-    Assert.assertEquals(TestAvroSystemFactory.companies.length, outMessages.size());
+    Assert.assertEquals(TestAvroSystemFactory.COMPANIES.length, outMessages.size());
     List<String> expectedOutMessages =
-        TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(TestAvroSystemFactory.companies.length);
+        TestAvroSystemFactory.getPageKeyProfileCompanyNameJoin(TestAvroSystemFactory.COMPANIES.length);
     Assert.assertEquals(expectedOutMessages, outMessages);
   }
 
@@ -1136,19 +1307,19 @@ public class TestSamzaSqlEndToEnd extends SamzaSqlIntegrationTestHarness {
     HashMap<String, List<String>> pageKeyCountListMap = new HashMap<>();
     TestAvroSystemFactory.messages.stream()
         .map(x -> {
-            String pageKey = ((GenericRecord) x.getMessage()).get("pageKey").toString();
-            String count = ((GenericRecord) x.getMessage()).get("count").toString();
-            pageKeyCountListMap.computeIfAbsent(pageKey, k -> new ArrayList<>()).add(count);
-            return pageKeyCountListMap;
-          });
+          String pageKey = ((GenericRecord) x.getMessage()).get("pageKey").toString();
+          String count = ((GenericRecord) x.getMessage()).get("count").toString();
+          pageKeyCountListMap.computeIfAbsent(pageKey, k -> new ArrayList<>()).add(count);
+          return pageKeyCountListMap;
+        });
 
     HashMap<String, Integer> pageKeyCountMap = new HashMap<>();
     pageKeyCountListMap.forEach((key, list) -> {
-        // Check that the number of windows per key is non-zero but less than the number of input messages per key.
-        Assert.assertTrue(list.size() > 1 && list.size() < numMessages / TestAvroSystemFactory.pageKeys.length);
-        // Collapse the count of messages per key
-        pageKeyCountMap.put(key, list.stream().mapToInt(Integer::parseInt).sum());
-      });
+      // Check that the number of windows per key is non-zero but less than the number of input messages per key.
+      Assert.assertTrue(list.size() > 1 && list.size() < numMessages / TestAvroSystemFactory.PAGE_KEYS.length);
+      // Collapse the count of messages per key
+      pageKeyCountMap.put(key, list.stream().mapToInt(Integer::parseInt).sum());
+    });
 
     Set<String> pageKeys = new HashSet<>(Arrays.asList("job", "inbox"));
     HashMap<String, Integer> expectedPageKeyCountMap =

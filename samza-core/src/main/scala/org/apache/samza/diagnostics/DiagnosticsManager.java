@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.Config;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -67,6 +68,8 @@ public class DiagnosticsManager {
   private final long maxHeapSizeBytes;
   private final int containerThreadPoolSize;
   private final Map<String, ContainerModel> containerModels;
+  private final boolean autosizingEnabled;
+  private final Config config;
   private boolean jobParamsEmitted = false;
 
   private final SystemProducer systemProducer; // SystemProducer for writing diagnostics data
@@ -92,12 +95,14 @@ public class DiagnosticsManager {
       String hostname,
       SystemStream diagnosticSystemStream,
       SystemProducer systemProducer,
-      Duration terminationDuration) {
+      Duration terminationDuration,
+      boolean autosizingEnabled,
+      Config config) {
 
     this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numPersistentStores, maxHeapSizeBytes, containerThreadPoolSize,
         containerId, executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticSystemStream, systemProducer,
         terminationDuration, Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()));
+            new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()), autosizingEnabled, config);
   }
 
   @VisibleForTesting
@@ -117,7 +122,9 @@ public class DiagnosticsManager {
       SystemStream diagnosticSystemStream,
       SystemProducer systemProducer,
       Duration terminationDuration,
-      ScheduledExecutorService executorService) {
+      ScheduledExecutorService executorService,
+      boolean autosizingEnabled,
+      Config config) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.containerModels = containerModels;
@@ -138,8 +145,11 @@ public class DiagnosticsManager {
     this.processorStopEvents = new ConcurrentLinkedQueue<>();
     this.exceptions = new BoundedList<>("exceptions"); // Create a BoundedList with default size and time parameters
     this.scheduler = executorService;
+    this.autosizingEnabled = autosizingEnabled;
+    this.config = config;
 
     resetTime = Instant.now();
+    this.systemProducer.register(getClass().getSimpleName());
 
     try {
       ReflectionUtil.getObjWithArgs("org.apache.samza.logging.log4j.SimpleDiagnosticsAppender",
@@ -159,6 +169,7 @@ public class DiagnosticsManager {
   }
 
   public void start() {
+    this.systemProducer.start();
     this.scheduler.scheduleWithFixedDelay(new DiagnosticsStreamPublisher(), 0, DEFAULT_PUBLISH_PERIOD.getSeconds(),
         TimeUnit.SECONDS);
   }
@@ -173,6 +184,7 @@ public class DiagnosticsManager {
       LOG.warn("Unable to terminate scheduler");
       scheduler.shutdownNow();
     }
+    this.systemProducer.stop();
   }
 
   public void addExceptionEvent(DiagnosticsExceptionEvent diagnosticsExceptionEvent) {
@@ -202,6 +214,8 @@ public class DiagnosticsManager {
           diagnosticsStreamMessage.addContainerModels(containerModels);
           diagnosticsStreamMessage.addMaxHeapSize(maxHeapSizeBytes);
           diagnosticsStreamMessage.addContainerThreadPoolSize(containerThreadPoolSize);
+          diagnosticsStreamMessage.addAutosizingEnabled(autosizingEnabled);
+          diagnosticsStreamMessage.addConfig(config);
         }
 
         // Add stop event list to the message

@@ -67,24 +67,24 @@ public class JMVersionUpgradeScheduler implements TaskScheduler {
   @Override
   public ScheduledFuture scheduleTask() {
     return scheduler.scheduleWithFixedDelay(() -> {
-        try {
-          LOG.info("Checking for job model version upgrade");
-          // Read job model version from the blob.
-          String blobJMV = blob.getJobModelVersion();
-          LOG.info("Job Model Version seen on the blob: {}", blobJMV);
-          String blobBarrierState = blob.getBarrierState();
-          String currentJMV = currentJMVersion.get();
-          LOG.info("Current Job Model Version that the job coordinator is working on: {}", currentJMV);
-          String expectedBarrierState = BarrierState.START.toString() + " " + blobJMV;
-          List<String> processorList = blob.getLiveProcessorList();
-          // Check if the job model version on the blob is consistent with the job model version that the processor is operating on.
-          if (processorList != null && processorList.contains(processorId) && !currentJMV.equals(blobJMV) && blobBarrierState.equals(expectedBarrierState) && !versionUpgradeDetected.get()) {
-            listener.onStateChange();
-          }
-        } catch (Exception e) {
-          errorHandler.accept("Exception in Job Model Version Upgrade Scheduler. Stopping the processor...");
+      try {
+        LOG.info("Checking for job model version upgrade");
+        // Read job model version from the blob.
+        String blobJMV = blob.getJobModelVersion();
+        LOG.info("Job Model Version seen on the blob: {}", blobJMV);
+        String blobBarrierState = blob.getBarrierState();
+        String currentJMV = currentJMVersion.get();
+        LOG.info("Current Job Model Version that the job coordinator is working on: {}", currentJMV);
+        String expectedBarrierState = BarrierState.START.toString() + " " + blobJMV;
+        List<String> processorList = blob.getLiveProcessorList();
+        // Check if the job model version on the blob is consistent with the job model version that the processor is operating on.
+        if (processorList != null && processorList.contains(processorId) && !currentJMV.equals(blobJMV) && blobBarrierState.equals(expectedBarrierState) && !versionUpgradeDetected.get()) {
+          listener.onStateChange();
         }
-      }, JMV_UPGRADE_DELAY_SEC, JMV_UPGRADE_DELAY_SEC, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        errorHandler.accept("Exception in Job Model Version Upgrade Scheduler. Stopping the processor...");
+      }
+    }, JMV_UPGRADE_DELAY_SEC, JMV_UPGRADE_DELAY_SEC, TimeUnit.SECONDS);
   }
 
   @Override

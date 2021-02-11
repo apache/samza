@@ -19,7 +19,6 @@
 
 package org.apache.samza.system.kafka;
 
-import org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.MapConfig;

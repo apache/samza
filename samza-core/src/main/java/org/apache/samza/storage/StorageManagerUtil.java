@@ -94,7 +94,8 @@ public class StorageManagerUtil {
             + " The values between these offsets cannot be restored.", resumeOffset, oldestOffset);
       }
     }
-
+    LOG.info("Starting offset for SystemStreamPartition {} is {}, fileOffset: {}, oldestOffset from source: {}", ssp,
+        startingOffset, fileOffset, oldestOffset);
     return startingOffset;
   }
 

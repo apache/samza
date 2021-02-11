@@ -70,6 +70,10 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   public static final String READ_FN = "io.read.func";
   public static final String WRITE_FN = "io.write.func";
   public static final String RATE_LIMITER = "io.ratelimiter";
+  //Key name for table api read rate limit
+  public static final String READ_CREDITS = "io.read.credits";
+  //Key name for table api write rate limit
+  public static final String WRITE_CREDITS = "io.write.credits";
   public static final String READ_CREDIT_FN = "io.read.credit.func";
   public static final String WRITE_CREDIT_FN = "io.write.credit.func";
   public static final String ASYNC_CALLBACK_POOL_SIZE = "io.async.callback.pool.size";
@@ -283,27 +287,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
 
     Map<String, String> tableConfig = new HashMap<>(super.toConfig(jobConfig));
 
-    // Handle rate limiter
-    if (!tagCreditsMap.isEmpty()) {
-      RateLimiter defaultRateLimiter;
-      try {
-        @SuppressWarnings("unchecked")
-        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
-        Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
-        defaultRateLimiter = ctor.newInstance(tagCreditsMap);
-      } catch (Exception ex) {
-        throw new SamzaException("Failed to create default rate limiter", ex);
-      }
-      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter), tableConfig);
-      if (defaultRateLimiter instanceof TablePart) {
-        addTablePartConfig(RATE_LIMITER, (TablePart) defaultRateLimiter, jobConfig, tableConfig);
-      }
-    } else if (rateLimiter != null) {
-      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter), tableConfig);
-      if (rateLimiter instanceof TablePart) {
-        addTablePartConfig(RATE_LIMITER, (TablePart) rateLimiter, jobConfig, tableConfig);
-      }
-    }
+    writeRateLimiterConfig(jobConfig, tableConfig);
 
     // Handle readCredit functions
     if (readCreditFn != null) {
@@ -348,6 +332,37 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
       addTablePartConfig(BATCH_PROVIDER, batchProvider, jobConfig, tableConfig);
     }
     return Collections.unmodifiableMap(tableConfig);
+  }
+
+  // Handle rate limiter
+  private void writeRateLimiterConfig(Config jobConfig, Map<String, String> tableConfig) {
+    if (!tagCreditsMap.isEmpty()) {
+      RateLimiter defaultRateLimiter;
+      try {
+        @SuppressWarnings("unchecked")
+        Class<? extends RateLimiter> clazz = (Class<? extends RateLimiter>) Class.forName(DEFAULT_RATE_LIMITER_CLASS_NAME);
+        Constructor<? extends RateLimiter> ctor = clazz.getConstructor(Map.class);
+        defaultRateLimiter = ctor.newInstance(tagCreditsMap);
+      } catch (Exception ex) {
+        throw new SamzaException("Failed to create default rate limiter", ex);
+      }
+      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", defaultRateLimiter), tableConfig);
+      if (defaultRateLimiter instanceof TablePart) {
+        addTablePartConfig(RATE_LIMITER, (TablePart) defaultRateLimiter, jobConfig, tableConfig);
+      }
+    } else if (rateLimiter != null) {
+      addTableConfig(RATE_LIMITER, SerdeUtils.serialize("rate limiter", rateLimiter), tableConfig);
+      if (rateLimiter instanceof TablePart) {
+        addTablePartConfig(RATE_LIMITER, (TablePart) rateLimiter, jobConfig, tableConfig);
+      }
+    }
+    //Write table api read/write rate limit
+    if (this.enableReadRateLimiter && tagCreditsMap.containsKey(RL_READ_TAG)) {
+      addTableConfig(READ_CREDITS, String.valueOf(tagCreditsMap.get(RL_READ_TAG)), tableConfig);
+    }
+    if (this.enableWriteRateLimiter && tagCreditsMap.containsKey(RL_WRITE_TAG)) {
+      addTableConfig(WRITE_CREDITS, String.valueOf(tagCreditsMap.get(RL_WRITE_TAG)), tableConfig);
+    }
   }
 
   @Override

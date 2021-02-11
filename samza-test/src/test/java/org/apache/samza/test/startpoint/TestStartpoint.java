@@ -449,7 +449,7 @@ public class TestStartpoint extends IntegrationTestHarness {
     config.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, TEST_JOB_COORDINATOR_FACTORY);
     config.put(ApplicationConfig.APP_NAME, appName);
     config.put(ApplicationConfig.APP_ID, appId);
-    config.put("app.runner.class", "org.apache.samza.runtime.LocalApplicationRunner");
+    config.put(ApplicationConfig.APP_RUNNER_CLASS, "org.apache.samza.runtime.LocalApplicationRunner");
     config.put(String.format("systems.%s.samza.factory", TEST_SYSTEM), TEST_SYSTEM_FACTORY);
     config.put(JobConfig.JOB_NAME, appName);
     config.put(JobConfig.JOB_ID, appId);

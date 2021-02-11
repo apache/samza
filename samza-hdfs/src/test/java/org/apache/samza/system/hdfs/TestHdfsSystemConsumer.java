@@ -113,7 +113,7 @@ public class TestHdfsSystemConsumer {
     while (eventsReceived < totalEvents && remainingRetries > 0) {
       remainingRetries--;
       Map<SystemStreamPartition, List<IncomingMessageEnvelope>> result = systemConsumer.poll(systemStreamPartitionSet, 1000);
-      for(SystemStreamPartition ssp : result.keySet()) {
+      for (SystemStreamPartition ssp : result.keySet()) {
         List<IncomingMessageEnvelope> messageEnvelopeList = result.get(ssp);
         overallResults.putIfAbsent(ssp, new ArrayList<>());
         overallResults.get(ssp).addAll(messageEnvelopeList);
@@ -127,7 +127,7 @@ public class TestHdfsSystemConsumer {
     Assert.assertEquals(NUM_FILES, overallResults.size());
     overallResults.values().forEach(messages -> {
       Assert.assertEquals(NUM_EVENTS + 1, messages.size());
-      for (int index = 0;index < NUM_EVENTS; index++) {
+      for (int index = 0; index < NUM_EVENTS; index++) {
         GenericRecord record = (GenericRecord) messages.get(index).getMessage();
         Assert.assertEquals(index % NUM_EVENTS, record.get(FIELD_1));
         Assert.assertEquals("string_" + (index % NUM_EVENTS), record.get(FIELD_2).toString());

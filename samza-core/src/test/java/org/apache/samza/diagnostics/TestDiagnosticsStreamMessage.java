@@ -18,6 +18,7 @@
  */
 package org.apache.samza.diagnostics;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
@@ -46,6 +49,7 @@ public class TestDiagnosticsStreamMessage {
   private final String hostname = "sample host name";
   private final long timestamp = System.currentTimeMillis();
   private final long resetTimestamp = System.currentTimeMillis();
+  private final Config config = new MapConfig(ImmutableMap.of("job.name", jobName, "job.id", jobId));
 
   private DiagnosticsStreamMessage getDiagnosticsStreamMessage() {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
@@ -55,6 +59,7 @@ public class TestDiagnosticsStreamMessage {
     diagnosticsStreamMessage.addContainerMb(1024);
     diagnosticsStreamMessage.addContainerNumCores(2);
     diagnosticsStreamMessage.addNumPersistentStores(3);
+    diagnosticsStreamMessage.addConfig(config);
 
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
     return diagnosticsStreamMessage;
@@ -107,6 +112,7 @@ public class TestDiagnosticsStreamMessage {
     Assert.assertEquals(1024, (int) diagnosticsStreamMessage.getContainerMb());
     Assert.assertEquals(2, (int) diagnosticsStreamMessage.getContainerNumCores());
     Assert.assertEquals(3, (int) diagnosticsStreamMessage.getNumPersistentStores());
+    Assert.assertEquals(config, diagnosticsStreamMessage.getConfig());
     Assert.assertEquals(exceptionEventList, diagnosticsStreamMessage.getExceptionEvents());
     Assert.assertEquals(getSampleContainerModels(), diagnosticsStreamMessage.getContainerModels());
     Assert.assertEquals(diagnosticsStreamMessage.getProcessorStopEvents(), getProcessorStopEventList());
@@ -139,6 +145,7 @@ public class TestDiagnosticsStreamMessage {
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerNumCores"));
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("containerMemoryMb"));
     Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("stopEvents"));
+    Assert.assertTrue(metricsMap.get(DiagnosticsManager.class.getName()).containsKey("config"));
 
     DiagnosticsStreamMessage convertedDiagnosticsStreamMessage =
         DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);

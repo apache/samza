@@ -34,7 +34,10 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import static org.junit.Assert.*;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 
 public class TestLocalityManager {
 
@@ -59,7 +62,7 @@ public class TestLocalityManager {
     LocalityManager localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE));
 
     localityManager.writeContainerToHostMapping("0", "localhost");
-    Map<String, Map<String, String>> localMap = localityManager.readContainerLocality();
+    Map<String, Map<String, String>> localMap = readContainerLocality(localityManager);
     Map<String, Map<String, String>> expectedMap =
       new HashMap<String, Map<String, String>>() {
         {
@@ -87,9 +90,9 @@ public class TestLocalityManager {
 
     localityManager.writeContainerToHostMapping("1", "localhost");
 
-    assertEquals(localityManager.readContainerLocality().size(), 1);
+    assertEquals(readContainerLocality(localityManager).size(), 1);
 
-    assertEquals(ImmutableMap.of("1", ImmutableMap.of("host", "localhost")), localityManager.readContainerLocality());
+    assertEquals(ImmutableMap.of("1", ImmutableMap.of("host", "localhost")), readContainerLocality(localityManager));
 
     localityManager.close();
 
@@ -97,5 +100,14 @@ public class TestLocalityManager {
     MockCoordinatorStreamSystemConsumer consumer = coordinatorStreamStoreTestUtil.getMockCoordinatorStreamSystemConsumer();
     assertTrue(producer.isStopped());
     assertTrue(consumer.isStopped());
+  }
+
+  static Map<String, Map<String, String>> readContainerLocality(LocalityManager localityManager) {
+    Map<String, Map<String, String>> containerLocalityMap = new HashMap<>();
+    localityManager.readLocality().getProcessorLocalities().forEach((containerId, containerLocality) -> {
+      containerLocalityMap.put(containerId, ImmutableMap.of("host", containerLocality.host()));
+    });
+
+    return containerLocalityMap;
   }
 }

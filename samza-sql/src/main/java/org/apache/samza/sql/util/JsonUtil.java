@@ -22,7 +22,7 @@ package org.apache.samza.sql.util;
 import java.io.IOException;
 import java.io.StringWriter;
 
-import org.apache.commons.lang.Validate;
+import org.apache.commons.lang3.Validate;
 import org.apache.samza.SamzaException;
 import org.codehaus.jackson.map.DeserializationConfig;
 import org.codehaus.jackson.map.ObjectMapper;

@@ -77,6 +77,7 @@ public class StorageRecovery {
   private final Map<String, ContainerStorageManager> containerStorageManagers = new HashMap<>();
 
   private int maxPartitionNumber = 0;
+  private JobModel jobModel;
   private Map<String, ContainerModel> containers = new HashMap<>();
 
   /**
@@ -116,15 +117,15 @@ public class StorageRecovery {
 
     systemAdmins.start();
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> {
-        try {
-          containerStorageManager.start();
-        } catch (InterruptedException e) {
-          // we can ignore the exception since its only used in the context of a command line tool and bubbling the
-          // exception upstream isn't needed.
-          LOG.warn("Received an interrupt during store restoration for container {}."
-              + " Proceeding with the next container", containerName);
-        }
-      });
+      try {
+        containerStorageManager.start();
+      } catch (InterruptedException e) {
+        // we can ignore the exception since its only used in the context of a command line tool and bubbling the
+        // exception upstream isn't needed.
+        LOG.warn("Received an interrupt during store restoration for container {}."
+            + " Proceeding with the next container", containerName);
+      }
+    });
     this.containerStorageManagers.forEach((containerName, containerStorageManager) -> containerStorageManager.shutdown());
     systemAdmins.stop();
 
@@ -145,6 +146,7 @@ public class StorageRecovery {
           JobModelManager.apply(configFromCoordinatorStream, changelogStreamManager.readPartitionMapping(),
               coordinatorStreamStore, metricsRegistryMap);
       JobModel jobModel = jobModelManager.jobModel();
+      this.jobModel = jobModel;
       containers = jobModel.getContainers();
     } finally {
       coordinatorStreamStore.close();
@@ -201,13 +203,13 @@ public class StorageRecovery {
     // Adding all serdes from factories
     serializerConfig.getSerdeNames()
         .forEach(serdeName -> {
-            String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
-              .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
-            @SuppressWarnings("unchecked")
-            Serde<Object> serde =
-                ReflectionUtil.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
-            serdeMap.put(serdeName, serde);
-          });
+          String serdeClassName = serializerConfig.getSerdeFactoryClass(serdeName)
+            .orElseGet(() -> SerializerConfig.getPredefinedSerdeFactoryName(serdeName));
+          @SuppressWarnings("unchecked")
+          Serde<Object> serde =
+              ReflectionUtil.getObj(serdeClassName, SerdeFactory.class).getSerde(serdeName, serializerConfig);
+          serdeMap.put(serdeName, serde);
+        });
 
     return serdeMap;
   }
@@ -248,8 +250,8 @@ public class StorageRecovery {
               this.getSerdes(),
               jobConfig,
               new HashMap<>(),
-              new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap()),
-              JobContextImpl.fromConfigWithDefaults(jobConfig),
+              new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap(), ""),
+              JobContextImpl.fromConfigWithDefaults(jobConfig, jobModel),
               containerContext,
               new HashMap<>(),
               storeBaseDir,

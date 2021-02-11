@@ -36,7 +36,6 @@ import org.apache.samza.rest.resources.mock.MockResourceFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
-import org.glassfish.jersey.test.JerseyTest;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -45,7 +44,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 
-public class TestJobsResource extends JerseyTest {
+public class TestJobsResource extends BaseJerseyTest {
   ObjectMapper objectMapper = SamzaObjectMapper.getObjectMapper();
 
   @Override
@@ -126,7 +125,7 @@ public class TestJobsResource extends JerseyTest {
     Response resp = target(String.format("v1/jobs/%s/%s", "BadJobName", MockJobProxy.JOB_INSTANCE_2_ID)).request().get();
     assertEquals(404, resp.getStatus());
 
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message"), errorMessage.get("message").contains("does not exist"));
     resp.close();
   }
@@ -137,7 +136,7 @@ public class TestJobsResource extends JerseyTest {
     Response resp = target(String.format("v1/jobs/%s/%s", MockJobProxy.JOB_INSTANCE_2_NAME, "BadJobId")).request().get();
     assertEquals(404, resp.getStatus());
 
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message"), errorMessage.get("message").contains("does not exist"));
     resp.close();
   }
@@ -185,7 +184,7 @@ public class TestJobsResource extends JerseyTest {
         .queryParam("status", "BADSTATUS").request().put(Entity.form(new Form()));
     assertEquals(400, resp.getStatus());
 
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message").contains("BADSTATUS"));
     resp.close();
   }
@@ -197,7 +196,7 @@ public class TestJobsResource extends JerseyTest {
         .put(Entity.form(new Form()));
     assertEquals(400, resp.getStatus());
 
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message").contains("status"));
     resp.close();
   }

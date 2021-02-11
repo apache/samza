@@ -69,7 +69,7 @@ public class CliEnvironment {
    */
   public int setEnvironmentVariable(String name, String value) throws ExecutorException, CommandHandlerException {
     name = name.toLowerCase();
-    if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
+    if (name.equals(CliConstants.CONFIG_EXECUTOR)) {
       createShellExecutor(value);
       activeExecutorClassName = value;
       executorEnvHandler = executor.getEnvironmentVariableHandler();
@@ -85,9 +85,9 @@ public class CliEnvironment {
     }
 
     EnvironmentVariableHandler handler = getAppropriateHandler(name);
-    if(handler == null) {
+    if (handler == null) {
       // Shell doesn't recognize this variable. There's no executor handler yet. Save for future executor
-      if(delayedExecutorVars == null) {
+      if (delayedExecutorVars == null) {
         delayedExecutorVars = new HashMap<>();
       }
       delayedExecutorVars.put(name, value);
@@ -103,12 +103,12 @@ public class CliEnvironment {
    * @return value of the environment variable. Returns null if the variable is not set.
    */
   public String getEnvironmentVariable(String name) {
-    if(name.equalsIgnoreCase(CliConstants.CONFIG_EXECUTOR)) {
+    if (name.equalsIgnoreCase(CliConstants.CONFIG_EXECUTOR)) {
       return activeExecutorClassName;
     }
 
     EnvironmentVariableHandler handler = getAppropriateHandler(name);
-    if(handler == null)
+    if (handler == null)
       return null;
 
     return handler.getEnvironmentVariable(name);
@@ -120,10 +120,9 @@ public class CliEnvironment {
    * @return An array of all possible valid values of the environment variable. Returns null
    * if the environment variable name given is invalid.
    */
-  public String[] getPossibleValues(String name)
-  {
+  public String[] getPossibleValues(String name) {
     EnvironmentVariableHandler handler = getAppropriateHandler(name);
-    if(handler == null)
+    if (handler == null)
       return null;
 
     EnvironmentVariableSpecs.Spec spec = handler.getSpecs().getSpec(name);
@@ -138,7 +137,7 @@ public class CliEnvironment {
   public void printAll(PrintWriter writer) {
     printVariable(writer, CliConstants.CONFIG_EXECUTOR, activeExecutorClassName);
     printAll(writer, shellEnvHandler);
-    if(executorEnvHandler != null) {
+    if (executorEnvHandler != null) {
       printAll(writer, executorEnvHandler);
     }
   }
@@ -148,7 +147,7 @@ public class CliEnvironment {
    * making default values take effect
    */
   public void finishInitialization() throws CliException {
-    if(executor == null) {
+    if (executor == null) {
       try {
         createShellExecutor(CliConstants.DEFAULT_EXECUTOR_CLASS);
         activeExecutorClassName = CliConstants.DEFAULT_EXECUTOR_CLASS;
@@ -175,10 +174,10 @@ public class CliEnvironment {
    */
   private void finishInitialization(EnvironmentVariableHandler handler) {
     List<Pair<String, EnvironmentVariableSpecs.Spec>> list = handler.getSpecs().getAllSpecs();
-    for(Pair<String, EnvironmentVariableSpecs.Spec> pair : list) {
+    for (Pair<String, EnvironmentVariableSpecs.Spec> pair : list) {
       String name = pair.getL();
       EnvironmentVariableSpecs.Spec spec = pair.getR();
-      if(CliUtil.isNullOrEmpty(handler.getEnvironmentVariable(name))) {
+      if (CliUtil.isNullOrEmpty(handler.getEnvironmentVariable(name))) {
         handler.setEnvironmentVariable(name, spec.getDefaultValue());
       }
     }
@@ -196,7 +195,9 @@ public class CliEnvironment {
    * retrieves the list of {@link CommandHandler}s setup in this environment
    * @return List of {@link CommandHandler}
    */
-  public List<CommandHandler> getCommandHandlers() { return commandHandlers; }
+  public List<CommandHandler> getCommandHandlers() {
+    return commandHandlers;
+  }
 
   private void createShellExecutor(String executorClassName) throws ExecutorException {
     try {
@@ -213,7 +214,7 @@ public class CliEnvironment {
 
   private void createCommandHandler(String handlerClassName) throws CommandHandlerException {
     try {
-    commandHandlers.add((CommandHandler) createInstance(handlerClassName));
+      commandHandlers.add((CommandHandler) createInstance(handlerClassName));
     } catch (ClassCastException e) {
       String errMsg = String.format("Error trying to cast Object of class %s to CommandHandler", handlerClassName);
       LOG.error(errMsg);
@@ -253,7 +254,7 @@ public class CliEnvironment {
    */
   private void printAll(PrintWriter writer, EnvironmentVariableHandler handler) {
     List<Pair<String, String>> shellEnvs = handler.getAllEnvironmentVariables();
-    for(Pair<String, String> pair : shellEnvs) {
+    for (Pair<String, String> pair : shellEnvs) {
       printVariable(writer, pair.getL(), pair.getR());
     }
   }

@@ -23,25 +23,28 @@ package org.apache.samza.job
 import java.io.File
 
 import org.apache.samza.config.ShellCommandConfig
-import org.apache.samza.config.ShellCommandConfig.Config2ShellCommand
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
+
 import scala.collection.JavaConverters._
 
 class ShellCommandBuilder extends CommandBuilder {
   def buildCommand() = {
+    val shellCommandConfig = new ShellCommandConfig(config)
     if(commandPath == null || commandPath.isEmpty())
-      config.getCommand
+      shellCommandConfig.getCommand
     else
-      commandPath + File.separator +  config.getCommand
+      commandPath + File.separator +  shellCommandConfig.getCommand
   }
 
   def buildEnvironment(): java.util.Map[String, String] = {
+    val shellCommandConfig = new ShellCommandConfig(config)
     val envMap = Map(
       ShellCommandConfig.ENV_CONTAINER_ID -> id.toString,
       ShellCommandConfig.ENV_COORDINATOR_URL -> url.toString,
-      ShellCommandConfig.ENV_JAVA_OPTS -> config.getTaskOpts.getOrElse(""),
-      ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR -> config.getAdditionalClasspathDir.getOrElse(""))
+      ShellCommandConfig.ENV_JAVA_OPTS -> shellCommandConfig.getTaskOpts.orElse(""),
+      ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR -> shellCommandConfig.getAdditionalClasspathDir.orElse(""))
 
-    val envMapWithJavaHome = config.getJavaHome match {
+    val envMapWithJavaHome = JavaOptionals.toRichOptional(shellCommandConfig.getJavaHome).toOption match {
       case Some(javaHome) => envMap + (ShellCommandConfig.ENV_JAVA_HOME -> javaHome)
       case None => envMap
     }

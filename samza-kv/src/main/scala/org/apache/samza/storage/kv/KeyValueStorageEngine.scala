@@ -24,11 +24,12 @@ import java.io.File
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StorageEngine, StoreProperties}
 import org.apache.samza.system.{ChangelogSSPIterator, OutgoingMessageEnvelope, SystemStreamPartition}
-import org.apache.samza.task.MessageCollector
+import org.apache.samza.task.{MessageCollector, TaskInstanceCollector}
 import org.apache.samza.util.TimerUtil
 import java.nio.file.Path
 import java.util.Optional
 
+import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.checkpoint.CheckpointId
 
 /**
@@ -196,7 +197,7 @@ class KeyValueStorageEngine[K, V](
       }
       lastBatchFlushed = true
     }
-    info(restoredMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + ".")
+    info(trimmedMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + ".")
 
     // flush the store and the changelog producer
     flush() // TODO HIGH pmaheshw SAMZA-2338: Need a way to flush changelog producers. This only flushes the stores.
@@ -251,5 +252,15 @@ class KeyValueStorageEngine[K, V](
       metrics.snapshots.inc
       wrapperStore.snapshot(from, to)
     }
+  }
+
+  @VisibleForTesting
+  private[kv] def getRawStore: KeyValueStore[Array[Byte], Array[Byte]] = {
+    rawStore
+  }
+
+  @VisibleForTesting
+  private[kv] def getWrapperStore: KeyValueStore[K, V] = {
+    wrapperStore
   }
 }

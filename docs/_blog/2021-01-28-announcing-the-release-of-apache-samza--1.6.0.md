@@ -1,0 +1,72 @@
+---
+layout: blog
+title: Announcing the release of Apache Samza 1.6.0
+icon: git-pull-request
+authors:
+    - name: Boris Shkolnik
+      website:
+      image:
+excerpt_separator: <!--more-->
+---
+
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+# **Announcing the release of Apache Samza 1.6.0**
+
+<!--more-->
+
+We are thrilled to announce the release of Apache Samza 1.6.0.
+
+### Bug Fixes:
+In 1.6 release we fixed multipe issues and refactored some code. This includes correct shutdown flow for Kafka clients (and thus avoiding confusing error messages), consolidation of Beam and High/Low Samza launch workflow, and more.
+For applications that are already on Samza 1.5.0, updating your dependencies to use Samza 1.6.0 should be sufficient to upgrade.
+For applications that are on version 1.4 & below, please see instructions for 1.5.1 upgrade.
+
+#### Usage Instructions
+N/A
+
+#### Rollback Instructions
+N/A
+
+### Bug Fixes
+    [SAMZA-2595](https://issues.apache.org/jira/browse/SAMZA-2595) Updated MonitorService to use separate ScheduleExecutor for each monitor (#1434)
+
+    [SAMZA-2587](https://issues.apache.org/jira/browse/SAMZA-2587) IntermediateMessageSerde exception handling (#1426)
+
+    [SAMZA-2593](https://issues.apache.org/jira/browse/SAMZA-2593) Update task callback to store only necessary fields instead of the message envelope (#1433)
+
+    [SAMZA-2574](https://issues.apache.org/jira/browse/SAMZA-2574) improve flexibility of SystemFactory interface
+
+    [SAMZA-2589](https://issues.apache.org/jira/browse/SAMZA-2589) Consolidate Beam and High/Low Samza Apps launch workflow (#1428)
+
+    [SAMZA-2558](https://issues.apache.org/jira/browse/SAMZA-2558) Refactor app.runner.class
+
+    [SAMZA-2424](https://issues.apache.org/jira/browse/SAMZA-2524) AM should cache and serve serialized Job Model to containers (#1241)
+
+    [SAMZA-2584](https://issues.apache.org/jira/browse/SAMZA-2584) Refactor ClusterBasedJobCoordinator (#1424)
+
+    [SAMZA-2585](https://issues.apache.org/jira/browse/SAMZA-2585) Modify shutdown sequence to handle orphaned AMs (#1422)
+
+    [SAMZA-2439](https://issues.apache.org/jira/browse/SAMZA-2439) Remove LocalityManager and container location information from JobModel (#1421)
+
+    [SAMZA-2579](https://issues.apache.org/jira/browse/SAMZA-2579) Force restart feature for Container Placements (#1414)
+
+    [SAMZA-2598](https://issues.apache.org/jira/browse/SAMZA-2598) Kafka clients are not created and closed properly
+
+### Sources downloads
+A source download of Samza 1.6.0 is available [here](https://dist.apache.org/repos/dist/release/samza/1.6.0/), and is also available in Apache’s Maven repository. See Samza’s download [page](https://samza.apache.org/startup/download/) for details and Samza’s feature preview for new features.

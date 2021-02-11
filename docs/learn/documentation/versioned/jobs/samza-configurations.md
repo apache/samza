@@ -32,6 +32,7 @@ The following table lists the complete set of properties that can be included in
   + [3.4 Event Hubs](#eventhubs)
   + [3.5 Kinesis](#kinesis)
   + [3.6 ElasticSearch](#elasticsearch)
+  + [3.7 Azure Blob Storage](#azure-blob-storage)
 * [4. State Storage](#state-storage)
   + [4.1 Advanced Storage Configurations](#advanced-storage-configurations)
 * [5. Deployment](#deployment)
@@ -245,6 +246,35 @@ Configs for producing to [ElasticSearch](https://www.elastic.co/products/elastic
 |systems.**_system-name_**.<br>bulk.flush.max.size.mb|5|The maximum aggregate size of messages in the buffered before flushing.|
 |systems.**_system-name_**.<br>bulk.flush.interval.ms|never|How often buffered messages should be flushed.|
 
+#### <a name="azure-blob-storage"></a>[3.7 Azure Blob Storage](#azure-blob-storage)
+Configs for producing to [Azure Blob Storage](https://azure.microsoft.com/en-us/services/storage/blobs/). This section applies if you have set systems.**__system-name__**.samza.factory = `org.apache.samza.system.azureblob.AzureBlobSystemFactory`.<br>
+**_system-name_** is the Azure container name you want to produce blobs to. If such a container does not exist then it is created.<br> 
+
+|Name|Default|Description|
+|--- |--- |--- |
+|sensitive.systems.**_system-name_**.azureblob.account.name| |__Required:__ The Azure account name to which the Azure container belongs to. |
+|sensitive.systems.**_system-name_**.azureblob.account.key| |__Required:__ Key for the Azure account specified above.|
+
+#### <a name="advanced-azure-blob-storage"></a>[Advanced Azure Blob Storage Configurations](#advanced-azure-blob-storage)
+|Name|Default|Description|
+|--- |--- |--- |
+|systems.**_system-name_**.azureblob.proxy.use |false|if true, proxy will be used to connect to Azure.|
+|systems.**_system-name_**.azureblob.proxy.hostname| |if proxy.use is true then host name of proxy.|
+|systems.**_system-name_**.azureblob.proxy.port| |if proxy.use is true then port of proxy.|
+|systems.**_system-name_**.azureblob.writer.factory.class|`org.apache.samza.system.`<br>`azureblob.avro.`<br>`AzureBlobAvroWriterFactory`|Fully qualified class name of the `org.apache.samza.system.azureblob.producer.AzureBlobWriter` impl for the system producer.<br><br>The default writer creates blobs that are of type AVRO and require the messages sent to a blob to be AVRO records. The blobs created by the default writer are of type [Block Blobs](https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs#about-block-blobs).|
+|systems.**_system-name_**.azureblob.compression.type|"none"|type of compression to be used before uploading blocks. Can be "none" or "gzip".|
+|systems.**_system-name_**.azureblob.maxFlushThresholdSize|10485760 (10 MB)|max size of the uncompressed block to be uploaded in bytes. Maximum size allowed by Azure is 100MB.|
+|systems.**_system-name_**.azureblob.maxBlobSize|Long.MAX_VALUE (unlimited)|max size of the uncompressed blob in bytes.<br>If default value then size is unlimited capped only by Azure BlockBlob size of 4.75 TB (100 MB per block X 50,000 blocks).|
+|systems.**_system-name_**.azureblob.maxMessagesPerBlob|Long.MAX_VALUE (unlimited)|max number of messages per blob.|
+|systems.**_system-name_**.azureblob.threadPoolCount|2|number of threads for the asynchronous uploading of blocks.|
+|systems.**_system-name_**.azureblob.blockingQueueSize|Thread Pool Count * 2|size of the queue to hold blocks ready to be uploaded by asynchronous threads.<br>If all threads are busy uploading then blocks are queued and if queue is full then main thread will start uploading which will block processing of incoming messages.|
+|systems.**_system-name_**.azureblob.flushTimeoutMs|180000 (3 mins)|timeout to finish uploading all blocks before committing a blob.|
+|systems.**_system-name_**.azureblob.closeTimeoutMs|300000 (5 mins)|timeout to finish committing all the blobs currently being written to. This does not include the flush timeout per blob.|
+|systems.**_system-name_**.azureblob.suffixRandomStringToBlobName|true|if true, a random string of 8 chars is suffixed to the blob name to prevent name collision when more than one Samza tasks are writing to the same SSP.|
+|systems.**_system-name_**.azureblob.metadataPropertiesGeneratorFactory|`org.apache.samza.system.`<br>`azureblob.utils.`<br>`NullBlobMetadataGeneratorFactory`|Fully qualified class name of the `org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory` impl for the system producer. <br><br>The default metadata generator does not add any metadata to the blob.| 
+|systems.**_system-name_**.azureblob.metadataGeneratorConfig| |Additional configs for the metadata generator should be prefixed with this string which is passed to the generator.<br>For example, to pass a "key":"value" pair to the metadata generator, add config like systems.<system-name>.azureblob.metadataGeneratorConfig.\<key\> with value \<value\>| 
+
+
 ### <a name="state-storage"></a>[4. State Storage](#state-storage)
 These properties define Samza's storage mechanism for efficient [stateful stream processing](../container/state-management.html). Stateful applications should configure base directories for durable and non-durable stores using `job.logged.store.base.dir` and `job.non.logged.store.base.dir` respectively.
 
@@ -264,6 +294,8 @@ These properties define Samza's storage mechanism for efficient [stateful stream
 ##### <a name="advanced-storage-configurations"></a>[4.1 Advanced Storage Configurations](#advanced-storage-configurations)
 |Name|Default|Description|
 |--- |--- |--- |
+|stores.default.changelog.<br>min.compaction.lag.ms|14400000|This property defines the default minimum period that must pass before a changelog message can be compacted. Be mindful that the larger this value, the larger in size changelog topics will be in Kafka due to un-compacted data and the longer your application's time to restore from changelog will be. This may impact your application's startup time if host affinity is not enabled. For changelog topics which have "compact,delete" cleanup policy, this value should be < retention.ms.|
+|stores.**_store-name_**.changelog.<br>min.compaction.lag.ms|stores.default.changelog.<br>min.compaction.lag.ms|This property defines the minimum period that must pass before a message in the store's changelog can be compacted. Be mindful that the larger this value, the larger in size the changelog topic will be in Kafka due to un-compacted data and the longer your application's time to restore from changelog will be. This may impact your application's startup time if host affinity is not enabled. For changelog topics which have "compact,delete" cleanup policy, this value should be < retention.ms.|
 |stores.default.changelog.<br>replication.factor|2|This property defines the default number of replicas to use for the change log stream.|
 |stores.**_store-name_**.changelog.<br>replication.factor|stores.default.changelog.<br>replication.factor|The property defines the number of replicas to use for the change log stream.|
 |stores.**_store-name_**.changelog.<br>kafka.topic-level-property| |The property allows you to specify topic level settings for the changelog topic to be created. For e.g., you can specify the clean up policy as "stores.mystore.changelog.cleanup.policy=delete". Please refer to the [Kafka documentation](http://kafka.apache.org/documentation.html#configuration) for more topic level configurations.|
@@ -292,6 +324,9 @@ Samza supports both standalone and clustered ([YARN](yarn-jobs.html)) [deploymen
 |job.container.count|1|The number of YARN containers to request for running your job. This is the main parameter for controlling the scale (allocated computing resources) of your job: to increase the parallelism of processing, you need to increase the number of containers. The minimum is one container, and the maximum number of containers is the number of task instances (usually the number of input stream partitions). Task instances are evenly distributed across the number of containers that you specify.|
 |cluster-manager.container.memory.mb|1024|How much memory, in megabytes, to request from the cluster manager per container of your job. Along with cluster-manager.container.cpu.cores, this property determines how many containers the cluster manager will run on one machine. If the container exceeds this limit, it will be killed, so it is important that the container's actual memory use remains below the limit. The amount of memory used is normally the JVM heap size (configured with task.opts), plus the size of any off-heap memory allocation (for example stores.*.container.cache.size.bytes), plus a safety margin to allow for JVM overheads.|
 |cluster-manager.container.cpu.cores|1|The number of CPU cores to request per container of your job. Each node in the cluster has a certain number of CPU cores available, so this number (along with cluster-manager.container.memory.mb) determines how many containers can be run on one machine.|
+|yarn.am.high-availability.enabled|false|If true, enables Job Coordinator (AM) high availability (HA) where a new AM can establish connection with already running containers.  
+|yarn.container.heartbeat.retry.count|5|If AM-HA is enabled, when a running container loses heartbeat with AM, this count gives the number of times an already running container will attempt to establish heartbeat with new AM|
+|yarn.container.heartbeat.retry-sleep-duration.ms|10000|If AM-HA is enabled, when a running container loses heartbeat with AM, this duration gives the amount of time a running container will sleep between attempts to establish heartbeat with new AM.|
 
 ##### <a name="advanced-cluster-configurations"></a>[5.1.1 Advanced Cluster Configurations](#advanced-cluster-configurations)
 |Name|Default|Description|
@@ -303,6 +338,8 @@ Samza supports both standalone and clustered ([YARN](yarn-jobs.html)) [deploymen
 |cluster-manager.jobcoordinator.jmx.enabled|true|This is deprecated in favor of `job.jmx.enabled`|
 |cluster-manager.allocator.sleep.ms|3600|The container allocator thread is responsible for matching requests to allocated containers. The sleep interval for this thread is configured using this property.|
 |cluster-manager.container.request.timeout.ms|5000|The allocator thread periodically checks the state of the container requests and allocated containers to determine the assignment of a container to an allocated resource. This property determines the number of milliseconds before a container request is considered to have expired / timed-out. When a request expires, it gets allocated to any available container that was returned by the cluster manager.|
+|cluster-manager.fault-domain-aware.standby.enabled|false|This property when set to true, makes standby container allocation fault domain aware. Along with this, you will also need to configure `cluster-manager.fault-domain-manager.factory`.|
+|cluster-manager.fault-domain-manager.factory|`org.apache.samza.`<br>`job.yarn.`<br>`YarnFaultDomainManagerFactory`|This is the fully qualified name of the Java class that determines which factory to use based on the cluster manager, while making standby container allocations fault domain aware. This configuration applies only when `cluster-manager.fault-domain-aware.standby.enabled` is set to true.|
 |task.execute|bin/run-container.sh|The command that starts a Samza container. The script must be included in the [job package](./packaging.html). There is usually no need to customize this.|
 |task.java.home| |The JAVA_HOME path for Samza containers. By setting this property, you can use a java version that is different from your cluster's java version. Remember to set the `yarn.am.java.home` as well.|
 |yarn.am.container.<br>memory.mb|1024|Each Samza job when running in Yarn has one special container, the [ApplicationMaster](../yarn/application-master.html) (AM), which manages the execution of the job. This property determines how much memory, in megabytes, to request from YARN for running the ApplicationMaster.|

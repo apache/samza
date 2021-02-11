@@ -72,9 +72,9 @@ public class TestStreamOperatorTask {
     CountDownLatch failureLatch = new CountDownLatch(1);
 
     doAnswer(ctx -> {
-        failureLatch.countDown();
-        return null;
-      }).when(mockTaskCallback).failure(anyObject());
+      failureLatch.countDown();
+      return null;
+    }).when(mockTaskCallback).failure(anyObject());
 
     operatorTask.processAsync(mock(IncomingMessageEnvelope.class), mockMessageCollector,
         mockTaskCoordinator, mockTaskCallback);

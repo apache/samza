@@ -82,6 +82,7 @@ rat {
     'docs/_site/**',
     'docs/sitemap.xml',
     'docs/learn/documentation/*/api/javadocs/**',
+    'docs/learn/documentation/*/rest/javadocs/**',
     'docs/Gemfile.lock',
     'gradle/wrapper/**',
     'gradlew',
@@ -90,6 +91,7 @@ rat {
     'README.md',
     'RELEASE.md',
     'samza-core/src/test/resources/classloader/samza-framework-api-classes.txt',
+    'samza-core/src/test/resources/*.txt',
     'samza-test/src/main/resources/**',
     'samza-hdfs/src/main/resources/**',
     'samza-hdfs/src/test/resources/**',
@@ -118,6 +120,12 @@ subprojects {
   apply plugin: 'eclipse'
   apply plugin: 'project-report'
   apply plugin: 'jacoco'
+  apply plugin: 'checkstyle'
+
+  checkstyle {
+    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
+    toolVersion = "$checkstyleVersion"
+  }
 
   tasks.withType(ScalaCompile) {
     // show compile errors in console output
@@ -138,7 +146,6 @@ subprojects {
 }
 
 project(':samza-api') {
-  apply plugin: 'checkstyle'
   apply plugin: 'java'
 
   dependencies {
@@ -151,15 +158,10 @@ project(':samza-api') {
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-core_$scalaSuffix") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -180,6 +182,8 @@ project(":samza-core_$scalaSuffix") {
     compile project(':samza-api')
     compile("com.101tec:zkclient:$zkClientVersion") {
       exclude module: 'junit:junit'
+      // exclude the slf4j implementation since it should be up to the application to choose the logging implementation
+      exclude group: 'org.slf4j', module: 'slf4j-log4j12'
     }
     compile "com.google.guava:guava:$guavaVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
@@ -200,23 +204,25 @@ project(":samza-core_$scalaSuffix") {
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
     testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
     testCompile "org.hamcrest:hamcrest-all:$hamcrestVersion"
+    // zookeeper debug logging causes some memory issues in tests; avoid those issues by using log4j2, which defaults to error log level
+    testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:$log4j2Version"
   }
 
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
+  test {
+    // some unit tests use embedded zookeeper, so adding some extra memory for those
+    maxHeapSize = "1560m"
+    jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 }
 
 project(":samza-azure_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile "com.azure:azure-storage-blob:12.0.1"
     compile "com.microsoft.azure:azure-storage:5.3.1"
     compile "com.microsoft.azure:azure-eventhubs:1.0.1"
-    compile "com.fasterxml.jackson.core:jackson-core:2.8.8"
+    compile "com.fasterxml.jackson.core:jackson-core:2.10.0"
     compile "io.dropwizard.metrics:metrics-core:3.1.2"
     compile "org.apache.avro:avro:$avroVersion"
     compile project(':samza-api')
@@ -228,15 +234,10 @@ project(":samza-azure_$scalaSuffix") {
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
   }
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-aws_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile "com.amazonaws:aws-java-sdk-kinesis:1.11.152"
@@ -257,11 +258,6 @@ project(":samza-aws_$scalaSuffix") {
     maven {
       url "https://repo1.maven.org/maven2/"
     }
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -297,6 +293,7 @@ project(":samza-sql_$scalaSuffix") {
     compile project(":samza-kv-rocksdb_$scalaSuffix")
     compile "org.apache.avro:avro:$avroVersion"
     compile "org.apache.calcite:calcite-core:$calciteVersion"
+    compile "org.codehaus.janino:commons-compiler:3.0.11"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "org.reflections:reflections:0.9.10"
 
@@ -425,7 +422,6 @@ project(":samza-kafka_$scalaSuffix") {
 
 project(":samza-log4j_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile "log4j:log4j:$log4jVersion"
@@ -435,16 +431,10 @@ project(":samza-log4j_$scalaSuffix") {
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
   }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
 }
 
 project(":samza-log4j2_$scalaSuffix") {
   apply plugin: 'java'
-  apply plugin: 'checkstyle'
 
   dependencies {
     compile "org.apache.logging.log4j:log4j-1.2-api:$log4j2Version"
@@ -455,11 +445,6 @@ project(":samza-log4j2_$scalaSuffix") {
     compile project(":samza-core_$scalaSuffix")
     compile "org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
   }
 }
 
@@ -563,40 +548,45 @@ project(":samza-shell") {
   }
 
   // Usage: ./gradlew samza-shell:runJob \
-  //  -PconfigPath=file:///path/to/job/config.properties
+  //  -PconfigPath=/path/to/job/config.properties
   task runJob(type:JavaExec) {
     description 'To run a job (defined in a properties file)'
     main = 'org.apache.samza.job.JobRunner'
     classpath = configurations.gradleShell
-    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    if (project.hasProperty('configPath')) args += [
+        '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+        '--config', 'job.config.loader.properties.path=' + configPath]
     jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 
   // Usage: ./gradlew samza-shell:checkpointTool \
-  //  -PconfigPath=file:///path/to/job/config.properties -PnewOffsets=file:///path/to/new/offsets.properties
+  //  -PconfigPath=/path/to/job/config.properties -PnewOffsets=/path/to/new/offsets.properties
   task checkpointTool(type:JavaExec) {
     description 'Command-line tool to inspect and manipulate the job’s checkpoint'
     main = 'org.apache.samza.checkpoint.CheckpointTool'
     classpath = configurations.gradleShell
-    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    if (project.hasProperty('configPath')) args += [
+        '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+        '--config', 'job.config.loader.properties.path=' + configPath]
     if (project.hasProperty('newOffsets')) args += ['--new-offsets', newOffsets]
     jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 
   // Usage: ./gradlew samza-shell:kvPerformanceTest
-  //  -PconfigPath=file:///path/to/job/config.properties
+  //  -PconfigPath=/path/to/job/config.properties
   task kvPerformanceTest(type:JavaExec) {
     description 'Command-line tool to run key-value performance tests'
     main = 'org.apache.samza.test.performance.TestKeyValuePerformance'
     classpath = configurations.gradleShell
-    if (project.hasProperty('configPath')) args += ['--config-path', configPath]
+    if (project.hasProperty('configPath')) args += [
+        '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+        '--config', 'job.config.loader.properties.path=' + configPath]
     jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
   }
 }
 
 project(":samza-kv_$scalaSuffix") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -612,35 +602,22 @@ project(":samza-kv_$scalaSuffix") {
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
+    testCompile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
-  }
-
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
   }
 }
 
 project(":samza-kv-inmemory_$scalaSuffix") {
-  apply plugin: 'scala'
-
-  // Force scala joint compilation
-  sourceSets.main.scala.srcDir "src/main/java"
-  sourceSets.test.scala.srcDir "src/test/java"
-
-  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
-  // tasks.compileTestJava.enabled = false
-  sourceSets.main.java.srcDirs = []
-  sourceSets.test.java.srcDirs = []
+  apply plugin: 'java'
 
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
     compile project(":samza-kv_$scalaSuffix")
-    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "com.google.guava:guava:$guavaVersion"
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
 }
 
@@ -668,29 +645,17 @@ project(":samza-kv-rocksdb_$scalaSuffix") {
 }
 
 project(":samza-kv-couchbase_$scalaSuffix") {
-  apply plugin: 'scala'
-
-  // Force scala joint compilation
-  sourceSets.main.scala.srcDir "src/main/java"
-  sourceSets.test.scala.srcDir "src/test/java"
-
-  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
-  // tasks.compileTestJava.enabled = false
-  sourceSets.main.java.srcDirs = []
-  sourceSets.test.java.srcDirs = []
+  apply plugin: 'java'
 
   dependencies {
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
-    compile project(":samza-kv_$scalaSuffix")
-    compile "org.scala-lang:scala-library:$scalaVersion"
     compile "com.couchbase.client:java-client:$couchbaseClientVersion"
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile "org.powermock:powermock-api-mockito:$powerMockVersion"
     testCompile "org.powermock:powermock-core:$powerMockVersion"
     testCompile "org.powermock:powermock-module-junit4:$powerMockVersion"
-    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
   }
 }
 
@@ -785,7 +750,6 @@ project(":samza-rest_$scalaSuffix") {
 
 project(":samza-test_$scalaSuffix") {
   apply plugin: 'scala'
-  apply plugin: 'checkstyle'
 
   // Force scala joint compilation
   sourceSets.main.scala.srcDir "src/main/java"
@@ -846,11 +810,6 @@ project(":samza-test_$scalaSuffix") {
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 
-  checkstyle {
-    configFile = new File(rootDir, "checkstyle/checkstyle.xml")
-    toolVersion = "$checkstyleVersion"
-  }
-
   tasks.create(name: "releaseTestJobs", dependsOn: configurations.archives.artifacts, type: Tar) {
     description 'Build an integration test tarball'
     compression = Compression.GZIP
@@ -865,4 +824,9 @@ project(":samza-test_$scalaSuffix") {
     from(configurations.runtime) { into("lib/") }
     from(configurations.archives.artifacts.files) { into("lib/") }
   }
+}
+
+// SAMZA-2473 read wrapper version from gradle.properties
+wrapper {
+  gradleVersion = project.gradleVersion
 }
