@@ -484,8 +484,8 @@ public class AzureBlobSystemProducer implements SystemProducer {
     Set<CompletableFuture<Void>> pendingClose = ConcurrentHashMap.newKeySet();
     try {
       sourceWriterMap.forEach((stream, writer) -> {
-          LOG.info("Closing topic:{}", stream);
-          CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
+        LOG.info("Closing topic:{}", stream);
+        CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
             @Override
             public void run() {
               try {
@@ -493,8 +493,8 @@ public class AzureBlobSystemProducer implements SystemProducer {
               } catch (Exception e) {
                 throw new SystemProducerException("Close failed for topic " + stream, e);
               }
-          }
-        }, asyncBlobThreadPool);
+            }
+          }, asyncBlobThreadPool);
         pendingClose.add(future);
         future.handle((aVoid, throwable) -> {
           sourceWriterMap.remove(writer);
