@@ -245,6 +245,18 @@ public class TestAzureBlobAvroWriter {
   }
 
   @Test
+  public void testNPEinFlush() throws Exception {
+    // do not provide the dataFileWrite, azureBloboutputstream and blockblob client -- to force creation during first write
+    azureBlobAvroWriter =
+        spy(new AzureBlobAvroWriter(PowerMockito.mock(BlobContainerAsyncClient.class), mock(AzureBlobWriterMetrics.class), threadPool, THRESHOLD,
+            60000, "test", null, null, null,
+            blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
+            Long.MAX_VALUE, Long.MAX_VALUE, mockCompression, false)); // keeping blob size and number of records unlimited
+    when(azureBlobAvroWriter.encodeRecord((IndexedRecord) ome.getMessage())).thenThrow(IllegalStateException.class);
+    azureBlobAvroWriter.flush(); // No NPE because has null check for currentBlobWriterComponents
+  }
+
+  @Test
   public void testMaxBlobSizeExceeded() throws Exception {
     String blobUrlPrefix = "test";
     String blobNameRegex = "test/[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9]{2}/[0-9]{2}-[0-9]{2}-.{8}.avro.gz";
