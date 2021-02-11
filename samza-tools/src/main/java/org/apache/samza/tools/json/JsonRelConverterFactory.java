@@ -21,6 +21,8 @@ package org.apache.samza.tools.json;
 
 import java.io.IOException;
 import java.util.List;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -31,8 +33,6 @@ import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SamzaRelConverter;
 import org.apache.samza.sql.interfaces.SamzaRelConverterFactory;
 import org.apache.samza.system.SystemStream;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.node.ObjectNode;
 
 
 /**

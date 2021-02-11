@@ -18,9 +18,9 @@
  */
 package org.apache.samza.serializers.model;
 
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * A mix-in Jackson class to convert {@link org.apache.samza.job.JobCoordinatorMetadata} to/from JSON

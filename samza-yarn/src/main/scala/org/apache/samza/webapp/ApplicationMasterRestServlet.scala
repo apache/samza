@@ -29,11 +29,11 @@ import org.apache.samza.job.yarn.{ClientHelper, YarnAppState}
 import org.apache.samza.metrics._
 
 import scala.collection.JavaConverters._
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import java.util.HashMap
 
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.codehaus.jackson.map.ObjectMapper
 
 object ApplicationMasterRestServlet {
   def getMetrics(jsonMapper: ObjectMapper, metricsRegistry: ReadableMetricsRegistry) = {

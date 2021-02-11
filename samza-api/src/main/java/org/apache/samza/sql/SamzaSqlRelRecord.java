@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.apache.samza.annotation.InterfaceStability;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 
 /**

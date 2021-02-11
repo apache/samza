@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.commons.lang3.Validate;
 import org.apache.samza.sql.SamzaSqlRelRecord;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 
 /**

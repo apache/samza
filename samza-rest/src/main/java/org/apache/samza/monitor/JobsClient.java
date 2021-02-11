@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.codec.binary.StringUtils;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpStatus;
@@ -34,8 +36,6 @@ import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.model.Task;
 import org.apache.samza.rest.proxy.job.JobInstance;
 import org.apache.samza.rest.resources.ResourceConstants;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -18,11 +18,11 @@
  */
 package org.apache.samza.checkpoint.kafka;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.serializers.Serde;
-import org.codehaus.jackson.map.ObjectMapper;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;

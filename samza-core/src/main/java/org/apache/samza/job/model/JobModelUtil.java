@@ -30,7 +30,7 @@ import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.codehaus.jackson.map.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Utility class for the {@link JobModel}

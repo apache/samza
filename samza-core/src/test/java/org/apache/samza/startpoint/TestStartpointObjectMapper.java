@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.time.Instant;
 import org.apache.samza.Partition;
 import org.apache.samza.system.SystemStreamPartition;
-import org.codehaus.jackson.map.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Assert;
 import org.junit.Test;
 

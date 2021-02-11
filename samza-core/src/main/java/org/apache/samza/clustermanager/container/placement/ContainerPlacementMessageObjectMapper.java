@@ -23,21 +23,21 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.ObjectCodec;
+import com.fasterxml.jackson.core.Version;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.jsontype.NamedType;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.ObjectCodec;
-import org.codehaus.jackson.Version;
-import org.codehaus.jackson.map.DeserializationContext;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.map.SerializerProvider;
-import org.codehaus.jackson.map.jsontype.NamedType;
-import org.codehaus.jackson.map.module.SimpleModule;
 
 /**
  * Object mapper for serializing and deserializing Container placement messages
@@ -100,17 +100,17 @@ public class ContainerPlacementMessageObjectMapper {
         throws IOException {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
-      String subType = node.get("subType").getTextValue();
-      String deploymentId = node.get("deploymentId").getTextValue();
-      String processorId = node.get("processorId").getTextValue();
-      String destinationHost = node.get("destinationHost").getTextValue();
-      long timestamp = node.get("timestamp").getLongValue();
+      String subType = node.get("subType").textValue();
+      String deploymentId = node.get("deploymentId").textValue();
+      String processorId = node.get("processorId").textValue();
+      String destinationHost = node.get("destinationHost").textValue();
+      long timestamp = node.get("timestamp").longValue();
       Duration requestExpiry =
-          node.get("requestExpiry") == null ? null : Duration.ofMillis(node.get("requestExpiry").getLongValue());
+          node.get("requestExpiry") == null ? null : Duration.ofMillis(node.get("requestExpiry").longValue());
       ContainerPlacementMessage.StatusCode statusCode = null;
-      UUID uuid = UUID.fromString(node.get("uuid").getTextValue());
+      UUID uuid = UUID.fromString(node.get("uuid").textValue());
       for (ContainerPlacementMessage.StatusCode code : ContainerPlacementMessage.StatusCode.values()) {
-        if (code.name().equals(node.get("statusCode").getTextValue())) {
+        if (code.name().equals(node.get("statusCode").textValue())) {
           statusCode = code;
         }
       }
@@ -118,7 +118,7 @@ public class ContainerPlacementMessageObjectMapper {
       if (subType.equals(ContainerPlacementRequestMessage.class.getSimpleName())) {
         message = new ContainerPlacementRequestMessage(uuid, deploymentId, processorId, destinationHost, requestExpiry, timestamp);
       } else if (subType.equals(ContainerPlacementResponseMessage.class.getSimpleName())) {
-        String responseMessage = node.get("responseMessage").getTextValue();
+        String responseMessage = node.get("responseMessage").textValue();
         message = new ContainerPlacementResponseMessage(uuid, deploymentId, processorId, destinationHost, requestExpiry,
             statusCode, responseMessage, timestamp);
       }

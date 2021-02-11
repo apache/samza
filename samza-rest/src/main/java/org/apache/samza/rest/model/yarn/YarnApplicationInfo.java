@@ -19,11 +19,11 @@
 package org.apache.samza.rest.model.yarn;
 
 import java.util.Collections;
+import com.fasterxml.jackson.annotation.JsonRootName;
 import org.apache.samza.rest.proxy.job.JobInstance;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
-import org.codehaus.jackson.map.annotate.JsonRootName;
 
 
 @JsonRootName("apps")

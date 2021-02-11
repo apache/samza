@@ -19,10 +19,10 @@
 
 package org.apache.samza.system.kinesis.consumer;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.JsonSerdeV2;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 
 /**

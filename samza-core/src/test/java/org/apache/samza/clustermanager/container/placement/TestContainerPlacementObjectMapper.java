@@ -23,10 +23,10 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Random;
 import java.util.UUID;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.samza.container.placement.ContainerPlacementMessage;
 import org.apache.samza.container.placement.ContainerPlacementRequestMessage;
 import org.apache.samza.container.placement.ContainerPlacementResponseMessage;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 
 import static org.junit.Assert.assertTrue;

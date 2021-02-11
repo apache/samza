@@ -18,6 +18,8 @@
  */
 package org.apache.samza.rest.proxy.job;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,8 +37,6 @@ import org.apache.samza.rest.model.yarn.YarnApplicationInfo;
 import org.apache.samza.rest.model.yarn.YarnApplicationInfo.YarnApplication;
 import org.apache.samza.rest.resources.JobsResourceConfig;
 import org.apache.samza.rest.resources.YarnJobResourceConfig;
-import org.codehaus.jackson.map.DeserializationConfig;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +57,7 @@ public class YarnRestJobStatusProvider implements JobStatusProvider {
 
     this.httpClient = new HttpClient();
     this.apiEndpoint = String.format("http://%s/ws/v1/cluster/apps", yarnConfig.getYarnResourceManagerEndpoint());
-    OBJECT_MAPPER.configure(DeserializationConfig.Feature.UNWRAP_ROOT_VALUE, true);
+    OBJECT_MAPPER.configure(DeserializationFeature.UNWRAP_ROOT_VALUE, true);
   }
 
   @Override
