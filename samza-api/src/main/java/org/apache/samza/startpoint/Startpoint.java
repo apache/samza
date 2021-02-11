@@ -22,7 +22,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.time.Instant;
 import org.apache.samza.annotation.InterfaceStability;
-import org.codehaus.jackson.annotate.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 /**
  * Startpoint represents a position in a stream partition.

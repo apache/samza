@@ -19,16 +19,16 @@
 
 package org.apache.samza.serializers.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskModel;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
  * A mix-in Jackson class to convert {@link org.apache.samza.job.model.ContainerModel} to JSON.
  * Notes:
  * 1) Constructor is not needed because this mixin is not used for deserialization. See {@link SamzaObjectMapper}.
- * 2) It is unnecessary to use {@link org.codehaus.jackson.annotate.JsonIgnoreProperties#ignoreUnknown()} here since
+ * 2) It is unnecessary to use {@link com.fasterxml.jackson.annotation.JsonIgnoreProperties#ignoreUnknown()} here since
  * {@link SamzaObjectMapper} already uses custom deserialization code for the
  * {@link org.apache.samza.job.model.ContainerModel}.
  * 3) See {@link SamzaObjectMapper} for more context about why the JSON keys are named in this specified way.

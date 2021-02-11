@@ -19,10 +19,10 @@
 
 package org.apache.samza.serializers
 
+import com.fasterxml.jackson.core.`type`.TypeReference
 import org.apache.samza.SamzaException
 import org.apache.samza.config.Config
 import org.apache.samza.serializers.model.SamzaObjectMapper
-import org.codehaus.jackson.`type`.TypeReference
 import org.slf4j.LoggerFactory
 
 

@@ -18,7 +18,7 @@
  */
 package org.apache.samza.rest.model;
 
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 
 /**

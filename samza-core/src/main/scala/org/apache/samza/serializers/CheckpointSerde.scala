@@ -19,15 +19,15 @@
 
 package org.apache.samza.serializers
 
+import com.fasterxml.jackson.core.`type`.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.samza.util.Logging
 import java.util
 import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.container.TaskName
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.{SamzaException, Partition}
-import org.codehaus.jackson.map.ObjectMapper
 import scala.collection.JavaConverters._
-import org.codehaus.jackson.`type`.TypeReference
 
 /**
  * Write out the Checkpoint object in JSON.  The underlying map of SSP => Offset cannot be stored directly because

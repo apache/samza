@@ -34,8 +34,8 @@ import org.apache.samza.rest.resources.mock.MockJobProxy;
 import org.apache.samza.rest.resources.mock.MockJobProxyFactory;
 import org.apache.samza.rest.resources.mock.MockResourceFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

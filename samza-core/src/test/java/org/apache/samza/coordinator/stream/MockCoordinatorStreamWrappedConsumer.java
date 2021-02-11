@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
@@ -32,7 +33,6 @@ import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.BlockingEnvelopeMap;
-import org.codehaus.jackson.map.ObjectMapper;
 
 /**
  * A mock SystemConsumer that pretends to be a coordinator stream. The mock will

@@ -19,14 +19,13 @@
 
 package org.apache.samza.sql.serializers;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
-
 
 /**
  * A serializer for {@link SamzaSqlRelMessage}. This serializer preserves the type information as

@@ -19,6 +19,7 @@
 
 package org.apache.samza.container;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -27,7 +28,6 @@ import java.net.URL;
 import java.util.stream.Collectors;
 import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.util.HttpUtil;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -18,8 +18,8 @@
  */
 
 package org.apache.samza.serializers
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.samza.config.Config
-import org.codehaus.jackson.map.ObjectMapper
 import org.apache.samza.metrics.reporter.MetricsSnapshot
 
 class MetricsSnapshotSerde extends Serde[MetricsSnapshot] {

@@ -33,7 +33,7 @@ import org.apache.samza.job.yarn.YarnAppState;
 import org.apache.samza.job.yarn.YarnContainer;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
-import org.codehaus.jackson.map.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

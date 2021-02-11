@@ -20,7 +20,7 @@ package org.apache.samza.test.operator.data;
 
 
 import java.io.Serializable;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class PageView implements Serializable {
   private String viewId;
