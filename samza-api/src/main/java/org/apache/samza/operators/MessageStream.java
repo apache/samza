@@ -228,7 +228,8 @@ public interface MessageStream<M> {
       Serde<K> keySerde,
       Serde<M> messageSerde,
       Serde<OM> otherMessageSerde,
-      Duration ttl, String id) {
+      Duration ttl,
+      String id) {
     return join("",
         otherStream, joinFn, keySerde, messageSerde, otherMessageSerde, ttl, id);
   }
@@ -267,7 +268,8 @@ public interface MessageStream<M> {
       Serde<K> keySerde,
       Serde<M> messageSerde,
       Serde<OM> otherMessageSerde,
-      Duration ttl, String id);
+      Duration ttl,
+      String id);
 
   /**
    * Equivalent to {@code join("", table, joinFn, args)}
