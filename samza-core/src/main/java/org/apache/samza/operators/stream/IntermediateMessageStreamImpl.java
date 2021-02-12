@@ -44,13 +44,14 @@ public class IntermediateMessageStreamImpl<M> extends MessageStreamImpl<M> imple
   private final OutputStreamImpl<M> outputStream;
   private final boolean isKeyed;
 
+  @SuppressWarnings("unchecked")
   public IntermediateMessageStreamImpl(StreamApplicationDescriptorImpl appDesc, InputOperatorSpec inputOperatorSpec,
       OutputStreamImpl<M> outputStream) {
     super(appDesc, (OperatorSpec<?, M>) inputOperatorSpec);
     this.outputStream = outputStream;
     if (inputOperatorSpec.isKeyed() != outputStream.isKeyed()) {
       LOGGER.error("Input and output streams for intermediate stream {} aren't keyed consistently. Input: {}, Output: {}",
-          new Object[]{inputOperatorSpec.getStreamId(), inputOperatorSpec.isKeyed(), outputStream.isKeyed()});
+          inputOperatorSpec.getStreamId(), inputOperatorSpec.isKeyed(), outputStream.isKeyed());
     }
     this.isKeyed = inputOperatorSpec.isKeyed() && outputStream.isKeyed();
   }

@@ -50,24 +50,50 @@ import org.apache.samza.table.Table;
 public interface MessageStream<M> {
 
   /**
+   * Equivalent to {@code map("", mapFn)}.
+   * @see #map(String, MapFunction)
+   */
+  default <OM> MessageStream<OM> map(MapFunction<? super M, ? extends OM> mapFn) {
+    return map("", mapFn);
+  }
+
+  /**
    * Applies the provided 1:1 function to messages in this {@link MessageStream} and returns the
    * transformed {@link MessageStream}.
    *
+   * @param desc description of this mapping operation
    * @param mapFn the function to transform a message to another message
    * @param <OM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <OM> MessageStream<OM> map(MapFunction<? super M, ? extends OM> mapFn);
+  <OM> MessageStream<OM> map(String desc, MapFunction<? super M, ? extends OM> mapFn);
+
+  /**
+   * Equivalent to {@code flatMap("", flatMapFn)}.
+   * @see #flatMap(String, FlatMapFunction)
+   */
+  default <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn) {
+    return flatMap("", flatMapFn);
+  }
 
   /**
    * Applies the provided 1:n function to transform a message in this {@link MessageStream}
    * to n messages in the transformed {@link MessageStream}
    *
+   * @param desc description of this flat map operation
    * @param flatMapFn the function to transform a message to zero or more messages
    * @param <OM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <OM> MessageStream<OM> flatMap(FlatMapFunction<? super M, ? extends OM> flatMapFn);
+  <OM> MessageStream<OM> flatMap(String desc, FlatMapFunction<? super M, ? extends OM> flatMapFn);
+
+  /**
+   * Equivalent to {@code flatMapAsync("", asyncFlatMapFn)}
+   * @see #flatMapAsync(String, AsyncFlatMapFunction)
+   */
+  default <OM> MessageStream<OM> flatMapAsync(AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn) {
+    return flatMapAsync("", asyncFlatMapFn);
+  }
 
   /**
    * Applies the provided 1:n transformation asynchronously to this {@link MessageStream}. The asynchronous transformation
@@ -88,11 +114,20 @@ public interface MessageStream<M> {
    *   </li>
    * </ul>
    *
+   * @param desc description of this async flat map operation
    * @param asyncFlatMapFn the async function to transform a message to zero or more messages
    * @param <OM> the type of messages in the transformed {@link MessageStream}
    * @return the transformed {@link MessageStream}
    */
-  <OM> MessageStream<OM> flatMapAsync(AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn);
+  <OM> MessageStream<OM> flatMapAsync(String desc, AsyncFlatMapFunction<? super M, ? extends OM> asyncFlatMapFn);
+
+  /**
+   * Equivalent to {@code filter("", filterFn)}
+   * @see #filter(String, FilterFunction)
+   */
+  default MessageStream<M> filter(FilterFunction<? super M> filterFn) {
+    return filter("", filterFn);
+  }
 
   /**
    * Applies the provided function to messages in this {@link MessageStream} and returns the
@@ -101,10 +136,19 @@ public interface MessageStream<M> {
    * The {@link FilterFunction} is a predicate which determines whether a message in this {@link MessageStream}
    * should be retained in the filtered {@link MessageStream}.
    *
+   * @param desc description of this filter operation
    * @param filterFn the predicate to filter messages from this {@link MessageStream}.
    * @return the filtered {@link MessageStream}
    */
-  MessageStream<M> filter(FilterFunction<? super M> filterFn);
+  MessageStream<M> filter(String desc, FilterFunction<? super M> filterFn);
+
+  /**
+   * Equivalent to {@code sink("", sinkFn)}
+   * @see #sink(String, SinkFunction)
+   */
+  default void sink(SinkFunction<? super M> sinkFn) {
+    sink("", sinkFn);
+  }
 
   /**
    * Allows sending messages in this {@link MessageStream} to an output system using the provided {@link SinkFunction}.
@@ -116,9 +160,18 @@ public interface MessageStream<M> {
    * This can also be used to send output to a system (e.g. a database) that doesn't have a corresponding
    * Samza SystemProducer implementation.
    *
+   * @param desc description of this sink operation
    * @param sinkFn the function to send messages in this stream to an external system
    */
-  void sink(SinkFunction<? super M> sinkFn);
+  void sink(String desc, SinkFunction<? super M> sinkFn);
+
+  /**
+   * Equivalent to {@code sendTo("", outputStream)}
+   * @see #sendTo(String, OutputStream)
+   */
+  default MessageStream<M> sendTo(OutputStream<M> outputStream) {
+    return sendTo("", outputStream);
+  }
 
   /**
    * Allows sending messages in this {@link MessageStream} to an {@link OutputStream} and then propagates this
@@ -130,11 +183,19 @@ public interface MessageStream<M> {
    * Note: The message will be written but not flushed to the underlying output system before its propagated to the
    * chained operators. Messages retain the original partitioning scheme when propogated to next operator.
    *
+   * @param desc description of this send to operation
    * @param outputStream the output stream to send messages to
    * @return this {@link MessageStream}
    */
-  MessageStream<M> sendTo(OutputStream<M> outputStream);
+  MessageStream<M> sendTo(String desc, OutputStream<M> outputStream);
 
+  /**
+   * Equivalent to {@code window("", window, id)}
+   * @see #window(String, Window, String)
+   */
+  default <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String id) {
+    return window("", window, id);
+  }
   /**
    * Groups the messages in this {@link MessageStream} according to the provided {@link Window} semantics
    * (e.g. tumbling, sliding or session windows) and returns the transformed {@link MessageStream} of
@@ -147,6 +208,7 @@ public interface MessageStream<M> {
    * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
    * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
+   * @param desc description of this window operation
    * @param window the window to group and process messages from this {@link MessageStream}
    * @param id the unique id of this operator in this application
    * @param <K> the type of key in the message in this {@link MessageStream}. If a key is specified,
@@ -154,7 +216,22 @@ public interface MessageStream<M> {
    * @param <WV> the type of value in the {@link WindowPane} in the transformed {@link MessageStream}
    * @return the windowed {@link MessageStream}
    */
-  <K, WV> MessageStream<WindowPane<K, WV>> window(Window<M, K, WV> window, String id);
+  <K, WV> MessageStream<WindowPane<K, WV>> window(String desc, Window<M, K, WV> window, String id);
+
+  /**
+   * Equivalent to {@code join("", otherStream, joinFn, keySerde, messageSerde, otherMessageSerde, ttl, id)}
+   * @see #join(String, MessageStream, JoinFunction, Serde, Serde, Serde, Duration, String)
+   */
+  default <K, OM, JM> MessageStream<JM> join(
+      MessageStream<OM> otherStream,
+      JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
+      Serde<K> keySerde,
+      Serde<M> messageSerde,
+      Serde<OM> otherMessageSerde,
+      Duration ttl, String id) {
+    return join("",
+        otherStream, joinFn, keySerde, messageSerde, otherMessageSerde, ttl, id);
+  }
 
   /**
    * Joins this {@link MessageStream} with another {@link MessageStream} using the provided
@@ -170,6 +247,7 @@ public interface MessageStream<M> {
    * operator type). If the application logic is changed, this ID must be reused in the new operator to retain
    * state from the previous version, and changed for the new operator to discard the state from the previous version.
    *
+   * @param desc description of this join operation
    * @param otherStream the other {@link MessageStream} to be joined with
    * @param joinFn the function to join messages from this and the other {@link MessageStream}
    * @param keySerde the serde for the join key
@@ -182,10 +260,25 @@ public interface MessageStream<M> {
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
+  <K, OM, JM> MessageStream<JM> join(
+      String desc,
+      MessageStream<OM> otherStream,
       JoinFunction<? extends K, ? super M, ? super OM, ? extends JM> joinFn,
-      Serde<K> keySerde, Serde<M> messageSerde, Serde<OM> otherMessageSerde,
+      Serde<K> keySerde,
+      Serde<M> messageSerde,
+      Serde<OM> otherMessageSerde,
       Duration ttl, String id);
+
+  /**
+   * Equivalent to {@code join("", table, joinFn, args)}
+   * @see #join(String, Table, StreamTableJoinFunction, Object...)
+   */
+  default <K, R extends KV<?, ?>, JM> MessageStream<JM> join(
+      Table<R> table,
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn,
+      Object ... args) {
+    return join("", table, joinFn, args);
+  }
 
   /**
    * Joins this {@link MessageStream} with another {@link Table} using the provided
@@ -205,6 +298,7 @@ public interface MessageStream<M> {
    * and should be partitioned by the same join key.
    * <p>
    *
+   * @param desc description of this join operation
    * @param table the table being joined
    * @param joinFn the join function
    * @param args additional arguments passed to the table
@@ -213,18 +307,30 @@ public interface MessageStream<M> {
    * @param <JM> the type of messages resulting from the {@code joinFn}
    * @return the joined {@link MessageStream}
    */
-  <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
-      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn, Object ... args);
+  <K, R extends KV<?, ?>, JM> MessageStream<JM> join(
+      String desc,
+      Table<R> table,
+      StreamTableJoinFunction<? extends K, ? super M, ? super R, ? extends JM> joinFn,
+      Object ... args);
+
+  /**
+   * Equivalent to {@code merge("", otherStreams)}
+   * @see #merge(String, Collection)
+   */
+  default MessageStream<M> merge(Collection<? extends MessageStream<? extends M>> otherStreams) {
+    return merge("", otherStreams);
+  }
 
   /**
    * Merges all {@code otherStreams} with this {@link MessageStream}.
    * <p>
    * The merged stream contains messages from all streams in the order they arrive.
    *
+   * @param desc description of this merge operation
    * @param otherStreams other {@link MessageStream}s to be merged with this {@link MessageStream}
    * @return the merged {@link MessageStream}
    */
-  MessageStream<M> merge(Collection<? extends MessageStream<? extends M>> otherStreams);
+  MessageStream<M> merge(String desc, Collection<? extends MessageStream<? extends M>> otherStreams);
 
   /**
    * Merges all {@code streams}.
@@ -236,6 +342,7 @@ public interface MessageStream<M> {
    * @return the merged {@link MessageStream}
    * @throws IllegalArgumentException if {@code streams} is empty
    */
+  @SuppressWarnings("unchecked")
   static <T> MessageStream<T> mergeAll(Collection<? extends MessageStream<? extends T>> streams) {
     if (streams.isEmpty()) {
       throw new IllegalArgumentException("No streams to merge.");
@@ -243,6 +350,18 @@ public interface MessageStream<M> {
     ArrayList<MessageStream<T>> messageStreams = new ArrayList<>((Collection<MessageStream<T>>) streams);
     MessageStream<T> firstStream = messageStreams.remove(0);
     return firstStream.merge(messageStreams);
+  }
+
+  /**
+   * Equivalent to {@code partitionBy("", keyExtractor, valueExtractor, serde, id)}
+   * @see #partitionBy(String, MapFunction, MapFunction, KVSerde, String)
+   */
+  default <K, V> MessageStream<KV<K, V>> partitionBy(
+      MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> valueExtractor,
+      KVSerde<K, V> serde,
+      String id) {
+    return partitionBy("", keyExtractor, valueExtractor, serde, id);
   }
 
   /**
@@ -268,6 +387,7 @@ public interface MessageStream<M> {
    * <p>
    * Unlike {@link #sendTo}, messages with a null key are all sent to partition 0.
    *
+   * @param desc description of this partition by operation
    * @param keyExtractor the {@link MapFunction} to extract the message and partition key from the input message.
    *                     Messages with a null key are all sent to partition 0.
    * @param valueExtractor the {@link MapFunction} to extract the value from the input message
@@ -277,8 +397,20 @@ public interface MessageStream<M> {
    * @param <V> the type of output value
    * @return the repartitioned {@link MessageStream}
    */
-  <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super M, ? extends K> keyExtractor,
-      MapFunction<? super M, ? extends V> valueExtractor, KVSerde<K, V> serde, String id);
+  <K, V> MessageStream<KV<K, V>> partitionBy(
+      String desc,
+      MapFunction<? super M, ? extends K> keyExtractor,
+      MapFunction<? super M, ? extends V> valueExtractor,
+      KVSerde<K, V> serde,
+      String id);
+
+  /**
+   * Equivalent to {@code sendTo("", table, args)}
+   * @see #sendTo(String, Table, Object...)
+   */
+  default <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object ... args) {
+    return sendTo("", table, args);
+  }
 
   /**
    * Allows sending messages in this {@link MessageStream} to a {@link Table} and then propagates this
@@ -288,22 +420,32 @@ public interface MessageStream<M> {
    * Note: The message will be written but may not be flushed to the underlying table before its propagated to the
    * chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
    * it was flushed and whether the Table offers read after write consistency. Messages retain the original partitioning
-   * scheme when propogated to next operator.
+   * scheme when propagated to next operator.
    *
+   * @param desc description of this send to operation
    * @param table the table to write messages to
    * @param args additional arguments passed to the table
    * @param <K> the type of key in the table
    * @param <V> the type of record value in the table
    * @return this {@link MessageStream}
    */
-  <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object ... args);
+  <K, V> MessageStream<KV<K, V>> sendTo(String desc, Table<KV<K, V>> table, Object ... args);
 
   /**
+   * Equivalent to {@code broadcast("", serde, id)}
+   * @see #broadcast(String, Serde, String)
+   */
+  default MessageStream<M> broadcast(Serde<M> serde, String id) {
+    return broadcast("", serde, id);
+  }
+  /**
    * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..
+   *
+   * @param desc description of this broadcast operation
    * @param serde the {@link Serde} to use for (de)serializing the message.
    * @param id id the unique id of this operator in this application
    * @return the broadcast {@link MessageStream}
    */
-  MessageStream<M> broadcast(Serde<M> serde, String id);
+  MessageStream<M> broadcast(String desc, Serde<M> serde, String id);
 
 }

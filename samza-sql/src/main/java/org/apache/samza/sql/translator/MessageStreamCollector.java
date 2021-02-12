@@ -66,14 +66,17 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
    */
   private transient Function<Void, Void> closeFn = aVoid -> null;
 
+  /** {@inheritDoc} */
   @Override
-  public <OM> MessageStream<OM> map(MapFunction<? super SamzaSqlRelMessage, ? extends OM> mapFn) {
+  @SuppressWarnings("unchecked")
+  public <OM> MessageStream<OM> map(String desc, MapFunction<? super SamzaSqlRelMessage, ? extends OM> mapFn) {
     mapFnCallQueue.offer((MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage>) mapFn);
     return (MessageStream<OM>) this;
   }
 
+  /** {@inheritDoc} */
   @Override
-  public MessageStream<SamzaSqlRelMessage> filter(FilterFunction<? super SamzaSqlRelMessage> filterFn) {
+  public MessageStream<SamzaSqlRelMessage> filter(String desc, FilterFunction<? super SamzaSqlRelMessage> filterFn) {
     mapFnCallQueue.offer(new FilterMapAdapter(filterFn));
     return this;
   }
@@ -150,65 +153,90 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
     }
   }
 
+  /** {@inheritDoc} */
   @Override
-  public <OM> MessageStream<OM> flatMap(FlatMapFunction<? super SamzaSqlRelMessage, ? extends OM> flatMapFn) {
+  public <OM> MessageStream<OM> flatMap(String desc, FlatMapFunction<? super SamzaSqlRelMessage, ? extends OM> flatMapFn) {
     return null;
   }
 
+  /** {@inheritDoc} */
   @Override
   public <OM> MessageStream<OM> flatMapAsync(
+      String desc,
       AsyncFlatMapFunction<? super SamzaSqlRelMessage, ? extends OM> asyncFlatMapFn) {
     return null;
   }
 
+  /** {@inheritDoc} */
   @Override
-  public void sink(SinkFunction<? super SamzaSqlRelMessage> sinkFn) {
+  public void sink(String desc, SinkFunction<? super SamzaSqlRelMessage> sinkFn) {
     throw new IllegalStateException("Not valid state");
   }
 
+  /** {@inheritDoc} */
   @Override
-  public MessageStream<SamzaSqlRelMessage> sendTo(OutputStream<SamzaSqlRelMessage> outputStream) {
+  public MessageStream<SamzaSqlRelMessage> sendTo(String desc, OutputStream<SamzaSqlRelMessage> outputStream) {
     throw new IllegalStateException("Not valid state");
   }
 
+  /** {@inheritDoc} */
   @Override
-  public <K, WV> MessageStream<WindowPane<K, WV>> window(Window<SamzaSqlRelMessage, K, WV> window, String id) {
+  public <K, WV> MessageStream<WindowPane<K, WV>> window(String desc, Window<SamzaSqlRelMessage, K, WV> window, String id) {
     throw new IllegalStateException("Not valid state");
   }
 
+  /** {@inheritDoc} */
   @Override
-  public <K, OM, JM> MessageStream<JM> join(MessageStream<OM> otherStream,
-      JoinFunction<? extends K, ? super SamzaSqlRelMessage, ? super OM, ? extends JM> joinFn, Serde<K> keySerde,
-      Serde<SamzaSqlRelMessage> messageSerde, Serde<OM> otherMessageSerde, Duration ttl, String id) {
+  public <K, OM, JM> MessageStream<JM> join(
+      String desc,
+      MessageStream<OM> otherStream,
+      JoinFunction<? extends K, ? super SamzaSqlRelMessage, ? super OM, ? extends JM> joinFn,
+      Serde<K> keySerde,
+      Serde<SamzaSqlRelMessage> messageSerde,
+      Serde<OM> otherMessageSerde,
+      Duration ttl,
+      String id) {
     throw new IllegalStateException("Not valid state");
   }
 
+  /** {@inheritDoc} */
   @Override
-  public <K, R extends KV, JM> MessageStream<JM> join(Table<R> table,
+  public <K, R extends KV<?, ?>, JM> MessageStream<JM> join(
+      String desc,
+      Table<R> table,
       StreamTableJoinFunction<? extends K, ? super SamzaSqlRelMessage, ? super R, ? extends JM> joinFn,
       Object... args) {
     throw new IllegalStateException("Not valid state");
   }
 
+  /** {@inheritDoc} */
   @Override
   public MessageStream<SamzaSqlRelMessage> merge(
+      String desc,
       Collection<? extends MessageStream<? extends SamzaSqlRelMessage>> otherStreams) {
     throw new IllegalStateException("Not valid state");
   }
 
+  /** {@inheritDoc} */
   @Override
-  public <K, V> MessageStream<KV<K, V>> partitionBy(MapFunction<? super SamzaSqlRelMessage, ? extends K> keyExtractor,
-      MapFunction<? super SamzaSqlRelMessage, ? extends V> valueExtractor, KVSerde<K, V> serde, String id) {
+  public <K, V> MessageStream<KV<K, V>> partitionBy(
+      String desc,
+      MapFunction<? super SamzaSqlRelMessage, ? extends K> keyExtractor,
+      MapFunction<? super SamzaSqlRelMessage, ? extends V> valueExtractor,
+      KVSerde<K, V> serde,
+      String id) {
     throw new IllegalStateException("Not valid state");
   }
 
+  /** {@inheritDoc} */
   @Override
-  public <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object... args) {
+  public <K, V> MessageStream<KV<K, V>> sendTo(String desc, Table<KV<K, V>> table, Object... args) {
     throw new IllegalStateException("Not valid state");
   }
 
+  /** {@inheritDoc} */
   @Override
-  public MessageStream<SamzaSqlRelMessage> broadcast(Serde<SamzaSqlRelMessage> serde, String id) {
+  public MessageStream<SamzaSqlRelMessage> broadcast(String desc, Serde<SamzaSqlRelMessage> serde, String id) {
     throw new IllegalStateException("Not valid state");
   }
 }
