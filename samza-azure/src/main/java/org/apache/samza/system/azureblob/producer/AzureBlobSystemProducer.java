@@ -486,15 +486,15 @@ public class AzureBlobSystemProducer implements SystemProducer {
       sourceWriterMap.forEach((stream, writer) -> {
         LOG.info("Closing topic:{}", stream);
         CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
-          @Override
-          public void run() {
-            try {
-              writer.close();
-            } catch (IOException e) {
-              throw new SystemProducerException("Close failed for topic " + stream, e);
+            @Override
+            public void run() {
+              try {
+                writer.close();
+              } catch (Exception e) {
+                throw new SystemProducerException("Close failed for topic " + stream, e);
+              }
             }
-          }
-        }, asyncBlobThreadPool);
+          }, asyncBlobThreadPool);
         pendingClose.add(future);
         future.handle((aVoid, throwable) -> {
           sourceWriterMap.remove(writer);
