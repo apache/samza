@@ -20,12 +20,11 @@
 package org.apache.samza.storage;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
@@ -39,6 +38,7 @@ public class TaskStorageCommitManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(TaskStorageCommitManager.class);
   private static final long COMMIT_TIMEOUT_MS = 30000;
+  // There may be multiple
   private final TaskBackupManager storageBackupManager;
 
   public TaskStorageCommitManager(TaskBackupManager storageBackupManager) {
@@ -52,22 +52,20 @@ public class TaskStorageCommitManager {
   public Map<String, List<StateCheckpointMarker>> commit(TaskName taskName, CheckpointId checkpointId) {
     Map<String, StateCheckpointMarker> snapshot = storageBackupManager.snapshot(checkpointId);
     CompletableFuture<Map<String, StateCheckpointMarker>>
-        uploadFuture = storageBackupManager.upload(checkpointId, snapshot);
+        uploadFuture = storageBackupManager .upload(checkpointId, snapshot);
 
     try {
-      // TODO: Make async with andThen and add thread management for concurrency
-      Map<String, StateCheckpointMarker> uploadMap = uploadFuture.get(COMMIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      // TODO: Make async with andThen and add thread management for concurrency and add timeouts
+      Map<String, StateCheckpointMarker> uploadMap = uploadFuture.get();
       if (uploadMap != null) {
-        LOG.trace("Checkpointing stores for taskName: {}} with checkpoint id: {}", taskName, checkpointId);
+        LOG.trace("Persisting stores to file system for taskName: {}} with checkpoint id: {}", taskName, checkpointId);
         storageBackupManager.persistToFilesystem(checkpointId, uploadMap);
       }
 
       // TODO: call commit on multiple backup managers when available
-      return mergeCheckpoints(uploadMap);
-    } catch (TimeoutException e) {
-      throw new SamzaException("Upload timed out, commitTimeoutMs: " + COMMIT_TIMEOUT_MS, e);
+      return mergeCheckpoints(taskName, Collections.singletonList(uploadMap));
     } catch (Exception e) {
-      throw new SamzaException("Upload commit portion could not be completed", e);
+      throw new SamzaException("Upload commit portion could not be completed for taskName", e);
     }
   }
 
@@ -75,20 +73,20 @@ public class TaskStorageCommitManager {
     storageBackupManager.cleanUp(checkpointId);
   }
 
-  private Map<String, List<StateCheckpointMarker>> mergeCheckpoints(Map<String, StateCheckpointMarker>... stateCheckpoints) {
-    if (stateCheckpoints == null || stateCheckpoints.length < 1) {
-      return null;
+  private Map<String, List<StateCheckpointMarker>> mergeCheckpoints(TaskName taskName, List<Map<String, StateCheckpointMarker>> stateCheckpoints) {
+    if (stateCheckpoints == null || stateCheckpoints.size() < 1) {
+      return Collections.emptyMap();
     }
-    Map<String, StateCheckpointMarker> firstCheckpoint = stateCheckpoints[0];
+    Map<String, StateCheckpointMarker> firstCheckpoint = stateCheckpoints.get(0);
     if (firstCheckpoint == null) {
-      return null;
+      return Collections.emptyMap();
     }
     Map<String, List<StateCheckpointMarker>> mergedCheckpoints = new HashMap<>();
     for (String store : firstCheckpoint.keySet()) {
       List<StateCheckpointMarker> markers = new ArrayList<>();
       for (Map<String, StateCheckpointMarker> stateCheckpoint : stateCheckpoints) {
         if (!stateCheckpoint.containsKey(store)) {
-          throw new SamzaException("Store %s is not backed up in all remote backup systems");
+          throw new SamzaException(String.format("Store %s is not backed up in all remote backup systems for taskName: %s", store, taskName));
         }
         markers.add(stateCheckpoint.get(store));
       }

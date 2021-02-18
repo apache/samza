@@ -36,7 +36,7 @@ public class CheckpointId {
   private final long millis;
   private final long nanos;
 
-  public CheckpointId(long millis, long nanos) {
+  private CheckpointId(long millis, long nanos) {
     this.millis = millis;
     this.nanos = nanos;
   }

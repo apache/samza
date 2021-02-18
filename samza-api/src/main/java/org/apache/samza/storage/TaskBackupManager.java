@@ -22,6 +22,7 @@ package org.apache.samza.storage;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
 
@@ -41,9 +42,10 @@ import org.apache.samza.checkpoint.StateCheckpointMarker;
 public interface TaskBackupManager {
 
   /**
-   * Initiates the TaskBackupManagerIntance
+   * Initiates the TaskBackupManager instance
+   * @param checkpoint Last recorded checkpoint from the CheckpointManager
    */
-  default void init() {}
+  default void init(Checkpoint checkpoint) {}
 
   /**
    * Commit operation that is synchronous to processing
@@ -74,7 +76,7 @@ public interface TaskBackupManager {
   void cleanUp(CheckpointId checkpointId);
 
   /**
-   * Used for testing as a shutdown hook to cleanup any allocated resources
+   * Shutdown hook the backup manager to cleanup any allocated resources
    */
   void close();
 

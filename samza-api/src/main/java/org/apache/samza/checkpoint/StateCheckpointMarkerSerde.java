@@ -26,6 +26,7 @@ import org.apache.samza.SamzaException;
 public class StateCheckpointMarkerSerde<T extends StateCheckpointMarker> {
   private static final short PROTOCOL_VERSION = 1;
   private static final String SCM_SEPARATOR = ":";
+  private static final int PARTS_COUNT = 3;
 
   public String serialize(T payload, StateCheckpointPayloadSerde<T> serde) {
     StringBuilder builder = new StringBuilder();
@@ -42,9 +43,9 @@ public class StateCheckpointMarkerSerde<T extends StateCheckpointMarker> {
     if (StringUtils.isBlank(serializedSCM)) {
       throw new IllegalArgumentException("Invalid remote store checkpoint message: " + serializedSCM);
     }
-    String[] parts = serializedSCM.split(SCM_SEPARATOR);
-    if (parts.length != 3) {
-      throw new IllegalArgumentException("Invalid RemoteStore Metadata offset: " + serializedSCM);
+    String[] parts = serializedSCM.split(SCM_SEPARATOR, PARTS_COUNT);
+    if (parts.length != PARTS_COUNT) {
+      throw new IllegalArgumentException("Invalid state checkpoint marker: " + serializedSCM);
     }
     if (PROTOCOL_VERSION != Short.parseShort(parts[0])) {
       throw new SamzaException("StateCheckpointMarker deserialize protocol version does not match serialized version");

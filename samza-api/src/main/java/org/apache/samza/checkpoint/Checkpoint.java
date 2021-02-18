@@ -19,7 +19,7 @@
 
 package org.apache.samza.checkpoint;
 
-import java.util.HashMap;
+import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Objects;
 import org.apache.samza.system.SystemStreamPartition;
@@ -43,7 +43,7 @@ public class Checkpoint {
    * @param inputOffsets Map of Samza streams to their current offset.
    */
   public Checkpoint(Map<SystemStreamPartition, String>  inputOffsets) {
-    this(CheckpointId.getPlaceholderCheckpointId(), inputOffsets, new HashMap<>());
+    this(CheckpointId.getPlaceholderCheckpointId(), inputOffsets, Collections.EMPTY_MAP);
   }
 
   /**
@@ -55,7 +55,7 @@ public class Checkpoint {
   public Checkpoint(CheckpointId id, Map<SystemStreamPartition, String> inputOffsets, Map<String, List<StateCheckpointMarker>> stateCheckpoints) {
     this.checkpointId = id;
     this.inputOffsets = inputOffsets;
-    this.stateCheckpoints = stateCheckpoints;
+    this.stateCheckpoints = ImmutableMap.copyOf(stateCheckpoints);
   }
 
   /**
@@ -79,7 +79,7 @@ public class Checkpoint {
    * @return The state checkpoint markers for the checkpoint
    */
   public Map<String, List<StateCheckpointMarker>> getStateCheckpointMarkers() {
-    return stateCheckpoints;
+    return Collections.unmodifiableMap(stateCheckpoints);
   }
 
   @Override

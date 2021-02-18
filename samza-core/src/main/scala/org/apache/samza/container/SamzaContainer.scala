@@ -53,7 +53,7 @@ import org.apache.samza.SamzaException
 import org.apache.samza.clustermanager.StandbyTaskUtil
 
 import scala.collection.JavaConversions.mapAsScalaMap
-import scala.collection.{JavaConversions, mutable}
+import scala.collection.JavaConverters
 import scala.collection.JavaConverters._
 
 object SamzaContainer extends Logging {
@@ -582,7 +582,7 @@ object SamzaContainer extends Logging {
           commitManager = commitManager,
           containerStorageManager = containerStorageManager,
           tableManager = tableManager,
-          systemStreamPartitions = JavaConversions.setAsJavaSet(taskSSPs -- taskSideInputSSPs),
+          systemStreamPartitions = (taskSSPs -- taskSideInputSSPs).asJava,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, taskConfig),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,

@@ -45,20 +45,6 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   private static StreamMetadataCache streamCache;
   private static SSPMetadataCache sspCache;
 
-  private static StreamMetadataCache getStreamCache(SystemAdmins admins, Clock clock) {
-    if (streamCache == null) {
-      streamCache = new StreamMetadataCache(admins, 5000, clock);
-    }
-    return streamCache;
-  }
-
-  private static SSPMetadataCache getSspCache(SystemAdmins admins, Clock clock, Set<SystemStreamPartition> ssps) {
-    if (sspCache == null) {
-      sspCache = new SSPMetadataCache(admins, Duration.ofSeconds(5), clock, ssps);
-    }
-    return sspCache;
-  }
-
   @Override
   public TaskBackupManager getBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
       Map<String, StorageEngine> taskStores, Config config, Clock clock) {
@@ -86,9 +72,9 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
     Map<String, SystemStream> filteredStoreChangelogs = ContainerStorageManager
         .getChangelogSystemStreams(containerModel, storeChangelogs, null);
 
-    File defaultFileDir = new File(System.getProperty("user.dir"), "state");
-    File loggedStoreBaseDir = SamzaContainer.getLoggedStorageBaseDir(new JobConfig(config), defaultFileDir);
-    File nonLoggedStoreBaseDir = SamzaContainer.getNonLoggedStorageBaseDir(new JobConfig(config), defaultFileDir);
+    File defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state");
+    File loggedStoreBaseDir = SamzaContainer.getLoggedStorageBaseDir(new JobConfig(config), defaultStoreBaseDir);
+    File nonLoggedStoreBaseDir = SamzaContainer.getNonLoggedStorageBaseDir(new JobConfig(config), defaultStoreBaseDir);
 
     if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
       return new TransactionalStateTaskRestoreManager(
@@ -123,5 +109,32 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   @Override
   public TaskStorageAdmin getAdmin() {
     throw new SamzaException("getAdmin() method not supported for KafkaStateBackendFactory");
+  }
+
+  /**
+   * Shared cache across all KafkaRestoreManagers for the Kafka topic
+   * @param admins System admins used the fetch the stream metadata
+   * @param clock for cache invalidation
+   * @return StreamMetadataCache containing the stream metadata
+   */
+  private static StreamMetadataCache getStreamCache(SystemAdmins admins, Clock clock) {
+    if (streamCache == null) {
+      streamCache = new StreamMetadataCache(admins, 5000, clock);
+    }
+    return streamCache;
+  }
+
+  /**
+   * Shared cache across KafkaRestoreManagers for the Kafka partition
+   * @param admins System admins used the fetch the stream metadata
+   * @param clock for cache invalidation
+   * @param ssps SSPs to prefetch
+   * @return SSPMetadataCache containing the partition metadata
+   */
+  private static SSPMetadataCache getSspCache(SystemAdmins admins, Clock clock, Set<SystemStreamPartition> ssps) {
+    if (sspCache == null) {
+      sspCache = new SSPMetadataCache(admins, Duration.ofSeconds(5), clock, ssps);
+    }
+    return sspCache;
   }
 }

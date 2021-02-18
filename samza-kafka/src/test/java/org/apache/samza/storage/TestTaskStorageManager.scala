@@ -135,7 +135,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     // Test 2: flush should update the offset file
     val checkpointId = CheckpointId.create()
     val snapshot = taskManager.snapshot(checkpointId)
-    taskManager.upload(checkpointId, snapshot)
+    val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot)
+    taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
     assertTrue(offsetFile.exists())
     validateOffsetFileContents(offsetFile, "kafka.testStream-loggedStore1.0", "50")
 
@@ -221,7 +222,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     // Test 2: flush should NOT create/update the offset file. Store directory has no files
     val checkpointId = CheckpointId.create()
     val snapshot = taskManager.snapshot(checkpointId)
-    taskManager.upload(checkpointId, snapshot)
+    val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot)
+    taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is NOT created
@@ -410,7 +412,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     //Invoke test method
     val checkpointId = CheckpointId.create()
     val snapshot = taskStorageManager.snapshot(checkpointId)
-    taskStorageManager.upload(checkpointId, snapshot)
+    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
+    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -457,7 +460,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     //Invoke test method
     val checkpointId = CheckpointId.create()
     var snapshot = taskStorageManager.snapshot(checkpointId)
-    taskStorageManager.upload(checkpointId, snapshot)
+    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
+    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -465,7 +469,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
 
     //Invoke test method again
     snapshot = taskStorageManager.snapshot(checkpointId)
-    taskStorageManager.upload(checkpointId, snapshot)
+    val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot)
+    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
 
     //Check conditions
     assertFalse("Offset file for null offset exists!", offsetFilePath.exists())
@@ -505,7 +510,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     //Invoke test method
     val checkpointId = CheckpointId.create()
     var snapshot = taskStorageManager.snapshot(checkpointId)
-    taskStorageManager.upload(checkpointId, snapshot)
+    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
+    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -517,7 +523,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
 
     //Invoke test method
     snapshot = taskStorageManager.snapshot(checkpointId)
-    taskStorageManager.upload(checkpointId, snapshot)
+    val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot)
+    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())

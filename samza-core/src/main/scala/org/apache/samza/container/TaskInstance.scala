@@ -35,7 +35,7 @@ import org.apache.samza.storage.{ContainerStorageManager, TaskStorageCommitManag
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
-import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals.toRichOptional
 import org.apache.samza.util.{Logging, ScalaJavaUtil}
 
 import scala.collection.JavaConversions._
@@ -77,7 +77,7 @@ class TaskInstance(
   private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
       if (containerStorageManager != null) {
-        val storeOption = JavaOptionals.toRichOptional(containerStorageManager.getStore(taskName, storeName)).toOption
+        val storeOption = containerStorageManager.getStore(taskName, storeName).toOption
         if (storeOption.isDefined) storeOption.get.asInstanceOf[KeyValueStore[_, _]] else null
       } else {
         null
@@ -225,11 +225,13 @@ class TaskInstance(
   def commit {
     metrics.commits.inc
 
-    val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
+    // Retrieve input checkpoints
     val inputCheckpoint = offsetManager.buildCheckpoint(taskName)
-    if (inputCheckpoint != null) {
+    val inputOffsets = if (inputCheckpoint != null)  {
       trace("Got input offsets for taskName: %s as: %s" format(taskName, inputCheckpoint.getInputOffsets))
-      allCheckpointOffsets.putAll(inputCheckpoint.getInputOffsets)
+      inputCheckpoint.getInputOffsets
+    } else {
+      new java.util.HashMap[SystemStreamPartition, String]()
     }
 
     trace("Flushing producers for taskName: %s" format taskName)
@@ -241,27 +243,24 @@ class TaskInstance(
     }
 
     val checkpointId = CheckpointId.create()
-    var newestStateCheckpointMakers: util.Map[String, util.List[StateCheckpointMarker]] = null
     // Perform state commit
-    if (commitManager != null) {
-      trace("Flushing state stores for taskName: %s" format taskName)
-      newestStateCheckpointMakers = commitManager.commit(taskName, checkpointId)
-      trace("Got newest state checkpoint markers for taskName: %s as: %s " format(taskName, newestStateCheckpointMakers))
-    }
-    val checkpoint = new Checkpoint(checkpointId, allCheckpointOffsets, newestStateCheckpointMakers)
-    trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
+    trace("Committing state stores for taskName: %s" format taskName)
+    val stateCheckpointMarkers = commitManager.commit(taskName, checkpointId)
+    trace("Got newest state checkpoint markers for taskName: %s as: %s " format(taskName, stateCheckpointMarkers))
 
-    // Commit state and input checkpoints offsets atomically
+
+    val checkpoint = new Checkpoint(checkpointId, inputOffsets, stateCheckpointMarkers)
+    trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, checkpoint))
+
+    // Write input offsets and state checkpoint markers to the checkpoint topic atomically
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
     // Perform cleanup on unused checkpoints
-    if (commitManager != null) {
-      trace("Remove old checkpoint stores for taskName: %s" format taskName)
-      try {
-        commitManager.cleanUp(checkpointId)
-      } catch {
-        case e: Exception => error("Failed to remove old checkpoints for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)
-      }
+    trace("Cleaning up old checkpoint state for taskName: %s. Current checkpointId: %s" format (taskName, checkpointId))
+    try {
+      commitManager.cleanUp(checkpointId)
+    } catch {
+      case e: Exception => error("Failed to remove old checkpoints for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)
     }
 
     if (inputCheckpoint != null) {

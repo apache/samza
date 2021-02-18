@@ -42,11 +42,11 @@ public interface KeyValueStore<K, V> {
   /**
    * Initiates the KeyValueStore
    *
-   * @param containerContext context of the KeyValueStore's container
-   * @param jobContext context of the job the KeyValueStore is in
    * @param externalContext any external store required for initialization
+   * @param jobContext context of the job the KeyValueStore is in
+   * @param containerContext context of the KeyValueStore's container
    */
-  default void init(ContainerContext containerContext, JobContext jobContext, ExternalContext externalContext) { }
+  default void init(ExternalContext externalContext, JobContext jobContext, ContainerContext containerContext) { }
 
   /**
    * Gets the value associated with the specified {@code key}.

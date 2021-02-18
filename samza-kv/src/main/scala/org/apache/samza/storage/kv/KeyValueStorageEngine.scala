@@ -31,7 +31,6 @@ import java.util.Optional
 
 import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.checkpoint.CheckpointId
-import org.apache.samza.context.{ContainerContext, Context, ExternalContext, JobContext}
 
 /**
  * A key value store.

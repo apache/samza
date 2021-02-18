@@ -55,10 +55,7 @@ class KafkaNonTransactionalStateTaskBackupManager(
   override def snapshot(checkpointId: CheckpointId): util.Map[String, StateCheckpointMarker] = {
     debug("Flushing stores.")
     taskStores.asScala.values.foreach(_.flush)
-    val newestChangelogSSPOffsets = getNewestChangelogSSPOffsets()
-    writeChangelogOffsetFiles(KafkaStateCheckpointMarker
-      .stateCheckpointMarkerToSSPmap(newestChangelogSSPOffsets))
-    newestChangelogSSPOffsets
+    getNewestChangelogSSPOffsets()
   }
 
   override def upload(checkpointId: CheckpointId,
@@ -67,12 +64,15 @@ class KafkaNonTransactionalStateTaskBackupManager(
   }
 
   override def persistToFilesystem(checkpointId: CheckpointId,
-    stateCheckpointMarkers: util.Map[String, StateCheckpointMarker]): Unit = {}
+    stateCheckpointMarkers: util.Map[String, StateCheckpointMarker]): Unit = {
+    writeChangelogOffsetFiles(KafkaStateCheckpointMarker
+      .stateCheckpointMarkerToSSPmap(stateCheckpointMarkers))
+  }
 
   override def cleanUp(checkpointId: CheckpointId): Unit = {}
 
   @VisibleForTesting
-  def close() {
+  override def close() {
     debug("Stopping stores.")
     taskStores.asScala.values.foreach(engine => engine.stop())
   }

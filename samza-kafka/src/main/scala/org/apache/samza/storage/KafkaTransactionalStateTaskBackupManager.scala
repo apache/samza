@@ -63,7 +63,7 @@ class KafkaTransactionalStateTaskBackupManager(
     CompletableFuture.completedFuture(snapshotCheckpointsMap)
   }
 
-  def persistToFilesystem(checkpointId: CheckpointId,
+  override def persistToFilesystem(checkpointId: CheckpointId,
     stateCheckpointMarkers: util.Map[String, StateCheckpointMarker]): Unit = {
     debug("Checkpointing stores.")
 
@@ -84,7 +84,7 @@ class KafkaTransactionalStateTaskBackupManager(
        KafkaStateCheckpointMarker.stateCheckpointMarkerToSSPmap(stateCheckpointMarkers).asScala)
   }
 
-  def cleanUp(latestCheckpointId: CheckpointId): Unit = {
+  override def cleanUp(latestCheckpointId: CheckpointId): Unit = {
     if (latestCheckpointId != null) {
       debug("Removing older checkpoints before " + latestCheckpointId)
 
@@ -111,7 +111,7 @@ class KafkaTransactionalStateTaskBackupManager(
   }
 
   @VisibleForTesting
-  def close() {
+  override def close() {
     debug("Stopping stores.")
     taskStores.asScala.values.foreach(engine => engine.stop())
   }
