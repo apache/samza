@@ -43,7 +43,7 @@ public interface TaskBackupManager {
 
   /**
    * Initiates the TaskBackupManager instance
-   * @param checkpoint Last recorded checkpoint from the CheckpointManager
+   * @param checkpoint Last recorded checkpoint from the CheckpointManager or null if no checkpoint was found
    */
   default void start(Checkpoint checkpoint) {}
 

@@ -50,7 +50,11 @@ public class TaskStorageCommitManager {
   }
 
   public void start() {
-    storageBackupManager.start(checkpointManager.readLastCheckpoint(taskName));
+    if (checkpointManager != null) {
+      storageBackupManager.start(checkpointManager.readLastCheckpoint(taskName));
+    } else {
+      storageBackupManager.start(null);
+    }
   }
 
   /**
@@ -78,11 +82,15 @@ public class TaskStorageCommitManager {
   }
 
   public void cleanUp(CheckpointId checkpointId) {
-    storageBackupManager.cleanUp(checkpointId);
+    if (storageBackupManager != null) {
+      storageBackupManager.cleanUp(checkpointId);
+    }
   }
 
   public void close() {
-    storageBackupManager.stop();
+    if (storageBackupManager != null) {
+      storageBackupManager.stop();
+    }
   }
 
   private Map<String, List<StateCheckpointMarker>> mergeCheckpoints(TaskName taskName, List<Map<String, StateCheckpointMarker>> stateCheckpoints) {
