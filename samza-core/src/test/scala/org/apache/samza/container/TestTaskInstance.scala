@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture
 
 import com.google.common.collect.ImmutableSet
 import org.apache.samza.{Partition, SamzaException}
-import org.apache.samza.checkpoint.{Checkpoint, OffsetManager, StateCheckpointMarker, TestStateCheckpointMarker}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager, OffsetManager, StateCheckpointMarker, TestStateCheckpointMarker}
 import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
@@ -71,6 +71,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   private var offsetManager: OffsetManager = null
   @Mock
   private var taskStorageManager: TaskBackupManager = null
+  @Mock
+  private var checkpointManager: CheckpointManager = null
   @Mock
   private var taskTableManager: TableManager = null
   // not a mock; using MockTaskInstanceExceptionHandler
@@ -422,7 +424,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       this.consumerMultiplexer,
       this.collector,
       offsetManager = offsetManagerMock,
-      commitManager = new TaskStorageCommitManager(this.taskStorageManager),
+      commitManager = new TaskStorageCommitManager(new TaskName("task1"), this.taskStorageManager, this.checkpointManager),
       tableManager = this.taskTableManager,
       systemStreamPartitions = ImmutableSet.of(ssp),
       exceptionHandler = this.taskInstanceExceptionHandler,
@@ -448,7 +450,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       this.consumerMultiplexer,
       this.collector,
       offsetManager = this.offsetManager,
-      commitManager = new TaskStorageCommitManager(this.taskStorageManager),
+      commitManager = new TaskStorageCommitManager(new TaskName("task1"), this.taskStorageManager, this. checkpointManager),
       tableManager = this.taskTableManager,
       systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
       exceptionHandler = this.taskInstanceExceptionHandler,

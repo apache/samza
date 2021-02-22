@@ -122,6 +122,15 @@ class TaskInstance(
     }
   }
 
+  def startCommitManager: Unit = {
+    if (commitManager != null) {
+      debug("Starting commit manager for taskName: %s" format taskName)
+      commitManager.start()
+    } else {
+      debug("Skipping commit manager initialization for taskName: %s" format taskName)
+    }
+  }
+
   def initTask {
     initCaughtUpMapping()
 
@@ -295,6 +304,15 @@ class TaskInstance(
       tableManager.close
     } else {
       debug("Skipping table manager shutdown for taskName: %s" format taskName)
+    }
+  }
+
+  def shutdownCommitManager: Unit = {
+    if (commitManager != null) {
+      debug("Shutting down commit manager for taskName: %s" format taskName)
+      commitManager.close()
+    } else {
+      debug("Skipping commit manager shutdown for taskName: %s" format taskName)
     }
   }
 

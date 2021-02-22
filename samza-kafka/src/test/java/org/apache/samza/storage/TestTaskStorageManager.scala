@@ -143,7 +143,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     // Test 3: Update sspMetadata before shutdown and verify that offset file is not updated
     when(mockSystemAdmin.getSSPMetadata(ImmutableSet.of(ssp)))
       .thenReturn(ImmutableMap.of(ssp, new SystemStreamPartitionMetadata("0", "100", "101")))
-    taskManager.close()
+    taskManager.stop()
     verify(mockStorageEngine, times(1)).flush() // only called once during Test 2.
     assertTrue(storeFile.exists())
     assertTrue(offsetFile.exists())
@@ -234,7 +234,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     })
     when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
     when(mockSystemAdmin.getSSPMetadata(ImmutableSet.of(ssp))).thenReturn(ImmutableMap.of(ssp, sspMetadata))
-    taskManager.close()
+    taskManager.stop()
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 4: Initialize again with an updated sspMetadata; Verify that it restores from the earliest offset
@@ -374,7 +374,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .build
 
     //Invoke test method
-    taskStorageManager.close()
+    taskStorageManager.stop()
 
     //Check conditions
     assertFalse("Offset file doesn't exist!", offsetFile.exists())
@@ -568,7 +568,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .build
 
     //Invoke test method
-    taskStorageManager.close()
+    taskStorageManager.stop()
 
     //Check conditions
     assertTrue("Offset file should not exist!", !offsetFilePath.exists())

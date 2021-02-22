@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.container.TaskName;
 import org.slf4j.Logger;
@@ -37,12 +38,19 @@ import org.slf4j.LoggerFactory;
 public class TaskStorageCommitManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(TaskStorageCommitManager.class);
-  private static final long COMMIT_TIMEOUT_MS = 30000;
-  // There may be multiple
-  private final TaskBackupManager storageBackupManager;
 
-  public TaskStorageCommitManager(TaskBackupManager storageBackupManager) {
+  private final TaskName taskName;
+  private final TaskBackupManager storageBackupManager;
+  private final CheckpointManager checkpointManager;
+
+  public TaskStorageCommitManager(TaskName taskName, TaskBackupManager storageBackupManager, CheckpointManager checkpointManager) {
+    this.taskName = taskName;
     this.storageBackupManager = storageBackupManager;
+    this.checkpointManager = checkpointManager;
+  }
+
+  public void start() {
+    storageBackupManager.start(checkpointManager.readLastCheckpoint(taskName));
   }
 
   /**
@@ -52,7 +60,7 @@ public class TaskStorageCommitManager {
   public Map<String, List<StateCheckpointMarker>> commit(TaskName taskName, CheckpointId checkpointId) {
     Map<String, StateCheckpointMarker> snapshot = storageBackupManager.snapshot(checkpointId);
     CompletableFuture<Map<String, StateCheckpointMarker>>
-        uploadFuture = storageBackupManager .upload(checkpointId, snapshot);
+        uploadFuture = storageBackupManager.upload(checkpointId, snapshot);
 
     try {
       // TODO: Make async with andThen and add thread management for concurrency and add timeouts
@@ -71,6 +79,10 @@ public class TaskStorageCommitManager {
 
   public void cleanUp(CheckpointId checkpointId) {
     storageBackupManager.cleanUp(checkpointId);
+  }
+
+  public void close() {
+    storageBackupManager.stop();
   }
 
   private Map<String, List<StateCheckpointMarker>> mergeCheckpoints(TaskName taskName, List<Map<String, StateCheckpointMarker>> stateCheckpoints) {

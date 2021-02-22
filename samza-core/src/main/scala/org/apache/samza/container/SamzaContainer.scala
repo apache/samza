@@ -53,7 +53,6 @@ import org.apache.samza.SamzaException
 import org.apache.samza.clustermanager.StandbyTaskUtil
 
 import scala.collection.JavaConversions.mapAsScalaMap
-import scala.collection.JavaConverters
 import scala.collection.JavaConverters._
 
 object SamzaContainer extends Logging {
@@ -565,7 +564,7 @@ object SamzaContainer extends Logging {
       val taskBackupManager = stateStorageBackendFactory.getBackupManager(jobModel, containerModel,
         taskModel, containerStorageManager.getAllStores(taskName), config, new SystemClock)
 
-      val commitManager = new TaskStorageCommitManager(taskBackupManager)
+      val commitManager = new TaskStorageCommitManager(taskName, taskBackupManager, checkpointManager)
 
       val tableManager = new TableManager(config)
 
@@ -772,6 +771,7 @@ class SamzaContainer(
       startProducers
       startStores
       startTableManager
+      startCommitManagers
       startDiskSpaceMonitor
       startHostStatisticsMonitor
       startTask
@@ -982,6 +982,13 @@ class SamzaContainer(
     })
   }
 
+  def startCommitManagers: Unit = {
+    taskInstances.values.foreach(taskInstance  => {
+      info("Starting commit manager in task instance %s" format taskInstance.taskName)
+      taskInstance.startCommitManager
+    })
+  }
+
   def startTask {
     info("Initializing stream tasks.")
 
@@ -1080,6 +1087,11 @@ class SamzaContainer(
     info("Shutting down task instance table manager.")
 
     taskInstances.values.foreach(_.shutdownTableManager)
+  }
+
+  def shutdownCommitManager: Unit = {
+    info("Shutting down task instance commit manager")
+    taskInstances.values.foreach(_.shutdownCommitManager)
   }
 
   def shutdownOffsetManager {

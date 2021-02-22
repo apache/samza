@@ -111,7 +111,7 @@ class KafkaTransactionalStateTaskBackupManager(
   }
 
   @VisibleForTesting
-  override def close() {
+  override def stop() {
     debug("Stopping stores.")
     taskStores.asScala.values.foreach(engine => engine.stop())
   }

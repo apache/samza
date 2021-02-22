@@ -45,12 +45,12 @@ public interface TaskBackupManager {
    * Initiates the TaskBackupManager instance
    * @param checkpoint Last recorded checkpoint from the CheckpointManager
    */
-  default void init(Checkpoint checkpoint) {}
+  default void start(Checkpoint checkpoint) {}
 
   /**
    * Commit operation that is synchronous to processing
    * @param checkpointId Checkpoint id of the current commit
-   * @return The storename to checkpoint of the snapshotted local store
+   * @return The store name to checkpoint of the snapshotted local store
    */
   Map<String, StateCheckpointMarker> snapshot(CheckpointId checkpointId);
 
@@ -78,6 +78,6 @@ public interface TaskBackupManager {
   /**
    * Shutdown hook the backup manager to cleanup any allocated resources
    */
-  void close();
+  void stop();
 
 }
