@@ -22,7 +22,6 @@ package org.apache.samza.table.remote.couchbase;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.CouchbaseCluster;
 import com.couchbase.client.java.env.CouchbaseEnvironment;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -60,9 +59,9 @@ public class TestCouchbaseBucketRegistry {
     when(CouchbaseCluster.create(any(CouchbaseEnvironment.class), anyListOf(String.class))).thenReturn(cluster);
     CouchbaseBucketRegistry registry = new CouchbaseBucketRegistry();
     Bucket bucket1 = registry.getBucket(bucketName1, clusterNodes, configs);
-    Bucket bucket1_copy = registry.getBucket(bucketName1, clusterNodes, configs);
+    Bucket bucket1Copy = registry.getBucket(bucketName1, clusterNodes, configs);
     Bucket bucket2 = registry.getBucket(bucketName2, clusterNodes, configs);
-    assertEquals(bucket1, bucket1_copy);
+    assertEquals(bucket1, bucket1Copy);
     assertNotEquals(bucket1, bucket2);
   }
 

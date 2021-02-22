@@ -51,9 +51,9 @@ public class TimeSinceFirstMessageTriggerImpl<M, WK> implements TriggerImpl<M, W
       long triggerDurationMs = trigger.getDuration().toMillis();
       Long callbackTime = now + triggerDurationMs;
       cancellable =  context.scheduleCallback(() -> {
-          LOG.trace("Time since first message trigger fired");
-          shouldFire = true;
-        }, callbackTime, triggerKey);
+        LOG.trace("Time since first message trigger fired");
+        shouldFire = true;
+      }, callbackTime, triggerKey);
     }
   }
 

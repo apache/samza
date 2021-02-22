@@ -97,18 +97,18 @@ public class KafkaStreamSpec extends StreamSpec {
    */
   public static KafkaStreamSpec fromSpec(StreamSpec originalSpec) {
     if (originalSpec instanceof KafkaStreamSpec) {
-      return ((KafkaStreamSpec) originalSpec);
+      return (KafkaStreamSpec) originalSpec;
     }
 
-    int replicationFactor = Integer.parseInt(originalSpec.getOrDefault( KafkaConfig.TOPIC_REPLICATION_FACTOR(),
-                                                                        KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
+    int replicationFactor = Integer.parseInt(originalSpec.getOrDefault(KafkaConfig.TOPIC_REPLICATION_FACTOR(),
+        KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR()));
 
-    return new KafkaStreamSpec( originalSpec.getId(),
-                                originalSpec.getPhysicalName(),
-                                originalSpec.getSystemName(),
-                                originalSpec.getPartitionCount(),
-                                replicationFactor,
-                                mapToProperties(filterUnsupportedProperties(originalSpec.getConfig())));
+    return new KafkaStreamSpec(originalSpec.getId(),
+                               originalSpec.getPhysicalName(),
+                               originalSpec.getSystemName(),
+                               originalSpec.getPartitionCount(),
+                               replicationFactor,
+                               mapToProperties(filterUnsupportedProperties(originalSpec.getConfig())));
   }
 
   /**

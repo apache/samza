@@ -88,7 +88,7 @@ Before you can run a Samza application, you need to build a package for it. Plea
 After you've built your Samza package, you can start the app on the grid using the run-app.sh script.
 
 ```bash
-./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/page-view-filter-sql.properties
+./deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/page-view-filter-sql.properties
 ```
 
 The app executes the following SQL command :
@@ -115,7 +115,7 @@ Congratulations! You've now setup a local grid that includes YARN, Kafka, and Zo
 
 To shutdown the app, use the same _run-app.sh_ script with an extra _--operation=kill_ argument
 ```bash
-./deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/page-view-filter-sql.properties --operation=kill
+./deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/page-view-filter-sql.properties --operation=kill
 ```
 
 Please follow the instructions from [Hello Samza High Level API - YARN Deployment](hello-samza-high-level-yarn.html) on how to shutdown and cleanup the app.

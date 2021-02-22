@@ -25,8 +25,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.config.Lex;
@@ -53,7 +51,6 @@ import org.apache.calcite.tools.Planner;
 import org.apache.samza.SamzaException;
 import org.apache.samza.sql.interfaces.SamzaSqlDriver;
 import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
-import org.apache.samza.sql.planner.QueryPlanner;
 import org.apache.samza.sql.planner.SamzaSqlValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +61,8 @@ import org.slf4j.LoggerFactory;
  */
 public class SamzaSqlQueryParser {
   private static final Logger LOG = LoggerFactory.getLogger(SamzaSqlQueryParser.class);
+
+  private static final String TRAILING_SEMI_COLON_REGEX = ";+$";
 
   private SamzaSqlQueryParser() {
   }
@@ -101,6 +100,9 @@ public class SamzaSqlQueryParser {
   public static QueryInfo parseQuery(String sql) {
     Planner planner = createPlanner();
     SqlNode sqlNode;
+    // Having semi-colons at the end of sql statement is a valid syntax in standard sql but not for Calcite parser.
+    // Hence, removing trailing semi-colon before passing sql statement to Calcite parser.
+    sql = sql.replaceAll(TRAILING_SEMI_COLON_REGEX, "");
     try {
       sqlNode = planner.parse(sql);
     } catch (SqlParseException e) {
@@ -113,7 +115,7 @@ public class SamzaSqlQueryParser {
     String selectQuery;
     ArrayList<String> sources;
     if (sqlNode instanceof SqlInsert) {
-      SqlInsert sqlInsert = ((SqlInsert) sqlNode);
+      SqlInsert sqlInsert = (SqlInsert) sqlNode;
       sink = sqlInsert.getTargetTable().toString();
       if (sqlInsert.getSource() instanceof SqlSelect) {
         SqlSelect sqlSelect = (SqlSelect) sqlInsert.getSource();
@@ -163,6 +165,7 @@ public class SamzaSqlQueryParser {
         .traitDefs(traitDefs)
         .context(Contexts.EMPTY_CONTEXT)
         .costFactory(null)
+        //.programs(Programs.CALC_PROGRAM)
         .build();
     return Frameworks.getPlanner(frameworkConfig);
   }
@@ -190,7 +193,7 @@ public class SamzaSqlQueryParser {
     } else if (node instanceof SqlIdentifier) {
       sourceList.add(node.toString());
     } else if (node instanceof SqlBasicCall) {
-      SqlBasicCall basicCall = ((SqlBasicCall) node);
+      SqlBasicCall basicCall = (SqlBasicCall) node;
       if (basicCall.getOperator() instanceof SqlAsOperator) {
         getSource(basicCall.operand(0), sourceList);
       } else if (basicCall.getOperator() instanceof SqlUnnestOperator && basicCall.operand(0) instanceof SqlSelect) {

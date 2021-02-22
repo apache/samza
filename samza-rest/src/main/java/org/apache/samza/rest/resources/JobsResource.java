@@ -33,7 +33,6 @@ import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.proxy.job.AbstractJobProxy;
 import org.apache.samza.rest.proxy.job.JobInstance;
 import org.apache.samza.rest.proxy.job.JobProxy;
-import org.apache.samza.rest.proxy.job.JobProxyFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,9 +50,9 @@ public class JobsResource {
 
   /**
    * Initializes a JobResource with {@link JobProxy} from the
-   * {@link JobProxyFactory} class specified in the configuration.
+   * {@link org.apache.samza.rest.proxy.job.JobProxyFactory} class specified in the configuration.
    *
-   * @param config  the configuration containing the {@link JobProxyFactory} class.
+   * @param config  the configuration containing the {@link org.apache.samza.rest.proxy.job.JobProxyFactory} class.
    */
   public JobsResource(JobsResourceConfig config) {
     jobProxy = AbstractJobProxy.fromFactory(config);

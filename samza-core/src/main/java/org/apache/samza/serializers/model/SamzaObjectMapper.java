@@ -27,8 +27,11 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStream;
@@ -129,6 +132,17 @@ public class SamzaObjectMapper {
         return new ContainerModel(id, tasksMapping);
       }
     });
+
+    mapper.getSerializationConfig().addMixInAnnotations(LocalityModel.class, JsonLocalityModelMixIn.class);
+    mapper.getDeserializationConfig().addMixInAnnotations(LocalityModel.class, JsonLocalityModelMixIn.class);
+    mapper.getSerializationConfig().addMixInAnnotations(ProcessorLocality.class, JsonProcessorLocalityMixIn.class);
+    mapper.getDeserializationConfig().addMixInAnnotations(ProcessorLocality.class, JsonProcessorLocalityMixIn.class);
+
+    // Register mixins for job coordinator metadata model
+    mapper.getSerializationConfig()
+        .addMixInAnnotations(JobCoordinatorMetadata.class, JsonJobCoordinatorMetadataMixIn.class);
+    mapper.getDeserializationConfig()
+        .addMixInAnnotations(JobCoordinatorMetadata.class, JsonJobCoordinatorMetadataMixIn.class);
 
     // Convert camel case to hyphenated field names, and register the module.
     mapper.setPropertyNamingStrategy(new CamelCaseToDashesStrategy());

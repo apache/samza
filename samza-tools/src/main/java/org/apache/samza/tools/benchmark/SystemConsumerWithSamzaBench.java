@@ -56,14 +56,14 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
     super("system-consumer-with-samza-bench", args);
   }
 
-  public static void main(String args[]) throws Exception {
+  public static void main(String[] args) throws Exception {
     SystemConsumerBench bench = new SystemConsumerBench(args);
     bench.start();
   }
 
   @Override
   public void addMoreSystemConfigs(Properties props) {
-    props.put("app.runner.class", LocalApplicationRunner.class.getName());
+    props.put(ApplicationConfig.APP_RUNNER_CLASS, LocalApplicationRunner.class.getName());
     List<Integer> partitions = IntStream.range(startPartition, endPartition).boxed().collect(Collectors.toList());
     props.put(ApplicationConfig.APP_NAME, "SamzaBench");
     props.put(JobConfig.PROCESSOR_ID, "1");
@@ -98,7 +98,7 @@ public class SystemConsumerWithSamzaBench extends AbstractSamzaBench {
     System.out.println("\n*******************");
     System.out.println(String.format("Started at %s Ending at %s ", consumeFn.startTime, endTime));
     System.out.println(String.format("Event Rate is %s Messages/Sec ",
-        (consumeFn.getEventsConsumed() * 1000 / Duration.between(consumeFn.startTime, Instant.now()).toMillis())));
+        consumeFn.getEventsConsumed() * 1000 / Duration.between(consumeFn.startTime, Instant.now()).toMillis()));
 
     System.out.println(
         "Event Rate is " + consumeFn.getEventsConsumed() * 1000 / Duration.between(consumeFn.startTime, endTime).toMillis());

@@ -233,22 +233,22 @@ public class TestKinesisRecordProcessor {
       List<KinesisRecordProcessor> processors) {
     Map<KinesisRecordProcessor, List<Record>> processorRecordMap = new HashMap<>();
     processors.forEach(processor -> {
-        try {
-          // Create records and call process records
-          IRecordProcessorCheckpointer checkpointer = Mockito.mock(IRecordProcessorCheckpointer.class);
-          doNothing().when(checkpointer).checkpoint(anyString());
-          doNothing().when(checkpointer).checkpoint();
-          ProcessRecordsInput processRecordsInput = Mockito.mock(ProcessRecordsInput.class);
-          when(processRecordsInput.getCheckpointer()).thenReturn(checkpointer);
-          when(processRecordsInput.getMillisBehindLatest()).thenReturn(1000L);
-          List<Record> inputRecords = createRecords(numRecordsPerShard);
-          processorRecordMap.put(processor, inputRecords);
-          when(processRecordsInput.getRecords()).thenReturn(inputRecords);
-          processor.processRecords(processRecordsInput);
-        } catch (ShutdownException | InvalidStateException ex) {
-          throw new RuntimeException(ex);
-        }
-      });
+      try {
+        // Create records and call process records
+        IRecordProcessorCheckpointer checkpointer = Mockito.mock(IRecordProcessorCheckpointer.class);
+        doNothing().when(checkpointer).checkpoint(anyString());
+        doNothing().when(checkpointer).checkpoint();
+        ProcessRecordsInput processRecordsInput = Mockito.mock(ProcessRecordsInput.class);
+        when(processRecordsInput.getCheckpointer()).thenReturn(checkpointer);
+        when(processRecordsInput.getMillisBehindLatest()).thenReturn(1000L);
+        List<Record> inputRecords = createRecords(numRecordsPerShard);
+        processorRecordMap.put(processor, inputRecords);
+        when(processRecordsInput.getRecords()).thenReturn(inputRecords);
+        processor.processRecords(processRecordsInput);
+      } catch (ShutdownException | InvalidStateException ex) {
+        throw new RuntimeException(ex);
+      }
+    });
     return processorRecordMap;
   }
 

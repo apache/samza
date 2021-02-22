@@ -86,11 +86,11 @@ public class TestEventHubSystemAdmin {
       Assert.assertTrue(partitionMetadataMap.size() >= MIN_EVENTHUB_ENTITY_PARTITION);
       Assert.assertTrue(partitionMetadataMap.size() <= MAX_EVENTHUB_ENTITY_PARTITION);
       partitionMetadataMap.forEach((partition, metadata) -> {
-          Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM, metadata.getOldestOffset());
-          Assert.assertNotSame(EventHubSystemConsumer.END_OF_STREAM, metadata.getNewestOffset());
-          String expectedUpcomingOffset = String.valueOf(Long.parseLong(metadata.getNewestOffset()) + 1);
-          Assert.assertEquals(expectedUpcomingOffset, metadata.getUpcomingOffset());
-        });
+        Assert.assertEquals(EventHubSystemConsumer.START_OF_STREAM, metadata.getOldestOffset());
+        Assert.assertNotSame(EventHubSystemConsumer.END_OF_STREAM, metadata.getNewestOffset());
+        String expectedUpcomingOffset = String.valueOf(Long.parseLong(metadata.getNewestOffset()) + 1);
+        Assert.assertEquals(expectedUpcomingOffset, metadata.getUpcomingOffset());
+      });
     }
   }
 

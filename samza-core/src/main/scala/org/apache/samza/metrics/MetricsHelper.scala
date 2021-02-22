@@ -21,7 +21,6 @@ package org.apache.samza.metrics
 
 import org.apache.samza.metrics.MetricGroup.ValueFunction
 
-
 /**
  * MetricsHelper is a little helper class to make it easy to register and
  * manage counters, gauges and timers.
@@ -32,6 +31,7 @@ import org.apache.samza.metrics.MetricGroup.ValueFunction
 trait MetricsHelper {
   val group = this.getClass.getName
   val registry: MetricsRegistry
+
   val metricGroup = new MetricGroup(group, getPrefix, registry)
 
   def newCounter(name: String) = metricGroup.newCounter(name)
@@ -50,6 +50,8 @@ trait MetricsHelper {
       override def getValue = value()
     })
   }
+
+  def newHistogram(name: String, percentiles: java.util.List[java.lang.Double]) = metricGroup.newHistogram(name,percentiles)
 
   /**
    * Returns a prefix for metric names.

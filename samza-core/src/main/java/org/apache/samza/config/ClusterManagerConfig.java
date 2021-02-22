@@ -38,6 +38,15 @@ public class ClusterManagerConfig extends MapConfig {
   private static final String CLUSTER_MANAGER_FACTORY = "samza.cluster-manager.factory";
   private static final String CLUSTER_MANAGER_FACTORY_DEFAULT = "org.apache.samza.job.yarn.YarnResourceManagerFactory";
 
+  private static final String FAULT_DOMAIN_MANAGER_FACTORY = "cluster-manager.fault-domain-manager.factory";
+  private static final String FAULT_DOMAIN_MANAGER_FACTORY_DEFAULT = "org.apache.samza.job.yarn.YarnFaultDomainManagerFactory";
+
+  /**
+   * Determines whether standby allocation is fault domain aware or not.
+   */
+  public static final String FAULT_DOMAIN_AWARE_STANDBY_ENABLED = "cluster-manager.fault-domain-aware.standby.enabled";
+  public static final boolean FAULT_DOMAIN_AWARE_STANDBY_ENABLED_DEFAULT = false;
+
   /**
    * Sleep interval for the allocator thread in milliseconds
    */
@@ -143,8 +152,15 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
+  /**
+   * Return the value of CLUSTER_MANAGER_MAX_CORES or CONTAINER_MAX_CPU_CORES (in that order) if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_MAX_CORES.
+   * @return
+   */
   public int getNumCores() {
-    if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
+    if (new JobConfig(this).getAutosizingEnabled() && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES)) {
+      return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_CORES);
+    } else if (containsKey(CLUSTER_MANAGER_MAX_CORES)) {
       return getInt(CLUSTER_MANAGER_MAX_CORES);
     } else if (containsKey(CONTAINER_MAX_CPU_CORES)) {
       log.info("Configuration {} is deprecated. Please use {}", CONTAINER_MAX_CPU_CORES, CLUSTER_MANAGER_MAX_CORES);
@@ -154,8 +170,15 @@ public class ClusterManagerConfig extends MapConfig {
     }
   }
 
+  /**
+   * Return the value of CLUSTER_MANAGER_MEMORY_MB or CONTAINER_MAX_MEMORY_MB (in that order) if autosizing is not enabled,
+   * otherwise returns the value of JOB_AUTOSIZING_CONTAINER_MEMORY_MB.
+   * @return
+   */
   public int getContainerMemoryMb() {
-    if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
+    if (new JobConfig(this).getAutosizingEnabled() && containsKey(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB)) {
+      return getInt(JobConfig.JOB_AUTOSIZING_CONTAINER_MEMORY_MB);
+    } else if (containsKey(CLUSTER_MANAGER_MEMORY_MB)) {
       return getInt(CLUSTER_MANAGER_MEMORY_MB);
     } else if (containsKey(CONTAINER_MAX_MEMORY_MB)) {
       log.info("Configuration {} is deprecated. Please use {}", CONTAINER_MAX_MEMORY_MB, CLUSTER_MANAGER_MEMORY_MB);
@@ -234,6 +257,14 @@ public class ClusterManagerConfig extends MapConfig {
 
   public String getContainerManagerClass() {
     return get(CLUSTER_MANAGER_FACTORY, CLUSTER_MANAGER_FACTORY_DEFAULT);
+  }
+
+  public String getFaultDomainManagerClass() {
+    return get(FAULT_DOMAIN_MANAGER_FACTORY, FAULT_DOMAIN_MANAGER_FACTORY_DEFAULT);
+  }
+
+  public boolean getFaultDomainAwareStandbyEnabled() {
+    return getBoolean(FAULT_DOMAIN_AWARE_STANDBY_ENABLED, FAULT_DOMAIN_AWARE_STANDBY_ENABLED_DEFAULT);
   }
 
   public boolean getJmxEnabledOnJobCoordinator() {

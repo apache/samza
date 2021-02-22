@@ -20,11 +20,10 @@ package org.apache.samza.rest.proxy.task;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.rest.resources.BaseResourceConfig;
-import org.apache.samza.rest.resources.TasksResource;
 
 
 /**
- * Configurations for the {@link TasksResource} endpoint.
+ * Configurations for the {@link org.apache.samza.rest.resources.TasksResource} endpoint.
  */
 public class TaskResourceConfig extends BaseResourceConfig {
 

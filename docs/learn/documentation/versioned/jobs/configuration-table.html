@@ -347,7 +347,7 @@
                         <strong>required</strong> configuration. Specify a comma separated list of range(s) to determine which
                         partition matches, and thus statically assigned to the Job. For example "2,3,11-20", statically assigns
                         partition 2, 3, and 11 to 20 for all the specified system and streams (topics in case of Kafka) to the job.
-                        A singel configuration value like "19" is valid as well. This statically assigns partition 19.
+                        A single configuration value like "19" is valid as well. This statically assigns partition 19.
                         For config validation each element in the comma separated list much conform to one of the
                         following regex:
                         <ul>
@@ -1582,6 +1582,26 @@
                         The property allows you to specify topic level settings for the changelog topic to be created.
                         For e.g., you can specify the clean up policy as "stores.mystore.changelog.cleanup.policy=delete".
                         Please refer to http://kafka.apache.org/documentation.html#configuration for more topic level configurations.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="store-default-changelog-min-compaction-lag-ms">stores.default.changelog.min.compaction.lag.ms</td>
+                    <td class="default">14400000</td>
+                    <td class="description">
+                        This property defines the default minimum period that must pass before a changelog message can be compacted.
+                        Be mindful that the larger this value, the larger in size changelog topics will be in Kafka due to un-compacted data and the longer your application's time to restore from changelog will be.
+                        This may impact your application's startup time if host affinity is not enabled. For changelog topics which have "compact,delete" cleanup policy, this value should be < retention.ms.
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="property" id="store-changelog-min-compaction-lag-ms">stores.<span class="store">store-name</span>.changelog.min.compaction.lag.ms</td>
+                    <td class="default">stores.default.changelog.min.compaction.lag.ms</td>
+                    <td class="description">
+                        This property defines the minimum period that must pass before a message in the store's changelog can be compacted.
+                        Be mindful that the larger this value, the larger in size the changelog topic will be in Kafka due to un-compacted data and the longer your application's time to restore from changelog will be.
+                        This may impact your application's startup time if host affinity is not enabled. For changelog topics which have "compact,delete" cleanup policy, this value should be < retention.ms.
                     </td>
                 </tr>
 

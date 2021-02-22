@@ -1,5 +1,4 @@
 /*
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,9 +15,7 @@
  * KIND, either express or implied.  See the License for the
  * specific language governing permissions and limitations
  * under the License.
- *
  */
-
 package org.apache.samza.system.kafka;
 
 import java.util.HashMap;
@@ -96,7 +93,7 @@ public class TestKafkaSystemConsumerMetrics {
 
   protected static void validate(Map<String, Metric> metricMap, Map<String, String> expectedValues) {
     // match the expected value, set in the test above, and the value in the metrics
-    for(Map.Entry<String, String> e: expectedValues.entrySet()) {
+    for (Map.Entry<String, String> e : expectedValues.entrySet()) {
       String metricName = e.getKey();
       String expectedValue = e.getValue();
       // get the metric from the registry

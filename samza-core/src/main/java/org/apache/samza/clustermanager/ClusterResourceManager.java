@@ -132,6 +132,15 @@ public abstract class ClusterResourceManager {
 
   public abstract void stop(SamzaApplicationState.SamzaAppStatus status);
 
+  /**
+   * Checks if the allocated resource is expired. If the {@link ClusterResourceManager} does not have a
+   * concept of expired allocated resource we assume allocated resources never expire
+   * @param resource allocated resource
+   * @return if the allocated resource is expired
+   */
+  public boolean isResourceExpired(SamzaResource resource) {
+    return false;
+  }
 
   /***
    * Defines a callback interface for interacting with notifications from a ClusterResourceManager
@@ -170,6 +179,13 @@ public abstract class ClusterResourceManager {
      * @param t the error in launching the processor
      */
     void onStreamProcessorLaunchFailure(SamzaResource resource, Throwable t);
+
+    /**
+     * Callback invoked when there is a failure in stopping a processor on the provided {@link SamzaResource}.
+     * @param resource the resource on which the processor was running
+     * @param t the error in stopping the processor
+     */
+    void onStreamProcessorStopFailure(SamzaResource resource, Throwable t);
 
     /***
      * This callback is invoked when there is an error in the ClusterResourceManager. This is

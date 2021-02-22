@@ -35,50 +35,51 @@ import static org.apache.samza.sql.runner.SamzaSqlApplicationConfig.*;
 
 
 public class SamzaExecutorTest {
-    private SamzaExecutor m_executor = new SamzaExecutor();
+  private SamzaExecutor mExecutor = new SamzaExecutor();
 
-    @Test
-    public void testGetTableSchema() throws ExecutorException {
-        prepareEnvironmentVariable();
-        SqlSchema ts = m_executor.getTableSchema(new ExecutionContext(), "kafka.ProfileChangeStream");
+  @Test
+  public void testGetTableSchema() throws ExecutorException {
+    prepareEnvironmentVariable();
+    SqlSchema ts = mExecutor.getTableSchema(new ExecutionContext(), "kafka.ProfileChangeStream");
 
-        List<SqlSchema.SqlField> fields = ts.getFields();
-        Assert.assertEquals("Name", fields.get(0).getFieldName());
-        Assert.assertEquals("NewCompany", fields.get(1).getFieldName());
-        Assert.assertEquals("OldCompany", fields.get(2).getFieldName());
-        Assert.assertEquals("ProfileChangeTimestamp", fields.get(3).getFieldName());
-        Assert.assertEquals("STRING", fields.get(0).getFieldSchema().getFieldType().toString());
-        Assert.assertEquals("STRING", fields.get(1).getFieldSchema().getFieldType().toString());
-        Assert.assertEquals("STRING", fields.get(2).getFieldSchema().getFieldType().toString());
-        Assert.assertEquals("INT64", fields.get(3).getFieldSchema().getFieldType().toString());
-    }
+    List<SqlSchema.SqlField> fields = ts.getFields();
+    Assert.assertEquals("Name", fields.get(0).getFieldName());
+    Assert.assertEquals("NewCompany", fields.get(1).getFieldName());
+    Assert.assertEquals("OldCompany", fields.get(2).getFieldName());
+    Assert.assertEquals("ProfileChangeTimestamp", fields.get(3).getFieldName());
+    Assert.assertEquals("STRING", fields.get(0).getFieldSchema().getFieldType().toString());
+    Assert.assertEquals("STRING", fields.get(1).getFieldSchema().getFieldType().toString());
+    Assert.assertEquals("STRING", fields.get(2).getFieldSchema().getFieldType().toString());
+    Assert.assertEquals("INT64", fields.get(3).getFieldSchema().getFieldType().toString());
+  }
 
-    // Generate result schema needs to be fixed. SAMZA-2079
-    @Ignore
-    @Test
-    public void testGenerateResultSchema() {
-        prepareEnvironmentVariable();
-        Map<String, String> mapConf = m_executor.fetchSamzaSqlConfig(1);
-        SqlSchema ts = m_executor.generateResultSchema(new MapConfig(mapConf));
+  // Generate result schema needs to be fixed. SAMZA-2079
+  @Ignore
+  @Test
+  public void testGenerateResultSchema() {
+    prepareEnvironmentVariable();
+    Map<String, String> mapConf = mExecutor.fetchSamzaSqlConfig(1);
+    SqlSchema ts = mExecutor.generateResultSchema(new MapConfig(mapConf));
 
-        List<SqlSchema.SqlField> fields = ts.getFields();
-        Assert.assertEquals("__key__", fields.get(0).getFieldName());
-        Assert.assertEquals("Name", fields.get(1).getFieldName());
-        Assert.assertEquals("NewCompany", fields.get(2).getFieldName());
-        Assert.assertEquals("OldCompany", fields.get(3).getFieldName());
-        Assert.assertEquals("ProfileChangeTimestamp", fields.get(4).getFieldName());
-        Assert.assertEquals("ANY", fields.get(0).getFieldSchema().getFieldType().toString());
-        Assert.assertEquals("VARCHAR", fields.get(1).getFieldSchema().getFieldType().toString());
-        Assert.assertEquals("VARCHAR", fields.get(2).getFieldSchema().getFieldType().toString());
-        Assert.assertEquals("VARCHAR", fields.get(3).getFieldSchema().getFieldType().toString());
-        Assert.assertEquals("BIGINT", fields.get(4).getFieldSchema().getFieldType().toString());
-    }
+    List<SqlSchema.SqlField> fields = ts.getFields();
+    Assert.assertEquals("__key__", fields.get(0).getFieldName());
+    Assert.assertEquals("Name", fields.get(1).getFieldName());
+    Assert.assertEquals("NewCompany", fields.get(2).getFieldName());
+    Assert.assertEquals("OldCompany", fields.get(3).getFieldName());
+    Assert.assertEquals("ProfileChangeTimestamp", fields.get(4).getFieldName());
+    Assert.assertEquals("ANY", fields.get(0).getFieldSchema().getFieldType().toString());
+    Assert.assertEquals("VARCHAR", fields.get(1).getFieldSchema().getFieldType().toString());
+    Assert.assertEquals("VARCHAR", fields.get(2).getFieldSchema().getFieldType().toString());
+    Assert.assertEquals("VARCHAR", fields.get(3).getFieldSchema().getFieldType().toString());
+    Assert.assertEquals("BIGINT", fields.get(4).getFieldSchema().getFieldType().toString());
+  }
 
-    private void prepareEnvironmentVariable() {
-        ClassLoader classLoader = getClass().getClassLoader();
-        File file = new File(classLoader.getResource("ProfileChangeStream.avsc").getFile());
-        EnvironmentVariableHandler handler = m_executor.getEnvironmentVariableHandler();
-        handler.setEnvironmentVariable("samza.sql.relSchemaProvider.config.schemaDir", file.getParent());
-        handler.setEnvironmentVariable(CFG_SQL_STMT, "insert into log.outputStream select * from kafka.ProfileChangeStream");
-    }
+  private void prepareEnvironmentVariable() {
+    ClassLoader classLoader = getClass().getClassLoader();
+    File file = new File(classLoader.getResource("ProfileChangeStream.avsc").getFile());
+    EnvironmentVariableHandler handler = mExecutor.getEnvironmentVariableHandler();
+    handler.setEnvironmentVariable("samza.sql.relSchemaProvider.config.schemaDir", file.getParent());
+    handler.setEnvironmentVariable(CFG_SQL_STMT,
+        "insert into log.outputStream select * from kafka.ProfileChangeStream");
+  }
 }

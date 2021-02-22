@@ -172,11 +172,11 @@ public class JobNode {
   private void findReachableOperators(Collection<OperatorSpec> inputOperatorsInJobNode,
       Set<OperatorSpec> reachableOperators) {
     inputOperatorsInJobNode.forEach(op -> {
-        if (reachableOperators.contains(op)) {
-          return;
-        }
-        reachableOperators.add(op);
-        findReachableOperators(op.getRegisteredOperatorSpecs(), reachableOperators);
-      });
+      if (reachableOperators.contains(op)) {
+        return;
+      }
+      reachableOperators.add(op);
+      findReachableOperators(op.getRegisteredOperatorSpecs(), reachableOperators);
+    });
   }
 }

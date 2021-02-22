@@ -34,12 +34,12 @@ import java.util.List;
  * A primitive highlighter.
  */
 public class CliHighlighter implements Highlighter {
-  private static final List<String> keywords;
+  private static final List<String> KEYWORDS;
 
   static {
-    keywords = CliCommandType.getAllCommands();
-    keywords.add("FROM");
-    keywords.add("WHERE");
+    KEYWORDS = CliCommandType.getAllCommands();
+    KEYWORDS.add("FROM");
+    KEYWORDS.add("WHERE");
   }
 
   private static List<String> splitWithSpace(String buffer) {
@@ -80,7 +80,7 @@ public class CliHighlighter implements Highlighter {
   }
 
   private boolean isKeyword(String token) {
-    for (String keyword : keywords) {
+    for (String keyword : KEYWORDS) {
       if (keyword.compareToIgnoreCase(token) == 0)
         return true;
     }

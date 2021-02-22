@@ -20,10 +20,15 @@
 package org.apache.samza.execution;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.apache.samza.application.LegacyTaskApplication;
+import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 public class TestJobPlanner {
 
@@ -57,6 +62,28 @@ public class TestJobPlanner {
     MapConfig generatedConfig = JobPlanner.generateSingleJobConfig(testConfig);
     Assert.assertEquals(generatedConfig.get("job.name"), "should-exist-name");
     Assert.assertEquals(generatedConfig.get("job.id"), "should-exist-id");
+  }
+
+  @Test
+  public void testRunIdisConfiguredForAllTypesOfApps() {
+    Map<String, String> testConfig = new HashMap<>();
+    testConfig.put("app.id", "should-exist-id");
+    testConfig.put("app.name", "should-exist-name");
+
+    ApplicationDescriptorImpl applicationDescriptor = Mockito.mock(ApplicationDescriptorImpl.class);
+
+    Mockito.when(applicationDescriptor.getConfig()).thenReturn(new MapConfig(testConfig));
+    Mockito.when(applicationDescriptor.getAppClass()).thenReturn(LegacyTaskApplication.class);
+
+    JobPlanner jobPlanner = new JobPlanner(applicationDescriptor) {
+      @Override
+      public List<JobConfig> prepareJobs() {
+        return null;
+      }
+    };
+
+    ExecutionPlan plan = jobPlanner.getExecutionPlan("custom-run-id");
+    Assert.assertNotNull(plan.getApplicationConfig().getRunId(), "custom-run-id");
   }
 
 }

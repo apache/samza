@@ -21,11 +21,13 @@ package org.apache.samza.sql.planner;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeFieldImpl;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelRecordType;
+import org.apache.calcite.rel.type.StructKind;
 import org.apache.calcite.sql.type.ArraySqlType;
 import org.apache.calcite.sql.type.MapSqlType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
@@ -71,7 +73,7 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
   }
 
   // TODO: SAMZA-2345 - Change RelSchemaConverter code to apply nullability based on Sql schema.
-  private RelDataType getRelDataType(SqlFieldSchema fieldSchema) {
+  public RelDataType getRelDataType(SqlFieldSchema fieldSchema) {
     switch (fieldSchema.getFieldType()) {
       case ARRAY:
         RelDataType elementType = getRelDataType(fieldSchema.getElementSchema());
@@ -94,11 +96,16 @@ public class RelSchemaConverter extends SqlTypeFactoryImpl {
       case INT64:
         return createTypeWithNullability(createSqlType(SqlTypeName.BIGINT), true);
       case ROW:
+        final RelDataType rowType = convertToRelSchema(fieldSchema.getRowSchema());
+        /* Using Fully Qualified names to ensure that at the last project the row is fully reconstructed */
+        return createTypeWithNullability(createStructType(StructKind.FULLY_QUALIFIED,
+            rowType.getFieldList().stream().map(RelDataTypeField::getType).collect(Collectors.toList()),
+            rowType.getFieldNames()), true);
       case ANY:
         // TODO Calcite execution engine doesn't support record type yet.
         return createTypeWithNullability(createSqlType(SqlTypeName.ANY), true);
       case MAP:
-        RelDataType valueType = getRelDataType(fieldSchema.getValueScehma());
+        RelDataType valueType = getRelDataType(fieldSchema.getValueSchema());
         return new MapSqlType(createSqlType(SqlTypeName.VARCHAR), valueType, true);
       default:
         String msg = String.format("Field Type %s is not supported", fieldSchema.getFieldType());

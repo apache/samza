@@ -25,12 +25,9 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
-import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class TestKafkaInputDescriptor {
   @Test
@@ -42,7 +39,7 @@ public class TestKafkaInputDescriptor {
             .withConsumerAutoOffsetReset("largest")
             .withConsumerFetchMessageMaxBytes(1024 * 1024);
 
-    Map<String, String> generatedConfigs = isd.toConfig();;
+    Map<String, String> generatedConfigs = isd.toConfig();
     assertEquals("kafka", generatedConfigs.get("streams.input-stream.samza.system"));
     assertEquals("largest", generatedConfigs.get("systems.kafka.streams.input-stream.consumer.auto.offset.reset"));
     assertEquals("1048576", generatedConfigs.get("systems.kafka.streams.input-stream.consumer.fetch.message.max.bytes"));

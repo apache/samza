@@ -271,7 +271,7 @@ public class StreamAppender extends AppenderSkeleton {
       if (isApplicationMaster) {
         config = JobModelManager.currentJobModelManager().jobModel().getConfig();
       } else {
-        String url = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL());
+        String url = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
         String response = HttpUtil.read(new URL(url), 30000, new ExponentialSleepStrategy());
         config = SamzaObjectMapper.getObjectMapper().readValue(response, JobModel.class).getConfig();
       }
@@ -316,7 +316,7 @@ public class StreamAppender extends AppenderSkeleton {
       systemAdmin.stop();
     }
 
-    systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry);
+    systemProducer = systemFactory.getProducer(systemName, config, metricsRegistry, this.getClass().getSimpleName());
     systemStream = new SystemStream(systemName, streamName);
     systemProducer.register(SOURCE);
     systemProducer.start();

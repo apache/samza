@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.*;
 public class StorageConfig extends MapConfig {
   private static final String FACTORY_SUFFIX = ".factory";
   private static final String CHANGELOG_SUFFIX = ".changelog";
+  private static final String SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX = ".side.inputs.processor.factory";
   private static final String STORE_PREFIX = "stores.";
 
   public static final String FACTORY = STORE_PREFIX + "%s" + FACTORY_SUFFIX;
@@ -67,11 +68,14 @@ public class StorageConfig extends MapConfig {
   static final String ACCESSLOG_ENABLED = STORE_PREFIX + "%s.accesslog.enabled";
   static final int DEFAULT_ACCESSLOG_SAMPLING_RATIO = 50;
   static final String SIDE_INPUTS = STORE_PREFIX + "%s.side.inputs";
-  static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s.side.inputs.processor.factory";
+  static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s" + SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX;
   static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
       STORE_PREFIX + "%s.side.inputs.processor.serialized.instance";
   static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
       "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
+
+  // Internal config to clean storeDirs of a store on container start. This is used to benchmark bootstrap performance.
+  static final String CLEAN_LOGGED_STOREDIRS_ON_START = STORE_PREFIX + "%s.clean.on.container.start";
 
   public StorageConfig(Config config) {
     super(config);
@@ -81,7 +85,9 @@ public class StorageConfig extends MapConfig {
     Config subConfig = subset(STORE_PREFIX, true);
     List<String> storeNames = new ArrayList<>();
     for (String key : subConfig.keySet()) {
-      if (key.endsWith(FACTORY_SUFFIX)) {
+      if (key.endsWith(SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX)) {
+        storeNames.add(key.substring(0, key.length() - SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX.length()));
+      } else if (key.endsWith(FACTORY_SUFFIX)) {
         storeNames.add(key.substring(0, key.length() - FACTORY_SUFFIX.length()));
       }
     }
@@ -160,6 +166,17 @@ public class StorageConfig extends MapConfig {
   }
 
   /**
+   * Gets the configured default for stores' changelog min.compaction.lag.ms, or if not defined uses the default
+   * value defined in this class.
+   *
+   * @return the default changelog min.compaction.lag.ms
+   */
+  private long getDefaultChangelogMinCompactionLagMs() {
+    String defaultMinCompactLagConfigName = STORE_PREFIX + "default.changelog." + MIN_COMPACTION_LAG_MS;
+    return getLong(defaultMinCompactLagConfigName, DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS);
+  }
+
+  /**
    * Gets the side inputs for the store. A store can have multiple side input streams which can be
    * provided as a comma separated list.
    *
@@ -220,7 +237,7 @@ public class StorageConfig extends MapConfig {
     checkArgument(get("stores." + storeName + ".changelog.kafka." + MIN_COMPACTION_LAG_MS) == null,
         "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
 
-    return getLong(minCompactLagConfigName, DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS);
+    return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
   }
 
   /**
@@ -251,5 +268,13 @@ public class StorageConfig extends MapConfig {
         .filter(factoryName -> factoryName.isPresent())
         .filter(factoryName -> !factoryName.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY))
         .count();
+  }
+
+  /**
+   * Helper method to get if logged store dirs should be deleted regardless of their contents.
+   * @return
+   */
+  public boolean getCleanLoggedStoreDirsOnStart(String storeName) {
+    return getBoolean(String.format(CLEAN_LOGGED_STOREDIRS_ON_START, storeName), false);
   }
 }

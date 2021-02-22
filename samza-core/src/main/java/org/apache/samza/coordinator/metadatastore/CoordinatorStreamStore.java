@@ -88,13 +88,13 @@ public class CoordinatorStreamStore implements MetadataStore {
     this.coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
     this.coordinatorSystemStreamPartition = new SystemStreamPartition(coordinatorSystemStream, new Partition(0));
     SystemFactory systemFactory = CoordinatorStreamUtil.getCoordinatorSystemFactory(config);
-    this.systemProducer = systemFactory.getProducer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry);
-    this.systemConsumer = systemFactory.getConsumer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry);
-    this.systemAdmin = systemFactory.getAdmin(this.coordinatorSystemStream.getSystem(), config);
+    this.systemProducer = systemFactory.getProducer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry, this.getClass().getSimpleName());
+    this.systemConsumer = systemFactory.getConsumer(this.coordinatorSystemStream.getSystem(), config, metricsRegistry, this.getClass().getSimpleName());
+    this.systemAdmin = systemFactory.getAdmin(this.coordinatorSystemStream.getSystem(), config, this.getClass().getSimpleName());
   }
 
   @VisibleForTesting
-  CoordinatorStreamStore(Config config, SystemProducer systemProducer, SystemConsumer systemConsumer, SystemAdmin systemAdmin) {
+  protected CoordinatorStreamStore(Config config, SystemProducer systemProducer, SystemConsumer systemConsumer, SystemAdmin systemAdmin) {
     this.config = config;
     this.systemConsumer = systemConsumer;
     this.systemProducer = systemProducer;
@@ -126,19 +126,6 @@ public class CoordinatorStreamStore implements MetadataStore {
 
   @Override
   public void put(String namespacedKey, byte[] value) {
-    putWithoutFlush(namespacedKey, value);
-    flush();
-  }
-
-  @Override
-  public void putAll(Map<String, byte[]> entries) {
-    for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
-      putWithoutFlush(entry.getKey(), entry.getValue());
-    }
-    flush();
-  }
-
-  private void putWithoutFlush(String namespacedKey, byte[] value) {
     // 1. Store the namespace and key into correct fields of the CoordinatorStreamKey and convert the key to bytes.
     CoordinatorMessageKey coordinatorMessageKey = deserializeCoordinatorMessageKeyFromJson(namespacedKey);
     CoordinatorStreamKeySerde keySerde = new CoordinatorStreamKeySerde(coordinatorMessageKey.getNamespace());

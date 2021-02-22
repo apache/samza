@@ -19,7 +19,6 @@
 package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -27,41 +26,46 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import org.apache.samza.SamzaException;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
+import org.apache.samza.container.ExecutionContainerIdManager;
+import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.InputStreamsDiscoveredException;
+import org.apache.samza.coordinator.JobCoordinatorMetadataManager;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.PartitionChangeException;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.StreamRegexMonitor;
-import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
+import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
+import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMessage;
+import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.JobModelUtil;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 /**
  * Implements a JobCoordinator that is completely independent of the underlying cluster
@@ -92,7 +96,6 @@ public class ClusterBasedJobCoordinator {
   private final static String METRICS_SOURCE_NAME = "ApplicationMaster";
 
   private final Config config;
-  private final ClusterManagerConfig clusterManagerConfig;
 
   /**
    * State to track container failures, host-processor mappings
@@ -148,17 +151,31 @@ public class ClusterBasedJobCoordinator {
   private final Optional<StreamRegexMonitor> inputStreamRegexMonitor;
 
   /**
+   * Container placement request dispatcher and metastore reader/writer
+   */
+  private final ContainerPlacementMetadataStore containerPlacementMetadataStore;
+  private final ContainerPlacementRequestAllocator containerPlacementRequestAllocator;
+  // Container Placement thread that reads requests from metastore
+  private final Thread containerPlacementRequestAllocatorThread;
+
+  /**
    * Metrics to track stats around container failures, needed containers etc.
    */
   private final MetricsRegistryMap metrics;
-  private final CoordinatorStreamStore coordinatorStreamStore;
+  private final MetadataStore metadataStore;
 
   private final SystemAdmins systemAdmins;
+  private final LocalityManager localityManager;
 
   /**
    * Internal variable for the instance of {@link JmxServer}
    */
   private JmxServer jmxServer;
+
+  /*
+   * Denotes if the metadata changed across application attempts. Used only if job coordinator high availability is enabled
+   */
+  private boolean metadataChangedAcrossAttempts = false;
 
   /**
    * Variable to keep the callback exception
@@ -166,40 +183,56 @@ public class ClusterBasedJobCoordinator {
   volatile private Exception coordinatorException = null;
 
   /**
-   * Creates a new ClusterBasedJobCoordinator instance from a config. Invoke run() to actually
-   * run the jobcoordinator.
+   * Creates a new ClusterBasedJobCoordinator instance.
+   * Invoke run() to actually run the job coordinator.
    *
-   * @param coordinatorSystemConfig the coordinator stream config that can be used to read the
-   *                                {@link org.apache.samza.job.model.JobModel} from.
+   * @param metrics the registry for reporting metrics.
+   * @param metadataStore metadata store to hold metadata.
+   * @param fullJobConfig full job config.
    */
-  public ClusterBasedJobCoordinator(Config coordinatorSystemConfig) {
-    metrics = new MetricsRegistryMap();
-
-    coordinatorStreamStore = new CoordinatorStreamStore(coordinatorSystemConfig, metrics);
-    coordinatorStreamStore.init();
-    config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(coordinatorStreamStore);
-
+  public ClusterBasedJobCoordinator(MetricsRegistryMap metrics, MetadataStore metadataStore, Config fullJobConfig) {
+    this.metrics = metrics;
+    this.metadataStore = metadataStore;
+    this.config = fullJobConfig;
     // build a JobModelManager and ChangelogStreamManager and perform partition assignments.
-    changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE));
-    jobModelManager =
-        JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(), coordinatorStreamStore, metrics);
+    this.changelogStreamManager = new ChangelogStreamManager(
+        new NamespaceAwareCoordinatorStreamStore(metadataStore, SetChangelogMapping.TYPE));
+    this.jobModelManager =
+        JobModelManager.apply(config, changelogStreamManager.readPartitionMapping(), metadataStore, metrics);
 
-    hasDurableStores = new StorageConfig(config).hasDurableStores();
-    state = new SamzaApplicationState(jobModelManager);
+    this.hasDurableStores = new StorageConfig(config).hasDurableStores();
+    this.state = new SamzaApplicationState(jobModelManager);
     // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
-    systemAdmins = new SystemAdmins(config);
-    partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
+    this.systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
+    this.partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
 
     Set<SystemStream> inputSystemStreams = JobModelUtil.getSystemStreams(jobModelManager.jobModel());
-    inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
+    this.inputStreamRegexMonitor = getInputRegexMonitor(config, systemAdmins, inputSystemStreams);
 
-    clusterManagerConfig = new ClusterManagerConfig(config);
-    isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
+    this.isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
+    this.jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
+    this.localityManager =
+        new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE));
 
-    jobCoordinatorSleepInterval = clusterManagerConfig.getJobCoordinatorSleepInterval();
+    if (isApplicationMasterHighAvailabilityEnabled()) {
+      ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
+          new NamespaceAwareCoordinatorStreamStore(metadataStore, SetExecutionEnvContainerIdMapping.TYPE));
+      state.processorToExecutionId.putAll(executionContainerIdManager.readExecutionEnvironmentContainerIdMapping());
+      generateAndUpdateJobCoordinatorMetadata(jobModelManager.jobModel());
+    }
+    // build metastore for container placement messages
+    containerPlacementMetadataStore = new ContainerPlacementMetadataStore(metadataStore);
 
     // build a container process Manager
     containerProcessManager = createContainerProcessManager();
+
+    // build utils related to container placements
+    containerPlacementRequestAllocator =
+        new ContainerPlacementRequestAllocator(containerPlacementMetadataStore, containerProcessManager,
+            new ApplicationConfig(config));
+    this.containerPlacementRequestAllocatorThread =
+        new Thread(containerPlacementRequestAllocator, "Samza-" + ContainerPlacementRequestAllocator.class.getSimpleName());
   }
 
   /**
@@ -234,13 +267,19 @@ public class ClusterBasedJobCoordinator {
       MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, this.metrics, config);
       metadataResourceUtil.createResources();
 
-      // fan out the startpoints
-      StartpointManager startpointManager = createStartpointManager();
-      startpointManager.start();
-      try {
-        startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
-      } finally {
-        startpointManager.stop();
+      /*
+       * We fanout startpoint if and only if
+       *  1. Startpoint is enabled in configuration
+       *  2. If AM HA is enabled, fanout only if startpoint enabled and job coordinator metadata changed
+       */
+      if (shouldFanoutStartpoint()) {
+        StartpointManager startpointManager = createStartpointManager();
+        startpointManager.start();
+        try {
+          startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+        } finally {
+          startpointManager.stop();
+        }
       }
 
       // Remap changelog partitions to tasks
@@ -261,9 +300,17 @@ public class ClusterBasedJobCoordinator {
       partitionMonitor.ifPresent(StreamPartitionCountMonitor::start);
       inputStreamRegexMonitor.ifPresent(StreamRegexMonitor::start);
 
+      // containerPlacementRequestAllocator thread has to start after the cpm is started
+      LOG.info("Starting the container placement handler thread");
+      containerPlacementMetadataStore.start();
+      containerPlacementRequestAllocatorThread.start();
+
       boolean isInterrupted = false;
 
-      while (!containerProcessManager.shouldShutdown() && !checkAndThrowException() && !isInterrupted) {
+      while (!containerProcessManager.shouldShutdown()
+          && !checkAndThrowException()
+          && !isInterrupted
+          && checkcontainerPlacementRequestAllocatorThreadIsAlive()) {
         try {
           Thread.sleep(jobCoordinatorSleepInterval);
         } catch (InterruptedException e) {
@@ -287,17 +334,44 @@ public class ClusterBasedJobCoordinator {
     return false;
   }
 
+  private boolean checkcontainerPlacementRequestAllocatorThreadIsAlive() {
+    if (containerPlacementRequestAllocatorThread.isAlive()) {
+      return true;
+    }
+    LOG.info("{} thread is dead issuing a shutdown", containerPlacementRequestAllocatorThread.getName());
+    return false;
+  }
+
+  /**
+   * Generate the job coordinator metadata for current application attempt and checks for changes in the
+   * metadata from the previous attempt and writes the updates metadata to coordinator stream.
+   *
+   * @param jobModel job model used to generate the job coordinator metadata
+   */
+  @VisibleForTesting
+  void generateAndUpdateJobCoordinatorMetadata(JobModel jobModel) {
+    JobCoordinatorMetadataManager jobCoordinatorMetadataManager = createJobCoordinatorMetadataManager();
+
+    JobCoordinatorMetadata previousMetadata = jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
+    JobCoordinatorMetadata newMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel, config);
+    if (jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)) {
+      jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(newMetadata);
+      metadataChangedAcrossAttempts = true;
+    }
+  }
+
   /**
    * Stops all components of the JobCoordinator.
    */
   private void onShutDown() {
-
     try {
       partitionMonitor.ifPresent(StreamPartitionCountMonitor::stop);
       inputStreamRegexMonitor.ifPresent(StreamRegexMonitor::stop);
       systemAdmins.stop();
+      shutDowncontainerPlacementRequestAllocatorAndUtils();
       containerProcessManager.stop();
-      coordinatorStreamStore.close();
+      localityManager.close();
+      metadataStore.close();
     } catch (Throwable e) {
       LOG.error("Exception while stopping cluster based job coordinator", e);
     }
@@ -313,6 +387,19 @@ public class ClusterBasedJobCoordinator {
     }
   }
 
+  private void shutDowncontainerPlacementRequestAllocatorAndUtils() {
+    // Shutdown container placement handler
+    containerPlacementRequestAllocator.stop();
+    try {
+      containerPlacementRequestAllocatorThread.join();
+      LOG.info("Stopped container placement handler thread");
+      containerPlacementMetadataStore.stop();
+    } catch (InterruptedException ie) {
+      LOG.error("Container Placement handler thread join threw an interrupted exception", ie);
+      Thread.currentThread().interrupt();
+    }
+  }
+
   private Optional<StreamPartitionCountMonitor> getPartitionCountMonitor(Config config, SystemAdmins systemAdmins) {
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     Set<SystemStream> inputStreamsToMonitor = new TaskConfig(config).getAllInputStreams();
@@ -323,13 +410,13 @@ public class ClusterBasedJobCoordinator {
     return Optional.of(new StreamPartitionCountMonitor(inputStreamsToMonitor, streamMetadata, metrics,
         new JobConfig(config).getMonitorPartitionChangeFrequency(), streamsChanged -> {
       // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
-        if (hasDurableStores) {
-          LOG.error("Input topic partition count changed in a job with durable state. Failing the job. " +
-              "Changed topics: {}", streamsChanged.toString());
-          state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-        }
-        coordinatorException = new PartitionChangeException("Input topic partition count changes detected for topics: " + streamsChanged.toString());
-      }));
+      if (hasDurableStores) {
+        LOG.error("Input topic partition count changed in a job with durable state. Failing the job. " +
+            "Changed topics: {}", streamsChanged.toString());
+        state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+      }
+      coordinatorException = new PartitionChangeException("Input topic partition count changes detected for topics: " + streamsChanged.toString());
+    }));
   }
 
   private Optional<StreamRegexMonitor> getInputRegexMonitor(Config config, SystemAdmins systemAdmins, Set<SystemStream> inputStreamsToMonitor) {
@@ -383,8 +470,7 @@ public class ClusterBasedJobCoordinator {
   @VisibleForTesting
   SamzaApplicationState.SamzaAppStatus getAppStatus() {
     // make sure to only return a unmodifiable copy of the status variable
-    final SamzaApplicationState.SamzaAppStatus copy = state.status;
-    return copy;
+    return state.status;
   }
 
   @VisibleForTesting
@@ -394,34 +480,44 @@ public class ClusterBasedJobCoordinator {
 
   @VisibleForTesting
   StartpointManager createStartpointManager() {
-    return new StartpointManager(coordinatorStreamStore);
+    return new StartpointManager(metadataStore);
   }
 
   @VisibleForTesting
   ContainerProcessManager createContainerProcessManager() {
-    return new ContainerProcessManager(config, state, metrics);
+    return new ContainerProcessManager(config, state, metrics, containerPlacementMetadataStore, localityManager,
+        metadataChangedAcrossAttempts);
+  }
+
+  @VisibleForTesting
+  JobCoordinatorMetadataManager createJobCoordinatorMetadataManager() {
+    return new JobCoordinatorMetadataManager(new NamespaceAwareCoordinatorStreamStore(metadataStore,
+        SetJobCoordinatorMetadataMessage.TYPE), JobCoordinatorMetadataManager.ClusterType.YARN, metrics);
+  }
+
+  @VisibleForTesting
+  boolean isApplicationMasterHighAvailabilityEnabled() {
+    return new JobConfig(config).getApplicationMasterHighAvailabilityEnabled();
+  }
+
+  @VisibleForTesting
+  boolean isMetadataChangedAcrossAttempts() {
+    return metadataChangedAcrossAttempts;
   }
 
   /**
-   * The entry point for the {@link ClusterBasedJobCoordinator}
-   * @param args args
+   * We only fanout startpoint if and only if
+   *  1. Startpoint is enabled
+   *  2. If AM HA is enabled, fanout only if startpoint enabled and job coordinator metadata changed
+   *
+   * @return true if it satisfies above conditions, false otherwise
    */
-  public static void main(String[] args) {
-    Config coordinatorSystemConfig;
-    final String coordinatorSystemEnv = System.getenv(ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG());
-    try {
-      //Read and parse the coordinator system config.
-      LOG.info("Parsing coordinator system config {}", coordinatorSystemEnv);
-      coordinatorSystemConfig =
-          new MapConfig(SamzaObjectMapper.getObjectMapper()
-              .readValue(coordinatorSystemEnv.replace("\\\"", "\""), Config.class));
-      LOG.info("Using the coordinator system config: {}.", coordinatorSystemConfig);
-    } catch (IOException e) {
-      LOG.error("Exception while reading coordinator stream config", e);
-      throw new SamzaException(e);
-    }
-    ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(coordinatorSystemConfig);
-    jc.run();
-    LOG.info("Finished running ClusterBasedJobCoordinator");
+  @VisibleForTesting
+  boolean shouldFanoutStartpoint() {
+    JobConfig jobConfig = new JobConfig(config);
+    boolean startpointEnabled = jobConfig.getStartpointEnabled();
+
+    return isApplicationMasterHighAvailabilityEnabled() ?
+        startpointEnabled && isMetadataChangedAcrossAttempts() : startpointEnabled;
   }
 }

@@ -23,33 +23,21 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import org.apache.samza.table.ReadWriteTable;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
 
-import static java.lang.Thread.*;
-import static org.mockito.Mockito.*;
+import static java.lang.Thread.sleep;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses({
-    TestBatchProcessor.TestCreate.class,
-    TestBatchProcessor.TestUpdatesAndLookup.class,
-    TestBatchProcessor.TestBatchTriggered.class
-  })
+
 public class TestBatchProcessor {
-  private static final int SLOW_OPERATION_TIME_MS = 500;
-  private static final Supplier<Void> SLOW_UPDATE_SUPPLIER = () -> {
-    try {
-      sleep(SLOW_OPERATION_TIME_MS);
-    } catch (InterruptedException e) {
-      // ignore
-    }
-    return null;
-  };
 
   public static class TestCreate {
     @Test
@@ -94,9 +82,18 @@ public class TestBatchProcessor {
     @Test
     public void testBatchOperationTriggeredByBatchSize() {
       final int maxBatchSize = 3;
+      final CountDownLatch batchCompletionTriggerLatch = new CountDownLatch(1);
+      final Supplier<Void> tableUpdateSupplier = () -> {
+        try {
+          batchCompletionTriggerLatch.await();
+        } catch (InterruptedException e) {
+          // ignore
+        }
+        return null;
+      };
 
       final ReadWriteTable<Integer, Integer> table = mock(ReadWriteTable.class);
-      when(table.putAllAsync(anyList())).thenReturn(CompletableFuture.supplyAsync(SLOW_UPDATE_SUPPLIER));
+      when(table.putAllAsync(anyList())).thenReturn(CompletableFuture.supplyAsync(tableUpdateSupplier));
 
       final BatchProcessor<Integer, Integer> batchProcessor =
           createBatchProcessor(table, maxBatchSize, Integer.MAX_VALUE);
@@ -112,15 +109,12 @@ public class TestBatchProcessor {
       }
       Assert.assertEquals(0, batchProcessor.size());
 
-      try {
-        sleep(SLOW_OPERATION_TIME_MS * 2);
-      } catch (InterruptedException e) {
-        // ignore
-      }
-
-      for (int i = 0; i < maxBatchSize; i++) {
-        Assert.assertTrue(futureList.get(i).isDone());
-      }
+      // Complete the async call to the underlying table
+      batchCompletionTriggerLatch.countDown();
+      // The latch should eventually trigger completion to the future returned by the batch processor
+      CompletableFuture
+          .allOf(futureList.toArray(new CompletableFuture[0]))
+          .join();
     }
 
     @Test

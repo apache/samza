@@ -175,6 +175,10 @@ class ClientHelper(conf: Configuration) extends Logging {
     appCtx.setApplicationId(appId.get)
     info("set app ID to %s" format appId.get)
 
+    if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled) {
+      appCtx.setKeepContainersAcrossApplicationAttempts(true)
+      info("keep containers alive across application attempts for AM High availability")
+    }
     val localResources: HashMap[String, LocalResource] = HashMap[String, LocalResource]()
     localResources += "__package" -> packageResource
 
@@ -301,8 +305,8 @@ class ClientHelper(conf: Configuration) extends Logging {
   }
 
   private def isActiveApplication(applicationReport: ApplicationReport): Boolean = {
-    (Running.equals(toAppStatus(applicationReport).get)
-    || New.equals(toAppStatus(applicationReport).get))
+    val status = toAppStatus(applicationReport).get
+    Running.equals(status) || New.equals(status)
   }
 
   def toAppStatus(applicationReport: ApplicationReport): Option[ApplicationStatus] = {

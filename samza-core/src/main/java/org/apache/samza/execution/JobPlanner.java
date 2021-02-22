@@ -31,6 +31,7 @@ import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -82,7 +83,18 @@ public abstract class JobPlanner {
       if (StringUtils.isBlank(userConfig.get(TaskConfig.INPUT_STREAMS))) {
         allowedUserConfig.remove(TaskConfig.INPUT_STREAMS);
       }
-      generatedConfig.putAll(getGeneratedConfig(runId));
+      generatedConfig.putAll(getGeneratedConfig());
+    }
+
+    if (ApplicationConfig.ApplicationMode.BATCH.name().equals(generatedConfig.get(ApplicationConfig.APP_MODE))) {
+      allowedUserConfig.remove(ClusterManagerConfig.JOB_HOST_AFFINITY_ENABLED);
+    }
+
+    // APP_RUN_ID should be generated for both LegacyTaskApplications & descriptor based applications
+    // This config is used in BATCH mode to create new intermediate streams on runs and in stream mode use by
+    // Container Placements to identify a deployment of Samza
+    if (StringUtils.isNoneEmpty(runId)) {
+      generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
     }
 
     // merge user-provided configuration with generated configuration. generated configuration has lower priority.
@@ -106,7 +118,7 @@ public abstract class JobPlanner {
   final void writePlanJsonFile(String planJson) {
     try {
       String content = "plan='" + planJson + "'";
-      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR());
+      String planPath = System.getenv(ShellCommandConfig.EXECUTION_PLAN_DIR);
       if (planPath != null && !planPath.isEmpty()) {
         // Write the plan json to plan path
         File file = new File(planPath + "/plan.json");
@@ -120,23 +132,26 @@ public abstract class JobPlanner {
     }
   }
 
-  private Map<String, String> getGeneratedConfig(String runId) {
+  private Map<String, String> getGeneratedConfig() {
     Map<String, String> generatedConfig = new HashMap<>();
-    if (StringUtils.isNoneEmpty(runId)) {
-      generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
-    }
-
-    StreamConfig streamConfig = new StreamConfig(userConfig);
-    Set<String> inputStreamIds = new HashSet<>(appDesc.getInputStreamIds());
-    inputStreamIds.removeAll(appDesc.getOutputStreamIds()); // exclude intermediate streams
-    ApplicationConfig.ApplicationMode mode =
-        inputStreamIds.stream().allMatch(streamConfig::getIsBounded)
-            ? ApplicationConfig.ApplicationMode.BATCH
-            : ApplicationConfig.ApplicationMode.STREAM;
-    generatedConfig.put(ApplicationConfig.APP_MODE, mode.name());
 
     Map<String, String> systemStreamConfigs = generateSystemStreamConfigs(appDesc);
     generatedConfig.putAll(systemStreamConfigs);
+
+    StreamConfig streamConfig = new StreamConfig(new MapConfig(generatedConfig));
+    Set<String> inputStreamIds = new HashSet<>(appDesc.getInputStreamIds());
+    inputStreamIds.removeAll(appDesc.getOutputStreamIds()); // exclude intermediate streams
+
+    final ApplicationConfig.ApplicationMode mode;
+    if (inputStreamIds.isEmpty()) {
+      mode = ApplicationConfig.ApplicationMode.STREAM; // use stream by default
+    } else {
+      mode = inputStreamIds.stream().allMatch(streamConfig::getIsBounded)
+          ? ApplicationConfig.ApplicationMode.BATCH
+          : ApplicationConfig.ApplicationMode.STREAM;
+    }
+
+    generatedConfig.put(ApplicationConfig.APP_MODE, mode.name());
 
     // adding app.class in the configuration, unless it is LegacyTaskApplication
     if (!LegacyTaskApplication.class.getName().equals(appDesc.getAppClass().getName())) {

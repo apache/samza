@@ -26,8 +26,7 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util
 import java.util.{Base64, Optional}
-import java.util.concurrent.{ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
-import java.util.stream.Collectors
+import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -51,7 +50,9 @@ import org.apache.samza.task._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Util, _}
 import org.apache.samza.SamzaException
+import org.apache.samza.clustermanager.StandbyTaskUtil
 
+import scala.collection.JavaConversions
 import scala.collection.JavaConverters._
 
 object SamzaContainer extends Logging {
@@ -133,7 +134,14 @@ object SamzaContainer extends Logging {
     localityManager: LocalityManager = null,
     startpointManager: StartpointManager = null,
     diagnosticsManager: Option[DiagnosticsManager] = Option.empty) = {
-    val config = jobContext.getConfig
+    val config = if (StandbyTaskUtil.isStandbyContainer(containerId)) {
+      // standby containers will need to continually poll checkpoint messages
+      val newConfig = new util.HashMap[String, String](jobContext.getConfig)
+      newConfig.put(TaskConfig.INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ, java.lang.Boolean.FALSE.toString)
+      new MapConfig(newConfig)
+    } else {
+      jobContext.getConfig
+    }
     val jobConfig = new JobConfig(config)
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
@@ -207,7 +215,7 @@ object SamzaContainer extends Logging {
     }).toMap
     info("Got system factories: %s" format systemFactories.keys)
 
-    val systemAdmins = new SystemAdmins(config)
+    val systemAdmins = new SystemAdmins(config, this.getClass.getSimpleName)
     info("Got system admins: %s" format systemAdmins.getSystemNames)
 
     val streamMetadataCache = new StreamMetadataCache(systemAdmins)
@@ -220,7 +228,7 @@ object SamzaContainer extends Logging {
         val systemFactory = systemFactories(systemName)
 
         try {
-          (systemName, systemFactory.getConsumer(systemName, config, samzaContainerMetrics.registry))
+          (systemName, systemFactory.getConsumer(systemName, config, samzaContainerMetrics.registry, this.getClass.getSimpleName))
         } catch {
           case e: Exception =>
             error("Failed to create a consumer for %s, so skipping." format systemName, e)
@@ -236,7 +244,7 @@ object SamzaContainer extends Logging {
       .map {
         case (systemName, systemFactory) =>
           try {
-            (systemName, systemFactory.getProducer(systemName, config, samzaContainerMetrics.registry))
+            (systemName, systemFactory.getProducer(systemName, config, samzaContainerMetrics.registry, this.getClass.getSimpleName))
           } catch {
             case e: Exception =>
               error("Failed to create a producer for %s, so skipping." format systemName, e)
@@ -468,6 +476,7 @@ object SamzaContainer extends Logging {
 
     val threadPoolSize = jobConfig.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
+    samzaContainerMetrics.containerThreadPoolSize.set(threadPoolSize)
 
     val taskThreadPool = if (threadPoolSize > 0) {
       Executors.newFixedThreadPool(threadPoolSize,
@@ -579,7 +588,7 @@ object SamzaContainer extends Logging {
           offsetManager = offsetManager,
           storageManager = storageManager,
           tableManager = tableManager,
-          systemStreamPartitions = taskSSPs -- taskSideInputSSPs,
+          systemStreamPartitions = JavaConversions.setAsJavaSet(taskSSPs -- taskSideInputSSPs),
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, taskConfig),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
@@ -608,13 +617,18 @@ object SamzaContainer extends Logging {
       taskConfig,
       clock)
 
+    val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
+
     val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
     memoryStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
       override def onUpdate(sample: SystemMemoryStatistics): Unit = {
         val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
-        val physicalMemoryMb : Double = physicalMemoryBytes / (1024.0 * 1024.0)
+        val physicalMemoryMb : Float = physicalMemoryBytes / (1024.0F * 1024.0F)
+        val memoryUtilization : Float = physicalMemoryMb.toFloat / containerMemoryMb
         logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
+        logger.debug("Container physical memory utilization: " + memoryUtilization)
         samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
+        samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization);
       }
     })
 
@@ -714,6 +728,9 @@ class SamzaContainer(
   var jmxServer: JmxServer = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED
+
+  @volatile private var standbyContainerShutdownLatch = new CountDownLatch(1);
+
   private var exceptionSeen: Throwable = null
   private var containerListener: SamzaContainerListener = null
 
@@ -767,8 +784,29 @@ class SamzaContainer(
       if (taskInstances.size > 0)
         runLoop.run
       else
-        Thread.sleep(Long.MaxValue)
+        standbyContainerShutdownLatch.await() // Standby containers do not spin runLoop, instead they wait on signal to invoke shutdown
     } catch {
+      case e: InterruptedException =>
+        /*
+         * We don't want to categorize interrupts as failure since the only place the container thread gets interrupted within
+         * our code inside stream processor is during the following two scenarios
+         *    1. During a re-balance, if the container has not started or hasn't reported start status to StreamProcessor.
+         *       Subsequently stream processor attempts to interrupt the container thread before proceeding to join the barrier
+         *       to agree on the new work assignment.
+         *    2. During shutdown signals to stream processor (external or internal), the stream processor signals the container to
+         *       shutdown and waits for `task.shutdown.ms` before forcefully shutting down the container executor service which in
+         *       turn interrupts the container thread.
+         *
+         * In the both of these scenarios, the failure cause is either captured externally (timing out scenario) or internally
+         * (failed attempt to shut down the container). The act of interrupting the container thread is an explicit intent to shutdown
+         * the container since it is not capable of reacting to shutdown signals in all scenarios.
+         *
+         */
+        if (status.equals(SamzaContainerStatus.STARTED)) {
+          warn("Received an interrupt in run loop.", e)
+        } else {
+          warn("Received an interrupt during initialization.", e)
+        }
       case e: Throwable =>
         if (status.equals(SamzaContainerStatus.STARTED)) {
           error("Caught exception/error in run loop.", e)
@@ -844,7 +882,10 @@ class SamzaContainer(
       return
     }
 
-    shutdownRunLoop()
+    if (taskInstances.size > 0)
+      shutdownRunLoop()
+    else
+      standbyContainerShutdownLatch.countDown // Countdown the latch so standby container can invoke a shutdown sequence
   }
 
   // Shutdown Runloop

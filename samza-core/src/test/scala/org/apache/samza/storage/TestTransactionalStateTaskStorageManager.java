@@ -21,6 +21,7 @@ package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.io.FileFilter;
 import scala.Option;
 import scala.collection.immutable.Map;
 
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.Optional;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemAdmin;
@@ -49,7 +51,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
@@ -272,7 +273,7 @@ public class TestTransactionalStateTaskStorageManager {
     when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
     when(lpStoreProps.isLoggedStore()).thenReturn(true);
     Path mockPath = mock(Path.class);
-    when(mockLPStore.checkpoint(anyString())).thenReturn(Optional.of(mockPath));
+    when(mockLPStore.checkpoint(any())).thenReturn(Optional.of(mockPath));
 
     StorageEngine mockPStore = mock(StorageEngine.class);
     StoreProperties pStoreProps = mock(StoreProperties.class);
@@ -309,14 +310,14 @@ public class TestTransactionalStateTaskStorageManager {
         ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
 
     // invoke checkpoint
-    tsm.checkpoint(offsets);
+    tsm.checkpoint(CheckpointId.create(), offsets);
 
     // ensure that checkpoint is never called for non-logged persistent stores since they're
     // always cleared on restart.
-    verify(mockPStore, never()).checkpoint(anyString());
+    verify(mockPStore, never()).checkpoint(any());
     // ensure that checkpoint is never called for in-memory stores since they're not persistent.
-    verify(mockIStore, never()).checkpoint(anyString());
-    verify(mockLIStore, never()).checkpoint(anyString());
+    verify(mockIStore, never()).checkpoint(any());
+    verify(mockLIStore, never()).checkpoint(any());
     verify(tsm).writeChangelogOffsetFiles(checkpointPathsCaptor.capture(), any(), eq(offsets));
     Map<String, Path> checkpointPaths = checkpointPathsCaptor.getValue();
     assertEquals(1, checkpointPaths.size());
@@ -332,7 +333,7 @@ public class TestTransactionalStateTaskStorageManager {
     when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
     when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
     when(lpStoreProps.isLoggedStore()).thenReturn(true);
-    when(mockLPStore.checkpoint(anyString())).thenThrow(new IllegalStateException());
+    when(mockLPStore.checkpoint(any())).thenThrow(new IllegalStateException());
     java.util.Map<String, StorageEngine> taskStores =
         ImmutableMap.of("loggedPersistentStore", mockLPStore);
     when(csm.getAllStores(any())).thenReturn(taskStores);
@@ -343,7 +344,7 @@ public class TestTransactionalStateTaskStorageManager {
         ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
 
     // invoke checkpoint
-    tsm.checkpoint(offsets);
+    tsm.checkpoint(CheckpointId.create(), offsets);
     verify(tsm, never()).writeChangelogOffsetFiles(any(), any(), any());
     fail("Should have thrown an exception if error creating store checkpoint");
   }
@@ -358,7 +359,7 @@ public class TestTransactionalStateTaskStorageManager {
     when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
     when(lpStoreProps.isLoggedStore()).thenReturn(true);
     Path mockPath = mock(Path.class);
-    when(mockLPStore.checkpoint(anyString())).thenReturn(Optional.of(mockPath));
+    when(mockLPStore.checkpoint(any())).thenReturn(Optional.of(mockPath));
     java.util.Map<String, StorageEngine> taskStores =
         ImmutableMap.of("loggedPersistentStore", mockLPStore);
     when(csm.getAllStores(any())).thenReturn(taskStores);
@@ -371,7 +372,7 @@ public class TestTransactionalStateTaskStorageManager {
         ImmutableMap.of(mock(SystemStreamPartition.class), Option.apply("1")));
 
     // invoke checkpoint
-    tsm.checkpoint(offsets);
+    tsm.checkpoint(CheckpointId.create(), offsets);
 
     fail("Should have thrown an exception if error writing offset file.");
   }
@@ -490,6 +491,32 @@ public class TestTransactionalStateTaskStorageManager {
     tsm.writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, offsets);
 
     fail("Should have thrown an exception if no changelog offset found for checkpointed store");
+  }
+
+  @Test
+  public void testRemoveOldCheckpointsWhenBaseDirContainsRegularFiles() {
+    TaskName taskName = new TaskName("Partition 0");
+    ContainerStorageManager containerStorageManager = mock(ContainerStorageManager.class);
+    Map<String, SystemStream> changelogSystemStreams = mock(Map.class);
+    SystemAdmins systemAdmins = mock(SystemAdmins.class);
+    File loggedStoreBaseDir = mock(File.class);
+    Partition changelogPartition = new Partition(0);
+    TaskMode taskMode = TaskMode.Active;
+    StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
+
+    File mockStoreDir = mock(File.class);
+    String mockStoreDirName = "notDirectory";
+
+    when(loggedStoreBaseDir.listFiles()).thenReturn(new File[] {mockStoreDir});
+    when(mockStoreDir.getName()).thenReturn(mockStoreDirName);
+    when(storageManagerUtil.getTaskStoreDir(eq(loggedStoreBaseDir), eq(mockStoreDirName), eq(taskName), eq(taskMode))).thenReturn(mockStoreDir);
+    // null here can happen if listFiles is called on a non-directory
+    when(mockStoreDir.listFiles(any(FileFilter.class))).thenReturn(null);
+
+    TransactionalStateTaskStorageManager tsm = new TransactionalStateTaskStorageManager(taskName, containerStorageManager,
+        changelogSystemStreams, systemAdmins, loggedStoreBaseDir, changelogPartition, taskMode, storageManagerUtil);
+
+    tsm.removeOldCheckpoints(CheckpointId.create());
   }
 
   private TransactionalStateTaskStorageManager buildTSM(ContainerStorageManager csm, Partition changelogPartition,

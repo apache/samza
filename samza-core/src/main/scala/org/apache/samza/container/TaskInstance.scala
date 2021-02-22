@@ -20,11 +20,11 @@
 package org.apache.samza.container
 
 
-import java.util.{Objects, Optional}
+import java.util.{Collections, Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{Checkpoint, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointedChangelogOffset, OffsetManager}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
@@ -38,7 +38,7 @@ import org.apache.samza.util.{Logging, ScalaJavaUtil}
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-import scala.collection.Map
+import scala.collection.{JavaConverters, Map}
 
 class TaskInstance(
   val task: Any,
@@ -47,10 +47,10 @@ class TaskInstance(
   systemAdmins: SystemAdmins,
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
-  val offsetManager: OffsetManager = new OffsetManager,
+  override val offsetManager: OffsetManager = new OffsetManager,
   storageManager: TaskStorageManager = null,
   tableManager: TableManager = null,
-  val systemStreamPartitions: Set[SystemStreamPartition] = Set(),
+  val systemStreamPartitions: java.util.Set[SystemStreamPartition] = Collections.emptySet(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
   jobModel: JobModel = null,
   streamMetadataCache: StreamMetadataCache = null,
@@ -60,16 +60,16 @@ class TaskInstance(
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
   applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-  externalContextOption: Option[ExternalContext]) extends Logging {
+  externalContextOption: Option[ExternalContext]) extends Logging with RunLoopTask {
 
   val taskName: TaskName = taskModel.getTaskName
   val isInitableTask = task.isInstanceOf[InitableTask]
-  val isWindowableTask = task.isInstanceOf[WindowableTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
-  val isAsyncTask = task.isInstanceOf[AsyncStreamTask]
 
-  val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
+  override val isWindowableTask = task.isInstanceOf[WindowableTask]
+
+  override val epochTimeScheduler: EpochTimeScheduler = EpochTimeScheduler.create(timerExecutor)
 
   private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
@@ -99,7 +99,7 @@ class TaskInstance(
   private val config: Config = jobContext.getConfig
 
   val streamConfig: StreamConfig = new StreamConfig(config)
-  val intermediateStreams: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream).toSet
+  override val intermediateStreams: java.util.Set[String] = JavaConverters.setAsJavaSetConverter(streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream)).asJava
 
   val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
 
@@ -165,7 +165,7 @@ class TaskInstance(
   }
 
   def process(envelope: IncomingMessageEnvelope, coordinator: ReadableCoordinator,
-    callbackFactory: TaskCallbackFactory = null) {
+    callbackFactory: TaskCallbackFactory) {
     metrics.processes.inc
 
     val incomingMessageSsp = envelope.getSystemStreamPartition
@@ -181,22 +181,10 @@ class TaskInstance(
       trace("Processing incoming message envelope for taskName and SSP: %s, %s"
         format (taskName, incomingMessageSsp))
 
-      if (isAsyncTask) {
-        exceptionHandler.maybeHandle {
-          val callback = callbackFactory.createCallback()
-          task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
-        }
-      } else {
-        exceptionHandler.maybeHandle {
-          task.asInstanceOf[StreamTask].process(envelope, collector, coordinator)
-        }
-
-        trace("Updating offset map for taskName, SSP and offset: %s, %s, %s"
-          format(taskName, incomingMessageSsp, envelope.getOffset))
-
-        offsetManager.update(taskName, incomingMessageSsp, envelope.getOffset)
+      exceptionHandler.maybeHandle {
+        val callback = callbackFactory.createCallback()
+        task.asInstanceOf[AsyncStreamTask].processAsync(envelope, collector, coordinator, callback)
       }
-
     }
   }
 
@@ -253,25 +241,32 @@ class TaskInstance(
       trace("Flushing state stores for taskName: %s" format taskName)
       newestChangelogOffsets = storageManager.flush()
       trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestChangelogOffsets))
-      newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
-        allCheckpointOffsets.put(ssp, newestOffsetOption.orNull)
-      }
     }
 
+    val checkpointId = CheckpointId.create()
+    if (storageManager != null && newestChangelogOffsets != null) {
+      trace("Checkpointing stores for taskName: %s with checkpoint id: %s" format (taskName, checkpointId))
+      storageManager.checkpoint(checkpointId, newestChangelogOffsets.toMap)
+    }
+
+    if (newestChangelogOffsets != null) {
+      newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
+        val offset = new CheckpointedChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
+        allCheckpointOffsets.put(ssp, offset)
+      }
+    }
     val checkpoint = new Checkpoint(allCheckpointOffsets)
     trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
 
-    var checkpointId: String = null
-    if (storageManager != null && newestChangelogOffsets != null) {
-      trace("Checkpointing stores for taskName: %s" format taskName)
-      checkpointId = storageManager.checkpoint(newestChangelogOffsets.toMap)
-    }
-
     offsetManager.writeCheckpoint(taskName, checkpoint)
 
-    if (storageManager != null && checkpointId != null) {
+    if (storageManager != null) {
       trace("Remove old checkpoint stores for taskName: %s" format taskName)
-      storageManager.removeOldCheckpoints(checkpointId)
+      try {
+        storageManager.removeOldCheckpoints(checkpointId)
+      } catch {
+        case e: Exception => error("Failed to remove old checkpoints for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)
+      }
     }
 
     if (inputCheckpoint != null) {

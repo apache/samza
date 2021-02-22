@@ -62,9 +62,9 @@ import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
+import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
-import org.apache.samza.util.Util;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.slf4j.Logger;
@@ -77,9 +77,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalApplicationRunner.class);
   private static final String PROCESSOR_ID = UUID.randomUUID().toString();
-  private final  static String RUN_ID_METADATA_STORE = "RunIdCoordinationStore";
+  private static final String RUN_ID_METADATA_STORE = "RunIdCoordinationStore";
   private static final String METADATA_STORE_FACTORY_CONFIG = "metadata.store.factory";
-  public final static String DEFAULT_METADATA_STORE_FACTORY = ZkMetadataStoreFactory.class.getName();
+  private static final String DEFAULT_METADATA_STORE_FACTORY = ZkMetadataStoreFactory.class.getName();
 
   private final ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc;
   private final Set<Pair<StreamProcessor, MetadataStore>> processors = ConcurrentHashMap.newKeySet();
@@ -89,9 +89,9 @@ public class LocalApplicationRunner implements ApplicationRunner {
   private final boolean isAppModeBatch;
   private final Optional<CoordinationUtils> coordinationUtils;
   private final Optional<MetadataStoreFactory> metadataStoreFactory;
+
   private Optional<String> runId = Optional.empty();
   private Optional<RunIdGenerator> runIdGenerator = Optional.empty();
-
   private ApplicationStatus appStatus = ApplicationStatus.New;
 
   /**
@@ -101,7 +101,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @param config configuration for the application
    */
   public LocalApplicationRunner(SamzaApplication app, Config config) {
-    this(app, config, getDefaultCoordinatorStreamStoreFactory(new JobConfig(config)));
+    this(new LocalApplicationRunnerContext(app, config));
   }
 
   /**
@@ -112,47 +112,65 @@ public class LocalApplicationRunner implements ApplicationRunner {
    * @param metadataStoreFactory the instance of {@link MetadataStoreFactory} to read and write to coordinator stream.
    */
   public LocalApplicationRunner(SamzaApplication app, Config config, MetadataStoreFactory metadataStoreFactory) {
-    this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(app, config);
-    this.isAppModeBatch = new ApplicationConfig(config).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
-    this.coordinationUtils = getCoordinationUtils(config);
-    this.metadataStoreFactory = Optional.ofNullable(metadataStoreFactory);
+    this(new LocalApplicationRunnerContext(app, config).setMetadataStoreFactory(metadataStoreFactory));
   }
 
   /**
    * Constructor only used in unit test to allow injection of {@link LocalJobPlanner}
    */
   @VisibleForTesting
-  LocalApplicationRunner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc, Optional<CoordinationUtils> coordinationUtils) {
-    this.appDesc = appDesc;
-    this.isAppModeBatch = new ApplicationConfig(appDesc.getConfig()).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
-    this.coordinationUtils = coordinationUtils;
-    this.metadataStoreFactory = Optional.ofNullable(getDefaultCoordinatorStreamStoreFactory(new JobConfig(appDesc.getConfig())));
+  LocalApplicationRunner(SamzaApplication app, Config config, CoordinationUtils coordinationUtils) {
+    this(new LocalApplicationRunnerContext(app, config).setCoordinationUtils(coordinationUtils));
   }
 
-  static MetadataStoreFactory getDefaultCoordinatorStreamStoreFactory(JobConfig jobConfig) {
+  private LocalApplicationRunner(LocalApplicationRunnerContext context) {
+    Config config = context.config;
+    if (new JobConfig(context.config).getConfigLoaderFactory().isPresent()) {
+      config = ConfigUtil.loadConfig(config);
+    }
+
+    this.appDesc = ApplicationDescriptorUtil.getAppDescriptor(context.app, config);
+    this.isAppModeBatch = isAppModeBatch(config);
+    this.coordinationUtils = context.coordinationUtils.isPresent()
+        ? context.coordinationUtils
+        : getCoordinationUtils(config);
+    this.metadataStoreFactory = context.metadataStoreFactory.isPresent()
+        ? context.metadataStoreFactory
+        : getDefaultCoordinatorStreamStoreFactory(config);
+  }
+
+  @VisibleForTesting
+  static Optional<MetadataStoreFactory> getDefaultCoordinatorStreamStoreFactory(Config config) {
+    JobConfig jobConfig = new JobConfig(config);
+
     String coordinatorSystemName = jobConfig.getCoordinatorSystemNameOrNull();
     JobCoordinatorConfig jobCoordinatorConfig = new JobCoordinatorConfig(jobConfig);
     String jobCoordinatorFactoryClassName = jobCoordinatorConfig.getJobCoordinatorFactoryClassName();
 
     // TODO: Remove restriction to only ZkJobCoordinator after next phase of metadata store abstraction.
     if (StringUtils.isNotBlank(coordinatorSystemName) && ZkJobCoordinatorFactory.class.getName().equals(jobCoordinatorFactoryClassName)) {
-      return new CoordinatorStreamMetadataStoreFactory();
+      return Optional.of(new CoordinatorStreamMetadataStoreFactory());
     }
 
     LOG.warn("{} or {} not configured, or {} is not {}. No default coordinator stream metadata store will be created.",
         JobConfig.JOB_COORDINATOR_SYSTEM, JobConfig.JOB_DEFAULT_SYSTEM,
         JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, ZkJobCoordinatorFactory.class.getName());
-    return null;
+    return Optional.empty();
   }
 
-  private Optional<CoordinationUtils> getCoordinationUtils(Config config) {
-    if (!isAppModeBatch) {
+  private static Optional<CoordinationUtils> getCoordinationUtils(Config config) {
+    if (!isAppModeBatch(config)) {
       return Optional.empty();
     }
+
     JobCoordinatorConfig jcConfig = new JobCoordinatorConfig(config);
     CoordinationUtils coordinationUtils = jcConfig.getCoordinationUtilsFactory()
         .getCoordinationUtils(CoordinationConstants.APPLICATION_RUNNER_PATH_SUFFIX, PROCESSOR_ID, config);
     return Optional.ofNullable(coordinationUtils);
+  }
+
+  private static boolean isAppModeBatch(Config config) {
+    return new ApplicationConfig(config).getAppMode() == ApplicationConfig.ApplicationMode.BATCH;
   }
 
   /**
@@ -186,7 +204,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
       runIdGenerator = Optional.of(new RunIdGenerator(coordinationUtils.get(), metadataStore));
       runId = runIdGenerator.flatMap(RunIdGenerator::getRunId);
     } catch (Exception e) {
-      LOG.warn("Failed to generate run id. Will continue execution without a run id. Caused by {}", e);
+      LOG.warn("Failed to generate run id. Will continue execution without a run id.", e);
     }
   }
 
@@ -208,15 +226,15 @@ public class LocalApplicationRunner implements ApplicationRunner {
         throw new SamzaException("No jobs to run.");
       }
       jobConfigs.forEach(jobConfig -> {
-          LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
-          MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
-          if (coordinatorStreamStore != null) {
-            coordinatorStreamStore.init();
-          }
-          StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
-              sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig), Optional.ofNullable(externalContext), coordinatorStreamStore);
-          processors.add(Pair.of(processor, coordinatorStreamStore));
-        });
+        LOG.debug("Starting job {} StreamProcessor with config {}", jobConfig.getName(), jobConfig);
+        MetadataStore coordinatorStreamStore = createCoordinatorStreamStore(jobConfig);
+        if (coordinatorStreamStore != null) {
+          coordinatorStreamStore.init();
+        }
+        StreamProcessor processor = createStreamProcessor(jobConfig, appDesc,
+          sp -> new LocalStreamProcessorLifecycleListener(sp, jobConfig), Optional.ofNullable(externalContext), coordinatorStreamStore);
+        processors.add(Pair.of(processor, coordinatorStreamStore));
+      });
       numProcessorsToStart.set(processors.size());
 
       // start the StreamProcessors
@@ -233,9 +251,13 @@ public class LocalApplicationRunner implements ApplicationRunner {
   @Override
   public void kill() {
     processors.forEach(sp -> {
-        sp.getLeft().stop();    // Stop StreamProcessor
+      sp.getLeft().stop();    // Stop StreamProcessor
+
+      // Coordinator stream isn't required so a null check is necessary
+      if (sp.getRight() != null) {
         sp.getRight().close();  // Close associated coordinator metadata store
-      });
+      }
+    });
     cleanup();
   }
 
@@ -275,7 +297,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
 
   @VisibleForTesting
   protected Set<StreamProcessor> getProcessors() {
-    return processors.stream().map(sp -> sp.getLeft()).collect(Collectors.toSet());
+    return processors.stream().map(Pair::getLeft).collect(Collectors.toSet());
   }
 
   @VisibleForTesting
@@ -316,7 +338,7 @@ public class LocalApplicationRunner implements ApplicationRunner {
       return false;
     }
     SystemStream coordinatorSystemStream = CoordinatorStreamUtil.getCoordinatorSystemStream(config);
-    SystemAdmins systemAdmins = new SystemAdmins(config);
+    SystemAdmins systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
     systemAdmins.start();
     try {
       SystemAdmin coordinatorSystemAdmin = systemAdmins.getSystemAdmin(coordinatorSystemStream.getSystem());
@@ -337,10 +359,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
     appDesc.getMetricsReporterFactories().forEach((name, factory) ->
         reporters.put(name, factory.getMetricsReporter(name, processorId, config)));
 
-    StreamProcessor streamProcessor = new StreamProcessor(processorId, config, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
+    return new StreamProcessor(processorId, config, reporters, taskFactory, appDesc.getApplicationContainerContextFactory(),
           appDesc.getApplicationTaskContextFactory(), externalContextOptional, listenerFactory, null, coordinatorStreamStore);
-
-    return streamProcessor;
   }
 
   /**
@@ -380,7 +400,8 @@ public class LocalApplicationRunner implements ApplicationRunner {
    */
   private MetadataStore getMetadataStoreForRunID() {
     String metadataStoreFactoryClass = appDesc.getConfig().getOrDefault(METADATA_STORE_FACTORY_CONFIG, DEFAULT_METADATA_STORE_FACTORY);
-    MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
+    MetadataStoreFactory metadataStoreFactory =
+        ReflectionUtil.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
     return metadataStoreFactory.getMetadataStore(RUN_ID_METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
   }
 
@@ -410,26 +431,39 @@ public class LocalApplicationRunner implements ApplicationRunner {
       userDefinedProcessorLifecycleListener.afterStart();
     }
 
+    private void closeAndRemoveProcessor() {
+      processors.forEach(sp -> {
+        if (sp.getLeft().equals(processor)) {
+          sp.getLeft().stop();
+          if (sp.getRight() != null) {
+            sp.getRight().close();
+          }
+        }
+      });
+      processors.removeIf(pair -> pair.getLeft().equals(processor));
+    }
     @Override
     public void afterStop() {
-      processors.removeIf(pair -> pair.getLeft().equals(processor));
-
+      closeAndRemoveProcessor();
       // successful shutdown
       handleProcessorShutdown(null);
     }
 
     @Override
     public void afterFailure(Throwable t) {
-      processors.removeIf(pair -> pair.getLeft().equals(processor));
+      // we need to close associated coordinator metadata store, although the processor failed
+      closeAndRemoveProcessor();
 
       // the processor stopped with failure, this is logging the first processor's failure as the cause of
       // the whole application failure
       if (failure.compareAndSet(null, t)) {
         // shutdown the other processors
         processors.forEach(sp -> {
-            sp.getLeft().stop();    // Stop StreamProcessor
-            sp.getRight().close();  // Close associated coordinator metadata store
-          });
+          sp.getLeft().stop();     // Stop StreamProcessor
+          if (sp.getRight() != null) {
+            sp.getRight().close(); // Close associated coordinator metadata store
+          }
+        });
       }
 
       // handle the current processor's shutdown failure.
@@ -466,6 +500,28 @@ public class LocalApplicationRunner implements ApplicationRunner {
           appStatus = ApplicationStatus.UnsuccessfulFinish;
         }
       }
+    }
+  }
+
+  private final static class LocalApplicationRunnerContext {
+    SamzaApplication app;
+    Config config;
+    Optional<CoordinationUtils> coordinationUtils = Optional.empty();
+    Optional<MetadataStoreFactory> metadataStoreFactory = Optional.empty();
+
+    LocalApplicationRunnerContext(SamzaApplication app, Config config) {
+      this.app = app;
+      this.config = config;
+    }
+
+    LocalApplicationRunnerContext setCoordinationUtils(CoordinationUtils coordinationUtils) {
+      this.coordinationUtils = Optional.of(coordinationUtils);
+      return this;
+    }
+
+    LocalApplicationRunnerContext setMetadataStoreFactory(MetadataStoreFactory metadataStoreFactory) {
+      this.metadataStoreFactory = Optional.of(metadataStoreFactory);
+      return this;
     }
   }
 }

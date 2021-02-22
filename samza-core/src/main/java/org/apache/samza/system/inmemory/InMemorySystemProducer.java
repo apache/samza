@@ -20,6 +20,7 @@
 package org.apache.samza.system.inmemory;
 
 import com.google.common.base.Preconditions;
+import java.util.Arrays;
 import org.apache.samza.Partition;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -90,7 +91,7 @@ public class InMemorySystemProducer implements SystemProducer {
     Preconditions.checkNotNull(partitionKey, "Failed to compute partition key for the message: " + envelope);
 
     int partition =
-        Math.abs(partitionKey.hashCode()) % memoryManager.getPartitionCountForSystemStream(envelope.getSystemStream());
+        Math.abs(hashCode(partitionKey)) % memoryManager.getPartitionCountForSystemStream(envelope.getSystemStream());
 
     SystemStreamPartition ssp = new SystemStreamPartition(envelope.getSystemStream(), new Partition(partition));
     memoryManager.put(ssp, key, message);
@@ -120,5 +121,13 @@ public class InMemorySystemProducer implements SystemProducer {
   @Override
   public void flush(String source) {
     // nothing to do
+  }
+
+  /**
+   * Return the hash code of the partitionKey. When partitionKey is a byte array, it returns a hash code based on
+   * the contents of the byte array. This guarantees that byte arrays with same contents get the same hash code.
+   */
+  private int hashCode(Object partitionKey) {
+    return (partitionKey instanceof byte[]) ? Arrays.hashCode((byte[]) partitionKey) : partitionKey.hashCode();
   }
 }

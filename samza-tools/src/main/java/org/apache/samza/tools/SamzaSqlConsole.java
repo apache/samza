@@ -19,7 +19,6 @@
 
 package org.apache.samza.tools;
 
-import com.google.common.base.Joiner;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -36,8 +35,6 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.grouper.task.SingleContainerGrouperFactory;
 import org.apache.samza.serializers.StringSerdeFactory;
 import org.apache.samza.sql.avro.ConfigBasedAvroRelSchemaProviderFactory;
-import org.apache.samza.sql.fn.FlattenUdf;
-import org.apache.samza.sql.fn.RegexMatchUdf;
 import org.apache.samza.sql.impl.ConfigBasedIOResolverFactory;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
 import org.apache.samza.sql.runner.SamzaSqlApplicationConfig;

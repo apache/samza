@@ -22,6 +22,8 @@ package org.apache.samza.storage;
 
 import java.nio.file.Path;
 import java.util.Optional;
+import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.system.ChangelogSSPIterator;
 
 /**
@@ -41,11 +43,15 @@ public interface StorageEngine {
    * provided in one {@link java.util.Iterator} and not deserialized for
    * efficiency, allowing the implementation to optimize replay, if possible.
    *
+   * The implementers are expected to handle interrupt signals to the restoration thread and rethrow the exception to
+   * upstream so that {@code TaskRestoreManager} can accordingly notify the container.
+   *
    * @param envelopes
    *          An iterator of envelopes that the storage engine can read from to
    *          restore its state on startup.
+   * @throws InterruptedException when received interrupts during restoration
    */
-  void restore(ChangelogSSPIterator envelopes);
+  void restore(ChangelogSSPIterator envelopes) throws InterruptedException;
 
   /**
    * Flush any cached messages
@@ -55,7 +61,8 @@ public interface StorageEngine {
   /**
    * Checkpoint store snapshots.
    */
-  Optional<Path> checkpoint(String id);
+  @InterfaceStability.Unstable
+  Optional<Path> checkpoint(CheckpointId id);
 
   /**
    * Close the storage engine

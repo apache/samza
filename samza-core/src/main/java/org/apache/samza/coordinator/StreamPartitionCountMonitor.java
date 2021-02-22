@@ -238,7 +238,9 @@ public class StreamPartitionCountMonitor {
     private static final AtomicInteger INSTANCE_NUM = new AtomicInteger();
 
     public Thread newThread(Runnable runnable) {
-      return new Thread(runnable, PREFIX + INSTANCE_NUM.getAndIncrement());
+      Thread thread = new Thread(runnable, PREFIX + INSTANCE_NUM.getAndIncrement());
+      thread.setDaemon(true);
+      return thread;
     }
   }
 }

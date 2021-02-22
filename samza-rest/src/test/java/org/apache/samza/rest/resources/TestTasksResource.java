@@ -35,14 +35,13 @@ import org.apache.samza.rest.resources.mock.MockTaskProxyFactory;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.type.TypeReference;
-import org.glassfish.jersey.test.JerseyTest;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 
-public class TestTasksResource extends JerseyTest {
+public class TestTasksResource extends BaseJerseyTest {
   private ObjectMapper objectMapper = SamzaObjectMapper.getObjectMapper();
 
   @Override
@@ -79,7 +78,7 @@ public class TestTasksResource extends JerseyTest {
     String requestUrl = String.format("v1/jobs/%s/%s/tasks", "BadJobName", MockJobProxy.JOB_INSTANCE_4_ID);
     Response resp = target(requestUrl).request().get();
     assertEquals(400, resp.getStatus());
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message"), errorMessage.get("message").contains("Invalid arguments for getTasks. "));
     resp.close();
   }
@@ -89,7 +88,7 @@ public class TestTasksResource extends JerseyTest {
     String requestUrl = String.format("v1/jobs/%s/%s/tasks", MockJobProxy.JOB_INSTANCE_1_NAME, "BadJobId");
     Response resp = target(requestUrl).request().get();
     assertEquals(400, resp.getStatus());
-    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() {});
+    final Map<String, String> errorMessage = objectMapper.readValue(resp.readEntity(String.class), new TypeReference<Map<String, String>>() { });
     assertTrue(errorMessage.get("message"), errorMessage.get("message").contains("Invalid arguments for getTasks. "));
     resp.close();
   }

@@ -51,7 +51,6 @@ public class SqlFieldSchema {
   /**
    * Create a primitive field schema.
    * @param typeName
-   * @return
    */
   public static SqlFieldSchema createPrimitiveSchema(SamzaSqlFieldType typeName, boolean isNullable,
       boolean isOptional) {
@@ -80,8 +79,7 @@ public class SqlFieldSchema {
   }
 
   /**
-   * Get teh Type of the Samza SQL Field.
-   * @return
+   * Get the Type of the Samza SQL Field.
    */
   public SamzaSqlFieldType getFieldType() {
     return fieldType;
@@ -97,7 +95,7 @@ public class SqlFieldSchema {
   /**
    * Get the schema of the value if the field type is {@link SamzaSqlFieldType#MAP}
    */
-  public SqlFieldSchema getValueScehma() {
+  public SqlFieldSchema getValueSchema() {
     return valueType;
   }
 

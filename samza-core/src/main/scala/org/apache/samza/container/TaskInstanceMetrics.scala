@@ -26,7 +26,8 @@ import org.apache.samza.system.SystemStreamPartition
 
 class TaskInstanceMetrics(
   val source: String = "unknown",
-  val registry: ReadableMetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+  val registry: ReadableMetricsRegistry = new MetricsRegistryMap,
+  val prefix: String = "") extends MetricsHelper {
 
   val commits = newCounter("commit-calls")
   val windows = newCounter("window-calls")
@@ -41,4 +42,6 @@ class TaskInstanceMetrics(
   def addOffsetGauge(systemStreamPartition: SystemStreamPartition, getValue: () => String) {
     newGauge("%s-%s-%d-offset" format (systemStreamPartition.getSystem, systemStreamPartition.getStream, systemStreamPartition.getPartition.getPartitionId), getValue)
   }
+
+  override def getPrefix: String = prefix
 }

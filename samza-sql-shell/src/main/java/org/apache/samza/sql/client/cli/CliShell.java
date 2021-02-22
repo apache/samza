@@ -128,7 +128,7 @@ public class CliShell {
     clearScreen();
     writer.write(CliConstants.WELCOME_MESSAGE);
     printVersion();
-    if(!CliUtil.isNullOrEmpty(message)) {
+    if (!CliUtil.isNullOrEmpty(message)) {
       writer.println(message);
     }
     writer.println();

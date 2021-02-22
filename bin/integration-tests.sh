@@ -72,8 +72,7 @@ source $SAMZA_INTEGRATION_TESTS_DIR/bin/activate
 pip install -r $SCRIPTS_DIR/requirements.txt
 
 # treat all trailing parameters (after dirname, test_type) as zopkio switches
-shift
-SWITCHES="${*:3}"
+SWITCHES="${@:3}"
 
 # default to info-level debugging if not specified
 if [[ $SWITCHES != *"console-log-level"* ]]; then

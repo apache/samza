@@ -19,8 +19,6 @@
 package org.apache.samza.rest.resources;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.rest.proxy.job.JobProxy;
-import org.apache.samza.rest.proxy.job.JobProxyFactory;
 
 
 /**
@@ -29,8 +27,8 @@ import org.apache.samza.rest.proxy.job.JobProxyFactory;
 public class JobsResourceConfig extends BaseResourceConfig {
 
   /**
-   * Specifies the canonical name of the {@link JobProxyFactory} class to produce
-   * {@link JobProxy} instances.
+   * Specifies the canonical name of the {@link org.apache.samza.rest.proxy.job.JobProxyFactory} class to produce
+   * {@link org.apache.samza.rest.proxy.job.JobProxy} instances.
    *
    * To use your own proxy, implement the factory and specify the class for this config.
    */
@@ -42,7 +40,8 @@ public class JobsResourceConfig extends BaseResourceConfig {
 
   /**
    * @see JobsResourceConfig#CONFIG_JOB_PROXY_FACTORY
-   * @return the canonical name of the {@link JobProxyFactory} class to produce {@link JobProxy} instances.
+   * @return the canonical name of the {@link org.apache.samza.rest.proxy.job.JobProxyFactory} class to produce
+   * {@link org.apache.samza.rest.proxy.job.JobProxy} instances.
    */
   public String getJobProxyFactory() {
     return get(CONFIG_JOB_PROXY_FACTORY);

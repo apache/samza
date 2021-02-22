@@ -24,10 +24,13 @@ import java.io.File
 import org.apache.samza.util.Logging
 import org.apache.samza.storage.{StorageEngine, StoreProperties}
 import org.apache.samza.system.{ChangelogSSPIterator, OutgoingMessageEnvelope, SystemStreamPartition}
-import org.apache.samza.task.MessageCollector
+import org.apache.samza.task.{MessageCollector, TaskInstanceCollector}
 import org.apache.samza.util.TimerUtil
 import java.nio.file.Path
 import java.util.Optional
+
+import com.google.common.annotations.VisibleForTesting
+import org.apache.samza.checkpoint.CheckpointId
 
 /**
  * A key value store.
@@ -122,7 +125,7 @@ class KeyValueStorageEngine[K, V](
     val batch = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](batchSize)
     var lastBatchFlushed = false
 
-    while(iterator.hasNext) {
+    while(iterator.hasNext && !Thread.currentThread().isInterrupted) {
       val envelope = iterator.next()
       val keyBytes = envelope.getKey.asInstanceOf[Array[Byte]]
       val valBytes = envelope.getMessage.asInstanceOf[Array[Byte]]
@@ -194,10 +197,15 @@ class KeyValueStorageEngine[K, V](
       }
       lastBatchFlushed = true
     }
-    info(restoredMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + ".")
+    info(trimmedMessages + " entries trimmed for store: " + storeName + " in directory: " + storeDir.toString + ".")
 
     // flush the store and the changelog producer
     flush() // TODO HIGH pmaheshw SAMZA-2338: Need a way to flush changelog producers. This only flushes the stores.
+
+    if (Thread.currentThread().isInterrupted) {
+      warn("Received an interrupt during store restoration. Exiting without restoring the full state.")
+      throw new InterruptedException("Received an interrupt during store restoration.")
+    }
   }
 
   def flush() = {
@@ -208,7 +216,7 @@ class KeyValueStorageEngine[K, V](
     }
   }
 
-  def checkpoint(id: String): Optional[Path] = {
+  def checkpoint(id: CheckpointId): Optional[Path] = {
     updateTimer(metrics.checkpointNs) {
       trace("Checkpointing.")
       metrics.checkpoints.inc
@@ -244,5 +252,15 @@ class KeyValueStorageEngine[K, V](
       metrics.snapshots.inc
       wrapperStore.snapshot(from, to)
     }
+  }
+
+  @VisibleForTesting
+  private[kv] def getRawStore: KeyValueStore[Array[Byte], Array[Byte]] = {
+    rawStore
+  }
+
+  @VisibleForTesting
+  private[kv] def getWrapperStore: KeyValueStore[K, V] = {
+    wrapperStore
   }
 }

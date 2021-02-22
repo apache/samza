@@ -36,8 +36,8 @@ class WatermarkMetrics extends MetricsBase {
 
   void setAggregateTime(SystemStreamPartition systemStreamPartition, long time) {
     final Gauge<Long> aggregate = aggregates.computeIfAbsent(systemStreamPartition,
-        ssp -> newGauge(String.format("%s-%s-aggr-watermark",
-        ssp.getStream(), ssp.getPartition().getPartitionId()), 0L));
+      ssp -> newGauge(String.format("%s-%s-aggr-watermark",
+          ssp.getStream(), ssp.getPartition().getPartitionId()), 0L));
     aggregate.set(time);
   }
 }

@@ -37,8 +37,8 @@ Deploying the service is very similar to running a Samza job. First build the ta
 Then from the extracted location, run the service using:
 {% highlight bash %}
 samza-example/target/bin/run-samza-rest-service.sh  \
-  --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory \
-  --config-path=file://$PWD/config/samza-rest.properties
+  --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory \
+  --config job.config.loader.properties.path=$PWD/config/samza-rest.properties
 {% endhighlight %}
 
 The two config parameters have the same purpose as they do for [run-job.sh](../jobs/job-runner.html).

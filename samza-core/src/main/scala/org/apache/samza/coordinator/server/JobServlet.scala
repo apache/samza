@@ -22,19 +22,22 @@ package org.apache.samza.coordinator.server
 
 import java.util.concurrent.atomic.AtomicReference
 
-import org.apache.samza.SamzaException
-import org.apache.samza.job.model.JobModel
-import org.apache.samza.util.Logging
+import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
 /**
- * A servlet that dumps the job model for a Samza job.
+ * Serves the JSON serialized job model for the job.
  */
-class JobServlet(jobModelRef: AtomicReference[JobModel]) extends ServletBase with Logging {
-  protected def getObjectToWrite() = {
+class JobServlet(jobModelRef: AtomicReference[Array[Byte]]) extends HttpServlet {
+  override protected def doGet(request: HttpServletRequest, response: HttpServletResponse) {
     val jobModel = jobModelRef.get()
-    if (jobModel == null) { // This should never happen because JobServlet is instantiated only after a jobModel is generated and its reference is updated
-      throw new SamzaException("Job Model is not defined in the JobCoordinator. This indicates that the Samza job is unstable. Exiting...")
+
+    // This should never happen because JobServlet is instantiated only after a jobModel is generated and its reference is updated
+    if (jobModel == null) {
+      throw new IllegalStateException("No JobModel to serve in the JobCoordinator.")
     }
-    jobModel
+
+    response.setContentType("application/json")
+    response.setStatus(HttpServletResponse.SC_OK)
+    response.getOutputStream.write(jobModel)
   }
 }

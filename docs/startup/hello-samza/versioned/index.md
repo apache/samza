@@ -27,7 +27,6 @@ Check out the hello-samza project:
 {% highlight bash %}
 git clone https://gitbox.apache.org/repos/asf/samza-hello-samza.git hello-samza
 cd hello-samza
-git checkout latest
 {% endhighlight %}
 
 This project contains everything you'll need to run your first Samza jobs.
@@ -50,10 +49,13 @@ Once the grid command completes, you can verify that YARN is up and running by g
 
 Before you can run a Samza job, you need to build a package for it. This package is what YARN uses to deploy your jobs on the grid.
 
-NOTE: if you are building from the latest branch of hello-samza project, make sure that you run the following step from your local Samza project first:
-
+**(Optional)** NOTE: if you want the hello-samza jobs to run with a local Samza build (e.g., if you are a Samza developer), 
+make sure that you run the following steps, otherwise skip them.
 {% highlight bash %}
-./gradlew publishToMavenLocal
+In your hello-samza project,  
+git checkout latest  
+In your local Samza project,  
+./gradlew publishToMavenLocal  
 {% endhighlight %}
 
 Then, you can continue w/ the following command in hello-samza project:
@@ -61,7 +63,7 @@ Then, you can continue w/ the following command in hello-samza project:
 {% highlight bash %}
 mvn clean package
 mkdir -p deploy/samza
-tar -xvf ./target/hello-samza-1.3.0-SNAPSHOT-dist.tar.gz -C deploy/samza
+tar -xvf ./target/hello-samza-1.7.0-SNAPSHOT-dist.tar.gz -C deploy/samza
 {% endhighlight %}
 
 ### Run a Samza Job
@@ -69,13 +71,13 @@ tar -xvf ./target/hello-samza-1.3.0-SNAPSHOT-dist.tar.gz -C deploy/samza
 After you've built your Samza package, you can start a job on the grid using the run-app.sh script.
 
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties
+deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-feed.properties
 {% endhighlight %}
 
 The job will consume a feed of real-time edits from Wikipedia, and produce them to a Kafka topic called "wikipedia-raw". Give the job a minute to startup, and then tail the Kafka topic:
 
 {% highlight bash %}
-deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-raw
+deploy/kafka/bin/kafka-console-consumer.sh  --bootstrap-server localhost:9092 --topic wikipedia-raw
 {% endhighlight %}
 
 Pretty neat, right? Now, check out the YARN UI again ([http://localhost:8088](http://localhost:8088)). This time around, you'll see your Samza job is running!
@@ -87,20 +89,20 @@ If you can not see any output from Kafka consumer, you may have connection probl
 Let's calculate some statistics based on the messages in the wikipedia-raw topic. Start two more jobs:
 
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-parser.properties
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-stats.properties
+deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-parser.properties
+deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-stats.properties
 {% endhighlight %}
 
 The first job (wikipedia-parser) parses the messages in wikipedia-raw, and extracts information about the size of the edit, who made the change, etc. You can take a look at its output with:
 
 {% highlight bash %}
-deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-edits
+deploy/kafka/bin/kafka-console-consumer.sh  --bootstrap-server localhost:9092 --topic wikipedia-edits
 {% endhighlight %}
 
 The last job (wikipedia-stats) reads messages from the wikipedia-edits topic, and calculates counts, every ten seconds, for all edits that were made during that window. It outputs these counts to the wikipedia-stats topic.
 
 {% highlight bash %}
-deploy/kafka/bin/kafka-console-consumer.sh  --zookeeper localhost:2181 --topic wikipedia-stats
+deploy/kafka/bin/kafka-console-consumer.sh  --bootstrap-server localhost:9092 --topic wikipedia-stats
 {% endhighlight %}
 
 The messages in the stats topic look like this:
@@ -118,7 +120,7 @@ If you check the YARN UI, again, you'll see that all three jobs are now listed.
 
 To shutdown one of the jobs, use the same script with an extra '--operation=kill' argument
 {% highlight bash %}
-deploy/samza/bin/run-app.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$PWD/deploy/samza/config/wikipedia-feed.properties --operation=kill
+deploy/samza/bin/run-app.sh --config-path=$PWD/deploy/samza/config/wikipedia-feed.properties --operation=kill
 {% endhighlight %}
 
 After you're done, you can clean everything up using the same grid script.

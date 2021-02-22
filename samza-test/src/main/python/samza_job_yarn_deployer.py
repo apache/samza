@@ -35,11 +35,11 @@ logger = logging.getLogger(__name__)
 class SamzaJobYarnDeployer(Deployer):
   def __init__(self, configs={}):
     """
-    Instantiates a Samza job deployer that uses run-job.sh and kill-yarn-job.sh 
+    Instantiates a Samza job deployer that uses run-job.sh and kill-yarn-job.sh
     to start and stop Samza jobs in a YARN grid.
 
     param: configs -- Map of config key/values pairs. These configs will be used
-    as a default whenever overrides are not provided in the methods (install, 
+    as a default whenever overrides are not provided in the methods (install,
     start, stop, etc) below.
     """
     logging.getLogger("paramiko").setLevel(logging.ERROR)
@@ -52,7 +52,7 @@ class SamzaJobYarnDeployer(Deployer):
 
   def install(self, package_id, configs={}):
     """
-    Installs a package (tarball, or zip) on to a list of remote hosts by 
+    Installs a package (tarball, or zip) on to a list of remote hosts by
     SFTP'ing the package to the remote install_path.
 
     param: package_id -- A unique ID used to identify an installed YARN package.
@@ -104,29 +104,27 @@ class SamzaJobYarnDeployer(Deployer):
     with a package_id, and a config file.
     param: configs -- Map of config key/values pairs. Valid keys include:
 
-    package_id: The package_id for the package that contains the code for job_id. 
-    Usually, the package_id refers to the .tgz job tarball that contains the 
+    package_id: The package_id for the package that contains the code for job_id.
+    Usually, the package_id refers to the .tgz job tarball that contains the
     code necessary to run job_id.
-    config_factory: The config factory to use to decode the config_file.
     config_file: Path to the config file for the job to be run.
     install_path: Path where the package for the job has been installed on remote NMs.
-    properties: (optional) [(property-name,property-value)] Optional override 
-    properties for the run-job.sh script. These properties override the 
+    properties: (optional) [(property-name,property-value)] Optional override
+    properties for the run-job.sh script. These properties override the
     config_file's properties.
     """
     configs = self._get_merged_configs(configs)
-    self._validate_configs(configs, ['package_id', 'config_factory', 'config_file', 'install_path'])
+    self._validate_configs(configs, ['package_id', 'config_file', 'install_path'])
 
     # Get configs.
     package_id = configs.get('package_id')
-    config_factory = configs.get('config_factory')
     config_file = configs.get('config_file')
     install_path = configs.get('install_path')
     properties = configs.get('properties', {})
     properties['yarn.package.path'] = 'file:' + os.path.join(install_path, self._get_package_tgz_name(package_id))
 
     # Execute bin/run-job.sh locally from driver machine.
-    command = "{0} --config-factory={1} --config-path={2}".format(os.path.join(package_id, "bin/run-job.sh"), config_factory, os.path.join(package_id, config_file))
+    command = "{0} --config-path={1}".format(os.path.join(package_id, "bin/run-app.sh"), os.path.join(package_id, config_file))
     env = self._get_env_vars(package_id)
     for property_name, property_value in properties.iteritems():
       command += " --config {0}={1}".format(property_name, property_value)
@@ -176,7 +174,7 @@ class SamzaJobYarnDeployer(Deployer):
 
   def await(self, job_id, configs={}):
     """
-    Waits for a Samza job to finish using bin/stat-yarn-job.sh. A job is 
+    Waits for a Samza job to finish using bin/stat-yarn-job.sh. A job is
     finished when its "Final State" is not "UNDEFINED".
 
     param: job_id -- A unique ID used to idenitfy a Samza job.

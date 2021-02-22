@@ -20,9 +20,13 @@
 package org.apache.samza.storage.kv
 
 import org.apache.samza.util.Logging
+
 import scala.collection._
 import java.nio.file.Path
 import java.util.{Arrays, Optional}
+
+import com.google.common.annotations.VisibleForTesting
+import org.apache.samza.checkpoint.CheckpointId
 
 /**
  * A write-behind caching layer around the rocksdb store. The purpose of this cache is three-fold:
@@ -293,8 +297,13 @@ class CachedStore[K, V](
     store.snapshot(from, to)
   }
 
-  override def checkpoint(id: String): Optional[Path] = {
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
     store.checkpoint(id)
+  }
+
+  @VisibleForTesting
+  private[kv] def getStore: KeyValueStore[K, V] = {
+    store
   }
 }
 

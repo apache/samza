@@ -20,11 +20,14 @@
 package org.apache.samza.config;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
 import org.junit.Test;
@@ -44,6 +47,7 @@ public class TestStorageConfig {
     // empty config, so no stores
     assertEquals(Collections.emptyList(), new StorageConfig(new MapConfig()).getStoreNames());
 
+    Set<String> expectedStoreNames = ImmutableSet.of(STORE_NAME0, STORE_NAME1);
     // has stores
     StorageConfig storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(String.format(StorageConfig.FACTORY, STORE_NAME0), "store0.factory.class",
@@ -51,7 +55,17 @@ public class TestStorageConfig {
     List<String> actual = storageConfig.getStoreNames();
     // ordering shouldn't matter
     assertEquals(2, actual.size());
-    assertEquals(ImmutableSet.of(STORE_NAME0, STORE_NAME1), ImmutableSet.copyOf(actual));
+    assertEquals(expectedStoreNames, ImmutableSet.copyOf(actual));
+
+    //has side input stores
+    StorageConfig config = new StorageConfig(new MapConfig(
+        ImmutableMap.of(String.format(FACTORY, STORE_NAME0), "store0.factory.class",
+            String.format(StorageConfig.SIDE_INPUTS_PROCESSOR_FACTORY, STORE_NAME1), "store1.factory.class")));
+
+    actual = storageConfig.getStoreNames();
+
+    assertEquals(2, actual.size());
+    assertEquals(expectedStoreNames, ImmutableSet.copyOf(actual));
   }
 
   @Test
@@ -301,13 +315,18 @@ public class TestStorageConfig {
   @Test
   public void testGetChangelogMinCompactionLagMs() {
     // empty config, return default lag ms
+    Map<String, String> configMap = new HashMap<>();
     assertEquals(DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS,
-        new StorageConfig(new MapConfig()).getChangelogMinCompactionLagMs(STORE_NAME0));
+        new StorageConfig(new MapConfig(configMap)).getChangelogMinCompactionLagMs(STORE_NAME0));
 
-    long lagOverride = TimeUnit.HOURS.toMillis(6);
-    StorageConfig storageConfig = new StorageConfig(
-        new MapConfig(ImmutableMap.of(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, STORE_NAME0),
-            String.valueOf(lagOverride))));
-    assertEquals(lagOverride, storageConfig.getChangelogMinCompactionLagMs(STORE_NAME0));
+    // override with configured default
+    long defaultLagOverride = TimeUnit.HOURS.toMillis(8);
+    configMap.put(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, "default"), String.valueOf(defaultLagOverride));
+    assertEquals(defaultLagOverride, new StorageConfig(new MapConfig(configMap)).getChangelogMinCompactionLagMs(STORE_NAME0));
+
+    // override for specific store
+    long storeSpecificLagOverride = TimeUnit.HOURS.toMillis(6);
+    configMap.put(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, STORE_NAME0), String.valueOf(storeSpecificLagOverride));
+    assertEquals(storeSpecificLagOverride, new StorageConfig(new MapConfig(configMap)).getChangelogMinCompactionLagMs(STORE_NAME0));
   }
 }

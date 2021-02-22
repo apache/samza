@@ -53,9 +53,9 @@ import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableConfigGenerator;
 import org.apache.samza.table.descriptors.LocalTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
+import org.apache.samza.util.ConfigUtil;
 import org.apache.samza.util.MathUtil;
 import org.apache.samza.util.StreamUtil;
-import org.apache.samza.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,13 +74,13 @@ import org.slf4j.LoggerFactory;
     Map<String, String> mergedConfig = new HashMap<>(generatedConfig);
 
     originalConfig.forEach((k, v) -> {
-        if (generatedConfig.containsKey(k) && !Objects.equals(generatedConfig.get(k), v)) {
-          LOG.info("Replacing generated config for key: {} value: {} with original config value: {}", k, generatedConfig.get(k), v);
-        }
-        mergedConfig.put(k, v);
-      });
+      if (generatedConfig.containsKey(k) && !Objects.equals(generatedConfig.get(k), v)) {
+        LOG.info("Replacing generated config for key: {} value: {} with original config value: {}", k, generatedConfig.get(k), v);
+      }
+      mergedConfig.put(k, v);
+    });
 
-    return Util.rewriteConfig(new MapConfig(mergedConfig));
+    return ConfigUtil.rewriteConfig(new MapConfig(mergedConfig));
   }
 
   static void validateJobConfigs(Map<String, String> originalConfig, Map<String, String> generatedConfig) {
@@ -243,20 +243,20 @@ import org.slf4j.LoggerFactory;
 
     // Add side inputs to the inputs and mark the stream as bootstrap
     tables.values().forEach(tableDescriptor -> {
-        if (tableDescriptor instanceof LocalTableDescriptor) {
-          LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
-          List<String> sideInputs = localTableDescriptor.getSideInputs();
-          if (sideInputs != null && !sideInputs.isEmpty()) {
-            sideInputs.stream()
-                .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
-                .forEach(systemStream -> {
-                    inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
-                    generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX + StreamConfig.BOOTSTRAP,
-                        systemStream.getSystem(), systemStream.getStream()), "true");
-                  });
-          }
+      if (tableDescriptor instanceof LocalTableDescriptor) {
+        LocalTableDescriptor localTableDescriptor = (LocalTableDescriptor) tableDescriptor;
+        List<String> sideInputs = localTableDescriptor.getSideInputs();
+        if (sideInputs != null && !sideInputs.isEmpty()) {
+          sideInputs.stream()
+              .map(sideInput -> StreamUtil.getSystemStreamFromNameOrId(originalConfig, sideInput))
+              .forEach(systemStream -> {
+                inputs.add(StreamUtil.getNameFromSystemStream(systemStream));
+                generatedConfig.put(String.format(StreamConfig.STREAM_PREFIX + StreamConfig.BOOTSTRAP,
+                    systemStream.getSystem(), systemStream.getStream()), "true");
+              });
         }
-      });
+      }
+    });
   }
 
   /**
@@ -285,15 +285,15 @@ import org.slf4j.LoggerFactory;
     Map<String, Serde> storeKeySerdes = new HashMap<>();
     Map<String, Serde> storeMsgSerdes = new HashMap<>();
     stores.forEach(storeDescriptor -> {
-        storeKeySerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getKeySerde());
-        storeMsgSerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getMsgSerde());
-      });
+      storeKeySerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getKeySerde());
+      storeMsgSerdes.put(storeDescriptor.getStoreName(), storeDescriptor.getMsgSerde());
+    });
 
     Map<String, Serde> tableKeySerdes = new HashMap<>();
     Map<String, Serde> tableMsgSerdes = new HashMap<>();
     tables.forEach(tableId -> {
-        addSerdes(jobNode.getTableSerdes(tableId), tableId, tableKeySerdes, tableMsgSerdes);
-      });
+      addSerdes(jobNode.getTableSerdes(tableId), tableId, tableKeySerdes, tableMsgSerdes);
+    });
 
     // for each unique stream or store serde instance, generate a unique name and serialize to config
     HashSet<Serde> serdes = new HashSet<>(streamKeySerdes.values());
@@ -306,46 +306,46 @@ import org.slf4j.LoggerFactory;
     Base64.Encoder base64Encoder = Base64.getEncoder();
     Map<Serde, String> serdeUUIDs = new HashMap<>();
     serdes.forEach(serde -> {
-        String serdeName = serdeUUIDs.computeIfAbsent(serde,
-            s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
-        configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
-            base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
-      });
+      String serdeName = serdeUUIDs.computeIfAbsent(serde,
+        s -> serde.getClass().getSimpleName() + "-" + UUID.randomUUID().toString());
+      configs.putIfAbsent(String.format(SerializerConfig.SERDE_SERIALIZED_INSTANCE, serdeName),
+          base64Encoder.encodeToString(serializableSerde.toBytes(serde)));
+    });
 
     // set key and msg serdes for streams to the serde names generated above
     streamKeySerdes.forEach((streamId, serde) -> {
-        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
-        String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE;
-        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-      });
+      String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
+      String keySerdeConfigKey = streamIdPrefix + StreamConfig.KEY_SERDE;
+      configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+    });
 
     streamMsgSerdes.forEach((streamId, serde) -> {
-        String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
-        String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE;
-        configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
-      });
+      String streamIdPrefix = String.format(StreamConfig.STREAM_ID_PREFIX, streamId);
+      String valueSerdeConfigKey = streamIdPrefix + StreamConfig.MSG_SERDE;
+      configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+    });
 
     // set key and msg serdes for stores to the serde names generated above
     storeKeySerdes.forEach((storeName, serde) -> {
-        String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE, storeName);
-        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-      });
+      String keySerdeConfigKey = String.format(StorageConfig.KEY_SERDE, storeName);
+      configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+    });
 
     storeMsgSerdes.forEach((storeName, serde) -> {
-        String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE, storeName);
-        configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
-      });
+      String msgSerdeConfigKey = String.format(StorageConfig.MSG_SERDE, storeName);
+      configs.put(msgSerdeConfigKey, serdeUUIDs.get(serde));
+    });
 
     // set key and msg serdes for stores to the serde names generated above
     tableKeySerdes.forEach((tableId, serde) -> {
-        String keySerdeConfigKey = String.format(JavaTableConfig.STORE_KEY_SERDE, tableId);
-        configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
-      });
+      String keySerdeConfigKey = String.format(JavaTableConfig.STORE_KEY_SERDE, tableId);
+      configs.put(keySerdeConfigKey, serdeUUIDs.get(serde));
+    });
 
     tableMsgSerdes.forEach((tableId, serde) -> {
-        String valueSerdeConfigKey = String.format(JavaTableConfig.STORE_MSG_SERDE, tableId);
-        configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
-      });
+      String valueSerdeConfigKey = String.format(JavaTableConfig.STORE_MSG_SERDE, tableId);
+      configs.put(valueSerdeConfigKey, serdeUUIDs.get(serde));
+    });
   }
 
   private void addSerdes(KV<Serde, Serde> serdes, String streamId, Map<String, Serde> keySerdeMap,

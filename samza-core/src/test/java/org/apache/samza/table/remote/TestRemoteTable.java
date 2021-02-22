@@ -194,9 +194,9 @@ public class TestRemoteTable {
 
     CompletableFuture.allOf(future1, future2)
         .thenAccept(u -> {
-            Assert.assertEquals(future1.join(), "bar1");
-            Assert.assertEquals(future2.join(), "bar1");
-          });
+          Assert.assertEquals(future1.join(), "bar1");
+          Assert.assertEquals(future2.join(), "bar1");
+        });
   }
 
   public void doTestRead(boolean sync, boolean error) {
@@ -556,10 +556,10 @@ public class TestRemoteTable {
     Thread testThread = Thread.currentThread();
 
     table.getAsync("foo").thenAccept(result -> {
-        Assert.assertEquals("bar", result);
-        // Must be executed on the executor thread
-        Assert.assertNotSame(testThread, Thread.currentThread());
-      });
+      Assert.assertEquals("bar", result);
+      // Must be executed on the executor thread
+      Assert.assertNotSame(testThread, Thread.currentThread());
+    });
   }
 
   @Test

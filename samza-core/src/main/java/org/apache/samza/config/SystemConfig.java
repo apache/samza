@@ -20,6 +20,7 @@
 package org.apache.samza.config;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,7 +30,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 
 /**
  * Config helper methods related to systems.
@@ -52,6 +53,8 @@ public class SystemConfig extends MapConfig {
 
   static final String SAMZA_SYSTEM_OFFSET_UPCOMING = "upcoming";
   static final String SAMZA_SYSTEM_OFFSET_OLDEST = "oldest";
+
+  private Map<String, SystemAdmin> systemAdminMap = new HashMap<>();
 
   public SystemConfig(Config config) {
     super(config);
@@ -88,12 +91,19 @@ public class SystemConfig extends MapConfig {
    *
    * @return map of system name to {@link SystemAdmin}
    */
-  public Map<String, SystemAdmin> getSystemAdmins() {
-    return getSystemFactories().entrySet()
-        .stream()
-        .collect(Collectors.toMap(Entry::getKey,
+  public Map<String, SystemAdmin> getSystemAdmins(String adminLabel) {
+    if (systemAdminMap.isEmpty()) {
+      systemAdminMap = getSystemFactories().entrySet()
+          .stream()
+          .collect(Collectors.toMap(Entry::getKey,
             systemNameToFactoryEntry -> systemNameToFactoryEntry.getValue()
-                .getAdmin(systemNameToFactoryEntry.getKey(), this)));
+               .getAdmin(systemNameToFactoryEntry.getKey(), this, adminLabel)));
+    }
+    return systemAdminMap;
+  }
+
+  public Map<String, SystemAdmin> getSystemAdmins() {
+    return getSystemAdmins("");
   }
 
   /**
@@ -102,8 +112,15 @@ public class SystemConfig extends MapConfig {
    * @param systemName System name
    * @return SystemAdmin of the system if it exists, otherwise null.
    */
+  public SystemAdmin getSystemAdmin(String systemName, String adminLabel) {
+    if (systemAdminMap.containsKey(systemName) && systemAdminMap.get(systemName).isStopped()) {
+      systemAdminMap.clear();
+    }
+    return getSystemAdmins(adminLabel).get(systemName);
+  }
+
   public SystemAdmin getSystemAdmin(String systemName) {
-    return getSystemAdmins().get(systemName);
+    return getSystemAdmin(systemName, "");
   }
 
   /**
@@ -117,7 +134,7 @@ public class SystemConfig extends MapConfig {
       systemName -> {
         String systemFactoryClassName = getSystemFactory(systemName).orElseThrow(() -> new SamzaException(
             String.format("A stream uses system %s, which is missing from the configuration.", systemName)));
-        return Util.getObj(systemFactoryClassName, SystemFactory.class);
+        return ReflectionUtil.getObj(systemFactoryClassName, SystemFactory.class);
       }));
 
     return systemFactories;

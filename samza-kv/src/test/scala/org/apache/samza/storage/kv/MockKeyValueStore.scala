@@ -24,6 +24,8 @@ import java.util
 import java.nio.file.Path
 import java.util.Optional
 
+import org.apache.samza.checkpoint.CheckpointId
+
 /**
  * A mock key-value store wrapper that handles serialization
  */
@@ -76,7 +78,7 @@ class MockKeyValueStore extends KeyValueStore[String, String] {
     throw new UnsupportedOperationException("iterator() not supported")
   }
 
-  override def checkpoint(id: String): Optional[Path] = {
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
     Optional.empty()
   }
 }

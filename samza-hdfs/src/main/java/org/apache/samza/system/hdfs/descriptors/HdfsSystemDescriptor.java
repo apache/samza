@@ -225,30 +225,28 @@ public class HdfsSystemDescriptor extends SystemDescriptor<HdfsSystemDescriptor>
     Map<String, String> config = new HashMap<>(super.toConfig());
     String systemName = getSystemName();
 
-    datePathFormat.ifPresent(
-        val -> config.put(String.format(HdfsConfig.DATE_PATH_FORMAT_STRING(), systemName), val));
+    datePathFormat.ifPresent(val -> config.put(String.format(HdfsConfig.DATE_PATH_FORMAT_STRING(), systemName), val));
     outputBaseDir.ifPresent(val -> config.put(String.format(HdfsConfig.BASE_OUTPUT_DIR(), systemName), val));
     writeBatchSizeBytes.ifPresent(
-        val -> config.put(String.format(HdfsConfig.WRITE_BATCH_SIZE_BYTES(), systemName), String.valueOf(val)));
+      val -> config.put(String.format(HdfsConfig.WRITE_BATCH_SIZE_BYTES(), systemName), String.valueOf(val)));
     writeBatchSizeRecords.ifPresent(
-        val -> config.put(String.format(HdfsConfig.WRITE_BATCH_SIZE_RECORDS(), systemName), String.valueOf(val)));
-    writeCompressionType.ifPresent(
-        val -> config.put(String.format(HdfsConfig.COMPRESSION_TYPE(), systemName), val));
+      val -> config.put(String.format(HdfsConfig.WRITE_BATCH_SIZE_RECORDS(), systemName), String.valueOf(val)));
+    writeCompressionType.ifPresent(val -> config.put(String.format(HdfsConfig.COMPRESSION_TYPE(), systemName), val));
     writerClass.ifPresent(val -> config.put(String.format(HdfsConfig.HDFS_WRITER_CLASS_NAME(), systemName), val));
 
     consumerBufferCapacity.ifPresent(
-        val -> config.put(String.format(HdfsConfig.CONSUMER_BUFFER_CAPACITY(), systemName), String.valueOf(val)));
+      val -> config.put(String.format(HdfsConfig.CONSUMER_BUFFER_CAPACITY(), systemName), String.valueOf(val)));
     consumerMaxRetries.ifPresent(
-        val -> config.put(String.format(HdfsConfig.CONSUMER_NUM_MAX_RETRIES(), systemName), String.valueOf(val)));
+      val -> config.put(String.format(HdfsConfig.CONSUMER_NUM_MAX_RETRIES(), systemName), String.valueOf(val)));
     consumerWhiteList.ifPresent(
-        val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_WHITELIST(), systemName), val));
+      val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_WHITELIST(), systemName), val));
     consumerBlackList.ifPresent(
-        val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_BLACKLIST(), systemName), val));
+      val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_BLACKLIST(), systemName), val));
     consumerGroupPattern.ifPresent(
-        val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_GROUP_PATTERN(), systemName), val));
+      val -> config.put(String.format(HdfsConfig.CONSUMER_PARTITIONER_GROUP_PATTERN(), systemName), val));
     consumerReader.ifPresent(val -> config.put(String.format(HdfsConfig.FILE_READER_TYPE(), systemName), val));
     consumerStagingDirectory.ifPresent(
-        val -> config.put(String.format(HdfsConfig.STAGING_DIRECTORY(), systemName), val));
+      val -> config.put(String.format(HdfsConfig.STAGING_DIRECTORY(), systemName), val));
 
     return config;
   }

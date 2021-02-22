@@ -62,6 +62,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
@@ -75,6 +77,7 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -82,7 +85,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({LocalJobPlanner.class, LocalApplicationRunner.class, ZkMetadataStoreFactory.class})
@@ -119,13 +121,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        listener.afterStop();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      listener.afterStop();
+      return null;
+    }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -137,7 +138,7 @@ public class TestLocalApplicationRunner {
     runner.run(externalContext);
 
     verify(metadataStore).init();
-    verify(metadataStore, never()).close();
+    verify(metadataStore).close();
 
     assertEquals(ApplicationStatus.SuccessfulFinish, runner.status());
   }
@@ -158,13 +159,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        listener.afterStop();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      listener.afterStop();
+      return null;
+    }).when(sp).start();
 
     doReturn(sp).when(runner).createStreamProcessor(anyObject(), anyObject(),
         captor.capture(), eq(Optional.empty()), any(CoordinatorStreamStore.class));
@@ -174,7 +174,7 @@ public class TestLocalApplicationRunner {
     runner.run();
 
     verify(metadataStore).init();
-    verify(metadataStore, never()).close();
+    verify(metadataStore).close();
 
     assertEquals(ApplicationStatus.SuccessfulFinish, runner.status());
   }
@@ -185,9 +185,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     config = new MapConfig(cfgs);
     ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
-    mockApp = (StreamApplication) appDesc -> {
-      appDesc.withProcessorLifecycleListenerFactory(mockFactory);
-    };
+    mockApp = (StreamApplication) appDesc -> appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     prepareTest();
 
     // return the jobConfigs from the planner
@@ -198,13 +196,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        listener.afterStop();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      listener.afterStop();
+      return null;
+    }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -215,7 +212,7 @@ public class TestLocalApplicationRunner {
     runner.waitForFinish();
 
     verify(coordinatorStreamStore).init();
-    verify(coordinatorStreamStore, never()).close();
+    verify(coordinatorStreamStore).close();
 
     assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
@@ -226,9 +223,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     config = new MapConfig(cfgs);
     ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
-    mockApp = (StreamApplication) appDesc -> {
-      appDesc.withProcessorLifecycleListenerFactory(mockFactory);
-    };
+    mockApp = (StreamApplication) appDesc -> appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     prepareTest();
 
     // return the jobConfigs from the planner
@@ -238,13 +233,12 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        listener.afterStop();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      listener.afterStop();
+      return null;
+    }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -263,9 +257,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(ApplicationConfig.PROCESSOR_ID, "0");
     config = new MapConfig(cfgs);
     ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
-    mockApp = (StreamApplication) appDesc -> {
-      appDesc.withProcessorLifecycleListenerFactory(mockFactory);
-    };
+    mockApp = (StreamApplication) appDesc -> appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     prepareTest();
 
     // return the jobConfigs from the planner
@@ -276,10 +268,9 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        throw new Exception("test failure");
-      }).when(sp).start();
+    doAnswer(i -> {
+      throw new Exception("test failure");
+    }).when(sp).start();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -306,9 +297,7 @@ public class TestLocalApplicationRunner {
     cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
     config = new MapConfig(cfgs);
     ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
-    mockApp = (StreamApplication) appDesc -> {
-      appDesc.withProcessorLifecycleListenerFactory(mockFactory);
-    };
+    mockApp = (StreamApplication) appDesc -> appDesc.withProcessorLifecycleListenerFactory(mockFactory);
     prepareTest();
 
     // return the jobConfigs from the planner
@@ -319,19 +308,24 @@ public class TestLocalApplicationRunner {
     ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
         ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStart();
-        return null;
-      }).when(sp).start();
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      return null;
+    }).when(sp).start();
 
-    doAnswer(i ->
-      {
-        ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
-        listener.afterStop();
+    doAnswer(new Answer() {
+      private int count = 0;
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        if (++count == 1) {
+          ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+          listener.afterStop();
+          return null;
+        }
         return null;
-      }).when(sp).stop();
+      }
+    }).when(sp).stop();
 
     ExternalContext externalContext = mock(ExternalContext.class);
     doReturn(sp).when(runner)
@@ -342,7 +336,53 @@ public class TestLocalApplicationRunner {
     runner.kill();
 
     verify(coordinatorStreamStore).init();
-    verify(coordinatorStreamStore).close();
+    verify(coordinatorStreamStore, atLeastOnce()).close();
+
+    assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
+  }
+
+  @Test
+  public void testKillWithoutCoordinatorStream() throws Exception {
+    Map<String, String> cfgs = new HashMap<>();
+    cfgs.put(ApplicationConfig.APP_PROCESSOR_ID_GENERATOR_CLASS, UUIDGenerator.class.getName());
+    config = new MapConfig(cfgs);
+    ProcessorLifecycleListenerFactory mockFactory = (pContext, cfg) -> mock(ProcessorLifecycleListener.class);
+    mockApp = (StreamApplication) appDesc -> appDesc.withProcessorLifecycleListenerFactory(mockFactory);
+    prepareTest();
+
+    // return the jobConfigs from the planner
+    doReturn(Collections.singletonList(new JobConfig(new MapConfig(config)))).when(localPlanner).prepareJobs();
+
+    StreamProcessor sp = mock(StreamProcessor.class);
+    ArgumentCaptor<StreamProcessor.StreamProcessorLifecycleListenerFactory> captor =
+        ArgumentCaptor.forClass(StreamProcessor.StreamProcessorLifecycleListenerFactory.class);
+
+    doAnswer(i -> {
+      ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+      listener.afterStart();
+      return null;
+    }).when(sp).start();
+
+    doAnswer(new Answer() {
+      private int count = 0;
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        if (++count == 1) {
+          ProcessorLifecycleListener listener = captor.getValue().createInstance(sp);
+          listener.afterStop();
+          return null;
+        }
+        return null;
+      }
+    }).when(sp).stop();
+
+    ExternalContext externalContext = mock(ExternalContext.class);
+    doReturn(sp).when(runner)
+        .createStreamProcessor(anyObject(), anyObject(), captor.capture(), eq(Optional.of(externalContext)), any(CoordinatorStreamStore.class));
+    doReturn(null).when(runner).createCoordinatorStreamStore(any(Config.class));
+
+    runner.run(externalContext);
+    runner.kill();
 
     assertEquals(runner.status(), ApplicationStatus.SuccessfulFinish);
   }
@@ -400,7 +440,7 @@ public class TestLocalApplicationRunner {
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
-    runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
+    runner = spy(new LocalApplicationRunner(mockApp, config, coordinationUtils));
     doReturn(localPlanner).when(runner).getPlanner();
   }
 
@@ -408,7 +448,6 @@ public class TestLocalApplicationRunner {
    * For app.mode=BATCH ensure that the run.id generation utils --
    * DistributedLock, ClusterMembership and MetadataStore are created.
    * Also ensure that metadataStore.put is invoked (to write the run.id)
-   * @throws Exception
    */
   @Test
   public void testRunIdForBatch() throws Exception {
@@ -426,13 +465,13 @@ public class TestLocalApplicationRunner {
     verify(coordinationUtils, Mockito.times(1)).getLock(CoordinationConstants.RUNID_LOCK_ID);
     verify(clusterMembership, Mockito.times(1)).getNumberOfProcessors();
     verify(metadataStore, Mockito.times(1)).put(eq(CoordinationConstants.RUNID_STORE_KEY), any(byte[].class));
+    verify(metadataStore, Mockito.times(1)).flush();
   }
 
   /**
    * For app.mode=STREAM ensure that the run.id generation utils --
    * DistributedLock, ClusterMembership and MetadataStore are NOT created.
    * Also ensure that metadataStore.put is NOT invoked
-   * @throws Exception
    */
   @Test
   public void testRunIdForStream() throws Exception {
@@ -453,6 +492,7 @@ public class TestLocalApplicationRunner {
     verify(coordinationUtils, Mockito.times(0)).getClusterMembership();
     verify(clusterMembership, Mockito.times(0)).getNumberOfProcessors();
     verify(metadataStore, Mockito.times(0)).put(eq(CoordinationConstants.RUNID_STORE_KEY), any(byte[].class));
+    verify(metadataStore, Mockito.times(0)).flush();
   }
 
   private void prepareTestForRunId() throws Exception {
@@ -472,7 +512,7 @@ public class TestLocalApplicationRunner {
 
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(mockApp, config);
-    runner = spy(new LocalApplicationRunner(appDesc, Optional.of(coordinationUtils)));
+    runner = spy(new LocalApplicationRunner(mockApp, config, coordinationUtils));
     localPlanner = spy(new LocalJobPlanner(appDesc, coordinationUtils, "FAKE_UID", "FAKE_RUNID"));
     doReturn(localPlanner).when(runner).getPlanner();
     StreamProcessor sp = mock(StreamProcessor.class);
@@ -488,9 +528,9 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testGetCoordinatorStreamStoreFactoryWithoutJobCoordinatorSystem() {
-    MetadataStoreFactory metadataStoreFactory =
-        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig()));
-    assertNull(metadataStoreFactory);
+    Optional<MetadataStoreFactory> metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new MapConfig());
+    assertFalse(metadataStoreFactory.isPresent());
   }
 
   /**
@@ -499,9 +539,9 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testGetCoordinatorStreamStoreFactoryWithJobCoordinatorSystem() {
-    MetadataStoreFactory metadataStoreFactory =
-        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_COORDINATOR_SYSTEM, "test-system"))));
-    assertNotNull(metadataStoreFactory);
+    Optional<MetadataStoreFactory> metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new MapConfig(ImmutableMap.of(JobConfig.JOB_COORDINATOR_SYSTEM, "test-system")));
+    assertTrue(metadataStoreFactory.isPresent());
   }
 
   /**
@@ -510,9 +550,9 @@ public class TestLocalApplicationRunner {
    */
   @Test
   public void testGetCoordinatorStreamStoreFactoryWithDefaultSystem() {
-    MetadataStoreFactory metadataStoreFactory =
-        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "test-system"))));
-    assertNotNull(metadataStoreFactory);
+    Optional<MetadataStoreFactory> metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new MapConfig(ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "test-system")));
+    assertTrue(metadataStoreFactory.isPresent());
   }
 
   /**
@@ -525,14 +565,13 @@ public class TestLocalApplicationRunner {
         ImmutableMap.of(
             JobConfig.JOB_DEFAULT_SYSTEM, "test-system",
             JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName()));
-    MetadataStoreFactory metadataStoreFactory =
-        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(new JobConfig(mapConfig));
-    assertNull(metadataStoreFactory);
+    Optional<MetadataStoreFactory> metadataStoreFactory =
+        LocalApplicationRunner.getDefaultCoordinatorStreamStoreFactory(mapConfig);
+    assertFalse(metadataStoreFactory.isPresent());
   }
 
   /**
    * Underlying coordinator stream should be created if using CoordinatorStreamMetadataStoreFactory
-   * @throws Exception
    */
   @Test
   public void testCreateCoordinatorStreamWithCoordinatorFactory() throws Exception {
@@ -557,7 +596,6 @@ public class TestLocalApplicationRunner {
 
   /**
    * Underlying coordinator stream should not be created if not using CoordinatorStreamMetadataStoreFactory
-   * @throws Exception
    */
   @Test
   public void testCreateCoordinatorStreamWithoutCoordinatorFactory() throws Exception {

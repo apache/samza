@@ -71,7 +71,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
   private final StreamMetadataCache streamMetadataCache;
   private final Map<String, SystemConsumer> storeConsumers;
   private final int maxChangeLogStreamPartitions;
-  private final Config config;
+  private final StorageConfig storageConfig;
   private final StorageManagerUtil storageManagerUtil;
 
   NonTransactionalStateTaskRestoreManager(
@@ -100,7 +100,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
     this.streamMetadataCache = streamMetadataCache;
     this.storeConsumers = storeConsumers;
     this.maxChangeLogStreamPartitions = maxChangeLogStreamPartitions;
-    this.config = config;
+    this.storageConfig = new StorageConfig(config);
     this.storageManagerUtil = new StorageManagerUtil();
   }
 
@@ -117,10 +117,9 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
     registerStartingOffsets();
   }
 
-  /**
-   * For each store for this task,
+  /** For each store for this task,
    * a. Deletes the corresponding non-logged-store base dir.
-   * b. Deletes the logged-store-base-dir if it not valid. See {@link #isLoggedStoreValid} for validation semantics.
+   * b. Deletes the logged-store-base-dir (depending on {@param cleanLoggedStoreDirs} value). See {@link #isLoggedStoreValid} for validation semantics.
    * c. If the logged-store-base-dir is valid, this method reads the offset file and stores each offset.
    */
   private void cleanBaseDirsAndReadOffsetFiles() {
@@ -128,37 +127,37 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
 
     FileUtil fileUtil = new FileUtil();
     taskStores.forEach((storeName, storageEngine) -> {
-        if (!storageEngine.getStoreProperties().isLoggedStore()) {
-          File nonLoggedStorePartitionDir =
-              storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
-          LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
+      if (!storageEngine.getStoreProperties().isLoggedStore()) {
+        File nonLoggedStorePartitionDir =
+            storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
+        LOG.info("Got non logged storage partition directory as " + nonLoggedStorePartitionDir.toPath().toString());
 
-          if (nonLoggedStorePartitionDir.exists()) {
-            LOG.info("Deleting non logged storage partition directory " + nonLoggedStorePartitionDir.toPath().toString());
-            fileUtil.rm(nonLoggedStorePartitionDir);
-          }
+        if (nonLoggedStorePartitionDir.exists()) {
+          LOG.info("Deleting non logged storage partition directory " + nonLoggedStorePartitionDir.toPath().toString());
+          fileUtil.rm(nonLoggedStorePartitionDir);
+        }
+      } else {
+        File loggedStorePartitionDir =
+            storageManagerUtil.getTaskStoreDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
+        LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
+
+        // Delete the logged store if it is not valid.
+        if (!isLoggedStoreValid(storeName, loggedStorePartitionDir) || storageConfig.getCleanLoggedStoreDirsOnStart(storeName)) {
+          LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
+          fileUtil.rm(loggedStorePartitionDir);
         } else {
-          File loggedStorePartitionDir =
-              storageManagerUtil.getTaskStoreDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
-          LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
 
-          // Delete the logged store if it is not valid.
-          if (!isLoggedStoreValid(storeName, loggedStorePartitionDir)) {
-            LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
-            fileUtil.rm(loggedStorePartitionDir);
-          } else {
+          SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
+          Map<SystemStreamPartition, String> offset =
+              storageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP), false);
+          LOG.info("Read offset {} for the store {} from logged storage partition directory {}", offset, storeName, loggedStorePartitionDir);
 
-            SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
-            Map<SystemStreamPartition, String> offset =
-                storageManagerUtil.readOffsetFile(loggedStorePartitionDir, Collections.singleton(changelogSSP), false);
-            LOG.info("Read offset {} for the store {} from logged storage partition directory {}", offset, storeName, loggedStorePartitionDir);
-
-            if (offset.containsKey(changelogSSP)) {
-              fileOffsets.put(changelogSSP, offset.get(changelogSSP));
-            }
+          if (offset.containsKey(changelogSSP)) {
+            fileOffsets.put(changelogSSP, offset.get(changelogSSP));
           }
         }
-      });
+      }
+    });
   }
 
   /**
@@ -171,7 +170,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * @return true if the logged store is valid, false otherwise.
    */
   private boolean isLoggedStoreValid(String storeName, File loggedStoreDir) {
-    long changeLogDeleteRetentionInMs = new StorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
+    long changeLogDeleteRetentionInMs = storageConfig.getChangeLogDeleteRetentionInMs(storeName);
 
     if (changelogSystemStreams.containsKey(storeName)) {
       SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
@@ -189,25 +188,25 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
   private void setupBaseDirs() {
     LOG.debug("Setting up base directories for stores.");
     taskStores.forEach((storeName, storageEngine) -> {
-        if (storageEngine.getStoreProperties().isLoggedStore()) {
+      if (storageEngine.getStoreProperties().isLoggedStore()) {
 
-          File loggedStorePartitionDir =
-              storageManagerUtil.getTaskStoreDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
+        File loggedStorePartitionDir =
+            storageManagerUtil.getTaskStoreDir(loggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
 
-          LOG.info("Using logged storage partition directory: " + loggedStorePartitionDir.toPath().toString()
-              + " for store: " + storeName);
+        LOG.info("Using logged storage partition directory: " + loggedStorePartitionDir.toPath().toString()
+            + " for store: " + storeName);
 
-          if (!loggedStorePartitionDir.exists()) {
-            loggedStorePartitionDir.mkdirs();
-          }
-        } else {
-          File nonLoggedStorePartitionDir =
-              storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
-          LOG.info("Using non logged storage partition directory: " + nonLoggedStorePartitionDir.toPath().toString()
-              + " for store: " + storeName);
-          nonLoggedStorePartitionDir.mkdirs();
+        if (!loggedStorePartitionDir.exists()) {
+          loggedStorePartitionDir.mkdirs();
         }
-      });
+      } else {
+        File nonLoggedStorePartitionDir =
+            storageManagerUtil.getTaskStoreDir(nonLoggedStoreBaseDirectory, storeName, taskModel.getTaskName(), taskModel.getTaskMode());
+        LOG.info("Using non logged storage partition directory: " + nonLoggedStorePartitionDir.toPath().toString()
+            + " for store: " + storeName);
+        nonLoggedStorePartitionDir.mkdirs();
+      }
+    });
   }
 
   /**
@@ -317,7 +316,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * Restore each store in taskStoresToRestore sequentially
    */
   @Override
-  public void restore() {
+  public void restore() throws InterruptedException {
     for (String storeName : taskStoresToRestore) {
       LOG.info("Restoring store: {} for task: {}", storeName, taskModel.getTaskName());
       SystemConsumer systemConsumer = storeConsumers.get(storeName);
@@ -337,13 +336,13 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
   public void stopPersistentStores() {
 
     Map<String, StorageEngine> persistentStores = this.taskStores.entrySet().stream().filter(e -> {
-        return e.getValue().getStoreProperties().isPersistedToDisk();
-      }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      return e.getValue().getStoreProperties().isPersistedToDisk();
+    }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     persistentStores.forEach((storeName, storageEngine) -> {
-        storageEngine.stop();
-        this.taskStores.remove(storeName);
-      });
+      storageEngine.stop();
+      this.taskStores.remove(storeName);
+    });
     LOG.info("Stopped persistent stores {}", persistentStores);
   }
 }

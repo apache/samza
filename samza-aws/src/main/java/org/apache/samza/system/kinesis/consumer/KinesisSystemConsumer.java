@@ -215,19 +215,19 @@ public class KinesisSystemConsumer extends BlockingEnvelopeMap implements Checkp
   public void afterCheckpoint(Map<SystemStreamPartition, String> sspOffsets) {
     LOG.info("afterCheckpoint called with sspOffsets {}", sspOffsets);
     sspOffsets.forEach((ssp, offset) -> {
-        KinesisRecordProcessor processor = processors.get(ssp);
-        KinesisSystemConsumerOffset kinesisOffset = KinesisSystemConsumerOffset.parse(offset);
-        if (processor == null) {
-          LOG.info("Kinesis Processor is not alive for ssp {}. This could be the result of rebalance. Hence dropping the"
-              + " checkpoint {}.", ssp, offset);
-        } else if (!kinesisOffset.getShardId().equals(processor.getShardId())) {
-          LOG.info("KinesisProcessor for ssp {} currently owns shard {} while the checkpoint is for shard {}. This could"
-              + " be the result of rebalance. Hence dropping the checkpoint {}.", ssp, processor.getShardId(),
-              kinesisOffset.getShardId(), offset);
-        } else {
-          processor.checkpoint(kinesisOffset.getSeqNumber());
-        }
-      });
+      KinesisRecordProcessor processor = processors.get(ssp);
+      KinesisSystemConsumerOffset kinesisOffset = KinesisSystemConsumerOffset.parse(offset);
+      if (processor == null) {
+        LOG.info("Kinesis Processor is not alive for ssp {}. This could be the result of rebalance. Hence dropping the"
+            + " checkpoint {}.", ssp, offset);
+      } else if (!kinesisOffset.getShardId().equals(processor.getShardId())) {
+        LOG.info("KinesisProcessor for ssp {} currently owns shard {} while the checkpoint is for shard {}. This could"
+            + " be the result of rebalance. Hence dropping the checkpoint {}.", ssp, processor.getShardId(),
+            kinesisOffset.getShardId(), offset);
+      } else {
+        processor.checkpoint(kinesisOffset.getSeqNumber());
+      }
+    });
   }
 
   @Override

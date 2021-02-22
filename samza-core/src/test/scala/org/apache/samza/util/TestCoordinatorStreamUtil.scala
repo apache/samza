@@ -19,6 +19,7 @@
 package org.apache.samza.util
 
 import java.util
+import java.util.Collections
 
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde
@@ -27,12 +28,13 @@ import org.apache.samza.system.{StreamSpec, SystemAdmin, SystemStream}
 import org.junit.{Assert, Test}
 import org.mockito.Matchers.any
 import org.mockito.Mockito
-import org.apache.samza.config.MapConfig
+import org.apache.samza.config.{JobConfig, MapConfig}
+import org.apache.samza.metadatastore.MetadataStore
 
 class TestCoordinatorStreamUtil {
 
   @Test
-  def testCreateCoordinatorStream  {
+  def testCreateCoordinatorStream() {
     val systemStream = Mockito.spy(new SystemStream("testSystem", "testStream"))
     val systemAdmin = Mockito.mock(classOf[SystemAdmin])
 
@@ -42,7 +44,7 @@ class TestCoordinatorStreamUtil {
   }
 
   @Test
-  def testBuildCoordinatorStreamConfig: Unit = {
+  def testBuildCoordinatorStreamConfig() {
     val addConfig = new util.HashMap[String, String]
     addConfig.put("job.name", "test-job-name")
     addConfig.put("job.id", "i001")
@@ -57,7 +59,7 @@ class TestCoordinatorStreamUtil {
   }
 
   @Test
-  def testReadConfigFromCoordinatorStream {
+  def testReadConfigFromCoordinatorStream() {
     val keyForNonBlankVal = "app.id"
     val nonBlankVal = "1"
     val keyForEmptyVal = "task.opt"
@@ -83,5 +85,43 @@ class TestCoordinatorStreamUtil {
     Assert.assertEquals(configFromCoordinatorStream.get(keyForNonBlankVal), nonBlankVal)
     Assert.assertEquals(configFromCoordinatorStream.get(keyForEmptyVal), emptyVal)
     Assert.assertFalse(configFromCoordinatorStream.containsKey(keyForNullVal))
+  }
+
+  @Test
+  def testWriteConfigToCoordinatorStream() {
+    val addConfig = new util.HashMap[String, String]
+    addConfig.put("job.name", "test-job-name")
+    addConfig.put("job.id", "i001")
+    addConfig.put("job.coordinator.system", "samzatest")
+    addConfig.put("systems.samzatest.test","test")
+    addConfig.put("test.only","nothing")
+    addConfig.put("systems.samzatest.samza.factory", "org.apache.samza.system.MockSystemFactory")
+    val config = new MapConfig(addConfig)
+    val configMap = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config)
+
+    CoordinatorStreamUtil.writeConfigToCoordinatorStream(configMap)
+  }
+
+  @Test
+  def testReadLaunchConfigFromCoordinatorStream() {
+    // Empty config when auto sizing is disabled.
+    Assert.assertEquals(new MapConfig(),  CoordinatorStreamUtil.readLaunchConfigFromCoordinatorStream(new MapConfig(), null))
+
+    val valueSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE)
+    val config = new MapConfig(Collections.singletonMap(JobConfig.JOB_AUTOSIZING_ENABLED, "true"))
+    val expected = new MapConfig(Collections.singletonMap(JobConfig.JOB_AUTOSIZING_CONTAINER_COUNT, "20"))
+    val mockMetadataStore = Mockito.mock(classOf[MetadataStore])
+    val configMap = new util.HashMap[String, Array[Byte]]() {
+      put(CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE,
+        JobConfig.JOB_ID),
+        valueSerde.toBytes("321"))
+      put(CoordinatorStreamStore.serializeCoordinatorMessageKeyToJson(SetConfig.TYPE,
+        JobConfig.JOB_AUTOSIZING_CONTAINER_COUNT),
+        valueSerde.toBytes("20"))
+    }
+    Mockito.when(mockMetadataStore.all()).thenReturn(configMap)
+
+    // Verify the launch config is expected
+    Assert.assertEquals(expected, CoordinatorStreamUtil.readLaunchConfigFromCoordinatorStream(config, mockMetadataStore))
   }
 }

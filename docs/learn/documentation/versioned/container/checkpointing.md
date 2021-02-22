@@ -108,15 +108,15 @@ To inspect a job's latest checkpoint, you need to specify your job's config file
 
 {% highlight bash %}
 samza-example/target/bin/checkpoint-tool.sh \
-  --config-path=file:///path/to/job/config.properties
+  --config-path=/path/to/job/config.properties
 {% endhighlight %}
 
 This command prints out the latest checkpoint in a properties file format. You can save the output to a file, and edit it as you wish. For example, to jump back to the oldest possible point in time, you can set all the offsets to 0. Then you can feed that properties file back into checkpoint-tool.sh and save the modified checkpoint:
 
 {% highlight bash %}
 samza-example/target/bin/checkpoint-tool.sh \
-  --config-path=file:///path/to/job/config.properties \
-  --new-offsets=file:///path/to/new/offsets.properties
+  --config-path=/path/to/job/config.properties \
+  --new-offsets=/path/to/new/offsets.properties
 {% endhighlight %}
 
 Note that Samza only reads checkpoints on container startup. In order for your checkpoint change to take effect, you need to first stop the job, then save the modified offsets, and then start the job again. If you write a checkpoint while the job is running, it will most likely have no effect.

@@ -43,7 +43,7 @@ $KAFKA_DIR/bin/kafka-topics.sh --zookeeper localhost:2181 --partitions 1 --repli
 # Start the jobs
 for job in checker joiner emitter watcher
 do
-    $SAMZA_DIR/bin/run-job.sh --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory --config-path=file://$SAMZA_DIR/config/join/common.properties --config-path=file://$SAMZA_DIR/config/join/$job.samza --config job.foo=$job
+    $SAMZA_DIR/bin/run-app.sh --config-path=$SAMZA_DIR/config/join/$job.samza --config job.foo=$job
 done
 
 

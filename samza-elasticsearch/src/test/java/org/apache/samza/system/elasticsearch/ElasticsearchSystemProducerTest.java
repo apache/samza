@@ -108,7 +108,7 @@ public class ElasticsearchSystemProducerTest {
     verify(processorTwo, never()).flush();
   }
 
-  @Test(expected=SamzaException.class)
+  @Test(expected = SamzaException.class)
   public void testFlushFailedSendFromException() throws Exception {
     ArgumentCaptor<BulkProcessor.Listener> listenerCaptor =
         ArgumentCaptor.forClass(BulkProcessor.Listener.class);
@@ -122,7 +122,7 @@ public class ElasticsearchSystemProducerTest {
     producer.flush(SOURCE_ONE);
   }
 
-  @Test(expected=SamzaException.class)
+  @Test(expected = SamzaException.class)
   public void testFlushFailedSendFromFailedDocument() throws Exception {
     ArgumentCaptor<BulkProcessor.Listener> listenerCaptor =
         ArgumentCaptor.forClass(BulkProcessor.Listener.class);

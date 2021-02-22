@@ -39,19 +39,27 @@ fi
 HADOOP_YARN_HOME="${HADOOP_YARN_HOME:-$HOME/.samza}"
 HADOOP_CONF_DIR="${HADOOP_CONF_DIR:-$HADOOP_YARN_HOME/conf}"
 GC_LOG_ROTATION_OPTS="-XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=10 -XX:GCLogFileSize=10241024"
-DEFAULT_LOG4J_FILE=$base_dir/lib/log4j.xml
-DEFAULT_LOG4J2_FILE=$base_dir/lib/log4j2.xml
+LOG4J_FILE_NAME="log4j.xml"
+LOG4J2_FILE_NAME="log4j2.xml"
 BASE_LIB_DIR="$base_dir/lib"
+DEFAULT_LOG4J_FILE=$BASE_LIB_DIR/$LOG4J_FILE_NAME
+DEFAULT_LOG4J2_FILE=$BASE_LIB_DIR/$LOG4J2_FILE_NAME
 
+# APPLICATION_LIB_DIR can be a directory which is different from $BASE_LIB_DIR which contains some additional
+# application-specific resources. If it is not set, then $BASE_LIB_DIR will be used as the value.
+APPLICATION_LIB_DIR="${APPLICATION_LIB_DIR:-$BASE_LIB_DIR}"
+export APPLICATION_LIB_DIR=$APPLICATION_LIB_DIR
+
+echo APPLICATION_LIB_DIR=$APPLICATION_LIB_DIR
 echo BASE_LIB_DIR=$BASE_LIB_DIR
 
-CLASSPATH=""
+BASE_LIB_CLASSPATH=""
 # all the jars need to be appended on newlines to ensure line argument length of 72 bytes is not violated
 for file in $BASE_LIB_DIR/*.[jw]ar;
 do
-  CLASSPATH=$CLASSPATH" $file \n"
+  BASE_LIB_CLASSPATH=$BASE_LIB_CLASSPATH" $file \n"
 done
-echo generated from BASE_LIB_DIR CLASSPATH=$CLASSPATH
+echo generated from BASE_LIB_DIR BASE_LIB_CLASSPATH=$BASE_LIB_CLASSPATH
 
 # In some cases (AWS) $JAVA_HOME/bin doesn't contain jar.
 if [ -z "$JAVA_HOME" ] || [ ! -e "$JAVA_HOME/bin/jar" ]; then
@@ -60,10 +68,23 @@ else
   JAR="$JAVA_HOME/bin/jar"
 fi
 
+# Create a pathing JAR for the JARs in the BASE_LIB_DIR
 # Newlines and spaces are intended to ensure proper parsing of manifest in pathing jar
-printf "Class-Path: \n $CLASSPATH \n" > manifest.txt
-# Creates a new archive and adds custom manifest information to pathing.jar
-eval "$JAR -cvmf manifest.txt pathing.jar"
+printf "Class-Path: \n $BASE_LIB_CLASSPATH \n" > base-lib-manifest.txt
+# Creates a new archive and adds custom manifest information to base-lib-pathing.jar
+eval "$JAR -cvmf base-lib-manifest.txt base-lib-pathing.jar"
+
+# Create a pathing JAR for the runtime framework resources. It is useful to separate this from the base-lib-pathing.jar
+# because the split deployment framework may only need the resources from this runtime pathing JAR.
+if ! [[ $HADOOP_CONF_DIR =~ .*/$ ]]; then
+  # manifest requires a directory to have a trailing slash
+  HADOOP_CONF_DIR="$HADOOP_CONF_DIR/"
+fi
+# HADOOP_CONF_DIR should be supplied to classpath explicitly for Yarn to parse configs
+RUNTIME_FRAMEWORK_RESOURCES_CLASSPATH="$HADOOP_CONF_DIR \n"
+# TODO add JARs from ADDITIONAL_CLASSPATH_DIR to runtime-framework-resources-pathing.jar as well
+printf "Class-Path: \n $RUNTIME_FRAMEWORK_RESOURCES_CLASSPATH \n" > runtime-framework-resources-manifest.txt
+eval "$JAR -cvmf runtime-framework-resources-manifest.txt runtime-framework-resources-pathing.jar"
 
 if [ -z "$JAVA_HOME" ]; then
   JAVA="java"
@@ -100,11 +121,28 @@ function check_and_enable_64_bit_mode {
 # Make the MDC inheritable to child threads by setting the system property to true if config not explicitly specified
 [[ $JAVA_OPTS != *-DisThreadContextMapInheritable* ]] && JAVA_OPTS="$JAVA_OPTS -DisThreadContextMapInheritable=true"
 
-# Check if log4j configuration is specified. If not - set to lib/log4j.xml
-if [[ -n $(find "$base_dir/lib" -regex ".*samza-log4j2.*.jar*") ]]; then
-    [[ $JAVA_OPTS != *-Dlog4j.configurationFile* ]] && export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configurationFile=file:$DEFAULT_LOG4J2_FILE"
-elif [[ -n $(find "$base_dir/lib" -regex ".*samza-log4j.*.jar*") ]]; then
-    [[ $JAVA_OPTS != *-Dlog4j.configuration* ]] && export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$DEFAULT_LOG4J_FILE"
+# Check if log4j configuration is specified; if not, look for a configuration file:
+# 1) Check if using log4j or log4j2
+# 2) Check if configuration file system property is already set
+# 3) If not, then look in $APPLICATION_LIB_DIR for configuration file (remember that $APPLICATION_LIB_DIR can be same or
+#    different from $BASE_LIB_DIR).
+# 4) If still can't find it, fall back to default (from $BASE_LIB_DIR).
+if [[ -n $(find "$BASE_LIB_DIR" -regex ".*samza-log4j2.*.jar*") ]]; then
+  if [[ $JAVA_OPTS != *-Dlog4j.configurationFile* ]]; then
+    if [[ -n $(find "$APPLICATION_LIB_DIR" -maxdepth 1 -name $LOG4J2_FILE_NAME) ]]; then
+      export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configurationFile=file:$APPLICATION_LIB_DIR/$LOG4J2_FILE_NAME"
+    else
+      export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configurationFile=file:$DEFAULT_LOG4J2_FILE"
+    fi
+  fi
+elif [[ -n $(find "$BASE_LIB_DIR" -regex ".*samza-log4j.*.jar*") ]]; then
+  if [[ $JAVA_OPTS != *-Dlog4j.configuration* ]]; then
+    if [[ -n $(find "$APPLICATION_LIB_DIR" -maxdepth 1 -name $LOG4J_FILE_NAME) ]]; then
+      export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$APPLICATION_LIB_DIR/$LOG4J_FILE_NAME"
+    else
+      export JAVA_OPTS="$JAVA_OPTS -Dlog4j.configuration=file:$DEFAULT_LOG4J_FILE"
+    fi
+  fi
 fi
 
 # Check if samza.log.dir is specified. If not - set to environment variable if it is set
@@ -125,6 +163,11 @@ fi
 # Check if 64 bit is set. If not - try and set it if it's supported
 [[ $JAVA_OPTS != *-d64* ]] && check_and_enable_64_bit_mode
 
-# HADOOP_CONF_DIR should be supplied to classpath explicitly for Yarn to parse configs
-echo $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:pathing.jar "$@"
-exec $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:pathing.jar "$@"
+echo $JAVA $JAVA_OPTS -cp base-lib-pathing.jar:runtime-framework-resources-pathing.jar "$@"
+
+## If localized resource lib directory is defined, then include it in the classpath.
+if [[ -z "${ADDITIONAL_CLASSPATH_DIR}" ]]; then
+  exec $JAVA $JAVA_OPTS -cp base-lib-pathing.jar:runtime-framework-resources-pathing.jar "$@"
+else
+  exec $JAVA $JAVA_OPTS -cp base-lib-pathing.jar:runtime-framework-resources-pathing.jar:$ADDITIONAL_CLASSPATH_DIR "$@"
+fi

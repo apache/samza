@@ -103,11 +103,9 @@ public class CoordinatorStreamWriter {
    * Main function for using the CoordinatorStreamWriter. The main function starts a CoordinatorStreamWriter
    * and sends control messages.
    * To run the code use the following command:
-   * {path to samza deployment}/samza/bin/run-coordinator-stream-writer.sh  --config-factory={config-factory} --config-path={path to config file of a job} --type={type of the message} --key={[optional] key of the message} --value={[optional] value of the message}
+   * {path to samza deployment}/samza/bin/run-coordinator-stream-writer.sh  --config job.config.loader.factory={config-loader-factory} --config job.config.loader.properties{properties needed for config loader to load config} --type={type of the message} --key={[optional] key of the message} --value={[optional] value of the message}
    *
    * @param args input arguments for running the writer. These arguments are:
-   *             "config-factory" = The config file factory
-   *             "config-path" = The path to config file of a job
    *             "type" = type of the message being written
    *             "key" = [optional] key of the message being written
    *             "value" = [optional] value of the message being written

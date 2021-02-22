@@ -85,16 +85,18 @@ import scala.Option;
  *
  * Describes the valid state transitions of the {@link StreamProcessor}.
  *
- *
- *                                                                                                   ────────────────────────────────
- *                                                                                                  │                               │
- *                                                                                                  │                               │
- *                                                                                                  │                               │
- *                                                                                                  │                               │
- *     New                                StreamProcessor.start()          Rebalance triggered      V        Receives JobModel      │
- *  StreamProcessor ──────────▶   NEW ───────────────────────────▶ STARTED ──────────────────▶ IN_REBALANCE ─────────────────────▶ RUNNING
- *   Creation                      │                                 │     by group leader          │     and starts Container      │
- *                                 │                                 │                              │                               │
+ *                                                                                                     Receives another re-balance request when the container
+ *                                                                                                     from the previous re-balance is still in INIT phase
+ *                                                                                                   ────────────────────────────────────────────────
+ *                                                                                                  │                               │                │
+ *                                                                                                  │                               │                │
+ *                                                                                                  │                               │                │
+ *                                                                                                  │                               │                │
+ *     New                                StreamProcessor.start()          Rebalance triggered      V        Receives JobModel      │                │
+ *  StreamProcessor ──────────▶   NEW ───────────────────────────▶ STARTED ──────────────────▶ IN_REBALANCE ─────────────────────▶ RUNNING           │
+ *   Creation                      │                                 │     by group leader          │     and starts │Container     │                │
+ *                                 │                                 │                              │                │              │                │
+ *                                 │                                 │                              │                 ───────────────────────────────
  *                             Stre│amProcessor.stop()           Stre│amProcessor.stop()        Stre│amProcessor.stop()         Stre│amProcessor.stop()
  *                                 │                                 │                              │                               │
  *                                 │                                 │                              │                               │
@@ -133,7 +135,6 @@ public class StreamProcessor {
   private final Config config;
   private final long taskShutdownMs;
   private final String processorId;
-  private final ExecutorService containerExcecutorService;
   private final Object lock = new Object();
   private final MetricsRegistryMap metricsRegistry;
   private final MetadataStore metadataStore;
@@ -175,6 +176,9 @@ public class StreamProcessor {
 
   @VisibleForTesting
   JobCoordinatorListener jobCoordinatorListener = null;
+
+  @VisibleForTesting
+  ExecutorService containerExecutorService;
 
   /**
    * Same as {@link #StreamProcessor(String, Config, Map, TaskFactory, ProcessorLifecycleListener, JobCoordinator)}, except
@@ -288,9 +292,13 @@ public class StreamProcessor {
         : createJobCoordinator(config, processorId, metricsRegistry, metadataStore);
     this.jobCoordinatorListener = createJobCoordinatorListener();
     this.jobCoordinator.setListener(jobCoordinatorListener);
-    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
-    this.containerExcecutorService = Executors.newSingleThreadExecutor(threadFactory);
+    this.containerExecutorService = createExecutorService();
     this.processorListener = listenerFactory.createInstance(this);
+  }
+
+  private ExecutorService createExecutorService() {
+    ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat(CONTAINER_THREAD_NAME_FORMAT).setDaemon(true).build();
+    return Executors.newSingleThreadExecutor(threadFactory);
   }
 
   /**
@@ -348,7 +356,7 @@ public class StreamProcessor {
           boolean hasContainerShutdown = stopSamzaContainer();
           if (!hasContainerShutdown) {
             LOGGER.info("Interrupting the container: {} thread to die.", container);
-            containerExcecutorService.shutdownNow();
+            containerExecutorService.shutdownNow();
           }
         } catch (Throwable throwable) {
           LOGGER.error(String.format("Exception occurred on container: %s shutdown of stream processor: %s.", container, processorId), throwable);
@@ -388,14 +396,16 @@ public class StreamProcessor {
     // Metadata store lifecycle managed outside of the SamzaContainer.
     // All manager lifecycles are managed in the SamzaContainer including startpointManager
     StartpointManager startpointManager = null;
-    if (metadataStore != null) {
+    if (metadataStore != null && new JobConfig(config).getStartpointEnabled()) {
       startpointManager = new StartpointManager(metadataStore);
+    } else if (!new JobConfig(config).getStartpointEnabled()) {
+      LOGGER.warn("StartpointManager not instantiated because startpoints is not enabled");
     } else {
       LOGGER.warn("StartpointManager cannot be instantiated because no metadata store defined for this stream processor");
     }
 
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
-        this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config),
+        this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config, jobModel),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
         Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager,
@@ -444,6 +454,19 @@ public class StreamProcessor {
     return hasContainerShutdown;
   }
 
+  private boolean interruptContainerAndShutdownExecutorService() {
+    try {
+      containerExecutorService.shutdownNow();
+      containerShutdownLatch.await(taskShutdownMs, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      LOGGER.info("Received an interrupt during interrupting container. Proceeding to check if the container callback "
+          + "decremented the shutdown latch. ");
+    }
+
+    // we call interrupt successful as long as the shut down latch is decremented by the container call back.
+    return containerShutdownLatch.getCount() == 0;
+  }
+
   private JobCoordinatorListener createJobCoordinatorListener() {
     return new JobCoordinatorListener() {
 
@@ -461,8 +484,23 @@ public class StreamProcessor {
             } else {
               LOGGER.info("Container: {} shutdown completed for stream processor: {}.", container, processorId);
             }
+          } else if (state == State.IN_REBALANCE) {
+            if (container != null) {
+              boolean hasContainerShutdown = interruptContainerAndShutdownExecutorService();
+              if (!hasContainerShutdown) {
+                LOGGER.warn("Job model expire unsuccessful. Failed to interrupt container: {} safely. "
+                    + "Stopping the stream processor: {}", container, processorId);
+                state = State.STOPPING;
+                jobCoordinator.stop();
+              } else {
+                containerExecutorService = createExecutorService();
+              }
+            } else {
+              LOGGER.info("Ignoring Job model expired since a rebalance is already in progress");
+            }
           } else {
-            LOGGER.info("Ignoring onJobModelExpired invocation since the current state is {} and not in {}.", state, ImmutableList.of(State.RUNNING, State.STARTED));
+            LOGGER.info("Ignoring onJobModelExpired invocation since the current state is {} and not in {}.", state,
+                ImmutableList.of(State.RUNNING, State.STARTED, State.IN_REBALANCE));
           }
         }
       }
@@ -475,7 +513,7 @@ public class StreamProcessor {
             container = createSamzaContainer(processorId, jobModel);
             container.setContainerListener(new ContainerListener());
             LOGGER.info("Starting the container: {} for the stream processor: {}.", container, processorId);
-            containerExcecutorService.submit(container);
+            containerExecutorService.submit(container);
           } else {
             LOGGER.info("Ignoring onNewJobModel invocation since the current state is {} and not {}.", state, State.IN_REBALANCE);
           }
@@ -490,7 +528,7 @@ public class StreamProcessor {
 
           // we only want to interrupt when container shutdown times out.
           if (!hasContainerShutdown) {
-            containerExcecutorService.shutdownNow();
+            containerExecutorService.shutdownNow();
           }
           state = State.STOPPED;
         }
@@ -508,7 +546,7 @@ public class StreamProcessor {
 
           // we only want to interrupt when container shutdown times out.
           if (!hasContainerShutdown) {
-            containerExcecutorService.shutdownNow();
+            containerExecutorService.shutdownNow();
           }
           state = State.STOPPED;
         }

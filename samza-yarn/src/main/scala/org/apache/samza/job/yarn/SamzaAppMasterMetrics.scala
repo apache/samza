@@ -23,8 +23,7 @@ import org.apache.samza.clustermanager.SamzaApplicationState
 import org.apache.samza.config.{Config, MetricsConfig}
 import org.apache.samza.util.Logging
 import org.apache.samza.util.MetricsReporterLoader
-import org.apache.samza.metrics.ReadableMetricsRegistry
-import org.apache.samza.metrics.MetricsHelper
+import org.apache.samza.metrics.{Counter, MetricsHelper, ReadableMetricsRegistry}
 
 import scala.collection.JavaConverters._
 
@@ -42,8 +41,13 @@ class SamzaAppMasterMetrics(val config: Config,
   val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
 
   private val metricsConfig = new MetricsConfig(config)
+  val containersFromPreviousAttempts = newCounter("container-from-previous-attempt")
   val reporters = MetricsReporterLoader.getMetricsReporters(metricsConfig, SamzaAppMasterMetrics.sourceName).asScala
   reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
+
+  def setContainersFromPreviousAttempts(containerCount: Int) {
+    containersFromPreviousAttempts.inc(containerCount)
+  }
 
   def start() {
     val mRunningContainers = newGauge("running-containers", () => state.runningProcessors.size)

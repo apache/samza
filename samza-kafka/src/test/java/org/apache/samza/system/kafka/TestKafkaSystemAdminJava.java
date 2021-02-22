@@ -19,15 +19,20 @@
 
 package org.apache.samza.system.kafka;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.samza.Partition;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
@@ -62,6 +67,38 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   private static final String TEST_OFFSET = "10";
 
   @Test
+  public void testCreateStreamShouldCoordinatorStreamWithCorrectTopicProperties() throws Exception {
+    String coordinatorTopicName = String.format("topic-name-%s", RandomStringUtils.randomAlphabetic(5));
+    StreamSpec coordinatorStreamSpec = KafkaStreamSpec.createCoordinatorStreamSpec(coordinatorTopicName, SYSTEM());
+
+    boolean hasCreatedStream = systemAdmin().createStream(coordinatorStreamSpec);
+
+    assertTrue(hasCreatedStream);
+
+    Map<String, String> coordinatorTopicProperties = getTopicConfigFromKafkaBroker(coordinatorTopicName);
+
+    assertEquals("compact", coordinatorTopicProperties.get(TopicConfig.CLEANUP_POLICY_CONFIG));
+    assertEquals("26214400", coordinatorTopicProperties.get(TopicConfig.SEGMENT_BYTES_CONFIG));
+    assertEquals("86400000", coordinatorTopicProperties.get(TopicConfig.DELETE_RETENTION_MS_CONFIG));
+  }
+
+  private static Map<String, String> getTopicConfigFromKafkaBroker(String topicName) throws Exception {
+    List<ConfigResource> configResourceList = ImmutableList.of(
+        new ConfigResource(ConfigResource.Type.TOPIC, topicName));
+    Map<ConfigResource, org.apache.kafka.clients.admin.Config> configResourceConfigMap =
+        adminClient().describeConfigs(configResourceList).all().get();
+    Map<String, String> kafkaTopicConfig = new HashMap<>();
+
+    configResourceConfigMap.values().forEach(configEntry -> {
+      configEntry.entries().forEach(config -> {
+        kafkaTopicConfig.put(config.name(), config.value());
+      });
+    });
+
+    return kafkaTopicConfig;
+  }
+
+  @Test
   public void testGetOffsetsAfter() {
     SystemStreamPartition ssp1 = new SystemStreamPartition(SYSTEM, TOPIC, new Partition(0));
     SystemStreamPartition ssp2 = new SystemStreamPartition(SYSTEM, TOPIC, new Partition(1));
@@ -73,6 +110,32 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
     Assert.assertEquals("2", offsets.get(ssp1));
     Assert.assertEquals("3", offsets.get(ssp2));
+  }
+
+  @Test
+  public void testToKafkaSpecForCheckpointStreamShouldReturnTheCorrectStreamSpecByPreservingTheConfig() {
+    String topicName = "testStream";
+    String streamId = "samza-internal-checkpoint-stream-id";
+    int partitionCount = 1;
+    Map<String, String> map = new HashMap<>();
+    map.put("cleanup.policy", "compact");
+    map.put("replication.factor", "3");
+    map.put("segment.bytes", "536870912");
+    map.put("delete.retention.ms", "86400000");
+
+    Config config = new MapConfig(map);
+
+    StreamSpec spec = new StreamSpec(streamId, topicName, SYSTEM, partitionCount, config);
+    KafkaSystemAdmin kafkaSystemAdmin = systemAdmin();
+    KafkaStreamSpec kafkaStreamSpec = kafkaSystemAdmin.toKafkaSpec(spec);
+    System.out.println(kafkaStreamSpec);
+    assertEquals(streamId, kafkaStreamSpec.getId());
+    assertEquals(topicName, kafkaStreamSpec.getPhysicalName());
+    assertEquals(partitionCount, kafkaStreamSpec.getPartitionCount());
+    assertEquals(3, kafkaStreamSpec.getReplicationFactor());
+    assertEquals("compact", kafkaStreamSpec.getConfig().get("cleanup.policy"));
+    assertEquals("536870912", kafkaStreamSpec.getConfig().get("segment.bytes"));
+    assertEquals("86400000", kafkaStreamSpec.getConfig().get("delete.retention.ms"));
   }
 
   @Test
@@ -164,7 +227,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
 
   @Test
   public void testCreateCoordinatorStreamWithSpecialCharsInTopicName() {
-    final String STREAM = "test.coordinator_test.Stream";
+    final String stream = "test.coordinator_test.Stream";
 
     Map<String, String> map = new HashMap<>();
     map.put("job.coordinator.segment.bytes", "123");
@@ -174,14 +237,14 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
         String.valueOf(coordReplicatonFactor));
 
     KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(SYSTEM, map));
-    StreamSpec spec = StreamSpec.createCoordinatorStreamSpec(STREAM, SYSTEM);
+    StreamSpec spec = StreamSpec.createCoordinatorStreamSpec(stream, SYSTEM);
 
     Mockito.doAnswer(invocationOnMock -> {
       StreamSpec internalSpec = (StreamSpec) invocationOnMock.callRealMethod();
       assertTrue(internalSpec instanceof KafkaStreamSpec);  // KafkaStreamSpec is used to carry replication factor
       assertTrue(internalSpec.isCoordinatorStream());
       assertEquals(SYSTEM, internalSpec.getSystemName());
-      assertEquals(STREAM, internalSpec.getPhysicalName());
+      assertEquals(stream, internalSpec.getPhysicalName());
       assertEquals(1, internalSpec.getPartitionCount());
       Assert.assertEquals(coordReplicatonFactor, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
       Assert.assertEquals("123", ((KafkaStreamSpec) internalSpec).getProperties().getProperty("segment.bytes"));
@@ -207,16 +270,16 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   }
 
   public void testCreateChangelogStreamHelp(final String topic) {
-    final int PARTITIONS = 12;
-    final int REP_FACTOR = 2;
+    final int partitions = 12;
+    final int repFactor = 2;
 
     Map<String, String> map = new HashMap<>();
     map.put(JobConfig.JOB_DEFAULT_SYSTEM, SYSTEM);
     map.put(String.format("stores.%s.changelog", "fakeStore"), topic);
-    map.put(String.format("stores.%s.changelog.replication.factor", "fakeStore"), String.valueOf(REP_FACTOR));
+    map.put(String.format("stores.%s.changelog.replication.factor", "fakeStore"), String.valueOf(repFactor));
     map.put(String.format("stores.%s.changelog.kafka.segment.bytes", "fakeStore"), "139");
     KafkaSystemAdmin admin = Mockito.spy(createSystemAdmin(SYSTEM, map));
-    StreamSpec spec = StreamSpec.createChangeLogStreamSpec(topic, SYSTEM, PARTITIONS);
+    StreamSpec spec = StreamSpec.createChangeLogStreamSpec(topic, SYSTEM, partitions);
 
     Mockito.doAnswer(invocationOnMock -> {
       StreamSpec internalSpec = (StreamSpec) invocationOnMock.callRealMethod();
@@ -224,8 +287,8 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
       assertTrue(internalSpec.isChangeLogStream());
       assertEquals(SYSTEM, internalSpec.getSystemName());
       assertEquals(topic, internalSpec.getPhysicalName());
-      assertEquals(REP_FACTOR, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
-      assertEquals(PARTITIONS, internalSpec.getPartitionCount());
+      assertEquals(repFactor, ((KafkaStreamSpec) internalSpec).getReplicationFactor());
+      assertEquals(partitions, internalSpec.getPartitionCount());
       assertEquals("139", ((KafkaStreamSpec) internalSpec).getProperties().getProperty("segment.bytes"));
       assertEquals("compact", ((KafkaStreamSpec) internalSpec).getProperties().getProperty("cleanup.policy"));
 
@@ -301,7 +364,7 @@ public class TestKafkaSystemAdminJava extends TestKafkaSystemAdmin {
   }
 
   @Test
-  public void testShouldAssembleMetadata () {
+  public void testShouldAssembleMetadata() {
     Map<SystemStreamPartition, String> oldestOffsets = new ImmutableMap.Builder<SystemStreamPartition, String>()
         .put(new SystemStreamPartition(SYSTEM, "stream1", new Partition(0)), "o1")
         .put(new SystemStreamPartition(SYSTEM, "stream2", new Partition(0)), "o2")

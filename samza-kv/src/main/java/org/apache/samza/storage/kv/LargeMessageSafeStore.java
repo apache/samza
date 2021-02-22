@@ -22,6 +22,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import com.google.common.annotations.VisibleForTesting;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,8 +86,8 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
   @Override
   public void putAll(List<Entry<byte[], byte[]>> entries) {
     entries.forEach(entry -> {
-        validateMessageSize(entry.getValue());
-      });
+      validateMessageSize(entry.getValue());
+    });
     List<Entry<byte[], byte[]>> largeMessageSafeEntries = removeLargeMessages(entries);
     store.putAll(largeMessageSafeEntries);
   }
@@ -126,7 +128,7 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
   }
 
   @Override
-  public Optional<Path> checkpoint(String id) {
+  public Optional<Path> checkpoint(CheckpointId id) {
     return store.checkpoint(id);
   }
 
@@ -144,14 +146,19 @@ public class LargeMessageSafeStore implements KeyValueStore<byte[], byte[]> {
   private List<Entry<byte[], byte[]>> removeLargeMessages(List<Entry<byte[], byte[]>> entries) {
     List<Entry<byte[], byte[]>> largeMessageSafeEntries = new ArrayList<>();
     entries.forEach(entry -> {
-        if (!isLargeMessage(entry.getValue())) {
-          largeMessageSafeEntries.add(entry);
-        } else {
-          LOG.info("Ignoring a large message with size " + entry.getValue().length + " since it is greater than "
-              + "the maximum allowed value of " + maxMessageSize);
-          largeMessageSafeStoreMetrics.ignoredLargeMessages().inc();
-        }
-      });
+      if (!isLargeMessage(entry.getValue())) {
+        largeMessageSafeEntries.add(entry);
+      } else {
+        LOG.info("Ignoring a large message with size " + entry.getValue().length + " since it is greater than "
+            + "the maximum allowed value of " + maxMessageSize);
+        largeMessageSafeStoreMetrics.ignoredLargeMessages().inc();
+      }
+    });
     return largeMessageSafeEntries;
+  }
+
+  @VisibleForTesting
+  KeyValueStore<byte[], byte[]> getStore() {
+    return this.store;
   }
 }

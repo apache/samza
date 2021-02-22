@@ -26,7 +26,8 @@ import org.apache.samza.metrics.{Gauge, ReadableMetricsRegistry, MetricsRegistry
 
 class SamzaContainerMetrics(
   val source: String = "unknown",
-  val registry: ReadableMetricsRegistry = new MetricsRegistryMap) extends MetricsHelper {
+  val registry: ReadableMetricsRegistry = new MetricsRegistryMap,
+  val prefix: String = "") extends MetricsHelper {
 
   val commits = newCounter("commit-calls")
   val windows = newCounter("window-calls")
@@ -45,7 +46,9 @@ class SamzaContainerMetrics(
   val diskUsageBytes = newGauge("disk-usage-bytes", 0L)
   val diskQuotaBytes = newGauge("disk-quota-bytes", Long.MaxValue)
   val executorWorkFactor = newGauge("executor-work-factor", 1.0)
-  val physicalMemoryMb = newGauge[Double]("physical-memory-mb", 0.0F)
+  val physicalMemoryMb = newGauge("physical-memory-mb", 0.0F)
+  val physicalMemoryUtilization = newGauge("physical-memory-utilization", 0.0F)
+  val containerThreadPoolSize = newGauge("container-thread-pool-size", 0L)
 
   val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
 
@@ -53,4 +56,5 @@ class SamzaContainerMetrics(
     taskStoreRestorationMetrics.put(taskName, newGauge("%s-restore-time" format(taskName.toString), -1L))
   }
 
+  override def getPrefix: String = prefix
 }

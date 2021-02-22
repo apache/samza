@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
+import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemStreamMetadata;
@@ -77,9 +78,17 @@ public class TestInMemoryManager {
         ImmutableMap.of(new Partition(0), new SystemStreamMetadata.SystemStreamPartitionMetadata("0", "1", "2")));
     SystemStreamMetadata systemStreamMetadata1 = new SystemStreamMetadata(STREAM1,
         ImmutableMap.of(new Partition(0), new SystemStreamMetadata.SystemStreamPartitionMetadata("0", "0", "1")));
+
     // also test a batch call for multiple streams here
     assertEquals(ImmutableMap.of(STREAM0, systemStreamMetadata0, STREAM1, systemStreamMetadata1),
         this.inMemoryManager.getSystemStreamMetadata(SYSTEM, ImmutableSet.of(STREAM0, STREAM1)));
+
+    // test END_OF_STREAM doesn't alter new or upcoming offset
+    this.inMemoryManager.put(ssp0, "key02", new EndOfStreamMessage());
+    systemStreamMetadata0 = new SystemStreamMetadata(STREAM0,
+        ImmutableMap.of(new Partition(0), new SystemStreamMetadata.SystemStreamPartitionMetadata("0", "1", "2")));
+    assertEquals(ImmutableMap.of(STREAM0, systemStreamMetadata0),
+        this.inMemoryManager.getSystemStreamMetadata(SYSTEM, ImmutableSet.of(STREAM0)));
   }
 
   @Test

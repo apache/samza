@@ -19,18 +19,22 @@
 
 package org.apache.samza.container;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
+import org.apache.samza.job.model.ProcessorLocality;
+import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.serializers.Serde;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Used for persisting and reading the container-to-host assignment information into the metadata store.
+ * Used for persisting and reading the locality information into the metadata store. Currently, we store the
+ * processor-to-host assignment.
  * */
 public class LocalityManager {
   private static final Logger LOG = LoggerFactory.getLogger(LocalityManager.class);
@@ -53,47 +57,47 @@ public class LocalityManager {
   }
 
   /**
-   * Method to allow read container locality information from the {@link MetadataStore}.
-   * This method is used in {@link org.apache.samza.coordinator.JobModelManager}.
+   * Fetch the processor locality information from the {@link MetadataStore}. In YARN deployment model, the
+   * processor refers to the samza container.
    *
-   * @return the map of containerId: (hostname)
+   * @return the {@code LocalityModel} for the job
    */
-  public Map<String, Map<String, String>> readContainerLocality() {
-    Map<String, Map<String, String>> allMappings = new HashMap<>();
-    metadataStore.all().forEach((containerId, valueBytes) -> {
-        if (valueBytes != null) {
-          String locationId = valueSerde.fromBytes(valueBytes);
-          Map<String, String> values = new HashMap<>();
-          values.put(SetContainerHostMapping.HOST_KEY, locationId);
-          allMappings.put(containerId, values);
-        }
-      });
+  public LocalityModel readLocality() {
+    Map<String, ProcessorLocality> containerLocalityMap = new HashMap<>();
+
+    metadataStore.all().forEach((processorId, valueBytes) -> {
+      if (valueBytes != null) {
+        String locationId = valueSerde.fromBytes(valueBytes);
+        containerLocalityMap.put(processorId, new ProcessorLocality(processorId, locationId));
+      }
+    });
     if (LOG.isDebugEnabled()) {
-      for (Map.Entry<String, Map<String, String>> entry : allMappings.entrySet()) {
-        LOG.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue()));
+      for (Map.Entry<String, ProcessorLocality> entry : containerLocalityMap.entrySet()) {
+        LOG.debug(String.format("Locality for container %s: %s", entry.getKey(), entry.getValue().host()));
       }
     }
 
-    return Collections.unmodifiableMap(allMappings);
+    return new LocalityModel(containerLocalityMap);
   }
 
   /**
    * Method to write locality information to the {@link MetadataStore}. This method is used in {@link SamzaContainer}.
    *
-   * @param containerId  the {@link SamzaContainer} ID
+   * @param processorId a.k.a logical container ID
    * @param hostName  the hostname
    */
-  public void writeContainerToHostMapping(String containerId, String hostName) {
-    Map<String, Map<String, String>> containerToHostMapping = readContainerLocality();
-    Map<String, String> existingMappings = containerToHostMapping.get(containerId);
-    String existingHostMapping = existingMappings != null ? existingMappings.get(SetContainerHostMapping.HOST_KEY) : null;
-    if (existingHostMapping != null && !existingHostMapping.equals(hostName)) {
-      LOG.info("Container {} moved from {} to {}", containerId, existingHostMapping, hostName);
+  public void writeContainerToHostMapping(String processorId, String hostName) {
+    String existingHostMapping = Optional.ofNullable(readLocality().getProcessorLocality(processorId))
+        .map(ProcessorLocality::host)
+        .orElse(null);
+    if (StringUtils.isNotBlank(existingHostMapping) && !existingHostMapping.equals(hostName)) {
+      LOG.info("Container {} moved from {} to {}", processorId, existingHostMapping, hostName);
     } else {
-      LOG.info("Container {} started at {}", containerId, hostName);
+      LOG.info("Container {} started at {}", processorId, hostName);
     }
 
-    metadataStore.put(containerId, valueSerde.toBytes(hostName));
+    metadataStore.put(processorId, valueSerde.toBytes(hostName));
+    metadataStore.flush();
   }
 
   public void close() {

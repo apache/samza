@@ -167,8 +167,8 @@ public class StreamApplicationIntegrationTest {
           .map(m -> new KV(m.getValue().getMemberId(), m.getValue()))
           .sendTo(table)
           .sink((kv, collector, coordinator) -> {
-              LOG.info("Inserted Profile with Key: {} in profile-view-store", kv.getKey());
-            });
+            LOG.info("Inserted Profile with Key: {} in profile-view-store", kv.getKey());
+          });
 
       OutputStream<TestTableData.EnrichedPageView> outputStream = appDescriptor.getOutputStream(enrichedPageViewOSD);
       appDescriptor.getInputStream(pageViewISD)
@@ -177,8 +177,8 @@ public class StreamApplicationIntegrationTest {
           .sendTo(outputStream)
           .map(TestTableData.EnrichedPageView::getPageKey)
           .sink((joinPageKey, collector, coordinator) -> {
-              collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "JoinPageKeys"), null, null, joinPageKey));
-            });
+            collector.send(new OutgoingMessageEnvelope(new SystemStream("test", "JoinPageKeys"), null, null, joinPageKey));
+          });
 
     }
   }

@@ -23,22 +23,34 @@ import java.util
 import java.util.concurrent.atomic.AtomicReference
 
 import org.apache.samza.{Partition, SamzaException}
-import org.apache.samza.config.{Config, _}
-import org.apache.samza.container.grouper.stream.{SSPGrouperProxy, SystemStreamPartitionGrouperFactory}
+import org.apache.samza.config._
+import org.apache.samza.config.Config
+import org.apache.samza.container.grouper.stream.SSPGrouperProxy
+import org.apache.samza.container.grouper.stream.SystemStreamPartitionGrouperFactory
 import org.apache.samza.container.grouper.task._
-import org.apache.samza.container.{LocalityManager, TaskName}
-import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
-import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
-import org.apache.samza.coordinator.stream.messages.{SetContainerHostMapping, SetTaskContainerMapping, SetTaskModeMapping, SetTaskPartitionMapping}
-import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
-import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
+import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore
+import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping
+import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping
+import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping
+import org.apache.samza.container.LocalityManager
+import org.apache.samza.container.TaskName
+import org.apache.samza.coordinator.server.{HttpServer, JobServlet, LocalityServlet}
+import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping
+import org.apache.samza.job.model.ContainerModel
+import org.apache.samza.job.model.JobModel
+import org.apache.samza.job.model.TaskMode
+import org.apache.samza.job.model.TaskModel
+import org.apache.samza.metadatastore.MetadataStore
+import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.runtime.LocationId
+import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.system._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
-import org.apache.samza.util.{Logging, ReflectionUtil, Util}
+import org.apache.samza.util.{ConfigUtil, Logging, ReflectionUtil}
 
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters
+import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 
 /**
@@ -53,7 +65,7 @@ object JobModelManager extends Logging {
    * a volatile value to store the current instantiated <code>JobModelManager</code>
    */
   @volatile var currentJobModelManager: JobModelManager = _
-  val jobModelRef: AtomicReference[JobModel] = new AtomicReference[JobModel]()
+  val serializedJobModelRef = new AtomicReference[Array[Byte]]
 
   /**
    * Currently used only in the ApplicationMaster for yarn deployment model.
@@ -67,29 +79,32 @@ object JobModelManager extends Logging {
    * @return the instantiated {@see JobModelManager}.
    */
   def apply(config: Config, changelogPartitionMapping: util.Map[TaskName, Integer],
-            coordinatorStreamStore: CoordinatorStreamStore,
+            metadataStore: MetadataStore,
             metricsRegistry: MetricsRegistry = new MetricsRegistryMap()): JobModelManager = {
 
     // Instantiate the respective metadata store util classes which uses the same coordinator metadata store.
-    val localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetContainerHostMapping.TYPE))
-    val taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskModeMapping.TYPE))
-    val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetTaskPartitionMapping.TYPE))
+    val localityManager = new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE))
+    val taskAssignmentManager = new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskContainerMapping.TYPE), new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskModeMapping.TYPE))
+    val taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskPartitionMapping.TYPE))
 
-    val systemAdmins = new SystemAdmins(config)
+    val systemAdmins = new SystemAdmins(config, this.getClass.getSimpleName)
     try {
       systemAdmins.start()
       val streamMetadataCache = new StreamMetadataCache(systemAdmins, 0)
       val grouperMetadata: GrouperMetadata = getGrouperMetadata(config, localityManager, taskAssignmentManager, taskPartitionAssignmentManager)
 
-      val jobModel: JobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
-      jobModelRef.set(new JobModel(jobModel.getConfig, jobModel.getContainers, localityManager))
+      val jobModel = readJobModel(config, changelogPartitionMapping, streamMetadataCache, grouperMetadata)
+      val jobModelToServe = new JobModel(jobModel.getConfig, jobModel.getContainers)
+      val serializedJobModelToServe = SamzaObjectMapper.getObjectMapper().writeValueAsBytes(jobModelToServe)
+      serializedJobModelRef.set(serializedJobModelToServe)
 
       updateTaskAssignments(jobModel, taskAssignmentManager, taskPartitionAssignmentManager, grouperMetadata)
 
       val server = new HttpServer
-      server.addServlet("/", new JobServlet(jobModelRef))
+      server.addServlet("/", new JobServlet(serializedJobModelRef))
+      server.addServlet("/locality", new LocalityServlet(localityManager))
 
-      currentJobModelManager = new JobModelManager(jobModelRef.get(), server, localityManager)
+      currentJobModelManager = new JobModelManager(jobModelToServe, server)
       currentJobModelManager
     } finally {
       systemAdmins.stop()
@@ -154,15 +169,18 @@ object JobModelManager extends Logging {
     */
   def getProcessorLocality(config: Config, localityManager: LocalityManager) = {
     val containerToLocationId: util.Map[String, LocationId] = new util.HashMap[String, LocationId]()
-    val existingContainerLocality = localityManager.readContainerLocality()
+    val existingContainerLocality = localityManager.readLocality().getProcessorLocalities
 
     for (containerId <- 0 until new JobConfig(config).getContainerCount) {
-      val localityMapping = existingContainerLocality.get(containerId.toString)
+      val preferredHost = Option.apply(existingContainerLocality.get(containerId.toString))
+        .map(containerLocality => containerLocality.host())
+        .filter(host => host.nonEmpty)
+        .orNull
       // To handle the case when the container count is increased between two different runs of a samza-yarn job,
       // set the locality of newly added containers to any_host.
       var locationId: LocationId = new LocationId("ANY_HOST")
-      if (localityMapping != null && localityMapping.containsKey(SetContainerHostMapping.HOST_KEY)) {
-        locationId = new LocationId(localityMapping.get(SetContainerHostMapping.HOST_KEY))
+      if (preferredHost != null) {
+        locationId = new LocationId(preferredHost)
       }
       containerToLocationId.put(containerId.toString, locationId)
     }
@@ -227,10 +245,12 @@ object JobModelManager extends Logging {
     // taskName to SystemStreamPartitions is done here to wire-in the data to {@see JobModel}.
     val sspToTaskNameMap: util.Map[SystemStreamPartition, util.List[String]] = new util.HashMap[SystemStreamPartition, util.List[String]]()
 
+    val taskContainerMappings: util.Map[String, util.Map[String, TaskMode]] = new util.HashMap[String, util.Map[String, TaskMode]]()
+
     for (container <- jobModel.getContainers.values()) {
       for ((taskName, taskModel) <- container.getTasks) {
-        info ("Storing task: %s and container ID: %s into metadata store" format(taskName.getTaskName, container.getId))
-        taskAssignmentManager.writeTaskContainerMapping(taskName.getTaskName, container.getId, container.getTasks.get(taskName).getTaskMode)
+        taskContainerMappings.putIfAbsent(container.getId, new util.HashMap[String, TaskMode]())
+        taskContainerMappings.get(container.getId).put(taskName.getTaskName, container.getTasks.get(taskName).getTaskMode)
         for (partition <- taskModel.getSystemStreamPartitions) {
           if (!sspToTaskNameMap.containsKey(partition)) {
             sspToTaskNameMap.put(partition, new util.ArrayList[String]())
@@ -240,10 +260,8 @@ object JobModelManager extends Logging {
       }
     }
 
-    for ((ssp, taskNames) <- sspToTaskNameMap) {
-      info ("Storing ssp: %s and task: %s into metadata store" format(ssp, taskNames))
-      taskPartitionAssignmentManager.writeTaskPartitionAssignment(ssp, taskNames)
-    }
+    taskAssignmentManager.writeTaskContainerMappings(taskContainerMappings)
+    taskPartitionAssignmentManager.writeTaskPartitionAssignments(sspToTaskNameMap);
   }
 
   /**
@@ -255,23 +273,10 @@ object JobModelManager extends Logging {
     */
   private def getInputStreamPartitions(config: Config, streamMetadataCache: StreamMetadataCache): Set[SystemStreamPartition] = {
 
-    def invokeRegexTopicRewriter(config: Config): Config = {
-      val jobConfig = new JobConfig(config)
-      JavaOptionals.toRichOptional(jobConfig.getConfigRewriters).toOption match {
-        case Some(rewriters) => rewriters.split(",").
-          filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
-            .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
-            .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
-          foldLeft(config)(Util.applyRewriter(_, _))
-        case _ => config
-      }
-    }
-
-    val configAfterRegexTopicRewrite = invokeRegexTopicRewriter(config)
-    val taskConfigAfterRegexTopicRewrite = new TaskConfig(configAfterRegexTopicRewrite)
+    val taskConfig = new TaskConfig(config)
     // Expand regex input, if a regex-rewriter is defined in config
     val inputSystemStreams =
-      JavaConverters.asScalaSetConverter(taskConfigAfterRegexTopicRewrite.getInputStreams).asScala.toSet
+      JavaConverters.asScalaSetConverter(taskConfig.getInputStreams).asScala.toSet
 
     // Get the set of partitions for each SystemStream from the stream metadata
     streamMetadataCache
@@ -326,36 +331,58 @@ object JobModelManager extends Logging {
   }
 
   /**
+   * Refresh Kafka topic list used as input streams if enabled {@link org.apache.samza.config.RegExTopicGenerator}
+   * @param config Samza job config
+   * @return refreshed config
+   */
+  private def refreshConfigByRegexTopicRewriter(config: Config): Config = {
+    val jobConfig = new JobConfig(config)
+    JavaOptionals.toRichOptional(jobConfig.getConfigRewriters).toOption match {
+      case Some(rewriters) => rewriters.split(",").
+        filter(rewriterName => JavaOptionals.toRichOptional(jobConfig.getConfigRewriterClass(rewriterName)).toOption
+          .getOrElse(throw new SamzaException("Unable to find class config for config rewriter %s." format rewriterName))
+          .equalsIgnoreCase(classOf[RegExTopicGenerator].getName)).
+        foldLeft(config)(ConfigUtil.applyRewriter(_, _))
+      case _ => config
+    }
+  }
+
+  /**
     * Does the following:
     * 1. Fetches metadata of the input streams defined in configuration through {@param streamMetadataCache}.
     * 2. Applies the {@see SystemStreamPartitionGrouper}, {@see TaskNameGrouper} defined in the configuration
     * to build the {@see JobModel}.
-    * @param config the configuration of the job.
+    * @param originalConfig the configuration of the job.
     * @param changeLogPartitionMapping the task to changelog partition mapping of the job.
     * @param streamMetadataCache the cache that holds the partition metadata of the input streams.
     * @param grouperMetadata provides the historical metadata of the application.
     * @return the built {@see JobModel}.
     */
-  def readJobModel(config: Config,
+  def readJobModel(originalConfig: Config,
                    changeLogPartitionMapping: util.Map[TaskName, Integer],
                    streamMetadataCache: StreamMetadataCache,
                    grouperMetadata: GrouperMetadata): JobModel = {
+    // refresh config if enabled regex topic rewriter
+    val config = refreshConfigByRegexTopicRewriter(originalConfig)
+
     val taskConfig = new TaskConfig(config)
     // Do grouping to fetch TaskName to SSP mapping
     val allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache)
 
     // processor list is required by some of the groupers. So, let's pass them as part of the config.
     // Copy the config and add the processor list to the config copy.
+    // TODO: It is non-ideal to have config as a medium to transmit the locality information; especially, if the locality information evolves. Evaluate options on using context objects to pass dependent components.
     val configMap = new util.HashMap[String, String](config)
     configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", grouperMetadata.getProcessorLocality.keySet()))
     val grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap))
 
-    val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
+    val jobConfig = new JobConfig(config)
 
-    val groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = if (isHostAffinityEnabled) {
+    val groups: util.Map[TaskName, util.Set[SystemStreamPartition]] = if (jobConfig.isSSPGrouperProxyEnabled) {
       val sspGrouperProxy: SSPGrouperProxy =  new SSPGrouperProxy(config, grouper)
       sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata)
     } else {
+      warn("SSPGrouperProxy is disabled (%s = false). Stateful jobs may produce erroneous results if this is not enabled." format JobConfig.SSP_INPUT_EXPANSION_ENABLED)
       grouper.group(allSystemStreamPartitions)
     }
     info("SystemStreamPartitionGrouper %s has grouped the SystemStreamPartitions into %d tasks with the following taskNames: %s" format(grouper, groups.size(), groups))
@@ -386,17 +413,18 @@ object JobModelManager extends Logging {
     // SSPTaskNameGrouper for locality, load-balancing, etc.
     val containerGrouperFactory =
       ReflectionUtil.getObj(taskConfig.getTaskNameGrouperFactory, classOf[TaskNameGrouperFactory])
-    val standbyTasksEnabled = new JobConfig(config).getStandbyTasksEnabled
-    val standbyTaskReplicationFactor = new JobConfig(config).getStandbyTaskReplicationFactor
+    val standbyTasksEnabled = jobConfig.getStandbyTasksEnabled
+    val standbyTaskReplicationFactor = jobConfig.getStandbyTaskReplicationFactor
     val taskNameGrouperProxy = new TaskNameGrouperProxy(containerGrouperFactory.build(config), standbyTasksEnabled, standbyTaskReplicationFactor)
     var containerModels: util.Set[ContainerModel] = null
+    val isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled
     if(isHostAffinityEnabled) {
       containerModels = taskNameGrouperProxy.group(taskModels, grouperMetadata)
     } else {
       containerModels = taskNameGrouperProxy.group(taskModels, new util.ArrayList[String](grouperMetadata.getProcessorLocality.keySet()))
     }
 
-    var containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
+    val containerMap = containerModels.asScala.map(containerModel => containerModel.getId -> containerModel).toMap
     new JobModel(config, containerMap.asJava)
   }
 }
@@ -422,12 +450,7 @@ class JobModelManager(
   /**
    * HTTP server used to serve a Samza job's container model to SamzaContainers when they start up.
    */
-  val server: HttpServer = null,
-
-  /**
-   * LocalityManager employed to read and write container and task locality information to metadata store.
-   */
-  val localityManager: LocalityManager = null) extends Logging {
+  val server: HttpServer = null) extends Logging {
 
   debug("Got job model: %s." format jobModel)
 
@@ -444,11 +467,6 @@ class JobModelManager(
       debug("Stopping HTTP server.")
       server.stop
       info("Stopped HTTP server.")
-      if (localityManager != null) {
-        info("Stopping localityManager")
-        localityManager.close()
-        info("Stopped localityManager")
-      }
     }
   }
 }

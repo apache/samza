@@ -48,7 +48,7 @@ Run the following commands:
 {% highlight bash %}
 cd samza-rest/build/distributions/
 mkdir -p deploy/samza-rest
-tar -xvf ./samza-rest-1.3.0-SNAPSHOT.tgz -C deploy/samza-rest
+tar -xvf ./samza-rest_2.11-1.7.0-SNAPSHOT.tgz -C deploy/samza-rest
 {% endhighlight %}
 
 #### Configure the Installations Path
@@ -71,8 +71,8 @@ To deploy the service, run the run-samza-rest-service.sh script from the extract
 {% highlight bash %}
 cd deploy/samza-rest
 ./bin/run-samza-rest-service.sh  \
-  --config-factory=org.apache.samza.config.factories.PropertiesConfigFactory \
-  --config-path=file://$PWD/config/samza-rest.properties
+  --config job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory \
+  --config job.config.loader.properties.path=$PWD/config/samza-rest.properties
 {% endhighlight %}
 
 You provide two parameters to the run-samza-rest-service.sh script. One is the config location, and the other, optional, parameter is a factory class that is used to read your configuration file. The SamzaRestService uses your ConfigFactory to get a Config object from the config path. The ConfigFactory is covered in more detail on the [Job Runner page](../../documentation/{{site.version}}/jobs/job-runner.html). The run-samza-rest-service.sh script will block until the SamzaRestService terminates.

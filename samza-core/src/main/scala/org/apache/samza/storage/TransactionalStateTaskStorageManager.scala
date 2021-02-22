@@ -26,6 +26,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.WildcardFileFilter
+import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
@@ -56,15 +57,14 @@ class TransactionalStateTaskStorageManager(
     getNewestChangelogSSPOffsets(taskName, storeChangelogs, partition, systemAdmins)
   }
 
-  def checkpoint(newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): String = {
+  def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit = {
     debug("Checkpointing stores.")
 
-    val id = System.currentTimeMillis().toString
     val checkpointPaths = containerStorageManager.getAllStores(taskName).asScala
       .filter { case (storeName, storeEngine) =>
         storeEngine.getStoreProperties.isLoggedStore && storeEngine.getStoreProperties.isPersistedToDisk}
       .flatMap { case (storeName, storeEngine) => {
-        val pathOptional = storeEngine.checkpoint(id)
+        val pathOptional = storeEngine.checkpoint(checkpointId)
         if (pathOptional.isPresent) {
           Some(storeName, pathOptional.get())
         } else {
@@ -74,11 +74,9 @@ class TransactionalStateTaskStorageManager(
       .toMap
 
     writeChangelogOffsetFiles(checkpointPaths, storeChangelogs, newestChangelogOffsets)
-
-    id
   }
 
-  def removeOldCheckpoints(latestCheckpointId: String): Unit = {
+  def removeOldCheckpoints(latestCheckpointId: CheckpointId): Unit = {
     if (latestCheckpointId != null) {
       debug("Removing older checkpoints before " + latestCheckpointId)
 
@@ -92,11 +90,13 @@ class TransactionalStateTaskStorageManager(
             val fileFilter: FileFilter = new WildcardFileFilter(taskStoreName + "-*")
             val checkpointDirs = storeDir.listFiles(fileFilter)
 
-            checkpointDirs
-              .filter(!_.getName.contains(latestCheckpointId))
-              .foreach(checkpointDir => {
-                FileUtils.deleteDirectory(checkpointDir)
-              })
+            if (checkpointDirs != null) {
+              checkpointDirs
+                .filter(!_.getName.contains(latestCheckpointId.toString))
+                .foreach(checkpointDir => {
+                  FileUtils.deleteDirectory(checkpointDir)
+                })
+            }
           })
       }
     }

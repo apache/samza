@@ -45,16 +45,15 @@ public class TestReflectionBasedUdfResolver {
 
   @Test
   public void testUDfResolverShouldReturnAllUDFInClassPath() throws NoSuchMethodException {
-    Config config = new MapConfig(ImmutableMap.of("samza.sql.udf.resolver.package.prefix", "org.apache.samza.sql.udf.impl"));
+    Config config = new MapConfig(ImmutableMap.of("samza.sql.udf.resolver.package.filter", "org.apache.samza.sql.udf.impl"));
     ReflectionBasedUdfResolver reflectionBasedUdfResolver = new ReflectionBasedUdfResolver(config);
     Collection<UdfMetadata> udfMetadataList = reflectionBasedUdfResolver.getUdfs();
 
     Method method = TestSamzaSqlUdf.class.getMethod("execute", String.class);
-    UdfMetadata udfMetadata = new UdfMetadata("TESTSAMZASQLUDF",
+    UdfMetadata udfMetadata = new UdfMetadata("TestSamzaSqlUdf",
             "Test samza sql udf implementation", method, new MapConfig(), ImmutableList.of(SamzaSqlFieldType.STRING),
                SamzaSqlFieldType.STRING, true);
 
-    Assert.assertFalse(udfMetadataList.isEmpty());
-    Assert.assertTrue(udfMetadataList.contains(udfMetadata));
+    Assert.assertArrayEquals(new UdfMetadata[]{udfMetadata}, udfMetadataList.toArray(new UdfMetadata[0]));
   }
 }

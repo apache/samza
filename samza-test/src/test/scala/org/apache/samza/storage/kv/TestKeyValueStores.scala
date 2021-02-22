@@ -57,7 +57,7 @@ class TestKeyValueStores(typeOfStore: String, storeConfig: String) {
   def setup() {
     val kvStore: KeyValueStore[Array[Byte], Array[Byte]] = typeOfStore match {
       case "inmemory" =>
-        new InMemoryKeyValueStore
+        new InMemoryKeyValueStore(new KeyValueStoreMetrics)
       case "rocksdb" =>
         new RocksDbKeyValueStore(
           dir,

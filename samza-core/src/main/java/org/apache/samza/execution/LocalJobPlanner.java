@@ -36,7 +36,7 @@ import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metadatastore.MetadataStoreFactory;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.StreamSpec;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.zk.ZkMetadataStoreFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,7 +97,6 @@ public class LocalJobPlanner extends JobPlanner {
     }
 
     // 2. create the necessary streams
-    // TODO: System generated intermediate streams should have robust naming scheme. See SAMZA-1391
     // TODO: this works for single-job applications. For multi-job applications, ExecutionPlan should return an AppConfig
     // to be used for the whole application
     JobConfig jobConfig = jobConfigs.get(0);
@@ -190,6 +189,7 @@ public class LocalJobPlanner extends JobPlanner {
           streamManager.createStreams(intStreams);
           String streamCreatedMessage = "Streams created by processor " + processorId;
           metadataStore.put(String.format(STREAM_CREATED_STATE_KEY, lockId), streamCreatedMessage.getBytes("UTF-8"));
+          metadataStore.flush();
           distributedLock.unlock();
           break;
         } else {
@@ -210,7 +210,8 @@ public class LocalJobPlanner extends JobPlanner {
     if (metadataStoreFactoryClass == null) {
       metadataStoreFactoryClass = DEFAULT_METADATA_STORE_FACTORY;
     }
-    MetadataStoreFactory metadataStoreFactory = Util.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
+    MetadataStoreFactory metadataStoreFactory =
+        ReflectionUtil.getObj(metadataStoreFactoryClass, MetadataStoreFactory.class);
     return metadataStoreFactory.getMetadataStore(STREAM_CREATION_METADATA_STORE, appDesc.getConfig(), new MetricsRegistryMap());
   }
 }

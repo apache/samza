@@ -18,23 +18,38 @@
  */
 package org.apache.samza.clustermanager;
 
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.config.Config;
 
 import java.lang.reflect.Field;
-
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import org.apache.samza.config.MapConfig;
+
 
 public class MockContainerAllocatorWithoutHostAffinity extends ContainerAllocator {
   public int requestedContainers = 0;
   private Semaphore semaphore = new Semaphore(0);
 
-  public MockContainerAllocatorWithoutHostAffinity(ClusterResourceManager manager,
-                                Config config,
-                                SamzaApplicationState state) {
-    super(manager, config, state, false, Optional.empty());
+  private Semaphore expiredRequestSemaphore = new Semaphore(0);
+  private AtomicInteger expiredRequestCallCount = new AtomicInteger(0);
+  private volatile boolean overrideIsRequestExpired = false;
+
+  // Create a MockContainerAllocator with certain config overrides
+  public static MockContainerAllocatorWithoutHostAffinity createContainerAllocatorWithConfigOverride(
+      ClusterResourceManager resourceManager, Config config, SamzaApplicationState state,
+      ContainerManager containerManager, Config overrideConfig) {
+    Map<String, String> mergedConfig = new HashMap<>();
+    mergedConfig.putAll(config);
+    mergedConfig.putAll(overrideConfig);
+    return new MockContainerAllocatorWithoutHostAffinity(resourceManager, new MapConfig(mergedConfig), state, containerManager);
+  }
+
+  public MockContainerAllocatorWithoutHostAffinity(ClusterResourceManager resourceManager,
+                                Config config, SamzaApplicationState state, ContainerManager containerManager) {
+    super(resourceManager, config, state, false, containerManager);
   }
 
   /**
@@ -55,6 +70,29 @@ public class MockContainerAllocatorWithoutHostAffinity extends ContainerAllocato
   public void requestResources(Map<String, String> processorToHostMapping) {
     requestedContainers += processorToHostMapping.size();
     super.requestResources(processorToHostMapping);
+  }
+
+  public void setOverrideIsRequestExpired() {
+    overrideIsRequestExpired = true;
+  }
+
+  public int getExpiredRequestCallCount() {
+    return expiredRequestCallCount.get();
+  }
+
+  @Override
+  protected boolean isRequestExpired(SamzaResourceRequest request) {
+    if (!overrideIsRequestExpired) {
+      // if not set to override, then return the original result
+      return super.isRequestExpired(request);
+    }
+    expiredRequestSemaphore.release();
+    expiredRequestCallCount.incrementAndGet();
+    return true;
+  }
+
+  public boolean awaitIsRequestExpiredCall(long timeoutMs) throws InterruptedException {
+    return expiredRequestSemaphore.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
   }
 
   public ResourceRequestState getContainerRequestState() throws Exception {

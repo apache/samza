@@ -63,15 +63,15 @@ public class TestAvroSystemFactory implements SystemFactory {
   public static final String CFG_INCLUDE_NULL_SIMPLE_RECORDS = "includeNullSimpleRecords";
   public static final String CFG_SLEEP_BETWEEN_POLLS_MS = "sleepBetweenPollsMs";
 
-  private static final String[] profileNames = {"John", "Mike", "Mary", "Joe", "Brad", "Jennifer"};
-  private static final int[] profileZips = {94000, 94001, 94002, 94003, 94004, 94005};
-  private static final int[] streetNums = {1234, 1235, 1236, 1237, 1238, 1239};
-  private static final String[] phoneNumbers = {"000-000-0000", "111-111-1111", "222-222-2222", "333-333-3333",
+  private static final String[] PROFILE_NAMES = {"John", "Mike", "Mary", "Joe", "Brad", "Jennifer"};
+  private static final int[] PROFILE_ZIPS = {94000, 94001, 94002, 94003, 94004, 94005};
+  private static final int[] STREET_NUMS = {1234, 1235, 1236, 1237, 1238, 1239};
+  private static final String[] PHONE_NUMBERS = {"000-000-0000", "111-111-1111", "222-222-2222", "333-333-3333",
       "444-444-4444", "555-555-5555"};
-  public static final String[] companies = {"MSFT", "LKND", "GOOG", "FB", "AMZN", "CSCO"};
-  public static final String[] pageKeys = {"inbox", "home", "search", "pymk", "group", "job"};
+  public static final String[] COMPANIES = {"MSFT", "LKND", "GOOG", "FB", "AMZN", "CSCO"};
+  public static final String[] PAGE_KEYS = {"inbox", "home", "search", "pymk", "group", "job"};
   public static final byte[] DEFAULT_TRACKING_ID_BYTES =
-      {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
+    {76, 75, -24, 10, 33, -117, 24, -52, -110, -39, -5, 102, 65, 57, -62, -1};
   public static final int NULL_RECORD_FREQUENCY = 5;
 
 
@@ -79,46 +79,46 @@ public class TestAvroSystemFactory implements SystemFactory {
 
   public static List<String> getPageKeyProfileNameJoin(int numMessages) {
     return IntStream.range(0, numMessages)
-                .mapToObj(i -> pageKeys[i % pageKeys.length] + "," + profileNames[i % profileNames.length])
+                .mapToObj(i -> PAGE_KEYS[i % PAGE_KEYS.length] + "," + PROFILE_NAMES[i % PROFILE_NAMES.length])
                 .collect(Collectors.toList());
   }
 
   public static List<String> getPageKeyProfileNameAddressJoin(int numMessages) {
     return IntStream.range(0, numMessages)
-        .mapToObj(i -> pageKeys[i % pageKeys.length] + "," + profileNames[i % profileNames.length] + "," +
-            profileZips[i % profileZips.length] + "," + streetNums[i % streetNums.length])
+        .mapToObj(i -> PAGE_KEYS[i % PAGE_KEYS.length] + "," + PROFILE_NAMES[i % PROFILE_NAMES.length] + "," +
+            PROFILE_ZIPS[i % PROFILE_ZIPS.length] + "," + STREET_NUMS[i % STREET_NUMS.length])
         .collect(Collectors.toList());
   }
 
   public static List<String> getPageKeyProfileNameJoinWithNullForeignKeys(int numMessages) {
     // All even profileId foreign keys are null
     return IntStream.range(0, numMessages / 2)
-        .mapToObj(i -> pageKeys[(i * 2 + 1) % pageKeys.length] + "," + profileNames[(i * 2 + 1) % profileNames.length])
+        .mapToObj(i -> PAGE_KEYS[(i * 2 + 1) % PAGE_KEYS.length] + "," + PROFILE_NAMES[(i * 2 + 1) % PROFILE_NAMES.length])
         .collect(Collectors.toList());
   }
 
   public static List<String> getPageKeyProfileNameOuterJoinWithNullForeignKeys(int numMessages) {
     // All even profileId foreign keys are null
     return IntStream.range(0, numMessages)
-        .mapToObj(i -> pageKeys[i % pageKeys.length] + "," + ((i % 2 == 0) ? "null" : profileNames[i % profileNames.length]))
+        .mapToObj(i -> PAGE_KEYS[i % PAGE_KEYS.length] + "," + ((i % 2 == 0) ? "null" : PROFILE_NAMES[i % PROFILE_NAMES.length]))
         .collect(Collectors.toList());
   }
 
   public static List<String> getPageKeyProfileCompanyNameJoin(int numMessages) {
     return IntStream.range(0, numMessages)
-        .mapToObj(i -> pageKeys[i % pageKeys.length] + "," + profileNames[i % profileNames.length] +
-            "," + companies[i % companies.length])
+        .mapToObj(i -> PAGE_KEYS[i % PAGE_KEYS.length] + "," + PROFILE_NAMES[i % PROFILE_NAMES.length] +
+            "," + COMPANIES[i % COMPANIES.length])
         .collect(Collectors.toList());
   }
 
   public static HashMap<String, Integer> getPageKeyGroupByResult(int numMessages, Set<String> includePageKeys) {
     HashMap<String, Integer> pageKeyCountMap = new HashMap<>();
-    int quotient = numMessages / pageKeys.length;
-    int remainder = numMessages % pageKeys.length;
-    IntStream.range(0, pageKeys.length)
+    int quotient = numMessages / PAGE_KEYS.length;
+    int remainder = numMessages % PAGE_KEYS.length;
+    IntStream.range(0, PAGE_KEYS.length)
         .map(k -> {
-          if (includePageKeys.contains(pageKeys[k])) {
-            pageKeyCountMap.put(pageKeys[k], quotient + ((k < remainder) ? 1 : 0));
+          if (includePageKeys.contains(PAGE_KEYS[k])) {
+            pageKeyCountMap.put(PAGE_KEYS[k], quotient + ((k < remainder) ? 1 : 0));
           }
           return k;
         });
@@ -205,12 +205,12 @@ public class TestAvroSystemFactory implements SystemFactory {
         int curMessages = curMessagesPerSsp.get(ssp);
         // We send num Messages and an end of stream message following that.
         List<IncomingMessageEnvelope> envelopes =
-            IntStream.range(curMessages, curMessages + numMessages/4)
+            IntStream.range(curMessages, curMessages + numMessages / 4)
                 .mapToObj(i -> i < numMessages ? new IncomingMessageEnvelope(ssp, null, getKey(i, ssp),
                     getData(i, ssp)) : IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp))
                 .collect(Collectors.toList());
         envelopeMap.put(ssp, envelopes);
-        curMessagesPerSsp.put(ssp, curMessages + numMessages/4);
+        curMessagesPerSsp.put(ssp, curMessages + numMessages / 4);
       });
       if (sleepBetweenPollsMs > 0) {
         Thread.sleep(sleepBetweenPollsMs);
@@ -254,23 +254,26 @@ public class TestAvroSystemFactory implements SystemFactory {
     private Object createProfileRecord(int index) {
       GenericRecord record = new GenericData.Record(Profile.SCHEMA$);
       record.put("id", index);
-      record.put("name", profileNames[index % profileNames.length]);
+      record.put("name", PROFILE_NAMES[index % PROFILE_NAMES.length]);
       record.put("address", createProfileAddressRecord(index));
-      record.put("companyId", includeNullForeignKeys && (index % 2 == 0) ? null : index % companies.length);
-      record.put("phoneNumbers", createProfilePhoneNumbers(index % phoneNumbers.length));
+      record.put("companyId", includeNullForeignKeys && (index % 2 == 0) ? null : index % COMPANIES.length);
+      record.put("phoneNumbers", createProfilePhoneNumbers(index % PHONE_NUMBERS.length));
+      Map<String, Object> mapValues = new HashMap<>();
+      mapValues.put("key", createSimpleRecord(index, false));
+      record.put("mapValues", mapValues);
       return record;
     }
 
     private Object createProfileAddressRecord(int index) {
       GenericRecord record = new GenericData.Record(AddressRecord.SCHEMA$);
       record.put("streetnum", createProfileStreetNumRecord(index));
-      record.put("zip", profileZips[index % profileNames.length]);
+      record.put("zip", PROFILE_ZIPS[index % PROFILE_NAMES.length]);
       return record;
     }
 
     private Object createProfileStreetNumRecord(int index) {
       GenericRecord record = new GenericData.Record(StreetNumRecord.SCHEMA$);
-      record.put("number", streetNums[index % streetNums.length]);
+      record.put("number", STREET_NUMS[index % STREET_NUMS.length]);
       return record;
     }
 
@@ -284,7 +287,7 @@ public class TestAvroSystemFactory implements SystemFactory {
 
     private Object createPhoneNumberRecord(int index, Kind kind) {
       GenericRecord record = new GenericData.Record(PhoneNumber.SCHEMA$);
-      StringBuilder number = new StringBuilder(phoneNumbers[index]);
+      StringBuilder number = new StringBuilder(PHONE_NUMBERS[index]);
       int lastCharIdx = number.length() - 1;
       String suffix = "";
       switch (kind) {
@@ -307,7 +310,7 @@ public class TestAvroSystemFactory implements SystemFactory {
     private Object createCompanyRecord(int index) {
       GenericRecord record = new GenericData.Record(Company.SCHEMA$);
       record.put("id", index);
-      record.put("name", companies[index % companies.length]);
+      record.put("name", COMPANIES[index % COMPANIES.length]);
       return record;
     }
 
@@ -315,7 +318,7 @@ public class TestAvroSystemFactory implements SystemFactory {
       GenericRecord record = new GenericData.Record(PageView.SCHEMA$);
       // All even profileId foreign keys are null
       record.put("profileId", includeNullForeignKeys && (index % 2 == 0) ? null : index);
-      record.put("pageKey", pageKeys[index % pageKeys.length]);
+      record.put("pageKey", PAGE_KEYS[index % PAGE_KEYS.length]);
       return record;
     }
 
@@ -324,7 +327,7 @@ public class TestAvroSystemFactory implements SystemFactory {
       GenericRecord record = new GenericData.Record(ComplexRecord.SCHEMA$);
       record.put("id", index);
       record.put("string_value", "Name" + index);
-      record.put("bytes_value", ByteBuffer.wrap(("sample bytes").getBytes()));
+      record.put("bytes_value", ByteBuffer.wrap("sample bytes".getBytes()));
       record.put("float_value0", index + 0.123456f);
       record.put("double_value", index + 0.0123456789);
       MyFixed myFixedVar = new MyFixed();

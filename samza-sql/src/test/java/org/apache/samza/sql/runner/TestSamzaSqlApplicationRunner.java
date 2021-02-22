@@ -20,6 +20,7 @@
 package org.apache.samza.sql.runner;
 
 import java.util.Map;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.runtime.LocalApplicationRunner;
@@ -36,15 +37,15 @@ public class TestSamzaSqlApplicationRunner {
     Map<String, String> configs = SamzaSqlTestConfig.fetchStaticConfigsWithFactories(10);
     String sql1 = "Insert into testavro.outputTopic(id,long_value) select id, MyTest(id) as long_value from testavro.SIMPLE1";
     configs.put(SamzaSqlApplicationConfig.CFG_SQL_STMT, sql1);
-    configs.put(SamzaSqlApplicationRunner.RUNNER_CONFIG, SamzaSqlApplicationRunner.class.getName());
+    configs.put(ApplicationConfig.APP_RUNNER_CLASS, SamzaSqlApplicationRunner.class.getName());
     MapConfig samzaConfig = new MapConfig(configs);
     Config newConfigs = SamzaSqlApplicationRunner.computeSamzaConfigs(true, samzaConfig);
-    Assert.assertEquals(newConfigs.get(SamzaSqlApplicationRunner.RUNNER_CONFIG), LocalApplicationRunner.class.getName());
+    Assert.assertEquals(newConfigs.get(ApplicationConfig.APP_RUNNER_CLASS), LocalApplicationRunner.class.getName());
     // Check whether five new configs added.
     Assert.assertEquals(newConfigs.size(), configs.size() + 5);
 
     newConfigs = SamzaSqlApplicationRunner.computeSamzaConfigs(false, samzaConfig);
-    Assert.assertEquals(newConfigs.get(SamzaSqlApplicationRunner.RUNNER_CONFIG), RemoteApplicationRunner.class.getName());
+    Assert.assertEquals(newConfigs.get(ApplicationConfig.APP_RUNNER_CLASS), RemoteApplicationRunner.class.getName());
 
     // Check whether five new configs added.
     Assert.assertEquals(newConfigs.size(), configs.size() + 5);

@@ -21,6 +21,9 @@ package org.apache.samza.storage.kv
 
 import java.nio.file.Path
 import java.util.Optional
+
+import com.google.common.annotations.VisibleForTesting
+import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.util.Logging
 import org.apache.samza.serializers._
 
@@ -57,23 +60,35 @@ class SerializedKeyValueStore[K, V](
   }
 
   def put(key: K, value: V) {
-    metrics.puts.inc
     val keyBytes = toBytesOrNull(key, keySerde)
     val valBytes = toBytesOrNull(value, msgSerde)
     store.put(keyBytes, valBytes)
+    val keySizeBytes = if (keyBytes == null) 0 else keyBytes.length
+    val valSizeBytes = if (valBytes == null) 0 else valBytes.length
+    metrics.recordKeySizeBytes.update(keySizeBytes)
+    metrics.recordValueSizeBytes.update(valSizeBytes)
+    updatePutMetrics(1, keySizeBytes, valSizeBytes)
   }
 
   def putAll(entries: java.util.List[Entry[K, V]]) {
     val list = new java.util.ArrayList[Entry[Array[Byte], Array[Byte]]](entries.size())
     val iter = entries.iterator
+    var newMaxRecordKeySizeBytes = 0
+    var newMaxRecordSizeBytes = 0
     while (iter.hasNext) {
       val curr = iter.next
       val keyBytes = toBytesOrNull(curr.getKey, keySerde)
       val valBytes = toBytesOrNull(curr.getValue, msgSerde)
+      val keySizeBytes = if (keyBytes == null) 0 else keyBytes.length
+      val valSizeBytes = if (valBytes == null) 0 else valBytes.length
+      metrics.recordKeySizeBytes.update(keySizeBytes)
+      metrics.recordValueSizeBytes.update(valSizeBytes)
+      newMaxRecordKeySizeBytes = Math.max(newMaxRecordKeySizeBytes, keySizeBytes)
+      newMaxRecordSizeBytes = Math.max(newMaxRecordSizeBytes, valSizeBytes)
       list.add(new Entry(keyBytes, valBytes))
     }
     store.putAll(list)
-    metrics.puts.inc(list.size)
+    updatePutMetrics(list.size, newMaxRecordKeySizeBytes, newMaxRecordSizeBytes)
   }
 
   def delete(key: K) {
@@ -130,7 +145,9 @@ class SerializedKeyValueStore[K, V](
     null
   } else {
     val bytes = serde.toBytes(t)
-    metrics.bytesSerialized.inc(bytes.size)
+    if (bytes != null) {
+      metrics.bytesSerialized.inc(bytes.size)
+    }
     bytes
   }
 
@@ -151,6 +168,23 @@ class SerializedKeyValueStore[K, V](
     bytes
   }
 
+  /**
+   * Updates put metrics with the given batch and record sizes. The max record size metric is updated with a
+   * thread UN-SAFE read-then-write, so accuracy is not guaranteed; if multiple threads overlap in their invocation of
+   * this method, the last to write simply wins regardless of the value it read.
+   */
+  private def updatePutMetrics(batchSize: Long, newMaxRecordKeySizeBytes: Long, newMaxRecordSizeBytes: Long) = {
+    metrics.puts.inc(batchSize)
+    val keyMax = metrics.maxRecordKeySizeBytes.getValue
+    val valueMax = metrics.maxRecordSizeBytes.getValue
+    if(newMaxRecordKeySizeBytes > keyMax){
+      metrics.maxRecordKeySizeBytes.set(newMaxRecordKeySizeBytes)
+    }
+    if (newMaxRecordSizeBytes > valueMax) {
+      metrics.maxRecordSizeBytes.set(newMaxRecordSizeBytes)
+    }
+  }
+
   override def snapshot(from: K, to: K): KeyValueSnapshot[K, V] = {
     val fromBytes = toBytesOrNull(from, keySerde)
     val toBytes = toBytesOrNull(to, keySerde)
@@ -166,7 +200,12 @@ class SerializedKeyValueStore[K, V](
     }
   }
 
-  override def checkpoint(id: String): Optional[Path] = {
+  override def checkpoint(id: CheckpointId): Optional[Path] = {
     store.checkpoint(id)
+  }
+
+  @VisibleForTesting
+  private[kv] def getStore: KeyValueStore[Array[Byte], Array[Byte]] = {
+    store
   }
 }

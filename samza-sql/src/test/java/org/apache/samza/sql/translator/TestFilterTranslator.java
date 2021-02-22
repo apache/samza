@@ -66,8 +66,7 @@ import static org.mockito.Mockito.when;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(LogicalFilter.class)
 public class TestFilterTranslator extends TranslatorTestBase {
-  final private String LOGICAL_OP_ID = "sql0_filter_0";
-
+  private static final String LOGICAL_OP_ID = "sql0_filter_0";
 
   @Test
   public void testTranslate() throws IOException, ClassNotFoundException {
@@ -106,7 +105,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     assertEquals(filterSpec.getOpCode(), OperatorSpec.OpCode.FILTER);
 
     // Verify that the describe() method will establish the context for the filter function
-    Map<Integer, TranslatorContext> mockContexts= new HashMap<>();
+    Map<Integer, TranslatorContext> mockContexts = new HashMap<>();
     mockContexts.put(1, mockTranslatorContext);
     when(mockContext.getApplicationTaskContext()).thenReturn(new SamzaSqlApplicationContext(mockContexts));
     filterSpec.getTransformFn().init(mockContext);
@@ -132,7 +131,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
     when(mockTranslatorContext.getDataContext()).thenReturn(dataContext);
     Object[] result = new Object[1];
 
-    doAnswer( invocation -> {
+    doAnswer(invocation -> {
       Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = new Boolean(true);
       return null;
@@ -140,7 +139,7 @@ public class TestFilterTranslator extends TranslatorTestBase {
         eq(mockInputMsg.getSamzaSqlRelRecord().getFieldValues().toArray()), eq(result));
     assertTrue(filterFn.apply(mockInputMsg));
 
-    doAnswer( invocation -> {
+    doAnswer(invocation -> {
       Object[] retValue = invocation.getArgumentAt(4, Object[].class);
       retValue[0] = new Boolean(false);
       return null;

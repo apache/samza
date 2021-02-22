@@ -19,11 +19,14 @@
 package org.apache.samza.sql.udf;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.reflect.MethodUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -34,8 +37,11 @@ import org.apache.samza.sql.udfs.SamzaSqlUdf;
 import org.apache.samza.sql.udfs.SamzaSqlUdfMethod;
 import org.reflections.Reflections;
 import org.reflections.util.ConfigurationBuilder;
+import org.reflections.util.FilterBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 /**
  * An UDF resolver implementation that uses reflection to discover the subtypes
@@ -48,6 +54,8 @@ public class ReflectionBasedUdfResolver implements UdfResolver {
   private static final Logger LOG = LoggerFactory.getLogger(ReflectionBasedUdfResolver.class);
 
   private static final String CONFIG_PACKAGE_PREFIX = "samza.sql.udf.resolver.package.prefix";
+  private static final String CONFIG_PACKAGE_FILTER = "samza.sql.udf.resolver.package.filter";
+  private static final String CONFIG_RESOURCE_URLS = "samza.sql.udf.resolver.urls";
 
   private final Set<UdfMetadata> udfs  = new HashSet<>();
 
@@ -55,10 +63,16 @@ public class ReflectionBasedUdfResolver implements UdfResolver {
     // Searching the entire classpath to discover the subtypes of SamzaSqlUdf is expensive. To reduce the search space,
     // the search is limited to the set of package prefixes defined in the configuration.
     String samzaSqlUdfPackagePrefix = udfConfig.getOrDefault(CONFIG_PACKAGE_PREFIX, "org.apache.samza");
+    String samzaSqlUdfFilter = udfConfig.getOrDefault(CONFIG_PACKAGE_FILTER, ".*");
 
     // 1. Build the reflections instance  with appropriate configuration.
     ConfigurationBuilder configurationBuilder = new ConfigurationBuilder();
+    // Include only the SamzaSqlUDFClass implementations defined in the package prefix.
     configurationBuilder.forPackages(samzaSqlUdfPackagePrefix.split(","));
+    configurationBuilder.filterInputsBy(new FilterBuilder().includePackage(samzaSqlUdfFilter));
+    // Manually add the resource urls if they're configured.
+    configurationBuilder.addUrls(getUrls(udfConfig));
+
     configurationBuilder.addClassLoader(Thread.currentThread().getContextClassLoader());
     Reflections reflections = new Reflections(configurationBuilder);
 
@@ -87,6 +101,22 @@ public class ReflectionBasedUdfResolver implements UdfResolver {
         });
       }
     }
+  }
+
+  @VisibleForTesting
+  List<URL> getUrls(Config udfConfig) {
+    String urls = udfConfig.getOrDefault(CONFIG_RESOURCE_URLS, "");
+    List<URL> urlList = new ArrayList<>();
+    if (!urls.isEmpty()) {
+      for (String url : urls.split(",")) {
+        try {
+          urlList.add(new URL(url));
+        } catch (MalformedURLException e) {
+          LOG.error("Exception occurred when loading url: {}", url, e);
+        }
+      }
+    }
+    return urlList;
   }
 
   @Override

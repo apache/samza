@@ -71,10 +71,10 @@ public class CliCommandHandler implements CommandHandler {
 
   /**
    * sets up the member variables
-   * @param shell: the {@link CliShell} which uses this CommandHandler
-   * @param env: the Shell's {@link CliEnvironment}
-   * @param terminal: the {@link Terminal} to print output and messages
-   * @param exeContext: the {@link ExecutionContext}
+   * @param shell the {@link CliShell} which uses this CommandHandler
+   * @param env the Shell's {@link CliEnvironment}
+   * @param terminal the {@link Terminal} to print output and messages
+   * @param exeContext the {@link ExecutionContext}
    */
   public void init(CliShell shell, CliEnvironment env, Terminal terminal, ExecutionContext exeContext) {
     this.env = env;
@@ -88,7 +88,7 @@ public class CliCommandHandler implements CommandHandler {
   /**
    * Attempts to parse the given input string line into a {@link CliCommand} of this
    * handler's {@link org.apache.samza.sql.client.interfaces.CommandType}
-   * @param line: input line string
+   * @param line input line string
    * @return {@link CliCommand} on success, null otherwise
    */
   public CliCommand parseLine(String line) {
@@ -142,7 +142,7 @@ public class CliCommandHandler implements CommandHandler {
 
   /**
    * Handles the given command
-   * @param command: input {@link CliCommand} to handle
+   * @param command input {@link CliCommand} to handle
    * @return false if command is to quit, or fatal error happened that Shell should not continue running. True o.w.
    * @throws CommandHandlerException if unrecoverable error happened while handling the input {@link CliCommand}
    */
@@ -264,11 +264,11 @@ public class CliCommandHandler implements CommandHandler {
     }
     String[] params = null;
     boolean syntaxValid = param.split(" ").length == 1;
-    if(syntaxValid) {
+    if (syntaxValid) {
       params = param.split("=");
-      if(params.length == 1) {
+      if (params.length == 1) {
         String value = env.getEnvironmentVariable(param);
-        if(!CliUtil.isNullOrEmpty(value)) {
+        if (!CliUtil.isNullOrEmpty(value)) {
           env.printVariable(writer, param, value);
         }
         return;
@@ -276,7 +276,7 @@ public class CliCommandHandler implements CommandHandler {
         syntaxValid = params.length == 2;
       }
     }
-    if(!syntaxValid) {
+    if (!syntaxValid) {
       writer.println(command.getCommandType().getUsage());
       writer.flush();
       return;
@@ -289,7 +289,7 @@ public class CliCommandHandler implements CommandHandler {
       writer.print(name);
       writer.print(" set to ");
       writer.println(value);
-      if(name.equals(CliConstants.CONFIG_EXECUTOR)) {
+      if (name.equals(CliConstants.CONFIG_EXECUTOR)) {
         executor.stop(exeContext);
         executor = env.getExecutor();
         executor.start(exeContext);
@@ -301,7 +301,7 @@ public class CliCommandHandler implements CommandHandler {
       writer.print("Invalid value: ");
       writer.print(value);
       String[] vals = env.getPossibleValues(name);
-      if(vals != null && vals.length != 0) {
+      if (vals != null && vals.length != 0) {
         writer.print(" Possible values:");
         for (String s : vals) {
           writer.print(CliConstants.SPACE);
@@ -314,7 +314,7 @@ public class CliCommandHandler implements CommandHandler {
     writer.flush();
   }
 
-  private void commandExecuteFile(CliCommand command) throws ExecutorException{
+  private void commandExecuteFile(CliCommand command) throws ExecutorException {
     String fullCmdStr = command.getFullCommand();
     String parameters = command.getParameters();
     URI uri = null;
@@ -386,9 +386,9 @@ public class CliCommandHandler implements CommandHandler {
 
     execIds.sort(Integer::compareTo);
     final int terminalWidth = terminal.getWidth();
-    final int ID_WIDTH = 3;
-    final int STATUS_WIDTH = 20;
-    final int CMD_WIDTH = terminalWidth - ID_WIDTH - STATUS_WIDTH - 4;
+    final int idWidth = 3;
+    final int statusWidth = 20;
+    final int cmdWidth = terminalWidth - idWidth - statusWidth - 4;
 
     AttributedStyle oddLineStyle = AttributedStyle.DEFAULT.BOLD.foreground(AttributedStyle.BLUE);
     AttributedStyle evenLineStyle = AttributedStyle.DEFAULT.BOLD.foreground(AttributedStyle.CYAN);
@@ -414,12 +414,12 @@ public class CliCommandHandler implements CommandHandler {
         if (cmdStartIdx == 0) {
           line.append(CliConstants.SPACE);
           line.append(id);
-          CliUtil.appendTo(line, 1 + ID_WIDTH + 1, CliConstants.SPACE);
+          CliUtil.appendTo(line, 1 + idWidth + 1, CliConstants.SPACE);
           line.append(status);
         }
-        CliUtil.appendTo(line, 1 + ID_WIDTH + 1 + STATUS_WIDTH + 1, CliConstants.SPACE);
+        CliUtil.appendTo(line, 1 + idWidth + 1 + statusWidth + 1, CliConstants.SPACE);
 
-        int numToWrite = Math.min(CMD_WIDTH, cmdLength - cmdStartIdx);
+        int numToWrite = Math.min(cmdWidth, cmdLength - cmdStartIdx);
         if (numToWrite > 0) {
           line.append(cmd, cmdStartIdx, cmdStartIdx + numToWrite);
           cmdStartIdx += numToWrite;
@@ -460,7 +460,7 @@ public class CliCommandHandler implements CommandHandler {
     writer.flush();
   }
 
-  private void commandSelect(CliCommand command) throws ExecutorException{
+  private void commandSelect(CliCommand command) throws ExecutorException {
     QueryResult queryResult = executor.executeQuery(exeContext, command.getFullCommand());
     CliView view = new QueryResultLogView();
     view.open(shell, queryResult);
@@ -554,23 +554,23 @@ public class CliCommandHandler implements CommandHandler {
       -------------------------
   */
   private List<String> formatSchema4Display(SqlSchema schema) {
-    final String HEADER_FIELD = "Field";
-    final String HEADER_TYPE = "Type";
-    final char SEPERATOR = '|';
-    final char LINE_SEP = '-';
+    final String headerField = "Field";
+    final String headerType = "Type";
+    final char seperator = '|';
+    final char lineSep = '-';
 
     int terminalWidth = terminal.getWidth();
     // Two spaces * 2 plus one SEPERATOR
-    if (terminalWidth < 2 + 2 + 1 + HEADER_FIELD.length() + HEADER_TYPE.length()) {
+    if (terminalWidth < 2 + 2 + 1 + headerField.length() + headerType.length()) {
       return Collections.singletonList("Not enough room.");
     }
 
     // Find the best seperator position for least rows
-    int seperatorPos = HEADER_FIELD.length() + 2;
+    int seperatorPos = headerField.length() + 2;
     int minRowNeeded = Integer.MAX_VALUE;
     int longestLineCharNum = 0;
     int rowCount = schema.getFields().size();
-    for (int j = seperatorPos; j < terminalWidth - HEADER_TYPE.length() - 2; ++j) {
+    for (int j = seperatorPos; j < terminalWidth - headerType.length() - 2; ++j) {
       boolean fieldWrapped = false;
       int rowNeeded = 0;
       for (int i = 0; i < rowCount; ++i) {
@@ -601,14 +601,14 @@ public class CliCommandHandler implements CommandHandler {
     // Header
     StringBuilder line = new StringBuilder(terminalWidth);
     line.append(CliConstants.SPACE);
-    line.append(HEADER_FIELD);
+    line.append(headerField);
     CliUtil.appendTo(line, seperatorPos - 1, CliConstants.SPACE);
-    line.append(SEPERATOR);
+    line.append(seperator);
     line.append(CliConstants.SPACE);
-    line.append(HEADER_TYPE);
+    line.append(headerType);
     lines.add(line.toString());
     line = new StringBuilder(terminalWidth);
-    CliUtil.appendTo(line, longestLineCharNum - 1, LINE_SEP);
+    CliUtil.appendTo(line, longestLineCharNum - 1, lineSep);
     lines.add(line.toString());
 
     // Body
@@ -633,7 +633,7 @@ public class CliCommandHandler implements CommandHandler {
           fieldStartIdx += numToWrite;
         }
         CliUtil.appendTo(line, seperatorPos - 1, CliConstants.SPACE);
-        line.append(SEPERATOR);
+        line.append(seperator);
         line.append(CliConstants.SPACE);
 
         numToWrite = Math.min(typeColSize, typeLen - typeStartIdx);
@@ -656,7 +656,7 @@ public class CliCommandHandler implements CommandHandler {
 
     // Footer
     line = new StringBuilder(terminalWidth);
-    CliUtil.appendTo(line, longestLineCharNum - 1, LINE_SEP);
+    CliUtil.appendTo(line, longestLineCharNum - 1, lineSep);
     lines.add(line.toString());
     return lines;
   }
@@ -671,7 +671,7 @@ public class CliCommandHandler implements CommandHandler {
         return String.format("ARRAY(%s)", getFieldDisplayValue(fieldSchema.getElementSchema()));
       case MAP:
         return String.format("MAP(%s, %s)", SamzaSqlFieldType.STRING.toString(),
-            getFieldDisplayValue(fieldSchema.getValueScehma()));
+            getFieldDisplayValue(fieldSchema.getValueSchema()));
       case ROW:
         String rowDisplayValue = fieldSchema.getRowSchema()
             .getFields()

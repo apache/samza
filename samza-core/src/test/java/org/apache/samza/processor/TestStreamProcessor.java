@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -55,6 +56,7 @@ import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
@@ -122,19 +124,17 @@ public class TestStreamProcessor {
     SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
       if (container == null) {
         RunLoop mockRunLoop = mock(RunLoop.class);
-        doAnswer(invocation ->
-          {
-            runLoopStartForMain.countDown();
-            containerStop.await();
-            Thread.sleep(this.runLoopShutdownDuration.toMillis());
-            return null;
-          }).when(mockRunLoop).run();
+        doAnswer(invocation -> {
+          runLoopStartForMain.countDown();
+          containerStop.await();
+          Thread.sleep(this.runLoopShutdownDuration.toMillis());
+          return null;
+        }).when(mockRunLoop).run();
 
-        Mockito.doAnswer(invocation ->
-          {
-            containerStop.countDown();
-            return null;
-          }).when(mockRunLoop).shutdown();
+        Mockito.doAnswer(invocation -> {
+          containerStop.countDown();
+          return null;
+        }).when(mockRunLoop).shutdown();
         container = StreamProcessorTestUtils.getDummyContainer(mockRunLoop, Mockito.mock(StreamTask.class));
       }
       return container;
@@ -196,29 +196,26 @@ public class TestStreamProcessor {
         null);
 
     final CountDownLatch coordinatorStop = new CountDownLatch(1);
-    final Thread jcThread = new Thread(() ->
-      {
-        try {
-          processor.jobCoordinatorListener.onJobModelExpired();
-          processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
-          coordinatorStop.await();
-          processor.jobCoordinatorListener.onCoordinatorStop();
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
-      });
+    final Thread jcThread = new Thread(() -> {
+      try {
+        processor.jobCoordinatorListener.onJobModelExpired();
+        processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
+        coordinatorStop.await();
+        processor.jobCoordinatorListener.onCoordinatorStop();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    });
 
-    doAnswer(invocation ->
-      {
-        coordinatorStop.countDown();
-        return null;
-      }).when(mockJobCoordinator).stop();
+    doAnswer(invocation -> {
+      coordinatorStop.countDown();
+      return null;
+    }).when(mockJobCoordinator).stop();
 
-    doAnswer(invocation ->
-      {
-        jcThread.start();
-        return null;
-      }).when(mockJobCoordinator).start();
+    doAnswer(invocation -> {
+      jcThread.start();
+      return null;
+    }).when(mockJobCoordinator).start();
 
     processor.start();
     processorListenerStart.await(10, TimeUnit.SECONDS);
@@ -275,29 +272,29 @@ public class TestStreamProcessor {
         Duration.of(1, ChronoUnit.SECONDS));
 
     Thread jcThread = new Thread(() -> {
-        // gets processor into rebalance mode so onNewJobModel creates a new container
-        processor.jobCoordinatorListener.onJobModelExpired();
-        processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
-        try {
-          // wait for the run loop to be ready before triggering rebalance
-          processor.runLoopStartForMain.await();
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
-        processor.jobCoordinatorListener.onJobModelExpired();
-      });
+      // gets processor into rebalance mode so onNewJobModel creates a new container
+      processor.jobCoordinatorListener.onJobModelExpired();
+      processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
+      try {
+        // wait for the run loop to be ready before triggering rebalance
+        processor.runLoopStartForMain.await();
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+      processor.jobCoordinatorListener.onJobModelExpired();
+    });
     doAnswer(invocation -> {
-        jcThread.start();
-        return null;
-      }).when(mockJobCoordinator).start();
+      jcThread.start();
+      return null;
+    }).when(mockJobCoordinator).start();
 
     // ensure that the coordinator stop occurred before checking the exception being thrown
     CountDownLatch coordinatorStop = new CountDownLatch(1);
     doAnswer(invocation -> {
-        processor.jobCoordinatorListener.onCoordinatorStop();
-        coordinatorStop.countDown();
-        return null;
-      }).when(mockJobCoordinator).stop();
+      processor.jobCoordinatorListener.onCoordinatorStop();
+      coordinatorStop.countDown();
+      return null;
+    }).when(mockJobCoordinator).stop();
 
     processor.start();
 
@@ -322,16 +319,15 @@ public class TestStreamProcessor {
     AtomicReference<Throwable> actualThrowable = new AtomicReference<>();
     final CountDownLatch runLoopStartedLatch = new CountDownLatch(1);
     RunLoop failingRunLoop = mock(RunLoop.class);
-    doAnswer(invocation ->
-      {
-        try {
-          runLoopStartedLatch.countDown();
-          throw expectedThrowable;
-        } catch (InterruptedException ie) {
-          ie.printStackTrace();
-        }
-        return null;
-      }).when(failingRunLoop).run();
+    doAnswer(invocation -> {
+      try {
+        runLoopStartedLatch.countDown();
+        throw expectedThrowable;
+      } catch (InterruptedException ie) {
+        ie.printStackTrace();
+      }
+      return null;
+    }).when(failingRunLoop).run();
 
     SamzaContainer mockContainer = StreamProcessorTestUtils.getDummyContainer(failingRunLoop, mock(StreamTask.class));
     final CountDownLatch processorListenerFailed = new CountDownLatch(1);
@@ -367,27 +363,24 @@ public class TestStreamProcessor {
         mockContainer);
 
     final CountDownLatch coordinatorStop = new CountDownLatch(1);
-    doAnswer(invocation ->
-      {
-        coordinatorStop.countDown();
-        return null;
-      }).when(mockJobCoordinator).stop();
+    doAnswer(invocation -> {
+      coordinatorStop.countDown();
+      return null;
+    }).when(mockJobCoordinator).stop();
 
-    doAnswer(invocation ->
-      {
-        new Thread(() ->
-          {
-            try {
-              processor.jobCoordinatorListener.onJobModelExpired();
-              processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
-              coordinatorStop.await();
-              processor.jobCoordinatorListener.onCoordinatorStop();
-            } catch (InterruptedException e) {
-              e.printStackTrace();
-            }
-          }).start();
-        return null;
-      }).when(mockJobCoordinator).start();
+    doAnswer(invocation -> {
+      new Thread(() -> {
+        try {
+          processor.jobCoordinatorListener.onJobModelExpired();
+          processor.jobCoordinatorListener.onNewJobModel("1", getMockJobModel());
+          coordinatorStop.await();
+          processor.jobCoordinatorListener.onCoordinatorStop();
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+      }).start();
+      return null;
+    }).when(mockJobCoordinator).start();
 
     processor.start();
 
@@ -467,13 +460,67 @@ public class TestStreamProcessor {
     assertEquals(State.STOPPING, streamProcessor.getState());
     Mockito.verify(mockSamzaContainer, Mockito.times(1)).shutdown();
     Mockito.verify(mockJobCoordinator, Mockito.times(1)).stop();
+  }
 
-    // If StreamProcessor is in IN_REBALANCE state, onJobModelExpired should be a NO_OP.
-    streamProcessor.state = State.IN_REBALANCE;
+  @Test
+  public void testJobModelExpiredDuringAnExistingRebalance() {
+    JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
+    ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
+    ExecutorService mockExecutorService = Mockito.mock(ExecutorService.class);
+    MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
 
-    streamProcessor.jobCoordinatorListener.onJobModelExpired();
+    runJobModelExpireDuringRebalance(streamProcessor, mockExecutorService, false);
 
     assertEquals(State.IN_REBALANCE, streamProcessor.state);
+    assertNotEquals(mockExecutorService, streamProcessor.containerExecutorService);
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
+  }
+
+  @Test
+  public void testJobModelExpiredDuringAnExistingRebalanceWithContainerInterruptFailed() {
+    JobCoordinator mockJobCoordinator = Mockito.mock(JobCoordinator.class);
+    ProcessorLifecycleListener lifecycleListener = Mockito.mock(ProcessorLifecycleListener.class);
+    ExecutorService mockExecutorService = Mockito.mock(ExecutorService.class);
+    MapConfig config = new MapConfig(ImmutableMap.of("task.shutdown.ms", "0"));
+    StreamProcessor streamProcessor = new StreamProcessor("TestProcessorId", config, new HashMap<>(), null,
+        Optional.empty(), Optional.empty(), Optional.empty(), sp -> lifecycleListener, mockJobCoordinator, Mockito.mock(MetadataStore.class));
+
+    runJobModelExpireDuringRebalance(streamProcessor, mockExecutorService, true);
+
+    assertEquals(State.STOPPING, streamProcessor.state);
+    assertEquals(mockExecutorService, streamProcessor.containerExecutorService);
+    Mockito.verify(mockExecutorService, Mockito.times(1)).shutdownNow();
+    Mockito.verify(mockJobCoordinator, Mockito.times(1)).stop();
+  }
+
+  private void runJobModelExpireDuringRebalance(StreamProcessor streamProcessor, ExecutorService executorService,
+      boolean failContainerInterrupt) {
+    SamzaContainer mockSamzaContainer = Mockito.mock(SamzaContainer.class);
+    CountDownLatch shutdownLatch = new CountDownLatch(1);
+
+    /*
+     * When there is an initialized container that hasn't started and the stream processor is still in re-balance phase,
+     * subsequent job model expire request should attempt to interrupt the existing container to safely shut it down
+     * before proceeding to join the barrier. As part of safe shutdown sequence,  we want to ensure shutdownNow is invoked
+     * on the existing executorService to signal interrupt and make sure new executor service is created.
+     */
+
+    Mockito.when(executorService.shutdownNow()).thenAnswer(ctx -> {
+      if (!failContainerInterrupt) {
+        shutdownLatch.countDown();
+      }
+      return null;
+    });
+    Mockito.when(executorService.isShutdown()).thenReturn(true);
+
+    streamProcessor.state = State.IN_REBALANCE;
+    streamProcessor.container = mockSamzaContainer;
+    streamProcessor.containerExecutorService = executorService;
+    streamProcessor.containerShutdownLatch = shutdownLatch;
+
+    streamProcessor.jobCoordinatorListener.onJobModelExpired();
   }
 
   @Test
@@ -561,8 +608,8 @@ public class TestStreamProcessor {
     AtomicReference<MockStreamProcessorLifecycleListener> mockListener = new AtomicReference<>();
     StreamProcessor streamProcessor =
         new StreamProcessor("TestProcessorId", mock(Config.class), new HashMap<>(), mock(TaskFactory.class),
-            Optional.empty(), Optional.empty(), Optional.empty(),
-            sp -> mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)),
+            Optional.empty(), Optional.empty(), Optional.empty(), sp ->
+            mockListener.updateAndGet(old -> new MockStreamProcessorLifecycleListener(sp)),
             mock(JobCoordinator.class), Mockito.mock(MetadataStore.class));
     assertEquals(streamProcessor, mockListener.get().processor);
   }

@@ -25,9 +25,8 @@ import java.io.{BufferedReader, IOException, InputStream, InputStreamReader}
 import java.net.{HttpURLConnection, URL}
 
 import org.apache.samza.SamzaException
-import org.apache.samza.util.Util.{error, warn}
 
-object HttpUtil {
+object HttpUtil extends Logging {
 
   /**
     * Reads a URL and returns the response body as a string. Retries in an exponential backoff, but does no other error handling.

@@ -23,12 +23,16 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
+import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.LocalityManager;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.JobModelManagerTestUtil;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil;
+import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.testUtils.MockHttpServer;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -58,6 +62,10 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
   private final SamzaApplicationState state = new SamzaApplicationState(jobModelManager);
   private final MockClusterResourceManager manager = new MockClusterResourceManager(callback, state);
+  private final FaultDomainManager faultDomainManager = mock(FaultDomainManager.class);
+
+  private CoordinatorStreamStore coordinatorStreamStore;
+  private ContainerPlacementMetadataStore containerPlacementMetadataStore;
 
   private ContainerAllocator containerAllocator;
   private MockContainerRequestState requestState;
@@ -68,7 +76,15 @@ public class TestContainerAllocatorWithoutHostAffinity {
 
   @Before
   public void setup() throws Exception {
-    containerAllocator = new ContainerAllocator(manager, config, state, false, Optional.empty());
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(new HashMap<>()));
+    CoordinatorStreamStoreTestUtil coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(config);
+    CoordinatorStreamStore coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore();
+    coordinatorStreamStore.init();
+    containerPlacementMetadataStore = new ContainerPlacementMetadataStore(coordinatorStreamStore);
+    containerPlacementMetadataStore.start();
+    containerAllocator = new ContainerAllocator(manager, config, state, false,
+        new ContainerManager(containerPlacementMetadataStore, state, manager, false, false, mockLocalityManager, faultDomainManager, config));
     requestState = new MockContainerRequestState(manager, false);
     Field requestStateField = containerAllocator.getClass().getDeclaredField("resourceRequestState");
     requestStateField.setAccessible(true);
@@ -88,7 +104,6 @@ public class TestContainerAllocatorWithoutHostAffinity {
         put("cluster-manager.container.count", "1");
         put("cluster-manager.container.retry.count", "1");
         put("cluster-manager.container.retry.window.ms", "1999999999");
-        put("cluster-manager.container.request.timeout.ms", "3");
         put("cluster-manager.allocator.sleep.ms", "10");
         put("cluster-manager.container.memory.mb", "512");
         put("yarn.package.path", "/foo");
@@ -96,6 +111,8 @@ public class TestContainerAllocatorWithoutHostAffinity {
         put("systems.test-system.samza.factory", "org.apache.samza.system.MockSystemFactory");
         put("systems.test-system.samza.key.serde", "org.apache.samza.serializers.JsonSerde");
         put("systems.test-system.samza.msg.serde", "org.apache.samza.serializers.JsonSerde");
+        put("job.name", "test-job");
+        put("job.coordinator.system", "test-kafka");
       }
     });
 
@@ -147,6 +164,58 @@ public class TestContainerAllocatorWithoutHostAffinity {
     // If host-affinty is not enabled, it doesn't update the requestMap
     assertNotNull(requestState.getHostRequestCounts());
     assertEquals(requestState.getHostRequestCounts().keySet().size(), 0);
+  }
+
+  /**
+   * See SAMZA-2601: we want to prevent an infinite loop in the case of expired request call with host affinity
+   * disabled. This test make sure we don't have that infinite loop.
+   */
+  @Test
+  public void testExpiredRequestInfiniteLoop() throws Exception {
+    Config override = new MapConfig(new HashMap<String, String>() {
+      {
+        // override to have a proper sleep interval for this test
+        put("cluster-manager.allocator.sleep.ms", "100");
+      }
+    });
+    LocalityManager mockLocalityManager = mock(LocalityManager.class);
+    when(mockLocalityManager.readLocality()).thenReturn(new LocalityModel(new HashMap<>()));
+    ContainerManager containerManager = new ContainerManager(containerPlacementMetadataStore, state, manager, false,
+        false, mockLocalityManager, faultDomainManager, config);
+    containerAllocator =
+        MockContainerAllocatorWithoutHostAffinity.createContainerAllocatorWithConfigOverride(manager, config, state,
+            containerManager,
+            override);
+    MockContainerAllocatorWithoutHostAffinity mockAllocator =
+        (MockContainerAllocatorWithoutHostAffinity) containerAllocator;
+    mockAllocator.setOverrideIsRequestExpired();
+    allocatorThread = new Thread(containerAllocator);
+
+    Map<String, String> containersToHostMapping = new HashMap<String, String>() {
+      {
+        put("0", null);
+        put("1", null);
+        put("2", null);
+        put("3", null);
+      }
+    };
+
+    allocatorThread.start();
+
+    mockAllocator.requestResources(containersToHostMapping);
+    // Wait for at least one expired request call is made, which should happen.
+    // If the test passes, this should return immediately (within 100 ms). Only when the test fails will it exhaust the
+    // timeout, which is worth the wait to find out the failure
+    assertTrue(mockAllocator.awaitIsRequestExpiredCall(TimeUnit.SECONDS.toMillis(10)));
+    // TODO: we can eliminate the thread sleep if the whole container allocator and test codes are refactored to use
+    // a Clock which can be simulated and controlled.
+    Thread.sleep(500);
+    // Given that we wait for 500 ms above, and a sleep interval of 100 ms, we should roughly see 5 times the
+    // isRequestExpired is called. We give some extra buffer here (<100). Because if we do run into infinite loop,
+    // isRequestExpired would be called MILLIONS of times (4~5 million times after a dozen of runs on my machine).
+    assertTrue(
+        String.format("Too many call count: %d. Seems to be in infinite loop", mockAllocator.getExpiredRequestCallCount()),
+        mockAllocator.getExpiredRequestCallCount() < 100);
   }
 
   /**
@@ -263,20 +332,24 @@ public class TestContainerAllocatorWithoutHostAffinity {
     };
 
     ClusterResourceManager.Callback mockCPM = mock(ClusterResourceManager.Callback.class);
+    ClusterResourceManager mockManager = new MockClusterResourceManager(mockCPM, state);
+    ContainerManager spyContainerManager =
+        spy(new ContainerManager(containerPlacementMetadataStore, state, mockManager, false, false, mock(LocalityManager.class), faultDomainManager, config));
     spyAllocator = Mockito.spy(
-        new ContainerAllocator(new MockClusterResourceManager(mockCPM, state), config, state, false,
-            Optional.empty()));
+        new ContainerAllocator(mockManager, config, state, false, spyContainerManager));
     // Mock the callback from ClusterManager to add resources to the allocator
     doAnswer((InvocationOnMock invocation) -> {
-        SamzaResource resource = (SamzaResource) invocation.getArgumentAt(0, List.class).get(0);
-        spyAllocator.addResource(resource);
-        return null;
-      }).when(mockCPM).onResourcesAvailable(anyList());
+      SamzaResource resource = (SamzaResource) invocation.getArgumentAt(0, List.class).get(0);
+      spyAllocator.addResource(resource);
+      return null;
+    }).when(mockCPM).onResourcesAvailable(anyList());
     // Request Resources
     spyAllocator.requestResources(containersToHostMapping);
     spyThread = new Thread(spyAllocator, "Container Allocator Thread");
     // Start the container allocator thread periodic assignment
     spyThread.start();
+    // TODO: we can eliminate the thread sleep if the whole container allocator and test codes are refactored to use
+    // a Clock which can be simulated and controlled.
     Thread.sleep(1000);
     // Verify that all the request that were created were "ANY_HOST" requests
     ArgumentCaptor<SamzaResourceRequest> resourceRequestCaptor = ArgumentCaptor.forClass(SamzaResourceRequest.class);
@@ -284,61 +357,12 @@ public class TestContainerAllocatorWithoutHostAffinity {
     resourceRequestCaptor.getAllValues()
         .forEach(resourceRequest -> assertEquals(resourceRequest.getPreferredHost(), ResourceRequestState.ANY_HOST));
     assertTrue(state.anyHostRequests.get() == containersToHostMapping.size());
-    // Expiry currently should not be invoked
-    verify(spyAllocator, never()).handleExpiredRequest(anyString(), anyString(),
-        any(SamzaResourceRequest.class));
+    // Expiry currently should not be invoked for host affinity enabled cases only
+    verify(spyContainerManager, never()).handleExpiredRequest(anyString(), anyString(),
+        any(SamzaResourceRequest.class), any(ContainerAllocator.class), any(ResourceRequestState.class));
     // Only updated when host affinity is enabled
     assertTrue(state.matchedResourceRequests.get() == 0);
     assertTrue(state.preferredHostRequests.get() == 0);
     spyAllocator.stop();
   }
-
-  @Test
-  public void testExpiredRequestAllocationOnAnyHost() throws Exception {
-    MockClusterResourceManager spyManager = spy(new MockClusterResourceManager(callback, state));
-    spyAllocator = Mockito.spy(
-        new ContainerAllocator(spyManager, config, state, false, Optional.empty()));
-
-    // Request Resources
-    spyAllocator.requestResources(new HashMap<String, String>() {
-      {
-        put("0", "host-0");
-        put("1", "host-1");
-      }
-    });
-
-    spyThread = new Thread(spyAllocator);
-    // Start the container allocator thread periodic assignment
-    spyThread.start();
-
-    // Let the request expire, expiration timeout is 3 ms
-    Thread.sleep(100);
-
-    // Verify that all the request that were created as ANY_HOST host
-    // and all created requests expired
-    assertEquals(state.preferredHostRequests.get(), 0);
-    // Atleast 2 requests should expire & 2 ANY_HOST requests should be generated
-    assertTrue(state.anyHostRequests.get() >= 4);
-    assertTrue(state.expiredAnyHostRequests.get() >= 2);
-
-    verify(spyAllocator, atLeastOnce()).handleExpiredRequest(eq("0"), eq(ResourceRequestState.ANY_HOST),
-        any(SamzaResourceRequest.class));
-    verify(spyAllocator, atLeastOnce()).handleExpiredRequest(eq("1"), eq(ResourceRequestState.ANY_HOST),
-        any(SamzaResourceRequest.class));
-
-    // Verify that preferred host request were cancelled and since no surplus resources were available
-    // requestResource was invoked with ANY_HOST requests
-    ArgumentCaptor<SamzaResourceRequest> cancelledRequestCaptor = ArgumentCaptor.forClass(SamzaResourceRequest.class);
-    // At least 2 preferred host requests were cancelled
-    verify(spyManager, atLeast(2)).cancelResourceRequest(cancelledRequestCaptor.capture());
-    // Verify all the request cancelled were ANY_HOST
-    assertTrue(cancelledRequestCaptor.getAllValues()
-        .stream()
-        .map(resourceRequest -> resourceRequest.getPreferredHost())
-        .collect(Collectors.toSet())
-        .size() == 1);
-    containerAllocator.stop();
-
-  }
-
 }

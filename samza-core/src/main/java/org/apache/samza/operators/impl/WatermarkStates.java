@@ -94,12 +94,12 @@ class WatermarkStates {
     final List<SystemStreamPartition> intSsps = new ArrayList<>();
 
     ssps.forEach(ssp -> {
-        final int producerCount = producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0);
-        states.put(ssp, new WatermarkState(producerCount));
-        if (producerCount != 0) {
-          intSsps.add(ssp);
-        }
-      });
+      final int producerCount = producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0);
+      states.put(ssp, new WatermarkState(producerCount));
+      if (producerCount != 0) {
+        intSsps.add(ssp);
+      }
+    });
     this.watermarkStates = Collections.unmodifiableMap(states);
     this.watermarkMetrics = new WatermarkMetrics(metricsRegistry);
     this.intermediateSsps = Collections.unmodifiableList(intSsps);

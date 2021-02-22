@@ -228,7 +228,7 @@ public class KafkaSystemDescriptor extends SystemDescriptor<KafkaSystemDescripto
   @Override
   public Map<String, String> toConfig() {
     Map<String, String> configs = new HashMap<>(super.toConfig());
-    if(!consumerZkConnect.isEmpty()) {
+    if (!consumerZkConnect.isEmpty()) {
       configs.put(String.format(CONSUMER_ZK_CONNECT_CONFIG_KEY, getSystemName()), String.join(",", consumerZkConnect));
     }
     consumerAutoOffsetResetOptional.ifPresent(consumerAutoOffsetReset ->
