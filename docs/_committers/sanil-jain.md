@@ -1,14 +1,14 @@
 ---
-name: Rayman Preet Singh
+name: Sanil Jain
 website:
-linkedin: https://www.linkedin.com/in/rayman-preet-singh-225a5b121/
+linkedin: https://www.linkedin.com/in/sanil15/
 twitter:
 image:
-github: rmatharu
+github: Sanil15
 pmc_member: false
 job_title:
 samza_title:
-order: 125
+order: 110
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more
