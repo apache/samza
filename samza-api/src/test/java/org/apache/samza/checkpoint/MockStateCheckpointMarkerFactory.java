@@ -17,33 +17,42 @@
  * under the License.
  */
 
-package org.apache.samza.storage;
+package org.apache.samza.checkpoint;
 
 import java.util.Map;
-import org.apache.samza.checkpoint.StateCheckpointPayloadSerde;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.storage.StateBackendFactory;
+import org.apache.samza.storage.StorageEngine;
+import org.apache.samza.storage.TaskBackupManager;
+import org.apache.samza.storage.TaskRestoreManager;
+import org.apache.samza.storage.TaskStorageAdmin;
 import org.apache.samza.util.Clock;
 
 
-public interface StateBackendFactory {
-  TaskBackupManager getBackupManager(JobModel jobModel,
-      ContainerModel containerModel,
-      TaskModel taskModel,
-      Map<String, StorageEngine> taskStores,
-      Config config,
-      Clock clock);
+public class MockStateCheckpointMarkerFactory implements StateBackendFactory {
 
-  TaskRestoreManager getRestoreManager(JobModel jobModel,
-      ContainerModel containerModel,
-      TaskModel taskModel,
-      Map<String, StorageEngine> taskStores,
-      Config config,
-      Clock clock);
+  @Override
+  public TaskBackupManager getBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
+      Map<String, StorageEngine> taskStores, Config config, Clock clock) {
+    return null;
+  }
 
-  TaskStorageAdmin getAdmin();
+  @Override
+  public TaskRestoreManager getRestoreManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
+      Map<String, StorageEngine> taskStores, Config config, Clock clock) {
+    return null;
+  }
 
-  StateCheckpointPayloadSerde getStateCheckpointPayloadSerde();
+  @Override
+  public TaskStorageAdmin getAdmin() {
+    return null;
+  }
+
+  @Override
+  public StateCheckpointPayloadSerde getStateCheckpointPayloadSerde() {
+    return new MockStateCheckpointPayloadSerde();
+  }
 }

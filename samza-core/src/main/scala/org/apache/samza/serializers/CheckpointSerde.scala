@@ -37,7 +37,7 @@ import scala.collection.JavaConverters._
  */
 class CheckpointSerde extends Serde[Checkpoint] with Logging {
   import CheckpointSerde._
-  // TODO: Elucidate the CheckpointSerde relationshiop to Serde. Should Serde also have keyTo/FromBytes? Should
+  // TODO: Elucidate the CheckpointSerde relationship to Serde. Should Serde also have keyTo/FromBytes? Should
   // we just take CheckpointSerde here as interface and have this be JSONCheckpointSerde?
   // TODO: Add more tests.  This class currently only has direct test and is mainly tested by the other checkpoint managers
   val jsonMapper = new ObjectMapper()

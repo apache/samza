@@ -116,6 +116,6 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
   @Override
   public String toString() {
     return String.format("%s%s%s%s%s%s%s%s%s", PROTO_VERSION, SEPARATOR,
-        ssp.getSystem(), SEPARATOR, ssp.getStream(), SEPARATOR, ssp.getPartition(), SEPARATOR, changelogOffset);
+        ssp.getSystem(), SEPARATOR, ssp.getStream(), SEPARATOR, ssp.getPartition().getPartitionId(), SEPARATOR, changelogOffset);
   }
 }

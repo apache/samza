@@ -25,6 +25,8 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.StateCheckpointPayloadSerde;
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointPayloadSerde;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
@@ -109,6 +111,11 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   @Override
   public TaskStorageAdmin getAdmin() {
     throw new SamzaException("getAdmin() method not supported for KafkaStateBackendFactory");
+  }
+
+  @Override
+  public StateCheckpointPayloadSerde getStateCheckpointPayloadSerde() {
+    return new KafkaStateCheckpointPayloadSerde();
   }
 
   /**

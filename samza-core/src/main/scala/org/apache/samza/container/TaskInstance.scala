@@ -20,7 +20,6 @@
 package org.apache.samza.container
 
 
-import java.util
 import java.util.{Collections, Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
