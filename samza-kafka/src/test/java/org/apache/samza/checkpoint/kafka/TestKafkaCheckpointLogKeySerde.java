@@ -50,4 +50,14 @@ public class TestKafkaCheckpointLogKeySerde {
     // test that deserialize(serialize(k)) == k
     Assert.assertEquals(key, checkpointSerde.fromBytes(checkpointSerde.toBytes(key)));
   }
+
+  @Test
+  public void testCheckpointTypeV2() {
+    KafkaCheckpointLogKey keyV2 = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE_V2,
+        new TaskName("Partition 0"), GroupByPartitionFactory.class.getCanonicalName());
+    KafkaCheckpointLogKeySerde checkpointKeySerde = new KafkaCheckpointLogKeySerde();
+
+    // test that deserialize(serialize(k)) == k
+    Assert.assertEquals(keyV2, checkpointKeySerde.fromBytes(checkpointKeySerde.toBytes(keyV2)));
+  }
 }

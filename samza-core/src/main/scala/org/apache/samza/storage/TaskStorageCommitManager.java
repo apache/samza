@@ -63,14 +63,16 @@ public class TaskStorageCommitManager {
    */
   public Map<String, List<StateCheckpointMarker>> commit(TaskName taskName, CheckpointId checkpointId) {
     Map<String, StateCheckpointMarker> snapshot = storageBackupManager.snapshot(checkpointId);
+    LOG.trace("Returned StateCheckpointMarkers from snapshot: {} for taskName: {} checkpoint id: {}", snapshot, taskName, checkpointId);
     CompletableFuture<Map<String, StateCheckpointMarker>>
         uploadFuture = storageBackupManager.upload(checkpointId, snapshot);
 
     try {
       // TODO: Make async with andThen and add thread management for concurrency and add timeouts
       Map<String, StateCheckpointMarker> uploadMap = uploadFuture.get();
+      LOG.trace("Returned StateCheckpointMarkers from upload: {} for taskName: {} checkpoint id: {}", uploadMap, taskName, checkpointId);
       if (uploadMap != null) {
-        LOG.trace("Persisting stores to file system for taskName: {}} with checkpoint id: {}", taskName, checkpointId);
+        LOG.trace("Persisting stores to file system for taskName: {} with checkpoint id: {}", taskName, checkpointId);
         storageBackupManager.persistToFilesystem(checkpointId, uploadMap);
       }
 

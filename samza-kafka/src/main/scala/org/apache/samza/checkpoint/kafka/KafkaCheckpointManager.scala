@@ -28,9 +28,8 @@ import com.google.common.base.Preconditions
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.serializers.Serde
+import org.apache.samza.serializers.{CheckpointSerde, Serde, StatefulCheckpointSerde}
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.serializers.CheckpointSerde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.KafkaStreamSpec
 import org.apache.samza.util.{ExponentialSleepStrategy, Logging}
@@ -54,6 +53,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
                              config: Config,
                              metricsRegistry: MetricsRegistry,
                              checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde,
+                             statefulCheckpointMsgSerde: Serde[Checkpoint] = new StatefulCheckpointSerde,
                              checkpointKeySerde: Serde[KafkaCheckpointLogKey] = new KafkaCheckpointLogKeySerde) extends CheckpointManager with Logging {
 
   var MaxRetryDurationInMillis: Long = TimeUnit.MINUTES.toMillis(15)
@@ -80,6 +80,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   // if false, it must be left open until KafkaCheckpointManager::stop is called.
   // for active containers, this will be set to true, while false for standby containers.
   val stopConsumerAfterFirstRead: Boolean = new TaskConfig(config).getCheckpointManagerConsumerStopAfterFirstRead
+
+  val readCheckpointV2Enabled: Boolean = new TaskConfig(config).getReadCheckpointV2Enabled
 
   /**
     * Create checkpoint stream prior to start.
@@ -160,18 +162,10 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     */
   override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
     val key = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE, taskName, expectedGrouperFactory)
-    val keyBytes = try {
-      checkpointKeySerde.toBytes(key)
-    } catch {
-      case e: Exception => throw new SamzaException(s"Exception when writing checkpoint-key for $taskName: $checkpoint", e)
-    }
-    val msgBytes = try {
-      checkpointMsgSerde.toBytes(checkpoint)
-    } catch {
-      case e: Exception => throw new SamzaException(s"Exception when writing checkpoint for $taskName: $checkpoint", e)
-    }
+    val keyV2 = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE_V2, taskName, expectedGrouperFactory)
 
-    val envelope = new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
+    val envelope = generateOutgoingEnvelope(taskName, checkpoint, key, checkpointKeySerde, checkpointMsgSerde)
+    val checkpointV2Envelope = generateOutgoingEnvelope(taskName, checkpoint, keyV2, checkpointKeySerde, statefulCheckpointMsgSerde)
 
     // Used for exponential backoff retries on failure in sending messages through producer.
     val startTimeInMillis: Long = System.currentTimeMillis()
@@ -181,7 +175,9 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     while ((System.currentTimeMillis() - startTimeInMillis) <= MaxRetryDurationInMillis) {
       val currentProducer = producerRef.get()
       try {
+        // Write both checkpoints v1 and v2 to to checkpoint topic
         currentProducer.send(taskName.getTaskName, envelope)
+        currentProducer.send(taskName.getTaskName, checkpointV2Envelope)
         currentProducer.flush(taskName.getTaskName) // make sure it is written
         debug(s"Wrote checkpoint: $checkpoint for task: $taskName")
         return
@@ -295,13 +291,20 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
           }
         }
 
-        // If the type of the key is not KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE, it can safely be ignored.
-        if (KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(checkpointKey.getType)) {
+        // If the type of the key is not KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE nor
+        // KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE_V2, it can safely be ignored.
+        // Skip checkpoint v1 if readCheckpointV2 is enabled and skip checkpoint v1 if Checkpoint v2 is not enabled
+        if (KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(checkpointKey.getType) && !readCheckpointV2Enabled ||
+          (KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE_V2.equals(checkpointKey.getType) && readCheckpointV2Enabled)) {
           val checkpointBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
           val checkpoint = try {
-            checkpointMsgSerde.fromBytes(checkpointBytes)
+            if (readCheckpointV2Enabled) {
+              statefulCheckpointMsgSerde.fromBytes(checkpointBytes)
+            } else {
+              checkpointMsgSerde.fromBytes(checkpointBytes)
+            }
           } catch {
-            case e: Exception => throw new SamzaException(s"Exception while serializing checkpoint-message. " +
+            case e: Exception => throw new SamzaException(s"Exception while deserializing checkpoint-message. " +
               s"Topic: $checkpointTopic Offset: $offset", e)
           }
 
@@ -332,5 +335,20 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     }
 
     partitionMetaData.getOldestOffset
+  }
+
+  private def generateOutgoingEnvelope(taskName: TaskName, checkpoint: Checkpoint, key: KafkaCheckpointLogKey,
+    keySerde: Serde[KafkaCheckpointLogKey], msgSerde: Serde[Checkpoint]): OutgoingMessageEnvelope = {
+    val keyBytes = try {
+      keySerde.toBytes(key)
+    } catch {
+      case e: Exception => throw new SamzaException(s"Exception when writing checkpoint-key for $taskName: $checkpoint", e)
+    }
+    val msgBytes = try {
+      msgSerde.toBytes(checkpoint)
+    } catch {
+      case e: Exception => throw new SamzaException(s"Exception when writing checkpoint for $taskName: $checkpoint", e)
+    }
+    new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
   }
 }

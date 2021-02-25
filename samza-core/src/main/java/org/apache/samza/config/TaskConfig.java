@@ -107,6 +107,9 @@ public class TaskConfig extends MapConfig {
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
   // standby containers use this flag to indicate that checkpoints will be polled continually, rather than only once at startup like in an active container
   public static final String INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ = "samza.internal.task.checkpoint.consumer.stop.after.first.read";
+  // use checkpoint v2 for using StateCheckpointMarkers
+  public static final String READ_CHECKPOINT_V2_ENABLED = "task.checkpoint.format.v2.enabled";
+  public static final boolean DEFAULT_READ_CHECKPOINT_V2_ENABLED = false;
 
   public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
@@ -313,6 +316,10 @@ public class TaskConfig extends MapConfig {
           DEFAULT_TASK_SHUTDOWN_MS));
       return DEFAULT_TASK_SHUTDOWN_MS;
     }
+  }
+
+  public boolean getReadCheckpointV2Enabled() {
+    return getBoolean(READ_CHECKPOINT_V2_ENABLED, DEFAULT_READ_CHECKPOINT_V2_ENABLED);
   }
 
   public boolean getTransactionalStateCheckpointEnabled() {
