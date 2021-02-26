@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.job.model.TaskModel;
@@ -109,7 +110,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * and registers SSPs with the respective consumers.
    */
   @Override
-  public void init(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets) {
+  public void init(Checkpoint checkpoint) {
     cleanBaseDirsAndReadOffsetFiles();
     setupBaseDirs();
     validateChangelogStreams();

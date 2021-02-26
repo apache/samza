@@ -20,6 +20,7 @@
 package org.apache.samza.storage;
 
 import java.util.Map;
+import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.system.SystemStreamPartition;
 
 
@@ -31,7 +32,7 @@ public interface TaskRestoreManager {
   /**
    * Init state resources such as file directories.
    */
-  void init(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets);
+  void init(Checkpoint checkpoint);
 
   /**
    * Restore state from checkpoints, state snapshots and changelog.

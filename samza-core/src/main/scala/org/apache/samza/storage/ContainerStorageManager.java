@@ -641,37 +641,27 @@ public class ContainerStorageManager {
   }
 
   public void start() throws SamzaException, InterruptedException {
-    Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets = new HashMap<>();
-    if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
-      getTasks(containerModel, TaskMode.Active).forEach((taskName, taskModel) -> {
-        if (checkpointManager != null) {
-          Set<SystemStream> changelogSystemStreams = new HashSet<>(this.changelogSystemStreams.values());
-          Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
-          if (checkpoint != null) {
-            checkpoint.getInputOffsets().forEach((ssp, offset) -> {
-              if (changelogSystemStreams.contains(new SystemStream(ssp.getSystem(), ssp.getStream()))) {
-                checkpointedChangelogSSPOffsets.put(ssp, offset);
-              }
-            });
-          }
-        }
-      });
-    }
-    LOG.info("Checkpointed changelog ssp offsets: {}", checkpointedChangelogSSPOffsets);
-    restoreStores(checkpointedChangelogSSPOffsets);
+    restoreStores();
     if (this.hasSideInputs) {
       startSideInputs();
     }
   }
 
   // Restoration of all stores, in parallel across tasks
-  private void restoreStores(Map<SystemStreamPartition, String> checkpointedChangelogSSPOffsets)
-      throws InterruptedException {
+  private void restoreStores() throws InterruptedException {
     LOG.info("Store Restore started");
 
     // initialize each TaskStorageManager
-    this.taskRestoreManagers.values().forEach(taskStorageManager ->
-       taskStorageManager.init(checkpointedChangelogSSPOffsets));
+    this.taskRestoreManagers.forEach((taskName, taskRestoreManager) -> {
+      Checkpoint taskCheckpoint = null;
+      Set<TaskName> activeTasks = getTasks(containerModel, TaskMode.Active).keySet(); // TODO verify standby taskRestoreManagers behavior
+      if (checkpointManager != null && activeTasks.contains(taskName)) {
+        // only pass in checkpoints for active tasks
+        taskCheckpoint = checkpointManager.readLastCheckpoint(taskName);
+        LOG.info("Obtained checkpoint: {} for state restore for taskName: {}", taskCheckpoint, taskName);
+      }
+      taskRestoreManager.init(taskCheckpoint);
+    });
 
     // Start each store consumer once
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);

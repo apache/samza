@@ -34,7 +34,9 @@ import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.KafkaStateChangelogOffset;
+import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
@@ -104,11 +106,32 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   }
 
   @Override
-  public void init(Map<SystemStreamPartition, String> checkpointedChangelogOffsets) {
+  public void init(Checkpoint checkpoint) {
+    boolean readCheckpointV2Enabled = new TaskConfig(config).getReadCheckpointV2Enabled();
+    Map<String, String> storeOffset = new HashMap<>();
+
+    if (checkpoint != null) {
+      if (readCheckpointV2Enabled) {
+        // If the checkpoint v2 is used we used the StateCheckpointMarkers to get the changelog offsets
+        Map<String, List<StateCheckpointMarker>> stateCheckpointMarkers = checkpoint.getStateCheckpointMarkers();
+        stateCheckpointMarkers.forEach((storeName, list) -> {
+          String offsetMessage = null;
+          storeOffset.put(storeName, null); // TODO dchen1 deserialize this with KafkaStateCheckpointMarker after moving modules
+        });
+      } else {
+        // If the checkpoint v1 is used, we need to fetch the changelog SSPs in the inputOffsets in order to get the
+        // store offset.
+        Map<SystemStreamPartition, String> checkpointedChangelogOffsets = checkpoint.getInputOffsets();
+        storeChangelogs.forEach((storeName, systemStream) -> {
+          SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
+          storeOffset.put(storeName, checkpointedChangelogOffsets.get(storeChangelogSSP));
+        });
+      }
+    }
     currentChangelogOffsets = getCurrentChangelogOffsets(taskModel, storeChangelogs, sspMetadataCache);
 
     this.storeActions = getStoreActions(taskModel, storeEngines, storeChangelogs,
-        checkpointedChangelogOffsets, currentChangelogOffsets, systemAdmins, storageManagerUtil,
+        storeOffset, currentChangelogOffsets, systemAdmins, storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock);
 
     setupStoreDirs(taskModel, storeEngines, storeActions, storageManagerUtil, fileUtil,
@@ -194,7 +217,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       TaskModel taskModel,
       Map<String, StorageEngine> storeEngines,
       Map<String, SystemStream> storeChangelogs,
-      Map<SystemStreamPartition, String> checkpointedChangelogOffsets,
+      Map<String, String> storeOffset,
       Map<SystemStreamPartition, SystemStreamPartitionMetadata> currentChangelogOffsets,
       SystemAdmins systemAdmins,
       StorageManagerUtil storageManagerUtil,
@@ -236,14 +259,14 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       String oldestOffset = changelogSSPMetadata.getOldestOffset();
       String newestOffset = changelogSSPMetadata.getNewestOffset();
 
-      String checkpointMessage = checkpointedChangelogOffsets.get(changelogSSP);
+      String checkpointMessage = storeOffset.get(storeName);
       String checkpointedOffset = null;  // can be null if no message, or message has null offset
       long timeSinceLastCheckpointInMs = Long.MAX_VALUE;
       if (StringUtils.isNotBlank(checkpointMessage)) {
         KafkaStateChangelogOffset kafkaStateCheckpointMarker = KafkaStateChangelogOffset.fromString(checkpointMessage);
         checkpointedOffset = kafkaStateCheckpointMarker.getChangelogOffset();
         timeSinceLastCheckpointInMs = System.currentTimeMillis() -
-            kafkaStateCheckpointMarker.getCheckpointId().getMillis();
+            kafkaStateCheckpointMarker.getCheckpointId().getMillis(); //TODO change for KafkaStateCheckpointMarker
       }
 
       // if the clean.store.start config is set, delete current and checkpoint dirs, restore from oldest offset to checkpointed
