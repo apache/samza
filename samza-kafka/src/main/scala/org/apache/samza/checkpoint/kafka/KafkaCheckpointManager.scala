@@ -28,7 +28,7 @@ import com.google.common.base.Preconditions
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager}
 import org.apache.samza.config.{Config, JobConfig, TaskConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.serializers.{CheckpointSerde, Serde, StatefulCheckpointSerde}
+import org.apache.samza.serializers.{CheckpointV1Serde, Serde, CheckpointV2Serde}
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.KafkaStreamSpec
@@ -52,8 +52,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
                              validateCheckpoint: Boolean,
                              config: Config,
                              metricsRegistry: MetricsRegistry,
-                             checkpointMsgSerde: Serde[Checkpoint] = new CheckpointSerde,
-                             statefulCheckpointMsgSerde: Serde[Checkpoint] = new StatefulCheckpointSerde,
+                             checkpointMsgSerde: Serde[Checkpoint] = new CheckpointV1Serde,
+                             statefulCheckpointMsgSerde: Serde[Checkpoint] = new CheckpointV2Serde,
                              checkpointKeySerde: Serde[KafkaCheckpointLogKey] = new KafkaCheckpointLogKeySerde) extends CheckpointManager with Logging {
 
   var MaxRetryDurationInMillis: Long = TimeUnit.MINUTES.toMillis(15)

@@ -25,8 +25,8 @@ import org.apache.samza.storage.StateBackendFactory;
 
 
 public class StateCheckpointMarkerSerde<T extends StateCheckpointMarker> {
-  private static final short PROTOCOL_VERSION = 1;
-  private static final String SCM_SEPARATOR = ":";
+  private static final short SCHEMA_VERSION = 1;
+  private static final String SEPARATOR = ":";
   private static final int PARTS_COUNT = 3; // protocol_version, serde_class, payload
 
   /**
@@ -37,8 +37,12 @@ public class StateCheckpointMarkerSerde<T extends StateCheckpointMarker> {
    */
   public String serialize(T payload) {
     try {
-      StateBackendFactory stateBackendFactory = (StateBackendFactory) Class.forName(payload.getFactoryName()).newInstance();
-      return serialize(payload, stateBackendFactory.getStateCheckpointPayloadSerde());
+      StateBackendFactory stateBackendFactory =
+          (StateBackendFactory) Class.forName(payload.getFactoryName()).newInstance();
+      StateCheckpointPayloadSerde payloadSerde =  stateBackendFactory.getStateCheckpointPayloadSerde();
+      return SCHEMA_VERSION + SEPARATOR +
+          stateBackendFactory.getClass().getName() + SEPARATOR +
+          payloadSerde.serialize(payload);
     } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
       throw new SamzaException("State backend factory serde not found for class name: " + payload.getFactoryName(), e);
     }
@@ -50,28 +54,30 @@ public class StateCheckpointMarkerSerde<T extends StateCheckpointMarker> {
    * @param serializedSCM serialized version of a {@link StateCheckpointMarker}
    * @return {@link StateCheckpointMarker} object deserialized
    */
-  public T deserializePayload(String serializedSCM) {
+  public T deserialize(String serializedSCM) {
     if (StringUtils.isBlank(serializedSCM)) {
       throw new IllegalArgumentException("Invalid remote store checkpoint message: " + serializedSCM);
     }
-    String[] parts = serializedSCM.split(SCM_SEPARATOR, PARTS_COUNT);
+    String[] parts = serializedSCM.split(SEPARATOR, PARTS_COUNT);
     if (parts.length != PARTS_COUNT) {
       throw new IllegalArgumentException("Invalid state checkpoint marker: " + serializedSCM);
     }
-    if (PROTOCOL_VERSION != Short.parseShort(parts[0])) {
-      throw new SamzaException("StateCheckpointMarker deserialize protocol version does not match serialized version");
+    short scmSchemaVersion =Short.parseShort(parts[0]);
+    if (SCHEMA_VERSION != scmSchemaVersion) {
+      throw new SamzaException(
+          String.format("StateCheckpointMarker supported schema version does not match serialized " +
+                  "state checkpoint marker schema version. Supported version: %d. Found version: %d",
+              SCHEMA_VERSION, scmSchemaVersion));
     }
     String payloadSerdeClassName = parts[1];
     try {
-      StateCheckpointPayloadSerde<T> serde = (StateCheckpointPayloadSerde<T>) Class.forName(payloadSerdeClassName)
-          .getDeclaredConstructor().newInstance();
+      StateCheckpointPayloadSerde<T> serde =
+          (StateCheckpointPayloadSerde<T>) Class.forName(payloadSerdeClassName).getDeclaredConstructor().newInstance();
       return serde.deserialize(parts[2]);
     } catch (Exception e) {
-      throw new SamzaException("StateCheckpoint payload serde not found for class name: " + payloadSerdeClassName, e);
+      throw new SamzaException(
+          String.format("Error deserializing state checkpoint marker: %s with payload serde class: %s",
+              serializedSCM, payloadSerdeClassName), e);
     }
-  }
-
-  private String serialize(T payload, StateCheckpointPayloadSerde<T> serde) {
-    return PROTOCOL_VERSION + SCM_SEPARATOR + serde.getClass().getName() + SCM_SEPARATOR + serde.serialize(payload);
   }
 }

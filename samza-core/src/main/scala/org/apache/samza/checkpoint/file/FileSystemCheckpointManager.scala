@@ -30,7 +30,7 @@ import org.apache.samza.checkpoint.CheckpointManagerFactory
 import org.apache.samza.config.{Config, FileSystemCheckpointManagerConfig, JobConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.serializers.CheckpointSerde
+import org.apache.samza.serializers.CheckpointV1Serde
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 
 import scala.io.Source
@@ -38,7 +38,7 @@ import scala.io.Source
 class FileSystemCheckpointManager(
                                    jobName: String,
                                    root: File,
-                                   serde: CheckpointSerde = new CheckpointSerde) extends CheckpointManager {
+                                   serde: CheckpointV1Serde = new CheckpointV1Serde) extends CheckpointManager {
 
   override def register(taskName: TaskName):Unit = Unit
 

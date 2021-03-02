@@ -30,10 +30,10 @@ import org.junit.Test
 
 import scala.collection.JavaConverters._
 
-class TestCheckpointSerde {
+class TestCheckpointV1Serde {
   @Test
   def testExactlyOneOffset {
-    val serde = new CheckpointSerde
+    val serde = new CheckpointV1Serde
     var offsets = Map[SystemStreamPartition, String]()
     val systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(777))
     offsets += systemStreamPartition -> "1"
@@ -49,7 +49,7 @@ class TestCheckpointSerde {
     mapping.put(new TaskName("Dougal"), 1)
     mapping.put(new TaskName("Jack"), 2)
 
-    val checkpointSerde = new CheckpointSerde
+    val checkpointSerde = new CheckpointV1Serde
     val asBytes = checkpointSerde.changelogPartitionMappingToBytes(mapping)
     val backToMap = checkpointSerde.changelogPartitionMappingFromBytes(asBytes)
 
@@ -60,7 +60,7 @@ class TestCheckpointSerde {
   @Test
   def testNullCheckpointSerde: Unit = {
     val checkpointBytes = null.asInstanceOf[Array[Byte]]
-    val checkpointSerde = new CheckpointSerde
+    val checkpointSerde = new CheckpointV1Serde
     val checkpoint = checkpointSerde.fromBytes(checkpointBytes)
     assertNull(checkpoint)
   }

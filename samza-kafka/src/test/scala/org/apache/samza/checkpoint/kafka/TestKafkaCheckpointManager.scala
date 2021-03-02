@@ -29,7 +29,7 @@ import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.serializers.CheckpointSerde
+import org.apache.samza.serializers.CheckpointV1Serde
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
@@ -175,7 +175,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     // create topic with the wrong number of partitions
     createTopic(checkpointTopic, 8, new KafkaConfig(config).getCheckpointTopicProperties())
     val failOnTopicValidation = false
-    val kcm = createKafkaCheckpointManager(checkpointTopic, new CheckpointSerde, failOnTopicValidation)
+    val kcm = createKafkaCheckpointManager(checkpointTopic, new CheckpointV1Serde, failOnTopicValidation)
     kcm.register(taskName)
     kcm.createResources()
     kcm.start()
@@ -251,7 +251,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       .build())
   }
 
-  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointSerde = new CheckpointSerde, failOnTopicValidation: Boolean = true) = {
+  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointV1Serde = new CheckpointV1Serde, failOnTopicValidation: Boolean = true) = {
     val kafkaConfig = new org.apache.samza.config.KafkaConfig(config)
     val props = kafkaConfig.getCheckpointTopicProperties()
     val systemName = kafkaConfig.getCheckpointSystem.getOrElse(

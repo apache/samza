@@ -26,6 +26,7 @@ import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.MockStateCheckpointMarker;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.system.SystemStreamPartition;
@@ -37,8 +38,8 @@ import static org.junit.Assert.assertEquals;
 public class TestStateCheckpointSerde {
 
   @Test
-  public void TestStatefulCheckpointSerde() {
-    StatefulCheckpointSerde serde = new StatefulCheckpointSerde();
+  public void TestCheckpointV2Serde() {
+    CheckpointV2Serde serde = new CheckpointV2Serde();
     Map<SystemStreamPartition, String> offsets = new HashMap<>();
     SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(777));
     offsets.put(systemStreamPartition, "1");
@@ -57,13 +58,13 @@ public class TestStateCheckpointSerde {
 
     CheckpointId checkpointId = CheckpointId.create();
 
-    Checkpoint checkpoint = new Checkpoint(checkpointId, offsets, stateCheckpointMarkersMap);
-    Checkpoint deserializedCheckpoint = serde.fromBytes(serde.toBytes(checkpoint));
+    CheckpointV2 checkpoint = new CheckpointV2(checkpointId, offsets, stateCheckpointMarkersMap);
+    CheckpointV2 deserializedCheckpoint = serde.fromBytes(serde.toBytes(checkpoint));
 
     // Validate input checkpoints
     assertEquals(checkpointId, deserializedCheckpoint.getCheckpointId());
-    assertEquals("1", deserializedCheckpoint.getInputOffsets().get(systemStreamPartition));
-    assertEquals(1, deserializedCheckpoint.getInputOffsets().size());
+    assertEquals("1", deserializedCheckpoint.getOffsets().get(systemStreamPartition));
+    assertEquals(1, deserializedCheckpoint.getOffsets().size());
 
     // Validate state checkpoints
     assertEquals(1, deserializedCheckpoint.getStateCheckpointMarkers().size());
@@ -77,7 +78,7 @@ public class TestStateCheckpointSerde {
 
   @Test
   public void TestStatefulCheckpointSerdeStatelessJob() {
-    StatefulCheckpointSerde serde = new StatefulCheckpointSerde();
+    CheckpointV2Serde serde = new CheckpointV2Serde();
     Map<SystemStreamPartition, String> offsets = new HashMap<>();
     SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(777));
     offsets.put(systemStreamPartition, "1");
@@ -86,13 +87,13 @@ public class TestStateCheckpointSerde {
     CheckpointId checkpointId = CheckpointId.create();
 
 
-    Checkpoint checkpoint = new Checkpoint(checkpointId, offsets,  new HashMap<>());
-    Checkpoint deserializedCheckpoint = serde.fromBytes(serde.toBytes(checkpoint));
+    CheckpointV2 checkpoint = new CheckpointV2(checkpointId, offsets,  new HashMap<>());
+    CheckpointV2 deserializedCheckpoint = serde.fromBytes(serde.toBytes(checkpoint));
 
     // Validate input checkpoints
     assertEquals(checkpointId, deserializedCheckpoint.getCheckpointId());
-    assertEquals("1", deserializedCheckpoint.getInputOffsets().get(systemStreamPartition));
-    assertEquals(1, deserializedCheckpoint.getInputOffsets().size());
+    assertEquals("1", deserializedCheckpoint.getOffsets().get(systemStreamPartition));
+    assertEquals(1, deserializedCheckpoint.getOffsets().size());
 
     // No state checkpoints, but a map is still created
     assertEquals(0, deserializedCheckpoint.getStateCheckpointMarkers().size());

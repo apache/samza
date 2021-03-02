@@ -24,7 +24,8 @@ import java.util.Map;
 
 /**
  * Used for Json serialization of the {@link org.apache.samza.checkpoint.Checkpoint} class by the
- * {@link StatefulCheckpointSerde}
+ * {@link CheckpointV2Serde}
+ * This cannot be an internal class as required by Jackson Object mapper
  */
 public class JsonCheckpoint {
   private String checkpointId;

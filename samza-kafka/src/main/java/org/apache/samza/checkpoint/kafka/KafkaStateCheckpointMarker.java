@@ -34,9 +34,10 @@ import scala.Option;
 
 @InterfaceStability.Unstable
 public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
-  private static final short PROTO_VERSION = 1;
+  public static final short SCHEMA_VERSION = 1;
+  public static final String SEPARATOR = ";";
   private static final String FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
-  private static final String SEPARATOR = ";";
+
 
   // One offset per SSP
   private final SystemStreamPartition ssp;
@@ -47,8 +48,8 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
     this.changelogOffset = changelogOffset;
   }
 
-  public static short getProtocolVersion() {
-    return PROTO_VERSION;
+  public static short getSchemaVersion() {
+    return SCHEMA_VERSION;
   }
 
   public SystemStreamPartition getSsp() {
@@ -79,26 +80,6 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
     return sspMap;
   }
 
-  public static KafkaStateCheckpointMarker fromString(String message) {
-    if (StringUtils.isBlank(message)) {
-      throw new IllegalArgumentException("Invalid KafkaStateCheckpointMarker format: " + message);
-    }
-    String[] payload = message.split(KafkaStateCheckpointMarker.SEPARATOR);
-    if (payload.length != 5) {
-      throw new IllegalArgumentException("Invalid KafkaStateCheckpointMarker argument count: " + message);
-    }
-    if (Short.parseShort(payload[0]) != PROTO_VERSION) {
-      throw new IllegalArgumentException("Invalid KafkaStateCheckpointMarker protocol version: " + message);
-    }
-    Partition partition = new Partition(Integer.parseInt(payload[3]));
-    String offset = null;
-    if (!"null".equals(payload[4])) {
-      offset = payload[4];
-    }
-
-    return new KafkaStateCheckpointMarker(new SystemStreamPartition(payload[1], payload[2], partition), offset);
-  }
-
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -110,12 +91,12 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
 
   @Override
   public int hashCode() {
-    return Objects.hash(PROTO_VERSION, ssp, changelogOffset);
+    return Objects.hash(SCHEMA_VERSION, ssp, changelogOffset);
   }
 
   @Override
   public String toString() {
-    return String.format("%s%s%s%s%s%s%s%s%s", PROTO_VERSION, SEPARATOR,
+    return String.format("%s%s%s%s%s%s%s%s%s", SCHEMA_VERSION, SEPARATOR,
         ssp.getSystem(), SEPARATOR, ssp.getStream(), SEPARATOR, ssp.getPartition().getPartitionId(), SEPARATOR, changelogOffset);
   }
 }

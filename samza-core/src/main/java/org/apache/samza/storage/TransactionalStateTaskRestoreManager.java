@@ -35,6 +35,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
+import org.apache.samza.checkpoint.CheckpointV1;
+import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.KafkaStateChangelogOffset;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.config.Config;
@@ -107,27 +109,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
 
   @Override
   public void init(Checkpoint checkpoint) {
-    boolean readCheckpointV2Enabled = new TaskConfig(config).getReadCheckpointV2Enabled();
     Map<String, String> storeOffset = new HashMap<>();
-
-    if (checkpoint != null) {
-      if (readCheckpointV2Enabled) {
-        // If the checkpoint v2 is used we used the StateCheckpointMarkers to get the changelog offsets
-        Map<String, List<StateCheckpointMarker>> stateCheckpointMarkers = checkpoint.getStateCheckpointMarkers();
-        stateCheckpointMarkers.forEach((storeName, list) -> {
-          String offsetMessage = null;
-          storeOffset.put(storeName, null); // TODO dchen1 deserialize this with KafkaStateCheckpointMarker after moving modules
-        });
-      } else {
-        // If the checkpoint v1 is used, we need to fetch the changelog SSPs in the inputOffsets in order to get the
-        // store offset.
-        Map<SystemStreamPartition, String> checkpointedChangelogOffsets = checkpoint.getInputOffsets();
-        storeChangelogs.forEach((storeName, systemStream) -> {
-          SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
-          storeOffset.put(storeName, checkpointedChangelogOffsets.get(storeChangelogSSP));
-        });
-      }
-    }
     currentChangelogOffsets = getCurrentChangelogOffsets(taskModel, storeChangelogs, sspMetadataCache);
 
     this.storeActions = getStoreActions(taskModel, storeEngines, storeChangelogs,
@@ -263,6 +245,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       String checkpointedOffset = null;  // can be null if no message, or message has null offset
       long timeSinceLastCheckpointInMs = Long.MAX_VALUE;
       if (StringUtils.isNotBlank(checkpointMessage)) {
+        // TODO HIGH dchen fix Checkpoint version handling
         KafkaStateChangelogOffset kafkaStateCheckpointMarker = KafkaStateChangelogOffset.fromString(checkpointMessage);
         checkpointedOffset = kafkaStateCheckpointMarker.getChangelogOffset();
         timeSinceLastCheckpointInMs = System.currentTimeMillis() -
@@ -578,6 +561,34 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           String.format("Ending offset: %s must be equal to or greater than starting offset: %s",
               endingOffset, startingOffset));
     }
+  }
+
+  private Map<String, String> getCheckpointedChangelogOffsets(Checkpoint checkpoint) {
+    Map<String, String> checkpointedChangelogOffsets = new HashMap<>();
+    if (checkpoint == null) return checkpointedChangelogOffsets;
+
+    if (checkpoint instanceof CheckpointV2) {
+      Map<String, List<StateCheckpointMarker>> storeSCMs = ((CheckpointV2) checkpoint).getStateCheckpointMarkers();
+      storeSCMs.forEach((storeName, scms) -> {
+        String offsetMessage = null;
+        // TODO HIGH dchen why would deserialization happen here? Shouldn't it already be deserialized at this point?
+        // we should just pick the deserialized SCM with the right factory name
+        // TODO dchen1 deserialize this with KafkaStateCheckpointMarker after moving modules
+        checkpointedChangelogOffsets.put(storeName, null);
+      });
+    } else if (checkpoint instanceof CheckpointV1) {
+      // If the checkpoint v1 is used, we need to fetch the changelog SSPs in the inputOffsets in order to get the
+      // store offset.
+      Map<SystemStreamPartition, String> checkpointedOffsets = ((CheckpointV1) checkpoint).getOffsets();
+      storeChangelogs.forEach((storeName, systemStream) -> {
+        SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
+        checkpointedChangelogOffsets.put(storeName, checkpointedOffsets.get(storeChangelogSSP));
+      });
+    } else {
+      throw new SamzaException("Unsupported checkpoint version: " + checkpoint.getVersion());
+    }
+
+    return checkpointedChangelogOffsets;
   }
 
   @VisibleForTesting
