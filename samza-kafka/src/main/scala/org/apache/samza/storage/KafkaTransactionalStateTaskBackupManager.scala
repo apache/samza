@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSet
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.WildcardFileFilter
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
-import org.apache.samza.checkpoint.{CheckpointId, StateCheckpointMarker}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, StateCheckpointMarker}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
@@ -51,6 +51,8 @@ class KafkaTransactionalStateTaskBackupManager(
   partition: Partition,
   taskMode: TaskMode,
   storageManagerUtil: StorageManagerUtil) extends Logging with TaskBackupManager {
+
+  override def init(checkpoint: Checkpoint): Unit = {}
 
   override def snapshot(checkpointId: CheckpointId): util.Map[String, StateCheckpointMarker] = {
     debug("Flushing stores.")
@@ -84,7 +86,7 @@ class KafkaTransactionalStateTaskBackupManager(
        KafkaStateCheckpointMarker.stateCheckpointMarkerToSSPmap(stateCheckpointMarkers).asScala)
   }
 
-  override def cleanUp(latestCheckpointId: CheckpointId): Unit = {
+  override def cleanUp(latestCheckpointId: CheckpointId, stateCheckpointMarker: util.Map[String, StateCheckpointMarker]): Unit = {
     if (latestCheckpointId != null) {
       debug("Removing older checkpoints before " + latestCheckpointId)
 
@@ -111,7 +113,7 @@ class KafkaTransactionalStateTaskBackupManager(
   }
 
   @VisibleForTesting
-  override def stop() {
+  override def close() {
     debug("Stopping stores.")
     taskStores.asScala.values.foreach(engine => engine.stop())
   }

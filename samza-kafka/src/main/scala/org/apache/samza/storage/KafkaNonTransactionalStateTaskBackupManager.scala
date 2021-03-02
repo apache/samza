@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
-import org.apache.samza.checkpoint.{CheckpointId, StateCheckpointMarker}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, StateCheckpointMarker}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
@@ -52,6 +52,8 @@ class KafkaNonTransactionalStateTaskBackupManager(
   private val persistedStores = taskStores.asScala
     .filter { case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk }
 
+  override def init(checkpoint: Checkpoint): Unit = {}
+
   override def snapshot(checkpointId: CheckpointId): util.Map[String, StateCheckpointMarker] = {
     debug("Flushing stores.")
     taskStores.asScala.values.foreach(_.flush)
@@ -69,10 +71,10 @@ class KafkaNonTransactionalStateTaskBackupManager(
       .stateCheckpointMarkerToSSPmap(stateCheckpointMarkers))
   }
 
-  override def cleanUp(checkpointId: CheckpointId): Unit = {}
+  override def cleanUp(checkpointId: CheckpointId, stateCheckpointMarker: util.Map[String, StateCheckpointMarker]): Unit = {}
 
   @VisibleForTesting
-  override def stop() {
+  override def close() {
     debug("Stopping stores.")
     taskStores.asScala.values.foreach(engine => engine.stop())
   }

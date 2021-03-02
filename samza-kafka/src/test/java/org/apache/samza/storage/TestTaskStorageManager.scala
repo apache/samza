@@ -24,7 +24,7 @@ import java.util
 
 import com.google.common.collect.{ImmutableMap, ImmutableSet}
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointManager}
+import org.apache.samza.checkpoint.{CheckpointId, CheckpointManager, CheckpointV1}
 import org.apache.samza.config._
 import org.apache.samza.container.{SamzaContainerMetrics, TaskInstanceMetrics, TaskName}
 import org.apache.samza.context.{ContainerContext, JobContext}
@@ -143,7 +143,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     // Test 3: Update sspMetadata before shutdown and verify that offset file is not updated
     when(mockSystemAdmin.getSSPMetadata(ImmutableSet.of(ssp)))
       .thenReturn(ImmutableMap.of(ssp, new SystemStreamPartitionMetadata("0", "100", "101")))
-    taskManager.stop()
+    taskManager.close()
     verify(mockStorageEngine, times(1)).flush() // only called once during Test 2.
     assertTrue(storeFile.exists())
     assertTrue(offsetFile.exists())
@@ -234,7 +234,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     })
     when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(ss -> metadata))
     when(mockSystemAdmin.getSSPMetadata(ImmutableSet.of(ssp))).thenReturn(ImmutableMap.of(ssp, sspMetadata))
-    taskManager.stop()
+    taskManager.close()
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 4: Initialize again with an updated sspMetadata; Verify that it restores from the earliest offset
@@ -374,7 +374,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .build
 
     //Invoke test method
-    taskStorageManager.stop()
+    taskStorageManager.close()
 
     //Check conditions
     assertFalse("Offset file doesn't exist!", offsetFile.exists())
@@ -568,7 +568,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .build
 
     //Invoke test method
-    taskStorageManager.stop()
+    taskStorageManager.close()
 
     //Check conditions
     assertTrue("Offset file should not exist!", !offsetFilePath.exists())
@@ -919,7 +919,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
 
     val mockCheckpointManager = Mockito.mock(classOf[CheckpointManager])
     when(mockCheckpointManager.readLastCheckpoint(any(classOf[TaskName])))
-      .thenReturn(new Checkpoint(new util.HashMap[SystemStreamPartition, String]()))
+      .thenReturn(new CheckpointV1(new util.HashMap[SystemStreamPartition, String]()))
 
     val mockSSPMetadataCache = Mockito.mock(classOf[SSPMetadataCache])
 

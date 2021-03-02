@@ -22,7 +22,7 @@ package org.apache.samza.serializers
 import java.util
 
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.checkpoint.{CheckpointV1}
 import org.apache.samza.container.TaskName
 import org.apache.samza.system.SystemStreamPartition
 import org.junit.Assert._
@@ -37,9 +37,9 @@ class TestCheckpointV1Serde {
     var offsets = Map[SystemStreamPartition, String]()
     val systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(777))
     offsets += systemStreamPartition -> "1"
-    val deserializedOffsets = serde.fromBytes(serde.toBytes(new Checkpoint(offsets.asJava)))
-    assertEquals("1", deserializedOffsets.getInputOffsets.get(systemStreamPartition))
-    assertEquals(1, deserializedOffsets.getInputOffsets.size)
+    val deserializedOffsets = serde.fromBytes(serde.toBytes(new CheckpointV1(offsets.asJava)))
+    assertEquals("1", deserializedOffsets.getOffsets.get(systemStreamPartition))
+    assertEquals(1, deserializedOffsets.getOffsets.size)
   }
 
   @Test

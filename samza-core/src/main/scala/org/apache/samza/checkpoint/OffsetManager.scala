@@ -19,6 +19,7 @@
 
 package org.apache.samza.checkpoint
 
+import java.util
 import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
 
@@ -267,9 +268,9 @@ class OffsetManager(
     * ensure there are no concurrent updates to the offsets between when this method is
     * invoked and the corresponding call to [[OffsetManager.writeCheckpoint()]]
     */
-  def buildCheckpoint(taskName: TaskName): Checkpoint = {
+  def getLastProcessedOffsets(taskName: TaskName): util.HashMap[SystemStreamPartition, String] = {
     if (checkpointManager != null || checkpointListeners.nonEmpty) {
-      debug("Getting checkpoint offsets for taskName %s." format taskName)
+      debug("Getting last processed offsets to checkpoint for taskName %s." format taskName)
 
       val taskStartingOffsets = startingOffsets.getOrElse(taskName,
         throw new SamzaException("Couldn't find starting offsets for task: " + taskName))
@@ -283,10 +284,10 @@ class OffsetManager(
           .filterKeys(taskSSPs.contains)
 
       val modifiedTaskOffsets = getModifiedOffsets(taskStartingOffsets, taskLastProcessedOffsets)
-      new Checkpoint(new HashMap(modifiedTaskOffsets)) // Copy into new Map to prevent mutation
+      new util.HashMap(modifiedTaskOffsets)
     } else {
-      debug("Returning null checkpoint for taskName %s because no checkpoint manager/callback is defined." format taskName)
-      null
+      debug("Returning empty offsets for taskName %s because no checkpoint manager/callback is defined." format taskName)
+      new util.HashMap()
     }
   }
 
@@ -336,11 +337,13 @@ class OffsetManager(
     */
   def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
     if (checkpoint != null && (checkpointManager != null || checkpointListeners.nonEmpty)) {
-      debug("Writing checkpoint for taskName %s with offsets %s." format (taskName, checkpoint))
+      debug("Writing checkpoint for taskName: %s as: %s." format (taskName, checkpoint))
+
+      val sspToOffsets = checkpoint.getOffsets
 
       if(checkpointManager != null) {
         checkpointManager.writeCheckpoint(taskName, checkpoint)
-        val sspToOffsets = checkpoint.getInputOffsets
+
         if(sspToOffsets != null) {
           sspToOffsets.asScala.foreach {
             case (ssp, cp) => {
@@ -357,7 +360,7 @@ class OffsetManager(
       // changelog SSPs are not registered but may be present in the Checkpoint if transactional state checkpointing
       // is enabled.
       val registeredSSPs = systemStreamPartitions.getOrElse(taskName, Set[SystemStreamPartition]())
-      checkpoint.getInputOffsets.asScala
+      sspToOffsets.asScala
         .filterKeys(registeredSSPs.contains)
         .groupBy { case (ssp, _) => ssp.getSystem }.foreach {
           case (systemName:String, offsets: Map[SystemStreamPartition, String]) => {
@@ -449,10 +452,9 @@ class OffsetManager(
     val checkpoint = checkpointManager.readLastCheckpoint(taskName)
 
     if (checkpoint != null) {
-      Map(taskName -> checkpoint.getInputOffsets.asScala.toMap)
+      Map(taskName -> checkpoint.getOffsets.asScala.toMap)
     } else {
       info("Did not receive a checkpoint for taskName %s. Proceeding without a checkpoint." format taskName)
-
       Map(taskName -> Map())
     }
   }

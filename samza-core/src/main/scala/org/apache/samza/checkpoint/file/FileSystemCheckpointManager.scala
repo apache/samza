@@ -24,9 +24,7 @@ import java.io.FileNotFoundException
 import java.io.FileOutputStream
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.Checkpoint
-import org.apache.samza.checkpoint.CheckpointManager
-import org.apache.samza.checkpoint.CheckpointManagerFactory
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager, CheckpointManagerFactory, CheckpointV1}
 import org.apache.samza.config.{Config, FileSystemCheckpointManagerConfig, JobConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.metrics.MetricsRegistry
@@ -45,7 +43,7 @@ class FileSystemCheckpointManager(
   def getCheckpointFile(taskName: TaskName) = getFile(jobName, taskName, "checkpoints")
 
   def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
-    val bytes = serde.toBytes(checkpoint)
+    val bytes = serde.toBytes(checkpoint.asInstanceOf[CheckpointV1])
     val fos = new FileOutputStream(getCheckpointFile(taskName))
 
     fos.write(bytes)

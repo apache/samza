@@ -47,6 +47,10 @@ public class CheckpointV1 implements Checkpoint {
     return CHECKPOINT_VERSION;
   }
 
+  /**
+   * Gets a unmodifiable view of the current Samza input stream offsets.
+   * @return A unmodifiable view of a Map of Samza streams to their recorded offsets.
+   */
   @Override
   public Map<SystemStreamPartition, String> getOffsets() {
     return Collections.unmodifiableMap(offsets);

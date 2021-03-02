@@ -42,7 +42,7 @@ import org.apache.samza.system.ChangelogSSPIterator;
 public interface StorageEngine {
 
   /**
-   * Initiate storage engine
+   * Initialize the storage engine
    */
   default void init(ExternalContext externalContext, JobContext jobContext, ContainerContext containerContext) { };
 

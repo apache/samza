@@ -23,8 +23,6 @@ package org.apache.samza.checkpoint.kafka;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.Partition;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.storage.KafkaChangelogStateBackendFactory;
@@ -37,7 +35,6 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
   public static final short SCHEMA_VERSION = 1;
   public static final String SEPARATOR = ";";
   private static final String FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
-
 
   // One offset per SSP
   private final SystemStreamPartition ssp;

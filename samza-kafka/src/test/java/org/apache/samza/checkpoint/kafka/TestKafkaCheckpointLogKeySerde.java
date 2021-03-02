@@ -29,7 +29,7 @@ public class TestKafkaCheckpointLogKeySerde {
 
   @Test
   public void testBinaryCompatibility() {
-    KafkaCheckpointLogKey logKey1 = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE,
+    KafkaCheckpointLogKey logKey1 = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_V1_KEY_TYPE,
         new TaskName("Partition 0"), GroupByPartitionFactory.class.getCanonicalName());
     KafkaCheckpointLogKeySerde checkpointSerde = new KafkaCheckpointLogKeySerde();
 
@@ -43,7 +43,7 @@ public class TestKafkaCheckpointLogKeySerde {
 
   @Test
   public void testSerde() {
-    KafkaCheckpointLogKey key = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE,
+    KafkaCheckpointLogKey key = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_V1_KEY_TYPE,
         new TaskName("Partition 0"), GroupByPartitionFactory.class.getCanonicalName());
     KafkaCheckpointLogKeySerde checkpointSerde = new KafkaCheckpointLogKeySerde();
 
@@ -53,7 +53,7 @@ public class TestKafkaCheckpointLogKeySerde {
 
   @Test
   public void testCheckpointTypeV2() {
-    KafkaCheckpointLogKey keyV2 = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE_V2,
+    KafkaCheckpointLogKey keyV2 = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_V2_KEY_TYPE,
         new TaskName("Partition 0"), GroupByPartitionFactory.class.getCanonicalName());
     KafkaCheckpointLogKeySerde checkpointKeySerde = new KafkaCheckpointLogKeySerde();
 

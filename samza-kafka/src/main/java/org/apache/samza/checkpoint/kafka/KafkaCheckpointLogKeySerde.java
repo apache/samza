@@ -58,15 +58,10 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
   public KafkaCheckpointLogKey fromBytes(byte[] bytes) {
     try {
       LinkedHashMap<String, String> deserializedKey = MAPPER.readValue(bytes, LinkedHashMap.class);
-
       String key = deserializedKey.get(TYPE_FIELD);
-      if (!KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(key) &&
-          !KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE_V2.equals(key)) {
-        throw new IllegalArgumentException(String.format("Invalid key detected. Type of the key is %s", deserializedKey.get(TYPE_FIELD)));
-      }
 
-      return new KafkaCheckpointLogKey(key, new TaskName(deserializedKey.get(TASK_NAME_FIELD)), deserializedKey.get(SSP_GROUPER_FACTORY_FIELD)
-      );
+      return new KafkaCheckpointLogKey(key, new TaskName(deserializedKey.get(TASK_NAME_FIELD)),
+          deserializedKey.get(SSP_GROUPER_FACTORY_FIELD));
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception in de-serializing checkpoint bytes: %s",
           Arrays.toString(bytes)), e);

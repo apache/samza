@@ -23,8 +23,7 @@ import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.samza.util.Logging
 import java.util
-
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointV1}
+import org.apache.samza.checkpoint.CheckpointV1
 import org.apache.samza.container.TaskName
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.{Partition, SamzaException}
@@ -53,7 +52,7 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
   // and offset.  Jackson can't automatically serialize the SSP since it's not a POJO and this avoids
   // having to wrap it another class while maintaing readability.
 
-  def fromBytes(bytes: Array[Byte]): Checkpoint = {
+  def fromBytes(bytes: Array[Byte]): CheckpointV1 = {
     try {
       val jMap = jsonMapper.readValue(bytes, classOf[util.HashMap[String, util.HashMap[String, String]]])
 
@@ -73,7 +72,7 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
 
       val cpMap = jMap.values.asScala.map(deserializeJSONMap).toMap
 
-      new Checkpoint(cpMap.asJava)
+      new CheckpointV1(cpMap.asJava)
     }catch {
       case e : Exception =>
         warn("Exception while deserializing checkpoint: " + e)
@@ -82,8 +81,8 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
     }
   }
 
-  def toBytes(checkpoint: Checkpoint): Array[Byte] = {
-    val offsets = checkpoint.getInputOffsets
+  def toBytes(checkpoint: CheckpointV1): Array[Byte] = {
+    val offsets = checkpoint.getOffsets
     val asMap = new util.HashMap[String, util.HashMap[String, String]](offsets.size())
 
     offsets.asScala.foreach {

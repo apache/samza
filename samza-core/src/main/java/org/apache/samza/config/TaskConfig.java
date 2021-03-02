@@ -19,6 +19,8 @@
 
 package org.apache.samza.config;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -107,9 +109,14 @@ public class TaskConfig extends MapConfig {
   public static final String CHECKPOINT_MANAGER_FACTORY = "task.checkpoint.factory";
   // standby containers use this flag to indicate that checkpoints will be polled continually, rather than only once at startup like in an active container
   public static final String INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ = "samza.internal.task.checkpoint.consumer.stop.after.first.read";
-  // use checkpoint v2 for using StateCheckpointMarkers
-  public static final String READ_CHECKPOINT_V2_ENABLED = "task.checkpoint.format.v2.enabled";
-  public static final boolean DEFAULT_READ_CHECKPOINT_V2_ENABLED = false;
+
+  // list of checkpoint versions to write during processing
+  public static final String CHECKPOINT_WRITE_VERSIONS = "task.checkpoint.write.versions";
+  public static final List<String> DEFAULT_CHECKPOINT_WRITE_VERSIONS = ImmutableList.of("1", "2");
+
+  // checkpoint version to read during container startup
+  public static final String CHECKPOINT_READ_VERSION = "task.checkpoint.read.version";
+  public static final short DEFAULT_CHECKPOINT_READ_VERSION = 1;
 
   public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
@@ -318,8 +325,15 @@ public class TaskConfig extends MapConfig {
     }
   }
 
-  public boolean getReadCheckpointV2Enabled() {
-    return getBoolean(READ_CHECKPOINT_V2_ENABLED, DEFAULT_READ_CHECKPOINT_V2_ENABLED);
+  public List<Short> getCheckpointWriteVersions() {
+    return getList(CHECKPOINT_WRITE_VERSIONS, DEFAULT_CHECKPOINT_WRITE_VERSIONS)
+        .stream().map(Short::valueOf).collect(Collectors.toList());
+  }
+
+  // TODO HIGH dchen add separate configs for checkpointV2.write.enabled (default true)
+  //  and checkpointV2.read.enabled (default false).
+  public short getCheckpointReadVersion() {
+    return getShort(CHECKPOINT_READ_VERSION, DEFAULT_CHECKPOINT_READ_VERSION);
   }
 
   public boolean getTransactionalStateCheckpointEnabled() {

@@ -22,6 +22,7 @@ package org.apache.samza.storage;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import javax.annotation.Nullable;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
@@ -42,10 +43,10 @@ import org.apache.samza.checkpoint.StateCheckpointMarker;
 public interface TaskBackupManager {
 
   /**
-   * Initiates the TaskBackupManager instance
-   * @param checkpoint Last recorded checkpoint from the CheckpointManager or null if no checkpoint was found
+   * Initializes the TaskBackupManager instance
+   * @param checkpoint Last recorded checkpoint from the CheckpointManager or null if no last checkpoint was found
    */
-  default void start(Checkpoint checkpoint) {}
+  void init(@Nullable Checkpoint checkpoint);
 
   /**
    * Commit operation that is synchronous to processing
@@ -60,10 +61,12 @@ public interface TaskBackupManager {
    * @param stateCheckpointMarkers The map of storename to checkpoint makers returned by the snapshot
    * @return The future of storename to checkpoint map of the uploaded local store
    */
-  CompletableFuture<Map<String, StateCheckpointMarker>> upload(CheckpointId checkpointId, Map<String, StateCheckpointMarker> stateCheckpointMarkers);
+  CompletableFuture<Map<String, StateCheckpointMarker>> upload(CheckpointId checkpointId,
+      Map<String, StateCheckpointMarker> stateCheckpointMarkers);
 
   /**
-   * Persist the state locally to the file system
+   * Occurs after the state has been persisted. Writes a copy of the persisted StateCheckpointMarkers from
+   * {@link #upload(CheckpointId, Map)} locally to the file system on disk
    * @param checkpointId The id of the checkpoint to be committed
    * @param stateCheckpointMarkers Uploaded storename to checkpoints markers to be persisted locally
    */
@@ -72,12 +75,13 @@ public interface TaskBackupManager {
   /**
    * Cleanup any local or remote state for obsolete checkpoint information that are older than checkpointId
    * @param checkpointId The id of the latest successfully committed checkpoint
+   * @param stateCheckpointMarkers The last checkpointed Storename to StateCheckpointMarker map
    */
-  void cleanUp(CheckpointId checkpointId);
+  void cleanUp(CheckpointId checkpointId, Map<String, StateCheckpointMarker> stateCheckpointMarkers);
 
   /**
    * Shutdown hook the backup manager to cleanup any allocated resources
    */
-  void stop();
+  void close();
 
 }

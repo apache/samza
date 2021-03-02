@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
@@ -40,7 +39,7 @@ import static com.google.common.base.Preconditions.*;
  * The Serde for CheckpointV2 which includes CheckpointIDs and StateCheckpointMarkers.
  * CheckpointId serde uses {@link CheckpointId#toString()} and {@link CheckpointId#fromString(String)}.
  * StateCheckpointMarkers uses {@link StateCheckpointMarkerSerde}.
- * JSON Serde will be used to wrap the {@link Checkpoint} using the {@link JsonSerdeV2} by converting the Checkpoint
+ * JSON Serde will be used to wrap the {@link CheckpointV2} using the {@link JsonSerdeV2} by converting the Checkpoint
  * to a {@link JsonCheckpoint}.
  * The following will be the representation of the data format:
  * <code>
@@ -63,6 +62,7 @@ import static com.google.common.base.Preconditions.*;
  */
 public class CheckpointV2Serde implements Serde<CheckpointV2> {
   private static final StateCheckpointMarkerSerde SCM_SERDE = new StateCheckpointMarkerSerde();
+
   private final Serde<JsonCheckpoint> jsonCheckpointSerde;
 
   public CheckpointV2Serde() {
@@ -114,6 +114,7 @@ public class CheckpointV2Serde implements Serde<CheckpointV2> {
       Map<String, Map<String, String>> inputOffsets = new HashMap<>();
       Map<String, List<String>> storeStateCheckpointMarkers = new HashMap<>();
 
+      // TODO HIGH dchen change format to write specific serdes similar to Samza Object Mapper
       // Create input offsets map similar to CheckpointSerde
       // (ssp -> (system, stream, partition, offset))
       checkpoint.getOffsets().forEach((ssp, offset) -> {

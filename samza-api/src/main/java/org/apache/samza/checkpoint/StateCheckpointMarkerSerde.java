@@ -39,9 +39,9 @@ public class StateCheckpointMarkerSerde<T extends StateCheckpointMarker> {
     try {
       StateBackendFactory stateBackendFactory =
           (StateBackendFactory) Class.forName(payload.getFactoryName()).newInstance();
-      StateCheckpointPayloadSerde payloadSerde =  stateBackendFactory.getStateCheckpointPayloadSerde();
+      StateCheckpointPayloadSerde<T> payloadSerde = stateBackendFactory.getStateCheckpointPayloadSerde();
       return SCHEMA_VERSION + SEPARATOR +
-          stateBackendFactory.getClass().getName() + SEPARATOR +
+          payloadSerde.getClass().getName() + SEPARATOR +
           payloadSerde.serialize(payload);
     } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
       throw new SamzaException("State backend factory serde not found for class name: " + payload.getFactoryName(), e);
@@ -62,11 +62,11 @@ public class StateCheckpointMarkerSerde<T extends StateCheckpointMarker> {
     if (parts.length != PARTS_COUNT) {
       throw new IllegalArgumentException("Invalid state checkpoint marker: " + serializedSCM);
     }
-    short scmSchemaVersion =Short.parseShort(parts[0]);
+    short scmSchemaVersion = Short.parseShort(parts[0]);
     if (SCHEMA_VERSION != scmSchemaVersion) {
       throw new SamzaException(
           String.format("StateCheckpointMarker supported schema version does not match serialized " +
-                  "state checkpoint marker schema version. Supported version: %d. Found version: %d",
+              "state checkpoint marker schema version. Supported version: %d. Found version: %d",
               SCHEMA_VERSION, scmSchemaVersion));
     }
     String payloadSerdeClassName = parts[1];

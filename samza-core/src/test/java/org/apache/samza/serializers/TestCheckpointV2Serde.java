@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
-import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.MockStateCheckpointMarker;
@@ -35,7 +34,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 
-public class TestStateCheckpointSerde {
+public class TestCheckpointV2Serde {
 
   @Test
   public void TestCheckpointV2Serde() {

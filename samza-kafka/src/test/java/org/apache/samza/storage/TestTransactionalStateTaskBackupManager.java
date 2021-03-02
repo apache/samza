@@ -534,7 +534,7 @@ public class TestTransactionalStateTaskBackupManager {
         tsm = new KafkaTransactionalStateTaskBackupManager(taskName, containerStorageManager.getAllStores(taskName),
         changelogSystemStreams, systemAdmins, loggedStoreBaseDir, changelogPartition, taskMode, storageManagerUtil);
 
-    tsm.cleanUp(CheckpointId.create());
+    tsm.cleanUp(CheckpointId.create(), null);
   }
 
   private KafkaTransactionalStateTaskBackupManager buildTSM(ContainerStorageManager csm, Partition changelogPartition,

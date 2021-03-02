@@ -100,7 +100,7 @@ class TestOffsetManager {
     }
     startpointManagerUtil.getStartpointManager.start
     assertFalse(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition)) // Startpoint should delete after checkpoint commit
-    val expectedCheckpoint = new Checkpoint(Map(systemStreamPartition -> "47").asJava)
+    val expectedCheckpoint = new CheckpointV1(Map(systemStreamPartition -> "47").asJava)
     assertEquals(expectedCheckpoint, checkpointManager.readLastCheckpoint(taskName))
     startpointManagerUtil.stop
   }
@@ -260,7 +260,7 @@ class TestOffsetManager {
     val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
     val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
-    val checkpoint = new Checkpoint(Map(systemStreamPartition -> "45").asJava)
+    val checkpoint = new CheckpointV1(Map(systemStreamPartition -> "45").asJava)
     val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
     val config = new MapConfig(Map(
       "systems.test-system.samza.offset.default" -> "oldest",
@@ -289,7 +289,7 @@ class TestOffsetManager {
       partition1 -> new SystemStreamPartitionMetadata("0", "1", "2"),
       partition2 -> new SystemStreamPartitionMetadata("3", "4", "5")).asJava)
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
-    val checkpoint = new Checkpoint(Map(systemStreamPartition1 -> "45").asJava)
+    val checkpoint = new CheckpointV1(Map(systemStreamPartition1 -> "45").asJava)
     // Checkpoint manager only has partition 1.
     val checkpointManager = getCheckpointManager(systemStreamPartition1, taskName1)
     val startpointManagerUtil = getStartpointManagerUtil()
@@ -397,7 +397,7 @@ class TestOffsetManager {
     val testStreamMetadata2 = new SystemStreamMetadata(systemStream2.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata, systemStream2->testStreamMetadata2)
     val config = new MapConfig
-    val checkpointManager = getCheckpointManager1(new Checkpoint(Map(systemStreamPartition -> "45", systemStreamPartition2 -> "100").asJava),
+    val checkpointManager = getCheckpointManager1(new CheckpointV1(Map(systemStreamPartition -> "45", systemStreamPartition2 -> "100").asJava),
                                                  taskName)
     val startpointManagerUtil = getStartpointManagerUtil()
     val consumer = new SystemConsumerWithCheckpointCallback
@@ -422,9 +422,9 @@ class TestOffsetManager {
     // Should get offset 45 back from the checkpoint manager, which is last processed, and system admin should return 46 as starting offset.
     assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition))
     val offsetsToCheckpoint = new java.util.HashMap[SystemStreamPartition, String]()
-    offsetsToCheckpoint.putAll(offsetManager.buildCheckpoint(taskName).getInputOffsets)
+    offsetsToCheckpoint.putAll(offsetManager.getLastProcessedOffsets(taskName))
     offsetsToCheckpoint.put(unregisteredSystemStreamPartition, "50")
-    offsetManager.writeCheckpoint(taskName, new Checkpoint(offsetsToCheckpoint))
+    offsetManager.writeCheckpoint(taskName, new CheckpointV1(offsetsToCheckpoint))
 
     intercept[IllegalStateException] {
       // StartpointManager should stop after last fan out is removed
@@ -498,15 +498,15 @@ class TestOffsetManager {
 
     offsetManager.update(taskName, systemStreamPartition, "46")
     // Get checkpoint snapshot like we do at the beginning of TaskInstance.commit()
-    val checkpoint46 = offsetManager.buildCheckpoint(taskName)
+    val checkpoint46 = offsetManager.getLastProcessedOffsets(taskName)
     offsetManager.update(taskName, systemStreamPartition, "47") // Offset updated before checkpoint
-    offsetManager.writeCheckpoint(taskName, checkpoint46)
+    offsetManager.writeCheckpoint(taskName, new CheckpointV1(checkpoint46))
     assertEquals(Some("47"), offsetManager.getLastProcessedOffset(taskName, systemStreamPartition))
     assertEquals("46", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartition).getValue)
 
     // Now write the checkpoint for the latest offset
-    val checkpoint47 = offsetManager.buildCheckpoint(taskName)
-    offsetManager.writeCheckpoint(taskName, checkpoint47)
+    val checkpoint47 = offsetManager.getLastProcessedOffsets(taskName)
+    offsetManager.writeCheckpoint(taskName, new CheckpointV1(checkpoint47))
     startpointManagerUtil.stop
     assertEquals(Some("47"), offsetManager.getLastProcessedOffset(taskName, systemStreamPartition))
     assertEquals("47", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartition).getValue)
@@ -581,7 +581,7 @@ class TestOffsetManager {
 
   // Utility method to create and write checkpoint in one statement
   def checkpoint(offsetManager: OffsetManager, taskName: TaskName): Unit = {
-    offsetManager.writeCheckpoint(taskName, offsetManager.buildCheckpoint(taskName))
+    offsetManager.writeCheckpoint(taskName, new CheckpointV1(offsetManager.getLastProcessedOffsets(taskName)))
   }
 
   class SystemConsumerWithCheckpointCallback extends SystemConsumer with CheckpointListener{
@@ -601,7 +601,7 @@ class TestOffsetManager {
   }
 
   private def getCheckpointManager(systemStreamPartition: SystemStreamPartition, taskName:TaskName = new TaskName("taskName")) = {
-    getCheckpointManager1(new Checkpoint(Map(systemStreamPartition -> "45").asJava), taskName)
+    getCheckpointManager1(new CheckpointV1(Map(systemStreamPartition -> "45").asJava), taskName)
   }
 
   private def getCheckpointManager1(checkpoint: Checkpoint, taskName:TaskName = new TaskName("taskName")) = {
@@ -618,7 +618,7 @@ class TestOffsetManager {
       def stop { isStopped = true }
 
       // Only for testing purposes - not present in actual checkpoint manager
-      def getOffets = Map(taskName -> checkpoint.getInputOffsets.asScala.toMap)
+      def getOffets = Map(taskName -> checkpoint.asInstanceOf[CheckpointV1].getOffsets.asScala.toMap)
     }
   }
 

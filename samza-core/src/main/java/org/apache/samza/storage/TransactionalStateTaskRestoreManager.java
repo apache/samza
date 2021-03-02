@@ -109,11 +109,11 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
 
   @Override
   public void init(Checkpoint checkpoint) {
-    Map<String, String> storeOffset = new HashMap<>();
+    Map<String, String> checkpointedChangelogOffsets = getCheckpointedChangelogOffsets(checkpoint);
     currentChangelogOffsets = getCurrentChangelogOffsets(taskModel, storeChangelogs, sspMetadataCache);
 
     this.storeActions = getStoreActions(taskModel, storeEngines, storeChangelogs,
-        storeOffset, currentChangelogOffsets, systemAdmins, storageManagerUtil,
+        checkpointedChangelogOffsets, currentChangelogOffsets, systemAdmins, storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock);
 
     setupStoreDirs(taskModel, storeEngines, storeActions, storageManagerUtil, fileUtil,
@@ -245,11 +245,11 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       String checkpointedOffset = null;  // can be null if no message, or message has null offset
       long timeSinceLastCheckpointInMs = Long.MAX_VALUE;
       if (StringUtils.isNotBlank(checkpointMessage)) {
-        // TODO HIGH dchen fix Checkpoint version handling
+        // TODO HIGH dchen fix Checkpoint version handling with stateCheckpointMarker
         KafkaStateChangelogOffset kafkaStateCheckpointMarker = KafkaStateChangelogOffset.fromString(checkpointMessage);
         checkpointedOffset = kafkaStateCheckpointMarker.getChangelogOffset();
         timeSinceLastCheckpointInMs = System.currentTimeMillis() -
-            kafkaStateCheckpointMarker.getCheckpointId().getMillis(); //TODO change for KafkaStateCheckpointMarker
+            kafkaStateCheckpointMarker.getCheckpointId().getMillis();
       }
 
       // if the clean.store.start config is set, delete current and checkpoint dirs, restore from oldest offset to checkpointed
@@ -571,9 +571,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       Map<String, List<StateCheckpointMarker>> storeSCMs = ((CheckpointV2) checkpoint).getStateCheckpointMarkers();
       storeSCMs.forEach((storeName, scms) -> {
         String offsetMessage = null;
-        // TODO HIGH dchen why would deserialization happen here? Shouldn't it already be deserialized at this point?
-        // we should just pick the deserialized SCM with the right factory name
-        // TODO dchen1 deserialize this with KafkaStateCheckpointMarker after moving modules
+        // TODO dchen1 deserialize this with KafkaStateCheckpointMarker after moving modules,
+        // should return Map<String, StateCheckpointMarker>
         checkpointedChangelogOffsets.put(storeName, null);
       });
     } else if (checkpoint instanceof CheckpointV1) {

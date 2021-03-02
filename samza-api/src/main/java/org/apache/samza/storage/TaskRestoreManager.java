@@ -19,9 +19,7 @@
 
 package org.apache.samza.storage;
 
-import java.util.Map;
 import org.apache.samza.checkpoint.Checkpoint;
-import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
@@ -30,12 +28,12 @@ import org.apache.samza.system.SystemStreamPartition;
 public interface TaskRestoreManager {
 
   /**
-   * Init state resources such as file directories.
+   * Initialize state resources such as store directories.
    */
   void init(Checkpoint checkpoint);
 
   /**
-   * Restore state from checkpoints, state snapshots and changelog.
+   * Restore state from checkpoints, state snapshots and changelogs.
    * Currently, store restoration happens on a separate thread pool within {@code ContainerStorageManager}. In case of
    * interrupt/shutdown signals from {@code SamzaContainer}, {@code ContainerStorageManager} may interrupt the restore
    * thread.
@@ -53,4 +51,5 @@ public interface TaskRestoreManager {
    */
   void stopPersistentStores();
 
+  // TODO HIGH pmaheshw add close to mirror init? What's the difference b/w close and stopPersistentStores()?
 }

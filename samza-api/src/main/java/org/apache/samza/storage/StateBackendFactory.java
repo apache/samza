@@ -27,7 +27,7 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.util.Clock;
 
-
+// TODO low dchen javadocs
 public interface StateBackendFactory {
   TaskBackupManager getBackupManager(JobModel jobModel,
       ContainerModel containerModel,

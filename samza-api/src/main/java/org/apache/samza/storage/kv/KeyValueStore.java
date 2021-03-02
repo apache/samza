@@ -40,7 +40,7 @@ import org.apache.samza.context.JobContext;
 public interface KeyValueStore<K, V> {
 
   /**
-   * Initiates the KeyValueStore
+   * Initializes the KeyValueStore
    *
    * @param externalContext any external store required for initialization
    * @param jobContext context of the job the KeyValueStore is in

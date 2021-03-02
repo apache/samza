@@ -20,8 +20,18 @@
 package org.apache.samza.checkpoint;
 
 public interface StateCheckpointPayloadSerde<T extends StateCheckpointMarker> {
-
+  /**
+   * Serializes the payload of the StateCheckpointMarker
+   * @param payload StateCheckpointMarker to be serialized
+   * @return String representation of the StateCheckpointMarker
+   */
   String serialize(T payload);
 
+  /**
+   * Deserializes the payload of the StateCheckpointMarker that can be used by the respective
+   * Restore and Backup manager based on the StateBackendFactory
+   * @param data String representation of the StateCheckpointMarker to be deserialized
+   * @return StateCheckpointMarker build from the data
+   */
   T deserialize(String data);
 }

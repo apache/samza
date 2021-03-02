@@ -33,9 +33,11 @@ public interface Checkpoint {
   /**
    * Gets a unmodifiable view of the current Samza stream offsets.
    * The return value differs based on the Checkpoint version:
-   * <li>For CheckpointV1 returns the offsets including the input ssp-offsets mapping and
-   * changelog ssp-KafkaStateChangelogOffset</li>
-   * <li>For CheckpointV2 returns the input offsets only.</li>
+   * <ol>
+   *    <li>For CheckpointV1 returns the offsets including the input ssp-offsets mapping and
+   *      changelog ssp-KafkaStateChangelogOffset</li>
+   *    <li>For CheckpointV2 returns the input offsets only.</li>
+   * </ol>
    * @return A unmodifiable view of a Map of Samza streams to their recorded offsets.
    */
   Map<SystemStreamPartition, String> getOffsets();

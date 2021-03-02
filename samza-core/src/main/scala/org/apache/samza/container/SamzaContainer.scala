@@ -538,7 +538,7 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val stateStorageBackendFactory = ReflectionUtil.getObj(storageConfig.getStateBackupManager, classOf[StateBackendFactory])
+    val stateStorageBackendFactory = ReflectionUtil.getObj(storageConfig.getStateBackendFactory, classOf[StateBackendFactory])
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = taskModels
@@ -561,10 +561,13 @@ object SamzaContainer extends Logging {
       val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
+      // TODO HIGH dchen create map of stateStorageBackendFactory to BackupManager based on configs
+      val taskBackupManagerMap = new util.HashMap[String, TaskBackupManager]()
       val taskBackupManager = stateStorageBackendFactory.getBackupManager(jobModel, containerModel,
         taskModel, containerStorageManager.getAllStores(taskName), config, new SystemClock)
+      taskBackupManagerMap.put(stateStorageBackendFactory.getClass.getName, taskBackupManager)
 
-      val commitManager = new TaskStorageCommitManager(taskName, taskBackupManager, checkpointManager)
+      val commitManager = new TaskStorageCommitManager(taskName, taskBackupManagerMap, checkpointManager)
 
       val tableManager = new TableManager(config)
 

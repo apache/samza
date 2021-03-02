@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
@@ -40,20 +41,22 @@ public class TaskStorageCommitManager {
   private static final Logger LOG = LoggerFactory.getLogger(TaskStorageCommitManager.class);
 
   private final TaskName taskName;
-  private final TaskBackupManager storageBackupManager;
   private final CheckpointManager checkpointManager;
+  private final Map<String, TaskBackupManager> backendFactoryBackupManagerMap;
 
-  public TaskStorageCommitManager(TaskName taskName, TaskBackupManager storageBackupManager, CheckpointManager checkpointManager) {
+  public TaskStorageCommitManager(TaskName taskName, Map<String, TaskBackupManager> backendFactoryBackupManagerMap, CheckpointManager checkpointManager) {
     this.taskName = taskName;
-    this.storageBackupManager = storageBackupManager;
+    this.backendFactoryBackupManagerMap = backendFactoryBackupManagerMap;
     this.checkpointManager = checkpointManager;
   }
 
   public void start() {
     if (checkpointManager != null) {
-      storageBackupManager.start(checkpointManager.readLastCheckpoint(taskName));
+      Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
+      LOG.debug("Last checkpoint on start for task: {} is: {}", taskName, checkpoint);
+      backendFactoryBackupManagerMap.values().forEach(storageBackupManager -> storageBackupManager.init(checkpoint));
     } else {
-      storageBackupManager.start(null);
+      backendFactoryBackupManagerMap.values().forEach(storageBackupManager -> storageBackupManager.init(null));
     }
   }
 
@@ -62,37 +65,60 @@ public class TaskStorageCommitManager {
    * @return Committed StoreName to StateCheckpointMarker mappings of the committed SSPs
    */
   public Map<String, List<StateCheckpointMarker>> commit(TaskName taskName, CheckpointId checkpointId) {
-    Map<String, StateCheckpointMarker> snapshot = storageBackupManager.snapshot(checkpointId);
-    LOG.trace("Returned StateCheckpointMarkers from snapshot: {} for taskName: {} checkpoint id: {}", snapshot, taskName, checkpointId);
-    CompletableFuture<Map<String, StateCheckpointMarker>>
-        uploadFuture = storageBackupManager.upload(checkpointId, snapshot);
+    List<Map<String, StateCheckpointMarker>> stateCheckpoints = new ArrayList<>();
+    backendFactoryBackupManagerMap.values().forEach(storageBackupManager -> {
+      Map<String, StateCheckpointMarker> snapshotSCMs = storageBackupManager.snapshot(checkpointId);
+      LOG.debug("Found snapshot SCMs for taskName: {} checkpoint id: {} to be: {}", taskName, checkpointId, snapshotSCMs);
 
-    try {
-      // TODO: Make async with andThen and add thread management for concurrency and add timeouts
-      Map<String, StateCheckpointMarker> uploadMap = uploadFuture.get();
-      LOG.trace("Returned StateCheckpointMarkers from upload: {} for taskName: {} checkpoint id: {}", uploadMap, taskName, checkpointId);
-      if (uploadMap != null) {
-        LOG.trace("Persisting stores to file system for taskName: {} with checkpoint id: {}", taskName, checkpointId);
-        storageBackupManager.persistToFilesystem(checkpointId, uploadMap);
+      CompletableFuture<Map<String, StateCheckpointMarker>> uploadFuture = storageBackupManager.upload(checkpointId, snapshotSCMs);
+
+      try {
+        // TODO: HIGH dchen Make async with andThen and add thread management for concurrency and add timeouts,
+        // need to make upload theads independent
+        Map<String, StateCheckpointMarker> uploadSCMs = uploadFuture.get();
+        LOG.debug("Found uplaod SCMs for taskName: {} checkpoint id: {} to be: {}", taskName, checkpointId, uploadSCMs);
+
+        if (uploadSCMs != null) {
+          LOG.debug("Persisting SCMs to store checkpoint directory for taskName: {} with checkpoint id: {}", taskName,
+              checkpointId);
+          storageBackupManager.persistToFilesystem(checkpointId, uploadSCMs);
+        }
+
+        stateCheckpoints.add(uploadSCMs);
+      } catch (Exception e) {
+        throw new SamzaException(
+            "Error uploading StateCheckpointMarkers, state commit upload phase could not be completed for taskName", e);
       }
-
-      // TODO: call commit on multiple backup managers when available
-      return mergeCheckpoints(taskName, Collections.singletonList(uploadMap));
-    } catch (Exception e) {
-      throw new SamzaException("Upload commit portion could not be completed for taskName", e);
-    }
+    });
+    return mergeCheckpoints(taskName, stateCheckpoints);
   }
 
-  public void cleanUp(CheckpointId checkpointId) {
-    if (storageBackupManager != null) {
-      storageBackupManager.cleanUp(checkpointId);
-    }
+  public void cleanUp(CheckpointId checkpointId, Map<String, List<StateCheckpointMarker>> stateCheckpointMarkers) {
+    Map<String, Map<String, StateCheckpointMarker>> factoryStateCheckpointsMap = new HashMap<>();
+    // The number of backend factories is equal to the length of the stateCheckpointMarker per store list
+    backendFactoryBackupManagerMap.keySet().forEach((backendFactory) -> {
+      factoryStateCheckpointsMap.put(backendFactory, new HashMap<>());
+    });
+    stateCheckpointMarkers.forEach((storeName, scmList) -> {
+      scmList.forEach(scm -> {
+        factoryStateCheckpointsMap.get(scm.getFactoryName()).put(storeName, scm);
+      });
+    });
+
+    factoryStateCheckpointsMap.forEach((backendFactoryName, stateCheckpointMarkerMap) -> {
+      TaskBackupManager storageBackupManager = backendFactoryBackupManagerMap.get(backendFactoryName);
+      if (storageBackupManager != null) {
+        storageBackupManager.cleanUp(checkpointId, stateCheckpointMarkerMap);
+      }
+    });
   }
 
   public void close() {
-    if (storageBackupManager != null) {
-      storageBackupManager.stop();
-    }
+    backendFactoryBackupManagerMap.values().forEach(storageBackupManager -> {
+      if (storageBackupManager != null) {
+        storageBackupManager.close();
+      }
+    });
   }
 
   private Map<String, List<StateCheckpointMarker>> mergeCheckpoints(TaskName taskName, List<Map<String, StateCheckpointMarker>> stateCheckpoints) {
