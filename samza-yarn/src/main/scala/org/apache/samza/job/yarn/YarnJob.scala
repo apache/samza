@@ -194,6 +194,8 @@ object YarnJob extends Logging {
     Option.apply(yarnConfig.getAMJavaHome).foreach {
       amJavaHome => envMapBuilder += ShellCommandConfig.ENV_JAVA_HOME -> amJavaHome
     }
+    envMapBuilder += ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR ->
+      Util.envVarEscape(config.get(ShellCommandConfig.ADDITIONAL_CLASSPATH_DIR, ""))
     envMapBuilder.result()
   }
 

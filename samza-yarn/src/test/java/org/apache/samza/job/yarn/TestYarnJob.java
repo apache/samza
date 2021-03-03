@@ -65,7 +65,8 @@ public class TestYarnJob {
     Map<String, String> expected = ImmutableMap.of(
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS, Util.envVarEscape(amJvmOptions),
-        ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "false");
+        ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "false",
+        ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
@@ -85,7 +86,8 @@ public class TestYarnJob {
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS, "",
         ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "true",
-        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib");
+        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib",
+        ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
@@ -106,7 +108,8 @@ public class TestYarnJob {
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS, "",
         ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "false",
-        ShellCommandConfig.ENV_JAVA_HOME, "/some/path/to/java/home");
+        ShellCommandConfig.ENV_JAVA_HOME, "/some/path/to/java/home",
+        ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
@@ -126,7 +129,30 @@ public class TestYarnJob {
         ShellCommandConfig.ENV_SUBMISSION_CONFIG, expectedSubmissionConfig,
         ShellCommandConfig.ENV_JAVA_OPTS, "",
         ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "true",
-        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib");
+        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib",
+        ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
+    assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
+        YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
+  }
+
+  @Test
+  public void testBuildJobWithAdditionalClassPath() throws IOException {
+    Config config = new MapConfig(new ImmutableMap.Builder<String, String>()
+        .put(JobConfig.JOB_NAME, "jobName")
+        .put(JobConfig.JOB_ID, "jobId")
+        .put(JobConfig.CONFIG_LOADER_FACTORY, "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory")
+        .put(YarnConfig.AM_JVM_OPTIONS, "")
+        .put(JobConfig.JOB_SPLIT_DEPLOYMENT_ENABLED, "true")
+        .put(ShellCommandConfig.ADDITIONAL_CLASSPATH_DIR, "./sqlapp/lib/*")
+        .build());
+    String expectedSubmissionConfig = Util.envVarEscape(SamzaObjectMapper.getObjectMapper()
+        .writeValueAsString(config));
+    Map<String, String> expected = ImmutableMap.of(
+        ShellCommandConfig.ENV_SUBMISSION_CONFIG, expectedSubmissionConfig,
+        ShellCommandConfig.ENV_JAVA_OPTS, "",
+        ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "true",
+        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib",
+        ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "./sqlapp/lib/*");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
