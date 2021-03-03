@@ -28,14 +28,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import kafka.common.TopicAndPartition;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.IncomingMessageEnvelope;
@@ -358,7 +357,6 @@ public class KafkaConsumerProxy<K, V> {
   }
 
   private void updateMetrics(ConsumerRecord<K, V> r, TopicPartition tp) {
-    TopicAndPartition tap = KafkaSystemConsumer.toTopicAndPartition(tp);
     SystemStreamPartition ssp = new SystemStreamPartition(systemName, tp.topic(), new Partition(tp.partition()));
 
     Long lag = latestLags.get(ssp);
@@ -374,11 +372,11 @@ public class KafkaConsumerProxy<K, V> {
     long highWatermark = recordOffset + currentSSPLag; // derived value for the highwatermark
 
     int size = getRecordSize(r);
-    kafkaConsumerMetrics.incReads(tap);
-    kafkaConsumerMetrics.incBytesReads(tap, size);
-    kafkaConsumerMetrics.setOffsets(tap, recordOffset);
+    kafkaConsumerMetrics.incReads(tp);
+    kafkaConsumerMetrics.incBytesReads(tp, size);
+    kafkaConsumerMetrics.setOffsets(tp, recordOffset);
     kafkaConsumerMetrics.incClientBytesReads(metricName, size);
-    kafkaConsumerMetrics.setHighWatermarkValue(tap, highWatermark);
+    kafkaConsumerMetrics.setHighWatermarkValue(tp, highWatermark);
   }
 
   private void moveMessagesToTheirQueue(SystemStreamPartition ssp, List<IncomingMessageEnvelope> envelopes) {
@@ -437,7 +435,7 @@ public class KafkaConsumerProxy<K, V> {
     for (Map.Entry<SystemStreamPartition, Long> e : nextOffsets.entrySet()) {
       SystemStreamPartition ssp = e.getKey();
       Long offset = e.getValue();
-      TopicAndPartition tp = new TopicAndPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
+      TopicPartition tp = new TopicPartition(ssp.getStream(), ssp.getPartition().getPartitionId());
       Long lag = latestLags.get(ssp);
       LOG.trace("Latest offset of {} is  {}; lag = {}", ssp, offset, lag);
       if (lag != null && offset != null && lag >= 0) {

@@ -18,10 +18,9 @@
  */
 package org.apache.samza.test.harness
 
-import kafka.utils.{CoreUtils, Logging, ZkUtils}
-import kafka.zk.{EmbeddedZookeeper, KafkaZkClient, ZkFourLetterWords}
+import kafka.utils.{CoreUtils, Logging}
+import kafka.zk.{EmbeddedZookeeper, ZkFourLetterWords}
 import org.junit.{After, Before}
-import org.apache.kafka.common.security.JaasUtils
 import javax.security.auth.login.Configuration
 /**
  * Zookeeper test harness.
@@ -33,7 +32,6 @@ abstract class AbstractZookeeperTestHarness extends Logging {
   val zkConnectionTimeout = 60000
   val zkSessionTimeout = 60000
 
-  var zkUtils: ZkUtils = null
   var zookeeper: EmbeddedZookeeper = null
 
   def zkPort: Int = zookeeper.port
@@ -49,13 +47,10 @@ abstract class AbstractZookeeperTestHarness extends Logging {
       */
     zookeeper.zookeeper.setMinSessionTimeout(120000)
     zookeeper.zookeeper.setMaxSessionTimeout(180000)
-    zkUtils = ZkUtils(zkConnect, zkSessionTimeout, zkConnectionTimeout, JaasUtils.isZkSecurityEnabled)
   }
 
   @After
   def tearDown() {
-    if (zkUtils != null)
-      CoreUtils.swallow(zkUtils.close(), null)
     if (zookeeper != null)
       CoreUtils.swallow(zookeeper.shutdown(), null)
 
