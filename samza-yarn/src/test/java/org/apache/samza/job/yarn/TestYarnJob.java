@@ -65,7 +65,8 @@ public class TestYarnJob {
     Map<String, String> expected = ImmutableMap.of(
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS, Util.envVarEscape(amJvmOptions),
-        ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "false");
+        ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "false",
+        ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
@@ -85,7 +86,8 @@ public class TestYarnJob {
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS, "",
         ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "true",
-        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib");
+        ShellCommandConfig.ENV_APPLICATION_LIB_DIR, "./__package/lib",
+        ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
@@ -106,7 +108,8 @@ public class TestYarnJob {
         ShellCommandConfig.ENV_COORDINATOR_SYSTEM_CONFIG, expectedCoordinatorStreamConfigStringValue,
         ShellCommandConfig.ENV_JAVA_OPTS, "",
         ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED, "false",
-        ShellCommandConfig.ENV_JAVA_HOME, "/some/path/to/java/home");
+        ShellCommandConfig.ENV_JAVA_HOME, "/some/path/to/java/home",
+        ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
     assertEquals(expected, JavaConverters.mapAsJavaMapConverter(
         YarnJob$.MODULE$.buildEnvironment(config, new YarnConfig(config), new JobConfig(config))).asJava());
   }
