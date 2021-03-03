@@ -22,10 +22,12 @@ package org.apache.samza.container
 import java.util
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
+import java.util.function.{BiConsumer, Consumer}
 
 import com.google.common.collect.ImmutableSet
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
 import org.apache.samza.{Partition, SamzaException}
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager, CheckpointV1, OffsetManager, StateCheckpointMarker, TestStateCheckpointMarker}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointManager, CheckpointV1, CheckpointV2, KafkaStateChangelogOffset, OffsetManager, StateCheckpointMarker, TestStateCheckpointMarker}
 import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
@@ -91,6 +93,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   private var externalContext: ExternalContext = null
 
   private var taskInstance: TaskInstance = null
+
+  private val numCheckpointVersions = 2 // checkpoint versions count
 
   @Before
   def setup(): Unit = {
@@ -176,7 +180,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     taskInstance.initTask
 
     verify(this.offsetManager).setStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION, "10")
-    verifyNoMoreInteractions(this.offsetManager)
   }
 
   @Test
@@ -212,106 +215,140 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(messagesActuallyProcessedCounter, times(2)).inc()
   }
 
-//  @Test
-//  def testCommitOrder() {
-//    val commitsCounter = mock[Counter]
-//    when(this.metrics.commits).thenReturn(commitsCounter)
-//    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
-//    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
-//    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
-//    val stateCheckpointMarkers: util.Map[String, StateCheckpointMarker] = new util.HashMap[String, StateCheckpointMarker]()
-//    val stateCheckpointMarker = new TestStateCheckpointMarker(changelogSSP, "5")
-//    stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
-//    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-//    when(this.taskStorageManager.snapshot(any())).thenReturn(stateCheckpointMarkers)
-//    when(this.taskStorageManager.upload(any(), any())).thenReturn(CompletableFuture.completedFuture(stateCheckpointMarkers))
-//    doNothing().when(this.taskStorageManager).persistToFilesystem(any(), any())
-//    taskInstance.commit
-//
-//    val mockOrder = inOrder(this.offsetManager, this.collector, this.taskTableManager, this.taskStorageManager)
-//
-//    // We must first get a snapshot of the input offsets so it doesn't change while we flush. SAMZA-1384
-//    mockOrder.verify(this.offsetManager).getLastProcessedOffsets(TASK_NAME)
-//
-//    // Producers must be flushed next and ideally the output would be flushed before the changelog
-//    // s.t. the changelog and checkpoints (state and inputs) are captured last
-//    mockOrder.verify(this.collector).flush
-//
-//    // Tables should be flushed next
-//    mockOrder.verify(this.taskTableManager).flush()
-//
-//    // Local state should be flushed next next
-//    mockOrder.verify(this.taskStorageManager).snapshot(any())
-//
-//    // Stores checkpoints should be created next with the newest changelog offsets
-//    mockOrder.verify(this.taskStorageManager).persistToFilesystem(any(), Matchers.eq(stateCheckpointMarkers))
-//
-//    // Input checkpoint should be written with the snapshot captured at the beginning of commit and the
-//    // newest changelog offset captured during storage manager flush
-//    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
-//    mockOrder.verify(offsetManager).writeCheckpoint(any(), captor.capture)
-//    val cp = captor.getValue
-//    assertEquals("4", cp.asInstanceOf[CheckpointV1].getOffsets.get(SYSTEM_STREAM_PARTITION))
-//    val checkpointedStateCheckpointMarkers = cp.getStateCheckpointMarkers.get("storeName")
-//    assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
-//    val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get(0).asInstanceOf[TestStateCheckpointMarker]
-//    assertTrue(checkpointedStateCheckpointMarker.equals(stateCheckpointMarker))
-//    assertEquals(checkpointedStateCheckpointMarker.getOffset, "5")
-//    assertEquals(checkpointedStateCheckpointMarker.getSsp, changelogSSP)
-//
-//    // Old checkpointed stores should be cleared
-//    mockOrder.verify(this.taskStorageManager).cleanUp(any())
-//    verify(commitsCounter).inc()
-//  }
-//
-//  @Test
-//  def testEmptyChangelogSSPOffsetInCommit() { // e.g. if changelog topic is empty
-//    val commitsCounter = mock[Counter]
-//    when(this.metrics.commits).thenReturn(commitsCounter)
-//
-//    val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
-//    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
-//    val stateCheckpointMarkers: util.Map[String, StateCheckpointMarker] = new util.HashMap[String, StateCheckpointMarker]()
-//    val nullStateCheckpointMarker = new TestStateCheckpointMarker(changelogSSP, null)
-//    stateCheckpointMarkers.put("storeName", nullStateCheckpointMarker)
-//    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-//    when(this.taskStorageManager.snapshot(any())).thenReturn(stateCheckpointMarkers)
-//    when(this.taskStorageManager.upload(any(), any())).thenReturn(CompletableFuture.completedFuture(stateCheckpointMarkers))
-//    taskInstance.commit
-//
-//    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
-//    verify(offsetManager).writeCheckpoint(any(), captor.capture)
-//    val cp = captor.getValue
-//    assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
-//
-//    val checkpointedStateCheckpointMarkers = cp.getStateCheckpointMarkers.get("storeName")
-//    assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
-//    val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get(0).asInstanceOf[TestStateCheckpointMarker]
-//    assertTrue(checkpointedStateCheckpointMarker.equals(nullStateCheckpointMarker))
-//    assertNull(checkpointedStateCheckpointMarker.getOffset)
-//    assertEquals(checkpointedStateCheckpointMarker.getSsp, changelogSSP)
-//    verify(commitsCounter).inc()
-//  }
+  @Test
+  def testCommitOrder() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+    val stateCheckpointMarkers: util.Map[String, StateCheckpointMarker] = new util.HashMap[String, StateCheckpointMarker]()
+    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5")
+    stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.snapshot(any())).thenReturn(stateCheckpointMarkers)
+    when(this.taskStorageManager.upload(any(), any())).thenReturn(CompletableFuture.completedFuture(stateCheckpointMarkers))
+    doNothing().when(this.taskStorageManager).persistToFilesystem(any(), any())
+    taskInstance.commit
 
-//  @Test
-//  def testEmptyChangelogOffsetsInCommit() { // e.g. if stores have no changelogs
-//    val commitsCounter = mock[CounterT
-//    when(this.metrics.commits).thenReturn(commitsCounter)
-//
-//    val inputOffsets = new Checkpoint(Map(SYSTEM_STREAM_PARTITION -> "4").asJava)
-//    val stateCheckpointMarkers: util.Map[String, StateCheckpointMarker] = new util.HashMap[String, StateCheckpointMarker]()
-//    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-//    when(this.taskStorageManager.snapshot(any())).thenReturn(new util.HashMap[String, StateCheckpointMarker]())
-//    when(this.taskStorageManager.upload(any(), any())).thenReturn(CompletableFuture.completedFuture(stateCheckpointMarkers))
-//    taskInstance.commit
-//
-//    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
-//    verify(offsetManager).writeCheckpoint(any(), captor.capture)
-//    val cp = captor.getValue
-//    assertEquals("4", cp.getOffsets.get(SYSTEM_STREAM_PARTITION))
-//    assertEquals(1, cp.getOffsets.size())
-//    verify(commitsCounter).inc()
-//  }
+    val mockOrder = inOrder(this.offsetManager, this.collector, this.taskTableManager, this.taskStorageManager)
+
+    // We must first get a snapshot of the input offsets so it doesn't change while we flush. SAMZA-1384
+    mockOrder.verify(this.offsetManager).getLastProcessedOffsets(TASK_NAME)
+
+    // Producers must be flushed next and ideally the output would be flushed before the changelog
+    // s.t. the changelog and checkpoints (state and inputs) are captured last
+    mockOrder.verify(this.collector).flush
+
+    // Tables should be flushed next
+    mockOrder.verify(this.taskTableManager).flush()
+
+    // Local state should be flushed next next
+    mockOrder.verify(this.taskStorageManager).snapshot(any())
+
+    // Stores checkpoints should be created next with the newest changelog offsets
+    mockOrder.verify(this.taskStorageManager).persistToFilesystem(any(), Matchers.eq(stateCheckpointMarkers))
+
+    // Input checkpoint should be written with the snapshot captured at the beginning of commit and the
+    // newest changelog offset captured during storage manager flush
+    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
+    mockOrder.verify(offsetManager, times(numCheckpointVersions)).writeCheckpoint(any(), captor.capture)
+    val cp = captor.getAllValues
+    assertEquals(numCheckpointVersions, cp.size())
+    cp.forEach(new Consumer[Checkpoint] {
+      override def accept(c: Checkpoint): Unit = {
+        assertEquals("4", c.getOffsets.get(SYSTEM_STREAM_PARTITION))
+        if (c.getVersion == 2) {
+          assertEquals(1, c.getOffsets.size())
+          assertTrue(c.isInstanceOf[CheckpointV2])
+          val checkpointedStateCheckpointMarkers = c.asInstanceOf[CheckpointV2].getStateCheckpointMarkers.get("storeName")
+          assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
+          val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get(0).asInstanceOf[KafkaStateCheckpointMarker]
+          assertTrue(checkpointedStateCheckpointMarker.equals(stateCheckpointMarker))
+          assertEquals(checkpointedStateCheckpointMarker.getChangelogOffset, "5")
+          assertEquals(checkpointedStateCheckpointMarker.getSsp, changelogSSP)
+        } else { // c.getVersion == 1
+          assertEquals(2, c.getOffsets.size())
+          assertTrue(c.isInstanceOf[CheckpointV1])
+          assertEquals("5", KafkaStateChangelogOffset.fromString(c.getOffsets.get(changelogSSP)).getChangelogOffset)
+        }
+      }
+    })
+
+    // Old checkpointed stores should be cleared
+    mockOrder.verify(this.taskStorageManager).cleanUp(any(), any())
+    verify(commitsCounter).inc()
+  }
+
+  @Test
+  def testEmptyChangelogSSPOffsetInCommit() { // e.g. if changelog topic is empty
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+    val stateCheckpointMarkers: util.Map[String, StateCheckpointMarker] = new util.HashMap[String, StateCheckpointMarker]()
+    val nullStateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, null)
+    stateCheckpointMarkers.put("storeName", nullStateCheckpointMarker)
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.snapshot(any())).thenReturn(stateCheckpointMarkers)
+    when(this.taskStorageManager.upload(any(), any())).thenReturn(CompletableFuture.completedFuture(stateCheckpointMarkers))
+    taskInstance.commit
+
+    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
+    verify(offsetManager, times(numCheckpointVersions)).writeCheckpoint(any(), captor.capture)
+    val cp = captor.getAllValues
+    assertEquals(numCheckpointVersions, cp.size())
+    cp.forEach(new Consumer[Checkpoint] {
+      override def accept(checkpoint: Checkpoint): Unit = {
+        assertEquals("4", checkpoint.getOffsets.get(SYSTEM_STREAM_PARTITION))
+        if (checkpoint.getVersion == 2) {
+          assertEquals(1, checkpoint.getOffsets.size())
+          assertTrue(checkpoint.isInstanceOf[CheckpointV2])
+          val checkpointedStateCheckpointMarkers = checkpoint.asInstanceOf[CheckpointV2].getStateCheckpointMarkers.get("storeName")
+          assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
+          val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get(0).asInstanceOf[KafkaStateCheckpointMarker]
+          assertTrue(checkpointedStateCheckpointMarker.equals(nullStateCheckpointMarker))
+          assertNull(checkpointedStateCheckpointMarker.getChangelogOffset)
+          assertEquals(checkpointedStateCheckpointMarker.getSsp, changelogSSP)
+        } else { // c.getVersion == 1
+          assertEquals(2, checkpoint.getOffsets.size())
+          assertTrue(checkpoint.isInstanceOf[CheckpointV1])
+          val message = checkpoint.getOffsets.get(changelogSSP)
+          val checkpointedOffset = KafkaStateChangelogOffset.fromString(message)
+          assertNull(checkpointedOffset.getChangelogOffset)
+          assertNotNull(checkpointedOffset.getCheckpointId)
+        }
+      }
+    })
+    verify(commitsCounter).inc()
+  }
+
+  @Test
+  def testEmptyChangelogOffsetsInCommit() { // e.g. if stores have no changelogs
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
+    val stateCheckpointMarkers: util.Map[String, StateCheckpointMarker] = new util.HashMap[String, StateCheckpointMarker]()
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskStorageManager.snapshot(any())).thenReturn(new util.HashMap[String, StateCheckpointMarker]())
+    when(this.taskStorageManager.upload(any(), any())).thenReturn(CompletableFuture.completedFuture(stateCheckpointMarkers))
+    taskInstance.commit
+
+    val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
+    // verify the write checkpoint is evoked twice, once per checkpoint version
+    verify(offsetManager, times(numCheckpointVersions)).writeCheckpoint(any(), captor.capture)
+    val cp = captor.getAllValues
+    assertEquals(numCheckpointVersions, cp.size())
+    cp.forEach(new Consumer[Checkpoint] {
+      override def accept(c: Checkpoint): Unit = {
+        assertEquals("4", c.getOffsets.get(SYSTEM_STREAM_PARTITION))
+        assertEquals(1, c.getOffsets.size())
+      }
+    })
+    verify(commitsCounter).inc()
+  }
 
   @Test
   def testCommitFailsIfErrorGettingChangelogOffset() { // required for transactional state
@@ -429,7 +466,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       this.collector,
       offsetManager = offsetManagerMock,
       commitManager = new TaskStorageCommitManager(
-        new TaskName("task1"), Collections.singletonMap("system", this.taskStorageManager), this.checkpointManager),
+        new TaskName("task1"),
+        Collections.singletonMap(TestStateCheckpointMarker.TEST_STATE_BACKEND_CLASSNAME, this.taskStorageManager),
+        this.checkpointManager),
       tableManager = this.taskTableManager,
       systemStreamPartitions = ImmutableSet.of(ssp),
       exceptionHandler = this.taskInstanceExceptionHandler,
@@ -456,7 +495,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       this.collector,
       offsetManager = this.offsetManager,
       commitManager = new TaskStorageCommitManager(
-        new TaskName("task1"), Collections.singletonMap("system", this.taskStorageManager), this. checkpointManager),
+        new TaskName("task1"),
+        Collections.singletonMap(TestStateCheckpointMarker.TEST_STATE_BACKEND_CLASSNAME, this.taskStorageManager),
+        this.checkpointManager),
       tableManager = this.taskTableManager,
       systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
       exceptionHandler = this.taskInstanceExceptionHandler,

@@ -21,6 +21,7 @@ package org.apache.samza.checkpoint.kafka;
 
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.samza.annotation.InterfaceStability;
@@ -34,7 +35,7 @@ import scala.Option;
 public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
   public static final short SCHEMA_VERSION = 1;
   public static final String SEPARATOR = ";";
-  private static final String FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
+  public static final String FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
 
   // One offset per SSP
   private final SystemStreamPartition ssp;
@@ -65,7 +66,7 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
   /**
    * Builds a SSP to Kafka offset mapping from map of store name to KafkaStateCheckpointMarkers
    */
-  public static Map<SystemStreamPartition, Option<String>> stateCheckpointMarkerToSSPmap(Map<String, StateCheckpointMarker> markers) {
+  public static Map<SystemStreamPartition, Option<String>> stateCheckpointMarkerToSSPMap(Map<String, StateCheckpointMarker> markers) {
     Map<SystemStreamPartition, Option<String>> sspMap = new HashMap<>();
     if (markers != null) {
       markers.forEach((key, value) -> {
@@ -75,6 +76,27 @@ public class KafkaStateCheckpointMarker implements StateCheckpointMarker {
       });
     }
     return sspMap;
+  }
+
+  /**
+   * Builds the SSP to kafka offset mapping from map of store name to list of StateCheckpointMarkers
+   * containing a KafkaStateCheckpointMarker
+   * @param markers Map of store name to list of StateCheckpointMarkers containing a KafkaStateCheckpointMarker
+   * @return Map of ssp to option of Kafka offset
+   */
+  public static Map<SystemStreamPartition, Option<String>> stateCheckpointMarkerListToSSPMap(Map<String, List<StateCheckpointMarker>> markers) {
+    Map<String, StateCheckpointMarker> scmMap = new HashMap<>();
+    markers.forEach((storeName, scmList) -> {
+      StateCheckpointMarker kafkaMarker = null;
+      for (StateCheckpointMarker scm : scmList) {
+        if (FACTORY_NAME.equals(scm.getFactoryName())) {
+          kafkaMarker = scm;
+          break; // only one KafkaStateCheckpointMarker per list
+        }
+      }
+      scmMap.put(storeName, kafkaMarker);
+    });
+    return stateCheckpointMarkerToSSPMap(scmMap);
   }
 
   @Override

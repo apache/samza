@@ -101,7 +101,11 @@ public class TaskStorageCommitManager {
     });
     stateCheckpointMarkers.forEach((storeName, scmList) -> {
       scmList.forEach(scm -> {
-        factoryStateCheckpointsMap.get(scm.getFactoryName()).put(storeName, scm);
+        if (factoryStateCheckpointsMap.containsKey(scm.getFactoryName())) {
+          factoryStateCheckpointsMap.get(scm.getFactoryName()).put(storeName, scm);
+        } else {
+          LOG.warn("Ignored cleanup for scm: {} due to unknown factory {} ", scm, scm.getFactoryName());
+        }
       });
     });
 

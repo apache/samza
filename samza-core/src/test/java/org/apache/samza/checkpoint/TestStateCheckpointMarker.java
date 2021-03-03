@@ -24,6 +24,7 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 public class TestStateCheckpointMarker implements StateCheckpointMarker {
+  public static final String TEST_STATE_BACKEND_CLASSNAME = "TestStateBackend";
   private SystemStreamPartition ssp;
   private String offset;
 
@@ -43,7 +44,7 @@ public class TestStateCheckpointMarker implements StateCheckpointMarker {
 
   @Override
   public String getFactoryName() {
-    return null;
+    return TEST_STATE_BACKEND_CLASSNAME;
   }
 
   @Override

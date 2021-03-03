@@ -330,8 +330,6 @@ public class TaskConfig extends MapConfig {
         .stream().map(Short::valueOf).collect(Collectors.toList());
   }
 
-  // TODO HIGH dchen add separate configs for checkpointV2.write.enabled (default true)
-  //  and checkpointV2.read.enabled (default false).
   public short getCheckpointReadVersion() {
     return getShort(CHECKPOINT_READ_VERSION, DEFAULT_CHECKPOINT_READ_VERSION);
   }

@@ -68,7 +68,7 @@ class KafkaNonTransactionalStateTaskBackupManager(
   override def persistToFilesystem(checkpointId: CheckpointId,
     stateCheckpointMarkers: util.Map[String, StateCheckpointMarker]): Unit = {
     writeChangelogOffsetFiles(KafkaStateCheckpointMarker
-      .stateCheckpointMarkerToSSPmap(stateCheckpointMarkers))
+      .stateCheckpointMarkerToSSPMap(stateCheckpointMarkers))
   }
 
   override def cleanUp(checkpointId: CheckpointId, stateCheckpointMarker: util.Map[String, StateCheckpointMarker]): Unit = {}

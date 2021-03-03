@@ -35,10 +35,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.KafkaStateChangelogOffset;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
@@ -109,11 +111,11 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
 
   @Override
   public void init(Checkpoint checkpoint) {
-    Map<String, String> checkpointedChangelogOffsets = getCheckpointedChangelogOffsets(checkpoint);
+    Map<String, KafkaStateCheckpointMarker> storeStateCheckpointMarkers = getCheckpointedChangelogOffsets(checkpoint);
     currentChangelogOffsets = getCurrentChangelogOffsets(taskModel, storeChangelogs, sspMetadataCache);
 
     this.storeActions = getStoreActions(taskModel, storeEngines, storeChangelogs,
-        checkpointedChangelogOffsets, currentChangelogOffsets, systemAdmins, storageManagerUtil,
+        storeStateCheckpointMarkers, getCheckpointId(checkpoint), currentChangelogOffsets, systemAdmins, storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock);
 
     setupStoreDirs(taskModel, storeEngines, storeActions, storageManagerUtil, fileUtil,
@@ -199,7 +201,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       TaskModel taskModel,
       Map<String, StorageEngine> storeEngines,
       Map<String, SystemStream> storeChangelogs,
-      Map<String, String> storeOffset,
+      Map<String, KafkaStateCheckpointMarker> kafkaStateCheckpointMarkers,
+      CheckpointId checkpointId,
       Map<SystemStreamPartition, SystemStreamPartitionMetadata> currentChangelogOffsets,
       SystemAdmins systemAdmins,
       StorageManagerUtil storageManagerUtil,
@@ -241,16 +244,12 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       String oldestOffset = changelogSSPMetadata.getOldestOffset();
       String newestOffset = changelogSSPMetadata.getNewestOffset();
 
-      String checkpointMessage = storeOffset.get(storeName);
-      String checkpointedOffset = null;  // can be null if no message, or message has null offset
-      long timeSinceLastCheckpointInMs = Long.MAX_VALUE;
-      if (StringUtils.isNotBlank(checkpointMessage)) {
-        // TODO HIGH dchen fix Checkpoint version handling with stateCheckpointMarker
-        KafkaStateChangelogOffset kafkaStateCheckpointMarker = KafkaStateChangelogOffset.fromString(checkpointMessage);
-        checkpointedOffset = kafkaStateCheckpointMarker.getChangelogOffset();
-        timeSinceLastCheckpointInMs = System.currentTimeMillis() -
-            kafkaStateCheckpointMarker.getCheckpointId().getMillis();
+      String checkpointedOffset = null; // can be null if no message, or message has null offset
+      if (kafkaStateCheckpointMarkers.containsKey(storeName) &&
+          StringUtils.isNotBlank(kafkaStateCheckpointMarkers.get(storeName).getChangelogOffset())) {
+        checkpointedOffset = kafkaStateCheckpointMarkers.get(storeName).getChangelogOffset();
       }
+      long timeSinceLastCheckpointInMs = checkpointId == null ? Long.MAX_VALUE : System.currentTimeMillis() - checkpointId.getMillis();
 
       // if the clean.store.start config is set, delete current and checkpoint dirs, restore from oldest offset to checkpointed
       if (storageEngine.getStoreProperties().isPersistedToDisk() && new StorageConfig(
@@ -563,17 +562,19 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
     }
   }
 
-  private Map<String, String> getCheckpointedChangelogOffsets(Checkpoint checkpoint) {
-    Map<String, String> checkpointedChangelogOffsets = new HashMap<>();
+  private Map<String, KafkaStateCheckpointMarker> getCheckpointedChangelogOffsets(Checkpoint checkpoint) {
+    Map<String, KafkaStateCheckpointMarker> checkpointedChangelogOffsets = new HashMap<>();
     if (checkpoint == null) return checkpointedChangelogOffsets;
 
     if (checkpoint instanceof CheckpointV2) {
       Map<String, List<StateCheckpointMarker>> storeSCMs = ((CheckpointV2) checkpoint).getStateCheckpointMarkers();
       storeSCMs.forEach((storeName, scms) -> {
-        String offsetMessage = null;
-        // TODO dchen1 deserialize this with KafkaStateCheckpointMarker after moving modules,
-        // should return Map<String, StateCheckpointMarker>
-        checkpointedChangelogOffsets.put(storeName, null);
+        for (StateCheckpointMarker scm : scms) {
+          if (KafkaStateCheckpointMarker.FACTORY_NAME.equals(scm.getFactoryName())) {
+            KafkaStateCheckpointMarker kafkaStateCheckpointMarker = (KafkaStateCheckpointMarker) scm;
+            checkpointedChangelogOffsets.put(storeName, kafkaStateCheckpointMarker);
+          } // skip the non-KafkaStateCheckpointMarkers
+        }
       });
     } else if (checkpoint instanceof CheckpointV1) {
       // If the checkpoint v1 is used, we need to fetch the changelog SSPs in the inputOffsets in order to get the
@@ -581,13 +582,38 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       Map<SystemStreamPartition, String> checkpointedOffsets = ((CheckpointV1) checkpoint).getOffsets();
       storeChangelogs.forEach((storeName, systemStream) -> {
         SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
-        checkpointedChangelogOffsets.put(storeName, checkpointedOffsets.get(storeChangelogSSP));
+        String checkpointMessage = checkpointedOffsets.get(storeChangelogSSP);
+        if (StringUtils.isNotBlank(checkpointMessage)) {
+          KafkaStateChangelogOffset kafkaStateChanglogOffset = KafkaStateChangelogOffset.fromString(checkpointMessage);
+          KafkaStateCheckpointMarker marker = new KafkaStateCheckpointMarker(storeChangelogSSP,
+              kafkaStateChanglogOffset.getChangelogOffset());
+          checkpointedChangelogOffsets.put(storeName, marker);
+        }
       });
     } else {
       throw new SamzaException("Unsupported checkpoint version: " + checkpoint.getVersion());
     }
 
     return checkpointedChangelogOffsets;
+  }
+
+  private CheckpointId getCheckpointId(Checkpoint checkpoint) {
+    if (checkpoint == null) return null;
+    if (checkpoint instanceof CheckpointV1) {
+      for (Map.Entry<String, SystemStream> storeNameSystemStream : storeChangelogs.entrySet()) {
+        SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(storeNameSystemStream.getValue(), taskModel.getChangelogPartition());
+        String checkpointMessage = checkpoint.getOffsets().get(storeChangelogSSP);
+        if (StringUtils.isNotBlank(checkpointMessage)) {
+          KafkaStateChangelogOffset kafkaStateChanglogOffset = KafkaStateChangelogOffset.fromString(checkpointMessage);
+          return kafkaStateChanglogOffset.getCheckpointId();
+        }
+      }
+    } else if (checkpoint instanceof CheckpointV2) {
+      return ((CheckpointV2) checkpoint).getCheckpointId();
+    } else {
+      throw new SamzaException("Unsupported checkpoint version: " + checkpoint.getVersion());
+    }
+    return null;
   }
 
   @VisibleForTesting

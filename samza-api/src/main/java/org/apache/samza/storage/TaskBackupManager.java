@@ -74,6 +74,7 @@ public interface TaskBackupManager {
 
   /**
    * Cleanup any local or remote state for obsolete checkpoint information that are older than checkpointId
+   * This operation is required to be idempotent.
    * @param checkpointId The id of the latest successfully committed checkpoint
    * @param stateCheckpointMarkers The last checkpointed Storename to StateCheckpointMarker map
    */

@@ -221,6 +221,16 @@ class OffsetManager(
   }
 
   /**
+   * Get the last checkpoint saved in the checkpont manager
+   */
+  def getLastTaskCheckpoint(taskName: TaskName): Checkpoint = {
+    if (checkpointManager != null) {
+      checkpointManager.readLastCheckpoint(taskName)
+    }
+    null
+  }
+
+  /**
    * Get the starting offset for a SystemStreamPartition. This is the offset
    * where a SamzaContainer begins reading from when it starts up.
    */
@@ -268,7 +278,7 @@ class OffsetManager(
     * ensure there are no concurrent updates to the offsets between when this method is
     * invoked and the corresponding call to [[OffsetManager.writeCheckpoint()]]
     */
-  def getLastProcessedOffsets(taskName: TaskName): util.HashMap[SystemStreamPartition, String] = {
+  def getLastProcessedOffsets(taskName: TaskName): util.Map[SystemStreamPartition, String] = {
     if (checkpointManager != null || checkpointListeners.nonEmpty) {
       debug("Getting last processed offsets to checkpoint for taskName %s." format taskName)
 

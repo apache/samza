@@ -24,7 +24,8 @@ import java.util.{Collections, Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointV1, CheckpointV2, KafkaStateChangelogOffset, OffsetManager, StateCheckpointMarker}
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointManager, CheckpointV1, CheckpointV2, KafkaStateChangelogOffset, OffsetManager, StateCheckpointMarker}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
@@ -134,6 +135,17 @@ class TaskInstance(
 
   def initTask {
     initCaughtUpMapping()
+
+    if (offsetManager != null) {
+      val checkpoint = offsetManager.getLastTaskCheckpoint(taskName)
+      // Only required for checkpointV2
+      if (checkpoint != null && checkpoint.getVersion == 2) {
+        val checkpointV2 = checkpoint.asInstanceOf[CheckpointV2]
+        // Perform cleanup of commit manager in case the job previously failed
+        // during commit within accomplishing this step
+        commitManager.cleanUp(checkpointV2.getCheckpointId, checkpointV2.getStateCheckpointMarkers)
+      }
+    }
 
     val taskConfig = new TaskConfig(config)
     if (taskConfig.getTransactionalStateRestoreEnabled() && taskConfig.getCommitMs > 0) {
@@ -255,15 +267,14 @@ class TaskInstance(
 
     checkpointWriteVersions.foreach(checkpointWriteVersion => {
       val checkpoint = if (checkpointWriteVersion == 1) {
-        // build checkpoint v1 with KafkaStateChangelogOffset for backwards compatibility
+        // build CheckpointV1 with KafkaStateChangelogOffset for backwards compatibility
         val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
         allCheckpointOffsets.putAll(inputOffsets)
-//        val newestChangelogOffsets = kafkaStateCheckpointMarker.toSSPOffset(stateCheckpointMarkers)
-//        newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
-//          val offset = new KafkaStateChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
-//          allCheckpointOffsets.put(ssp, offset)
-//        }
-        // TODO BLOCKER convert StateCheckpointMarkers to KafkaChangelogOffset
+        val newestChangelogOffsets = KafkaStateCheckpointMarker.stateCheckpointMarkerListToSSPMap(stateCheckpointMarkers)
+        newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
+          val offset = new KafkaStateChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
+          allCheckpointOffsets.put(ssp, offset)
+        }
         new CheckpointV1(allCheckpointOffsets)
       } else if (checkpointWriteVersion == 2) {
         new CheckpointV2(checkpointId, inputOffsets, stateCheckpointMarkers)
@@ -280,7 +291,6 @@ class TaskInstance(
     // Perform cleanup on unused checkpoints
     trace("Cleaning up old checkpoint state for taskName: %s. Current checkpointId: %s" format (taskName, checkpointId))
     try {
-      // TODO BLOCKER dchen cleanup should also be called in init on container startup.
       commitManager.cleanUp(checkpointId, stateCheckpointMarkers)
     } catch {
       case e: Exception => error("Failed to remove old checkpoint state for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)

@@ -27,6 +27,8 @@ import java.time.Duration
 import java.util
 import java.util.{Base64, Optional}
 import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, ThreadPoolExecutor, TimeUnit}
+import java.util.function.Consumer
+import java.util.stream.Collectors
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -494,8 +496,6 @@ object SamzaContainer extends Logging {
 
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
 
-    var taskStorageManagers : Map[TaskName, TaskBackupManager] = Map()
-
     val taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics] = taskModels.map(taskModel => {
       (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName))
     }).toMap
@@ -538,7 +538,9 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val stateStorageBackendFactory = ReflectionUtil.getObj(storageConfig.getStateBackendFactory, classOf[StateBackendFactory])
+    val stateStorageBackendFactories = storageConfig.getStateBackendFactories().asScala.map(
+      ReflectionUtil.getObj(_, classOf[StateBackendFactory])
+    )
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = taskModels
@@ -561,11 +563,14 @@ object SamzaContainer extends Logging {
       val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
-      // TODO HIGH dchen create map of stateStorageBackendFactory to BackupManager based on configs
       val taskBackupManagerMap = new util.HashMap[String, TaskBackupManager]()
-      val taskBackupManager = stateStorageBackendFactory.getBackupManager(jobModel, containerModel,
-        taskModel, containerStorageManager.getAllStores(taskName), config, new SystemClock)
-      taskBackupManagerMap.put(stateStorageBackendFactory.getClass.getName, taskBackupManager)
+      stateStorageBackendFactories.asJava.forEach(new Consumer[StateBackendFactory] {
+        override def accept(factory: StateBackendFactory): Unit = {
+          val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
+            taskModel, containerStorageManager.getAllStores(taskName), config, new SystemClock)
+          taskBackupManagerMap.put(stateStorageBackendFactories.getClass.getName, taskBackupManager)
+        }
+      })
 
       val commitManager = new TaskStorageCommitManager(taskName, taskBackupManagerMap, checkpointManager)
 
@@ -598,7 +603,6 @@ object SamzaContainer extends Logging {
 
       val taskInstance = createTaskInstance(task)
 
-      taskStorageManagers += taskInstance.taskName -> taskBackupManager
       (taskName, taskInstance)
     }).toMap
 

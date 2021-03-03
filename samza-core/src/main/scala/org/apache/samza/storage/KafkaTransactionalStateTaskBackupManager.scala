@@ -83,7 +83,7 @@ class KafkaTransactionalStateTaskBackupManager(
       .toMap
 
     writeChangelogOffsetFiles(checkpointPaths, storeChangelogs,
-       KafkaStateCheckpointMarker.stateCheckpointMarkerToSSPmap(stateCheckpointMarkers).asScala)
+       KafkaStateCheckpointMarker.stateCheckpointMarkerToSSPMap(stateCheckpointMarkers).asScala)
   }
 
   override def cleanUp(latestCheckpointId: CheckpointId, stateCheckpointMarker: util.Map[String, StateCheckpointMarker]): Unit = {
