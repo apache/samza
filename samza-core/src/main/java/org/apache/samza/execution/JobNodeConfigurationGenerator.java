@@ -351,10 +351,10 @@ import org.slf4j.LoggerFactory;
   private void addSerdes(KV<Serde, Serde> serdes, String streamId, Map<String, Serde> keySerdeMap,
       Map<String, Serde> msgSerdeMap) {
     if (serdes != null) {
-      if (serdes.getKey() != null && !(serdes.getKey() instanceof NoOpSerde)) {
+      if (serdes.getKey() != null) {
         keySerdeMap.put(streamId, serdes.getKey());
       }
-      if (serdes.getValue() != null && !(serdes.getValue() instanceof NoOpSerde)) {
+      if (serdes.getValue() != null) {
         msgSerdeMap.put(streamId, serdes.getValue());
       }
     }

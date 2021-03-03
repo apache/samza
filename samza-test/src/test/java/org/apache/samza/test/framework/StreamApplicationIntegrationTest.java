@@ -153,6 +153,10 @@ public class StreamApplicationIntegrationTest {
           new RocksDbTableDescriptor<Integer, TestTableData.Profile>("profile-view-store",
               KVSerde.of(new IntegerSerde(), new TestTableData.ProfileJsonSerde())));
 
+      Table<KV<Integer, TestTableData.Profile>> table2 = appDescriptor.getTable(
+          new RocksDbTableDescriptor<>("profile-view-store-no-op",
+              KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>())));
+
       KafkaSystemDescriptor ksd = new KafkaSystemDescriptor("test");
 
       KafkaInputDescriptor<KV<String, TestTableData.Profile>> profileISD =
