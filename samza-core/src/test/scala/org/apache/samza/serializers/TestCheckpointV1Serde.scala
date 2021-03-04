@@ -43,21 +43,6 @@ class TestCheckpointV1Serde {
   }
 
   @Test
-  def testChangelogPartitionMappingRoundTrip {
-    val mapping = new util.HashMap[TaskName, java.lang.Integer]()
-    mapping.put(new TaskName("Ted"), 0)
-    mapping.put(new TaskName("Dougal"), 1)
-    mapping.put(new TaskName("Jack"), 2)
-
-    val checkpointSerde = new CheckpointV1Serde
-    val asBytes = checkpointSerde.changelogPartitionMappingToBytes(mapping)
-    val backToMap = checkpointSerde.changelogPartitionMappingFromBytes(asBytes)
-
-    assertEquals(mapping, backToMap)
-    assertNotSame(mapping, backToMap)
-  }
-
-  @Test
   def testNullCheckpointSerde: Unit = {
     val checkpointBytes = null.asInstanceOf[Array[Byte]]
     val checkpointSerde = new CheckpointV1Serde

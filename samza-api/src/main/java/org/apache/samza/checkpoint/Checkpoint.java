@@ -31,14 +31,14 @@ public interface Checkpoint {
   short getVersion();
 
   /**
-   * Gets a unmodifiable view of the current Samza stream offsets.
-   * The return value differs based on the Checkpoint version:
+   * Gets a unmodifiable view of the last processed offsets for {@link SystemStreamPartition}s.
+   * The returned value differs based on the Checkpoint version:
    * <ol>
-   *    <li>For CheckpointV1 returns the offsets including the input ssp-offsets mapping and
-   *      changelog ssp-KafkaStateChangelogOffset</li>
-   *    <li>For CheckpointV2 returns the input offsets only.</li>
+   *    <li>For {@link CheckpointV1}, returns the input {@link SystemStreamPartition} offsets, as well
+   *      as the latest KafkaStateChangelogOffset for any store changelog {@link SystemStreamPartition} </li>
+   *    <li>For {@link CheckpointV2} returns the input offsets only.</li>
    * </ol>
-   * @return A unmodifiable view of a Map of Samza streams to their recorded offsets.
+   * @return A unmodifiable view of last processed offsets for {@link SystemStreamPartition}s.
    */
   Map<SystemStreamPartition, String> getOffsets();
 }

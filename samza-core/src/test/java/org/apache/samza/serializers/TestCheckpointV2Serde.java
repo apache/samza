@@ -21,12 +21,12 @@ package org.apache.samza.serializers;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
-import org.apache.samza.checkpoint.MockStateCheckpointMarker;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
@@ -37,7 +37,7 @@ import static org.junit.Assert.assertEquals;
 public class TestCheckpointV2Serde {
 
   @Test
-  public void TestCheckpointV2Serde() {
+  public void testCheckpointV2Serde() {
     CheckpointV2Serde serde = new CheckpointV2Serde();
     Map<SystemStreamPartition, String> offsets = new HashMap<>();
     SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(777));
@@ -46,11 +46,9 @@ public class TestCheckpointV2Serde {
     // State Checkpoint marker
     Map<String, List<StateCheckpointMarker>> stateCheckpointMarkersMap = new HashMap<>();
     List<StateCheckpointMarker> stateCheckpointMarkersList = new ArrayList<>();
-    SystemStreamPartition changelogSSP = new SystemStreamPartition("changelog-system", "changelog-stream", new Partition(1));
-    StateCheckpointMarker scm1 = new MockStateCheckpointMarker(changelogSSP, "2");
+    StateCheckpointMarker scm1 = new StateCheckpointMarker("factory1", "marker1");
     stateCheckpointMarkersList.add(scm1);
-    SystemStreamPartition changelogSSP2 = new SystemStreamPartition("changelog-system", "changelog-stream", new Partition(2));
-    StateCheckpointMarker scm2 = new MockStateCheckpointMarker(changelogSSP2, "2");
+    StateCheckpointMarker scm2 = new StateCheckpointMarker("factory2", "marker2");
     stateCheckpointMarkersList.add(scm2);
 
     stateCheckpointMarkersMap.put("store1", stateCheckpointMarkersList);
@@ -67,16 +65,12 @@ public class TestCheckpointV2Serde {
 
     // Validate state checkpoints
     assertEquals(1, deserializedCheckpoint.getStateCheckpointMarkers().size());
-    assertEquals(stateCheckpointMarkersList, deserializedCheckpoint.getStateCheckpointMarkers().get("store1"));
-
-    assertEquals(MockStateCheckpointMarker.MOCK_FACTORY_NAME,
-        deserializedCheckpoint.getStateCheckpointMarkers().get("store1").get(0).getFactoryName());
-    assertEquals(scm1, deserializedCheckpoint.getStateCheckpointMarkers().get("store1").get(0));
-    assertEquals(scm2, deserializedCheckpoint.getStateCheckpointMarkers().get("store1").get(1));
+    assertEquals(new HashSet<>(stateCheckpointMarkersList),
+        new HashSet<>(deserializedCheckpoint.getStateCheckpointMarkers().get("store1")));
   }
 
   @Test
-  public void TestStatefulCheckpointSerdeStatelessJob() {
+  public void testCheckpointV2SerdeStatelessJob() {
     CheckpointV2Serde serde = new CheckpointV2Serde();
     Map<SystemStreamPartition, String> offsets = new HashMap<>();
     SystemStreamPartition systemStreamPartition = new SystemStreamPartition("test-system", "test-stream", new Partition(777));

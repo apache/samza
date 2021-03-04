@@ -29,20 +29,22 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
-import org.apache.samza.checkpoint.StateCheckpointMarkerSerde;
 import org.apache.samza.system.SystemStreamPartition;
 
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 
 /**
- * The Serde for CheckpointV2 which includes CheckpointIDs and StateCheckpointMarkers.
- * CheckpointId serde uses {@link CheckpointId#toString()} and {@link CheckpointId#fromString(String)}.
- * StateCheckpointMarkers uses {@link StateCheckpointMarkerSerde}.
- * JSON Serde will be used to wrap the {@link CheckpointV2} using the {@link JsonSerdeV2} by converting the Checkpoint
- * to a {@link JsonCheckpoint}.
- * The following will be the representation of the data format:
- * <code>
+ * The {@link Serde} for {@link CheckpointV2} which includes {@link CheckpointId}s and {@link StateCheckpointMarker}s
+ * in addition to the input {@link SystemStreamPartition} offsets.
+ *
+ * {@link CheckpointId} is serde'd using {@link CheckpointId#toString()} and {@link CheckpointId#fromString(String)}.
+ *
+ * The overall payload is serde'd as JSON using {@link JsonSerdeV2}. Since the Samza classes cannot be directly
+ * serialized by Jackson, we use {@link JsonCheckpoint} as an intermediate POJO to help with serde.
+ *
+ * The serialized JSON looks as follows:
+ * <pre>
  * {
  *   "checkpointId" : "1614147487244-33577",
  *   "inputOffsets" : {
@@ -54,49 +56,50 @@ import static com.google.common.base.Preconditions.*;
  *     }
  *   },
  *   "stateCheckpointMarkers" : {
- *     "store1" : [ StateCheckpointMarker...]
- *     "store2": [...]
+ *     "store1" : {
+ *       "org.apache.samza.kafka.KafkaChangelogStateBackendFactory": "changelogSystem;changelogTopic;1;50"
+ *     },
+ *     "store2": {...}
  *   }
  * }
- * </code>
+ * </pre>
  */
 public class CheckpointV2Serde implements Serde<CheckpointV2> {
-  private static final StateCheckpointMarkerSerde SCM_SERDE = new StateCheckpointMarkerSerde();
+  private static final Serde<JsonCheckpoint> JSON_SERDE = new JsonSerdeV2<>(JsonCheckpoint.class);
+  private static final String SYSTEM = "system";
+  private static final String STREAM = "stream";
+  private static final String PARTITION = "partition";
+  private static final String OFFSET = "offset";
 
-  private final Serde<JsonCheckpoint> jsonCheckpointSerde;
-
-  public CheckpointV2Serde() {
-    this.jsonCheckpointSerde = new JsonSerdeV2<>(JsonCheckpoint.class);
-  }
+  public CheckpointV2Serde() { }
 
   @Override
   public CheckpointV2 fromBytes(byte[] bytes) {
     try {
-      JsonCheckpoint jsonCheckpoint = jsonCheckpointSerde.fromBytes(bytes);
+      JsonCheckpoint jsonCheckpoint = JSON_SERDE.fromBytes(bytes);
       Map<SystemStreamPartition, String> sspOffsets = new HashMap<>();
       Map<String, List<StateCheckpointMarker>> stateCheckpoints = new HashMap<>();
 
-      jsonCheckpoint.getInputOffsets().forEach((sspName, m) -> {
-        String system = m.get("system");
+      jsonCheckpoint.getInputOffsets().forEach((sspName, sspInfo) -> {
+        String system = sspInfo.get(SYSTEM);
         checkNotNull(system, String.format(
-            "System must be present in JSON-encoded SystemStreamPartition, input offsets map: %s, ", m));
-        String stream = m.get("stream");
+            "System must be present in JSON-encoded SystemStreamPartition, input offsets map: %s, ", sspInfo));
+        String stream = sspInfo.get(STREAM);
         checkNotNull(stream, String.format(
-            "Stream must be present in JSON-encoded SystemStreamPartition, input offsets map: %s, ", m));
-        String partition = m.get("partition");
+            "Stream must be present in JSON-encoded SystemStreamPartition, input offsets map: %s, ", sspInfo));
+        String partition = sspInfo.get(PARTITION);
         checkNotNull(partition, String.format(
-            "Partition must be present in JSON-encoded SystemStreamPartition, input offsets map: %s, ", m));
-        String offset = m.get("offset");
+            "Partition must be present in JSON-encoded SystemStreamPartition, input offsets map: %s, ", sspInfo));
+        String offset = sspInfo.get(OFFSET);
         checkNotNull(offset, String.format(
-            "Offset must be present in JSON-encoded SystemStreamPartition, input offsets map: %s, ", m));
+            "Offset must be present in JSON-encoded SystemStreamPartition, input offsets map: %s, ", sspInfo));
         sspOffsets.put(new SystemStreamPartition(system, stream, new Partition(Integer.parseInt(partition))), offset);
       });
 
-      jsonCheckpoint.getStateCheckpointMarkers().forEach((storeName, scms) -> {
+      jsonCheckpoint.getStateCheckpointMarkers().forEach((storeName, stateBackendFactoryToMarker) -> {
         List<StateCheckpointMarker> stateCheckpointMarkers = new ArrayList<>();
-        checkArgument(!scms.isEmpty(), "StateCheckpointMarker must be present in Stateful checkpoint");
-        scms.forEach((scm) -> {
-          stateCheckpointMarkers.add(SCM_SERDE.deserialize(scm));
+        stateBackendFactoryToMarker.forEach((factory, marker) -> {
+          stateCheckpointMarkers.add(new StateCheckpointMarker(factory, marker));
         });
         stateCheckpoints.put(storeName, stateCheckpointMarkers);
       });
@@ -112,33 +115,37 @@ public class CheckpointV2Serde implements Serde<CheckpointV2> {
     try {
       String checkpointId = checkpoint.getCheckpointId().toString();
       Map<String, Map<String, String>> inputOffsets = new HashMap<>();
-      Map<String, List<String>> storeStateCheckpointMarkers = new HashMap<>();
+      Map<String, Map<String, String>> storeStateCheckpointMarkers = new HashMap<>();
 
       // TODO HIGH dchen change format to write specific serdes similar to Samza Object Mapper
-      // Create input offsets map similar to CheckpointSerde
-      // (ssp -> (system, stream, partition, offset))
+      // Serialize input offsets as maps keyed by the SSP.toString() to the another map of the constituent SSP
+      // components and offset. Jackson can't automatically serialize the SSP since it's not a POJO and this avoids
+      // having to wrap it another class while maintaining readability.
+      // {SSP.toString() -> {"system": system, "stream": stream, "partition": partition, "offset": offset)}
       checkpoint.getOffsets().forEach((ssp, offset) -> {
         Map<String, String> sspOffsetsMap = new HashMap<>();
-        sspOffsetsMap.put("system", ssp.getSystem());
-        sspOffsetsMap.put("stream", ssp.getStream());
-        sspOffsetsMap.put("partition", Integer.toString(ssp.getPartition().getPartitionId()));
-        sspOffsetsMap.put("offset", offset);
+        sspOffsetsMap.put(SYSTEM, ssp.getSystem());
+        sspOffsetsMap.put(STREAM, ssp.getStream());
+        sspOffsetsMap.put(PARTITION, Integer.toString(ssp.getPartition().getPartitionId()));
+        sspOffsetsMap.put(OFFSET, offset);
 
         inputOffsets.put(ssp.toString(), sspOffsetsMap);
       });
 
       // Create mapping for state checkpoint markers
-      // (storeName -> (StateCheckpointMarkerFactory -> StateCheckpointMarker))
+      // {storeName -> {stateCheckpointMarkerFactory -> stateCheckpointMarker}}
       checkpoint.getStateCheckpointMarkers().forEach((storeName, stateCheckpointMarkers) -> {
-        List<String> stateCheckpointMarkerByFactory = new ArrayList<>();
+        Map<String, String> stateBackendFactoryToStateMarker = new HashMap<>();
         stateCheckpointMarkers.forEach(stateCheckpointMarker -> {
           // Serialize the StateCheckpointMarker according to StateBackendFactory
-          stateCheckpointMarkerByFactory.add(SCM_SERDE.serialize(stateCheckpointMarker));
+          stateBackendFactoryToStateMarker.put(
+              stateCheckpointMarker.getStateBackendFactoryName(), stateCheckpointMarker.getStateCheckpointMarker());
         });
-        storeStateCheckpointMarkers.put(storeName, stateCheckpointMarkerByFactory);
+        storeStateCheckpointMarkers.put(storeName, stateBackendFactoryToStateMarker);
       });
 
-      return jsonCheckpointSerde.toBytes(new JsonCheckpoint(checkpointId, inputOffsets, storeStateCheckpointMarkers));
+      JsonCheckpoint jsonCheckpoint = new JsonCheckpoint(checkpointId, inputOffsets, storeStateCheckpointMarkers);
+      return JSON_SERDE.toBytes(jsonCheckpoint);
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception while serializing checkpoint: %s", checkpoint.toString()), e);
     }

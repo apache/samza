@@ -19,7 +19,6 @@
 
 package org.apache.samza.serializers;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,14 +29,14 @@ import java.util.Map;
 public class JsonCheckpoint {
   private String checkpointId;
   private Map<String, Map<String, String>> inputOffsets;
-  private Map<String, List<String>> stateCheckpointMarkers;
+  private Map<String, Map<String, String>> stateCheckpointMarkers;
 
   // Default constructor required for Jackson ObjectMapper
   public JsonCheckpoint() {}
 
   public JsonCheckpoint(String checkpointId,
       Map<String, Map<String, String>> inputOffsets,
-      Map<String, List<String>> stateCheckpointMakers) {
+      Map<String, Map<String, String>> stateCheckpointMakers) {
     this.checkpointId = checkpointId;
     this.inputOffsets = inputOffsets;
     this.stateCheckpointMarkers = stateCheckpointMakers;
@@ -51,7 +50,7 @@ public class JsonCheckpoint {
     return inputOffsets;
   }
 
-  public Map<String, List<String>> getStateCheckpointMarkers() {
+  public Map<String, Map<String, String>> getStateCheckpointMarkers() {
     return stateCheckpointMarkers;
   }
 }

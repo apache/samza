@@ -23,10 +23,10 @@ import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.samza.util.Logging
 import java.util
+import org.apache.samza.Partition
 import org.apache.samza.checkpoint.CheckpointV1
-import org.apache.samza.container.TaskName
 import org.apache.samza.system.SystemStreamPartition
-import org.apache.samza.{Partition, SamzaException}
+import org.apache.samza.util.Logging
 import org.codehaus.jackson.map.ObjectMapper
 
 import scala.collection.JavaConverters._
@@ -38,33 +38,25 @@ import scala.collection.JavaConverters._
  * map into a list[String] of (System, Stream, Partition, Offset) serializing that.
  */
 class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
-  import CheckpointV1Serde._
-  // TODO: Elucidate the CheckpointSerde relationship to Serde. Should Serde also have keyTo/FromBytes? Should
-  // we just take CheckpointSerde here as interface and have this be JSONCheckpointSerde?
-  // TODO: Add more tests.  This class currently only has direct test and is mainly tested by the other checkpoint managers
   val jsonMapper = new ObjectMapper()
 
-  // Jackson absolutely hates Scala types and hidden conversions hate you, so we're going to be very, very
-  // explicit about the Java (not Scala) types used here and never let Scala get its grubby little hands
-  // on any instance.
-
-  // Store checkpoint as maps keyed of the SSP.toString to the another map of the constituent SSP components
-  // and offset.  Jackson can't automatically serialize the SSP since it's not a POJO and this avoids
-  // having to wrap it another class while maintaing readability.
-
+  // Serialize checkpoint as maps keyed by the SSP.toString() to the another map of the constituent SSP components
+  // and offset. Jackson can't automatically serialize the SSP since it's not a POJO and this avoids
+  // having to wrap it another class while maintaining readability.
+  // { "SSP.toString()" -> {"system": system, "stream": stream, "partition": partition, "offset": offset)}
   def fromBytes(bytes: Array[Byte]): CheckpointV1 = {
     try {
       val jMap = jsonMapper.readValue(bytes, classOf[util.HashMap[String, util.HashMap[String, String]]])
 
-      def deserializeJSONMap(m:util.HashMap[String, String]) = {
-        require(m.size() == 4, "All JSON-encoded SystemStreamPartitions must have four keys")
-        val system = m.get("system")
+      def deserializeJSONMap(sspInfo:util.HashMap[String, String]) = {
+        require(sspInfo.size() == 4, "All JSON-encoded SystemStreamPartitions must have four keys")
+        val system = sspInfo.get("system")
         require(system != null, "System must be present in JSON-encoded SystemStreamPartition")
-        val stream = m.get("stream")
+        val stream = sspInfo.get("stream")
         require(stream != null, "Stream must be present in JSON-encoded SystemStreamPartition")
-        val partition = m.get("partition")
+        val partition = sspInfo.get("partition")
         require(partition != null, "Partition must be present in JSON-encoded SystemStreamPartition")
-        val offset = m.get("offset")
+        val offset = sspInfo.get("offset")
         // allow null offsets, e.g. for changelog ssps
 
         new SystemStreamPartition(system, stream, new Partition(partition.toInt)) -> offset
@@ -73,10 +65,9 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
       val cpMap = jMap.values.asScala.map(deserializeJSONMap).toMap
 
       new CheckpointV1(cpMap.asJava)
-    }catch {
+    } catch {
       case e : Exception =>
-        warn("Exception while deserializing checkpoint: " + e)
-        debug("Exception detail:", e)
+        warn("Exception while deserializing checkpoint: {}", util.Arrays.toString(bytes), e)
         null
     }
   }
@@ -98,21 +89,4 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
 
     jsonMapper.writeValueAsBytes(asMap)
   }
-
-  def changelogPartitionMappingFromBytes(bytes: Array[Byte]): util.Map[TaskName, java.lang.Integer] = {
-    try {
-      jsonMapper.readValue(bytes, PARTITION_MAPPING_TYPEREFERENCE)
-    } catch {
-      case e : Exception =>
-        throw new SamzaException("Exception while deserializing changelog partition mapping", e)
-    }
-  }
-
-  def changelogPartitionMappingToBytes(mapping: util.Map[TaskName, java.lang.Integer]) = {
-    jsonMapper.writeValueAsBytes(new util.HashMap[TaskName, java.lang.Integer](mapping))
-  }
-}
-
-object CheckpointV1Serde {
-  val PARTITION_MAPPING_TYPEREFERENCE = new TypeReference[util.HashMap[TaskName, java.lang.Integer]]() {}
 }

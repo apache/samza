@@ -54,21 +54,20 @@ class KafkaNonTransactionalStateTaskBackupManager(
 
   override def init(checkpoint: Checkpoint): Unit = {}
 
-  override def snapshot(checkpointId: CheckpointId): util.Map[String, StateCheckpointMarker] = {
+  override def snapshot(checkpointId: CheckpointId): util.Map[String, String] = {
     debug("Flushing stores.")
     taskStores.asScala.values.foreach(_.flush)
     getNewestChangelogSSPOffsets()
   }
 
   override def upload(checkpointId: CheckpointId,
-    stateCheckpointMarkers: util.Map[String, StateCheckpointMarker]): CompletableFuture[util.Map[String, StateCheckpointMarker]] = {
+    stateCheckpointMarkers: util.Map[String, String]): CompletableFuture[util.Map[String, String]] = {
      CompletableFuture.completedFuture(stateCheckpointMarkers)
   }
 
   override def persistToFilesystem(checkpointId: CheckpointId,
-    stateCheckpointMarkers: util.Map[String, StateCheckpointMarker]): Unit = {
-    writeChangelogOffsetFiles(KafkaStateCheckpointMarker
-      .stateCheckpointMarkerToSSPMap(stateCheckpointMarkers))
+    stateCheckpointMarkers: util.Map[String, String]): Unit = {
+    writeChangelogOffsetFiles(KafkaStateCheckpointMarker.scmToSSPOffsetMap(stateCheckpointMarkers))
   }
 
   override def cleanUp(checkpointId: CheckpointId, stateCheckpointMarker: util.Map[String, StateCheckpointMarker]): Unit = {}
@@ -84,7 +83,7 @@ class KafkaNonTransactionalStateTaskBackupManager(
    * @return A map of changelog SSPs for this task to their newest offset (or None if ssp is empty)
    * @throws SamzaException if there was an error fetching newest offset for any SSP
    */
-  private def getNewestChangelogSSPOffsets(): util.Map[String, StateCheckpointMarker] = {
+  private def getNewestChangelogSSPOffsets(): util.Map[String, String] = {
     storeChangelogs.asScala
       .map { case (storeName, systemStream) => {
         debug("Fetching newest offset for taskName %s store %s changelog %s" format (taskName, storeName, systemStream))
@@ -99,7 +98,7 @@ class KafkaNonTransactionalStateTaskBackupManager(
           newestOffsetOption.foreach(newestOffset =>
             debug("Got newest offset %s for taskName %s store %s changelog %s" format(newestOffset, taskName, storeName, systemStream)))
 
-          (storeName, new KafkaStateCheckpointMarker(ssp, newestOffsetOption.orNull).asInstanceOf[StateCheckpointMarker])
+          (storeName, new KafkaStateCheckpointMarker(ssp, newestOffsetOption.orNull).toString)
         } catch {
           case e: Exception =>
             throw new SamzaException("Error getting newest changelog offset for taskName %s store %s changelog %s."

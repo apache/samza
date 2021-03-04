@@ -19,10 +19,38 @@
 
 package org.apache.samza.checkpoint;
 
+import com.google.common.base.Objects;
 
-/**
- * Interface for State Checkpoint Marker for all TaskStorageBackupManagers
- */
-public interface StateCheckpointMarker {
-  String getFactoryName();
+// TODO HIGH dchen add javadocs explaining what this class represents and how it's used
+public class StateCheckpointMarker {
+  private final String stateBackendFactoryName;
+  private final String stateCheckpointMarker;
+
+  public StateCheckpointMarker(String stateBackendFactoryName, String stateCheckpointMarker) {
+    this.stateBackendFactoryName = stateBackendFactoryName;
+    this.stateCheckpointMarker = stateCheckpointMarker;
+  }
+
+  public String getStateBackendFactoryName() {
+    return stateBackendFactoryName;
+  }
+
+  public String getStateCheckpointMarker() {
+    return stateCheckpointMarker;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    StateCheckpointMarker that = (StateCheckpointMarker) o;
+
+    return Objects.equal(getStateBackendFactoryName(), that.getStateBackendFactoryName()) &&
+        Objects.equal(getStateCheckpointMarker(), that.getStateCheckpointMarker());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hashCode(getStateBackendFactoryName(), getStateCheckpointMarker());
+  }
 }

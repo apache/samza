@@ -24,8 +24,8 @@ import java.util.{Collections, Objects, Optional}
 import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointManager, CheckpointV1, CheckpointV2, KafkaStateChangelogOffset, OffsetManager, StateCheckpointMarker}
+import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointManager, CheckpointV1, CheckpointV2, OffsetManager, StateCheckpointMarker}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
@@ -267,12 +267,12 @@ class TaskInstance(
 
     checkpointWriteVersions.foreach(checkpointWriteVersion => {
       val checkpoint = if (checkpointWriteVersion == 1) {
-        // build CheckpointV1 with KafkaStateChangelogOffset for backwards compatibility
+        // build CheckpointV1 with KafkaChangelogSSPOffset for backwards compatibility
         val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
         allCheckpointOffsets.putAll(inputOffsets)
-        val newestChangelogOffsets = KafkaStateCheckpointMarker.stateCheckpointMarkerListToSSPMap(stateCheckpointMarkers)
+        val newestChangelogOffsets = KafkaStateCheckpointMarker.scmsToSSPOffsetMap(stateCheckpointMarkers)
         newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
-          val offset = new KafkaStateChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
+          val offset = new KafkaChangelogSSPOffset(checkpointId, newestOffsetOption.orNull).toString
           allCheckpointOffsets.put(ssp, offset)
         }
         new CheckpointV1(allCheckpointOffsets)

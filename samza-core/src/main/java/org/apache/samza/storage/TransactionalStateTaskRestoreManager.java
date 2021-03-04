@@ -38,8 +38,8 @@ import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
-import org.apache.samza.checkpoint.KafkaStateChangelogOffset;
 import org.apache.samza.checkpoint.StateCheckpointMarker;
+import org.apache.samza.checkpoint.kafka.KafkaChangelogSSPOffset;
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
@@ -53,8 +53,8 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
+import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
 import org.slf4j.Logger;
@@ -570,9 +570,9 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       Map<String, List<StateCheckpointMarker>> storeSCMs = ((CheckpointV2) checkpoint).getStateCheckpointMarkers();
       storeSCMs.forEach((storeName, scms) -> {
         for (StateCheckpointMarker scm : scms) {
-          if (KafkaStateCheckpointMarker.FACTORY_NAME.equals(scm.getFactoryName())) {
-            KafkaStateCheckpointMarker kafkaStateCheckpointMarker = (KafkaStateCheckpointMarker) scm;
-            checkpointedChangelogOffsets.put(storeName, kafkaStateCheckpointMarker);
+          if (KafkaChangelogStateBackendFactory.class.getName().equals(scm.getStateBackendFactoryName())) {
+            KafkaStateCheckpointMarker kafkaSCM = KafkaStateCheckpointMarker.fromString(scm.getStateCheckpointMarker());
+            checkpointedChangelogOffsets.put(storeName, kafkaSCM);
           } // skip the non-KafkaStateCheckpointMarkers
         }
       });
@@ -581,12 +581,13 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       // store offset.
       Map<SystemStreamPartition, String> checkpointedOffsets = ((CheckpointV1) checkpoint).getOffsets();
       storeChangelogs.forEach((storeName, systemStream) -> {
-        SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
-        String checkpointMessage = checkpointedOffsets.get(storeChangelogSSP);
-        if (StringUtils.isNotBlank(checkpointMessage)) {
-          KafkaStateChangelogOffset kafkaStateChanglogOffset = KafkaStateChangelogOffset.fromString(checkpointMessage);
-          KafkaStateCheckpointMarker marker = new KafkaStateCheckpointMarker(storeChangelogSSP,
-              kafkaStateChanglogOffset.getChangelogOffset());
+        Partition changelogPartition = taskModel.getChangelogPartition();
+        SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(systemStream, changelogPartition);
+        String checkpointedOffset = checkpointedOffsets.get(storeChangelogSSP);
+        if (StringUtils.isNotBlank(checkpointedOffset)) {
+          KafkaChangelogSSPOffset kafkaChangelogSSPOffset = KafkaChangelogSSPOffset.fromString(checkpointedOffset);
+          KafkaStateCheckpointMarker marker = new KafkaStateCheckpointMarker(
+              storeChangelogSSP, kafkaChangelogSSPOffset.getChangelogOffset());
           checkpointedChangelogOffsets.put(storeName, marker);
         }
       });
@@ -604,7 +605,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
         SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(storeNameSystemStream.getValue(), taskModel.getChangelogPartition());
         String checkpointMessage = checkpoint.getOffsets().get(storeChangelogSSP);
         if (StringUtils.isNotBlank(checkpointMessage)) {
-          KafkaStateChangelogOffset kafkaStateChanglogOffset = KafkaStateChangelogOffset.fromString(checkpointMessage);
+          KafkaChangelogSSPOffset kafkaStateChanglogOffset = KafkaChangelogSSPOffset.fromString(checkpointMessage);
           return kafkaStateChanglogOffset.getCheckpointId();
         }
       }

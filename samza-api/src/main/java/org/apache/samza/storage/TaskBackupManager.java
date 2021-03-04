@@ -50,19 +50,19 @@ public interface TaskBackupManager {
 
   /**
    * Commit operation that is synchronous to processing
-   * @param checkpointId Checkpoint id of the current commit
-   * @return The store name to checkpoint of the snapshotted local store
+   * @param checkpointId {@link CheckpointId} of the current commit
+   * @return a map of store name to state checkpoint markers for stores managed by this state backend
    */
-  Map<String, StateCheckpointMarker> snapshot(CheckpointId checkpointId);
+  Map<String, String> snapshot(CheckpointId checkpointId);
 
   /**
    * Commit operation that is asynchronous to message processing,
-   * @param checkpointId Checkpoint id of the current commit
-   * @param stateCheckpointMarkers The map of storename to checkpoint makers returned by the snapshot
-   * @return The future of storename to checkpoint map of the uploaded local store
+   * @param checkpointId {@link CheckpointId} of the current commit
+   * @param stateCheckpointMarkers The map of storename to state checkpoint markers returned by {@link #snapshot(CheckpointId)}
+   * @return A future containing a map of store name to state checkpoint markers after the upload is complete
    */
-  CompletableFuture<Map<String, StateCheckpointMarker>> upload(CheckpointId checkpointId,
-      Map<String, StateCheckpointMarker> stateCheckpointMarkers);
+  CompletableFuture<Map<String, String>> upload(CheckpointId checkpointId,
+      Map<String, String> stateCheckpointMarkers);
 
   /**
    * Occurs after the state has been persisted. Writes a copy of the persisted StateCheckpointMarkers from
@@ -70,13 +70,14 @@ public interface TaskBackupManager {
    * @param checkpointId The id of the checkpoint to be committed
    * @param stateCheckpointMarkers Uploaded storename to checkpoints markers to be persisted locally
    */
-  void persistToFilesystem(CheckpointId checkpointId, Map<String, StateCheckpointMarker> stateCheckpointMarkers);
+  // TODO BLOCKER dchen remove this method from this interface.
+  void persistToFilesystem(CheckpointId checkpointId, Map<String, String> stateCheckpointMarkers);
 
   /**
-   * Cleanup any local or remote state for obsolete checkpoint information that are older than checkpointId
+   * Cleanup any local or remote state for checkpoint information that is older than the provided checkpointId
    * This operation is required to be idempotent.
-   * @param checkpointId The id of the latest successfully committed checkpoint
-   * @param stateCheckpointMarkers The last checkpointed Storename to StateCheckpointMarker map
+   * @param checkpointId The {@link CheckpointId} of the last successfully committed checkpoint
+   * @param stateCheckpointMarkers A map of store name to state checkpoint markers from returned by {@link #upload(CheckpointId, Map)} upload}
    */
   void cleanUp(CheckpointId checkpointId, Map<String, StateCheckpointMarker> stateCheckpointMarkers);
 

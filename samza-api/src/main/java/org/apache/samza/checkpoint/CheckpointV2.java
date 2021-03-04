@@ -66,8 +66,8 @@ public class CheckpointV2 implements Checkpoint {
   }
 
   /**
-   * Gets a unmodifiable view of the current Samza stream input offsets.
-   * @return A unmodifiable view of a Map of Samza streams to their recorded offsets.
+   * Gets a unmodifiable view of the current input {@link SystemStreamPartition} offsets.
+   * @return An unmodifiable map of input {@link SystemStreamPartition}s to their recorded offsets.
    */
   @Override
   public Map<SystemStreamPartition, String> getOffsets() {
@@ -75,10 +75,18 @@ public class CheckpointV2 implements Checkpoint {
   }
 
   /**
-   * Gets the stateCheckpointMarkers
+   * Gets the {@link StateCheckpointMarker}s for all stores and corresponding state backends.
+   *
+   * Note: We don't add this method to the {@link Checkpoint} interface since it is difficult
+   * to implement it for {@link CheckpointV1} without changing the underlying serialization format -
+   * the changelog SSP offsets are serialized in the same way as input offsets, and at
+   * deserialization time we don't have enough information (e.g. configs) to decide whether a
+   * particular entry is for an input SSP or a changelog SSP.
+   *
    * @return The state checkpoint markers for the checkpoint
    */
   public Map<String, List<StateCheckpointMarker>> getStateCheckpointMarkers() {
+    // TODO HIGH dchen it might be a lot simpler to make this a Map<StateBackend, Map<StoreName, Marker>>
     return stateCheckpointMarkers;
   }
 
@@ -101,7 +109,7 @@ public class CheckpointV2 implements Checkpoint {
 
   @Override
   public String toString() {
-    return "CheckpointV2 [SCHEMA_VERSION=" + CHECKPOINT_VERSION + ", checkpointId=" + checkpointId +
-        ", inputOffsets=" + inputOffsets + ", stateCheckpoint=" + stateCheckpointMarkers + "]";
+    return "CheckpointV2 [CHECKPOINT_VERSION=" + CHECKPOINT_VERSION + ", checkpointId=" + checkpointId +
+        ", inputOffsets=" + inputOffsets + ", stateCheckpointMarkers=" + stateCheckpointMarkers + "]";
   }
 }

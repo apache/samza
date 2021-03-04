@@ -16,28 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.checkpoint;
+package org.apache.samza.checkpoint.kafka;
 
 import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.annotation.InterfaceStability;
+import org.apache.samza.checkpoint.CheckpointId;
 
 /**
- * Checkpointed changelog offset has the format: [checkpointId, offset], separated by a colon.
+ * Used in {@link org.apache.samza.checkpoint.CheckpointV1} for tracking the latest offset for store changelogs at
+ * the time of commit. Checkpointed changelog offset has the format: [checkpointId, offset], separated by a colon.
  */
 @InterfaceStability.Unstable
-public class KafkaStateChangelogOffset {
+public class KafkaChangelogSSPOffset {
   public static final String SEPARATOR = ":";
 
   private final CheckpointId checkpointId;
   private final String changelogOffset;
 
-  public KafkaStateChangelogOffset(CheckpointId checkpointId, String changelogOffset) {
+  public KafkaChangelogSSPOffset(CheckpointId checkpointId, String changelogOffset) {
     this.checkpointId = checkpointId;
     this.changelogOffset = changelogOffset;
   }
 
-  public static KafkaStateChangelogOffset fromString(String message) {
+  public static KafkaChangelogSSPOffset fromString(String message) {
     if (StringUtils.isBlank(message)) {
       throw new IllegalArgumentException("Invalid checkpointed changelog message: " + message);
     }
@@ -51,7 +53,7 @@ public class KafkaStateChangelogOffset {
       offset = checkpointIdAndOffset[1];
     }
 
-    return new KafkaStateChangelogOffset(checkpointId, offset);
+    return new KafkaChangelogSSPOffset(checkpointId, offset);
   }
 
   public CheckpointId getCheckpointId() {
@@ -62,6 +64,12 @@ public class KafkaStateChangelogOffset {
     return changelogOffset;
   }
 
+  /**
+   * WARNING: Do not change the toString() representation. It is used for serde'ing the store changelog offsets
+   * as part of task checkpoints, in conjunction with {@link #fromString(String)}.
+   * @return the String representation of this {@link KafkaChangelogSSPOffset}
+   */
+  // TODO HIGH dchen add unit tests for serde for this class so this doesn't break accidentally
   @Override
   public String toString() {
     return String.format("%s%s%s", checkpointId, SEPARATOR, changelogOffset);
@@ -71,7 +79,7 @@ public class KafkaStateChangelogOffset {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    KafkaStateChangelogOffset that = (KafkaStateChangelogOffset) o;
+    KafkaChangelogSSPOffset that = (KafkaChangelogSSPOffset) o;
     return Objects.equals(checkpointId, that.checkpointId) &&
         Objects.equals(changelogOffset, that.changelogOffset);
   }

@@ -73,6 +73,6 @@ public class CheckpointV1 implements Checkpoint {
 
   @Override
   public String toString() {
-    return "CheckpointV1 [offsets=" + offsets + "]";
+    return "CheckpointV1 [CHECKPOINT_VERSION=" + CHECKPOINT_VERSION + ", offsets=" + offsets + "]";
   }
 }

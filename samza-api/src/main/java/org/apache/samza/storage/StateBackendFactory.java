@@ -20,7 +20,6 @@
 package org.apache.samza.storage;
 
 import java.util.Map;
-import org.apache.samza.checkpoint.StateCheckpointPayloadSerde;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -44,6 +43,4 @@ public interface StateBackendFactory {
       Clock clock);
 
   TaskStorageAdmin getAdmin();
-
-  StateCheckpointPayloadSerde getStateCheckpointPayloadSerde();
 }

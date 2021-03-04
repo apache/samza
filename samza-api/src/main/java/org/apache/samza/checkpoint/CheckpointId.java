@@ -41,14 +41,6 @@ public class CheckpointId {
     this.nanos = nanos;
   }
 
-  /**
-   * Default placeholder checkpointId for backwards compatibility
-   * @return Default placeholder checkpoint id
-   */
-  public static CheckpointId getPlaceholderCheckpointId() {
-    return new CheckpointId(-1, -1);
-  }
-
   public static CheckpointId create() {
     return new CheckpointId(System.currentTimeMillis(), System.nanoTime() % 1000000);
   }
@@ -69,6 +61,12 @@ public class CheckpointId {
     return nanos;
   }
 
+  /**
+   * WARNING: Do not change the toString() representation. It is used for serde'ing {@link CheckpointId} as part of task
+   * checkpoints, in conjunction with {@link #fromString(String)}.
+   * @return the String representation of this {@link CheckpointId}.
+   */
+  // TODO HIGH dchen add unit tests for serde for this class so this doesn't break accidentally
   @Override
   public String toString() {
     return String.format("%s%s%s", millis, SEPARATOR, nanos);

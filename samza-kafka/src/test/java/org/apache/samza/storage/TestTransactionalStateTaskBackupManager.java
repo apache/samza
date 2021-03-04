@@ -21,14 +21,12 @@ package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.io.FileFilter;
-import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
-import org.apache.samza.checkpoint.StateCheckpointMarker;
 import scala.Option;
-import scala.collection.immutable.Map;
 import scala.collection.JavaConversions;
+import scala.collection.immutable.Map;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +35,7 @@ import java.util.Optional;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemAdmin;
@@ -49,7 +48,10 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.eq;
@@ -111,16 +113,15 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(ImmutableMap.of(changelogSSP, metadata));
 
     // invoke the method
-    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap =
+    java.util.Map<String, String> stateCheckpointMarkerMap =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
     // verify results
     assertEquals(1, stateCheckpointMarkerMap.size());
-    assertTrue(stateCheckpointMarkerMap.get(storeName) instanceof KafkaStateCheckpointMarker);
-    KafkaStateCheckpointMarker kmarker = (KafkaStateCheckpointMarker) stateCheckpointMarkerMap.get(storeName);
-    assertEquals(newestChangelogSSPOffset, kmarker.getChangelogOffset());
-    assertEquals(changelogSSP, kmarker.getSsp());
+    KafkaStateCheckpointMarker kscm = KafkaStateCheckpointMarker.fromString(stateCheckpointMarkerMap.get(storeName));
+    assertEquals(newestChangelogSSPOffset, kscm.getChangelogOffset());
+    assertEquals(changelogSSP, kscm.getChangelogSSP());
   }
 
   @Test
@@ -150,17 +151,15 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(ImmutableMap.of(changelogSSP, metadata));
 
     // invoke the method
-    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap =
+    java.util.Map<String, String> stateCheckpointMarkerMap =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
     // verify results
     assertEquals(1, stateCheckpointMarkerMap.size());
-    StateCheckpointMarker marker = stateCheckpointMarkerMap.get(storeName);
-    assertTrue(stateCheckpointMarkerMap.get(storeName) instanceof KafkaStateCheckpointMarker);
-    KafkaStateCheckpointMarker kmarker = (KafkaStateCheckpointMarker) stateCheckpointMarkerMap.get(storeName);
-    assertEquals(changelogSSP, kmarker.getSsp());
-    assertNull(kmarker.getChangelogOffset());
+    KafkaStateCheckpointMarker kscm = KafkaStateCheckpointMarker.fromString(stateCheckpointMarkerMap.get(storeName));
+    assertEquals(changelogSSP, kscm.getChangelogSSP());
+    assertNull(kscm.getChangelogOffset());
   }
 
   @Test(expected = SamzaException.class)
@@ -190,7 +189,7 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(null);
 
     // invoke the method
-    java.util.Map<String, StateCheckpointMarker> offsets =
+    java.util.Map<String, String> offsets =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
@@ -228,7 +227,7 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(metadataMap);
 
     // invoke the method
-    java.util.Map<String, StateCheckpointMarker> offsets =
+    java.util.Map<String, String> offsets =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
@@ -263,7 +262,7 @@ public class TestTransactionalStateTaskBackupManager {
     when(systemAdmin.getSSPMetadata(eq(ImmutableSet.of(changelogSSP)))).thenReturn(null);
 
     // invoke the method
-    java.util.Map<String, StateCheckpointMarker> offsets =
+    java.util.Map<String, String> offsets =
         tsm.getNewestChangelogSSPOffsets(
             taskName, storeChangelogs, changelogPartition, systemAdmins);
 
@@ -317,8 +316,8 @@ public class TestTransactionalStateTaskBackupManager {
     java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
     offsetsJava.put(new SystemStreamPartition("System", "Stream", new Partition(0)), Option.<String>apply("1"));
 
-    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap = new HashMap<>();
-    stateCheckpointMarkerMap.put("storeName", new KafkaStateCheckpointMarker(mock(SystemStreamPartition.class), "1"));
+    java.util.Map<String, String> stateCheckpointMarkerMap = new HashMap<>();
+    stateCheckpointMarkerMap.put("storeName", "system;stream;1;offset");
 
     // invoke checkpoint
     tsm.persistToFilesystem(CheckpointId.create(), stateCheckpointMarkerMap);
@@ -354,8 +353,8 @@ public class TestTransactionalStateTaskBackupManager {
     java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
     offsetsJava.put(mock(SystemStreamPartition.class), Option.<String>apply("1"));
 
-    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap = new HashMap<>();
-    stateCheckpointMarkerMap.put("storeName", new KafkaStateCheckpointMarker(mock(SystemStreamPartition.class), "1"));
+    java.util.Map<String, String> stateCheckpointMarkerMap = new HashMap<>();
+    stateCheckpointMarkerMap.put("storeName", "mockKafkaStateCheckpointMarker");
 
     // invoke checkpoint
     tsm.persistToFilesystem(CheckpointId.create(), stateCheckpointMarkerMap);
@@ -385,8 +384,8 @@ public class TestTransactionalStateTaskBackupManager {
     java.util.Map<SystemStreamPartition, Option<String>> offsetsJava = new HashMap<>();
     offsetsJava.put(mock(SystemStreamPartition.class), Option.<String>apply("1"));
 
-    java.util.Map<String, StateCheckpointMarker> stateCheckpointMarkerMap = new HashMap<>();
-    stateCheckpointMarkerMap.put("storeName", new KafkaStateCheckpointMarker(mock(SystemStreamPartition.class), "1"));
+    java.util.Map<String, String> stateCheckpointMarkerMap = new HashMap<>();
+    stateCheckpointMarkerMap.put("storeName", "system;stream;1;offset");
 
     // invoke checkpoint
     tsm.persistToFilesystem(CheckpointId.create(), stateCheckpointMarkerMap);
