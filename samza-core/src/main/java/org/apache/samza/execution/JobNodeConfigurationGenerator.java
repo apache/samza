@@ -47,7 +47,6 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.StatefulOperatorSpec;
 import org.apache.samza.operators.spec.StoreDescriptor;
 import org.apache.samza.operators.spec.WindowOperatorSpec;
-import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerializableSerde;
 import org.apache.samza.table.TableConfigGenerator;
