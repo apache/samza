@@ -65,7 +65,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class TestMessageStreamImpl {
 
   @Test
@@ -203,7 +203,7 @@ public class TestMessageStreamImpl {
     StreamApplicationDescriptorImpl mockGraph = mock(StreamApplicationDescriptorImpl.class);
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     String mockOpName = "mockName";
-    when(mockGraph.getNextOpId(anyObject(), anyObject())).thenReturn(mockOpName);
+    when(mockGraph.getNextOpId(anyObject(), anyObject(), anyObject())).thenReturn(mockOpName);
     OutputStreamImpl mockOutputStreamImpl = mock(OutputStreamImpl.class);
     KVSerde mockKVSerde = mock(KVSerde.class);
     IntermediateMessageStreamImpl mockIntermediateStream = mock(IntermediateMessageStreamImpl.class);
@@ -235,7 +235,7 @@ public class TestMessageStreamImpl {
     OperatorSpec mockOpSpec = mock(OperatorSpec.class);
     MessageStream<TestInputMessageEnvelope> inputStream = new MessageStreamImpl<>(mockGraph, mockOpSpec);
 
-    MapFunction<TestMessageEnvelope, String> keyExtractor = m -> m.getKey();
+    MapFunction<TestMessageEnvelope, String> keyExtractor = TestMessageEnvelope::getKey;
     FoldLeftFunction<TestMessageEnvelope, Integer> aggregator = (m, c) -> c + 1;
     SupplierFunction<Integer> initialValue = () -> 0;
 

@@ -60,6 +60,7 @@ import org.apache.samza.table.Table;
  * and {@link Table} to create the DAG of transforms.
  * 2) a builder that creates a serializable {@link OperatorSpecGraph} from user-defined DAG
  */
+@SuppressWarnings("rawtypes")
 public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<StreamApplicationDescriptor>
     implements StreamApplicationDescriptor {
 
@@ -72,7 +73,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
   /**
    * The 0-based position of the next operator in the graph.
    * Part of the unique ID for each OperatorSpec in the graph.
-   * Should only accessed and incremented via {@link #getNextOpId(OpCode, String)}.
+   * Should only accessed and incremented via {@link #getNextOpId(String, OpCode, String)}.
    */
   private int nextOpNum = 0;
 
@@ -99,7 +100,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
     InputTransformer transformer = inputDescriptor.getTransformer().orElse(null);
     InputOperatorSpec inputOperatorSpec =
         OperatorSpecs.createInputOperatorSpec(streamId, kvSerdes.getKey(), kvSerdes.getValue(),
-            transformer, isKeyed, this.getNextOpId(OpCode.INPUT, null));
+            transformer, isKeyed, this.getNextOpId(null, OpCode.INPUT, null));
     inputOperators.put(streamId, inputOperatorSpec);
     return new MessageStreamImpl(this, inputOperators.get(streamId));
   }
@@ -157,21 +158,40 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
    * Gets the unique ID for the next operator in the graph. The ID is of the following format:
    * jobName-jobId-opCode-(userDefinedId|nextOpNum);
    *
+   * @param desc customized description of the operator
    * @param opCode the {@link OpCode} of the next operator
    * @param userDefinedId the optional user-provided name of the next operator or null
    * @return the unique ID for the next operator in the graph
    */
-  public String getNextOpId(OpCode opCode, String userDefinedId) {
+  public String getNextOpId(String desc, OpCode opCode, String userDefinedId) {
+    if (StringUtils.isNotBlank(desc) && !ID_PATTERN.matcher(desc).matches()) {
+      throw new SamzaException("Operator description must not contain spaces or special characters: " + desc);
+    }
+
     if (StringUtils.isNotBlank(userDefinedId) && !ID_PATTERN.matcher(userDefinedId).matches()) {
       throw new SamzaException("Operator ID must not contain spaces or special characters: " + userDefinedId);
     }
 
     ApplicationConfig applicationConfig = new ApplicationConfig(getConfig());
-    String nextOpId = String.format("%s-%s-%s-%s",
-        applicationConfig.getAppName(),
-        applicationConfig.getAppId(),
-        opCode.name().toLowerCase(),
-        StringUtils.isNotBlank(userDefinedId) ? userDefinedId.trim() : String.valueOf(nextOpNum));
+    StringBuilder sb = new StringBuilder()
+        .append(applicationConfig.getAppName())
+        .append("-")
+        .append(applicationConfig.getAppId())
+        .append("-")
+        .append(opCode.name().toLowerCase())
+        .append("-");
+
+    if (StringUtils.isNotBlank(desc)) {
+      sb.append(desc).append("-");
+    }
+
+    if (StringUtils.isNotBlank(userDefinedId)) {
+      sb.append(userDefinedId.trim());
+    } else {
+      sb.append(nextOpNum);
+    }
+
+    String nextOpId = sb.toString();
     if (!operatorIds.add(nextOpId)) {
       throw new SamzaException(
           String.format("Found duplicate operator ID %s in the graph. Operator IDs must be unique.", nextOpId));
@@ -184,11 +204,12 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
    * Gets the unique ID for the next operator in the graph. The ID is of the following format:
    * jobName-jobId-opCode-nextOpNum;
    *
+   * @param desc customized description of the operator
    * @param opCode the {@link OpCode} of the next operator
    * @return the unique ID for the next operator in the graph
    */
-  public String getNextOpId(OpCode opCode) {
-    return getNextOpId(opCode, null);
+  public String getNextOpId(String desc, OpCode opCode) {
+    return getNextOpId(desc, opCode, null);
   }
 
   /**
@@ -220,7 +241,7 @@ public class StreamApplicationDescriptorImpl extends ApplicationDescriptorImpl<S
 
     InputOperatorSpec inputOperatorSpec =
         OperatorSpecs.createInputOperatorSpec(streamId, kvSerdes.getKey(), kvSerdes.getValue(),
-            transformer, isKeyed, this.getNextOpId(OpCode.INPUT, null));
+            transformer, isKeyed, this.getNextOpId(null, OpCode.INPUT, null));
     inputOperators.put(streamId, inputOperatorSpec);
     outputStreams.put(streamId, new OutputStreamImpl(streamId, kvSerdes.getKey(), kvSerdes.getValue(), isKeyed));
     return new IntermediateMessageStreamImpl<>(this, inputOperators.get(streamId), outputStreams.get(streamId));
