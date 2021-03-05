@@ -34,6 +34,7 @@ import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.server.LocalityServlet;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.job.ShellCommandBuilder;
@@ -158,10 +159,12 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
     String containerId = KubeUtils.getSamzaContainerNameFromPodName(pod.getMetadata().getName());
 
     // Find out previously running container location
-    String lastSeenOn = jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
-    if (!hostAffinityEnabled || lastSeenOn == null) {
-      lastSeenOn = ResourceRequestState.ANY_HOST;
-    }
+    // TODO: need to get the locality information. The logic below works for samza 1.3 or earlier version only.
+    /* String lastSeenOn = jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
+       if (!hostAffinityEnabled || lastSeenOn == null) {
+          lastSeenOn = ResourceRequestState.ANY_HOST;
+       }  */
+    String lastSeenOn = ResourceRequestState.ANY_HOST;
     SamzaResourceRequest request = new SamzaResourceRequest(cpu, memory, lastSeenOn, containerId);
     requestResources(request);
   }
