@@ -20,11 +20,10 @@
 package org.apache.samza.job.kubernetes;
 
 import org.apache.samza.config.Config;
-import org.apache.samza.job.StreamJob;
 import org.apache.samza.job.StreamJobFactory;
 
 /**
- * A KubeJobFactory returns an implementation of a {@link StreamJob} for a Samza application running on Kubernetes.
+ * A KubeJobFactory returns an implementation of a StreamJob for a Samza application running on Kubernetes.
  */
 public class KubeJobFactory implements StreamJobFactory {
 

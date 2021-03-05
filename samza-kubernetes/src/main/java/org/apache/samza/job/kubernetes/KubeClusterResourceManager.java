@@ -157,7 +157,7 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
     String containerId = KubeUtils.getSamzaContainerNameFromPodName(pod.getMetadata().getName());
 
     // Find out previously running container location
-    // TODO: need to get the locality information. The logic below only works for samza 1.3 or earlier version.
+    // TODO: SAMZA-2629: need to get the locality information. The logic below only works for samza 1.3 or earlier version.
     /* String lastSeenOn = jobModelManager.jobModel().getContainerToHostValue(containerId, SetContainerHostMapping.HOST_KEY);
        if (!hostAffinityEnabled || lastSeenOn == null) {
           lastSeenOn = ResourceRequestState.ANY_HOST;
