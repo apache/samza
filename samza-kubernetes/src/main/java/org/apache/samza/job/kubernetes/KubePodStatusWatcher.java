@@ -59,7 +59,7 @@ public class KubePodStatusWatcher implements Watcher<Pod> {
       default:
         if (isFailed()) {
           closeWatchWhenFailed();
-        } else if(isSucceeded()) {
+        } else if (isSucceeded()) {
           closeWatchWhenSucceed();
         } else if (isRunning()) {
           closeWatchWhenRunning();

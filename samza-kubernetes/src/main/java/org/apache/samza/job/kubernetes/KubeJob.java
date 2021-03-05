@@ -28,9 +28,9 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.StreamJob;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.Util;
-import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.collection.mutable.StringBuilder;
@@ -45,7 +45,6 @@ import static org.apache.samza.config.ApplicationConfig.APP_ID;
 import static org.apache.samza.config.ApplicationConfig.APP_NAME;
 import static org.apache.samza.config.KubeConfig.*;
 import static org.apache.samza.job.ApplicationStatus.*;
-import static org.apache.samza.serializers.model.SamzaObjectMapper.getObjectMapper;
 
 /**
  * The client to start a Kubernetes job coordinator
@@ -114,7 +113,7 @@ public class KubeJob implements StreamJob {
               .endSpec();
     } else {
       // create Pod
-       podBuilder = new PodBuilder()
+      podBuilder = new PodBuilder()
               .editOrNewMetadata()
               .withNamespace(nameSpace)
               .withName(podName)
@@ -227,10 +226,9 @@ public class KubeJob implements StreamJob {
     MapConfig coordinatorSystemConfig = CoordinatorStreamUtil.buildCoordinatorStreamConfig(config);
     LOG.info("Coordinator system config: {}", coordinatorSystemConfig);
     List<EnvVar> envList = new ArrayList<>();
-    ObjectMapper objectMapper = getObjectMapper();
     String coordinatorSysConfig;
     try  {
-      coordinatorSysConfig = objectMapper.writeValueAsString(coordinatorSystemConfig);
+      coordinatorSysConfig = SamzaObjectMapper.getObjectMapper().writeValueAsString(coordinatorSystemConfig);
     } catch (IOException ex) {
       LOG.warn("No coordinator system configs!", ex);
       coordinatorSysConfig = "";
