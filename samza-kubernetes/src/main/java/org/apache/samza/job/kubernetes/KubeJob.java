@@ -24,6 +24,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.ResourceRequestState;
 import org.apache.samza.clustermanager.SamzaResourceRequest;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.ApplicationStatus;
@@ -41,8 +42,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.samza.config.ApplicationConfig.APP_ID;
-import static org.apache.samza.config.ApplicationConfig.APP_NAME;
+import static org.apache.samza.config.ClusterManagerConfig.CLUSTER_MANAGER_MEMORY_MB;
+import static org.apache.samza.config.ClusterManagerConfig.CLUSTER_MANAGER_MAX_CORES;
 import static org.apache.samza.config.KubeConfig.*;
 import static org.apache.samza.job.ApplicationStatus.*;
 
@@ -51,19 +52,19 @@ import static org.apache.samza.job.ApplicationStatus.*;
  */
 public class KubeJob implements StreamJob {
   private static final Logger LOG = LoggerFactory.getLogger(KubeJob.class);
-  private Config config;
-  private KubernetesClient kubernetesClient;
-  private String podName;
-  private ApplicationStatus currentStatus;
-  private String nameSpace;
-  private KubePodStatusWatcher watcher;
-  private String image;
 
-  public KubeJob(Config config) {
+  private final ApplicationConfig config;
+  private final KubernetesClient kubernetesClient;
+  private final String podName;
+  private final String nameSpace;
+  private final KubePodStatusWatcher watcher;
+  private final String image;
+  private ApplicationStatus currentStatus;
+
+  public KubeJob(Config configs) {
     this.kubernetesClient = KubeClientFactory.create();
-    this.config = config;
-    this.podName = String.format(JC_POD_NAME_FORMAT, JC_CONTAINER_NAME_PREFIX,
-            config.get(APP_NAME, "samza"), config.get(APP_ID, "1"));
+    this.config = new ApplicationConfig(configs);
+    this.podName = String.format(JC_POD_NAME_FORMAT, JC_CONTAINER_NAME_PREFIX, config.getAppName(), config.getAppId());
     this.currentStatus = ApplicationStatus.New;
     this.watcher = new KubePodStatusWatcher(podName);
     this.nameSpace = config.get(K8S_API_NAMESPACE, "default");
@@ -75,8 +76,8 @@ public class KubeJob implements StreamJob {
    */
   public KubeJob submit() {
     // create SamzaResourceRequest
-    int memoryMB = config.getInt(CLUSTER_MANAGER_CONTAINER_MEM_SIZE, DEFAULT_CLUSTER_MANAGER_CONTAINER_MEM_SIZE);
-    int numCores = config.getInt(CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM, DEFAULT_CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM);
+    int memoryMB = config.getInt(CLUSTER_MANAGER_MEMORY_MB, DEFAULT_CLUSTER_MANAGER_CONTAINER_MEM_SIZE);
+    int numCores = config.getInt(CLUSTER_MANAGER_MAX_CORES, DEFAULT_CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM);
     String preferredHost = ResourceRequestState.ANY_HOST;
     SamzaResourceRequest request = new SamzaResourceRequest(numCores, memoryMB, preferredHost, podName);
 
@@ -136,9 +137,7 @@ public class KubeJob implements StreamJob {
    * Kill the job coordinator pod
    */
   public KubeJob kill() {
-    LOG.info("Killing application: {}, operator pod: {}, namespace: {}", config.get(APP_NAME), podName, nameSpace);
-    System.out.println("Killing application: " + config.get(APP_NAME) +
-        "; Operator pod: " + podName + "; namespace: " + nameSpace);
+    LOG.info("Killing application: {}, operator pod: {}, namespace: {}", config.getAppName(), podName, nameSpace);
     kubernetesClient.pods().inNamespace(nameSpace).withName(podName).delete();
     return this;
   }

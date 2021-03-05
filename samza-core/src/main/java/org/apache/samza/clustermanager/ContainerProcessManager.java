@@ -100,7 +100,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
    * The Allocator matches requests to resources and executes processes.
    */
   private final ContainerAllocator containerAllocator;
-  private Thread allocatorThread = null;
+  private final Thread allocatorThread;
 
   // The ContainerManager manages control actions for both active & standby containers
   private final ContainerManager containerManager;
@@ -181,6 +181,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
     if (shouldStartAllocateThread()) {
       this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    } else {
+      this.allocatorThread = null;
     }
     this.restartContainers = restartContainers;
     LOG.info("Finished container process manager initialization.");
@@ -220,12 +222,8 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
   }
 
   public boolean shouldShutdown() {
-    LOG.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}",
-      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no");
-
-    if (shouldStartAllocateThread()) {
-      LOG.debug("Is allocator thread alive: {}", allocatorThread.isAlive() ? "yes" : "no");
-    }
+    LOG.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
+      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no", allocatorThread != null && allocatorThread.isAlive() ? "yes" : "no");
 
     if (exceptionOccurred != null) {
       LOG.error("Exception in container process manager", exceptionOccurred);
@@ -233,7 +231,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     }
 
     boolean shouldShutdown = jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get();
-    return shouldStartAllocateThread() ? shouldShutdown || !allocatorThread.isAlive() : shouldShutdown;
+    return allocatorThread == null ? shouldShutdown : (shouldShutdown || !allocatorThread.isAlive());
   }
 
   public void start() {

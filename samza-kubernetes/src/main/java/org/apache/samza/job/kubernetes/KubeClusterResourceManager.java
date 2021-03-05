@@ -49,17 +49,18 @@ import static org.apache.samza.config.KubeConfig.*;
  */
 public class KubeClusterResourceManager extends ClusterResourceManager {
   private static final Logger LOG = LoggerFactory.getLogger(KubeClusterResourceManager.class);
+
   private final Map<String, String> podLabels = new HashMap<>();
-  private KubernetesClient client;
-  private String appId;
-  private String appName;
-  private String image;
-  private String namespace;
-  private OwnerReference ownerReference;
-  private JobModelManager jobModelManager;
+  private final KubernetesClient client;
+  private final String appId;
+  private final String appName;
+  private final String image;
+  private final String namespace;
+  private final JobModelManager jobModelManager;
+  private final Config config;
   private boolean hostAffinityEnabled;
-  private Config config;
   private String jcPodName;
+  private OwnerReference ownerReference;
 
   KubeClusterResourceManager(Config config, JobModelManager jobModelManager, ClusterResourceManager.Callback callback) {
     super(callback);

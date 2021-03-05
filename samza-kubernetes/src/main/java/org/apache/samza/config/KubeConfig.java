@@ -26,15 +26,13 @@ public class KubeConfig {
 
   // the image name of samza
   public static final String APP_IMAGE = "kube.app.image";
-  public static final String DEFAULT_IMAGE = "weiqingyang/samza:v0";
+  public static final String DEFAULT_IMAGE = "samza/samza:v0";
 
   // the default working directory
   public static final String DEFAULT_DIRECTORY = "/opt/samza/";
 
   // the memory and the cpu cores of container
-  public static final String CLUSTER_MANAGER_CONTAINER_MEM_SIZE = "cluster-manager.container.memory.mb";
   public static final int DEFAULT_CLUSTER_MANAGER_CONTAINER_MEM_SIZE = 1024;
-  public static final String CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM = "cluster-manager.container.cpu.cores";
   public static final int DEFAULT_CLUSTER_MANAGER_CONTAINER_CPU_CORE_NUM = 1;
 
   // The directory path inside which the log will be stored.
