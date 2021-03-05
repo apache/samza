@@ -37,7 +37,7 @@ import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.job.CommandBuilder;
 import org.apache.samza.job.ShellCommandBuilder;
-import org.apache.samza.util.Util;
+import org.apache.samza.util.ReflectionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -260,7 +260,7 @@ public class KubeClusterResourceManager extends ClusterResourceManager {
   private CommandBuilder getCommandBuilder(String containerId) {
     TaskConfig taskConfig = new TaskConfig(config);
     String cmdBuilderClassName = taskConfig.getCommandClass(ShellCommandBuilder.class.getName());
-    CommandBuilder cmdBuilder = Util.getObj(cmdBuilderClassName, CommandBuilder.class);
+    CommandBuilder cmdBuilder = ReflectionUtil.getObj(cmdBuilderClassName, CommandBuilder.class);
     if (jobModelManager.server() == null) {
       LOG.error("HttpServer is null");
     }
