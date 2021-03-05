@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
-import org.apache.samza.checkpoint.StateCheckpointMarker;
+
 
 /**
  * <p>
@@ -79,7 +79,7 @@ public interface TaskBackupManager {
    * @param checkpointId The {@link CheckpointId} of the last successfully committed checkpoint
    * @param stateCheckpointMarkers A map of store name to state checkpoint markers from returned by {@link #upload(CheckpointId, Map)} upload}
    */
-  void cleanUp(CheckpointId checkpointId, Map<String, StateCheckpointMarker> stateCheckpointMarkers);
+  void cleanUp(CheckpointId checkpointId, Map<String, String> stateCheckpointMarkers);
 
   /**
    * Shutdown hook the backup manager to cleanup any allocated resources

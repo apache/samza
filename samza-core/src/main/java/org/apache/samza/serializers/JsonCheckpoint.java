@@ -29,6 +29,7 @@ import java.util.Map;
 public class JsonCheckpoint {
   private String checkpointId;
   private Map<String, Map<String, String>> inputOffsets;
+  // Map<StorageBackendFactoryName, Map<StoreName, StateCheckpointMarker>>
   private Map<String, Map<String, String>> stateCheckpointMarkers;
 
   // Default constructor required for Jackson ObjectMapper

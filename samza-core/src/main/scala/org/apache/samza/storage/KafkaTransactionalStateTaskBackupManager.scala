@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSet
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.WildcardFileFilter
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, StateCheckpointMarker}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
@@ -86,7 +86,7 @@ class KafkaTransactionalStateTaskBackupManager(
        KafkaStateCheckpointMarker.scmToSSPOffsetMap(stateCheckpointMarkers).asScala)
   }
 
-  override def cleanUp(latestCheckpointId: CheckpointId, stateCheckpointMarker: util.Map[String, StateCheckpointMarker]): Unit = {
+  override def cleanUp(latestCheckpointId: CheckpointId, stateCheckpointMarker: util.Map[String, String]): Unit = {
     if (latestCheckpointId != null) {
       debug("Removing older checkpoints before " + latestCheckpointId)
 
@@ -153,7 +153,7 @@ class KafkaTransactionalStateTaskBackupManager(
   }
 
   /**
-   * Writes the newest changelog ssp offset for each persistent store the OFFSET file in both the checkpoint
+   * Writes the newest changelog ssp offset for each persistent store to the OFFSET file in both the checkpoint
    * and the current store directory (the latter for allowing rollbacks).
    *
    * These files are used during container startup to ensure transactional state, and to determine whether the

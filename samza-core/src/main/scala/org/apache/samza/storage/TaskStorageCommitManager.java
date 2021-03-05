@@ -19,17 +19,13 @@
 
 package org.apache.samza.storage;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.container.TaskName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,9 +61,9 @@ public class TaskStorageCommitManager {
   /**
    * Commits the local state on the remote backup implementation
    * TODO BLOCKER dchen add comments / docs for what all these Map keys and value are.
-   * @return Committed StoreName to StateCheckpointMarker mappings of the committed SSPs
+   * @return Committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
    */
-  public Map<String, List<StateCheckpointMarker>> commit(TaskName taskName, CheckpointId checkpointId) {
+  public Map<String, Map<String, String>> commit(TaskName taskName, CheckpointId checkpointId) {
     // { state backend factory -> { store Name -> state checkpoint marker }}
     Map<String, Map<String, String>> backendFactoryStoreStateMarkers = new HashMap<>();
 
@@ -78,10 +74,9 @@ public class TaskStorageCommitManager {
           taskName, checkpointId, storageBackupManager, snapshotSCMs);
 
       CompletableFuture<Map<String, String>> uploadFuture = storageBackupManager.upload(checkpointId, snapshotSCMs);
-
       try {
         // TODO: HIGH dchen Make async with andThen and add thread management for concurrency and add timeouts,
-        // need to make upload theads independent
+        // need to make upload threads independent
         Map<String, String> uploadedStoreStateMarkers = uploadFuture.get();
         LOG.debug("Found upload SCMs for taskName: {}, checkpoint id: {}, storage backup manager: {} to be: {}",
             taskName, checkpointId, storageBackupManager, uploadedStoreStateMarkers);
@@ -101,33 +96,26 @@ public class TaskStorageCommitManager {
       }
     });
 
-    return getStoreSCMs(taskName, backendFactoryStoreStateMarkers);
+    return backendFactoryStoreStateMarkers;
   }
 
-  // TODO HIGH dchen add javadocs explaining what the params are.
-  public void cleanUp(CheckpointId checkpointId, Map<String, List<StateCheckpointMarker>> stateCheckpointMarkers) {
-    // { state backend factory -> { store name -> state checkpoint marker)
-    Map<String, Map<String, StateCheckpointMarker>> stateBackendToStoreSCMs = new HashMap<>();
-
-    // The number of backend factories is equal to the length of the stateCheckpointMarker per store list
-    stateBackendToBackupManager.keySet().forEach((stateBackendFactoryName) -> {
-      stateBackendToStoreSCMs.put(stateBackendFactoryName, new HashMap<>());
-    });
-
-    stateCheckpointMarkers.forEach((storeName, scmList) -> {
-      scmList.forEach(scm -> {
-        if (stateBackendToStoreSCMs.containsKey(scm.getStateBackendFactoryName())) {
-          stateBackendToStoreSCMs.get(scm.getStateBackendFactoryName()).put(storeName, scm);
-        } else {
-          LOG.warn("Ignored cleanup for scm: {} due to unknown factory: {} ", scm, scm.getStateBackendFactoryName());
+  /**
+   * Cleanup  each of the task backup managers
+   * @param checkpointId CheckpointId of the most recent successful commit
+   * @param stateCheckpointMarkers map of map(stateBackendFactoryName to map(storeName to StateCheckpointMarkers) from
+   *                              the latest commit
+   */
+  public void cleanUp(CheckpointId checkpointId, Map<String, Map<String, String>> stateCheckpointMarkers) {
+    stateCheckpointMarkers.entrySet().forEach((factoryNameToSCM) -> {
+      String factoryName = factoryNameToSCM.getKey();
+      if (stateBackendToBackupManager.containsKey(factoryName)) {
+        TaskBackupManager backupManager = stateBackendToBackupManager.get(factoryName);
+        if (backupManager != null) {
+          backupManager.cleanUp(checkpointId, factoryNameToSCM.getValue());
         }
-      });
-    });
-
-    stateBackendToStoreSCMs.forEach((backendFactoryName, storeSCMs) -> {
-      TaskBackupManager storageBackupManager = stateBackendToBackupManager.get(backendFactoryName);
-      if (storageBackupManager != null) {
-        storageBackupManager.cleanUp(checkpointId, storeSCMs);
+      } else {
+        LOG.warn("Ignored cleanup for scm: {} due to unknown factory: {} ",
+            factoryNameToSCM.getValue(), factoryNameToSCM.getKey());
       }
     });
   }
@@ -138,30 +126,5 @@ public class TaskStorageCommitManager {
         storageBackupManager.close();
       }
     });
-  }
-
-  // TODO HIGH dchen add javadocs for what this method is doing
-  // TODO HIGH dchen add unit tests.
-  private Map<String, List<StateCheckpointMarker>> getStoreSCMs(TaskName taskName,
-      Map<String, Map<String, String>> stateBackendFactoryToStoreStateMarkers) {
-    if (stateBackendFactoryToStoreStateMarkers == null || stateBackendFactoryToStoreStateMarkers.size() == 0) {
-      return Collections.emptyMap();
-    }
-
-    Map<String, List<StateCheckpointMarker>> storeSCMs = new HashMap<>();
-
-    for (Map.Entry<String, Map<String, String>> stateBackendFactoryToStoreStateMarker:
-        stateBackendFactoryToStoreStateMarkers.entrySet()) {
-      String stateBackendFactory = stateBackendFactoryToStoreStateMarker.getKey();
-      Map<String, String> storeNameToStateCheckpointMarkers = stateBackendFactoryToStoreStateMarker.getValue();
-      for (Map.Entry<String, String> storeNameToStateCheckpointMarker: storeNameToStateCheckpointMarkers.entrySet()) {
-        String storeName = storeNameToStateCheckpointMarker.getKey();
-        String stateCheckpointMarker = storeNameToStateCheckpointMarker.getValue();
-        storeSCMs.computeIfAbsent(storeName, sn -> new ArrayList<>())
-            .add(new StateCheckpointMarker(stateBackendFactory, stateCheckpointMarker));
-      }
-    }
-
-    return storeSCMs;
   }
 }

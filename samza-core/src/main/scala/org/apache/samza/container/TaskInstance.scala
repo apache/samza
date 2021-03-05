@@ -25,7 +25,7 @@ import java.util.concurrent.ScheduledExecutorService
 
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointManager, CheckpointV1, CheckpointV2, OffsetManager, StateCheckpointMarker}
+import org.apache.samza.checkpoint.{CheckpointId, CheckpointV1, CheckpointV2, OffsetManager}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}

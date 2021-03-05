@@ -19,19 +19,16 @@
 
 package org.apache.samza.serializers;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
-import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 
 public class TestCheckpointV2Serde {
@@ -44,18 +41,21 @@ public class TestCheckpointV2Serde {
     offsets.put(systemStreamPartition, "1");
 
     // State Checkpoint marker
-    Map<String, List<StateCheckpointMarker>> stateCheckpointMarkersMap = new HashMap<>();
-    List<StateCheckpointMarker> stateCheckpointMarkersList = new ArrayList<>();
-    StateCheckpointMarker scm1 = new StateCheckpointMarker("factory1", "marker1");
-    stateCheckpointMarkersList.add(scm1);
-    StateCheckpointMarker scm2 = new StateCheckpointMarker("factory2", "marker2");
-    stateCheckpointMarkersList.add(scm2);
+    Map<String, Map<String, String>> factoryStateCheckpointMarkersMap = new HashMap<>();
+    Map<String, String> stateCheckpointMarkersMap = new HashMap<>();
+    stateCheckpointMarkersMap.put("store1", "marker1");
+    stateCheckpointMarkersMap.put("store2", "marker2");
 
-    stateCheckpointMarkersMap.put("store1", stateCheckpointMarkersList);
+    Map<String, String> stateCheckpointMarkersMap2 = new HashMap<>();
+    stateCheckpointMarkersMap2.put("store1", "marker3");
+    stateCheckpointMarkersMap2.put("store2", "marker4");
+
+    factoryStateCheckpointMarkersMap.put("factory1", stateCheckpointMarkersMap);
+    factoryStateCheckpointMarkersMap.put("factory2", stateCheckpointMarkersMap2);
 
     CheckpointId checkpointId = CheckpointId.create();
 
-    CheckpointV2 checkpoint = new CheckpointV2(checkpointId, offsets, stateCheckpointMarkersMap);
+    CheckpointV2 checkpoint = new CheckpointV2(checkpointId, offsets, factoryStateCheckpointMarkersMap);
     CheckpointV2 deserializedCheckpoint = serde.fromBytes(serde.toBytes(checkpoint));
 
     // Validate input checkpoints
@@ -64,9 +64,11 @@ public class TestCheckpointV2Serde {
     assertEquals(1, deserializedCheckpoint.getOffsets().size());
 
     // Validate state checkpoints
-    assertEquals(1, deserializedCheckpoint.getStateCheckpointMarkers().size());
-    assertEquals(new HashSet<>(stateCheckpointMarkersList),
-        new HashSet<>(deserializedCheckpoint.getStateCheckpointMarkers().get("store1")));
+    assertEquals(2, deserializedCheckpoint.getStateCheckpointMarkers().size());
+    assertTrue(deserializedCheckpoint.getStateCheckpointMarkers().containsKey("factory1"));
+    assertEquals(stateCheckpointMarkersMap, deserializedCheckpoint.getStateCheckpointMarkers().get("factory1"));
+    assertTrue(deserializedCheckpoint.getStateCheckpointMarkers().containsKey("factory2"));
+    assertEquals(stateCheckpointMarkersMap2, deserializedCheckpoint.getStateCheckpointMarkers().get("factory2"));
   }
 
   @Test

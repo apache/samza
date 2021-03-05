@@ -19,15 +19,12 @@
 
 package org.apache.samza.serializers
 
-import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.apache.samza.util.Logging
 import java.util
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.CheckpointV1
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.util.Logging
-import org.codehaus.jackson.map.ObjectMapper
 
 import scala.collection.JavaConverters._
 

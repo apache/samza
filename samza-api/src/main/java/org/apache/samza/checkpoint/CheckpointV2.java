@@ -20,7 +20,6 @@
 package org.apache.samza.checkpoint;
 
 import com.google.common.collect.ImmutableMap;
-import java.util.List;
 import java.util.Objects;
 import org.apache.samza.system.SystemStreamPartition;
 
@@ -37,17 +36,18 @@ public class CheckpointV2 implements Checkpoint {
 
   private final CheckpointId checkpointId;
   private final Map<SystemStreamPartition, String> inputOffsets;
-  private final Map<String, List<StateCheckpointMarker>> stateCheckpointMarkers;
+  private final Map<String, Map<String, String>> stateCheckpointMarkers;
 
   /**
    * Constructs the checkpoint with separated input and state offsets
    * @param checkpointId CheckpointId associated with this checkpoint
    * @param inputOffsets Map of Samza system stream partition to offset of the checkpoint
-   * @param stateCheckpointMarkers Map of local state store names and StateCheckpointMarkers for each state backend system
+   * @param stateCheckpointMarkers Map of state backend factory name to map of local state store names
+   *                               to StateCheckpointMarkers
    */
   public CheckpointV2(CheckpointId checkpointId,
       Map<SystemStreamPartition, String> inputOffsets,
-      Map<String, List<StateCheckpointMarker>> stateCheckpointMarkers) {
+      Map<String, Map<String, String>> stateCheckpointMarkers) {
     this.checkpointId = checkpointId;
     this.inputOffsets = ImmutableMap.copyOf(inputOffsets);
     this.stateCheckpointMarkers = ImmutableMap.copyOf(stateCheckpointMarkers);
@@ -75,7 +75,7 @@ public class CheckpointV2 implements Checkpoint {
   }
 
   /**
-   * Gets the {@link StateCheckpointMarker}s for all stores and corresponding state backends.
+   * Gets the StateCheckpointMarkers for all stores and corresponding state backends.
    *
    * Note: We don't add this method to the {@link Checkpoint} interface since it is difficult
    * to implement it for {@link CheckpointV1} without changing the underlying serialization format -
@@ -85,8 +85,7 @@ public class CheckpointV2 implements Checkpoint {
    *
    * @return The state checkpoint markers for the checkpoint
    */
-  public Map<String, List<StateCheckpointMarker>> getStateCheckpointMarkers() {
-    // TODO HIGH dchen it might be a lot simpler to make this a Map<StateBackend, Map<StoreName, Marker>>
+  public Map<String, Map<String, String>> getStateCheckpointMarkers() {
     return stateCheckpointMarkers;
   }
 

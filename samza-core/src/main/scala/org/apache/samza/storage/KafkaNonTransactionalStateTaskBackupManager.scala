@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, StateCheckpointMarker}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId}
 import org.apache.samza.container.TaskName
 import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
@@ -70,7 +70,7 @@ class KafkaNonTransactionalStateTaskBackupManager(
     writeChangelogOffsetFiles(KafkaStateCheckpointMarker.scmToSSPOffsetMap(stateCheckpointMarkers))
   }
 
-  override def cleanUp(checkpointId: CheckpointId, stateCheckpointMarker: util.Map[String, StateCheckpointMarker]): Unit = {}
+  override def cleanUp(checkpointId: CheckpointId, stateCheckpointMarker: util.Map[String, String]): Unit = {}
 
   @VisibleForTesting
   override def close() {

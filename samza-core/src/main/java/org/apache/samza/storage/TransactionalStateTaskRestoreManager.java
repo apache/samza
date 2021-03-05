@@ -38,7 +38,6 @@ import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
-import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.checkpoint.kafka.KafkaChangelogSSPOffset;
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import org.apache.samza.config.Config;
@@ -567,15 +566,13 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
     if (checkpoint == null) return checkpointedChangelogOffsets;
 
     if (checkpoint instanceof CheckpointV2) {
-      Map<String, List<StateCheckpointMarker>> storeSCMs = ((CheckpointV2) checkpoint).getStateCheckpointMarkers();
-      storeSCMs.forEach((storeName, scms) -> {
-        for (StateCheckpointMarker scm : scms) {
-          if (KafkaChangelogStateBackendFactory.class.getName().equals(scm.getStateBackendFactoryName())) {
-            KafkaStateCheckpointMarker kafkaSCM = KafkaStateCheckpointMarker.fromString(scm.getStateCheckpointMarker());
-            checkpointedChangelogOffsets.put(storeName, kafkaSCM);
-          } // skip the non-KafkaStateCheckpointMarkers
-        }
-      });
+      Map<String, Map<String, String>> factoryStoreSCMs = ((CheckpointV2) checkpoint).getStateCheckpointMarkers();
+      if (factoryStoreSCMs.containsKey(KafkaStateCheckpointMarker.KAFKA_BACKEND_FACTORY_NAME)) {
+        factoryStoreSCMs.get(KafkaStateCheckpointMarker.KAFKA_BACKEND_FACTORY_NAME).forEach((storeName, scmString) -> {
+          KafkaStateCheckpointMarker kafkaSCM = KafkaStateCheckpointMarker.fromString(scmString);
+          checkpointedChangelogOffsets.put(storeName, kafkaSCM);
+        });
+      } // skip the non-KafkaStateCheckpointMarkers
     } else if (checkpoint instanceof CheckpointV1) {
       // If the checkpoint v1 is used, we need to fetch the changelog SSPs in the inputOffsets in order to get the
       // store offset.

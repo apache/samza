@@ -264,9 +264,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
         if (c.getVersion == 2) {
           assertEquals(1, c.getOffsets.size())
           assertTrue(c.isInstanceOf[CheckpointV2])
-          val checkpointedStateCheckpointMarkers = c.asInstanceOf[CheckpointV2].getStateCheckpointMarkers.get("storeName")
+          val checkpointedStateCheckpointMarkers = c.asInstanceOf[CheckpointV2]
+            .getStateCheckpointMarkers.get("org.apache.samza.storage.KafkaChangelogStateBackendFactory")
           assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
-          val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get(0).getStateCheckpointMarker
+          val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get("storeName")
           assertTrue(checkpointedStateCheckpointMarker.equals(stateCheckpointMarker))
           val kafkaMarker = KafkaStateCheckpointMarker.fromString(checkpointedStateCheckpointMarker)
           assertEquals(kafkaMarker.getChangelogOffset, "5")
@@ -309,9 +310,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
         if (checkpoint.getVersion == 2) {
           assertEquals(1, checkpoint.getOffsets.size())
           assertTrue(checkpoint.isInstanceOf[CheckpointV2])
-          val checkpointedStateCheckpointMarkers = checkpoint.asInstanceOf[CheckpointV2].getStateCheckpointMarkers.get("storeName")
+          val checkpointedStateCheckpointMarkers = checkpoint.asInstanceOf[CheckpointV2]
+            .getStateCheckpointMarkers.get("org.apache.samza.storage.KafkaChangelogStateBackendFactory")
           assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
-          val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get(0).getStateCheckpointMarker
+          val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get("storeName")
           assertTrue(checkpointedStateCheckpointMarker.equals(nullStateCheckpointMarker))
           val kafkaMarker = KafkaStateCheckpointMarker.fromString(checkpointedStateCheckpointMarker)
           assertNull(kafkaMarker.getChangelogOffset)

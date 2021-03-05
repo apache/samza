@@ -21,13 +21,11 @@ package org.apache.samza.checkpoint.kafka;
 
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.checkpoint.StateCheckpointMarker;
 import org.apache.samza.storage.KafkaChangelogStateBackendFactory;
 import org.apache.samza.system.SystemStreamPartition;
 import scala.Option;
@@ -37,6 +35,7 @@ import scala.Option;
 // TODO HIGH dchen add javadoc for what this class represents and how it's used
 public class KafkaStateCheckpointMarker {
   public static final String SEPARATOR = ";";
+  public static final String KAFKA_BACKEND_FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
 
   private final SystemStreamPartition changelogSSP;
   private final String changelogOffset;
@@ -63,7 +62,7 @@ public class KafkaStateCheckpointMarker {
     if (!"null".equals(payload[3])) {
       offset = payload[3];
     }
-    
+
     return new KafkaStateCheckpointMarker(new SystemStreamPartition(system, stream, partition), offset);
   }
 
@@ -78,28 +77,21 @@ public class KafkaStateCheckpointMarker {
   /**
    * Builds the SSP to kafka offset mapping from map of store name to list of StateCheckpointMarkers
    * containing a KafkaStateCheckpointMarker
-   * @param storeToStateBackendStateMarkers Map of store name to list of StateCheckpointMarkers containing a KafkaStateCheckpointMarker
+   * @param factoryStateBackendStateMarkersMap Map of store name to list of StateCheckpointMarkers containing a
+   *                                           KafkaStateCheckpointMarker
    * @return Map of ssp to option of Kafka offset
    */
   // TODO HIGH dchen add unit tests, fix javadocs
   public static Map<SystemStreamPartition, Option<String>> scmsToSSPOffsetMap(
-      Map<String, List<StateCheckpointMarker>> storeToStateBackendStateMarkers) {
-    Map<String, String> storeToKafkaStateMarker = new HashMap<>();
-    storeToStateBackendStateMarkers.forEach((storeName, scms) -> {
-      String kafkaStateMarker = null;
-      for (StateCheckpointMarker scm : scms) {
-        if (KafkaChangelogStateBackendFactory.class.getName().equals(scm.getStateBackendFactoryName())) {
-          kafkaStateMarker = scm.getStateCheckpointMarker();
-          break; // there should be only one KafkaStateCheckpointMarker per store
-        }
-      }
-      storeToKafkaStateMarker.put(storeName, kafkaStateMarker);
-    });
-    return scmToSSPOffsetMap(storeToKafkaStateMarker);
+      Map<String, Map<String, String>> factoryStateBackendStateMarkersMap) {
+    return scmToSSPOffsetMap(factoryStateBackendStateMarkersMap
+        .getOrDefault(KAFKA_BACKEND_FACTORY_NAME, null));
   }
 
   /**
    * Builds a SSP to Kafka offset mapping from map of store name to KafkaStateCheckpointMarkers
+   * @param storeToKafkaStateMarker storeName to serialized KafkaStateCheckpointMarker
+   * @return Map of SSP to Optional offset
    */
   // TODO HIGH dchen add unit tests, fix javadocs
   public static Map<SystemStreamPartition, Option<String>> scmToSSPOffsetMap(Map<String, String> storeToKafkaStateMarker) {
