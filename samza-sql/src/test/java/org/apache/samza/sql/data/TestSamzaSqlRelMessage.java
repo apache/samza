@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.apache.samza.sql.SamzaSqlRelRecord;
+import org.apache.samza.sql.translator.SamzaSqlTableJoinFunction;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -70,13 +71,13 @@ public class TestSamzaSqlRelMessage {
     List<String> keyPartNames = Arrays.asList("kfield1", "kfield2");
     SamzaSqlRelMessage message = new SamzaSqlRelMessage(names, values, new SamzaSqlRelMsgMetadata(0L, 0L));
 
-    SamzaSqlRelRecord relRecord1 = SamzaSqlRelMessage.createSamzaSqlCompositeKey(message, Collections.singletonList(0));
+    SamzaSqlRelRecord relRecord1 = SamzaSqlTableJoinFunction.createSamzaSqlCompositeKey(message, Collections.singletonList(0));
     Assert.assertEquals(relRecord1.getFieldNames().size(), 1);
     Assert.assertEquals(relRecord1.getFieldNames().get(0), "field1");
     Assert.assertEquals(relRecord1.getFieldValues().get(0), "value1");
 
-    SamzaSqlRelRecord relRecord2 = SamzaSqlRelMessage.createSamzaSqlCompositeKey(message, Arrays.asList(1, 0),
-        SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames(keyPartNames, Arrays.asList(1, 0)));
+    SamzaSqlRelRecord relRecord2 = SamzaSqlTableJoinFunction.createSamzaSqlCompositeKey(message, Arrays.asList(1, 0),
+        SamzaSqlTableJoinFunction.getSamzaSqlCompositeKeyFieldNames(keyPartNames, Arrays.asList(1, 0)));
     Assert.assertEquals(relRecord2.getFieldNames().size(), 2);
     Assert.assertEquals(relRecord2.getFieldNames().get(0), "kfield2");
     Assert.assertEquals(relRecord2.getFieldValues().get(0), "value2");
@@ -89,7 +90,7 @@ public class TestSamzaSqlRelMessage {
     List<String> keyPartNames = Arrays.asList("kfield1", "kfield2");
     SamzaSqlRelMessage message = new SamzaSqlRelMessage(names, values, new SamzaSqlRelMsgMetadata(0L, 0L));
 
-    SamzaSqlRelRecord relRecord1 = SamzaSqlRelMessage.createSamzaSqlCompositeKey(message, Arrays.asList(1, 0),
-        SamzaSqlRelMessage.getSamzaSqlCompositeKeyFieldNames(keyPartNames, Arrays.asList(1)));
+    SamzaSqlRelRecord relRecord1 = SamzaSqlTableJoinFunction.createSamzaSqlCompositeKey(message, Arrays.asList(1, 0),
+        SamzaSqlTableJoinFunction.getSamzaSqlCompositeKeyFieldNames(keyPartNames, Arrays.asList(1)));
   }
 }

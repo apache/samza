@@ -19,16 +19,11 @@
 
 package org.apache.samza.sql.util;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
-import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.config.Lex;
-import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelTraitDef;
@@ -49,8 +44,6 @@ import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.Planner;
 import org.apache.samza.SamzaException;
-import org.apache.samza.sql.interfaces.SamzaSqlDriver;
-import org.apache.samza.sql.interfaces.SamzaSqlJavaTypeFactoryImpl;
 import org.apache.samza.sql.planner.SamzaSqlValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,12 +91,11 @@ public class SamzaSqlQueryParser {
   }
 
   public static QueryInfo parseQuery(String sql) {
-    Planner planner = createPlanner();
     SqlNode sqlNode;
     // Having semi-colons at the end of sql statement is a valid syntax in standard sql but not for Calcite parser.
     // Hence, removing trailing semi-colon before passing sql statement to Calcite parser.
     sql = sql.replaceAll(TRAILING_SEMI_COLON_REGEX, "");
-    try {
+    try (Planner planner = createParser()) {
       sqlNode = planner.parse(sql);
     } catch (SqlParseException e) {
       String errorMsg = SamzaSqlValidator.formatErrorString(sql, e);
@@ -138,23 +130,11 @@ public class SamzaSqlQueryParser {
     return new QueryInfo(selectQuery, sources, sink, sql);
   }
 
-  private static Planner createPlanner() {
-    Connection connection;
-    SchemaPlus rootSchema;
-    try {
-      JavaTypeFactory typeFactory = new SamzaSqlJavaTypeFactoryImpl();
-      SamzaSqlDriver driver = new SamzaSqlDriver(typeFactory);
-      DriverManager.deregisterDriver(DriverManager.getDriver("jdbc:calcite:"));
-      DriverManager.registerDriver(driver);
-      connection = driver.connect("jdbc:calcite:", new Properties());
-      CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
-      rootSchema = calciteConnection.getRootSchema();
-    } catch (SQLException e) {
-      throw new SamzaException(e);
-    }
 
+  // TODO Will be nice to merge this Dummy planner with {@link org.apache.samza.sql.planner.QueryPlanner}.
+  private static Planner createParser() {
+    SchemaPlus rootSchema = CalciteSchema.createRootSchema(true).plus();
     final List<RelTraitDef> traitDefs = new ArrayList<>();
-
     traitDefs.add(ConventionTraitDef.INSTANCE);
     traitDefs.add(RelCollationTraitDef.INSTANCE);
 
@@ -165,7 +145,6 @@ public class SamzaSqlQueryParser {
         .traitDefs(traitDefs)
         .context(Contexts.EMPTY_CONTEXT)
         .costFactory(null)
-        //.programs(Programs.CALC_PROGRAM)
         .build();
     return Frameworks.getPlanner(frameworkConfig);
   }

@@ -25,7 +25,10 @@ import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.List;
 import java.util.function.Function;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.TableScan;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.MessageStream;
@@ -42,6 +45,7 @@ import org.apache.samza.operators.windows.WindowPane;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
+import org.apache.samza.sql.runner.SamzaSqlApplicationContext;
 import org.apache.samza.table.Table;
 
 
@@ -60,11 +64,24 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
    */
   private final Deque<MapFunction<? super SamzaSqlRelMessage, ? extends SamzaSqlRelMessage>> mapFnCallQueue =
       new ArrayDeque<>();
+  /**
+   * Table Scan Rel Node Id.
+   */
+  private final int tableScanId;
+  /**
+   * SQL statement Id.
+   */
+  private final int queryId;
 
   /**
    * Function to chain the call to close from each operator.
    */
   private transient Function<Void, Void> closeFn = aVoid -> null;
+
+  MessageStreamCollector(TableScan tableScan, int queryId) {
+    this.tableScanId = tableScan.getId();
+    this.queryId = queryId;
+  }
 
   @Override
   public <OM> MessageStream<OM> map(MapFunction<? super SamzaSqlRelMessage, ? extends OM> mapFn) {
@@ -85,7 +102,13 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
    * @return {code null} case filter reject the row, Samza Relational Record as it goes via Projects.
    */
   Function<SamzaSqlRelMessage, SamzaSqlRelMessage> getFunction(Context context) {
-    Function<SamzaSqlRelMessage, SamzaSqlRelMessage> tailFn = null;
+    TranslatorContext translatorContext =
+        ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
+    RelNode rel = translatorContext.getRelNode(tableScanId);
+    assert rel instanceof TableScan;
+    // First Map Function to Ensure that incoming rel message field positions in synch with the Schema of Table Scan
+    final List<String> fieldNames = rel.getRowType().getFieldNames();
+    Function<SamzaSqlRelMessage, SamzaSqlRelMessage> tailFn =  new ScanTranslator.ReArrangeFn(fieldNames);
     Function<Void, Void> intFn = aVoid -> null; // Projects and Filters both need to be initialized.
     closeFn = aVoid -> null;
     // At this point we have a the queue of operator, where first in is the first operator on top of TableScan.
@@ -107,9 +130,8 @@ class MessageStreamCollector implements MessageStream<SamzaSqlRelMessage>, Seria
         tailFn = current.compose(tailFn);
       }
     }
-    // TODO TBH not sure about this need to check if Samza Framework will be okay with late init call.
-    intFn.apply(null); // Init call has to happen here.
-    return tailFn == null ? Function.identity() : tailFn;
+    intFn.apply(null);
+    return tailFn;
   }
 
   /**

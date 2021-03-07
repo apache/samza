@@ -41,6 +41,7 @@ import org.apache.samza.sql.udf.GetNestedField;
 /**
  * List of all operators supported in Samza Sql. This is the subset of all the calcite operators.
  */
+@SuppressWarnings("unused")
 public class SamzaSqlOperatorTable extends ReflectiveSqlOperatorTable {
 
   public static final SqlBinaryOperator AND = SqlStdOperatorTable.AND;

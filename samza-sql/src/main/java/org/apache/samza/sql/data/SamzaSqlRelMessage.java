@@ -165,48 +165,4 @@ public class SamzaSqlRelMessage implements Serializable {
   public String toString() {
     return "RelMessage: {" + samzaSqlRelRecord + " " + samzaSqlRelMsgMetadata + "}";
   }
-
-  /**
-   * Create composite key from the rel message.
-   * @param message Represents the samza sql rel message to extract the key values from.
-   * @param keyValueIdx list of key values in the form of field indices within the rel message.
-   * @param keyPartNames Represents the key field names.
-   * @return the composite key of the rel message
-   */
-  public static SamzaSqlRelRecord createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> keyValueIdx,
-      List<String> keyPartNames) {
-    Validate.isTrue(keyValueIdx.size() == keyPartNames.size(), "Key part name and value list sizes are different");
-    ArrayList<Object> keyPartValues = new ArrayList<>();
-    for (int idx : keyValueIdx) {
-      keyPartValues.add(message.getSamzaSqlRelRecord().getFieldValues().get(idx));
-    }
-    return new SamzaSqlRelRecord(keyPartNames, keyPartValues);
-  }
-
-  /**
-   * Create composite key from the rel message.
-   * @param message Represents the samza sql rel message to extract the key values and names from.
-   * @param relIdx list of keys in the form of field indices within the rel message.
-   * @return the composite key of the rel message
-   */
-  public static SamzaSqlRelRecord createSamzaSqlCompositeKey(SamzaSqlRelMessage message, List<Integer> relIdx) {
-    return createSamzaSqlCompositeKey(message, relIdx,
-        getSamzaSqlCompositeKeyFieldNames(message.getSamzaSqlRelRecord().getFieldNames(), relIdx));
-  }
-
-  /**
-   * Get composite key field names.
-   * @param fieldNames list of field names to extract the key names from.
-   * @param nameIds indices within the field names.
-   * @return list of composite key field names
-   */
-  public static List<String> getSamzaSqlCompositeKeyFieldNames(List<String> fieldNames,
-      List<Integer> nameIds) {
-    List<String> keyPartNames = new ArrayList<>();
-    for (int idx : nameIds) {
-      keyPartNames.add(fieldNames.get(idx));
-    }
-    return keyPartNames;
-  }
-
 }
