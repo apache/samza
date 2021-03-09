@@ -19,7 +19,6 @@
 
 package org.apache.samza.checkpoint.kafka;
 
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -31,8 +30,15 @@ import org.apache.samza.system.SystemStreamPartition;
 import scala.Option;
 
 
+/**
+ * Used as the serialization format for the state checkpoints of {@link org.apache.samza.checkpoint.CheckpointV2}
+ * for a store using {@link org.apache.samza.storage.KafkaTransactionalStateTaskBackupManager} or
+ * {@link org.apache.samza.storage.KafkaNonTransactionalStateTaskBackupManager} for tracking the latest committed
+ * store changelog offsets.
+ *
+ * Kafka state checkpoints offsets has the format: [system, stream, partition, offsets], separated by a semi-colon.
+ */
 @InterfaceStability.Unstable
-// TODO HIGH dchen add javadoc for what this class represents and how it's used
 public class KafkaStateCheckpointMarker {
   public static final String SEPARATOR = ";";
   public static final String KAFKA_BACKEND_FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
@@ -45,7 +51,6 @@ public class KafkaStateCheckpointMarker {
     this.changelogOffset = changelogOffset;
   }
 
-  // TODO HIGH dchen add unit tests
   public static KafkaStateCheckpointMarker fromString(String stateCheckpointMarker) {
     if (StringUtils.isBlank(stateCheckpointMarker)) {
       throw new IllegalArgumentException("Invalid KafkaStateCheckpointMarker format: " + stateCheckpointMarker);
@@ -75,13 +80,13 @@ public class KafkaStateCheckpointMarker {
   }
 
   /**
-   * Builds the SSP to kafka offset mapping from map of store name to list of StateCheckpointMarkers
-   * containing a KafkaStateCheckpointMarker
-   * @param factoryStateBackendStateMarkersMap Map of store name to list of StateCheckpointMarkers containing a
-   *                                           KafkaStateCheckpointMarker
-   * @return Map of ssp to option of Kafka offset
+   * Builds the SSP to kafka offset mapping from map of backend factory name to (map of store name to serialized
+   * StateCheckpointMarkers.
+   * @param factoryStateBackendStateMarkersMap Map of factory name to (map of store name to serialized
+   *                                           StateCheckpointMarkers)
+   * @return Map of ssp to option of Kafka offset or an empty map if there is KafkaStateBackendFactory name found
+   * in the input map
    */
-  // TODO HIGH dchen add unit tests, fix javadocs
   public static Map<SystemStreamPartition, Option<String>> scmsToSSPOffsetMap(
       Map<String, Map<String, String>> factoryStateBackendStateMarkersMap) {
     return scmToSSPOffsetMap(factoryStateBackendStateMarkersMap
@@ -93,7 +98,6 @@ public class KafkaStateCheckpointMarker {
    * @param storeToKafkaStateMarker storeName to serialized KafkaStateCheckpointMarker
    * @return Map of SSP to Optional offset
    */
-  // TODO HIGH dchen add unit tests, fix javadocs
   public static Map<SystemStreamPartition, Option<String>> scmToSSPOffsetMap(Map<String, String> storeToKafkaStateMarker) {
     Map<SystemStreamPartition, Option<String>> sspToOffset = new HashMap<>();
     if (storeToKafkaStateMarker != null) {
@@ -125,7 +129,6 @@ public class KafkaStateCheckpointMarker {
    * in conjunction with {@link #fromString(String)}.
    * @return the String representation of this {@link KafkaStateCheckpointMarker}
    */
-  // TODO HIGH dchen add unit tests for serde for this class so this doesn't break accidentally
   @Override
   public String toString() {
     return String.format("%s%s%s%s%s%s%s",

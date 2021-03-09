@@ -778,7 +778,6 @@ class SamzaContainer(
       startProducers
       startStores
       startTableManager
-      startCommitManagers
       startDiskSpaceMonitor
       startHostStatisticsMonitor
       startTask
@@ -986,14 +985,6 @@ class SamzaContainer(
     taskInstances.values.foreach(taskInstance => {
       info("Starting table manager in task instance %s" format taskInstance.taskName)
       taskInstance.startTableManager
-    })
-  }
-
-  def startCommitManagers: Unit = {
-    taskInstances.values.foreach(taskInstance  => {
-      info("Starting commit manager in task instance %s" format taskInstance.taskName)
-      // TODO HIGH dchen why do this separately from taskInstance init?
-      taskInstance.startCommitManager
     })
   }
 

@@ -221,7 +221,7 @@ class OffsetManager(
   }
 
   /**
-   * Get the last checkpoint saved in the checkpont manager
+   * Get the last checkpoint saved in the checkpoint manager or null if there is no recorded checkpoints for the task
    */
   def getLastTaskCheckpoint(taskName: TaskName): Checkpoint = {
     if (checkpointManager != null) {

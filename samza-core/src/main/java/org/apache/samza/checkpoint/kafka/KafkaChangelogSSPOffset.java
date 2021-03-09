@@ -69,7 +69,6 @@ public class KafkaChangelogSSPOffset {
    * as part of task checkpoints, in conjunction with {@link #fromString(String)}.
    * @return the String representation of this {@link KafkaChangelogSSPOffset}
    */
-  // TODO HIGH dchen add unit tests for serde for this class so this doesn't break accidentally
   @Override
   public String toString() {
     return String.format("%s%s%s", checkpointId, SEPARATOR, changelogOffset);

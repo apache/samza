@@ -24,7 +24,7 @@ import java.util.Properties
 import kafka.integration.KafkaServerTestHarness
 import kafka.utils.{CoreUtils, TestUtils}
 import com.google.common.collect.ImmutableMap
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointV1}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointV1, CheckpointV2}
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
@@ -124,6 +124,90 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     // writing a second message and reading it returns a more recent checkpoint
     writeCheckpoint(checkpointTopic, taskName, checkpoint2)
     assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
+  }
+
+  @Test
+  def testCheckpointV1AndV2WriteAndReadV1(): Unit = {
+    val checkpointTopic = "checkpoint-topic-1"
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+    kcm1.register(taskName)
+    kcm1.createResources
+    kcm1.start
+    kcm1.stop
+
+    // check that start actually creates the topic with log compaction enabled
+    val topicConfig = adminZkClient.getAllTopicConfigs().getOrElse(checkpointTopic, new Properties())
+
+    assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
+    assertEquals("compact", topicConfig.get("cleanup.policy"))
+    assertEquals("26214400", topicConfig.get("segment.bytes"))
+
+    // read before topic exists should result in a null checkpoint
+    val readCp = readCheckpoint(checkpointTopic, taskName)
+    assertNull(readCp)
+
+    val checkpointV1 = new CheckpointV1(ImmutableMap.of(ssp, "offset-1"))
+    val checkpointV2 = new CheckpointV2(CheckpointId.create(), ImmutableMap.of(ssp, "offset-2"),
+      ImmutableMap.of("factory1", ImmutableMap.of("store1", "changelogOffset")))
+
+    // skips v2 checkpoints from checkpoint topic
+    writeCheckpoint(checkpointTopic, taskName, checkpointV2)
+    assertNull(readCheckpoint(checkpointTopic, taskName))
+
+    // reads latest v1 checkpoints
+    writeCheckpoint(checkpointTopic, taskName, checkpointV1)
+    assertEquals(checkpointV1, readCheckpoint(checkpointTopic, taskName))
+
+    // writing checkpoint v2 still returns the previous v1 checkpoint
+    writeCheckpoint(checkpointTopic, taskName, checkpointV2)
+    assertEquals(checkpointV1, readCheckpoint(checkpointTopic, taskName))
+  }
+
+  @Test
+  def testCheckpointV1AndV2WriteAndReadV2(): Unit = {
+    val checkpointTopic = "checkpoint-topic-1"
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+    kcm1.register(taskName)
+    kcm1.createResources
+    kcm1.start
+    kcm1.stop
+
+    // check that start actually creates the topic with log compaction enabled
+    val topicConfig = adminZkClient.getAllTopicConfigs().getOrElse(checkpointTopic, new Properties())
+
+    assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
+    assertEquals("compact", topicConfig.get("cleanup.policy"))
+    assertEquals("26214400", topicConfig.get("segment.bytes"))
+
+    // read before topic exists should result in a null checkpoint
+    val readCp = readCheckpoint(checkpointTopic, taskName)
+    assertNull(readCp)
+
+    val checkpointV1 = new CheckpointV1(ImmutableMap.of(ssp, "offset-1"))
+    val checkpointV2 = new CheckpointV2(CheckpointId.create(), ImmutableMap.of(ssp, "offset-2"),
+      ImmutableMap.of("factory1", ImmutableMap.of("store1", "changelogOffset")))
+
+    val overrideConfig = new MapConfig(new ImmutableMap.Builder[String, String]()
+      .put(JobConfig.JOB_NAME, "some-job-name")
+      .put(JobConfig.JOB_ID, "i001")
+      .put(s"systems.$checkpointSystemName.samza.factory", classOf[KafkaSystemFactory].getCanonicalName)
+      .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokerList)
+      .put(s"systems.$checkpointSystemName.consumer.zookeeper.connect", zkConnect)
+      .put("task.checkpoint.system", checkpointSystemName)
+      .put("task.checkpoint.read.version", "2")
+      .build())
+
+    // Skips reading any v1 checkpoints
+    writeCheckpoint(checkpointTopic, taskName, checkpointV1)
+    assertNull(readCheckpoint(checkpointTopic, taskName, overrideConfig))
+
+    // writing a v2 checkpoint would allow reading it back
+    writeCheckpoint(checkpointTopic, taskName, checkpointV2)
+    assertEquals(checkpointV2, readCheckpoint(checkpointTopic, taskName, overrideConfig))
+
+    // writing v1 checkpoint is still skipped
+    writeCheckpoint(checkpointTopic, taskName, checkpointV1)
+    assertEquals(checkpointV2, readCheckpoint(checkpointTopic, taskName, overrideConfig))
   }
 
   @Test
@@ -251,24 +335,25 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       .build())
   }
 
-  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointV1Serde = new CheckpointV1Serde, failOnTopicValidation: Boolean = true) = {
-    val kafkaConfig = new org.apache.samza.config.KafkaConfig(config)
+  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointV1Serde = new CheckpointV1Serde,
+    failOnTopicValidation: Boolean = true, overrideConfig: Config = config) = {
+    val kafkaConfig = new org.apache.samza.config.KafkaConfig(overrideConfig)
     val props = kafkaConfig.getCheckpointTopicProperties()
     val systemName = kafkaConfig.getCheckpointSystem.getOrElse(
       throw new SamzaException("No system defined for Kafka's checkpoint manager."))
 
-    val systemConfig = new SystemConfig(config)
+    val systemConfig = new SystemConfig(overrideConfig)
     val systemFactoryClassName = JavaOptionals.toRichOptional(systemConfig.getSystemFactory(systemName)).toOption
       .getOrElse(throw new SamzaException("Missing configuration: " + SystemConfig.SYSTEM_FACTORY_FORMAT format systemName))
 
     val systemFactory = ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory])
 
     val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
-    new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
+    new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, overrideConfig, new NoOpMetricsRegistry, serde)
   }
 
-  private def readCheckpoint(checkpointTopic: String, taskName: TaskName) : Checkpoint = {
-    val kcm = createKafkaCheckpointManager(checkpointTopic)
+  private def readCheckpoint(checkpointTopic: String, taskName: TaskName, config: Config = config) : Checkpoint = {
+    val kcm = createKafkaCheckpointManager(checkpointTopic, overrideConfig = config)
     kcm.register(taskName)
     kcm.start
     val checkpoint = kcm.readLastCheckpoint(taskName)

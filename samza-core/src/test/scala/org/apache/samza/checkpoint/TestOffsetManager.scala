@@ -616,9 +616,6 @@ class TestOffsetManager {
       def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) { checkpoints += taskName -> checkpoint }
       def readLastCheckpoint(taskName: TaskName) = checkpoints.getOrElse(taskName, null)
       def stop { isStopped = true }
-
-      // Only for testing purposes - not present in actual checkpoint manager
-      def getOffets = Map(taskName -> checkpoint.asInstanceOf[CheckpointV1].getOffsets.asScala.toMap)
     }
   }
 

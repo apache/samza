@@ -30,8 +30,9 @@ import org.apache.samza.container.TaskName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-// TODO HIGH dchen add javadocs for this class.
-// TODO HIGH dchen add unit tests for this class.
+/**
+ * Handles the commit of the state stores of the task.
+ */
 public class TaskStorageCommitManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(TaskStorageCommitManager.class);
@@ -60,7 +61,6 @@ public class TaskStorageCommitManager {
 
   /**
    * Commits the local state on the remote backup implementation
-   * TODO BLOCKER dchen add comments / docs for what all these Map keys and value are.
    * @return Committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
    */
   public Map<String, Map<String, String>> commit(TaskName taskName, CheckpointId checkpointId) {
@@ -100,7 +100,16 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * Cleanup  each of the task backup managers
+   * Writes a copy of the persisted {@link Checkpoint} from {@link #commit(TaskName, CheckpointId)}
+   * locally to the file system on disk
+   * @param checkpoint the latest checkpoint to be persisted to local file system
+   */
+  public void persistToLocalFileSystem(Checkpoint checkpoint) {
+    // TODO BLOCKER dchen refactor TaskBackupManager.persistToFileSystem() to be done here instead
+  }
+
+  /**
+   * Cleanup the commit state for each of the task backup managers
    * @param checkpointId CheckpointId of the most recent successful commit
    * @param stateCheckpointMarkers map of map(stateBackendFactoryName to map(storeName to StateCheckpointMarkers) from
    *                              the latest commit
@@ -120,6 +129,9 @@ public class TaskStorageCommitManager {
     });
   }
 
+  /**
+   * Close all the state backup managers
+   */
   public void close() {
     stateBackendToBackupManager.values().forEach(storageBackupManager -> {
       if (storageBackupManager != null) {

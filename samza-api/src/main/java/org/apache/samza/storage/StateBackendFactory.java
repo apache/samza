@@ -26,7 +26,11 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.util.Clock;
 
-// TODO low dchen javadocs
+
+/**
+ * Factory to build the Samza {@link TaskBackupManager},  {@link TaskRestoreManager} systems and
+ * {@link TaskStorageAdmin} for a particular state storage backend, which are used to persist the Samza task state.
+ */
 public interface StateBackendFactory {
   TaskBackupManager getBackupManager(JobModel jobModel,
       ContainerModel containerModel,

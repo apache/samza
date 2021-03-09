@@ -136,6 +136,8 @@ class TaskInstance(
   def initTask {
     initCaughtUpMapping()
 
+    startCommitManager
+
     if (offsetManager != null) {
       val checkpoint = offsetManager.getLastTaskCheckpoint(taskName)
       // Only required for checkpointV2
@@ -281,6 +283,9 @@ class TaskInstance(
       } else {
         throw new SamzaException("Unsupported checkpoint write version: " + checkpointWriteVersion)
       }
+
+      // Persist checkpoint to local file system
+      commitManager.persistToLocalFileSystem(checkpoint)
 
       trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, checkpoint))
 
