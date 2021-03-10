@@ -61,7 +61,6 @@ public class SamzaSqlApplicationRunner implements ApplicationRunner {
    * NOTE: This constructor is called from {@link ApplicationRunners} through reflection.
    * Please refrain from updating the signature or removing this constructor unless the caller has changed the interface.
    */
-  @SuppressWarnings("unused") /* used via reflection */
   public SamzaSqlApplicationRunner(SamzaApplication app, Config config) {
     this(app, false, config);
   }

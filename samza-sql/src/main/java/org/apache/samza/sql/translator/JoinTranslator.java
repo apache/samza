@@ -40,7 +40,6 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
-import org.apache.calcite.rex.RexSlot;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
@@ -80,7 +79,7 @@ import static org.apache.samza.sql.data.SamzaSqlRelMessage.getSamzaSqlCompositeK
 class JoinTranslator {
 
   private static final Logger log = LoggerFactory.getLogger(JoinTranslator.class);
-  private final String logicalOpId;
+  private String logicalOpId;
   private final String intermediateStreamPrefix;
   private final int queryId;
   private final TranslatorInputMetricsMapFunction inputMetricsMF;
@@ -166,16 +165,8 @@ class JoinTranslator {
 
     if (tableNode.isRemoteTable()) {
       String remoteTableName = tableNode.getSourceName();
-      MessageStream<SamzaSqlRelMessage> operatorStack = context.getMessageStream(tableNode.getRelNode().getId());
-      final  StreamTableJoinFunction<Object, SamzaSqlRelMessage, KV, SamzaSqlRelMessage> joinFn;
-      if (operatorStack != null && operatorStack instanceof MessageStreamCollector) {
-        joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
-            context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId,
-            (MessageStreamCollector) operatorStack);
-      } else {
-        joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
-            context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId);
-      }
+      StreamTableJoinFunction joinFn = new SamzaSqlRemoteTableJoinFunction(context.getMsgConverter(remoteTableName),
+          context.getTableKeyConverter(remoteTableName), streamNode, tableNode, join.getJoinType(), queryId);
 
       return inputStream
           .map(inputMetricsMF)
@@ -184,11 +175,7 @@ class JoinTranslator {
 
     // Join with the local table
 
-    StreamTableJoinFunction<SamzaSqlRelRecord,
-        SamzaSqlRelMessage,
-        KV<SamzaSqlRelRecord, SamzaSqlRelMessage>,
-        SamzaSqlRelMessage>
-        joinFn = new SamzaSqlLocalTableJoinFunction(streamNode, tableNode, join.getJoinType());
+    StreamTableJoinFunction joinFn = new SamzaSqlLocalTableJoinFunction(streamNode, tableNode, join.getJoinType());
 
     SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde keySerde =
         (SamzaSqlRelRecordSerdeFactory.SamzaSqlRelRecordSerde) new SamzaSqlRelRecordSerdeFactory().getSerde(null, null);
@@ -283,8 +270,8 @@ class JoinTranslator {
         isTablePosOnRight ? join.getRowType().getFieldCount() : join.getLeft().getRowType().getFieldCount();
 
     List<Integer> tableRefsIdx = refCollector.stream()
-        .map(RexSlot::getIndex)
-        .filter(x -> (tableStartIndex <= x) && (x < tableEndIndex)) // collect all the refs form table side
+        .map(x -> x.getIndex())
+        .filter(x -> tableStartIndex <= x && x < tableEndIndex) // collect all the refs form table side
         .map(x -> x - tableStartIndex) // re-adjust the offset
         .sorted()
         .collect(Collectors.toList()); // we have a list with all the input from table side with 0 based index.
@@ -357,12 +344,11 @@ class JoinTranslator {
   private void validateJoinKeyType(RexInputRef ref) {
     SqlTypeName sqlTypeName = ref.getType().getSqlTypeName();
 
-    // Primitive types and Row (for the record key) and ANY for other fields like __key__
-    // TODO this need to be pulled to a common class/place that have all the supported types
+    // Primitive types and ANY (for the record key) are supported in the key
     if (sqlTypeName != SqlTypeName.BOOLEAN && sqlTypeName != SqlTypeName.TINYINT && sqlTypeName != SqlTypeName.SMALLINT
         && sqlTypeName != SqlTypeName.INTEGER && sqlTypeName != SqlTypeName.CHAR && sqlTypeName != SqlTypeName.BIGINT
         && sqlTypeName != SqlTypeName.VARCHAR && sqlTypeName != SqlTypeName.DOUBLE && sqlTypeName != SqlTypeName.FLOAT
-        && sqlTypeName != SqlTypeName.ANY && sqlTypeName != SqlTypeName.OTHER && sqlTypeName != SqlTypeName.ROW) {
+        && sqlTypeName != SqlTypeName.ANY && sqlTypeName != SqlTypeName.OTHER) {
       log.error("Unsupported key type " + sqlTypeName + " used in join condition.");
       throw new SamzaException("Unsupported key type used in join condition.");
     }

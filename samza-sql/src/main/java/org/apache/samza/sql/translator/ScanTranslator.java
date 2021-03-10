@@ -170,10 +170,7 @@ class ScanTranslator {
     // SqlIOResolverFactory.
     // For local table, even though table descriptor is already defined, we still need to create the input stream
     // descriptor to load the local table.
-    // To handle case where a project or filter is pushed to Remote table Scan will collect the operators and feed it to the join operator.
-    // TODO In an ideal world this has to change and use Calcite Pattern matching to translate the plan.
     if (isRemoteTable) {
-      context.registerMessageStream(tableScan.getId(), new MessageStreamCollector());
       return;
     }
 

@@ -148,10 +148,8 @@ public class AvroTypeFactoryImpl extends SqlTypeFactoryImpl {
   }
 
   private SqlFieldSchema getSqlTypeFromUnionTypes(List<Schema> types, boolean isNullable, boolean isOptional) {
-    if (types.size() == 1) {
-      return convertField(types.get(0), true, true);
-    } else if (types.size() == 2) {
-      // Typically a nullable field's schema is configured as an union of Null and a Type.
+    // Typically a nullable field's schema is configured as an union of Null and a Type.
+    if (types.size() == 2) {
       if (types.get(0).getType() == Schema.Type.NULL) {
         return convertField(types.get(1), true, true);
       } else if (types.get(1).getType() == Schema.Type.NULL) {
