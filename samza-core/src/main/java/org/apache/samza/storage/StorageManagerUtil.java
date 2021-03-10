@@ -38,6 +38,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.clustermanager.StandbyTaskUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
@@ -56,14 +58,26 @@ import org.slf4j.LoggerFactory;
 
 public class StorageManagerUtil {
   private static final Logger LOG = LoggerFactory.getLogger(StorageManagerUtil.class);
+  public static final String CHECKPOINT_FILE_NAME = "CHECKPOINT";
   public static final String OFFSET_FILE_NAME_NEW = "OFFSET-v2";
   public static final String OFFSET_FILE_NAME_LEGACY = "OFFSET";
   public static final String SIDE_INPUT_OFFSET_FILE_NAME_LEGACY = "SIDE-INPUT-OFFSETS";
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
   private static final TypeReference<Map<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
             new TypeReference<Map<SystemStreamPartition, String>>() { };
-  private static final ObjectWriter OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
+  private static final ObjectWriter SSP_OFFSET_OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
   private static final String SST_FILE_SUFFIX = ".sst";
+
+  /**
+   * Returns the path for a storage engine to write its checkpoints based on the latest checkpoint id.
+   *
+   * @param storeEngineBaseDir Directory of the store
+   * @param checkpointId Current checkpoint id that is being written
+   * @return String denoting the file path of the store with the given checkpoint id
+   */
+  public static String getStoreCheckpointPath(File storeEngineBaseDir, CheckpointId checkpointId) {
+    return storeEngineBaseDir.getPath() + "-" + checkpointId.toString();
+  }
 
   /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
@@ -118,7 +132,7 @@ public class StorageManagerUtil {
 
       // We check if the new offset-file exists, if so we use its last-modified time, if it doesn't we use the legacy file
       // depending on if it is a side-input or not,
-      // if neither exists, we use 0L (the defauilt return value of lastModified() when file does not exist
+      // if neither exists, we use 0L (the default return value of lastModified() when file does not exist
       File offsetFileRefNew = new File(storeDir, OFFSET_FILE_NAME_NEW);
       File offsetFileRefLegacy = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
       File sideInputOffsetFileRefLegacy = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
@@ -210,19 +224,27 @@ public class StorageManagerUtil {
 
     // First, we write the new-format offset file
     File offsetFile = new File(storeDir, OFFSET_FILE_NAME_NEW);
-    String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
+    String fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
     FileUtil fileUtil = new FileUtil();
     fileUtil.writeWithChecksum(offsetFile, fileContents);
 
     // Now we write the old format offset file, which are different for store-offset and side-inputs
     if (isSideInput) {
       offsetFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
-      fileContents = OBJECT_WRITER.writeValueAsString(offsets);
+      fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
       fileUtil.writeWithChecksum(offsetFile, fileContents);
     } else {
       offsetFile = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
       fileUtil.writeWithChecksum(offsetFile, offsets.entrySet().iterator().next().getValue());
     }
+  }
+
+  public void writeCheckpointFile(File storeDir, CheckpointV2 checkpoint) throws IOException {
+    File offsetFile = new File(storeDir, OFFSET_FILE_NAME_NEW);
+    // TODO HIGH dchen serialize
+    String fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(checkpoint);
+    FileUtil fileUtil = new FileUtil();
+    fileUtil.writeWithChecksum(offsetFile, fileContents);
   }
 
   /**

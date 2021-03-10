@@ -226,7 +226,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
-    when(this.taskCommitManager.commit(any(), any()))
+    when(this.taskCommitManager.commit(any()))
       .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
     doNothing().when(this.taskCommitManager).cleanUp(any(), any())
     taskInstance.commit
@@ -244,7 +244,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     mockOrder.verify(this.taskTableManager).flush()
 
     // Local state should be flushed next next
-    mockOrder.verify(this.taskCommitManager).commit(any(), any())
+    mockOrder.verify(this.taskCommitManager).commit(any())
 
     // Stores checkpoints should be created next with the newest changelog offsets
     mockOrder.verify(this.taskCommitManager).persistToLocalFileSystem(any())
@@ -293,7 +293,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val nullStateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, null).toString
     stateCheckpointMarkers.put("storeName", nullStateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any(), any()))
+    when(this.taskCommitManager.commit(any()))
       .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
     taskInstance.commit
 
@@ -336,7 +336,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any(), any()))
+    when(this.taskCommitManager.commit(any()))
       .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
     taskInstance.commit
 
@@ -362,7 +362,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any(), any())).thenThrow(new SamzaException("Error getting changelog offsets"))
+    when(this.taskCommitManager.commit(any())).thenThrow(new SamzaException("Error getting changelog offsets"))
 
     try {
       taskInstance.commit
@@ -385,7 +385,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any(), any()))
+    when(this.taskCommitManager.commit(any()))
       .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
     when(this.taskCommitManager.persistToLocalFileSystem(any())).thenThrow(new SamzaException("Error creating store checkpoint"))
 
@@ -409,7 +409,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any(), any()))
+    when(this.taskCommitManager.commit(any()))
       .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
     doNothing().when(this.taskCommitManager).persistToLocalFileSystem(any())
     when(this.taskCommitManager.cleanUp(any(), any()))

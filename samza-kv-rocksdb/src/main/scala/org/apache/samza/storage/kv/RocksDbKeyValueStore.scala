@@ -28,6 +28,7 @@ import java.util.{Comparator, Optional}
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.config.Config
+import org.apache.samza.storage.StorageManagerUtil
 import org.apache.samza.util.Logging
 import org.rocksdb.{TtlDB, _}
 
@@ -239,7 +240,7 @@ class RocksDbKeyValueStore(
 
   override def checkpoint(id: CheckpointId): Optional[Path] = {
     val checkpoint = Checkpoint.create(db)
-    val checkpointPath = dir.getPath + "-" + id.toString
+    val checkpointPath = StorageManagerUtil.getStoreCheckpointPath(dir, id)
     checkpoint.createCheckpoint(checkpointPath)
     Optional.of(Paths.get(checkpointPath))
   }

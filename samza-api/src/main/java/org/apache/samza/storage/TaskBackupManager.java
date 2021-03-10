@@ -65,15 +65,6 @@ public interface TaskBackupManager {
       Map<String, String> stateCheckpointMarkers);
 
   /**
-   * Occurs after the state has been persisted. Writes a copy of the persisted StateCheckpointMarkers from
-   * {@link #upload(CheckpointId, Map)} locally to the file system on disk
-   * @param checkpointId The id of the checkpoint to be committed
-   * @param stateCheckpointMarkers Uploaded storename to checkpoints markers to be persisted locally
-   */
-  // TODO BLOCKER dchen remove this method from this interface.
-  void persistToFilesystem(CheckpointId checkpointId, Map<String, String> stateCheckpointMarkers);
-
-  /**
    * Cleanup any local or remote state for checkpoint information that is older than the provided checkpointId
    * This operation is required to be idempotent.
    * @param checkpointId The {@link CheckpointId} of the last successfully committed checkpoint

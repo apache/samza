@@ -127,7 +127,7 @@ class TaskInstance(
   def startCommitManager: Unit = {
     if (commitManager != null) {
       debug("Starting commit manager for taskName: %s" format taskName)
-      commitManager.start()
+      commitManager.init()
     } else {
       debug("Skipping commit manager initialization for taskName: %s" format taskName)
     }
@@ -264,7 +264,7 @@ class TaskInstance(
 
     // Perform state commit
     trace("Committing state stores for taskName: %s" format taskName)
-    val stateCheckpointMarkers = commitManager.commit(taskName, checkpointId)
+    val stateCheckpointMarkers = commitManager.commit(checkpointId)
     trace("Got state checkpoint markers for taskName: %s as: %s " format(taskName, stateCheckpointMarkers))
 
     checkpointWriteVersions.foreach(checkpointWriteVersion => {

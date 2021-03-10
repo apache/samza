@@ -57,6 +57,7 @@ import scala.collection.mutable
   *
   * @param offsetFileName the name of the offset file.
   */
+// TODO HIGH dchen move tests to test commit manager
 @RunWith(value = classOf[Parameterized])
 class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) extends MockitoSugar {
 
@@ -136,7 +137,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     val checkpointId = CheckpointId.create()
     val snapshot = taskManager.snapshot(checkpointId)
     val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot)
-    taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
+    //taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
     assertTrue(offsetFile.exists())
     validateOffsetFileContents(offsetFile, "kafka.testStream-loggedStore1.0", "50")
 
@@ -223,7 +224,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     val checkpointId = CheckpointId.create()
     val snapshot = taskManager.snapshot(checkpointId)
     val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot)
-    taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
+    //taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is NOT created
@@ -413,7 +414,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     val checkpointId = CheckpointId.create()
     val snapshot = taskStorageManager.snapshot(checkpointId)
     val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
-    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
+    //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -461,7 +462,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     val checkpointId = CheckpointId.create()
     var snapshot = taskStorageManager.snapshot(checkpointId)
     val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
-    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
+    //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -470,7 +471,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     //Invoke test method again
     snapshot = taskStorageManager.snapshot(checkpointId)
     val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot)
-    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
+    //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
 
     //Check conditions
     assertFalse("Offset file for null offset exists!", offsetFilePath.exists())
@@ -511,7 +512,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     val checkpointId = CheckpointId.create()
     var snapshot = taskStorageManager.snapshot(checkpointId)
     val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
-    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
+    //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -524,7 +525,7 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     //Invoke test method
     snapshot = taskStorageManager.snapshot(checkpointId)
     val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot)
-    taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
+    //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
 
     //Check conditions
     assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
@@ -961,7 +962,6 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       taskStores = containerStorageManager.getAllStores(taskName),
       storeChangelogs = changeLogSystemStreams.asJava,
       systemAdmins = buildSystemAdmins(systemAdminsMap),
-      loggedStoreBaseDir = loggedStoreBaseDir,
       partition = partition
     )
   }

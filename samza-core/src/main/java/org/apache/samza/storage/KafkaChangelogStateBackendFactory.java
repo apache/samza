@@ -57,11 +57,10 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
 
     if (new TaskConfig(config).getTransactionalStateCheckpointEnabled()) {
       return new KafkaTransactionalStateTaskBackupManager(taskModel.getTaskName(),
-          taskStores, storeChangelogs, systemAdmins, loggedStoreBaseDir, taskModel.getChangelogPartition(),
-          taskModel.getTaskMode(), new StorageManagerUtil());
+          taskStores, storeChangelogs, systemAdmins, taskModel.getChangelogPartition());
     } else {
       return new KafkaNonTransactionalStateTaskBackupManager(taskModel.getTaskName(),
-          taskStores, storeChangelogs, systemAdmins, loggedStoreBaseDir, taskModel.getChangelogPartition());
+          taskStores, storeChangelogs, systemAdmins, taskModel.getChangelogPartition());
     }
   }
 

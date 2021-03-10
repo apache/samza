@@ -194,7 +194,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokerList)
       .put(s"systems.$checkpointSystemName.consumer.zookeeper.connect", zkConnect)
       .put("task.checkpoint.system", checkpointSystemName)
-      .put("task.checkpoint.read.version", "2")
+      .put(TaskConfig.CHECKPOINT_READ_VERSION, "2")
       .build())
 
     // Skips reading any v1 checkpoints

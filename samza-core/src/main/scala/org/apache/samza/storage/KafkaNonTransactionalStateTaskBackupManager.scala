@@ -19,7 +19,6 @@
 
 package org.apache.samza.storage
 
-import java.io._
 import java.util
 import java.util.concurrent.CompletableFuture
 
@@ -28,14 +27,11 @@ import com.google.common.collect.ImmutableSet
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointId}
 import org.apache.samza.container.TaskName
-import org.apache.samza.job.model.TaskMode
 import org.apache.samza.system._
 import org.apache.samza.util.Logging
 import org.apache.samza.{Partition, SamzaException}
 
-import scala.collection.JavaConversions.mapAsScalaMap
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 
 /**
  * Manage all the storage engines for a given task
@@ -45,18 +41,12 @@ class KafkaNonTransactionalStateTaskBackupManager(
   taskStores: util.Map[String, StorageEngine],
   storeChangelogs: util.Map[String, SystemStream] = new util.HashMap[String, SystemStream](),
   systemAdmins: SystemAdmins,
-  loggedStoreBaseDir: File = new File(System.getProperty("user.dir"), "state"),
   partition: Partition) extends Logging with TaskBackupManager {
-
-  private val storageManagerUtil = new StorageManagerUtil
-  private val persistedStores = taskStores.asScala
-    .filter { case (storeName, storageEngine) => storageEngine.getStoreProperties.isPersistedToDisk }
 
   override def init(checkpoint: Checkpoint): Unit = {}
 
   override def snapshot(checkpointId: CheckpointId): util.Map[String, String] = {
-    debug("Flushing stores.")
-    taskStores.asScala.values.foreach(_.flush)
+    debug("Getting newest offsets for kafka changelog commit.")
     getNewestChangelogSSPOffsets()
   }
 
@@ -65,18 +55,10 @@ class KafkaNonTransactionalStateTaskBackupManager(
      CompletableFuture.completedFuture(stateCheckpointMarkers)
   }
 
-  override def persistToFilesystem(checkpointId: CheckpointId,
-    stateCheckpointMarkers: util.Map[String, String]): Unit = {
-    writeChangelogOffsetFiles(KafkaStateCheckpointMarker.scmToSSPOffsetMap(stateCheckpointMarkers))
-  }
-
   override def cleanUp(checkpointId: CheckpointId, stateCheckpointMarker: util.Map[String, String]): Unit = {}
 
   @VisibleForTesting
-  override def close() {
-    debug("Stopping stores.")
-    taskStores.asScala.values.foreach(engine => engine.stop())
-  }
+  override def close() {}
 
   /**
    * Returns the newest offset for each store changelog SSP for this task.
@@ -105,49 +87,5 @@ class KafkaNonTransactionalStateTaskBackupManager(
               format(taskName, storeName, systemStream), e)
         }
       }}.asJava
-  }
-
-  /**
-   * Writes the newest changelog ssp offset for each persistent store to the OFFSET file on disk.
-   * These files are used during container startup to determine whether there is any new information in the
-   * changelog that is not reflected in the on-disk copy of the store. If there is any delta, it is replayed
-   * from the changelog e.g. This can happen if the job was run on this host, then another
-   * host and back to this host.
-   */
-  private def writeChangelogOffsetFiles(newestChangelogOffsets: mutable.Map[SystemStreamPartition, Option[String]]) {
-    debug("Writing OFFSET files for logged persistent key value stores for task %s." format(taskName))
-
-    storeChangelogs
-      .filterKeys(storeName => persistedStores.contains(storeName))
-      .foreach { case (storeName, systemStream) => {
-        debug("Writing changelog offset for taskName %s store %s changelog %s." format(taskName, storeName, systemStream))
-        val currentStoreDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active)
-        try {
-          val ssp = new SystemStreamPartition(systemStream.getSystem, systemStream.getStream, partition)
-          newestChangelogOffsets(ssp) match {
-            case Some(newestOffset) => {
-              debug("Storing newest offset %s for taskName %s store %s changelog %s in OFFSET file."
-                format(newestOffset, taskName, storeName, systemStream))
-              // TaskStorageManagers are only created for active tasks
-              storageManagerUtil.writeOffsetFile(currentStoreDir, Map(ssp -> newestOffset).asJava, false)
-              debug("Successfully stored offset %s for taskName %s store %s changelog %s in OFFSET file."
-                format(newestOffset, taskName, storeName, systemStream))
-            }
-            case None => {
-              // if newestOffset is null, then it means the changelog ssp is (or has become) empty. This could be
-              // either because the changelog topic was newly added, repartitioned, or manually deleted and recreated.
-              // No need to persist the offset file.
-              storageManagerUtil.deleteOffsetFile(currentStoreDir)
-              debug("Deleting OFFSET file for taskName %s store %s changelog ssp %s since the newestOffset is null."
-                format (taskName, storeName, ssp))
-            }
-          }
-        } catch {
-          case e: Exception =>
-            throw new SamzaException("Error storing offset for taskName %s store %s changelog %s."
-              format(taskName, storeName, systemStream), e)
-        }
-      }}
-    debug("Done writing OFFSET files for logged persistent key value stores for task %s" format(taskName))
   }
 }
