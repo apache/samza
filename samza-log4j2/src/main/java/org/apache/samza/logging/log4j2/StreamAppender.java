@@ -452,7 +452,7 @@ public class StreamAppender extends AbstractAppender {
    * @param messageBytes message bytes
    * @return OutgoingMessageEnvelope that contains the message bytes along with the system stream
    */
-  protected OutgoingMessageEnvelope decorateLogEvent(SystemStream systemStream, byte[] keyBytes,  byte[] messageBytes) {
+  protected OutgoingMessageEnvelope decorateLogEvent(SystemStream systemStream, byte[] keyBytes, byte[] messageBytes) {
     return new OutgoingMessageEnvelope(systemStream, keyBytes, messageBytes);
   }
 
