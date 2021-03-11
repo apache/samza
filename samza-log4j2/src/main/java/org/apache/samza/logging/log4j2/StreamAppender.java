@@ -83,6 +83,7 @@ public class StreamAppender extends AbstractAppender {
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
   private final BlockingQueue<byte[]> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
 
+  private SystemStream systemStream = null;
   private SystemProducer systemProducer = null;
   private String key = null;
   private byte[] keyBytes; // Serialize the key once, since we will use it for every event.
@@ -105,7 +106,6 @@ public class StreamAppender extends AbstractAppender {
   protected static volatile boolean systemInitialized = false;
   protected StreamAppenderMetrics metrics;
   protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
-  protected SystemStream systemStream = null;
 
   protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions,
       boolean usingAsyncLogger, String streamName) {
@@ -442,16 +442,18 @@ public class StreamAppender extends AbstractAppender {
   private void sendEventToSystemProducer(byte[] serializedLogEvent) {
     metrics.logMessagesBytesSent.inc(serializedLogEvent.length);
     metrics.logMessagesCountSent.inc();
-    systemProducer.send(SOURCE, decorateLogEvent(serializedLogEvent));
+    systemProducer.send(SOURCE, decorateLogEvent(systemStream, keyBytes, serializedLogEvent));
   }
 
   /**
    * Helper method to create an OutgoingMessageEnvelope from the serialized log event.
-   * @param serializedLogEvent message bytes
+   * @param systemStream system and stream for the outgoing message
+   * @param keyBytes key bytes
+   * @param messageBytes message bytes
    * @return OutgoingMessageEnvelope that contains the message bytes along with the system stream
    */
-  protected OutgoingMessageEnvelope decorateLogEvent(byte[] serializedLogEvent) {
-    return new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent);
+  protected OutgoingMessageEnvelope decorateLogEvent(SystemStream systemStream, byte[] keyBytes,  byte[] messageBytes) {
+    return new OutgoingMessageEnvelope(systemStream, keyBytes, messageBytes);
   }
 
   protected String getStreamName(String jobName, String jobId) {
