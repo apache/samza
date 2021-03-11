@@ -75,6 +75,7 @@ public class StreamAppender extends AbstractAppender {
 
   private static final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
   private static final String JOB_COORDINATOR_TAG = "samza-job-coordinator";
+  private static final String SOURCE = "log4j-log";
 
   // Hidden config for now. Will move to appropriate Config class when ready to.
   private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
@@ -82,6 +83,7 @@ public class StreamAppender extends AbstractAppender {
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
   private final BlockingQueue<byte[]> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
 
+  private SystemProducer systemProducer = null;
   private String key = null;
   private byte[] keyBytes; // Serialize the key once, since we will use it for every event.
   private String containerName = null;
@@ -100,12 +102,10 @@ public class StreamAppender extends AbstractAppender {
   private final AtomicBoolean recursiveCall = new AtomicBoolean(false);
 
   protected static final int DEFAULT_QUEUE_SIZE = 100;
-  protected static final String SOURCE = "log4j-log";
   protected static volatile boolean systemInitialized = false;
   protected StreamAppenderMetrics metrics;
   protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
   protected SystemStream systemStream = null;
-  protected SystemProducer systemProducer = null;
 
   protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions,
       boolean usingAsyncLogger, String streamName) {
@@ -439,10 +439,19 @@ public class StreamAppender extends AbstractAppender {
    * Helper method to send a serialized log-event to the systemProducer, and increment respective methods.
    * @param serializedLogEvent
    */
-  protected void sendEventToSystemProducer(byte[] serializedLogEvent) {
+  private void sendEventToSystemProducer(byte[] serializedLogEvent) {
     metrics.logMessagesBytesSent.inc(serializedLogEvent.length);
     metrics.logMessagesCountSent.inc();
-    systemProducer.send(SOURCE, new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent));
+    systemProducer.send(SOURCE, decorateLogEvent(serializedLogEvent));
+  }
+
+  /**
+   * Helper method to create an OutgoingMessageEnvelope from the serialized log event.
+   * @param serializedLogEvent message bytes
+   * @return OutgoingMessageEnvelope that contains the message bytes along with the system stream
+   */
+  protected OutgoingMessageEnvelope decorateLogEvent(byte[] serializedLogEvent) {
+   return new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent);
   }
 
   protected String getStreamName(String jobName, String jobId) {
