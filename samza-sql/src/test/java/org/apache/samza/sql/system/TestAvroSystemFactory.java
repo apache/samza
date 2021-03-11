@@ -258,9 +258,6 @@ public class TestAvroSystemFactory implements SystemFactory {
       record.put("address", createProfileAddressRecord(index));
       record.put("companyId", includeNullForeignKeys && (index % 2 == 0) ? null : index % COMPANIES.length);
       record.put("phoneNumbers", createProfilePhoneNumbers(index % PHONE_NUMBERS.length));
-      Map<String, Object> mapValues = new HashMap<>();
-      mapValues.put("key", createSimpleRecord(index, false));
-      record.put("mapValues", mapValues);
       return record;
     }
 

@@ -129,7 +129,7 @@ public class TestQueryPlanner {
     LogicalJoin join = (LogicalJoin) relNode;
     RelNode left = join.getLeft();
     RelNode right = join.getRight();
-    assertTrue("Was instance of "  + right.getClass(), right instanceof LogicalProject);
+    assertTrue(right instanceof LogicalTableScan);
     if (enableOptimizer) {
       assertTrue(left instanceof LogicalFilter);
       assertEquals("=(1, $2)", ((LogicalFilter) left).getCondition().toString());
@@ -187,9 +187,9 @@ public class TestQueryPlanner {
     relNode = relNode.getInput(0);
     assertTrue(relNode instanceof LogicalFilter);
     if (enableOptimizer) {
-      assertEquals("AND(=($2, $10), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
+      assertEquals("AND(=($2, $9), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
     } else {
-      assertEquals("AND(=(1, $11), =($2, $10), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
+      assertEquals("AND(=($2, $9), =(1, $10), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
     }
     relNode = relNode.getInput(0);
     if (enableOptimizer) {
@@ -202,7 +202,7 @@ public class TestQueryPlanner {
     LogicalJoin join = (LogicalJoin) relNode;
     RelNode left = join.getLeft();
     RelNode right = join.getRight();
-    assertTrue("was instance of " + left.getClass(), left instanceof LogicalProject);
+    assertTrue(left instanceof LogicalTableScan);
     if (enableOptimizer) {
       assertTrue(right instanceof LogicalFilter);
       assertEquals("=(1, $2)", ((LogicalFilter) right).getCondition().toString());
@@ -289,14 +289,14 @@ public class TestQueryPlanner {
     assertTrue(relNode instanceof LogicalProject);
     relNode = relNode.getInput(0);
     assertTrue(relNode instanceof LogicalFilter);
-    assertEquals("AND(=($2, $10), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
+    assertEquals("AND(=($2, $9), =($2, 'Mike'))", ((LogicalFilter) relNode).getCondition().toString());
     relNode = relNode.getInput(0);
     assertTrue(relNode instanceof LogicalJoin);
     assertEquals(2, relNode.getInputs().size());
     LogicalJoin join = (LogicalJoin) relNode;
     RelNode left = join.getLeft();
     RelNode right = join.getRight();
-    assertTrue(left instanceof LogicalProject);
+    assertTrue(left instanceof LogicalTableScan);
     assertTrue(right instanceof LogicalFilter);
     assertEquals("=($2, CAST(MyTest($2)):INTEGER)", ((LogicalFilter) right).getCondition().toString());
     assertTrue(right.getInput(0) instanceof LogicalTableScan);

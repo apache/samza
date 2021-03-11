@@ -20,13 +20,15 @@
 package org.apache.samza.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.calcite.config.Lex;
-import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptUtil;
@@ -60,10 +62,10 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.RelSchemaProvider;
 import org.apache.samza.sql.interfaces.SqlIOConfig;
-import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.apache.samza.sql.schema.SamzaSqlFieldType;
 import org.apache.samza.sql.schema.SqlFieldSchema;
 import org.apache.samza.sql.schema.SqlSchema;
+import org.apache.samza.sql.interfaces.UdfMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -120,42 +122,56 @@ public class QueryPlanner {
   }
 
   private Planner getPlanner() {
-    Planner planner;
-    SchemaPlus rootSchema = CalciteSchema.createRootSchema(true, false).plus();
-    registerSourceSchemas(rootSchema);
+    Planner planner = null;
+    try {
+      Connection connection = DriverManager.getConnection("jdbc:calcite:");
+      CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
+      SchemaPlus rootSchema = calciteConnection.getRootSchema();
+      registerSourceSchemas(rootSchema);
 
-    List<SamzaSqlScalarFunctionImpl> samzaSqlFunctions =
-        udfMetadata.stream().map(SamzaSqlScalarFunctionImpl::new).collect(Collectors.toList());
+      List<SamzaSqlScalarFunctionImpl> samzaSqlFunctions = udfMetadata.stream()
+          .map(SamzaSqlScalarFunctionImpl::new)
+          .collect(Collectors.toList());
 
-    final List<RelTraitDef> traitDefs = new ArrayList<>();
+      final List<RelTraitDef> traitDefs = new ArrayList<>();
 
-    traitDefs.add(ConventionTraitDef.INSTANCE);
-    traitDefs.add(RelCollationTraitDef.INSTANCE);
+      traitDefs.add(ConventionTraitDef.INSTANCE);
+      traitDefs.add(RelCollationTraitDef.INSTANCE);
 
-    List<SqlOperatorTable> sqlOperatorTables = new ArrayList<>();
-    sqlOperatorTables.add(new SamzaSqlOperatorTable());
-    sqlOperatorTables.add(new SamzaSqlUdfOperatorTable(samzaSqlFunctions));
+      List<SqlOperatorTable> sqlOperatorTables = new ArrayList<>();
+      sqlOperatorTables.add(new SamzaSqlOperatorTable());
+      sqlOperatorTables.add(new SamzaSqlUdfOperatorTable(samzaSqlFunctions));
 
-    // TODO: Introduce a pluggable rule factory.
-    List<RelOptRule> rules = ImmutableList.of(FilterProjectTransposeRule.INSTANCE, ProjectMergeRule.INSTANCE,
-        new SamzaSqlFilterRemoteJoinRule.SamzaSqlFilterIntoRemoteJoinRule(true, RelFactories.LOGICAL_BUILDER,
-            systemStreamConfigBySource));
+      // TODO: Introduce a pluggable rule factory.
+      List<RelOptRule> rules = ImmutableList.of(
+          FilterProjectTransposeRule.INSTANCE,
+          ProjectMergeRule.INSTANCE,
+          new SamzaSqlFilterRemoteJoinRule.SamzaSqlFilterIntoRemoteJoinRule(true, RelFactories.LOGICAL_BUILDER,
+          systemStreamConfigBySource));
 
-    // Using lenient so that !=,%,- are allowed.
-    FrameworkConfig frameworkConfig = Frameworks.newConfigBuilder()
-        .parserConfig(SqlParser.configBuilder()
-            .setLex(Lex.JAVA)
-            .setConformance(SqlConformanceEnum.LENIENT)
-            .setCaseSensitive(false) // Make Udfs case insensitive
-            .build())
-        .defaultSchema(rootSchema)
-        .operatorTable(new ChainedSqlOperatorTable(sqlOperatorTables))
-        .sqlToRelConverterConfig(SqlToRelConverter.Config.DEFAULT)
-        .traitDefs(traitDefs)
-        .programs(Programs.hep(rules, true, DefaultRelMetadataProvider.INSTANCE))
-        .build();
-    planner = Frameworks.getPlanner(frameworkConfig);
-    return planner;
+      // Using lenient so that !=,%,- are allowed.
+      FrameworkConfig frameworkConfig = Frameworks.newConfigBuilder()
+          .parserConfig(SqlParser.configBuilder()
+              .setLex(Lex.JAVA)
+              .setConformance(SqlConformanceEnum.LENIENT)
+              .setCaseSensitive(false) // Make Udfs case insensitive
+              .build())
+          .defaultSchema(rootSchema)
+          .operatorTable(new ChainedSqlOperatorTable(sqlOperatorTables))
+          .sqlToRelConverterConfig(SqlToRelConverter.Config.DEFAULT)
+          .traitDefs(traitDefs)
+          .programs(Programs.hep(rules, true, DefaultRelMetadataProvider.INSTANCE))
+          .build();
+      planner = Frameworks.getPlanner(frameworkConfig);
+      return planner;
+    } catch (Exception e) {
+      String errorMsg = "Failed to create planner.";
+      LOG.error(errorMsg, e);
+      if (planner != null) {
+        planner.close();
+      }
+      throw new SamzaException(errorMsg, e);
+    }
   }
 
   private RelRoot optimize(Planner planner, RelRoot relRoot) {

@@ -35,7 +35,6 @@ import org.apache.calcite.sql.fun.SqlMultisetValueConstructor;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
-import org.apache.samza.sql.udf.GetNestedField;
 
 
 /**
@@ -144,7 +143,6 @@ public class SamzaSqlOperatorTable extends ReflectiveSqlOperatorTable {
   public static final SqlFunction TUMBLE = SqlStdOperatorTable.TUMBLE;
   public static final SqlFunction TUMBLE_END = SqlStdOperatorTable.TUMBLE_END;
   public static final SqlFunction TUMBLE_START = SqlStdOperatorTable.TUMBLE_START;
-  public static final SqlFunction GET_NESTED_FIELD_OP = GetNestedField.INSTANCE;
 
   public SamzaSqlOperatorTable() {
     init();
