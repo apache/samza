@@ -30,8 +30,51 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.powermock.api.mockito.PowerMockito.mock;
+import static org.powermock.api.mockito.PowerMockito.when;
 
 public class TestJobModelUtil {
+
+  @Test
+  public void testGetTaskNamesForProcessorAbsentInJobModel() {
+    JobModel mockJobModel = mock(JobModel.class);
+    when(mockJobModel.getContainers()).thenReturn(mock(Map.class));
+
+    Set<TaskName> taskNames = JobModelUtil.getTaskNamesForProcessor("testProcessor", mockJobModel);
+    assertTrue("TaskNames should be empty", taskNames.isEmpty());
+  }
+
+  @Test
+  public void testGetTaskNamesForProcessorPresentInJobModel() {
+    TaskName expectedTaskName = new TaskName("testTaskName");
+    String processorId = "testProcessor";
+    JobModel mockJobModel = mock(JobModel.class);
+    ContainerModel mockContainerModel = mock(ContainerModel.class);
+    Map<String, ContainerModel> mockContainers = mock(Map.class);
+
+    when(mockContainers.get(processorId)).thenReturn(mockContainerModel);
+    when(mockContainerModel.getTasks()).thenReturn(ImmutableMap.of(expectedTaskName, mock(TaskModel.class)));
+    when(mockJobModel.getContainers()).thenReturn(mockContainers);
+
+    Set<TaskName> actualTaskNames = JobModelUtil.getTaskNamesForProcessor(processorId, mockJobModel);
+    assertEquals("Expecting TaskNames size = 1", 1, actualTaskNames.size());
+    assertTrue("Expecting testTaskName to be returned", actualTaskNames.contains(expectedTaskName));
+  }
+
+  @Test(expected = NullPointerException.class)
+  public void testGetTaskNamesForProcessorWithNullJobModel() {
+    JobModelUtil.getTaskNamesForProcessor("processor", null);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetTaskNamesForProcessorWithEmptyProcessorId() {
+    JobModelUtil.getTaskNamesForProcessor("", mock(JobModel.class));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetTaskNamesForProcessorWithNullProcessorId() {
+    JobModelUtil.getTaskNamesForProcessor(null, mock(JobModel.class));
+  }
 
   @Test(expected = IllegalArgumentException.class)
   public void testTaskToSystemStreamPartitionsWithNullJobModel() {

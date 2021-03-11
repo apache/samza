@@ -19,11 +19,14 @@
 package org.apache.samza.job.model;
 
 import com.google.common.base.Preconditions;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -42,6 +45,22 @@ public class JobModelUtil {
   private static final String UTF_8 = "UTF-8";
 
   private static final String JOB_MODEL_GENERATION_KEY = "jobModelGeneration/jobModels";
+
+  /**
+   * A helper method to fetch the task names associated with the processor from the job model.
+   * @param processorId processor for which task names are fetched
+   * @param jobModel job model
+   * @return a set of {@code TaskName} associated with the processor from the job model.
+   */
+  public static Set<TaskName> getTaskNamesForProcessor(String processorId, JobModel jobModel) {
+    Preconditions.checkNotNull(jobModel, "JobModel cannot be null");
+    Preconditions.checkArgument(StringUtils.isNotBlank(processorId), "ProcessorId cannot be empty or null");
+
+    return Optional.ofNullable(jobModel.getContainers().get(processorId))
+        .map(ContainerModel::getTasks)
+        .map(Map::keySet)
+        .orElse(Collections.emptySet());
+  }
 
   /**
    * Extracts the map of {@link SystemStreamPartition}s to {@link TaskName} from the {@link JobModel}

@@ -472,10 +472,8 @@ public class ZkJobCoordinator implements JobCoordinator {
           JobModel jobModel = getJobModel();
           // start the container with the new model
           if (coordinatorListener != null) {
-            for (ContainerModel containerModel : jobModel.getContainers().values()) {
-              for (TaskName taskName : containerModel.getTasks().keySet()) {
-                zkUtils.writeTaskLocality(taskName, locationId);
-              }
+            for (TaskName taskName : JobModelUtil.getTaskNamesForProcessor(processorId, jobModel)) {
+              zkUtils.writeTaskLocality(taskName, locationId);
             }
             coordinatorListener.onNewJobModel(processorId, jobModel);
           }
