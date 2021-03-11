@@ -75,7 +75,6 @@ public class StreamAppender extends AbstractAppender {
 
   private static final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
   private static final String JOB_COORDINATOR_TAG = "samza-job-coordinator";
-  protected static final String SOURCE = "log4j-log";
 
   // Hidden config for now. Will move to appropriate Config class when ready to.
   private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
@@ -83,8 +82,6 @@ public class StreamAppender extends AbstractAppender {
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
   private final BlockingQueue<byte[]> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
 
-  protected SystemStream systemStream = null;
-  protected SystemProducer systemProducer = null;
   private String key = null;
   private byte[] keyBytes; // Serialize the key once, since we will use it for every event.
   private String containerName = null;
@@ -104,8 +101,11 @@ public class StreamAppender extends AbstractAppender {
 
   protected static final int DEFAULT_QUEUE_SIZE = 100;
   protected static volatile boolean systemInitialized = false;
+  protected static final String SOURCE = "log4j-log";
   protected StreamAppenderMetrics metrics;
   protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
+  protected SystemStream systemStream = null;
+  protected SystemProducer systemProducer = null;
 
   protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions,
       boolean usingAsyncLogger, String streamName) {
