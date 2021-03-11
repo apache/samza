@@ -451,7 +451,7 @@ public class StreamAppender extends AbstractAppender {
    * @return OutgoingMessageEnvelope that contains the message bytes along with the system stream
    */
   protected OutgoingMessageEnvelope decorateLogEvent(byte[] serializedLogEvent) {
-   return new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent);
+    return new OutgoingMessageEnvelope(systemStream, keyBytes, serializedLogEvent);
   }
 
   protected String getStreamName(String jobName, String jobId) {
