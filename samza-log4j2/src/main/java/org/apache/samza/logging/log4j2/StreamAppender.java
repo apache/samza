@@ -100,8 +100,8 @@ public class StreamAppender extends AbstractAppender {
   private final AtomicBoolean recursiveCall = new AtomicBoolean(false);
 
   protected static final int DEFAULT_QUEUE_SIZE = 100;
-  protected static volatile boolean systemInitialized = false;
   protected static final String SOURCE = "log4j-log";
+  protected static volatile boolean systemInitialized = false;
   protected StreamAppenderMetrics metrics;
   protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
   protected SystemStream systemStream = null;
