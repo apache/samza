@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
@@ -164,7 +165,7 @@ public class TaskStorageCommitManager {
           } catch (IOException e) {
             throw new SamzaException(
                 String.format("Error storing checkpoint for taskName: %s, checkpoint: %s to path %s.", taskName,
-                    checkpoint, loggedStoreBaseDir));
+                    checkpoint, loggedStoreBaseDir), e);
           }
         }
       });
@@ -243,17 +244,19 @@ public class TaskStorageCommitManager {
    * then another host, and then back to this host.
    */
   // TODO HIGH dchen move tests from KafkaBackupManager to TaskCommitManager
-  private void writeChangelogOffsetsFiles(Map<SystemStreamPartition, String> checkpointOffsets) {
+  @VisibleForTesting
+  void writeChangelogOffsetsFiles(Map<SystemStreamPartition, String> checkpointOffsets) {
     storeChangelogs.forEach((storeName, systemStream) -> {
+      SystemStreamPartition changelogSSP = new SystemStreamPartition(systemStream.getSystem(),
+          systemStream.getStream(), taskChangelogPartition);
       // Only write if the store is durably backed by Kafka changelog && persisted to disk
-      if (storageEngines.containsKey(storeName) &&
+      if (checkpointOffsets.containsKey(changelogSSP) &&
+          storageEngines.containsKey(storeName) &&
           storageEngines.get(storeName).getStoreProperties().isLoggedStore() &&
           storageEngines.get(storeName).getStoreProperties().isPersistedToDisk()) {
         LOG.debug("Writing changelog offset for taskName {} store {} changelog {}.", taskName, storeName, systemStream);
         File currentStoreDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active);
         try {
-          SystemStreamPartition changelogSSP = new SystemStreamPartition(systemStream.getSystem(),
-              systemStream.getStream(), taskChangelogPartition);
           KafkaChangelogSSPOffset kafkaChangelogSSPOffset = KafkaChangelogSSPOffset
               .fromString(checkpointOffsets.get(changelogSSP));
           // Write offsets to file system if it is non-null
