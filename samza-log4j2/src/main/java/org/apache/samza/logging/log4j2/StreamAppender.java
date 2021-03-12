@@ -442,17 +442,15 @@ public class StreamAppender extends AbstractAppender {
   private void sendEventToSystemProducer(byte[] serializedLogEvent) {
     metrics.logMessagesBytesSent.inc(serializedLogEvent.length);
     metrics.logMessagesCountSent.inc();
-    systemProducer.send(SOURCE, decorateLogEvent(systemStream, keyBytes, serializedLogEvent));
+    systemProducer.send(SOURCE, decorateLogEvent(serializedLogEvent));
   }
 
   /**
    * Helper method to create an OutgoingMessageEnvelope from the serialized log event.
-   * @param systemStream system and stream for the outgoing message
-   * @param keyBytes key bytes
    * @param messageBytes message bytes
    * @return OutgoingMessageEnvelope that contains the message bytes along with the system stream
    */
-  protected OutgoingMessageEnvelope decorateLogEvent(SystemStream systemStream, byte[] keyBytes, byte[] messageBytes) {
+  protected OutgoingMessageEnvelope decorateLogEvent(byte[] messageBytes) {
     return new OutgoingMessageEnvelope(systemStream, keyBytes, messageBytes);
   }
 
