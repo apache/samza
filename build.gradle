@@ -647,6 +647,7 @@ project(":samza-kv-rocksdb_$scalaSuffix") {
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.rocksdb:rocksdbjni:$rocksdbVersion"
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
     testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
   }
 }

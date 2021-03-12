@@ -64,6 +64,8 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
    * @return A raw KeyValueStore instance
    */
   protected abstract KeyValueStore<byte[], byte[]> getKVStore(String storeName,
+      Serde<K> keySerde,
+      Serde<V> msgSerde,
       File storeDir,
       MetricsRegistry registry,
       SystemStreamPartition changeLogSystemStreamPartition,
@@ -111,17 +113,10 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
           String.format("cache.size for store %s cannot be less than batch.size as batched values reside in cache.",
               storeName));
     }
-    if (keySerde == null) {
-      throw new SamzaException(
-          String.format("Must define a key serde when using key value storage for store %s.", storeName));
-    }
-    if (msgSerde == null) {
-      throw new SamzaException(
-          String.format("Must define a message serde when using key value storage for store %s.", storeName));
-    }
 
     KeyValueStore<byte[], byte[]> rawStore =
-        getKVStore(storeName, storeDir, registry, changelogSSP, jobContext, containerContext, storeMode);
+        getKVStore(storeName, keySerde, msgSerde, storeDir, registry, changelogSSP, jobContext, containerContext,
+            storeMode);
     KeyValueStore<byte[], byte[]> maybeLoggedStore = buildMaybeLoggedStore(changelogSSP,
         storeName, registry, storePropertiesBuilder, rawStore, changelogCollector);
     // this also applies serialization and caching layers

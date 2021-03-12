@@ -103,24 +103,6 @@ public class TestBaseKeyValueStorageEngineFactory {
     callGetStorageEngine(config, null);
   }
 
-  @Test(expected = SamzaException.class)
-  public void testMissingKeySerde() {
-    Config config = new MapConfig(BASE_CONFIG);
-    when(this.jobContext.getConfig()).thenReturn(config);
-    new MockKeyValueStorageEngineFactory(this.rawKeyValueStore).getStorageEngine(STORE_NAME, this.storeDir, null,
-        this.msgSerde, this.changelogCollector, this.metricsRegistry, null, this.jobContext, this.containerContext,
-        STORE_MODE);
-  }
-
-  @Test(expected = SamzaException.class)
-  public void testMissingValueSerde() {
-    Config config = new MapConfig(BASE_CONFIG);
-    when(this.jobContext.getConfig()).thenReturn(config);
-    new MockKeyValueStorageEngineFactory(this.rawKeyValueStore).getStorageEngine(STORE_NAME, this.storeDir,
-        this.keySerde, null, this.changelogCollector, this.metricsRegistry, null, this.jobContext,
-        this.containerContext, STORE_MODE);
-  }
-
   @Test
   public void testInMemoryKeyValueStore() {
     Config config = new MapConfig(DISABLE_CACHE, ImmutableMap.of(String.format(StorageConfig.FACTORY, STORE_NAME),

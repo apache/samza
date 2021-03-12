@@ -21,9 +21,11 @@ package org.apache.samza.storage.kv
 
 import java.io.File
 
+import org.apache.samza.SamzaException
 import org.apache.samza.config.StorageConfig
 import org.apache.samza.context.{ContainerContext, JobContext}
 import org.apache.samza.metrics.MetricsRegistry
+import org.apache.samza.serializers.Serde
 import org.apache.samza.storage.StorageEngineFactory.StoreMode
 import org.apache.samza.system.SystemStreamPartition
 import org.rocksdb.{FlushOptions, WriteOptions}
@@ -39,11 +41,17 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
    * @return A valid KeyValueStore instance
    */
   override def getKVStore(storeName: String,
+    keySerde: Serde[K],
+    msgSerde: Serde[V],
     storeDir: File,
     registry: MetricsRegistry,
     changeLogSystemStreamPartition: SystemStreamPartition,
     jobContext: JobContext,
     containerContext: ContainerContext, storeMode: StoreMode): KeyValueStore[Array[Byte], Array[Byte]] = {
+
+    if (keySerde == null) throw new SamzaException(String.format("Must define a key serde when using RocksDb key value storage for store %s.", storeName))
+    if (msgSerde == null) throw new SamzaException(String.format("Must define a message serde when using key RocksDb value storage for store %s.", storeName))
+
     val storageConfigSubset = jobContext.getConfig.subset("stores." + storeName + ".", true)
     val isLoggedStore = new StorageConfig(jobContext.getConfig).getChangelogStream(storeName).isPresent
     val rocksDbMetrics = new KeyValueStoreMetrics(storeName, registry)
