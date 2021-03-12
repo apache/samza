@@ -240,7 +240,7 @@ class RocksDbKeyValueStore(
 
   override def checkpoint(id: CheckpointId): Optional[Path] = {
     val checkpoint = Checkpoint.create(db)
-    val checkpointPath = StorageManagerUtil.getStoreCheckpointPath(dir, id)
+    val checkpointPath = StorageManagerUtil.getCheckpointDirPath(dir, id)
     checkpoint.createCheckpoint(checkpointPath)
     Optional.of(Paths.get(checkpointPath))
   }

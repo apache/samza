@@ -227,7 +227,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
     when(this.taskCommitManager.commit(any()))
-      .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
+      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     doNothing().when(this.taskCommitManager).cleanUp(any(), any())
     taskInstance.commit
 
@@ -262,7 +262,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
           assertEquals(1, c.getOffsets.size())
           assertTrue(c.isInstanceOf[CheckpointV2])
           val checkpointedStateCheckpointMarkers = c.asInstanceOf[CheckpointV2]
-            .getStateCheckpointMarkers.get("org.apache.samza.storage.KafkaChangelogStateBackendFactory")
+            .getStateCheckpointMarkers.get(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME)
           assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
           val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get("storeName")
           assertTrue(checkpointedStateCheckpointMarker.equals(stateCheckpointMarker))
@@ -294,7 +294,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     stateCheckpointMarkers.put("storeName", nullStateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.commit(any()))
-      .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
+      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     taskInstance.commit
 
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
@@ -308,7 +308,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
           assertEquals(1, checkpoint.getOffsets.size())
           assertTrue(checkpoint.isInstanceOf[CheckpointV2])
           val checkpointedStateCheckpointMarkers = checkpoint.asInstanceOf[CheckpointV2]
-            .getStateCheckpointMarkers.get("org.apache.samza.storage.KafkaChangelogStateBackendFactory")
+            .getStateCheckpointMarkers.get(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME)
           assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
           val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get("storeName")
           assertTrue(checkpointedStateCheckpointMarker.equals(nullStateCheckpointMarker))
@@ -337,7 +337,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.commit(any()))
-      .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
+      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     taskInstance.commit
 
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
@@ -386,7 +386,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.commit(any()))
-      .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
+      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     when(this.taskCommitManager.persistToLocalFileSystem(any())).thenThrow(new SamzaException("Error creating store checkpoint"))
 
     try {
@@ -410,7 +410,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.commit(any()))
-      .thenReturn(Collections.singletonMap("org.apache.samza.storage.KafkaChangelogStateBackendFactory", stateCheckpointMarkers))
+      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     doNothing().when(this.taskCommitManager).persistToLocalFileSystem(any())
     when(this.taskCommitManager.cleanUp(any(), any()))
       .thenThrow(new SamzaException("Error clearing old checkpoints"))

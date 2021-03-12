@@ -370,7 +370,7 @@ public class TestTaskStorageCommitManager {
     verify(commitManager).writeChangelogOffsetFile(
         eq("loggedPersistentStore"), eq(changelogSSP), eq(newestOffset), eq(durableStoreDir));
     File checkpointFile = Paths.get(StorageManagerUtil
-        .getStoreCheckpointPath(durableStoreDir, kafkaChangelogSSPOffset.getCheckpointId())).toFile();
+        .getCheckpointDirPath(durableStoreDir, kafkaChangelogSSPOffset.getCheckpointId())).toFile();
     verify(commitManager).writeChangelogOffsetFile(
         eq("loggedPersistentStore"), eq(changelogSSP), eq(newestOffset), eq(checkpointFile));
 
@@ -387,7 +387,7 @@ public class TestTaskStorageCommitManager {
     // Validate only durable and persisted stores are persisted
     // This should be evoked twice, for checkpointV1 and checkpointV2
     verify(storageManagerUtil, times(2)).getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), eq(taskName), any());
-    File checkpointPath = Paths.get(StorageManagerUtil.getStoreCheckpointPath(durableStoreDir, newCheckpointId)).toFile();
+    File checkpointPath = Paths.get(StorageManagerUtil.getCheckpointDirPath(durableStoreDir, newCheckpointId)).toFile();
     verify(storageManagerUtil).writeCheckpointFile(eq(checkpointPath), eq(checkpoint));
   }
 
@@ -459,7 +459,7 @@ public class TestTaskStorageCommitManager {
     commitManager.persistToLocalFileSystem(checkpoint);
     // Validate only durable and persisted stores are persisted
     verify(storageManagerUtil).getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), eq(taskName), any());
-    File checkpointPath = Paths.get(StorageManagerUtil.getStoreCheckpointPath(durableStoreDir, newCheckpointId)).toFile();
+    File checkpointPath = Paths.get(StorageManagerUtil.getCheckpointDirPath(durableStoreDir, newCheckpointId)).toFile();
     verify(storageManagerUtil).writeCheckpointFile(eq(checkpointPath), eq(checkpoint));
   }
 
@@ -518,7 +518,7 @@ public class TestTaskStorageCommitManager {
     assertEquals(2, mockFileSystem.size());
     // check if v2 offsets are written correctly
     String v2FilePath = StorageManagerUtil
-        .getStoreCheckpointPath(tmpTestPath, newCheckpointId);
+        .getCheckpointDirPath(tmpTestPath, newCheckpointId);
     assertTrue(mockFileSystem.containsKey(v2FilePath));
     assertTrue(mockFileSystem.get(v2FilePath).containsKey(changelogSSP));
     assertEquals(1, mockFileSystem.get(v2FilePath).size());
@@ -594,7 +594,7 @@ public class TestTaskStorageCommitManager {
     assertEquals(2, mockFileSystem.size());
     // check if v2 offsets are written correctly
     String v2FilePath = StorageManagerUtil
-        .getStoreCheckpointPath(tmpTestPath, newCheckpointId);
+        .getCheckpointDirPath(tmpTestPath, newCheckpointId);
     assertTrue(mockFileSystem.containsKey(v2FilePath));
     assertTrue(mockFileSystem.get(v2FilePath).containsKey(changelogSSP));
     assertEquals(1, mockFileSystem.get(v2FilePath).size());

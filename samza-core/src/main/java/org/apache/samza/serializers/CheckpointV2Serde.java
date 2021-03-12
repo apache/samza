@@ -32,7 +32,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 
 /**
- * The {@link Serde} for {@link CheckpointV2} which includes {@link CheckpointId}s and StateCheckpointMarkers
+ * The {@link Serde} for {@link CheckpointV2} which includes {@link CheckpointId}s and state checkpoint markers
  * in addition to the input {@link SystemStreamPartition} offsets.
  *
  * {@link CheckpointId} is serde'd using {@link CheckpointId#toString()} and {@link CheckpointId#fromString(String)}.
@@ -54,8 +54,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *   },
  *   "stateCheckpointMarkers" : {
  *     "org.apache.samza.kafka.KafkaChangelogStateBackendFactory" : {
- *       "store1": "changelogSystem;changelogTopic;1;50"
- *       "store2": "changelogSystem;changelogTopic;1;51"
+ *       "store1": "changelogSystem;changelogTopic1;1;50"
+ *       "store2": "changelogSystem;changelogTopic2;1;51"
  *     },
  *     "factory2": {...}
  *   }
@@ -122,7 +122,8 @@ public class CheckpointV2Serde implements Serde<CheckpointV2> {
         inputOffsets.put(ssp.toString(), sspOffsetsMap);
       });
 
-      JsonCheckpoint jsonCheckpoint = new JsonCheckpoint(checkpointId, inputOffsets, checkpoint.getStateCheckpointMarkers());
+      Map<String, Map<String, String>> stateCheckpointMarkers = checkpoint.getStateCheckpointMarkers();
+      JsonCheckpoint jsonCheckpoint = new JsonCheckpoint(checkpointId, inputOffsets, stateCheckpointMarkers);
       return JSON_SERDE.toBytes(jsonCheckpoint);
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception while serializing checkpoint: %s", checkpoint.toString()), e);

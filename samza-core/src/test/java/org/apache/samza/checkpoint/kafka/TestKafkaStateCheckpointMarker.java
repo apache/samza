@@ -92,7 +92,7 @@ public class TestKafkaStateCheckpointMarker {
         "store2", marker2.toString()
     );
     Map<String, Map<String, String>> factoryToSCMs = ImmutableMap.of(
-        KAFKA_BACKEND_FACTORY_NAME, storesToKSCM,
+        KAFKA_STATE_BACKEND_FACTORY_NAME, storesToKSCM,
         "factory2", Collections.EMPTY_MAP // factory2 should be ignored
     );
 
@@ -127,7 +127,7 @@ public class TestKafkaStateCheckpointMarker {
     );
     Map<String, Map<String, String>> factoryToSCMs = ImmutableMap.of(
         "factory2", Collections.EMPTY_MAP, // factory2 should be ignored
-        KAFKA_BACKEND_FACTORY_NAME, storesToSCM
+        KAFKA_STATE_BACKEND_FACTORY_NAME, storesToSCM
     );
 
     KafkaStateCheckpointMarker.scmsToSSPOffsetMap(factoryToSCMs);

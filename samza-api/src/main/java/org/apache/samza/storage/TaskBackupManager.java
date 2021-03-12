@@ -68,7 +68,8 @@ public interface TaskBackupManager {
    * Cleanup any local or remote state for checkpoint information that is older than the provided checkpointId
    * This operation is required to be idempotent.
    * @param checkpointId The {@link CheckpointId} of the last successfully committed checkpoint
-   * @param stateCheckpointMarkers A map of store name to state checkpoint markers from returned by {@link #upload(CheckpointId, Map)} upload}
+   * @param stateCheckpointMarkers A map of store name to state checkpoint markers returned by
+   *                               {@link #upload(CheckpointId, Map)} upload}
    */
   void cleanUp(CheckpointId checkpointId, Map<String, String> stateCheckpointMarkers);
 

@@ -46,7 +46,7 @@ class KafkaTransactionalStateTaskBackupManager(
   override def init(checkpoint: Checkpoint): Unit = {}
 
   override def snapshot(checkpointId: CheckpointId): util.Map[String, String] = {
-    debug("Getting newest offsets for kafka changelog commit.")
+    debug("Getting newest offsets for kafka changelog SSPs.")
     getNewestChangelogSSPOffsets(taskName, storeChangelogs, partition, systemAdmins)
   }
 
@@ -57,7 +57,6 @@ class KafkaTransactionalStateTaskBackupManager(
 
   override def cleanUp(latestCheckpointId: CheckpointId, stateCheckpointMarker: util.Map[String, String]): Unit = {}
 
-  @VisibleForTesting
   override def close() {}
 
   /**

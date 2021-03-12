@@ -43,7 +43,7 @@ public class CheckpointV2 implements Checkpoint {
    * @param checkpointId CheckpointId associated with this checkpoint
    * @param inputOffsets Map of Samza system stream partition to offset of the checkpoint
    * @param stateCheckpointMarkers Map of state backend factory name to map of local state store names
-   *                               to StateCheckpointMarkers
+   *                              to state checkpoint markers
    */
   public CheckpointV2(CheckpointId checkpointId,
       Map<SystemStreamPartition, String> inputOffsets,
@@ -75,7 +75,7 @@ public class CheckpointV2 implements Checkpoint {
   }
 
   /**
-   * Gets the StateCheckpointMarkers for all stores and corresponding state backends.
+   * Gets the state checkpoint markers for all stores for each configured state backend.
    *
    * Note: We don't add this method to the {@link Checkpoint} interface since it is difficult
    * to implement it for {@link CheckpointV1} without changing the underlying serialization format -
@@ -83,7 +83,7 @@ public class CheckpointV2 implements Checkpoint {
    * deserialization time we don't have enough information (e.g. configs) to decide whether a
    * particular entry is for an input SSP or a changelog SSP.
    *
-   * @return The state checkpoint markers for the checkpoint
+   * @return Map of state backend factory name to map of local state store names to state checkpoint markers
    */
   public Map<String, Map<String, String>> getStateCheckpointMarkers() {
     return stateCheckpointMarkers;

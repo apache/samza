@@ -567,11 +567,12 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
 
     if (checkpoint instanceof CheckpointV2) {
       Map<String, Map<String, String>> factoryStoreSCMs = ((CheckpointV2) checkpoint).getStateCheckpointMarkers();
-      if (factoryStoreSCMs.containsKey(KafkaStateCheckpointMarker.KAFKA_BACKEND_FACTORY_NAME)) {
-        factoryStoreSCMs.get(KafkaStateCheckpointMarker.KAFKA_BACKEND_FACTORY_NAME).forEach((storeName, scmString) -> {
-          KafkaStateCheckpointMarker kafkaSCM = KafkaStateCheckpointMarker.fromString(scmString);
-          checkpointedChangelogOffsets.put(storeName, kafkaSCM);
-        });
+      if (factoryStoreSCMs.containsKey(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME)) {
+        factoryStoreSCMs.get(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME)
+            .forEach((storeName, scmString) -> {
+              KafkaStateCheckpointMarker kafkaSCM = KafkaStateCheckpointMarker.fromString(scmString);
+              checkpointedChangelogOffsets.put(storeName, kafkaSCM);
+            });
       } // skip the non-KafkaStateCheckpointMarkers
     } else if (checkpoint instanceof CheckpointV1) {
       // If the checkpoint v1 is used, we need to fetch the changelog SSPs in the inputOffsets in order to get the

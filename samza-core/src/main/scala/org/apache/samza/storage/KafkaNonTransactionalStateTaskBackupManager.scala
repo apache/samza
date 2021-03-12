@@ -22,7 +22,6 @@ package org.apache.samza.storage
 import java.util
 import java.util.concurrent.CompletableFuture
 
-import com.google.common.annotations.VisibleForTesting
 import com.google.common.collect.ImmutableSet
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker
 import org.apache.samza.checkpoint.{Checkpoint, CheckpointId}
@@ -46,7 +45,7 @@ class KafkaNonTransactionalStateTaskBackupManager(
   override def init(checkpoint: Checkpoint): Unit = {}
 
   override def snapshot(checkpointId: CheckpointId): util.Map[String, String] = {
-    debug("Getting newest offsets for kafka changelog commit.")
+    debug("Getting newest offsets for kafka changelog SSPs.")
     getNewestChangelogSSPOffsets()
   }
 
@@ -57,7 +56,6 @@ class KafkaNonTransactionalStateTaskBackupManager(
 
   override def cleanUp(checkpointId: CheckpointId, stateCheckpointMarker: util.Map[String, String]): Unit = {}
 
-  @VisibleForTesting
   override def close() {}
 
   /**

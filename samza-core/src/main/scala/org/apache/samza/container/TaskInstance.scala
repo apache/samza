@@ -124,19 +124,16 @@ class TaskInstance(
     }
   }
 
-  def startCommitManager: Unit = {
+  def initTask {
+    initCaughtUpMapping()
+
     if (commitManager != null) {
       debug("Starting commit manager for taskName: %s" format taskName)
+
       commitManager.init()
     } else {
       debug("Skipping commit manager initialization for taskName: %s" format taskName)
     }
-  }
-
-  def initTask {
-    initCaughtUpMapping()
-
-    startCommitManager
 
     if (offsetManager != null) {
       val checkpoint = offsetManager.getLastTaskCheckpoint(taskName)
@@ -144,7 +141,7 @@ class TaskInstance(
       if (checkpoint != null && checkpoint.getVersion == 2) {
         val checkpointV2 = checkpoint.asInstanceOf[CheckpointV2]
         // Perform cleanup of commit manager in case the job previously failed
-        // during commit within accomplishing this step
+        // during commit before accomplishing this step
         commitManager.cleanUp(checkpointV2.getCheckpointId, checkpointV2.getStateCheckpointMarkers)
       }
     }
@@ -284,10 +281,10 @@ class TaskInstance(
         throw new SamzaException("Unsupported checkpoint write version: " + checkpointWriteVersion)
       }
 
-      // Persist checkpoint to local file system
-      commitManager.persistToLocalFileSystem(checkpoint)
-
       trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, checkpoint))
+
+      // Write input offsets and state checkpoint markers to task store and checkpoint directories
+      commitManager.persistToLocalFileSystem(checkpoint)
 
       // Write input offsets and state checkpoint markers to the checkpoint topic atomically
       offsetManager.writeCheckpoint(taskName, checkpoint)

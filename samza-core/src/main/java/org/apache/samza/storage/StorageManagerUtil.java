@@ -59,6 +59,7 @@ import org.slf4j.LoggerFactory;
 
 public class StorageManagerUtil {
   private static final Logger LOG = LoggerFactory.getLogger(StorageManagerUtil.class);
+  // TODO HIGH dchen CHECKPOINT-V2?
   public static final String CHECKPOINT_FILE_NAME = "CHECKPOINT";
   public static final String OFFSET_FILE_NAME_NEW = "OFFSET-v2";
   public static final String OFFSET_FILE_NAME_LEGACY = "OFFSET";
@@ -66,19 +67,19 @@ public class StorageManagerUtil {
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
   private static final TypeReference<Map<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
             new TypeReference<Map<SystemStreamPartition, String>>() { };
-  private static final ObjectWriter SSP_OFFSET_OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
+  private static final ObjectWriter SSP_OFFSETS_OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
   private static final String SST_FILE_SUFFIX = ".sst";
   private static final CheckpointV2Serde CHECKPOINT_V2_SERDE = new CheckpointV2Serde();
 
   /**
-   * Returns the path for a storage engine to write its checkpoints based on the latest checkpoint id.
+   * Returns the path for a storage engine to create its checkpoint based on the current checkpoint id.
    *
-   * @param storeEngineBaseDir Directory of the store
-   * @param checkpointId Current checkpoint id that is being written
+   * @param taskStoreDir directory of the store as returned by {@link #getTaskStoreDir}
+   * @param checkpointId current checkpoint id
    * @return String denoting the file path of the store with the given checkpoint id
    */
-  public static String getStoreCheckpointPath(File storeEngineBaseDir, CheckpointId checkpointId) {
-    return storeEngineBaseDir.getPath() + "-" + checkpointId.toString();
+  public static String getCheckpointDirPath(File taskStoreDir, CheckpointId checkpointId) {
+    return taskStoreDir.getPath() + "-" + checkpointId.toString();
   }
 
   /**
@@ -125,6 +126,7 @@ public class StorageManagerUtil {
    * @param isSideInput true if store is a side-input store, false if it is a regular store
    * @return true if the store is stale, false otherwise
    */
+  // TODO BLOCKER dchen do these methods need to be updated to also read the new checkpoint file?
   public boolean isStaleStore(File storeDir, long storeDeleteRetentionInMs, long currentTimeMs, boolean isSideInput) {
     long offsetFileLastModifiedTime;
     boolean isStaleStore = false;
@@ -195,6 +197,7 @@ public class StorageManagerUtil {
    * @param isSideInput true if store is a side-input store, false if it is a regular store
    * @return true if the offset file is valid. false otherwise.
    */
+  // TODO BLOCKER dchen do these methods need to be updated to also read the new checkpoint file?
   public boolean isOffsetFileValid(File storeDir, Set<SystemStreamPartition> storeSSPs, boolean isSideInput) {
     boolean hasValidOffsetFile = false;
     if (storeDir.exists()) {
@@ -226,14 +229,14 @@ public class StorageManagerUtil {
 
     // First, we write the new-format offset file
     File offsetFile = new File(storeDir, OFFSET_FILE_NAME_NEW);
-    String fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
+    String fileContents = SSP_OFFSETS_OBJECT_WRITER.writeValueAsString(offsets);
     FileUtil fileUtil = new FileUtil();
     fileUtil.writeWithChecksum(offsetFile, fileContents);
 
     // Now we write the old format offset file, which are different for store-offset and side-inputs
     if (isSideInput) {
       offsetFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
-      fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
+      fileContents = SSP_OFFSETS_OBJECT_WRITER.writeValueAsString(offsets);
       fileUtil.writeWithChecksum(offsetFile, fileContents);
     } else {
       offsetFile = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
@@ -243,10 +246,13 @@ public class StorageManagerUtil {
 
   /**
    * Writes the checkpoint to the store checkpoint directory based on the checkpointId.
-   *
+   * // TODO HIGH dchen why assume writing to "checkpoint directory" instead of arbitrary directory?
+   * // TODO HIGH dchen fix param descriptions
    * @param checkpointDir base store directory to write the checkpoint to
    * @param checkpoint checkpoint v2 containing the checkpoint Id
    */
+  // TODO HIGH dchen writeCheckpointV2File to mirror read method name? Or should they both be
+  //  read/write checkpoint file and take in the interface? how will this method evolve?  
   public void writeCheckpointFile(File checkpointDir, CheckpointV2 checkpoint) {
     File offsetFile = new File(checkpointDir, CHECKPOINT_FILE_NAME);
     byte[] fileContents = CHECKPOINT_V2_SERDE.toBytes(checkpoint);
@@ -313,11 +319,12 @@ public class StorageManagerUtil {
   }
 
   /**
-   * Read and return the checkpoint v2 from the directory's checkpoint file.
-   * If the file does not exist, null will be returned
+   * Read and return the {@link CheckpointV2} from the directory's {@link #CHECKPOINT_FILE_NAME} file.
+   * If the file does not exist, returns null.
+   * // TODO HIGH dchen add tests at all call sites for handling null value.
    *
-   * @param storagePartitionDir base directory for the checkpoint file
-   * @return The checkpoint v2 object retrieved from the checkpoint file if found, otherwise return null
+   * @param storagePartitionDir base directory for the store
+   * @return the {@link CheckpointV2} object retrieved from the checkpoint file if found, otherwise return null
    */
   public CheckpointV2 readCheckpointV2File(File storagePartitionDir) {
     File checkpointFile = new File(storagePartitionDir, CHECKPOINT_FILE_NAME);

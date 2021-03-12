@@ -36,12 +36,12 @@ import scala.Option;
  * {@link org.apache.samza.storage.KafkaNonTransactionalStateTaskBackupManager} for tracking the latest committed
  * store changelog offsets.
  *
- * Kafka state checkpoints offsets has the format: [system, stream, partition, offsets], separated by a semi-colon.
+ * Kafka state checkpoint marker has the format: [system, stream, partition, offset], separated by a semi-colon.
  */
 @InterfaceStability.Unstable
 public class KafkaStateCheckpointMarker {
+  public static final String KAFKA_STATE_BACKEND_FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
   public static final String SEPARATOR = ";";
-  public static final String KAFKA_BACKEND_FACTORY_NAME = KafkaChangelogStateBackendFactory.class.getName();
 
   private final SystemStreamPartition changelogSSP;
   private final String changelogOffset;
@@ -80,34 +80,27 @@ public class KafkaStateCheckpointMarker {
   }
 
   /**
-   * Builds the SSP to kafka offset mapping from map of backend factory name to (map of store name to serialized
-   * StateCheckpointMarkers.
-   * @param factoryStateBackendStateMarkersMap Map of factory name to (map of store name to serialized
-   *                                           StateCheckpointMarkers)
-   * @return Map of ssp to option of Kafka offset or an empty map if there is KafkaStateBackendFactory name found
-   * in the input map
+   * Builds a map of store changelog SSPs to their offset for Kafka changelog backed stores from the provided
+   * map of state backend factory name to map of store name to serialized state checkpoint markers.
+   *
+   * @param stateBackendToStoreSCMs Map of state backend factory name to map of store name to serialized
+   *                                state checkpoint markers
+   * @return Map of store changelog SSPss to their optional offset, or an empty map if there is no mapping for
+   * {@link #KAFKA_STATE_BACKEND_FACTORY_NAME} in the input map. Optional offset may be empty if the
+   * changelog SSP was empty.
    */
   public static Map<SystemStreamPartition, Option<String>> scmsToSSPOffsetMap(
-      Map<String, Map<String, String>> factoryStateBackendStateMarkersMap) {
-    return scmToSSPOffsetMap(factoryStateBackendStateMarkersMap
-        .getOrDefault(KAFKA_BACKEND_FACTORY_NAME, null));
-  }
-
-  /**
-   * Builds a SSP to Kafka offset mapping from map of store name to KafkaStateCheckpointMarkers
-   * @param storeToKafkaStateMarker storeName to serialized KafkaStateCheckpointMarker
-   * @return Map of SSP to Optional offset
-   */
-  public static Map<SystemStreamPartition, Option<String>> scmToSSPOffsetMap(Map<String, String> storeToKafkaStateMarker) {
-    Map<SystemStreamPartition, Option<String>> sspToOffset = new HashMap<>();
-    if (storeToKafkaStateMarker != null) {
-      storeToKafkaStateMarker.forEach((key, value) -> {
+      Map<String, Map<String, String>> stateBackendToStoreSCMs) {
+    Map<SystemStreamPartition, Option<String>> sspToOffsetOptions = new HashMap<>();
+    if (stateBackendToStoreSCMs.containsKey(KAFKA_STATE_BACKEND_FACTORY_NAME)) {
+      Map<String, String> storeToKafkaSCMs = stateBackendToStoreSCMs.get(KAFKA_STATE_BACKEND_FACTORY_NAME);
+      storeToKafkaSCMs.forEach((key, value) -> {
         KafkaStateCheckpointMarker stateMarker = KafkaStateCheckpointMarker.fromString(value);
-        Option<String> offsetOption = Option.<String>apply(stateMarker.getChangelogOffset());
-        sspToOffset.put(new SystemStreamPartition(stateMarker.getChangelogSSP()), offsetOption);
+        Option<String> offsetOption = Option.apply(stateMarker.getChangelogOffset());
+        sspToOffsetOptions.put(new SystemStreamPartition(stateMarker.getChangelogSSP()), offsetOption);
       });
     }
-    return sspToOffset;
+    return sspToOffsetOptions;
   }
 
   @Override
