@@ -20,7 +20,13 @@
 package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableMap;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -28,13 +34,19 @@ import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.checkpoint.CheckpointV1;
+import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.checkpoint.kafka.KafkaChangelogSSPOffset;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.model.TaskMode;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
+import static org.junit.Assert.*;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.*;
 
 
 public class TestTaskStorageCommitManager {
@@ -51,7 +63,7 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, Collections.EMPTY_MAP,
-        new Partition(1), checkpointManager, new MapConfig());
+        Collections.EMPTY_MAP, new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
 
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
@@ -70,7 +82,7 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
     TaskStorageCommitManager cm = new TaskStorageCommitManager(task, backupManagers, Collections.EMPTY_MAP,
-        new Partition(1), null, new MapConfig());
+        Collections.EMPTY_MAP, new Partition(1), null, new MapConfig(), new StorageManagerUtil(), null);
     cm.init();
     verify(taskBackupManager1).init(null);
     verify(taskBackupManager2).init(null);
@@ -89,7 +101,7 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, Collections.EMPTY_MAP,
-        new Partition(1), checkpointManager, new MapConfig());
+        Collections.EMPTY_MAP, new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
     verify(taskBackupManager1).init(checkpoint);
@@ -129,25 +141,47 @@ public class TestTaskStorageCommitManager {
     TaskBackupManager taskBackupManager1 = mock(TaskBackupManager.class);
     TaskBackupManager taskBackupManager2 = mock(TaskBackupManager.class);
     Checkpoint checkpoint = mock(Checkpoint.class);
-    StorageEngine storageEngine1 = mock(StorageEngine.class);
-    StorageEngine storageEngine2 = mock(StorageEngine.class);
+
+    StorageEngine mockLPStore = mock(StorageEngine.class);
+    StoreProperties lpStoreProps = mock(StoreProperties.class);
+    when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
+    when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(lpStoreProps.isLoggedStore()).thenReturn(true);
+    Path mockPath = mock(Path.class);
+    when(mockLPStore.checkpoint(any())).thenReturn(Optional.of(mockPath));
+
+    StorageEngine mockPStore = mock(StorageEngine.class);
+    StoreProperties pStoreProps = mock(StoreProperties.class);
+    when(mockPStore.getStoreProperties()).thenReturn(pStoreProps);
+    when(pStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(pStoreProps.isLoggedStore()).thenReturn(false);
+
+    StorageEngine mockLIStore = mock(StorageEngine.class);
+    StoreProperties liStoreProps = mock(StoreProperties.class);
+    when(mockLIStore.getStoreProperties()).thenReturn(liStoreProps);
+    when(liStoreProps.isPersistedToDisk()).thenReturn(false);
+    when(liStoreProps.isLoggedStore()).thenReturn(true);
+
+    StorageEngine mockIStore = mock(StorageEngine.class);
+    StoreProperties iStoreProps = mock(StoreProperties.class);
+    when(mockIStore.getStoreProperties()).thenReturn(iStoreProps);
+    when(iStoreProps.isPersistedToDisk()).thenReturn(false);
+    when(iStoreProps.isLoggedStore()).thenReturn(false);
+
     TaskName taskName = new TaskName("task1");
     Map<String, TaskBackupManager> backupManagers = ImmutableMap.of(
         "factory1", taskBackupManager1,
         "factory2", taskBackupManager2
     );
     Map<String, StorageEngine> storageEngines = ImmutableMap.of(
-        "store1", storageEngine1,
-        "store2", storageEngine2
+        "storeLP", mockLPStore,
+        "storeP", mockPStore,
+        "storeLI", mockLIStore,
+        "storeI", mockIStore
     );
-    StoreProperties storeProperties = new StoreProperties.StorePropertiesBuilder()
-        .setLoggedStore(true)
-        .setPersistedToDisk(true)
-        .build();
-    when(storageEngine1.getStoreProperties()).thenReturn(storeProperties);
-    when(storageEngine2.getStoreProperties()).thenReturn(storeProperties);
+
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, storageEngines,
-        new Partition(1), checkpointManager, new MapConfig());
+        Collections.EMPTY_MAP, new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
     verify(taskBackupManager1).init(checkpoint);
@@ -169,16 +203,63 @@ public class TestTaskStorageCommitManager {
     when(taskBackupManager2.snapshot(newCheckpointId)).thenReturn(factory2Checkpoints);
     when(taskBackupManager2.upload(newCheckpointId, factory2Checkpoints))
         .thenReturn(CompletableFuture.completedFuture(factory2Checkpoints));
-    when(storageEngine1.checkpoint(newCheckpointId)).thenReturn(Optional.empty());
-    when(storageEngine2.checkpoint(newCheckpointId)).thenReturn(Optional.empty());
+    when(mockLIStore.checkpoint(newCheckpointId)).thenReturn(Optional.empty());
 
     cm.commit(newCheckpointId);
 
     // Assert stores where flushed
-    verify(storageEngine1).flush();
-    verify(storageEngine2).flush();
-    verify(storageEngine1).checkpoint(newCheckpointId);
-    verify(storageEngine2).checkpoint(newCheckpointId);
+    verify(mockIStore).flush();
+    verify(mockPStore).flush();
+    verify(mockLIStore).flush();
+    verify(mockLPStore).flush();
+    // only logged and persisted stores are checkpointed
+    verify(mockLPStore).checkpoint(newCheckpointId);
+    // ensure that checkpoint is never called for non-logged persistent stores since they're
+    // always cleared on restart.
+    verify(mockPStore, never()).checkpoint(any());
+    // ensure that checkpoint is never called for non-persistent stores
+    verify(mockIStore, never()).checkpoint(any());
+    verify(mockLIStore, never()).checkpoint(any());
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testCommitFailsIfErrorCreatingCheckpoint() {
+    CheckpointManager checkpointManager = mock(CheckpointManager.class);
+    TaskBackupManager taskBackupManager1 = mock(TaskBackupManager.class);
+    TaskBackupManager taskBackupManager2 = mock(TaskBackupManager.class);
+    Checkpoint checkpoint = mock(Checkpoint.class);
+
+    StorageEngine mockLPStore = mock(StorageEngine.class);
+    StoreProperties lpStoreProps = mock(StoreProperties.class);
+    when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
+    when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(lpStoreProps.isLoggedStore()).thenReturn(true);
+    when(mockLPStore.checkpoint(any())).thenThrow(new IllegalStateException());
+
+    TaskName taskName = new TaskName("task1");
+    Map<String, TaskBackupManager> backupManagers = ImmutableMap.of(
+        "factory1", taskBackupManager1,
+        "factory2", taskBackupManager2
+    );
+    Map<String, StorageEngine> storageEngines = ImmutableMap.of(
+        "storeLP", mockLPStore
+    );
+
+    TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, storageEngines,
+        Collections.EMPTY_MAP, new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
+
+    CheckpointId newCheckpointId = CheckpointId.create();
+    cm.commit(newCheckpointId);
+
+    // Assert stores where flushed
+    verify(mockLPStore).flush();
+    // only logged and persisted stores are checkpointed
+    verify(mockLPStore).checkpoint(newCheckpointId);
+    verify(taskBackupManager1, never()).snapshot(any());
+    verify(taskBackupManager2, never()).snapshot(any());
+    verify(taskBackupManager1, never()).upload(any(), any());
+    verify(taskBackupManager2, never()).upload(any(), any());
+    fail("Should have thrown an exception when the storageEngine#checkpoint did not succeed");
   }
 
   @Test
@@ -187,6 +268,8 @@ public class TestTaskStorageCommitManager {
     TaskBackupManager taskBackupManager1 = mock(TaskBackupManager.class);
     TaskBackupManager taskBackupManager2 = mock(TaskBackupManager.class);
     Checkpoint checkpoint = mock(Checkpoint.class);
+    File durableStoreDir = mock(File.class);
+    when(durableStoreDir.listFiles()).thenReturn(new File[0]);
 
     TaskName taskName = new TaskName("task1");
     Map<String, TaskBackupManager> backupManagers = ImmutableMap.of(
@@ -194,7 +277,7 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, Collections.EMPTY_MAP,
-        new Partition(1), checkpointManager, new MapConfig());
+        Collections.EMPTY_MAP,  new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), durableStoreDir);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
 
     Map<String, String> factory1Checkpoints = ImmutableMap.of(
@@ -216,5 +299,416 @@ public class TestTaskStorageCommitManager {
 
     verify(taskBackupManager1).cleanUp(newCheckpointId, factory1Checkpoints);
     verify(taskBackupManager2).cleanUp(newCheckpointId, factory2Checkpoints);
+  }
+
+  @Test
+  public void testPersistToFileSystemCheckpointV1AndV2Checkpoint() throws IOException {
+    StorageEngine mockLPStore = mock(StorageEngine.class);
+    StoreProperties lpStoreProps = mock(StoreProperties.class);
+    when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
+    when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(lpStoreProps.isLoggedStore()).thenReturn(true);
+    Path mockPath = mock(Path.class);
+    when(mockLPStore.checkpoint(any())).thenReturn(Optional.of(mockPath));
+
+    StorageEngine mockPStore = mock(StorageEngine.class);
+    StoreProperties pStoreProps = mock(StoreProperties.class);
+    when(mockPStore.getStoreProperties()).thenReturn(pStoreProps);
+    when(pStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(pStoreProps.isLoggedStore()).thenReturn(false);
+
+    StorageEngine mockLIStore = mock(StorageEngine.class);
+    StoreProperties liStoreProps = mock(StoreProperties.class);
+    when(mockLIStore.getStoreProperties()).thenReturn(liStoreProps);
+    when(liStoreProps.isPersistedToDisk()).thenReturn(false);
+    when(liStoreProps.isLoggedStore()).thenReturn(true);
+
+    StorageEngine mockIStore = mock(StorageEngine.class);
+    StoreProperties iStoreProps = mock(StoreProperties.class);
+    when(mockIStore.getStoreProperties()).thenReturn(iStoreProps);
+    when(iStoreProps.isPersistedToDisk()).thenReturn(false);
+    when(iStoreProps.isLoggedStore()).thenReturn(false);
+
+    java.util.Map<String, StorageEngine> taskStores = ImmutableMap.of(
+        "loggedPersistentStore", mockLPStore,
+        "persistentStore", mockPStore,
+        "loggedInMemStore", mockLIStore,
+        "inMemStore", mockIStore
+    );
+
+    Partition changelogPartition = new Partition(0);
+    SystemStream changelogSystemStream = new SystemStream("changelogSystem", "changelogStream");
+    SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
+    java.util.Map<String, SystemStream> storeChangelogsStreams = ImmutableMap.of(
+        "loggedPersistentStore", changelogSystemStream,
+        "loggedInMemStore", new SystemStream("system", "stream")
+    );
+
+    StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
+    File durableStoreDir = new File("durableStorePath");
+    when(storageManagerUtil.getTaskStoreDir(eq(durableStoreDir), any(), any(), any())).thenReturn(durableStoreDir);
+    TaskName taskName = new TaskName("task");
+
+    TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
+        Collections.EMPTY_MAP, taskStores, storeChangelogsStreams, changelogPartition,
+        null, null, storageManagerUtil, durableStoreDir));
+    doNothing().when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
+
+    CheckpointId newCheckpointId = CheckpointId.create();
+
+    String newestOffset = "1";
+    KafkaChangelogSSPOffset kafkaChangelogSSPOffset = new KafkaChangelogSSPOffset(newCheckpointId, newestOffset);
+    java.util.Map<SystemStreamPartition, String> offsetsJava = ImmutableMap.of(
+        changelogSSP, kafkaChangelogSSPOffset.toString()
+    );
+
+    // invoke persist to file system for v2 checkpoint
+    commitManager.persistToLocalFileSystem(new CheckpointV1(offsetsJava));
+
+    verify(commitManager).writeChangelogOffsetFiles(offsetsJava);
+    // evoked twice, for OFFSET-V1 and OFFSET-V2
+    verify(commitManager).writeChangelogOffsetFile(
+        eq("loggedPersistentStore"), eq(changelogSSP), eq(newestOffset), eq(durableStoreDir));
+    File checkpointFile = Paths.get(StorageManagerUtil
+        .getStoreCheckpointPath(durableStoreDir, kafkaChangelogSSPOffset.getCheckpointId())).toFile();
+    verify(commitManager).writeChangelogOffsetFile(
+        eq("loggedPersistentStore"), eq(changelogSSP), eq(newestOffset), eq(checkpointFile));
+
+    java.util.Map<String, String> storeSCM = ImmutableMap.of(
+        "loggedPersistentStore", "system;loggedPersistentStoreStream;1",
+        "persistentStore", "system;persistentStoreStream;1",
+        "loggedInMemStore", "system;loggedInMemStoreStream;1",
+        "inMemStore", "system;inMemStoreStream;1"
+    );
+    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
+
+    // invoke persist to file system for v2 checkpoint
+    commitManager.persistToLocalFileSystem(checkpoint);
+    // Validate only durable and persisted stores are persisted
+    // This should be evoked twice, for checkpointV1 and checkpointV2
+    verify(storageManagerUtil, times(2)).getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), eq(taskName), any());
+    File checkpointPath = Paths.get(StorageManagerUtil.getStoreCheckpointPath(durableStoreDir, newCheckpointId)).toFile();
+    verify(storageManagerUtil).writeCheckpointFile(eq(checkpointPath), eq(checkpoint));
+  }
+
+  @Test
+  public void testPersistToFileSystemCheckpointV2Only() throws IOException {
+    StorageEngine mockLPStore = mock(StorageEngine.class);
+    StoreProperties lpStoreProps = mock(StoreProperties.class);
+    when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
+    when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(lpStoreProps.isLoggedStore()).thenReturn(true);
+    Path mockPath = mock(Path.class);
+    when(mockLPStore.checkpoint(any())).thenReturn(Optional.of(mockPath));
+
+    StorageEngine mockPStore = mock(StorageEngine.class);
+    StoreProperties pStoreProps = mock(StoreProperties.class);
+    when(mockPStore.getStoreProperties()).thenReturn(pStoreProps);
+    when(pStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(pStoreProps.isLoggedStore()).thenReturn(false);
+
+    StorageEngine mockLIStore = mock(StorageEngine.class);
+    StoreProperties liStoreProps = mock(StoreProperties.class);
+    when(mockLIStore.getStoreProperties()).thenReturn(liStoreProps);
+    when(liStoreProps.isPersistedToDisk()).thenReturn(false);
+    when(liStoreProps.isLoggedStore()).thenReturn(true);
+
+    StorageEngine mockIStore = mock(StorageEngine.class);
+    StoreProperties iStoreProps = mock(StoreProperties.class);
+    when(mockIStore.getStoreProperties()).thenReturn(iStoreProps);
+    when(iStoreProps.isPersistedToDisk()).thenReturn(false);
+    when(iStoreProps.isLoggedStore()).thenReturn(false);
+
+    java.util.Map<String, StorageEngine> taskStores = ImmutableMap.of(
+        "loggedPersistentStore", mockLPStore,
+        "persistentStore", mockPStore,
+        "loggedInMemStore", mockLIStore,
+        "inMemStore", mockIStore
+    );
+
+    Partition changelogPartition = new Partition(0);
+    SystemStream changelogSystemStream = new SystemStream("changelogSystem", "changelogStream");
+    SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
+    java.util.Map<String, SystemStream> storeChangelogsStreams = ImmutableMap.of(
+        "loggedPersistentStore", changelogSystemStream,
+        "loggedInMemStore", new SystemStream("system", "stream")
+    );
+
+    StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
+    File durableStoreDir = new File("durableStorePath");
+    when(storageManagerUtil.getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), any(), any()))
+        .thenReturn(durableStoreDir);
+    TaskName taskName = new TaskName("task");
+
+    TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
+        Collections.EMPTY_MAP, taskStores, storeChangelogsStreams, changelogPartition,
+        null, null, storageManagerUtil, durableStoreDir));
+    doNothing().when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
+
+    CheckpointId newCheckpointId = CheckpointId.create();
+
+    java.util.Map<String, String> storeSCM = ImmutableMap.of(
+        "loggedPersistentStore", "system;loggedPersistentStoreStream;1",
+        "persistentStore", "system;persistentStoreStream;1",
+        "loggedInMemStore", "system;loggedInMemStoreStream;1",
+        "inMemStore", "system;inMemStoreStream;1"
+    );
+    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
+
+    // invoke persist to file system
+    commitManager.persistToLocalFileSystem(checkpoint);
+    // Validate only durable and persisted stores are persisted
+    verify(storageManagerUtil).getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), eq(taskName), any());
+    File checkpointPath = Paths.get(StorageManagerUtil.getStoreCheckpointPath(durableStoreDir, newCheckpointId)).toFile();
+    verify(storageManagerUtil).writeCheckpointFile(eq(checkpointPath), eq(checkpoint));
+  }
+
+  @Test
+  public void testWriteChangelogOffsetFilesV1() throws IOException {
+    Map<String, Map<SystemStreamPartition, String>> mockFileSystem = new HashMap<>();
+    StorageEngine mockLPStore = mock(StorageEngine.class);
+    StoreProperties lpStoreProps = mock(StoreProperties.class);
+    when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
+    when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(lpStoreProps.isLoggedStore()).thenReturn(true);
+    Path mockPath = mock(Path.class);
+    when(mockLPStore.checkpoint(any())).thenReturn(Optional.of(mockPath));
+
+    java.util.Map<String, StorageEngine> taskStores = ImmutableMap.of("loggedPersistentStore", mockLPStore);
+
+    Partition changelogPartition = new Partition(0);
+    SystemStream changelogSystemStream = new SystemStream("changelogSystem", "changelogStream");
+    SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
+    java.util.Map<String, SystemStream> storeChangelogsStreams = ImmutableMap.of("loggedPersistentStore", changelogSystemStream);
+
+    StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
+    File tmpTestPath = new File("store-checkpoint-test");
+    when(storageManagerUtil.getTaskStoreDir(eq(tmpTestPath), eq("loggedPersistentStore"), any(), any())).thenReturn(tmpTestPath);
+    TaskName taskName = new TaskName("task");
+
+    TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
+        Collections.EMPTY_MAP, taskStores, storeChangelogsStreams, changelogPartition,
+        null, null, storageManagerUtil, tmpTestPath));
+
+    doAnswer(invocation -> {
+      String fileDir = invocation.getArgumentAt(3, File.class).getName();
+      SystemStreamPartition ssp = invocation.getArgumentAt(1, SystemStreamPartition.class);
+      String offset = invocation.getArgumentAt(2, String.class);
+      if (mockFileSystem.containsKey(fileDir)) {
+        mockFileSystem.get(fileDir).put(ssp, offset);
+      } else {
+        Map<SystemStreamPartition, String> sspOffsets = new HashMap<>();
+        sspOffsets.put(ssp, offset);
+        mockFileSystem.put(fileDir, sspOffsets);
+      }
+      return null;
+    }).when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
+
+    CheckpointId newCheckpointId = CheckpointId.create();
+
+    String newestOffset = "1";
+    KafkaChangelogSSPOffset kafkaChangelogSSPOffset = new KafkaChangelogSSPOffset(newCheckpointId, newestOffset);
+    java.util.Map<SystemStreamPartition, String> offsetsJava = ImmutableMap.of(
+        changelogSSP, kafkaChangelogSSPOffset.toString()
+    );
+
+    // invoke persist to file system for v2 checkpoint
+    commitManager.persistToLocalFileSystem(new CheckpointV1(offsetsJava));
+
+    assertEquals(2, mockFileSystem.size());
+    // check if v2 offsets are written correctly
+    String v2FilePath = StorageManagerUtil
+        .getStoreCheckpointPath(tmpTestPath, newCheckpointId);
+    assertTrue(mockFileSystem.containsKey(v2FilePath));
+    assertTrue(mockFileSystem.get(v2FilePath).containsKey(changelogSSP));
+    assertEquals(1, mockFileSystem.get(v2FilePath).size());
+    assertEquals(newestOffset, mockFileSystem.get(v2FilePath).get(changelogSSP));
+    // check if v1 offsets are written correctly
+    String v1FilePath = tmpTestPath.getPath();
+    assertTrue(mockFileSystem.containsKey(v1FilePath));
+    assertTrue(mockFileSystem.get(v1FilePath).containsKey(changelogSSP));
+    assertEquals(1, mockFileSystem.get(v1FilePath).size());
+    assertEquals(newestOffset, mockFileSystem.get(v1FilePath).get(changelogSSP));
+  }
+
+  @Test
+  public void testWriteChangelogOffsetFilesV2andV1() throws IOException {
+    Map<String, Map<SystemStreamPartition, String>> mockFileSystem = new HashMap<>();
+    Map<String, CheckpointV2> mockCheckpointFileSystem = new HashMap<>();
+    StorageEngine mockLPStore = mock(StorageEngine.class);
+    StoreProperties lpStoreProps = mock(StoreProperties.class);
+    when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
+    when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(lpStoreProps.isLoggedStore()).thenReturn(true);
+    Path mockPath = mock(Path.class);
+    when(mockLPStore.checkpoint(any())).thenReturn(Optional.of(mockPath));
+
+    java.util.Map<String, StorageEngine> taskStores = ImmutableMap.of("loggedPersistentStore", mockLPStore);
+
+    Partition changelogPartition = new Partition(0);
+    SystemStream changelogSystemStream = new SystemStream("changelogSystem", "changelogStream");
+    SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
+    java.util.Map<String, SystemStream> storeChangelogsStreams = ImmutableMap.of("loggedPersistentStore", changelogSystemStream);
+
+    StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
+    File tmpTestPath = new File("store-checkpoint-test");
+    when(storageManagerUtil.getTaskStoreDir(eq(tmpTestPath), eq("loggedPersistentStore"), any(), any())).thenReturn(tmpTestPath);
+    TaskName taskName = new TaskName("task");
+
+    TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
+        Collections.EMPTY_MAP, taskStores, storeChangelogsStreams, changelogPartition,
+        null, null, storageManagerUtil, tmpTestPath));
+
+    doAnswer(invocation -> {
+      String fileDir = invocation.getArgumentAt(3, File.class).getName();
+      SystemStreamPartition ssp = invocation.getArgumentAt(1, SystemStreamPartition.class);
+      String offset = invocation.getArgumentAt(2, String.class);
+      if (mockFileSystem.containsKey(fileDir)) {
+        mockFileSystem.get(fileDir).put(ssp, offset);
+      } else {
+        Map<SystemStreamPartition, String> sspOffsets = new HashMap<>();
+        sspOffsets.put(ssp, offset);
+        mockFileSystem.put(fileDir, sspOffsets);
+      }
+      return null;
+    }).when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
+
+    doAnswer(invocation -> {
+      String storeDir = invocation.getArgumentAt(0, File.class).getName();
+      CheckpointV2 checkpointV2 = invocation.getArgumentAt(1, CheckpointV2.class);
+      mockCheckpointFileSystem.put(storeDir, checkpointV2);
+      return null;
+    }).when(storageManagerUtil).writeCheckpointFile(any(), any());
+
+    CheckpointId newCheckpointId = CheckpointId.create();
+
+    String newestOffset = "1";
+    KafkaChangelogSSPOffset kafkaChangelogSSPOffset = new KafkaChangelogSSPOffset(newCheckpointId, newestOffset);
+    java.util.Map<SystemStreamPartition, String> offsetsJava = ImmutableMap.of(
+        changelogSSP, kafkaChangelogSSPOffset.toString()
+    );
+
+    // invoke persist to file system for v1 checkpoint
+    commitManager.persistToLocalFileSystem(new CheckpointV1(offsetsJava));
+
+    assertEquals(2, mockFileSystem.size());
+    // check if v2 offsets are written correctly
+    String v2FilePath = StorageManagerUtil
+        .getStoreCheckpointPath(tmpTestPath, newCheckpointId);
+    assertTrue(mockFileSystem.containsKey(v2FilePath));
+    assertTrue(mockFileSystem.get(v2FilePath).containsKey(changelogSSP));
+    assertEquals(1, mockFileSystem.get(v2FilePath).size());
+    assertEquals(newestOffset, mockFileSystem.get(v2FilePath).get(changelogSSP));
+    // check if v1 offsets are written correctly
+    String v1FilePath = tmpTestPath.getPath();
+    assertTrue(mockFileSystem.containsKey(v1FilePath));
+    assertTrue(mockFileSystem.get(v1FilePath).containsKey(changelogSSP));
+    assertEquals(1, mockFileSystem.get(v1FilePath).size());
+    assertEquals(newestOffset, mockFileSystem.get(v1FilePath).get(changelogSSP));
+
+    java.util.Map<String, String> storeSCM = ImmutableMap.of(
+        "loggedPersistentStore", "system;loggedPersistentStoreStream;1",
+        "persistentStore", "system;persistentStoreStream;1",
+        "loggedInMemStore", "system;loggedInMemStoreStream;1",
+        "inMemStore", "system;inMemStoreStream;1"
+    );
+    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
+
+    // invoke persist to file system with checkpoint v2
+    commitManager.persistToLocalFileSystem(checkpoint);
+
+    assertTrue(mockCheckpointFileSystem.containsKey(v2FilePath));
+    assertEquals(checkpoint, mockCheckpointFileSystem.get(v2FilePath));
+    assertEquals(1, mockCheckpointFileSystem.size());
+  }
+
+  @Test
+  public void testWriteChangelogOffsetFilesWithEmptyChangelogTopic() throws IOException {
+    Map<String, Map<SystemStreamPartition, String>> mockFileSystem = new HashMap<>();
+    StorageEngine mockLPStore = mock(StorageEngine.class);
+    StoreProperties lpStoreProps = mock(StoreProperties.class);
+    when(mockLPStore.getStoreProperties()).thenReturn(lpStoreProps);
+    when(lpStoreProps.isPersistedToDisk()).thenReturn(true);
+    when(lpStoreProps.isLoggedStore()).thenReturn(true);
+    Path mockPath = mock(Path.class);
+    when(mockLPStore.checkpoint(any())).thenReturn(Optional.of(mockPath));
+
+    java.util.Map<String, StorageEngine> taskStores = ImmutableMap.of("loggedPersistentStore", mockLPStore);
+
+    Partition changelogPartition = new Partition(0);
+    SystemStream changelogSystemStream = new SystemStream("changelogSystem", "changelogStream");
+    SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
+    java.util.Map<String, SystemStream> storeChangelogsStreams = ImmutableMap.of("loggedPersistentStore", changelogSystemStream);
+
+    StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
+    File tmpTestPath = new File("store-checkpoint-test");
+    when(storageManagerUtil.getTaskStoreDir(eq(tmpTestPath), any(), any(), any())).thenReturn(tmpTestPath);
+    TaskName taskName = new TaskName("task");
+
+    TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
+        Collections.EMPTY_MAP, taskStores, storeChangelogsStreams, changelogPartition,
+        null, null, storageManagerUtil, tmpTestPath));
+
+    doAnswer(invocation -> {
+      String storeName = invocation.getArgumentAt(0, String.class);
+      String fileDir = invocation.getArgumentAt(3, File.class).getName();
+      String mockKey = storeName + fileDir;
+      SystemStreamPartition ssp = invocation.getArgumentAt(1, SystemStreamPartition.class);
+      String offset = invocation.getArgumentAt(2, String.class);
+      if (mockFileSystem.containsKey(mockKey)) {
+        mockFileSystem.get(mockKey).put(ssp, offset);
+      } else {
+        Map<SystemStreamPartition, String> sspOffsets = new HashMap<>();
+        sspOffsets.put(ssp, offset);
+        mockFileSystem.put(mockKey, sspOffsets);
+      }
+      return null;
+    }).when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
+
+    CheckpointId newCheckpointId = CheckpointId.create();
+
+    String newestOffset = null;
+    KafkaChangelogSSPOffset kafkaChangelogSSPOffset = new KafkaChangelogSSPOffset(newCheckpointId, newestOffset);
+    java.util.Map<SystemStreamPartition, String> offsetsJava = ImmutableMap.of(
+        changelogSSP, kafkaChangelogSSPOffset.toString()
+    );
+
+    // invoke persist to file system for v2 checkpoint
+    commitManager.persistToLocalFileSystem(new CheckpointV1(offsetsJava));
+    assertTrue(mockFileSystem.isEmpty());
+    // verify that delete was called on current store dir offset file
+    verify(storageManagerUtil, times(1)).deleteOffsetFile(eq(tmpTestPath));
+  }
+
+  @Test
+  public void testRemoveOldCheckpointsWhenBaseDirContainsRegularFiles() {
+    CheckpointManager checkpointManager = mock(CheckpointManager.class);
+    TaskBackupManager taskBackupManager1 = mock(TaskBackupManager.class);
+    TaskBackupManager taskBackupManager2 = mock(TaskBackupManager.class);
+    File durableStoreDir = mock(File.class);
+
+    StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
+
+    TaskName taskName = new TaskName("task1");
+    Map<String, TaskBackupManager> backupManagers = ImmutableMap.of(
+        "factory1", taskBackupManager1,
+        "factory2", taskBackupManager2
+    );
+    TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, Collections.EMPTY_MAP,
+        Collections.EMPTY_MAP,  new Partition(1), checkpointManager, new MapConfig(), storageManagerUtil, durableStoreDir);
+
+
+    File mockStoreDir = mock(File.class);
+    String mockStoreDirName = "notDirectory";
+    when(durableStoreDir.listFiles()).thenReturn(new File[] {mockStoreDir});
+    when(mockStoreDir.getName()).thenReturn(mockStoreDirName);
+    when(storageManagerUtil.getTaskStoreDir(eq(durableStoreDir), eq(mockStoreDirName), eq(taskName), eq(TaskMode.Active))).thenReturn(mockStoreDir);
+    // null here can happen if listFiles is called on a non-directory
+    when(mockStoreDir.listFiles(any(FileFilter.class))).thenReturn(null);
+
+    cm.cleanUp(CheckpointId.create(), new HashMap<>());
+    verify(durableStoreDir).listFiles();
+    verify(mockStoreDir).listFiles(any(FileFilter.class));
+    verify(storageManagerUtil).getTaskStoreDir(eq(durableStoreDir), eq(mockStoreDirName), eq(taskName), eq(TaskMode.Active));
   }
 }

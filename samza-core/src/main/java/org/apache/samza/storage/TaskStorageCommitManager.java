@@ -39,10 +39,7 @@ import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.kafka.KafkaChangelogSSPOffset;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemStream;
@@ -62,24 +59,24 @@ public class TaskStorageCommitManager {
   private final Map<String, TaskBackupManager> stateBackendToBackupManager;
   private final Map<String, StorageEngine> storageEngines;
   private final Partition taskChangelogPartition;
-  private final StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
-  private final File loggedStoreBaseDir;
+  private final StorageManagerUtil storageManagerUtil;
+  private final File durableStoreBaseDir;
   private final Map<String, SystemStream> storeChangelogs;
   private final boolean isTransactionalStateCheckpointEnabled;
 
 
   public TaskStorageCommitManager(TaskName taskName, Map<String, TaskBackupManager> stateBackendToBackupManager,
-      Map<String, StorageEngine> storageEngines, Partition changelogPartition, CheckpointManager checkpointManager,
-      Config config) {
+      Map<String, StorageEngine> storageEngines, Map<String, SystemStream> storeChangelogs, Partition changelogPartition,
+      CheckpointManager checkpointManager, Config config, StorageManagerUtil storageManagerUtil, File durableStoreBaseDir) {
     this.taskName = taskName;
     this.stateBackendToBackupManager = stateBackendToBackupManager;
     this.storageEngines = storageEngines;
     this.taskChangelogPartition = changelogPartition;
     this.checkpointManager = checkpointManager;
-    this.loggedStoreBaseDir = SamzaContainer.getLoggedStorageBaseDir(new JobConfig(config),
-        new File(System.getProperty("user.dir"), "state"));
-    this.storeChangelogs = new StorageConfig(config).getStoreChangelogs();
+    this.durableStoreBaseDir = durableStoreBaseDir;
+    this.storeChangelogs = storeChangelogs;
     this.isTransactionalStateCheckpointEnabled = new TaskConfig(config).getTransactionalStateCheckpointEnabled();
+    this.storageManagerUtil = storageManagerUtil;
   }
 
   public void init() {
@@ -94,21 +91,22 @@ public class TaskStorageCommitManager {
 
   /**
    * Commits the local state on the remote backup implementation
+   *
    * @return Committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
    */
   public Map<String, Map<String, String>> commit(CheckpointId checkpointId) {
     // { state backend factory -> { store Name -> state checkpoint marker }}
     Map<String, Map<String, String>> backendFactoryStoreStateMarkers = new HashMap<>();
-
     // Flush all stores
     storageEngines.values().forEach(StorageEngine::flush);
-    // Checkpoint all persisted stores
+    // Checkpoint all persisted stores and logged stores
+    // We are assuming that logged stores are the definition of durable stores
     storageEngines.forEach((storeName, storageEngine) -> {
-      if (storageEngine.getStoreProperties().isPersistedToDisk()) {
+      if (storageEngine.getStoreProperties().isPersistedToDisk() &&
+          storageEngine.getStoreProperties().isLoggedStore()) {
         storageEngine.checkpoint(checkpointId);
       }
     });
-
     // for each configured state backend factory, backup the state for all store in this task.
     stateBackendToBackupManager.forEach((stateBackendFactoryName, storageBackupManager) -> {
       Map<String, String> snapshotSCMs = storageBackupManager.snapshot(checkpointId);
@@ -150,29 +148,25 @@ public class TaskStorageCommitManager {
       LOG.debug("Persisting CheckpointV1 to store checkpoint directory for taskName: {} with checkpoint: {}",
           taskName, checkpoint);
       // Write Checkpoint v1 checkpoint changelog offsets for backwards compatibility
-      writeChangelogOffsetsFiles(checkpoint.getOffsets());
+      writeChangelogOffsetFiles(checkpoint.getOffsets());
     } else if (checkpoint instanceof CheckpointV2) {
       LOG.debug("Persisting CheckpointV2 to store checkpoint directory for taskName: {} with checkpoint: {}, checkpoint id {}",
           taskName, checkpoint, ((CheckpointV2) checkpoint).getCheckpointId());
       // Write v2 checkpoint
       storageEngines.forEach((storeName, engine) -> {
-        // Only stores if the write checkpoint if the store is durable and
-        if (engine.getStoreProperties().isLoggedStore() &&
-            engine.getStoreProperties().isPersistedToDisk()) {
-          try {
-            storageManagerUtil.writeCheckpointFile(storageManagerUtil
-                    .getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active), (CheckpointV2) checkpoint);
-          } catch (IOException e) {
-            throw new SamzaException(
-                String.format("Error storing checkpoint for taskName: %s, checkpoint: %s to path %s.", taskName,
-                    checkpoint, loggedStoreBaseDir), e);
-          }
+        // Only stores if the write checkpoint if the store is durable and persisted to disk
+        if (engine.getStoreProperties().isLoggedStore() && engine.getStoreProperties().isPersistedToDisk()) {
+          File storeDir = storageManagerUtil
+              .getTaskStoreDir(durableStoreBaseDir, storeName, taskName, TaskMode.Active);
+          // Appends the checkpoint id timestamp to the file name
+          File checkpointDir = Paths.get(StorageManagerUtil
+              .getStoreCheckpointPath(storeDir, ((CheckpointV2) checkpoint).getCheckpointId())).toFile();
+          storageManagerUtil.writeCheckpointFile(checkpointDir, (CheckpointV2) checkpoint);
         }
       });
     } else {
       throw new SamzaException("Unsupported checkpoint version: " + checkpoint.getVersion());
     }
-
   }
 
   /**
@@ -195,12 +189,12 @@ public class TaskStorageCommitManager {
     // Clear checkpoint directories
     if (latestCheckpointId != null) {
       LOG.debug("Deleting checkpoints older than Checkpoint Id: {}", latestCheckpointId);
-      File[] files = loggedStoreBaseDir.listFiles();
+      File[] files = durableStoreBaseDir.listFiles();
       if (files != null) {
         for (File storeDir : files) {
           String storeName = storeDir.getName();
           String taskStoreName = storageManagerUtil
-              .getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active).getName();
+              .getTaskStoreDir(durableStoreBaseDir, storeName, taskName, TaskMode.Active).getName();
           FileFilter fileFilter = new WildcardFileFilter(taskStoreName + "-*");
           File[] checkpointDirs = storeDir.listFiles(fileFilter);
           if (checkpointDirs != null) {
@@ -245,7 +239,7 @@ public class TaskStorageCommitManager {
    */
   // TODO HIGH dchen move tests from KafkaBackupManager to TaskCommitManager
   @VisibleForTesting
-  void writeChangelogOffsetsFiles(Map<SystemStreamPartition, String> checkpointOffsets) {
+  void writeChangelogOffsetFiles(Map<SystemStreamPartition, String> checkpointOffsets) {
     storeChangelogs.forEach((storeName, systemStream) -> {
       SystemStreamPartition changelogSSP = new SystemStreamPartition(systemStream.getSystem(),
           systemStream.getStream(), taskChangelogPartition);
@@ -255,7 +249,7 @@ public class TaskStorageCommitManager {
           storageEngines.get(storeName).getStoreProperties().isLoggedStore() &&
           storageEngines.get(storeName).getStoreProperties().isPersistedToDisk()) {
         LOG.debug("Writing changelog offset for taskName {} store {} changelog {}.", taskName, storeName, systemStream);
-        File currentStoreDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, storeName, taskName, TaskMode.Active);
+        File currentStoreDir = storageManagerUtil.getTaskStoreDir(durableStoreBaseDir, storeName, taskName, TaskMode.Active);
         try {
           KafkaChangelogSSPOffset kafkaChangelogSSPOffset = KafkaChangelogSSPOffset
               .fromString(checkpointOffsets.get(changelogSSP));
@@ -289,7 +283,8 @@ public class TaskStorageCommitManager {
     LOG.debug("Done writing OFFSET files for logged persistent key value stores for task {}", taskName);
   }
 
-  private void writeChangelogOffsetFile(String storeName, SystemStreamPartition ssp, String newestOffset,
+  @VisibleForTesting
+  void writeChangelogOffsetFile(String storeName, SystemStreamPartition ssp, String newestOffset,
       File writeDirectory) throws IOException {
     LOG.debug("Storing newest offset {} for taskName {} store {} changelog ssp {} in OFFSET file at path: {}.",
         newestOffset, taskName, storeName, ssp, writeDirectory);

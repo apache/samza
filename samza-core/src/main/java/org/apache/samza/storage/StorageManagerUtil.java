@@ -46,6 +46,7 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.serializers.CheckpointV2Serde;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
@@ -67,6 +68,7 @@ public class StorageManagerUtil {
             new TypeReference<Map<SystemStreamPartition, String>>() { };
   private static final ObjectWriter SSP_OFFSET_OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
   private static final String SST_FILE_SUFFIX = ".sst";
+  private static final CheckpointV2Serde CHECKPOINT_V2_SERDE = new CheckpointV2Serde();
 
   /**
    * Returns the path for a storage engine to write its checkpoints based on the latest checkpoint id.
@@ -239,12 +241,17 @@ public class StorageManagerUtil {
     }
   }
 
-  public void writeCheckpointFile(File storeDir, CheckpointV2 checkpoint) throws IOException {
-    File offsetFile = new File(storeDir, OFFSET_FILE_NAME_NEW);
-    // TODO HIGH dchen serialize
-    String fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(checkpoint);
+  /**
+   * Writes the checkpoint to the store checkpoint directory based on the checkpointId.
+   *
+   * @param checkpointDir base store directory to write the checkpoint to
+   * @param checkpoint checkpoint v2 containing the checkpoint Id
+   */
+  public void writeCheckpointFile(File checkpointDir, CheckpointV2 checkpoint) {
+    File offsetFile = new File(checkpointDir, CHECKPOINT_FILE_NAME);
+    byte[] fileContents = CHECKPOINT_V2_SERDE.toBytes(checkpoint);
     FileUtil fileUtil = new FileUtil();
-    fileUtil.writeWithChecksum(offsetFile, fileContents);
+    fileUtil.writeWithChecksum(offsetFile, new String(fileContents));
   }
 
   /**
@@ -302,6 +309,23 @@ public class StorageManagerUtil {
       return readOffsetFile(storagePartitionDir, sideInputOffsetFileRefLegacy.getName(), storeSSPs);
     } else {
       return new HashMap<>();
+    }
+  }
+
+  /**
+   * Read and return the checkpoint v2 from the directory's checkpoint file.
+   * If the file does not exist, null will be returned
+   *
+   * @param storagePartitionDir base directory for the checkpoint file
+   * @return The checkpoint v2 object retrieved from the checkpoint file if found, otherwise return null
+   */
+  public CheckpointV2 readCheckpointV2File(File storagePartitionDir) {
+    File checkpointFile = new File(storagePartitionDir, CHECKPOINT_FILE_NAME);
+    if (checkpointFile.exists()) {
+      String serializedCheckpointV2 = new FileUtil().readWithChecksum(checkpointFile);
+      return new CheckpointV2Serde().fromBytes(serializedCheckpointV2.getBytes());
+    } else {
+      return null;
     }
   }
 

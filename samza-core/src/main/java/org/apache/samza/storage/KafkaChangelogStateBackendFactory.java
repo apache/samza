@@ -52,9 +52,6 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
     StorageConfig storageConfig = new StorageConfig(config);
     Map<String, SystemStream> storeChangelogs = storageConfig.getStoreChangelogs();
 
-    File defaultFileDir = new File(System.getProperty("user.dir"), "state");
-    File loggedStoreBaseDir = SamzaContainer.getLoggedStorageBaseDir(new JobConfig(config), defaultFileDir);
-
     if (new TaskConfig(config).getTransactionalStateCheckpointEnabled()) {
       return new KafkaTransactionalStateTaskBackupManager(taskModel.getTaskName(),
           taskStores, storeChangelogs, systemAdmins, taskModel.getChangelogPartition());
