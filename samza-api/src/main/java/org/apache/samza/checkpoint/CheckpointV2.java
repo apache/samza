@@ -40,17 +40,18 @@ public class CheckpointV2 implements Checkpoint {
 
   /**
    * Constructs the checkpoint with separated input and state offsets
-   * @param checkpointId CheckpointId associated with this checkpoint
+   *
+   * @param checkpointId {@link CheckpointId} associated with this checkpoint
    * @param inputOffsets Map of Samza system stream partition to offset of the checkpoint
-   * @param stateCheckpointMarkers Map of state backend factory name to map of local state store names
-   *                              to state checkpoint markers
+   * @param stateCheckpoints Map of state backend factory name to map of local state store names
+   *                         to state checkpoints
    */
   public CheckpointV2(CheckpointId checkpointId,
       Map<SystemStreamPartition, String> inputOffsets,
-      Map<String, Map<String, String>> stateCheckpointMarkers) {
+      Map<String, Map<String, String>> stateCheckpoints) {
     this.checkpointId = checkpointId;
     this.inputOffsets = ImmutableMap.copyOf(inputOffsets);
-    this.stateCheckpointMarkers = ImmutableMap.copyOf(stateCheckpointMarkers);
+    this.stateCheckpointMarkers = ImmutableMap.copyOf(stateCheckpoints);
   }
 
   public short getVersion() {

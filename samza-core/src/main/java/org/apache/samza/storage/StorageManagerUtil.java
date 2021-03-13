@@ -59,15 +59,14 @@ import org.slf4j.LoggerFactory;
 
 public class StorageManagerUtil {
   private static final Logger LOG = LoggerFactory.getLogger(StorageManagerUtil.class);
-  // TODO HIGH dchen CHECKPOINT-V2?
-  public static final String CHECKPOINT_FILE_NAME = "CHECKPOINT";
+  public static final String CHECKPOINT_FILE_NAME = "CHECKPOINT-V2";
   public static final String OFFSET_FILE_NAME_NEW = "OFFSET-v2";
   public static final String OFFSET_FILE_NAME_LEGACY = "OFFSET";
   public static final String SIDE_INPUT_OFFSET_FILE_NAME_LEGACY = "SIDE-INPUT-OFFSETS";
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
   private static final TypeReference<Map<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
             new TypeReference<Map<SystemStreamPartition, String>>() { };
-  private static final ObjectWriter SSP_OFFSETS_OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
+  private static final ObjectWriter SSP_OFFSET_OBJECT_WRITER = OBJECT_MAPPER.writerFor(OFFSETS_TYPE_REFERENCE);
   private static final String SST_FILE_SUFFIX = ".sst";
   private static final CheckpointV2Serde CHECKPOINT_V2_SERDE = new CheckpointV2Serde();
 
@@ -229,14 +228,14 @@ public class StorageManagerUtil {
 
     // First, we write the new-format offset file
     File offsetFile = new File(storeDir, OFFSET_FILE_NAME_NEW);
-    String fileContents = SSP_OFFSETS_OBJECT_WRITER.writeValueAsString(offsets);
+    String fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
     FileUtil fileUtil = new FileUtil();
     fileUtil.writeWithChecksum(offsetFile, fileContents);
 
     // Now we write the old format offset file, which are different for store-offset and side-inputs
     if (isSideInput) {
       offsetFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
-      fileContents = SSP_OFFSETS_OBJECT_WRITER.writeValueAsString(offsets);
+      fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
       fileUtil.writeWithChecksum(offsetFile, fileContents);
     } else {
       offsetFile = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
@@ -246,15 +245,12 @@ public class StorageManagerUtil {
 
   /**
    * Writes the checkpoint to the store checkpoint directory based on the checkpointId.
-   * // TODO HIGH dchen why assume writing to "checkpoint directory" instead of arbitrary directory?
-   * // TODO HIGH dchen fix param descriptions
-   * @param checkpointDir base store directory to write the checkpoint to
+   *
+   * @param storeDir base store directory to write the checkpoint to
    * @param checkpoint checkpoint v2 containing the checkpoint Id
    */
-  // TODO HIGH dchen writeCheckpointV2File to mirror read method name? Or should they both be
-  //  read/write checkpoint file and take in the interface? how will this method evolve?  
-  public void writeCheckpointFile(File checkpointDir, CheckpointV2 checkpoint) {
-    File offsetFile = new File(checkpointDir, CHECKPOINT_FILE_NAME);
+  public void writeCheckpointV2File(File storeDir, CheckpointV2 checkpoint) {
+    File offsetFile = new File(storeDir, CHECKPOINT_FILE_NAME);
     byte[] fileContents = CHECKPOINT_V2_SERDE.toBytes(checkpoint);
     FileUtil fileUtil = new FileUtil();
     fileUtil.writeWithChecksum(offsetFile, new String(fileContents));
@@ -323,7 +319,7 @@ public class StorageManagerUtil {
    * If the file does not exist, returns null.
    * // TODO HIGH dchen add tests at all call sites for handling null value.
    *
-   * @param storagePartitionDir base directory for the store
+   * @param storagePartitionDir base directory for the store checkpoint file
    * @return the {@link CheckpointV2} object retrieved from the checkpoint file if found, otherwise return null
    */
   public CheckpointV2 readCheckpointV2File(File storagePartitionDir) {

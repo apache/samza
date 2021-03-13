@@ -37,6 +37,7 @@ public class CheckpointV1 implements Checkpoint {
 
   /**
    * Constructs a new checkpoint based off a map of Samza stream offsets.
+   *
    * @param offsets Map of Samza streams to their current offset.
    */
   public CheckpointV1(Map<SystemStreamPartition, String> offsets) {
@@ -49,7 +50,8 @@ public class CheckpointV1 implements Checkpoint {
 
   /**
    * Gets a unmodifiable view of the current Samza input stream offsets.
-   * @return A unmodifiable view of a Map of Samza streams to their recorded offsets.
+   *
+   * @return a unmodifiable view of a Map of Samza streams to their recorded offsets.
    */
   @Override
   public Map<SystemStreamPartition, String> getOffsets() {

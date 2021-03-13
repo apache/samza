@@ -50,6 +50,18 @@ public class StoreProperties {
     return loggedStore;
   }
 
+  /**
+   * Flag to indicate whether a store is durable, that is, it's contents are available cross container restarts
+   * or host reallocation.
+   *
+   * @return True, if the store is durable. False by default.
+   */
+  public boolean isDurableStore() {
+    // TODO HIGH dchen all logged stores are durable but durability no longer require logged
+    // with new state backup managers, need to make this check if this store has remove backup on construction
+    return loggedStore;
+  }
+
   public static class StorePropertiesBuilder {
     private boolean persistedToDisk = false;
     private boolean loggedStore = false;

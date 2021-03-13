@@ -29,11 +29,13 @@ import org.apache.samza.checkpoint.CheckpointId;
 
 /**
  * <p>
- * TaskBackupManager is the interface that must be implemented for
- * any remote system that Samza persists its state to. The interface will be
- * evoked in the following way:
+ * TaskBackupManager is the interface that must be implemented for any remote system that Samza persists its state to
+ * during the task commit operation.
+ * {@link #snapshot(CheckpointId)} will be evoked synchronous to task processing and get a snapshot of the stores state
+ * to be persisted for the commit. {@link #upload(CheckpointId, Map)} will then use the snapshotted state
+ * to persist to the underlying backup system and will be asynchronous to task processing.
  * </p>
- *
+ * The interface will be evoked in the following way:
  * <ul>
  *   <li>Snapshot will be called before Upload.</li>
  *   <li>persistToFilesystem will be called after Upload is completed</li>
@@ -43,23 +45,30 @@ import org.apache.samza.checkpoint.CheckpointId;
 public interface TaskBackupManager {
 
   /**
-   * Initializes the TaskBackupManager instance
-   * @param checkpoint Last recorded checkpoint from the CheckpointManager or null if no last checkpoint was found
+   * Initializes the TaskBackupManager instance.
+   *
+   * @param checkpoint last recorded checkpoint from the CheckpointManager or null if no last checkpoint was found
    */
   void init(@Nullable Checkpoint checkpoint);
 
   /**
-   * Commit operation that is synchronous to processing
+   *  Snapshot is used to capture the current state of the stores in order to persist it to the backup manager in the
+   *  {@link #upload(CheckpointId, Map)} phase. Performs the commit operation that is synchronous
+   *  to processing. Returns the per store name state snapshotted checkpoints to be used in upload.
+   *
    * @param checkpointId {@link CheckpointId} of the current commit
    * @return a map of store name to state checkpoint markers for stores managed by this state backend
    */
   Map<String, String> snapshot(CheckpointId checkpointId);
 
   /**
-   * Commit operation that is asynchronous to message processing,
+   * Upload is used to persist to state provided by the {@link #snapshot(CheckpointId)} to the
+   * underlying backup system. Commit operation that is asynchronous to message processing and returns a
+   * {@link CompletableFuture} containing the successfully uploaded state checkpoints.
+   *
    * @param checkpointId {@link CheckpointId} of the current commit
-   * @param stateCheckpointMarkers The map of storename to state checkpoint markers returned by {@link #snapshot(CheckpointId)}
-   * @return A future containing a map of store name to state checkpoint markers after the upload is complete
+   * @param stateCheckpointMarkers the map of storename to state checkpoint markers returned by {@link #snapshot(CheckpointId)}
+   * @return a {@link CompletableFuture} containing a map of store name to state checkpoint markers after the upload is complete
    */
   CompletableFuture<Map<String, String>> upload(CheckpointId checkpointId,
       Map<String, String> stateCheckpointMarkers);
@@ -67,8 +76,9 @@ public interface TaskBackupManager {
   /**
    * Cleanup any local or remote state for checkpoint information that is older than the provided checkpointId
    * This operation is required to be idempotent.
-   * @param checkpointId The {@link CheckpointId} of the last successfully committed checkpoint
-   * @param stateCheckpointMarkers A map of store name to state checkpoint markers returned by
+   *
+   * @param checkpointId the {@link CheckpointId} of the last successfully committed checkpoint
+   * @param stateCheckpointMarkers a map of store name to state checkpoint markers returned by
    *                               {@link #upload(CheckpointId, Map)} upload}
    */
   void cleanUp(CheckpointId checkpointId, Map<String, String> stateCheckpointMarkers);

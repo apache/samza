@@ -28,7 +28,6 @@ import java.util
 import java.util.{Base64, Optional}
 import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, ThreadPoolExecutor, TimeUnit}
 import java.util.function.Consumer
-import java.util.stream.Collectors
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -54,7 +53,6 @@ import org.apache.samza.util.{Util, _}
 import org.apache.samza.SamzaException
 import org.apache.samza.clustermanager.StandbyTaskUtil
 
-import scala.collection.JavaConversions.mapAsScalaMap
 import scala.collection.JavaConverters._
 
 object SamzaContainer extends Logging {
@@ -703,7 +701,7 @@ object SamzaContainer extends Logging {
     changeLogSystemStreams: util.Map[String, SystemStream]): Set[SystemStreamPartition] = {
     containerModel.getTasks.values().asScala
       .map(taskModel => taskModel.getChangelogPartition)
-      .flatMap(changelogPartition => changeLogSystemStreams.map { case (_, systemStream) =>
+      .flatMap(changelogPartition => changeLogSystemStreams.asScala.map { case (_, systemStream) =>
         new SystemStreamPartition(systemStream, changelogPartition) })
       .toSet
   }

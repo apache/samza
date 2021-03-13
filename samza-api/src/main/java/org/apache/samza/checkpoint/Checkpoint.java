@@ -38,7 +38,8 @@ public interface Checkpoint {
    *      as the latest KafkaStateChangelogOffset for any store changelog {@link SystemStreamPartition} </li>
    *    <li>For {@link CheckpointV2} returns the input offsets only.</li>
    * </ol>
-   * @return A unmodifiable view of last processed offsets for {@link SystemStreamPartition}s.
+   *
+   * @return a unmodifiable view of last processed offsets for {@link SystemStreamPartition}s.
    */
   Map<SystemStreamPartition, String> getOffsets();
 }

@@ -39,7 +39,6 @@ import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.kafka.KafkaChangelogSSPOffset;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemStream;
@@ -62,7 +61,6 @@ public class TaskStorageCommitManager {
   private final StorageManagerUtil storageManagerUtil;
   private final File durableStoreBaseDir;
   private final Map<String, SystemStream> storeChangelogs;
-
 
   public TaskStorageCommitManager(TaskName taskName, Map<String, TaskBackupManager> stateBackendToBackupManager,
       Map<String, StorageEngine> storageEngines, Map<String, SystemStream> storeChangelogs, Partition changelogPartition,
@@ -88,24 +86,19 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * // TODO MED dchen fix documentation
-   * Backs up the local state to the remote storage and returns
+   * Backs up the local state to the remote storage and returns the committed Map of state backend factory name to
+   * the Map of store name to state checkpoint marker
    *
-   * @return Committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
+   * @return committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
    */
   public Map<String, Map<String, String>> commit(CheckpointId checkpointId) {
     // Flush all stores
     storageEngines.values().forEach(StorageEngine::flush);
 
-    // Checkpoint all persisted stores and logged stores
-    // We are assuming that logged stores are the definition of durable stores
-    // TODO MED dchen clarify "are the definition of durable stores". Might be worth adding a helper method
-    // isDurableStore() with documentation in StorageManagerUtil that currently returns isLoggedStore, and updating all
-    // call sites for isLoggedStore. Will clarify the semantics / expectations at the call sites and will be a
-    // simple change to fix semantics later.
+    // Checkpoint all persisted and durable stores
     storageEngines.forEach((storeName, storageEngine) -> {
       if (storageEngine.getStoreProperties().isPersistedToDisk() &&
-          storageEngine.getStoreProperties().isLoggedStore()) {
+          storageEngine.getStoreProperties().isDurableStore()) {
         storageEngine.checkpoint(checkpointId);
       }
     });
@@ -139,18 +132,16 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * // TODO HIGH dchen fix method name and documentation. local file system isn't very relevant here (too general).
-   * // Maybe rename to "writeCheckpointToStoreDirs" or something and update docs.
    * Writes the {@link Checkpoint} returned by {@link #commit(CheckpointId)}
    * locally to the file system on disk if the checkpoint passed in is an instance of {@link CheckpointV2},
    * otherwise if it is an instance of {@link CheckpointV1} persists the Kafka changelog ssp-offsets only.
    *
    * Note: The assumption is that this method will be invoked once for each {@link Checkpoint} version that the
-   * task needs to write.
+   * task needs to write, once per checkpoint version for backwards compatibility.
    *
    * @param checkpoint the latest checkpoint to be persisted to local file system
    */
-  public void persistToLocalFileSystem(Checkpoint checkpoint) {
+  public void writeCheckpointToStoreDirectory(Checkpoint checkpoint) {
     if (checkpoint instanceof CheckpointV1) {
       LOG.debug("Persisting CheckpointV1 to store and checkpoint directories for taskName: {} with checkpoint: {}",
           taskName, checkpoint);
@@ -161,18 +152,22 @@ public class TaskStorageCommitManager {
           taskName, checkpoint);
       storageEngines.forEach((storeName, storageEngine) -> {
         // Only write the checkpoint file if the store is durable and persisted to disk
-        if (storageEngine.getStoreProperties().isLoggedStore() &&
+        if (storageEngine.getStoreProperties().isDurableStore() &&
             storageEngine.getStoreProperties().isPersistedToDisk()) {
           CheckpointV2 checkpointV2 = (CheckpointV2) checkpoint;
 
-          // TODO HIGH dchen add try-catch with info about task, store, checkpointId etc. Write can throw IOException.
-          File storeDir = storageManagerUtil.getTaskStoreDir(durableStoreBaseDir, storeName, taskName, TaskMode.Active);
-          storageManagerUtil.writeCheckpointFile(storeDir, checkpointV2);
+          try {
+            File storeDir = storageManagerUtil.getTaskStoreDir(durableStoreBaseDir, storeName, taskName, TaskMode.Active);
+            storageManagerUtil.writeCheckpointV2File(storeDir, checkpointV2);
 
-          // TODO HIGH dchen add try-catch with info about task, store, checkpointId etc. Write can throw IOException.
-          CheckpointId checkpointId = checkpointV2.getCheckpointId();
-          File checkpointDir = Paths.get(StorageManagerUtil.getCheckpointDirPath(storeDir, checkpointId)).toFile();
-          storageManagerUtil.writeCheckpointFile(checkpointDir, checkpointV2);
+            CheckpointId checkpointId = checkpointV2.getCheckpointId();
+            File checkpointDir = Paths.get(StorageManagerUtil.getCheckpointDirPath(storeDir, checkpointId)).toFile();
+            storageManagerUtil.writeCheckpointV2File(checkpointDir, checkpointV2);
+          } catch (Exception e) {
+            throw new SamzaException(
+                String.format("Write checkpoint file failed for task: %s, storeName: %s, checkpointId: %s",
+                    taskName, storeName, ((CheckpointV2) checkpoint).getCheckpointId()));
+          }
         }
       });
     } else {
@@ -181,27 +176,26 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * // TODO MED dchen: fix documentation
-   * Cleanup the commit state for each of the task backup managers
+   * Cleanup on the commit state from the {@link #commit(CheckpointId)} call. Evokes the cleanup the commit state
+   * for each of the task backup managers. Deletes all the directories of checkpoints older than the
+   * latestCheckpointId.
+   *
    * @param latestCheckpointId CheckpointId of the most recent successful commit
    * @param stateCheckpointMarkers map of map(stateBackendFactoryName to map(storeName to state checkpoint markers) from
-   *                              the latest commit
+   *                               the latest commit
    */
   public void cleanUp(CheckpointId latestCheckpointId, Map<String, Map<String, String>> stateCheckpointMarkers) {
     // Call cleanup on each backup manager
     stateCheckpointMarkers.forEach((factoryName, storeSCMs) -> {
       if (stateBackendToBackupManager.containsKey(factoryName)) {
-        TaskBackupManager backupManager = stateBackendToBackupManager.get(factoryName);
-        if (backupManager != null) {
-          backupManager.cleanUp(latestCheckpointId, storeSCMs);
-        }
-        // TODO HIGH dchen when is it ok for backupmanager to be null? should we throw an exception and fail loudly?
-      } else {
-        // throw an error and fail instead?
         LOG.warn("Ignored cleanup for scm: {} due to unknown factory: {} ", storeSCMs, factoryName);
+        TaskBackupManager backupManager = stateBackendToBackupManager.get(factoryName);
+        backupManager.cleanUp(latestCheckpointId, storeSCMs);
+      } else {
+        throw new SamzaException(String.format("Checkpointed factory %s not found or initiated for task name %s",
+            factoryName, taskName));
       }
     });
-
     // Delete directories for checkpoints older than latestCheckpointId
     if (latestCheckpointId != null) {
       LOG.debug("Deleting checkpoints older than Checkpoint Id: {}", latestCheckpointId);
@@ -261,10 +255,10 @@ public class TaskStorageCommitManager {
       SystemStreamPartition changelogSSP = new SystemStreamPartition(
           systemStream.getSystem(), systemStream.getStream(), taskChangelogPartition);
 
-      // Only write if the store is durably backed by Kafka changelog && persisted to disk
+      // Only write if the store is durable and persisted to disk
       if (checkpointOffsets.containsKey(changelogSSP) &&
           storageEngines.containsKey(storeName) &&
-          storageEngines.get(storeName).getStoreProperties().isLoggedStore() &&
+          storageEngines.get(storeName).getStoreProperties().isDurableStore() &&
           storageEngines.get(storeName).getStoreProperties().isPersistedToDisk()) {
         LOG.debug("Writing changelog offset for taskName {} store {} changelog {}.", taskName, storeName, systemStream);
         File currentStoreDir = storageManagerUtil.getTaskStoreDir(durableStoreBaseDir, storeName, taskName, TaskMode.Active);

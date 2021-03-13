@@ -109,7 +109,8 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
 
   /**
    * Shared cache across all KafkaRestoreManagers for the Kafka topic
-   * @param admins System admins used the fetch the stream metadata
+   *
+   * @param admins system admins used the fetch the stream metadata
    * @param clock for cache invalidation
    * @return StreamMetadataCache containing the stream metadata
    */
@@ -122,7 +123,8 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
 
   /**
    * Shared cache across KafkaRestoreManagers for the Kafka partition
-   * @param admins System admins used the fetch the stream metadata
+   *
+   * @param admins system admins used the fetch the stream metadata
    * @param clock for cache invalidation
    * @param ssps SSPs to prefetch
    * @return SSPMetadataCache containing the partition metadata

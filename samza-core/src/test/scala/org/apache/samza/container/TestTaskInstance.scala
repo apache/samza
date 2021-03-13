@@ -247,7 +247,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     mockOrder.verify(this.taskCommitManager).commit(any())
 
     // Stores checkpoints should be created next with the newest changelog offsets
-    mockOrder.verify(this.taskCommitManager).persistToLocalFileSystem(any())
+    mockOrder.verify(this.taskCommitManager).writeCheckpointToStoreDirectory(any())
 
     // Input checkpoint should be written with the snapshot captured at the beginning of commit and the
     // newest changelog offset captured during storage manager flush
@@ -387,7 +387,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.commit(any()))
       .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
-    when(this.taskCommitManager.persistToLocalFileSystem(any())).thenThrow(new SamzaException("Error creating store checkpoint"))
+    when(this.taskCommitManager.writeCheckpointToStoreDirectory(any())).thenThrow(new SamzaException("Error creating store checkpoint"))
 
     try {
       taskInstance.commit
@@ -411,7 +411,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.commit(any()))
       .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
-    doNothing().when(this.taskCommitManager).persistToLocalFileSystem(any())
+    doNothing().when(this.taskCommitManager).writeCheckpointToStoreDirectory(any())
     when(this.taskCommitManager.cleanUp(any(), any()))
       .thenThrow(new SamzaException("Error clearing old checkpoints"))
 

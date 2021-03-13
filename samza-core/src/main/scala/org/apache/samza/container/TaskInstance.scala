@@ -284,7 +284,7 @@ class TaskInstance(
       trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, checkpoint))
 
       // Write input offsets and state checkpoint markers to task store and checkpoint directories
-      commitManager.persistToLocalFileSystem(checkpoint)
+      commitManager.writeCheckpointToStoreDirectory(checkpoint)
 
       // Write input offsets and state checkpoint markers to the checkpoint topic atomically
       offsetManager.writeCheckpoint(taskName, checkpoint)
