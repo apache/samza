@@ -54,7 +54,7 @@ public interface TaskBackupManager {
   /**
    *  Snapshot is used to capture the current state of the stores in order to persist it to the backup manager in the
    *  {@link #upload(CheckpointId, Map)} phase. Performs the commit operation that is synchronous
-   *  to processing. Returns the per store name state snapshotted checkpoints to be used in upload.
+   *  to processing. Returns the per store name state checkpoint markers to be used in upload.
    *
    * @param checkpointId {@link CheckpointId} of the current commit
    * @return a map of store name to state checkpoint markers for stores managed by this state backend
@@ -62,9 +62,9 @@ public interface TaskBackupManager {
   Map<String, String> snapshot(CheckpointId checkpointId);
 
   /**
-   * Upload is used to persist to state provided by the {@link #snapshot(CheckpointId)} to the
+   * Upload is used to persist the state provided by the {@link #snapshot(CheckpointId)} to the
    * underlying backup system. Commit operation that is asynchronous to message processing and returns a
-   * {@link CompletableFuture} containing the successfully uploaded state checkpoints.
+   * {@link CompletableFuture} containing the successfully uploaded state checkpoint markers .
    *
    * @param checkpointId {@link CheckpointId} of the current commit
    * @param stateCheckpointMarkers the map of storename to state checkpoint markers returned by {@link #snapshot(CheckpointId)}

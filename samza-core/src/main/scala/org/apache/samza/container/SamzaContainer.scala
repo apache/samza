@@ -566,7 +566,7 @@ object SamzaContainer extends Logging {
         override def accept(factory: StateBackendFactory): Unit = {
           val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
             taskModel, containerStorageManager.getAllStores(taskName), config, new SystemClock)
-          taskBackupManagerMap.put(stateStorageBackendFactories.getClass.getName, taskBackupManager)
+          taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
         }
       })
 
@@ -1086,11 +1086,6 @@ class SamzaContainer(
     info("Shutting down task instance table manager.")
 
     taskInstances.values.foreach(_.shutdownTableManager)
-  }
-
-  def shutdownCommitManager: Unit = {
-    info("Shutting down task instance commit manager")
-    taskInstances.values.foreach(_.shutdownCommitManager)
   }
 
   def shutdownOffsetManager {

@@ -87,8 +87,9 @@ public class TaskStorageCommitManager {
 
   /**
    * Backs up the local state to the remote storage and returns the committed Map of state backend factory name to
-   * the Map of store name to state checkpoint marker
+   * the Map of store name to state checkpoint marker.
    *
+   * @param checkpointId the {@link CheckpointId} associated with this commit
    * @return committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
    */
   public Map<String, Map<String, String>> commit(CheckpointId checkpointId) {
@@ -132,16 +133,18 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * Writes the {@link Checkpoint} returned by {@link #commit(CheckpointId)}
-   * locally to the file system on disk if the checkpoint passed in is an instance of {@link CheckpointV2},
-   * otherwise if it is an instance of {@link CheckpointV1} persists the Kafka changelog ssp-offsets only.
+   * Writes the {@link Checkpoint} information returned by {@link #commit(CheckpointId)}
+   * in each store directory and store checkpoint directory. Written content depends on the type of {@code checkpoint}.
+   * For {@link CheckpointV2}, writes the entire task {@link CheckpointV2}.
+   * For {@link CheckpointV1}, only writes the changelog ssp offsets in the OFFSET* files.
    *
    * Note: The assumption is that this method will be invoked once for each {@link Checkpoint} version that the
-   * task needs to write, once per checkpoint version for backwards compatibility.
+   * task needs to write as determined by {@link org.apache.samza.config.TaskConfig#getCheckpointWriteVersions()}.
+   * This is required for upgrade and rollback compatibility.
    *
    * @param checkpoint the latest checkpoint to be persisted to local file system
    */
-  public void writeCheckpointToStoreDirectory(Checkpoint checkpoint) {
+  public void writeCheckpointToStoreDirectories(Checkpoint checkpoint) {
     if (checkpoint instanceof CheckpointV1) {
       LOG.debug("Persisting CheckpointV1 to store and checkpoint directories for taskName: {} with checkpoint: {}",
           taskName, checkpoint);
@@ -166,7 +169,7 @@ public class TaskStorageCommitManager {
           } catch (Exception e) {
             throw new SamzaException(
                 String.format("Write checkpoint file failed for task: %s, storeName: %s, checkpointId: %s",
-                    taskName, storeName, ((CheckpointV2) checkpoint).getCheckpointId()));
+                    taskName, storeName, ((CheckpointV2) checkpoint).getCheckpointId()), e);
           }
         }
       });
@@ -176,9 +179,9 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * Cleanup on the commit state from the {@link #commit(CheckpointId)} call. Evokes the cleanup the commit state
-   * for each of the task backup managers. Deletes all the directories of checkpoints older than the
-   * latestCheckpointId.
+   * Performs any post-commit and cleanup actions after the {@link Checkpoint} is successfully written to the
+   * checkpoint topic. Invokes {@link TaskBackupManager#cleanUp(CheckpointId, Map)} on each of the configured task
+   * backup managers. Deletes all local store checkpoint directories older than the {@code latestCheckpointId}.
    *
    * @param latestCheckpointId CheckpointId of the most recent successful commit
    * @param stateCheckpointMarkers map of map(stateBackendFactoryName to map(storeName to state checkpoint markers) from
@@ -188,12 +191,13 @@ public class TaskStorageCommitManager {
     // Call cleanup on each backup manager
     stateCheckpointMarkers.forEach((factoryName, storeSCMs) -> {
       if (stateBackendToBackupManager.containsKey(factoryName)) {
-        LOG.warn("Ignored cleanup for scm: {} due to unknown factory: {} ", storeSCMs, factoryName);
+        LOG.debug("Cleaning up commit for factory: {} for task: {}", factoryName, taskName);
         TaskBackupManager backupManager = stateBackendToBackupManager.get(factoryName);
         backupManager.cleanUp(latestCheckpointId, storeSCMs);
       } else {
-        throw new SamzaException(String.format("Checkpointed factory %s not found or initiated for task name %s",
-            factoryName, taskName));
+        // This may happen during migration from one state backend to another, where the latest commit contains
+        // a state backend that is no longer supported for the current commit manager
+        LOG.warn("Ignored cleanup for scm: {} due to unknown factory: {} ", storeSCMs, factoryName);
       }
     });
     // Delete directories for checkpoints older than latestCheckpointId
@@ -234,8 +238,6 @@ public class TaskStorageCommitManager {
         storageBackupManager.close();
       }
     });
-    LOG.debug("Stopping stores for task {}.", taskName);
-    storageEngines.values().forEach(StorageEngine::stop);
   }
 
   /**

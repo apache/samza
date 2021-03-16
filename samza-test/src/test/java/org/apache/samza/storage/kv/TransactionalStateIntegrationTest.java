@@ -116,35 +116,53 @@ public class TransactionalStateIntegrationTest extends StreamApplicationIntegrat
   @Test
   public void testStopAndRestart() {
     List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
+    // double check collectors.flush
     List<String> expectedChangelogMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", null, "98", "99");
     initialRun(inputMessagesOnInitialRun, expectedChangelogMessagesOnInitialRun);
 
-    // first two are reverts for uncommitted messages from last run
-    List<String> expectedChangelogMessagesOnSecondRun =
+    // first two are reverts for uncommitted messages from last run for keys 98 and 99
+    List<String> expectedChangelogMessagesAfterSecondRun =
         Arrays.asList(null, null, "98", "99", "4", "5", "5");
     List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
     secondRun(CHANGELOG_TOPIC,
-        expectedChangelogMessagesOnSecondRun, expectedInitialStoreContentsOnSecondRun);
+        expectedChangelogMessagesAfterSecondRun, expectedInitialStoreContentsOnSecondRun, CONFIGS);
+  }
+
+  @Test
+  public void testStopAndRestartCheckpointV2() {
+    List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
+    // double check collectors.flush
+    List<String> expectedChangelogMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", null, "98", "99");
+    initialRun(inputMessagesOnInitialRun, expectedChangelogMessagesOnInitialRun);
+
+    // first two are reverts for uncommitted messages from last run for keys 98 and 99
+    List<String> expectedChangelogMessagesAfterSecondRun =
+        Arrays.asList(null, null, "98", "99", "4", "5", "5");
+    List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
+    Map<String, String> configOverrides = new HashMap<>(CONFIGS);
+    configOverrides.put(TaskConfig.CHECKPOINT_READ_VERSION, "2");
+    secondRun(CHANGELOG_TOPIC,
+        expectedChangelogMessagesAfterSecondRun, expectedInitialStoreContentsOnSecondRun, configOverrides);
   }
 
   @Test
   public void testWithEmptyChangelogFromInitialRun() {
     // expected changelog messages will always match since we'll read 0 messages
     initialRun(ImmutableList.of("crash_once"), Collections.emptyList());
-    secondRun(CHANGELOG_TOPIC, ImmutableList.of("4", "5", "5"), Collections.emptyList());
+    secondRun(CHANGELOG_TOPIC, ImmutableList.of("4", "5", "5"), Collections.emptyList(), CONFIGS);
   }
 
   @Test
   public void testWithNewChangelogAfterInitialRun() {
     List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
-    List<String> expectedChangelogMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", null, "98", "99");
-    initialRun(inputMessagesOnInitialRun, expectedChangelogMessagesOnInitialRun);
+    List<String> expectedChangelogMessagesAfterInitialRun = Arrays.asList("1", "2", "3", "2", "97", null, "98", "99");
+    initialRun(inputMessagesOnInitialRun, expectedChangelogMessagesAfterInitialRun);
 
     // admin client delete topic doesn't seem to work, times out up to 60 seconds.
     // simulate delete topic by changing the changelog topic instead.
     String newChangelogTopic = "changelog2";
     LOG.info("Changing changelog topic to: {}", newChangelogTopic);
-    secondRun(newChangelogTopic, ImmutableList.of("98", "99", "4", "5", "5"), Collections.emptyList());
+    secondRun(newChangelogTopic, ImmutableList.of("98", "99", "4", "5", "5"), Collections.emptyList(), CONFIGS);
   }
 
   private void initialRun(List<String> inputMessages, List<String> expectedChangelogMessages) {
@@ -163,6 +181,9 @@ public class TransactionalStateIntegrationTest extends StreamApplicationIntegrat
     // run the application
     RunApplicationContext context = runApplication(new MyApplication(CHANGELOG_TOPIC), "myApp", CONFIGS);
 
+    // wait for the application to finish
+    context.getRunner().waitForFinish();
+
     // consume and verify the changelog messages
     if (expectedChangelogMessages.size() > 0) {
       List<ConsumerRecord<String, String>> changelogRecords =
@@ -171,13 +192,11 @@ public class TransactionalStateIntegrationTest extends StreamApplicationIntegrat
       Assert.assertEquals(expectedChangelogMessages, changelogMessages);
     }
 
-    // wait for the application to finish
-    context.getRunner().waitForFinish();
     LOG.info("Finished initial run");
   }
 
   private void secondRun(String changelogTopic, List<String> expectedChangelogMessages,
-      List<String> expectedInitialStoreContents) {
+      List<String> expectedInitialStoreContents, Map<String, String> overriddenConfigs) {
     // clear the local store directory
     if (!hostAffinity) {
       new FileUtil().rm(new File(LOGGED_STORE_BASE_DIR));
@@ -189,7 +208,8 @@ public class TransactionalStateIntegrationTest extends StreamApplicationIntegrat
     inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
 
     // run the application
-    RunApplicationContext context = runApplication(new MyApplication(changelogTopic), "myApp", CONFIGS);
+    RunApplicationContext context = runApplication(
+        new MyApplication(changelogTopic), "myApp", overriddenConfigs);
 
     // wait for the application to finish
     context.getRunner().waitForFinish();

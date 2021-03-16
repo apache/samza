@@ -250,6 +250,7 @@ class TaskInstance(
     trace("Got input offsets for taskName: %s as: %s" format(taskName, inputOffsets))
 
     trace("Flushing producers for taskName: %s" format taskName)
+    // Flushes output, checkpoint and changelog producers
     collector.flush
 
     if (tableManager != null) {
@@ -284,7 +285,7 @@ class TaskInstance(
       trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, checkpoint))
 
       // Write input offsets and state checkpoint markers to task store and checkpoint directories
-      commitManager.writeCheckpointToStoreDirectory(checkpoint)
+      commitManager.writeCheckpointToStoreDirectories(checkpoint)
 
       // Write input offsets and state checkpoint markers to the checkpoint topic atomically
       offsetManager.writeCheckpoint(taskName, checkpoint)
@@ -308,6 +309,12 @@ class TaskInstance(
   }
 
   def shutdownTask {
+    if (commitManager != null) {
+      debug("Shutting down commit manager for taskName: %s" format taskName)
+      commitManager.close()
+    } else {
+      debug("Skipping commit manager shutdown for taskName: %s" format taskName)
+    }
     applicationTaskContextOption.foreach(applicationTaskContext => {
       debug("Stopping application-defined task context for taskName: %s" format taskName)
       applicationTaskContext.stop()
@@ -328,15 +335,6 @@ class TaskInstance(
       tableManager.close
     } else {
       debug("Skipping table manager shutdown for taskName: %s" format taskName)
-    }
-  }
-
-  def shutdownCommitManager: Unit = {
-    if (commitManager != null) {
-      debug("Shutting down commit manager for taskName: %s" format taskName)
-      commitManager.close()
-    } else {
-      debug("Skipping commit manager shutdown for taskName: %s" format taskName)
     }
   }
 

@@ -246,7 +246,7 @@ public class StorageManagerUtil {
   /**
    * Writes the checkpoint to the store checkpoint directory based on the checkpointId.
    *
-   * @param storeDir base store directory to write the checkpoint to
+   * @param storeDir store or store checkpoint directory to write the checkpoint to
    * @param checkpoint checkpoint v2 containing the checkpoint Id
    */
   public void writeCheckpointV2File(File storeDir, CheckpointV2 checkpoint) {
@@ -319,7 +319,7 @@ public class StorageManagerUtil {
    * If the file does not exist, returns null.
    * // TODO HIGH dchen add tests at all call sites for handling null value.
    *
-   * @param storagePartitionDir base directory for the store checkpoint file
+   * @param storagePartitionDir store directory to read the checkpoint file from
    * @return the {@link CheckpointV2} object retrieved from the checkpoint file if found, otherwise return null
    */
   public CheckpointV2 readCheckpointV2File(File storagePartitionDir) {

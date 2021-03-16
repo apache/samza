@@ -80,6 +80,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
   private static final String STORE_2_NAME = "store2";
   private static final String STORE_1_CHANGELOG = "changelog1";
   private static final String STORE_2_CHANGELOG = "changelog2";
+  private static final String APP_NAME = "myApp";
   private static final String LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "logged-store").getAbsolutePath();
   private static final Map<String, String> CONFIGS = new HashMap<String, String>() { {
       put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
@@ -118,7 +119,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     List<String> expectedChangelogMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", null, "98", "99");
     initialRun(inputMessagesOnInitialRun, expectedChangelogMessagesOnInitialRun);
 
-    // first two are reverts for uncommitted messages from last run
+    // first two are reverts for uncommitted messages from last run for keys 98 and 99
     List<String> expectedChangelogMessagesOnSecondRun =
         Arrays.asList(null, null, "98", "99", "4", "5", "5");
     List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
@@ -160,7 +161,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     }
 
     // run the application
-    RunApplicationContext context = runApplication(new MyApplication(STORE_1_CHANGELOG), "myApp", CONFIGS);
+    RunApplicationContext context = runApplication(new MyApplication(STORE_1_CHANGELOG), APP_NAME, CONFIGS);
 
     // consume and verify the changelog messages
     if (expectedChangelogMessages.size() > 0) {
@@ -188,7 +189,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
 
     // run the application
-    RunApplicationContext context = runApplication(new MyApplication(changelogTopic), "myApp", CONFIGS);
+    RunApplicationContext context = runApplication(new MyApplication(changelogTopic), APP_NAME, CONFIGS);
 
     // wait for the application to finish
     context.getRunner().waitForFinish();

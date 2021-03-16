@@ -301,7 +301,7 @@ public class TestTaskStorageCommitManager {
     verify(taskBackupManager2).cleanUp(newCheckpointId, factory2Checkpoints);
   }
 
-  @Test (expected = SamzaException.class)
+  @Test
   public void testCleanupFailsIfBackupManagerNotInitiated() {
     CheckpointManager checkpointManager = mock(CheckpointManager.class);
     Checkpoint checkpoint = mock(Checkpoint.class);
@@ -319,6 +319,8 @@ public class TestTaskStorageCommitManager {
 
     CheckpointId newCheckpointId = CheckpointId.create();
     cm.cleanUp(newCheckpointId, factoryCheckpointsMap);
+    // should not fail the commit because the job should ignore any factories checkpoints not initialized
+    // in case the user is in a migration phase from on state backend to another
   }
 
   @Test
@@ -383,7 +385,7 @@ public class TestTaskStorageCommitManager {
     );
 
     // invoke persist to file system for v2 checkpoint
-    commitManager.writeCheckpointToStoreDirectory(new CheckpointV1(offsetsJava));
+    commitManager.writeCheckpointToStoreDirectories(new CheckpointV1(offsetsJava));
 
     verify(commitManager).writeChangelogOffsetFiles(offsetsJava);
     // evoked twice, for OFFSET-V1 and OFFSET-V2
@@ -403,7 +405,7 @@ public class TestTaskStorageCommitManager {
     CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
 
     // invoke persist to file system for v2 checkpoint
-    commitManager.writeCheckpointToStoreDirectory(checkpoint);
+    commitManager.writeCheckpointToStoreDirectories(checkpoint);
     // Validate only durable and persisted stores are persisted
     // This should be evoked twice, for checkpointV1 and checkpointV2
     verify(storageManagerUtil, times(2)).getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), eq(taskName), any());
@@ -476,7 +478,7 @@ public class TestTaskStorageCommitManager {
     CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
 
     // invoke persist to file system
-    commitManager.writeCheckpointToStoreDirectory(checkpoint);
+    commitManager.writeCheckpointToStoreDirectories(checkpoint);
     // Validate only durable and persisted stores are persisted
     verify(storageManagerUtil).getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), eq(taskName), any());
     File checkpointPath = Paths.get(StorageManagerUtil.getCheckpointDirPath(durableStoreDir, newCheckpointId)).toFile();
@@ -533,7 +535,7 @@ public class TestTaskStorageCommitManager {
     );
 
     // invoke persist to file system for v2 checkpoint
-    commitManager.writeCheckpointToStoreDirectory(new CheckpointV1(offsetsJava));
+    commitManager.writeCheckpointToStoreDirectories(new CheckpointV1(offsetsJava));
 
     assertEquals(2, mockFileSystem.size());
     // check if v2 offsets are written correctly
@@ -609,7 +611,7 @@ public class TestTaskStorageCommitManager {
     );
 
     // invoke persist to file system for v1 checkpoint
-    commitManager.writeCheckpointToStoreDirectory(new CheckpointV1(offsetsJava));
+    commitManager.writeCheckpointToStoreDirectories(new CheckpointV1(offsetsJava));
 
     assertEquals(2, mockFileSystem.size());
     // check if v2 offsets are written correctly
@@ -635,7 +637,7 @@ public class TestTaskStorageCommitManager {
     CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
 
     // invoke persist to file system with checkpoint v2
-    commitManager.writeCheckpointToStoreDirectory(checkpoint);
+    commitManager.writeCheckpointToStoreDirectories(checkpoint);
 
     assertTrue(mockCheckpointFileSystem.containsKey(v2FilePath));
     assertEquals(checkpoint, mockCheckpointFileSystem.get(v2FilePath));
@@ -696,7 +698,7 @@ public class TestTaskStorageCommitManager {
     );
 
     // invoke persist to file system for v2 checkpoint
-    commitManager.writeCheckpointToStoreDirectory(new CheckpointV1(offsetsJava));
+    commitManager.writeCheckpointToStoreDirectories(new CheckpointV1(offsetsJava));
     assertTrue(mockFileSystem.isEmpty());
     // verify that delete was called on current store dir offset file
     verify(storageManagerUtil, times(1)).deleteOffsetFile(eq(tmpTestPath));
@@ -735,7 +737,7 @@ public class TestTaskStorageCommitManager {
     CheckpointV2 checkpoint = new CheckpointV2(CheckpointId.create(), Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
     doThrow(IOException.class).when(storageManagerUtil).writeCheckpointV2File(eq(tmpTestPath), eq(checkpoint));
     // Should throw samza exception since writeCheckpointV2 failed
-    commitManager.writeCheckpointToStoreDirectory(checkpoint);
+    commitManager.writeCheckpointToStoreDirectories(checkpoint);
   }
 
   @Test
