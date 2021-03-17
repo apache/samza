@@ -58,7 +58,7 @@ import org.slf4j.LoggerFactory;
  */
 public class MyStatefulApplication implements TaskApplication {
 
-  public static Logger LOG = LoggerFactory.getLogger(MyStatefulApplication.class);
+  public static final Logger LOG = LoggerFactory.getLogger(MyStatefulApplication.class);
 
   private static Map<String, List<String>> initialStoreContents = new HashMap<>();
   private static boolean crashedOnce = false;
@@ -83,7 +83,7 @@ public class MyStatefulApplication implements TaskApplication {
         .withInputStream(isd)
         .withTaskFactory((StreamTaskFactory) () -> new MyTask(storeToChangelog.keySet()));
 
-    storeToChangelog.forEach( (storeName, changelogTopic) -> {
+    storeToChangelog.forEach((storeName, changelogTopic) -> {
       RocksDbTableDescriptor<String, String> td = new RocksDbTableDescriptor<>(storeName, serde)
           .withChangelogStream(changelogTopic)
           .withChangelogReplicationFactor(1);

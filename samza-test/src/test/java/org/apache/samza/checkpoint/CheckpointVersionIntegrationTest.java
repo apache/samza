@@ -51,16 +51,16 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
   private static final String CHANGELOG_TOPIC = "changelog";
   private static final String LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "logged-store").getAbsolutePath();
   private static final Map<String, String> CONFIGS = new HashMap<String, String>() { {
-    put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
-    put(JobConfig.PROCESSOR_ID, "0");
-    put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
-    put(TaskConfig.CHECKPOINT_MANAGER_FACTORY, "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory");
-    put(TaskConfig.COMMIT_MS, "-1"); // manual commit only
-    put(TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED, "true");
-    put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
-    put(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR(), "1");
-    put(JobConfig.JOB_LOGGED_STORE_BASE_DIR, LOGGED_STORE_BASE_DIR);
-  } };
+      put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
+      put(JobConfig.PROCESSOR_ID, "0");
+      put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+      put(TaskConfig.CHECKPOINT_MANAGER_FACTORY, "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory");
+      put(TaskConfig.COMMIT_MS, "-1"); // manual commit only
+      put(TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED, "true");
+      put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
+      put(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR(), "1");
+      put(JobConfig.JOB_LOGGED_STORE_BASE_DIR, LOGGED_STORE_BASE_DIR);
+    } };
 
   @Before
   @Override
