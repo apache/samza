@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -71,7 +70,7 @@ public class RunLoop implements Runnable, Throttleable {
   private final Map<SystemStreamPartition, List<AsyncTaskWorker>> sspToTaskWorkerMapping;
 
   private final ExecutorService threadPool;
-  private final Optional<ThreadPoolExecutor> threadPoolExecutor;
+  private final ThreadPoolExecutor threadPoolExecutor;
   private final CoordinatorRequests coordinatorRequests;
   private final Object latch;
   private final int maxConcurrency;
@@ -103,7 +102,8 @@ public class RunLoop implements Runnable, Throttleable {
       boolean isAsyncCommitEnabled) {
 
     this.threadPool = threadPool;
-    this.threadPoolExecutor = threadPool instanceof ThreadPoolExecutor ? Optional.of((ThreadPoolExecutor) threadPool) : Optional.empty();
+    this.threadPoolExecutor = ThreadPoolExecutor.class.isAssignableFrom(threadPool.getClass())
+        ? (ThreadPoolExecutor) threadPool : null;
     this.consumerMultiplexer = consumerMultiplexer;
     this.containerMetrics = containerMetrics;
     this.windowMs = windowMs;
@@ -180,8 +180,10 @@ public class RunLoop implements Runnable, Throttleable {
         if (totalNs != 0) {
           // totalNs is not 0 if timer metrics are enabled
           containerMetrics.utilization().set(((double) activeNs) / totalNs);
-          threadPoolExecutor.ifPresent(executor -> containerMetrics.containerThreadPoolUtilization()
-              .set(((double) executor.getActiveCount()) / executor.getCorePoolSize()));
+          if (threadPoolExecutor != null) {
+            containerMetrics.containerThreadPoolUtilization()
+                .set(((double) threadPoolExecutor.getActiveCount()) / threadPoolExecutor.getCorePoolSize());
+          }
         }
       }
 
