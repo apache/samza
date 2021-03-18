@@ -102,8 +102,7 @@ public class RunLoop implements Runnable, Throttleable {
       boolean isAsyncCommitEnabled) {
 
     this.threadPool = threadPool;
-    this.threadPoolExecutor = ThreadPoolExecutor.class.isAssignableFrom(threadPool.getClass())
-        ? (ThreadPoolExecutor) threadPool : null;
+    this.threadPoolExecutor = threadPool instanceof ThreadPoolExecutor ? (ThreadPoolExecutor) threadPool : null;
     this.consumerMultiplexer = consumerMultiplexer;
     this.containerMetrics = containerMetrics;
     this.windowMs = windowMs;
