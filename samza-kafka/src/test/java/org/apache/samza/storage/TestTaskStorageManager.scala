@@ -921,13 +921,10 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     when(mockCheckpointManager.readLastCheckpoint(any(classOf[TaskName])))
       .thenReturn(new CheckpointV1(new util.HashMap[SystemStreamPartition, String]()))
 
-    val mockSSPMetadataCache = Mockito.mock(classOf[SSPMetadataCache])
-
     containerStorageManager = new ContainerStorageManager(
       mockCheckpointManager,
       containerModel,
       streamMetadataCache,
-      mockSSPMetadataCache,
       mockSystemAdmins,
       changeLogSystemStreams.asJava,
       Map[String, util.Set[SystemStream]]().asJava,
@@ -939,6 +936,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       Mockito.mock(classOf[SamzaContainerMetrics]),
       Mockito.mock(classOf[JobContext]),
       Mockito.mock(classOf[ContainerContext]),
+      new KafkaChangelogStateBackendFactory,
       new HashMap[TaskName, TaskInstanceCollector].asJava,
       loggedStoreBaseDir,
       TaskStorageManagerBuilder.defaultStoreBaseDir,

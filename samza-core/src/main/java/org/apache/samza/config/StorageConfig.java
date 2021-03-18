@@ -66,6 +66,8 @@ public class StorageConfig extends MapConfig {
   public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
   public static final String STATE_BACKEND_BACKUP_FACTORIES = STORE_PREFIX + "state.backend.backup.factories";
   public static final List<String> DEFAULT_STATE_BACKEND_BACKUP_FACTORIES = ImmutableList.of("org.apache.samza.storage.KafkaChangelogStateBackendFactory");
+  public static final String STATE_BACKEND_RESTORE_FACTORY = STORE_PREFIX + "state.backend.restore.factory";
+  public static final String DEFAULT_STATE_BACKEND_RESTORE_FACTORY = "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -251,8 +253,12 @@ public class StorageConfig extends MapConfig {
     return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
   }
 
-  public List<String> getStateBackendFactories() {
+  public List<String> getStateBackendBackupFactories() {
     return getList(STATE_BACKEND_BACKUP_FACTORIES, DEFAULT_STATE_BACKEND_BACKUP_FACTORIES);
+  }
+
+  public String getStateBackendRestoreFactory() {
+    return get(STATE_BACKEND_RESTORE_FACTORY, DEFAULT_STATE_BACKEND_RESTORE_FACTORY);
   }
 
   /**

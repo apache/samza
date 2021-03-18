@@ -511,11 +511,14 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
+    // TODO dchen should we enforce restore factories to be subset of backup factories?
+    val stateStorageBackendRestoreFactory = ReflectionUtil
+      .getObj(storageConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
+
     val containerStorageManager = new ContainerStorageManager(
       checkpointManager,
       containerModel,
       streamMetadataCache,
-      changelogSSPMetadataCache,
       systemAdmins,
       storeChangelogs,
       sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
@@ -527,6 +530,7 @@ object SamzaContainer extends Logging {
       samzaContainerMetrics,
       jobContext,
       containerContext,
+      stateStorageBackendRestoreFactory,
       taskCollectors.asJava,
       loggedStorageBaseDir,
       nonLoggedStorageBaseDir,
@@ -536,7 +540,7 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val stateStorageBackendFactories = storageConfig.getStateBackendFactories().asScala.map(
+    val stateStorageBackendBackupFactories = storageConfig.getStateBackendBackupFactories().asScala.map(
       ReflectionUtil.getObj(_, classOf[StateBackendFactory])
     )
 
@@ -562,7 +566,7 @@ object SamzaContainer extends Logging {
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
       val taskBackupManagerMap = new util.HashMap[String, TaskBackupManager]()
-      stateStorageBackendFactories.asJava.forEach(new Consumer[StateBackendFactory] {
+      stateStorageBackendBackupFactories.asJava.forEach(new Consumer[StateBackendFactory] {
         override def accept(factory: StateBackendFactory): Unit = {
           val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
             taskModel, containerStorageManager.getAllStores(taskName), config, new SystemClock)

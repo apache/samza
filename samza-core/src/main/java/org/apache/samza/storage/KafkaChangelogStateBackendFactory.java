@@ -21,9 +21,9 @@ package org.apache.samza.storage;
 
 import java.io.File;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -65,6 +65,10 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   public TaskRestoreManager getRestoreManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel, Map<String, StorageEngine> taskStores, Config config, Clock clock) {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     Map<String, SystemStream> storeChangelogs = new StorageConfig(config).getStoreChangelogs();
+    Set<SystemStreamPartition> changelogSSPs = storeChangelogs.values().stream()
+        .flatMap(ss -> containerModel.getTasks().values().stream()
+            .map(tm -> new SystemStreamPartition(ss, tm.getChangelogPartition())))
+        .collect(Collectors.toSet());
     Map<String, SystemStream> filteredStoreChangelogs = ContainerStorageManager
         .getChangelogSystemStreams(containerModel, storeChangelogs, null);
 
@@ -80,7 +84,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
           systemAdmins,
           null, // TODO @dchen have the restore managers create and manage Kafka consume lifecycle
           KafkaChangelogStateBackendFactory
-              .getSspCache(systemAdmins, clock, Collections.emptySet()),
+              .getSspCache(systemAdmins, clock, changelogSSPs),
           loggedStoreBaseDir,
           nonLoggedStoreBaseDir,
           config,

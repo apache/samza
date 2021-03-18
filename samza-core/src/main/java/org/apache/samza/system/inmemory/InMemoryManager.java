@@ -54,7 +54,7 @@ class InMemoryManager {
   }
 
   private List<IncomingMessageEnvelope> newSynchronizedLinkedList() {
-    return  Collections.synchronizedList(new LinkedList<IncomingMessageEnvelope>());
+    return Collections.synchronizedList(new LinkedList<IncomingMessageEnvelope>());
   }
 
   /**

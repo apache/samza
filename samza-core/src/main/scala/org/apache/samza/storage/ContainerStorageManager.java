@@ -65,7 +65,6 @@ import org.apache.samza.serializers.SerdeManager;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
@@ -129,7 +128,6 @@ public class ContainerStorageManager {
   private final SystemAdmins systemAdmins;
 
   private final StreamMetadataCache streamMetadataCache;
-  private final SSPMetadataCache sspMetadataCache;
   private final SamzaContainerMetrics samzaContainerMetrics;
 
   private final CheckpointManager checkpointManager;
@@ -167,7 +165,6 @@ public class ContainerStorageManager {
       CheckpointManager checkpointManager,
       ContainerModel containerModel,
       StreamMetadataCache streamMetadataCache,
-      SSPMetadataCache sspMetadataCache,
       SystemAdmins systemAdmins,
       Map<String, SystemStream> changelogSystemStreams,
       Map<String, Set<SystemStream>> sideInputSystemStreams,
@@ -179,6 +176,7 @@ public class ContainerStorageManager {
       SamzaContainerMetrics samzaContainerMetrics,
       JobContext jobContext,
       ContainerContext containerContext,
+      StateBackendFactory stateBackendFactory,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors,
       File loggedStoreBaseDirectory,
       File nonLoggedStoreBaseDirectory,
@@ -194,7 +192,6 @@ public class ContainerStorageManager {
         .flatMap(Collection::stream)
         .findAny()
         .isPresent();
-    this.sspMetadataCache = sspMetadataCache;
     this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams, this.taskSideInputStoreSSPs); // handling standby tasks
 
     LOG.info("Starting with changelogSystemStreams = {} taskSideInputStoreSSPs = {}", this.changelogSystemStreams, this.taskSideInputStoreSSPs);
@@ -246,7 +243,7 @@ public class ContainerStorageManager {
     this.storeConsumers = createStoreIndexedMap(this.changelogSystemStreams, storeSystemConsumers);
 
     // creating task restore managers
-    this.taskRestoreManagers = createTaskRestoreManagers(systemAdmins, clock, this.samzaContainerMetrics);
+    this.taskRestoreManagers = createTaskRestoreManagers(stateBackendFactory, systemAdmins, clock, this.samzaContainerMetrics);
 
     this.sspSideInputHandlers = createSideInputHandlers(clock);
 
@@ -345,7 +342,7 @@ public class ContainerStorageManager {
   /**
    *  Creates SystemConsumer objects for store restoration, creating one consumer per system.
    */
-  private static Map<String, SystemConsumer> createConsumers(Set<String> storeSystems,
+  public static Map<String, SystemConsumer> createConsumers(Set<String> storeSystems,
       Map<String, SystemFactory> systemFactories, Config config, MetricsRegistry registry) {
     // Create one consumer for each system in use, map with one entry for each such system
     Map<String, SystemConsumer> consumers = new HashMap<>();
@@ -374,14 +371,13 @@ public class ContainerStorageManager {
     return storeConsumers;
   }
 
-  private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(SystemAdmins systemAdmins, Clock clock, SamzaContainerMetrics samzaContainerMetrics) {
+  private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(StateBackendFactory factory,
+      SystemAdmins systemAdmins, Clock clock, SamzaContainerMetrics samzaContainerMetrics) {
     Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
     containerModel.getTasks().forEach((taskName, taskModel) -> {
       taskRestoreManagers.put(taskName,
-          TaskRestoreManagerFactory.create(
-              taskModel, changelogSystemStreams, getNonSideInputStores(taskName), systemAdmins,
-              streamMetadataCache, sspMetadataCache, storeConsumers, maxChangeLogStreamPartitions,
-              loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock));
+          factory.getRestoreManager(jobContext.getJobModel(), containerModel, taskModel, getNonSideInputStores(taskName),
+          config, clock));
       samzaContainerMetrics.addStoresRestorationGauge(taskName);
     });
     return taskRestoreManagers;

@@ -60,7 +60,6 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
    * @param storeName Name of the store
    * @param storeDir The directory of the store
    * @param registry MetricsRegistry to which to publish store specific metrics.
-   * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
    * @param jobContext Information about the job in which the task is executing.
    * @param containerContext Information about the container in which the task is executing.
    * @return A raw KeyValueStore instance
@@ -68,7 +67,6 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
   protected abstract KeyValueStore<byte[], byte[]> getKVStore(String storeName,
       File storeDir,
       MetricsRegistry registry,
-      SystemStreamPartition changeLogSystemStreamPartition,
       JobContext jobContext,
       ContainerContext containerContext,
       StoreMode storeMode);
@@ -123,7 +121,7 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     }
 
     KeyValueStore<byte[], byte[]> rawStore =
-        getKVStore(storeName, storeDir, registry, changelogSSP, jobContext, containerContext, storeMode);
+        getKVStore(storeName, storeDir, registry, jobContext, containerContext, storeMode);
     KeyValueStore<byte[], byte[]> maybeLoggedStore = buildMaybeLoggedStore(changelogSSP,
         storeName, registry, storePropertiesBuilder, rawStore, changelogCollector);
     // this also applies serialization and caching layers
