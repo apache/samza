@@ -26,7 +26,7 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util
 import java.util.{Base64, Optional}
-import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
+import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, ThreadPoolExecutor, TimeUnit}
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -619,16 +619,19 @@ object SamzaContainer extends Logging {
 
     val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
 
-    val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
-    memoryStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
+    val hostStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
+    hostStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
       override def onUpdate(sample: SystemMemoryStatistics): Unit = {
         val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
         val physicalMemoryMb : Float = physicalMemoryBytes / (1024.0F * 1024.0F)
         val memoryUtilization : Float = physicalMemoryMb.toFloat / containerMemoryMb
+        val threadPoolUtilization : Float = taskThreadPool.asInstanceOf[ThreadPoolExecutor].getActiveCount.toFloat /
+          taskThreadPool.asInstanceOf[ThreadPoolExecutor].getPoolSize
         logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
         logger.debug("Container physical memory utilization: " + memoryUtilization)
         samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
-        samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization);
+        samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization)
+        samzaContainerMetrics.containerThreadPoolUtilization.set(threadPoolUtilization)
       }
     })
 
@@ -674,7 +677,7 @@ object SamzaContainer extends Logging {
       reporters = reporters,
       jvm = jvm,
       diskSpaceMonitor = diskSpaceMonitor,
-      hostStatisticsMonitor = memoryStatisticsMonitor,
+      hostStatisticsMonitor = hostStatisticsMonitor,
       taskThreadPool = taskThreadPool,
       timerExecutor = timerExecutor,
       containerContext = containerContext,

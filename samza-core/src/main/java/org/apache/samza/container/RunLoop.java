@@ -29,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -70,7 +69,6 @@ public class RunLoop implements Runnable, Throttleable {
   private final Map<SystemStreamPartition, List<AsyncTaskWorker>> sspToTaskWorkerMapping;
 
   private final ExecutorService threadPool;
-  private final ThreadPoolExecutor threadPoolExecutor;
   private final CoordinatorRequests coordinatorRequests;
   private final Object latch;
   private final int maxConcurrency;
@@ -102,7 +100,6 @@ public class RunLoop implements Runnable, Throttleable {
       boolean isAsyncCommitEnabled) {
 
     this.threadPool = threadPool;
-    this.threadPoolExecutor = threadPool instanceof ThreadPoolExecutor ? (ThreadPoolExecutor) threadPool : null;
     this.consumerMultiplexer = consumerMultiplexer;
     this.containerMetrics = containerMetrics;
     this.windowMs = windowMs;
@@ -179,10 +176,6 @@ public class RunLoop implements Runnable, Throttleable {
         if (totalNs != 0) {
           // totalNs is not 0 if timer metrics are enabled
           containerMetrics.utilization().set(((double) activeNs) / totalNs);
-          if (threadPoolExecutor != null) {
-            containerMetrics.containerThreadPoolUtilization()
-                .set(((double) threadPoolExecutor.getActiveCount()) / threadPoolExecutor.getCorePoolSize());
-          }
         }
       }
 
