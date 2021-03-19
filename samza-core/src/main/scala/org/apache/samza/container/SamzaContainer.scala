@@ -625,13 +625,12 @@ object SamzaContainer extends Logging {
         val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
         val physicalMemoryMb : Float = physicalMemoryBytes / (1024.0F * 1024.0F)
         val memoryUtilization : Float = physicalMemoryMb.toFloat / containerMemoryMb
-        val threadPoolUtilization : Float = taskThreadPool.asInstanceOf[ThreadPoolExecutor].getActiveCount.toFloat /
-          taskThreadPool.asInstanceOf[ThreadPoolExecutor].getPoolSize
+        val containerActiveThreads : Long = taskThreadPool.asInstanceOf[ThreadPoolExecutor].getActiveCount
         logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
         logger.debug("Container physical memory utilization: " + memoryUtilization)
         samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
         samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization)
-        samzaContainerMetrics.containerThreadPoolUtilization.set(threadPoolUtilization)
+        samzaContainerMetrics.containerActiveThreads.set(containerActiveThreads)
       }
     })
 
