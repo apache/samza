@@ -476,7 +476,6 @@ object SamzaContainer extends Logging {
 
     val threadPoolSize = jobConfig.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
-    samzaContainerMetrics.containerThreadPoolSize.set(threadPoolSize)
 
     val taskThreadPool = if (threadPoolSize > 0) {
       Executors.newFixedThreadPool(threadPoolSize,
@@ -625,11 +624,13 @@ object SamzaContainer extends Logging {
         val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
         val physicalMemoryMb : Float = physicalMemoryBytes / (1024.0F * 1024.0F)
         val memoryUtilization : Float = physicalMemoryMb.toFloat / containerMemoryMb
+        val containerThreadPoolSize : Long = taskThreadPool.asInstanceOf[ThreadPoolExecutor].getPoolSize
         val containerActiveThreads : Long = taskThreadPool.asInstanceOf[ThreadPoolExecutor].getActiveCount
         logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
         logger.debug("Container physical memory utilization: " + memoryUtilization)
         samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
         samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization)
+        samzaContainerMetrics.containerThreadPoolSize.set(containerThreadPoolSize)
         samzaContainerMetrics.containerActiveThreads.set(containerActiveThreads)
       }
     })
