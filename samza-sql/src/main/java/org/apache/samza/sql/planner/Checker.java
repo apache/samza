@@ -101,7 +101,7 @@ class Checker implements SqlOperandTypeChecker {
                 && !ANY_SQL_TYPE_NAMES.contains(udfArgumentAsSqlType) && hasOneUdfMethod(udfMetadata)) {
           // 3(b). Throw up and fail on mismatch between the SamzaSqlType and CalciteType for any argument.
           String msg = String.format("Type mismatch in udf class: %s at argument index: %d." +
-                  "Expected type: %s, actual type: %s.", udfMetadata.getName(),
+                          "Expected type: %s, actual type: %s.", udfMetadata.getName(),
               udfArgumentIndex, udfArgumentAsSqlType, parsedSqlArgType.getSqlTypeName());
           LOG.error(msg);
           throw new SamzaSqlValidatorException(msg);
