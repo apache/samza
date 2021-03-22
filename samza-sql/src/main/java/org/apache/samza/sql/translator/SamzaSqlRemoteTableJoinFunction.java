@@ -21,8 +21,6 @@ package org.apache.samza.sql.translator;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
-import javax.annotation.Nullable;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
@@ -44,35 +42,15 @@ public class SamzaSqlRemoteTableJoinFunction
   private transient SamzaRelTableKeyConverter relTableKeyConverter;
   private final String tableName;
   private final int queryId;
-  /**
-   * Projection and Filter Function to apply post the join lookup. Function will return null in case filter rejects row.
-   */
-  private Function<SamzaSqlRelMessage, SamzaSqlRelMessage> projectFunction;
-  /**
-   * Projects and Filters operator queue.
-   */
-  private final MessageStreamCollector messageStreamCollector;
-
-  public SamzaSqlRemoteTableJoinFunction(SamzaRelConverter msgConverter, SamzaRelTableKeyConverter tableKeyConverter,
-      JoinInputNode streamNode, JoinInputNode tableNode, JoinRelType joinRelType, int queryId,
-      MessageStreamCollector messageStreamCollector) {
-    super(streamNode, tableNode, joinRelType);
-    this.msgConverter = msgConverter;
-    this.relTableKeyConverter = tableKeyConverter;
-    this.tableName = tableNode.getSourceName();
-    this.queryId = queryId;
-    this.messageStreamCollector = messageStreamCollector;
-  }
 
   SamzaSqlRemoteTableJoinFunction(SamzaRelConverter msgConverter, SamzaRelTableKeyConverter tableKeyConverter,
       JoinInputNode streamNode, JoinInputNode tableNode, JoinRelType joinRelType, int queryId) {
     super(streamNode, tableNode, joinRelType);
+
     this.msgConverter = msgConverter;
     this.relTableKeyConverter = tableKeyConverter;
     this.tableName = tableNode.getSourceName();
     this.queryId = queryId;
-    this.projectFunction = Function.identity();
-    this.messageStreamCollector = null;
   }
 
   @Override
@@ -81,24 +59,13 @@ public class SamzaSqlRemoteTableJoinFunction
         ((SamzaSqlApplicationContext) context.getApplicationTaskContext()).getTranslatorContexts().get(queryId);
     this.msgConverter = translatorContext.getMsgConverter(tableName);
     this.relTableKeyConverter = translatorContext.getTableKeyConverter(tableName);
-    if (messageStreamCollector != null) {
-      projectFunction = messageStreamCollector.getFunction(context);
-    }
   }
 
-  /**
-   * Compute the projection and filter post join lookup.
-   *
-   * @param record input record as result of lookup
-   * @return the projected row or {@code null} if Row doesn't pass the filter condition.
-   */
   @Override
-  @Nullable
   protected List<Object> getTableRelRecordFieldValues(KV record) {
     // Using the message rel converter, convert message to sql rel message and add to output values.
-    final SamzaSqlRelMessage relMessage = msgConverter.convertToRelMessage(record);
-    final SamzaSqlRelMessage result = projectFunction.apply(relMessage);
-    return result == null ? null : result.getSamzaSqlRelRecord().getFieldValues();
+    SamzaSqlRelMessage relMessage = msgConverter.convertToRelMessage(record);
+    return relMessage.getSamzaSqlRelRecord().getFieldValues();
   }
 
   @Override
@@ -109,21 +76,11 @@ public class SamzaSqlRemoteTableJoinFunction
       return null;
     }
     // Using the table key converter, convert message key from rel format to the record key format.
-    // TODO: On way to avoid the object type here is to ensure that:
-    // table's key is a SamzaRelRecord or any well defined type when defining the table descriptor
     return relTableKeyConverter.convertToTableKeyFormat(keyRecord);
   }
 
   @Override
   public Object getRecordKey(KV record) {
     return record.getKey();
-  }
-
-  @Override
-  public void close() {
-    super.close();
-    if (messageStreamCollector != null) {
-      messageStreamCollector.close();
-    }
   }
 }

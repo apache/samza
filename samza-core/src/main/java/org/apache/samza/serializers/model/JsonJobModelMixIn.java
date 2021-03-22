@@ -19,12 +19,12 @@
 
 package org.apache.samza.serializers.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 import org.apache.samza.config.Config;
 import org.apache.samza.job.model.ContainerModel;
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonIgnoreProperties;
-import org.codehaus.jackson.annotate.JsonProperty;
 
 /**
  * A mix-in Jackson class to convert Samza's JobModel to/from JSON.

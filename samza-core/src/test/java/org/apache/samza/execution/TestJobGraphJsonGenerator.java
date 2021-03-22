@@ -56,7 +56,7 @@ import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.table.descriptors.TestLocalTableDescriptor;
 import org.apache.samza.testUtils.StreamTestUtils;
-import org.codehaus.jackson.map.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Test;

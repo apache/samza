@@ -19,9 +19,26 @@
 
 package org.apache.samza.serializers.model;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.ObjectCodec;
+import com.fasterxml.jackson.core.Version;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.cfg.MapperConfig;
+import com.fasterxml.jackson.databind.introspect.AnnotatedField;
+import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -36,25 +53,9 @@ import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.ObjectCodec;
-import org.codehaus.jackson.Version;
-import org.codehaus.jackson.map.DeserializationContext;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.KeyDeserializer;
-import org.codehaus.jackson.map.MapperConfig;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.map.PropertyNamingStrategy;
-import org.codehaus.jackson.map.SerializerProvider;
-import org.codehaus.jackson.map.introspect.AnnotatedField;
-import org.codehaus.jackson.map.introspect.AnnotatedMethod;
-import org.codehaus.jackson.map.module.SimpleModule;
-import org.codehaus.jackson.type.TypeReference;
-
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 /**
  * <p>
  * A collection of utility classes and (de)serializers to make Samza's job model
@@ -78,6 +79,8 @@ public class SamzaObjectMapper {
    */
   public static ObjectMapper getObjectMapper() {
     ObjectMapper mapper = new ObjectMapper();
+    mapper.configure(DeserializationFeature.WRAP_EXCEPTIONS, false);
+    mapper.configure(SerializationFeature.WRAP_EXCEPTIONS, false);
     SimpleModule module = new SimpleModule("SamzaModule", new Version(1, 0, 0, ""));
 
     // Setup custom serdes for simple data types.
@@ -94,11 +97,9 @@ public class SamzaObjectMapper {
     module.addDeserializer(TaskMode.class, new TaskModeDeserializer());
 
     // Setup mixins for data models.
-    mapper.getSerializationConfig().addMixInAnnotations(TaskModel.class, JsonTaskModelMixIn.class);
-    mapper.getDeserializationConfig().addMixInAnnotations(TaskModel.class, JsonTaskModelMixIn.class);
-    mapper.getSerializationConfig().addMixInAnnotations(ContainerModel.class, JsonContainerModelMixIn.class);
-    mapper.getSerializationConfig().addMixInAnnotations(JobModel.class, JsonJobModelMixIn.class);
-    mapper.getDeserializationConfig().addMixInAnnotations(JobModel.class, JsonJobModelMixIn.class);
+    mapper.addMixIn(TaskModel.class, JsonTaskModelMixIn.class);
+    mapper.addMixIn(ContainerModel.class, JsonContainerModelMixIn.class);
+    mapper.addMixIn(JobModel.class, JsonJobModelMixIn.class);
 
     module.addDeserializer(ContainerModel.class, new JsonDeserializer<ContainerModel>() {
       @Override
@@ -122,27 +123,22 @@ public class SamzaObjectMapper {
                 String.format("JobModel was missing %s and %s. This should never happen. JobModel corrupt!",
                     JsonContainerModelMixIn.PROCESSOR_ID_KEY, JsonContainerModelMixIn.CONTAINER_ID_KEY));
           }
-          id = String.valueOf(node.get(JsonContainerModelMixIn.CONTAINER_ID_KEY).getIntValue());
+          id = String.valueOf(node.get(JsonContainerModelMixIn.CONTAINER_ID_KEY).intValue());
         } else {
-          id = node.get(JsonContainerModelMixIn.PROCESSOR_ID_KEY).getTextValue();
+          id = node.get(JsonContainerModelMixIn.PROCESSOR_ID_KEY).textValue();
         }
         Map<TaskName, TaskModel> tasksMapping =
-            OBJECT_MAPPER.readValue(node.get(JsonContainerModelMixIn.TASKS_KEY),
+            OBJECT_MAPPER.readValue(OBJECT_MAPPER.treeAsTokens(node.get(JsonContainerModelMixIn.TASKS_KEY)),
                 new TypeReference<Map<TaskName, TaskModel>>() { });
         return new ContainerModel(id, tasksMapping);
       }
     });
 
-    mapper.getSerializationConfig().addMixInAnnotations(LocalityModel.class, JsonLocalityModelMixIn.class);
-    mapper.getDeserializationConfig().addMixInAnnotations(LocalityModel.class, JsonLocalityModelMixIn.class);
-    mapper.getSerializationConfig().addMixInAnnotations(ProcessorLocality.class, JsonProcessorLocalityMixIn.class);
-    mapper.getDeserializationConfig().addMixInAnnotations(ProcessorLocality.class, JsonProcessorLocalityMixIn.class);
+    mapper.addMixIn(LocalityModel.class, JsonLocalityModelMixIn.class);
+    mapper.addMixIn(ProcessorLocality.class, JsonProcessorLocalityMixIn.class);
 
     // Register mixins for job coordinator metadata model
-    mapper.getSerializationConfig()
-        .addMixInAnnotations(JobCoordinatorMetadata.class, JsonJobCoordinatorMetadataMixIn.class);
-    mapper.getDeserializationConfig()
-        .addMixInAnnotations(JobCoordinatorMetadata.class, JsonJobCoordinatorMetadataMixIn.class);
+    mapper.addMixIn(JobCoordinatorMetadata.class, JsonJobCoordinatorMetadataMixIn.class);
 
     // Convert camel case to hyphenated field names, and register the module.
     mapper.setPropertyNamingStrategy(new CamelCaseToDashesStrategy());
@@ -156,7 +152,7 @@ public class SamzaObjectMapper {
     public Config deserialize(JsonParser jsonParser, DeserializationContext context) throws IOException, JsonProcessingException {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
-      return new MapConfig(OBJECT_MAPPER.<Map<String, String>>readValue(node, new TypeReference<Map<String, String>>() {
+      return new MapConfig(OBJECT_MAPPER.readValue(OBJECT_MAPPER.treeAsTokens(node), new TypeReference<Map<String, String>>() {
       }));
     }
   }
@@ -164,7 +160,7 @@ public class SamzaObjectMapper {
   public static class PartitionSerializer extends JsonSerializer<Partition> {
     @Override
     public void serialize(Partition partition, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException, JsonProcessingException {
-      jsonGenerator.writeObject(Integer.valueOf(partition.getPartitionId()));
+      jsonGenerator.writeObject(partition.getPartitionId());
     }
   }
 
@@ -173,7 +169,7 @@ public class SamzaObjectMapper {
     public Partition deserialize(JsonParser jsonParser, DeserializationContext context) throws IOException, JsonProcessingException {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
-      return new Partition(node.getIntValue());
+      return new Partition(node.intValue());
     }
   }
 
@@ -189,7 +185,7 @@ public class SamzaObjectMapper {
     public TaskName deserialize(JsonParser jsonParser, DeserializationContext context) throws IOException, JsonProcessingException {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
-      return new TaskName(node.getTextValue());
+      return new TaskName(node.textValue());
     }
   }
 
@@ -206,10 +202,10 @@ public class SamzaObjectMapper {
         throws IOException, JsonProcessingException {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
-      if (node == null || node.getTextValue().equals("")) {
+      if (node == null || node.textValue().equals("")) {
         return TaskMode.Active;
       } else {
-        return TaskMode.valueOf(node.getTextValue());
+        return TaskMode.valueOf(node.textValue());
       }
     }
   }
@@ -252,9 +248,9 @@ public class SamzaObjectMapper {
     public SystemStreamPartition deserialize(JsonParser jsonParser, DeserializationContext context) throws IOException, JsonProcessingException {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
-      String system = node.get("system").getTextValue();
-      String stream = node.get("stream").getTextValue();
-      Partition partition = new Partition(node.get("partition").getIntValue());
+      String system = node.get("system").textValue();
+      String stream = node.get("stream").textValue();
+      Partition partition = new Partition(node.get("partition").intValue());
       return new SystemStreamPartition(system, stream, partition);
     }
   }

@@ -19,7 +19,7 @@
 package org.apache.samza.rest.model;
 
 import org.apache.samza.system.SystemStreamPartition;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 
 /**

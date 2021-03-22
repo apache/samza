@@ -18,6 +18,7 @@
  */
 package org.apache.samza.coordinator.server;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.Optional;
 import javax.servlet.http.HttpServlet;
@@ -27,7 +28,6 @@ import org.apache.samza.container.LocalityManager;
 import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
-import org.codehaus.jackson.map.ObjectMapper;
 
 
 /**

@@ -28,7 +28,7 @@ import java.util.Map;
 import org.apache.hadoop.fs.Path;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
-import org.codehaus.jackson.map.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
 

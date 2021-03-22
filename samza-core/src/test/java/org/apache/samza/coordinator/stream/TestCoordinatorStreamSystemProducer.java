@@ -35,7 +35,7 @@ import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.SinglePartitionWithoutOffsetsSystemAdmin;
-import org.codehaus.jackson.type.TypeReference;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.junit.Test;
 
 public class TestCoordinatorStreamSystemProducer {

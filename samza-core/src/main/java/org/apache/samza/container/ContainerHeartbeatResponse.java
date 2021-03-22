@@ -19,8 +19,7 @@
 
 package org.apache.samza.container;
 
-import org.codehaus.jackson.annotate.JsonProperty;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Used to represent the heartbeat response between

@@ -58,7 +58,7 @@ import org.apache.samza.sql.interfaces.UdfResolver;
 import org.apache.samza.sql.util.JsonUtil;
 import org.apache.samza.sql.util.SamzaSqlQueryParser;
 import org.apache.samza.util.ReflectionUtil;
-import org.codehaus.jackson.type.TypeReference;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

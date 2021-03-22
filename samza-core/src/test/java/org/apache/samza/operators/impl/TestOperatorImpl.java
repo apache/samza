@@ -20,6 +20,7 @@ package org.apache.samza.operators.impl;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -39,6 +40,9 @@ import org.apache.samza.task.TaskCoordinator;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.anyString;
@@ -78,6 +82,31 @@ public class TestOperatorImpl {
     opImpl.registerNextOperator(mock(OperatorImpl.class));
   }
 
+  @Test
+  public void testRegisterOperatorMaintainsInsertionOrder() {
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
+    opImpl.init(this.internalTaskContext);
+
+    OperatorImpl<Object, Object> firstOp = mock(OperatorImpl.class);
+    OperatorImpl<Object, Object> secondOp = mock(OperatorImpl.class);
+    OperatorImpl<Object, Object> thirdOp = mock(OperatorImpl.class);
+
+    opImpl.registerNextOperator(firstOp);
+    opImpl.registerNextOperator(secondOp);
+    opImpl.registerNextOperator(thirdOp);
+
+    Iterator<OperatorImpl<Object, ?>> iterator = opImpl.registeredOperators.iterator();
+    assertTrue("Expecting non-empty iterator", iterator.hasNext());
+    assertEquals("Expecting first operator to be returned", firstOp, iterator.next());
+
+    assertTrue("Expecting non-empty iterator", iterator.hasNext());
+    assertEquals("Expecting second operator to be returned", secondOp, iterator.next());
+
+    assertTrue("Expecting non-empty iterator", iterator.hasNext());
+    assertEquals("Expecting third operator to be returned", thirdOp, iterator.next());
+
+    assertFalse("Expecting no more registered operators", iterator.hasNext());
+  }
   @Test
   public void testOnMessagePropagatesResults() {
     Object mockTestOpImplOutput = mock(Object.class);

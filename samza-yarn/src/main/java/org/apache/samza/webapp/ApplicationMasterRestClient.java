@@ -18,6 +18,8 @@
  */
 package org.apache.samza.webapp;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
@@ -30,8 +32,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
 
 
 /**

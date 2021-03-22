@@ -34,7 +34,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.operators.MessageStream;
-import org.apache.samza.sql.data.SamzaSqlRelMessage;
 import org.apache.samza.sql.interfaces.SamzaRelTableKeyConverter;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.sql.data.RexToJavaCompiler;
@@ -53,7 +52,7 @@ public class TranslatorContext implements Cloneable {
   private final RexToJavaCompiler compiler;
   private final Map<String, SamzaRelConverter> relSamzaConverters;
   private final Map<String, SamzaRelTableKeyConverter> relTableKeyConverters;
-  private final Map<Integer, MessageStream<SamzaSqlRelMessage>> messageStreams;
+  private final Map<Integer, MessageStream> messageStreams;
   private final Map<Integer, RelNode> relNodes;
   private final Map<String, DelegatingSystemDescriptor> systemDescriptors;
 
@@ -200,7 +199,7 @@ public class TranslatorContext implements Cloneable {
    * @param id the id
    * @return the message stream
    */
-  MessageStream<SamzaSqlRelMessage> getMessageStream(int id) {
+  MessageStream getMessageStream(int id) {
     return messageStreams.get(id);
   }
 
