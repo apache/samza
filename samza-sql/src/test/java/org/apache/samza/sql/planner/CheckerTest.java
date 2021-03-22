@@ -57,6 +57,22 @@ public class CheckerTest {
     }
   }
 
+  @SamzaSqlUdf(name = "TestUdfWithAnyType", description = "TestUDFClass")
+  private static class TestUdfWithAnyType implements ScalarUdf {
+
+    public TestUdfWithAnyType() {
+    }
+
+    @Override
+    public void init(Config udfConfig, Context context) {
+    }
+
+    @SamzaSqlUdfMethod(params = SamzaSqlFieldType.ANY, returns = SamzaSqlFieldType.STRING)
+    public String execute(Object val) {
+      return "RandomStringtoFail";
+    }
+  }
+
   @Test(expected = SamzaSqlValidatorException.class)
   public void testCheckOperandTypesShouldFailOnTypeMisMatch() throws NoSuchMethodException {
     Method udfMethod = TestUdfWithWrongTypes.class.getMethod("execute", String.class);
@@ -76,13 +92,28 @@ public class CheckerTest {
   public void testCheckOperandTypesShouldReturnTrueOnTypeMatch() throws NoSuchMethodException {
     Method udfMethod = MyTestPolyUdf.class.getMethod("execute", String.class);
     UdfMetadata udfMetadata = new UdfMetadata("MyTestPoly", "Test Polymorphism UDF.",
-            udfMethod, new MapConfig(), ImmutableList.of(SamzaSqlFieldType.STRING), SamzaSqlFieldType.INT32, false);
+        udfMethod, new MapConfig(), ImmutableList.of(SamzaSqlFieldType.STRING), SamzaSqlFieldType.INT32, false);
 
     Checker operandTypeChecker = Checker.getChecker(1, 3, udfMetadata);
 
     SqlCallBinding callBinding = Mockito.mock(SqlCallBinding.class);
     Mockito.when(callBinding.getOperandCount()).thenReturn(1);
     Mockito.when(callBinding.getOperandType(0)).thenReturn(new BasicSqlType(RelDataTypeSystem.DEFAULT, SqlTypeName.VARCHAR, 12));
+
+    assertTrue(operandTypeChecker.checkOperandTypes(callBinding, true));
+  }
+
+  @Test
+  public void testCheckOperandTypesShouldReturnTrueOnAnyTypeInArg() throws NoSuchMethodException {
+    Method udfMethod = TestUdfWithAnyType.class.getMethod("execute", Object.class);
+    UdfMetadata udfMetadata = new UdfMetadata("TestUdfWithAnyType", "TestUDFClass",
+        udfMethod, new MapConfig(), ImmutableList.of(SamzaSqlFieldType.ANY), SamzaSqlFieldType.INT64, false);
+
+    Checker operandTypeChecker = Checker.getChecker(1, 3, udfMetadata);
+
+    SqlCallBinding callBinding = Mockito.mock(SqlCallBinding.class);
+    Mockito.when(callBinding.getOperandCount()).thenReturn(1);
+    Mockito.when(callBinding.getOperandType(0)).thenReturn(new BasicSqlType(RelDataTypeSystem.DEFAULT, SqlTypeName.ARRAY));
 
     assertTrue(operandTypeChecker.checkOperandTypes(callBinding, true));
   }
