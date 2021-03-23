@@ -18,6 +18,7 @@
  */
 package org.apache.samza.job.model;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.util.Collections;
 import java.util.HashMap;
@@ -117,6 +118,47 @@ public class JobModelUtil {
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception occurred when reading JobModel version: %s from metadata store.", jobModelVersion), e);
     }
+  }
+
+  /**
+   * Compares the {@link ContainerModel} for a given <i>processorId</i> across two {@link JobModel}.
+   * @param processorId processor id for which work assignments are compared
+   * @param first first job model
+   * @param second second job model
+   * @return true - if {@link ContainerModel} for the processor is same across the {@link JobModel}
+   *         false - otherwise
+   */
+  public static boolean compareContainerModelForProcessor(String processorId, JobModel first, JobModel second) {
+    Preconditions.checkArgument(StringUtils.isNotBlank(processorId), "Processor id cannot be blank");
+    if (first == second) {
+      return true;
+    }
+
+    if (first == null || second == null) {
+      return false;
+    }
+
+    return compareContainerModel(first.getContainers().get(processorId), second.getContainers().get(processorId));
+  }
+
+  /**
+   * Helper method to compare the two input {@link ContainerModel}s.
+   * @param first first container model
+   * @param second second container model
+   * @return true - if two input {@link ContainerModel} are equal
+   *         false - otherwise
+   */
+  @VisibleForTesting
+  static boolean compareContainerModel(ContainerModel first, ContainerModel second) {
+    if (first == second) {
+      return true;
+    }
+
+    if (first == null || second == null) {
+      return false;
+    }
+
+    return first.equals(second);
   }
 
   private static String getJobModelKey(String version) {
