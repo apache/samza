@@ -1,12 +1,11 @@
 package org.apache.samza.util;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.samza.SamzaException;
 
 
 public class CompletableFutureUtil {
@@ -26,22 +25,22 @@ public class CompletableFutureUtil {
    * Helper method to convert: {@code Map<K, CompletableFuture<V>>}
    * to:                       {@code CompletableFuture<Map<K, V>>}
    */
-  public static <K, V> CompletableFuture<Map<K, V>> toFutureOfMap(Map<K, CompletableFuture<V>> ketyToValueFutureMap) {
+  public static <K, V> CompletableFuture<Map<K, V>> toFutureOfMap(Map<K, CompletableFuture<V>> keyToValueFutures) {
     return CompletableFuture
-        .allOf(ketyToValueFutureMap.values().toArray(new CompletableFuture[0]))
-        .thenApply(v -> ketyToValueFutureMap.entrySet().stream()
+        .allOf(keyToValueFutures.values().toArray(new CompletableFuture[0]))
+        .thenApply(v -> keyToValueFutures.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().join())));
   }
 
   /**
-   * Block and complete a list of futures or throw exception if any of the futures fail
-   * @param completionStages list of futures to complete
+   * Blocks for a list of futures to complete.
+   * @param futures list of futures to block for
    */
-  public static void blockAndCompleteAll(List<CompletionStage<Void>> completionStages) {
+  public static <V, FV extends CompletionStage<V>> void blockAndCompleteAll(Collection<FV> futures) {
     // ToDo change whenComplete, replace with async version. Check docs.
     // TODO HIGH shesharm: do we need the whenComplete here?
     CompletableFuture<Void> completeAllFutures =
-        CompletableFuture.allOf(completionStages.toArray(new CompletableFuture[0]));
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
 
     completeAllFutures.join(); // block and wait for all futures to complete.
   }
