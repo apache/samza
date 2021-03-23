@@ -135,8 +135,10 @@ class ClientHelper(conf: Configuration) extends Logging {
 
     appMasterLabel match {
       case Some(label) => {
-        appCtx.setNodeLabelExpression(label)
-        info("set yarn node label expression to %s" format queueName)
+        val amcontainerResourceRequest = appCtx.getAMContainerResourceRequest();
+        amcontainerResourceRequest.setNodeLabelExpression(label);
+        appCtx.setAMContainerResourceRequest(amcontainerResourceRequest);
+        info("set yarn AM container node label expression to %s" format appMasterLabel)
       }
       case None =>
     }
