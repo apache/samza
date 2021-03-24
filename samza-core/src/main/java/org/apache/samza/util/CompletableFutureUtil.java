@@ -1,6 +1,7 @@
 package org.apache.samza.util;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -30,6 +31,15 @@ public class CompletableFutureUtil {
         .allOf(keyToValueFutures.values().toArray(new CompletableFuture[0]))
         .thenApply(v -> keyToValueFutures.entrySet().stream()
             .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().join())));
+  }
+
+  /**
+   * Helper method to convert: {@code List<CompletableFuture<E>>}
+   * to:                       {@code CompletableFuture<List<E>>}
+   */
+  public static <E> CompletableFuture<List<E>> toFutureOfList(List<CompletableFuture<E>> futures) {
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+        .thenApply(v -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
   }
 
   /**
