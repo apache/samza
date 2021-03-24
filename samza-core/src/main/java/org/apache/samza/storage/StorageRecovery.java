@@ -246,7 +246,6 @@ public class StorageRecovery {
               new HashMap<>(),
               storeBaseDir,
               storeBaseDir,
-              maxPartitionNumber,
               null,
               new SystemClock());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);

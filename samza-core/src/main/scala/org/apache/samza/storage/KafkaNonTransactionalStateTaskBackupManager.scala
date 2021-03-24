@@ -37,20 +37,21 @@ import scala.collection.JavaConverters._
  */
 class KafkaNonTransactionalStateTaskBackupManager(
   taskName: TaskName,
-  taskStores: util.Map[String, StorageEngine],
   storeChangelogs: util.Map[String, SystemStream] = new util.HashMap[String, SystemStream](),
   systemAdmins: SystemAdmins,
   partition: Partition) extends Logging with TaskBackupManager {
 
   override def init(checkpoint: Checkpoint): Unit = {}
 
-  override def snapshot(checkpointId: CheckpointId): util.Map[String, String] = {
+  override def snapshot(checkpointId: CheckpointId,
+    taskStores: util.Map[String, StorageEngine]): util.Map[String, String] = {
     debug("Getting newest offsets for kafka changelog SSPs.")
     getNewestChangelogSSPOffsets()
   }
 
   override def upload(checkpointId: CheckpointId,
-    stateCheckpointMarkers: util.Map[String, String]): CompletableFuture[util.Map[String, String]] = {
+    stateCheckpointMarkers: util.Map[String, String],
+    taskStores: util.Map[String, StorageEngine]): CompletableFuture[util.Map[String, String]] = {
      CompletableFuture.completedFuture(stateCheckpointMarkers)
   }
 

@@ -921,28 +921,7 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     when(mockCheckpointManager.readLastCheckpoint(any(classOf[TaskName])))
       .thenReturn(new CheckpointV1(new util.HashMap[SystemStreamPartition, String]()))
 
-    containerStorageManager = new ContainerStorageManager(
-      mockCheckpointManager,
-      containerModel,
-      streamMetadataCache,
-      mockSystemAdmins,
-      changeLogSystemStreams.asJava,
-      Map[String, util.Set[SystemStream]]().asJava,
-      storageEngineFactories.asJava,
-      systemFactories.asJava,
-      mockSerdes.asJava,
-      config,
-      new HashMap[TaskName, TaskInstanceMetrics]().asJava,
-      Mockito.mock(classOf[SamzaContainerMetrics]),
-      Mockito.mock(classOf[JobContext]),
-      Mockito.mock(classOf[ContainerContext]),
-      new KafkaChangelogStateBackendFactory,
-      new HashMap[TaskName, TaskInstanceCollector].asJava,
-      loggedStoreBaseDir,
-      TaskStorageManagerBuilder.defaultStoreBaseDir,
-      1,
-      null,
-      new SystemClock)
+    containerStorageManager = new ContainerStorageManager(mockCheckpointManager, containerModel, streamMetadataCache, mockSystemAdmins, changeLogSystemStreams.asJava, Map[String, util.Set[SystemStream]]().asJava, storageEngineFactories.asJava, systemFactories.asJava, mockSerdes.asJava, config, new HashMap[TaskName, TaskInstanceMetrics]().asJava, Mockito.mock(classOf[SamzaContainerMetrics]), Mockito.mock(classOf[JobContext]), Mockito.mock(classOf[ContainerContext]), new KafkaChangelogStateBackendFactory, new HashMap[TaskName, TaskInstanceCollector].asJava, loggedStoreBaseDir, TaskStorageManagerBuilder.defaultStoreBaseDir, null, new SystemClock)
     this
   }
 

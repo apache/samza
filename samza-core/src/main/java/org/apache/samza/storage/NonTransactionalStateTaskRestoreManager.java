@@ -31,7 +31,11 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.ChangelogSSPIterator;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.StreamSpec;
@@ -41,6 +45,7 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.MessageCollector;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
 import org.slf4j.Logger;
@@ -72,37 +77,44 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
   private final StreamMetadataCache streamMetadataCache;
   private final Map<String, SystemConsumer> storeConsumers;
   private final int maxChangeLogStreamPartitions;
-  private final StorageConfig storageConfig;
+  private final Config config;
   private final StorageManagerUtil storageManagerUtil;
 
   NonTransactionalStateTaskRestoreManager(
+      Set<String> storeNames,
+      JobContext jobContext,
+      ContainerContext containerContext,
       TaskModel taskModel,
       Map<String, SystemStream> changelogSystemStreams,
-      Map<String, StorageEngine> taskStores,
+      Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Map<String, Serde<Object>> serdes,
       SystemAdmins systemAdmins,
       StreamMetadataCache streamMetadataCache,
       Map<String, SystemConsumer> storeConsumers,
+      MetricsRegistry metricsRegistry,
+      MessageCollector messageCollector,
       int maxChangeLogStreamPartitions,
       File loggedStoreBaseDirectory,
       File nonLoggedStoreBaseDirectory,
       Config config,
       Clock clock) {
-    this.taskStores = taskStores;
     this.taskModel = taskModel;
     this.clock = clock;
     this.changelogSystemStreams = changelogSystemStreams;
     this.systemAdmins = systemAdmins;
     this.fileOffsets = new HashMap<>();
-    this.taskStoresToRestore = this.taskStores.entrySet().stream()
-        .filter(x -> x.getValue().getStoreProperties().isLoggedStore())
-        .map(x -> x.getKey()).collect(Collectors.toSet());
     this.loggedStoreBaseDirectory = loggedStoreBaseDirectory;
     this.nonLoggedStoreBaseDirectory = nonLoggedStoreBaseDirectory;
     this.streamMetadataCache = streamMetadataCache;
     this.storeConsumers = storeConsumers;
     this.maxChangeLogStreamPartitions = maxChangeLogStreamPartitions;
-    this.storageConfig = new StorageConfig(config);
+    this.config = config;
     this.storageManagerUtil = new StorageManagerUtil();
+    this.taskStores = createStoreEngines(storeNames, jobContext, containerContext,
+        storageEngineFactories, serdes, metricsRegistry, messageCollector);
+    this.taskStoresToRestore = this.taskStores.entrySet().stream()
+        .filter(x -> x.getValue().getStoreProperties().isLoggedStore())
+        .map(x -> x.getKey()).collect(Collectors.toSet());
   }
 
   /**
@@ -125,7 +137,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    */
   private void cleanBaseDirsAndReadOffsetFiles() {
     LOG.debug("Cleaning base directories for stores.");
-
+    StorageConfig storageConfig = new StorageConfig(config);
     FileUtil fileUtil = new FileUtil();
     taskStores.forEach((storeName, storageEngine) -> {
       if (!storageEngine.getStoreProperties().isLoggedStore()) {
@@ -171,7 +183,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * @return true if the logged store is valid, false otherwise.
    */
   private boolean isLoggedStoreValid(String storeName, File loggedStoreDir) {
-    long changeLogDeleteRetentionInMs = storageConfig.getChangeLogDeleteRetentionInMs(storeName);
+    long changeLogDeleteRetentionInMs = new StorageConfig(config).getChangeLogDeleteRetentionInMs(storeName);
 
     if (changelogSystemStreams.containsKey(storeName)) {
       SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition());
@@ -313,6 +325,23 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
     return storageManagerUtil.getStartingOffset(systemStreamPartition, systemAdmin, fileOffset, oldestOffset);
   }
 
+  // TODO dchen put this in common code path for transactional and non-transactional
+  private Map<String, StorageEngine> createStoreEngines(Set<String> storeNames, JobContext jobContext,
+      ContainerContext containerContext, Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Map<String, Serde<Object>> serdes, MetricsRegistry metricsRegistry,
+      MessageCollector messageCollector) {
+    Map<String, StorageEngine> storageEngines = new HashMap<>();
+    for (String storeName : storeNames) {
+      boolean isLogged = this.changelogSystemStreams.containsKey(storeName);
+      File storeBaseDir = isLogged ? this.loggedStoreBaseDirectory : this.nonLoggedStoreBaseDirectory;
+      StorageEngine engine = ContainerStorageManager.createStore(storeName, storeBaseDir, taskModel, jobContext, containerContext,
+          storageEngineFactories, serdes, metricsRegistry, messageCollector,
+          StorageEngineFactory.StoreMode.BulkLoad, this.changelogSystemStreams, this.config);
+      storageEngines.put(storeName, engine);
+    }
+    return storageEngines;
+  }
+
   /**
    * Restore each store in taskStoresToRestore sequentially
    */
@@ -334,7 +363,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * Stop only persistent stores. In case of certain stores and store mode (such as RocksDB), this
    * can invoke compaction.
    */
-  public void stopPersistentStores() {
+  public void close() {
 
     Map<String, StorageEngine> persistentStores = this.taskStores.entrySet().stream().filter(e -> {
       return e.getValue().getStoreProperties().isPersistedToDisk();

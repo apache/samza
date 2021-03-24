@@ -47,9 +47,7 @@ public interface TaskRestoreManager {
   void restore() throws InterruptedException;
 
   /**
-   * Stop all persistent stores after restoring.
+   * Closes all initiated ressources include storage engines
    */
-  void stopPersistentStores();
-
-  // TODO HIGH pmaheshw add close to mirror init? What's the difference b/w close and stopPersistentStores()?
+  void close();
 }

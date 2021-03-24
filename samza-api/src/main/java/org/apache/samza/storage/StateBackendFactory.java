@@ -19,11 +19,19 @@
 
 package org.apache.samza.storage;
 
+import java.io.File;
 import java.util.Map;
+import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.system.SystemConsumer;
+import org.apache.samza.task.MessageCollector;
 import org.apache.samza.util.Clock;
 
 
@@ -35,16 +43,22 @@ public interface StateBackendFactory {
   TaskBackupManager getBackupManager(JobModel jobModel,
       ContainerModel containerModel,
       TaskModel taskModel,
-      Map<String, StorageEngine> taskStores,
       Config config,
       Clock clock);
 
-  TaskRestoreManager getRestoreManager(JobModel jobModel,
-      ContainerModel containerModel,
+  TaskRestoreManager getRestoreManager(JobContext jobContext,
+      ContainerContext containerContext,
       TaskModel taskModel,
-      Map<String, StorageEngine> taskStores,
+      Map<String, SystemConsumer> storeConsumers,
+      Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Map<String, Serde<Object>> serdes,
+      MetricsRegistry taskInstanceMetrics,
+      MessageCollector collector,
+      Set<String> storeNames,
       Config config,
-      Clock clock);
+      Clock clock,
+      File loggedStoreBaseDir,
+      File nonLoggedStoreBaseDir);
 
   TaskStorageAdmin getAdmin();
 }

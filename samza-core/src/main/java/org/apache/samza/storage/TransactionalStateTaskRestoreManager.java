@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -44,8 +45,12 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.ChangelogSSPIterator;
 import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.SystemAdmin;
@@ -54,6 +59,7 @@ import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.MessageCollector;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.FileUtil;
 import org.slf4j.Logger;
@@ -69,7 +75,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   private final Map<String, StorageEngine> storeEngines; // store name to storage engines
   private final Map<String, SystemStream> storeChangelogs; // store name to changelog system stream
   private final SystemAdmins systemAdmins;
-  private final Map<String, SystemConsumer> storeConsumers;
+  private final Map<String, SystemConsumer> storeConsumers; // store name to system consumer
   private final SSPMetadataCache sspMetadataCache;
   private final File loggedStoreBaseDirectory;
   private final File nonLoggedStoreBaseDirectory;
@@ -82,18 +88,23 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   private Map<SystemStreamPartition, SystemStreamPartitionMetadata> currentChangelogOffsets;
 
   public TransactionalStateTaskRestoreManager(
+      Set<String> storeNames,
+      JobContext jobContext,
+      ContainerContext containerContext,
       TaskModel taskModel,
-      Map<String, StorageEngine> storeEngines,
       Map<String, SystemStream> storeChangelogs,
+      Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Map<String, Serde<Object>> serdes,
       SystemAdmins systemAdmins,
       Map<String, SystemConsumer> storeConsumers,
+      MetricsRegistry metricsRegistry,
+      MessageCollector messageCollector,
       SSPMetadataCache sspMetadataCache,
       File loggedStoreBaseDirectory,
       File nonLoggedStoreBaseDirectory,
       Config config,
       Clock clock) {
     this.taskModel = taskModel;
-    this.storeEngines = storeEngines;
     this.storeChangelogs = storeChangelogs;
     this.systemAdmins = systemAdmins;
     this.storeConsumers = storeConsumers;
@@ -106,6 +117,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
     this.clock = clock;
     this.storageManagerUtil = new StorageManagerUtil();
     this.fileUtil = new FileUtil();
+    this.storeEngines = createStoreEngines(storeNames, jobContext, containerContext,
+        storageEngineFactories, serdes, metricsRegistry, messageCollector);
   }
 
   @Override
@@ -149,13 +162,29 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
    * Stop only persistent stores. In case of certain stores and store mode (such as RocksDB), this
    * can invoke compaction. Persisted stores are recreated in read-write mode in {@link ContainerStorageManager}.
    */
-  public void stopPersistentStores() {
+  public void close() {
     TaskName taskName = taskModel.getTaskName();
     storeEngines.forEach((storeName, storeEngine) -> {
       if (storeEngine.getStoreProperties().isPersistedToDisk())
         storeEngine.stop();
       LOG.info("Stopped persistent store: {} in task: {}", storeName, taskName);
     });
+  }
+
+  private Map<String, StorageEngine> createStoreEngines(Set<String> storeNames, JobContext jobContext,
+      ContainerContext containerContext, Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Map<String, Serde<Object>> serdes, MetricsRegistry metricsRegistry,
+      MessageCollector messageCollector) {
+    Map<String, StorageEngine> storageEngines = new HashMap<>();
+    for (String storeName : storeNames) {
+      boolean isLogged = this.storeChangelogs.containsKey(storeName);
+      File storeBaseDir = isLogged ? this.loggedStoreBaseDirectory : this.nonLoggedStoreBaseDirectory;
+      StorageEngine engine = ContainerStorageManager.createStore(storeName, storeBaseDir, taskModel, jobContext, containerContext,
+          storageEngineFactories, serdes, metricsRegistry, messageCollector,
+          StorageEngineFactory.StoreMode.BulkLoad, this.storeChangelogs, this.config);
+      storageEngines.put(storeName, engine);
+    }
+    return storageEngines;
   }
 
   /**

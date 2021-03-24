@@ -211,6 +211,10 @@ public class TestContainerStorageManager {
     when(mockSSPMetadataCache.getMetadata(any(SystemStreamPartition.class)))
         .thenReturn(new SystemStreamMetadata.SystemStreamPartitionMetadata("0", "10", "11"));
 
+    ContainerContext mockContainerContext = mock(ContainerContext.class);
+    ContainerModel mockContainerModel = new ContainerModel("samza-container-test", tasks);
+    when(mockContainerContext.getContainerModel()).thenReturn(mockContainerModel);
+
     // Reset the  expected number of sysConsumer create, start and stop calls, and store.restore() calls
     this.systemConsumerCreationCount = 0;
     this.systemConsumerStartCount = 0;
@@ -220,7 +224,7 @@ public class TestContainerStorageManager {
     // Create the container storage manager
     this.containerStorageManager = new ContainerStorageManager(
         checkpointManager,
-        new ContainerModel("samza-container-test", tasks),
+        mockContainerModel,
         mockStreamMetadataCache,
         mockSystemAdmins,
         changelogSystemStreams,
@@ -232,12 +236,11 @@ public class TestContainerStorageManager {
         taskInstanceMetrics,
         samzaContainerMetrics,
         mock(JobContext.class),
-        mock(ContainerContext.class),
+        mockContainerContext,
         new KafkaChangelogStateBackendFactory(),
         mock(Map.class),
         DEFAULT_LOGGED_STORE_BASE_DIR,
         DEFAULT_STORE_BASE_DIR,
-        2,
         null,
         new SystemClock());
   }

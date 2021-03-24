@@ -26,63 +26,82 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.container.SamzaContainer;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.MessageCollector;
 import org.apache.samza.util.Clock;
 
 
 public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
+  // TODO dchen make threadsafe
   private static StreamMetadataCache streamCache;
   private static SSPMetadataCache sspCache;
 
   @Override
   public TaskBackupManager getBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
-      Map<String, StorageEngine> taskStores, Config config, Clock clock) {
+      Config config, Clock clock) {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     StorageConfig storageConfig = new StorageConfig(config);
     Map<String, SystemStream> storeChangelogs = storageConfig.getStoreChangelogs();
 
     if (new TaskConfig(config).getTransactionalStateCheckpointEnabled()) {
-      return new KafkaTransactionalStateTaskBackupManager(taskModel.getTaskName(),
-          taskStores, storeChangelogs, systemAdmins, taskModel.getChangelogPartition());
+      return new KafkaTransactionalStateTaskBackupManager(taskModel.getTaskName(), storeChangelogs,
+          systemAdmins, taskModel.getChangelogPartition());
     } else {
-      return new KafkaNonTransactionalStateTaskBackupManager(taskModel.getTaskName(),
-          taskStores, storeChangelogs, systemAdmins, taskModel.getChangelogPartition());
+      return new KafkaNonTransactionalStateTaskBackupManager(taskModel.getTaskName(), storeChangelogs,
+          systemAdmins, taskModel.getChangelogPartition());
     }
   }
 
   @Override
-  public TaskRestoreManager getRestoreManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel, Map<String, StorageEngine> taskStores, Config config, Clock clock) {
-    SystemAdmins systemAdmins = new SystemAdmins(config);
+  public TaskRestoreManager getRestoreManager(JobContext jobContext,
+      ContainerContext containerContext,
+      TaskModel taskModel,
+      Map<String, SystemConsumer> storeConsumers,
+      Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Map<String, Serde<Object>> serdes,
+      MetricsRegistry metricsRegistry,
+      MessageCollector messageCollector,
+      Set<String> storeNames,
+      Config config,
+      Clock clock,
+      File loggedStoreBaseDir,
+      File nonLoggedStoreBaseDir) {
+    SystemAdmins systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
     Map<String, SystemStream> storeChangelogs = new StorageConfig(config).getStoreChangelogs();
     Set<SystemStreamPartition> changelogSSPs = storeChangelogs.values().stream()
-        .flatMap(ss -> containerModel.getTasks().values().stream()
+        .flatMap(ss -> containerContext.getContainerModel().getTasks().values().stream()
             .map(tm -> new SystemStreamPartition(ss, tm.getChangelogPartition())))
         .collect(Collectors.toSet());
     Map<String, SystemStream> filteredStoreChangelogs = ContainerStorageManager
-        .getChangelogSystemStreams(containerModel, storeChangelogs, null);
-
-    File defaultStoreBaseDir = new File(System.getProperty("user.dir"), "state");
-    File loggedStoreBaseDir = SamzaContainer.getLoggedStorageBaseDir(new JobConfig(config), defaultStoreBaseDir);
-    File nonLoggedStoreBaseDir = SamzaContainer.getNonLoggedStorageBaseDir(new JobConfig(config), defaultStoreBaseDir);
+        .getChangelogSystemStreams(containerContext.getContainerModel(), storeChangelogs, null); // TODO dchen should be system -> consumers map
 
     if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
       return new TransactionalStateTaskRestoreManager(
+          storeNames,
+          jobContext,
+          containerContext,
           taskModel,
-          taskStores,
           filteredStoreChangelogs,
+          storageEngineFactories,
+          serdes,
           systemAdmins,
-          null, // TODO @dchen have the restore managers create and manage Kafka consume lifecycle
+          storeConsumers,
+          metricsRegistry,
+          messageCollector,
           KafkaChangelogStateBackendFactory
               .getSspCache(systemAdmins, clock, changelogSSPs),
           loggedStoreBaseDir,
@@ -92,17 +111,24 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
       );
     } else {
       return new NonTransactionalStateTaskRestoreManager(
+          storeNames,
+          jobContext,
+          containerContext,
           taskModel,
           filteredStoreChangelogs,
-          taskStores,
+          storageEngineFactories,
+          serdes,
           systemAdmins,
           KafkaChangelogStateBackendFactory.getStreamCache(systemAdmins, clock),
-          null, // TODO  @dchen have the restore managers create and manage Kafka consume lifecycle
-          jobModel.maxChangeLogStreamPartitions,
+          storeConsumers,
+          metricsRegistry,
+          messageCollector,
+          jobContext.getJobModel().maxChangeLogStreamPartitions,
           loggedStoreBaseDir,
           nonLoggedStoreBaseDir,
           config,
-          clock);
+          clock
+      );
     }
   }
 

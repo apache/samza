@@ -146,7 +146,6 @@ object SamzaContainer extends Logging {
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
-    val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
 
@@ -534,7 +533,6 @@ object SamzaContainer extends Logging {
       taskCollectors.asJava,
       loggedStorageBaseDir,
       nonLoggedStorageBaseDir,
-      maxChangeLogStreamPartitions,
       serdeManager,
       new SystemClock)
 
@@ -569,13 +567,13 @@ object SamzaContainer extends Logging {
       stateStorageBackendBackupFactories.asJava.forEach(new Consumer[StateBackendFactory] {
         override def accept(factory: StateBackendFactory): Unit = {
           val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
-            taskModel, containerStorageManager.getAllStores(taskName), config, new SystemClock)
+            taskModel, config, new SystemClock)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
         }
       })
 
       val commitManager = new TaskStorageCommitManager(taskName, taskBackupManagerMap,
-        containerStorageManager.getAllStores(taskName), storeChangelogs, taskModel.getChangelogPartition, checkpointManager, config,
+        containerStorageManager, storeChangelogs, taskModel.getChangelogPartition, checkpointManager, config,
         new StorageManagerUtil, loggedStorageBaseDir)
 
       val tableManager = new TableManager(config)

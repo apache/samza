@@ -55,19 +55,22 @@ public class TaskStorageCommitManager {
 
   private final TaskName taskName;
   private final CheckpointManager checkpointManager;
+  private final ContainerStorageManager containerStorageManager;
   private final Map<String, TaskBackupManager> stateBackendToBackupManager;
-  private final Map<String, StorageEngine> storageEngines;
   private final Partition taskChangelogPartition;
   private final StorageManagerUtil storageManagerUtil;
   private final File durableStoreBaseDir;
   private final Map<String, SystemStream> storeChangelogs;
 
+  // Available after init(), since stores are created by ContainerStorageManager#start()
+  private Map<String, StorageEngine> storageEngines;
+
   public TaskStorageCommitManager(TaskName taskName, Map<String, TaskBackupManager> stateBackendToBackupManager,
-      Map<String, StorageEngine> storageEngines, Map<String, SystemStream> storeChangelogs, Partition changelogPartition,
+      ContainerStorageManager containerStorageManager, Map<String, SystemStream> storeChangelogs, Partition changelogPartition,
       CheckpointManager checkpointManager, Config config, StorageManagerUtil storageManagerUtil, File durableStoreBaseDir) {
     this.taskName = taskName;
+    this.containerStorageManager = containerStorageManager;
     this.stateBackendToBackupManager = stateBackendToBackupManager;
-    this.storageEngines = storageEngines;
     this.taskChangelogPartition = changelogPartition;
     this.checkpointManager = checkpointManager;
     this.durableStoreBaseDir = durableStoreBaseDir;
@@ -76,6 +79,8 @@ public class TaskStorageCommitManager {
   }
 
   public void init() {
+    // Assuming that container storage manager has already started and created to stores
+    storageEngines = containerStorageManager.getAllStores(taskName);
     if (checkpointManager != null) {
       Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
       LOG.debug("Last checkpoint on start for task: {} is: {}", taskName, checkpoint);
@@ -109,11 +114,12 @@ public class TaskStorageCommitManager {
 
     // for each configured state backend factory, backup the state for all stores in this task.
     stateBackendToBackupManager.forEach((stateBackendFactoryName, backupManager) -> {
-      Map<String, String> snapshotSCMs = backupManager.snapshot(checkpointId);
+      Map<String, String> snapshotSCMs = backupManager.snapshot(checkpointId, storageEngines);
       LOG.debug("Found snapshot SCMs for taskName: {}, checkpoint id: {}, state backend: {} to be: {}",
           taskName, checkpointId, stateBackendFactoryName, snapshotSCMs);
 
-      CompletableFuture<Map<String, String>> uploadFuture = backupManager.upload(checkpointId, snapshotSCMs);
+      CompletableFuture<Map<String, String>> uploadFuture = backupManager
+          .upload(checkpointId, snapshotSCMs, storageEngines);
       try {
         // TODO: HIGH dchen Make async with andThen and add thread management for concurrency and add timeouts,
         // need to make upload threads independent
@@ -250,9 +256,12 @@ public class TaskStorageCommitManager {
    * If there is any delta, it is replayed from the changelog. E.g. this can happen if the job was run on this host,
    * then another host, and then back to this host.
    */
-  // TODO HIGH dchen move tests from KafkaBackupManager to TaskCommitManager
   @VisibleForTesting
   void writeChangelogOffsetFiles(Map<SystemStreamPartition, String> checkpointOffsets) {
+    if (storageEngines == null) {
+      throw new SamzaException(String.format(
+          "Storage engines are not initialized and writeChangelogOffsetFiles not be written for task %s", taskName));
+    }
     storeChangelogs.forEach((storeName, systemStream) -> {
       SystemStreamPartition changelogSSP = new SystemStreamPartition(
           systemStream.getSystem(), systemStream.getStream(), taskChangelogPartition);
