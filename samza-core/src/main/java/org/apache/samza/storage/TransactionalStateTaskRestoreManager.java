@@ -88,11 +88,12 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   private Map<SystemStreamPartition, SystemStreamPartitionMetadata> currentChangelogOffsets;
 
   public TransactionalStateTaskRestoreManager(
-      Set<String> storeNames,
+      Set<String> storeNames,  // non-side input stores
       JobContext jobContext,
       ContainerContext containerContext,
       TaskModel taskModel,
       Map<String, SystemStream> storeChangelogs,
+      Map<String, StorageEngine> inMemoryStores, // in memory stores to be mutated during restore
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, Serde<Object>> serdes,
       SystemAdmins systemAdmins,
@@ -118,7 +119,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
     this.storageManagerUtil = new StorageManagerUtil();
     this.fileUtil = new FileUtil();
     this.storeEngines = createStoreEngines(storeNames, jobContext, containerContext,
-        storageEngineFactories, serdes, metricsRegistry, messageCollector);
+        storageEngineFactories, serdes, metricsRegistry, messageCollector, inMemoryStores);
   }
 
   @Override
@@ -174,16 +175,19 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   private Map<String, StorageEngine> createStoreEngines(Set<String> storeNames, JobContext jobContext,
       ContainerContext containerContext, Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, Serde<Object>> serdes, MetricsRegistry metricsRegistry,
-      MessageCollector messageCollector) {
+      MessageCollector messageCollector, Map<String, StorageEngine> nonPersistedStores) {
     Map<String, StorageEngine> storageEngines = new HashMap<>();
-    for (String storeName : storeNames) {
+    // Put non persisted stores
+    nonPersistedStores.forEach(storageEngines::put);
+    // Create persisted stores
+    storeNames.forEach(storeName -> {
       boolean isLogged = this.storeChangelogs.containsKey(storeName);
       File storeBaseDir = isLogged ? this.loggedStoreBaseDirectory : this.nonLoggedStoreBaseDirectory;
       StorageEngine engine = ContainerStorageManager.createStore(storeName, storeBaseDir, taskModel, jobContext, containerContext,
           storageEngineFactories, serdes, metricsRegistry, messageCollector,
           StorageEngineFactory.StoreMode.BulkLoad, this.storeChangelogs, this.config);
       storageEngines.put(storeName, engine);
-    }
+    });
     return storageEngines;
   }
 

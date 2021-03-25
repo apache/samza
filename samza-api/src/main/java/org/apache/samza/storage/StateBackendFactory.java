@@ -50,6 +50,7 @@ public interface StateBackendFactory {
       ContainerContext containerContext,
       TaskModel taskModel,
       Map<String, SystemConsumer> storeConsumers,
+      Map<String, StorageEngine> inMemoryStores,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, Serde<Object>> serdes,
       MetricsRegistry taskInstanceMetrics,

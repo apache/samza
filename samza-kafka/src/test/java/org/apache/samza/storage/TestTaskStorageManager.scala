@@ -21,6 +21,7 @@ package org.apache.samza.storage
 
 import java.io.{File, FileOutputStream, ObjectOutputStream}
 import java.util
+import java.util.Collections
 
 import com.google.common.collect.{ImmutableMap, ImmutableSet}
 import org.apache.samza.Partition
@@ -28,7 +29,7 @@ import org.apache.samza.checkpoint.{CheckpointId, CheckpointManager, CheckpointV
 import org.apache.samza.config._
 import org.apache.samza.container.{SamzaContainerMetrics, TaskInstanceMetrics, TaskName}
 import org.apache.samza.context.{ContainerContext, JobContext}
-import org.apache.samza.job.model.{ContainerModel, TaskMode, TaskModel}
+import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode, TaskModel}
 import org.apache.samza.serializers.{Serde, StringSerdeFactory}
 import org.apache.samza.storage.StoreProperties.StorePropertiesBuilder
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
@@ -221,8 +222,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
 
     // Test 2: flush should NOT create/update the offset file. Store directory has no files
     val checkpointId = CheckpointId.create()
-    val snapshot = taskManager.snapshot(checkpointId)
-    val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot)
+    val snapshot = taskManager.snapshot(checkpointId, Collections.singletonMap(store, mockStorageEngine))
+    val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot, Collections.singletonMap(store, mockStorageEngine))
     //taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
     assertTrue(storeDirectory.list().isEmpty)
 
@@ -921,7 +922,35 @@ class TaskStorageManagerBuilder extends MockitoSugar {
     when(mockCheckpointManager.readLastCheckpoint(any(classOf[TaskName])))
       .thenReturn(new CheckpointV1(new util.HashMap[SystemStreamPartition, String]()))
 
-    containerStorageManager = new ContainerStorageManager(mockCheckpointManager, containerModel, streamMetadataCache, mockSystemAdmins, changeLogSystemStreams.asJava, Map[String, util.Set[SystemStream]]().asJava, storageEngineFactories.asJava, systemFactories.asJava, mockSerdes.asJava, config, new HashMap[TaskName, TaskInstanceMetrics]().asJava, Mockito.mock(classOf[SamzaContainerMetrics]), Mockito.mock(classOf[JobContext]), Mockito.mock(classOf[ContainerContext]), new KafkaChangelogStateBackendFactory, new HashMap[TaskName, TaskInstanceCollector].asJava, loggedStoreBaseDir, TaskStorageManagerBuilder.defaultStoreBaseDir, null, new SystemClock)
+    val mockContainerContext = Mockito.mock(classOf[ContainerContext])
+    when(mockContainerContext.getContainerModel).thenReturn(containerModel);
+
+    val mockJobContext = Mockito.mock(classOf[JobContext])
+    val mockJobModel =  Mockito.mock(classOf[JobModel])
+    when(mockJobContext.getJobModel).thenReturn(mockJobModel)
+    when(mockJobModel.getMaxChangeLogStreamPartitions).thenReturn(1)
+
+    containerStorageManager = new ContainerStorageManager(
+      mockCheckpointManager,
+      containerModel,
+      streamMetadataCache,
+      mockSystemAdmins,
+      changeLogSystemStreams.asJava,
+      Map[String, util.Set[SystemStream]]().asJava,
+      storageEngineFactories.asJava,
+      systemFactories.asJava,
+      mockSerdes.asJava,
+      config,
+      new HashMap[TaskName, TaskInstanceMetrics]().asJava,
+      Mockito.mock(classOf[SamzaContainerMetrics]),
+      mockJobContext,
+      mockContainerContext,
+      new KafkaChangelogStateBackendFactory,
+      new HashMap[TaskName, TaskInstanceCollector].asJava,
+      loggedStoreBaseDir,
+      TaskStorageManagerBuilder.defaultStoreBaseDir,
+      null,
+      new SystemClock)
     this
   }
 
@@ -935,7 +964,6 @@ class TaskStorageManagerBuilder extends MockitoSugar {
 
     new KafkaNonTransactionalStateTaskBackupManager(
       taskName = taskName,
-      taskStores = containerStorageManager.getAllStores(taskName),
       storeChangelogs = changeLogSystemStreams.asJava,
       systemAdmins = buildSystemAdmins(systemAdminsMap),
       partition = partition

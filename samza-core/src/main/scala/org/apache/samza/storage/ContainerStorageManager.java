@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
@@ -110,6 +111,8 @@ public class ContainerStorageManager {
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
   private static final String SIDEINPUTS_THREAD_NAME = "SideInputs Thread";
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
+  private static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
+      "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
   // We use a prefix to differentiate the SystemConsumersMetrics for sideInputs from the ones in SamzaContainer
 
   // Timeout with which sideinput thread checks for exceptions and for whether SSPs as caught up
@@ -120,6 +123,7 @@ public class ContainerStorageManager {
   private final Map<TaskName, TaskRestoreManager> taskRestoreManagers;
   private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
   private final Map<TaskName, TaskInstanceCollector> taskInstanceCollectors;
+  private final Map<TaskName, Map<String, StorageEngine>> inMemoryStores; // subset of taskStores after #start()
   private Map<TaskName, Map<String, StorageEngine>> taskStores; // Will be available after #start()
 
   private final Map<String, SystemConsumer> storeConsumers; // Mapping from store name to SystemConsumers
@@ -145,7 +149,7 @@ public class ContainerStorageManager {
 
   /* Sideinput related parameters */
   private final boolean hasSideInputs;
-  private final Map<TaskName, Map<String, StorageEngine>> sideInputStores;
+  private final Map<TaskName, Map<String, StorageEngine>> sideInputStores; // subset of taskStores after #start()
   // side inputs indexed first by task, then store name
   private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputStoreSSPs;
   private final Set<String> sideInputStoreNames;
@@ -194,7 +198,7 @@ public class ContainerStorageManager {
         .flatMap(Collection::stream)
         .findAny()
         .isPresent();
-    this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams, this.taskSideInputStoreSSPs); // handling standby tasks
+    this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams); // handling standby tasks
 
     LOG.info("Starting with changelogSystemStreams = {} taskSideInputStoreSSPs = {}", this.changelogSystemStreams, this.taskSideInputStoreSSPs);
 
@@ -232,9 +236,17 @@ public class ContainerStorageManager {
     this.systemAdmins = systemAdmins;
 
     // create side input taskStores for all tasks in the containerModel and each store in storageEngineFactories
-    // TODO dchen move side input stores create to #start after refactoring side input handlers
     this.sideInputStores = createTaskStores(sideInputStoreNames, containerModel, jobContext, containerContext,
         storageEngineFactories, serdes, taskInstanceMetrics, taskInstanceCollectors);
+    StorageConfig storageConfig = new StorageConfig(config);
+    Set<String> inMemoryStoreNames = storageEngineFactories.keySet().stream()
+        .filter(storeName -> {
+          Optional<String> storeFactory = storageConfig.getStorageFactoryClassName(storeName);
+          return storeFactory.isPresent() && !storeFactory.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY);
+        })
+        .collect(Collectors.toSet());
+    this.inMemoryStores = createTaskStores(inMemoryStoreNames,
+        this.containerModel, jobContext, containerContext, storageEngineFactories, serdes, taskInstanceMetrics, taskInstanceCollectors);
 
     Set<String> containerChangelogSystems = this.changelogSystemStreams.values().stream()
         .map(SystemStream::getSystem)
@@ -310,11 +322,10 @@ public class ContainerStorageManager {
    *
    * @param containerModel the container's model
    * @param changelogSystemStreams the passed in set of changelogSystemStreams
-   * @param taskSideInputStoreSSPs the passed in map of side input task name to store SSPs to add to, if null only the filter is applied
    * @return A map of changeLogSSP to storeName across all tasks, assuming no two stores have the same changelogSSP
    */
-  public static Map<String, SystemStream> getChangelogSystemStreams(ContainerModel containerModel, Map<String, SystemStream> changelogSystemStreams,
-      Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputStoreSSPs) {
+  private Map<String, SystemStream> getChangelogSystemStreams(ContainerModel containerModel,
+      Map<String, SystemStream> changelogSystemStreams) {
 
     if (MapUtils.invertMap(changelogSystemStreams).size() != changelogSystemStreams.size()) {
       throw new SamzaException("Two stores cannot have the same changelog system-stream");
@@ -327,15 +338,11 @@ public class ContainerStorageManager {
     );
 
     getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
-      if (taskSideInputStoreSSPs != null) {
-        taskSideInputStoreSSPs.putIfAbsent(taskName, new HashMap<>());
-      }
+      taskSideInputStoreSSPs.putIfAbsent(taskName, new HashMap<>());
       changelogSystemStreams.forEach((storeName, systemStream) -> {
         SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
         changelogSSPToStore.remove(ssp);
-        if (taskSideInputStoreSSPs != null) {
-          taskSideInputStoreSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
-        }
+        taskSideInputStoreSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
       });
     });
 
@@ -380,16 +387,19 @@ public class ContainerStorageManager {
   private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(StateBackendFactory factory, Clock clock,
       SamzaContainerMetrics samzaContainerMetrics) {
     Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
+
     containerModel.getTasks().forEach((taskName, taskModel) -> {
       MetricsRegistry storeMetricsRegistry =
           taskInstanceMetrics.get(taskName) != null ? taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
       Set<String> nonSideInputStoreNames = storageEngineFactories.keySet().stream()
           .filter(storeName -> !sideInputStoreNames.contains(storeName))
           .collect(Collectors.toSet());
+
       taskRestoreManagers.put(taskName,
-          factory.getRestoreManager(jobContext, containerContext, taskModel, storeConsumers, storageEngineFactories,
-              serdes, storeMetricsRegistry, taskInstanceCollectors.get(taskName), nonSideInputStoreNames, config, clock,
-              loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory));
+          factory.getRestoreManager(jobContext, containerContext, taskModel, storeConsumers,
+              inMemoryStores.get(taskName), storageEngineFactories, serdes, storeMetricsRegistry,
+              taskInstanceCollectors.get(taskName), nonSideInputStoreNames, config, clock, loggedStoreBaseDirectory,
+              nonLoggedStoreBaseDirectory));
       samzaContainerMetrics.addStoresRestorationGauge(taskName);
     });
     return taskRestoreManagers;
@@ -411,6 +421,7 @@ public class ContainerStorageManager {
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors) {
     Map<TaskName, Map<String, StorageEngine>> taskStores = new HashMap<>();
+    StorageConfig storageConfig = new StorageConfig(config);
 
     // iterate over each task and each storeName
     for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
@@ -421,7 +432,10 @@ public class ContainerStorageManager {
       }
 
       for (String storeName : storesToCreate) {
-        boolean isDurable = changelogSystemStreams.containsKey(storeName); // TODO dchen how to determine isDurable for blob stores
+        Optional<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
+        // A store is considered durable if it is backed by a changelog or another backupManager factory
+        boolean isDurable = changelogSystemStreams.containsKey(storeName) ||
+            storeBackupManager.isPresent() && !StringUtils.isBlank(storeBackupManager.get());
         boolean isSideInput = this.taskSideInputStoreSSPs.get(taskName).containsKey(storeName);
         // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
         // for non logged stores
@@ -468,8 +482,6 @@ public class ContainerStorageManager {
       Config config) {
 
     StorageConfig storageConfig = new StorageConfig(config);
-    TaskName taskName = taskModel.getTaskName();
-
     SystemStreamPartition changeLogSystemStreamPartition = changelogSystemStreams.containsKey(storeName) ?
         new SystemStreamPartition(changelogSystemStreams.get(storeName), taskModel.getChangelogPartition()) : null;
 
@@ -617,7 +629,7 @@ public class ContainerStorageManager {
     // initialize each TaskStorageManager
     this.taskRestoreManagers.forEach((taskName, taskRestoreManager) -> {
       Checkpoint taskCheckpoint = null;
-      Set<TaskName> activeTasks = getTasks(containerModel, TaskMode.Active).keySet(); // TODO verify standby taskRestoreManagers behavior
+      Set<TaskName> activeTasks = getTasks(containerModel, TaskMode.Active).keySet(); // TODO HIGH dchen verify standby taskRestoreManagers behavior
       if (checkpointManager != null && activeTasks.contains(taskName)) {
         // only pass in checkpoints for active tasks
         taskCheckpoint = checkpointManager.readLastCheckpoint(taskName);
@@ -668,6 +680,20 @@ public class ContainerStorageManager {
         .collect(Collectors.toSet());
     this.taskStores = createTaskStores(nonSideInputStoreNames, this.containerModel, jobContext, containerContext,
         storageEngineFactories, serdes, taskInstanceMetrics, taskInstanceCollectors);
+    // Add in memory stores
+    this.inMemoryStores.forEach((taskName, stores) -> {
+      if (!this.taskStores.containsKey(taskName)) {
+        taskStores.put(taskName, new HashMap<>());
+      }
+      taskStores.get(taskName).putAll(stores);
+    });
+    // Add side input stores
+    this.sideInputStores.forEach((taskName, stores) -> {
+      if (!this.taskStores.containsKey(taskName)) {
+        taskStores.put(taskName, new HashMap<>());
+      }
+      taskStores.get(taskName).putAll(stores);
+    });
 
     LOG.info("Store Restore complete");
   }

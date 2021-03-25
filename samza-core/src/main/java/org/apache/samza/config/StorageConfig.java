@@ -125,7 +125,6 @@ public class StorageConfig extends MapConfig {
       if (changelogSystem.isPresent()) {
         systemStreamRes = changelogSystem.get() + "." + systemStream;
       } else {
-        // TODO dchen remove for blob store only changelog
         throw new SamzaException("changelog system is not defined:" + systemStream);
       }
     } else {

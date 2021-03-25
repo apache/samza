@@ -291,7 +291,7 @@ class StreamTaskTestUtil {
       case _ => throw new ConfigException("No checkpoint manager factory configured")
     }
 
-    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.getMaxChangeLogStreamPartitions)
   }
 }
 

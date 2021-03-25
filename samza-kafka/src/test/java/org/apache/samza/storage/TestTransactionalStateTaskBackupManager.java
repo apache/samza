@@ -60,7 +60,7 @@ public class TestTransactionalStateTaskBackupManager {
 
     KafkaTransactionalStateTaskBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
     TaskStorageCommitManager commitManager = new TaskStorageCommitManager(new TaskName("task"),
-        ImmutableMap.of("kafka", tsm), taskStores, null, null, null, null,
+        ImmutableMap.of("kafka", tsm), csm, null, null, null, null,
         new StorageManagerUtil(), null);
     // stub actual method call
     doReturn(mock(java.util.Map.class)).when(tsm).getNewestChangelogSSPOffsets(any(), any(), any(), any());
@@ -264,6 +264,6 @@ public class TestTransactionalStateTaskBackupManager {
     SystemAdmins systemAdmins = mock(SystemAdmins.class);
 
     return new KafkaTransactionalStateTaskBackupManager(
-        taskName, csm.getAllStores(taskName), changelogSystemStreams, systemAdmins, changelogPartition);
+        taskName, changelogSystemStreams, systemAdmins, changelogPartition);
   }
 }

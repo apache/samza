@@ -161,7 +161,7 @@ public class TaskStorageCommitManager {
           taskName, checkpoint);
       storageEngines.forEach((storeName, storageEngine) -> {
         // Only write the checkpoint file if the store is durable and persisted to disk
-        if (storageEngine.getStoreProperties().isDurableStore() &&
+        if (storageEngine.getStoreProperties().isDurableStore() && //TODO how to determine if
             storageEngine.getStoreProperties().isPersistedToDisk()) {
           CheckpointV2 checkpointV2 = (CheckpointV2) checkpoint;
 
