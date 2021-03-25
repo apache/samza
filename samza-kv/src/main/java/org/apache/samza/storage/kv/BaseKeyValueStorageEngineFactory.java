@@ -104,6 +104,10 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     if (!storeFactory.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY)) {
       storePropertiesBuilder.setPersistedToDisk(true);
     }
+    // The store is durable iff it is backed by the task backup manager
+    Optional<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
+    storePropertiesBuilder.setIsDurable(storeBackupManager.isPresent() && !StringUtils.isBlank(storeBackupManager.get()));
+
     int batchSize = storageConfigSubset.getInt(WRITE_BATCH_SIZE, DEFAULT_WRITE_BATCH_SIZE);
     int cacheSize = storageConfigSubset.getInt(OBJECT_CACHE_SIZE, Math.max(batchSize, DEFAULT_OBJECT_CACHE_SIZE));
     if (cacheSize > 0 && cacheSize < batchSize) {

@@ -538,7 +538,7 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val stateStorageBackendBackupFactories = storageConfig.getStateBackendBackupFactories().asScala.map(
+    val stateStorageBackendBackupFactories = storageConfig.getStateBackendBackupFactories.asScala.map(
       ReflectionUtil.getObj(_, classOf[StateBackendFactory])
     )
 

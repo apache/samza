@@ -24,12 +24,15 @@ package org.apache.samza.storage;
 public class StoreProperties {
   private final boolean persistedToDisk;
   private final boolean loggedStore;
+  private final boolean durable;
 
   private StoreProperties(
       final boolean persistedToDisk,
-      final boolean loggedStore) {
+      final boolean loggedStore,
+      final boolean durable) {
     this.persistedToDisk = persistedToDisk;
     this.loggedStore = loggedStore;
+    this.durable = durable;
   }
 
   /**
@@ -57,14 +60,13 @@ public class StoreProperties {
    * @return True, if the store is durable. False by default.
    */
   public boolean isDurableStore() {
-    // TODO HIGH dchen all logged stores are durable but durability no longer require logged
-    // with new state backup managers, need to make this check if this store has remove backup on construction
-    return loggedStore;
+    return durable;
   }
 
   public static class StorePropertiesBuilder {
     private boolean persistedToDisk = false;
     private boolean loggedStore = false;
+    private boolean durable = false;
 
     public StorePropertiesBuilder setPersistedToDisk(boolean persistedToDisk) {
       this.persistedToDisk = persistedToDisk;
@@ -76,8 +78,13 @@ public class StoreProperties {
       return this;
     }
 
+    public StorePropertiesBuilder setIsDurable(boolean durable) {
+      this.durable = durable;
+      return this;
+    }
+
     public StoreProperties build() {
-      return new StoreProperties(persistedToDisk, loggedStore);
+      return new StoreProperties(persistedToDisk, loggedStore, durable);
     }
   }
 }

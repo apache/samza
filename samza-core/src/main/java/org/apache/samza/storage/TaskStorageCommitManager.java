@@ -290,9 +290,9 @@ public class TaskStorageCommitManager {
             // If newestOffset is null, then it means the changelog ssp is (or has become) empty. This could be
             // either because the changelog topic was newly added, repartitioned, or manually deleted and recreated.
             // No need to persist the offset file.
-            storageManagerUtil.deleteOffsetFile(currentStoreDir);
             LOG.debug("Deleting OFFSET file for taskName {} store {} changelog ssp {} since the newestOffset is null.",
                 taskName, storeName, changelogSSP);
+            storageManagerUtil.deleteOffsetFile(currentStoreDir);
           }
         } catch (IOException e) {
           throw new SamzaException(
@@ -310,7 +310,5 @@ public class TaskStorageCommitManager {
     LOG.debug("Storing newest offset {} for taskName {} store {} changelog ssp {} in OFFSET file at path: {}.",
         newestOffset, taskName, storeName, ssp, writeDirectory);
     storageManagerUtil.writeOffsetFile(writeDirectory, Collections.singletonMap(ssp, newestOffset), false);
-    LOG.debug("Successfully stored offset {} for taskName {} store {} changelog {} in OFFSET file at path: {}.",
-        newestOffset, taskName, storeName, ssp, writeDirectory);
   }
 }
