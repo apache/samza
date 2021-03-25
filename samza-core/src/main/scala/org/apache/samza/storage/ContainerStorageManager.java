@@ -41,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
@@ -432,10 +431,9 @@ public class ContainerStorageManager {
       }
 
       for (String storeName : storesToCreate) {
-        Optional<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
         // A store is considered durable if it is backed by a changelog or another backupManager factory
         boolean isDurable = changelogSystemStreams.containsKey(storeName) ||
-            storeBackupManager.isPresent() && !StringUtils.isBlank(storeBackupManager.get());
+            !storageConfig.getStoreBackupManagerClassName(storeName).isEmpty();
         boolean isSideInput = this.taskSideInputStoreSSPs.get(taskName).containsKey(storeName);
         // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
         // for non logged stores

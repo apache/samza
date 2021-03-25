@@ -19,6 +19,7 @@
 
 package org.apache.samza.config;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -66,8 +67,8 @@ public class StorageConfig extends MapConfig {
   public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
   public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
 
-  public static final String STORE_BACKEND_BACKUP_FACTORY = STORE_PREFIX + "%s.state.backend.backup.factory";
-  public static final String DEFAULT_STATE_BACKEND_BACKUP_FACTORY = "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
+  public static final String STORE_BACKEND_BACKUP_FACTORIES = STORE_PREFIX + "%s.state.backend.backup.factories";
+  public static final List<String> DEFAULT_STATE_BACKEND_BACKUP_FACTORIES = ImmutableList.of("org.apache.samza.storage.KafkaChangelogStateBackendFactory");
   public static final String STATE_BACKEND_RESTORE_FACTORY = STORE_PREFIX + "state.backend.restore.factory";
   public static final String DEFAULT_STATE_BACKEND_RESTORE_FACTORY = "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
 
@@ -137,14 +138,13 @@ public class StorageConfig extends MapConfig {
     return Optional.ofNullable(systemStreamRes);
   }
 
-  public Optional<String> getStoreBackupManagerClassName(String storeName) {
-    String storeBackupManager = StringUtils
-        .trimToNull(get(String.format(STORE_BACKEND_BACKUP_FACTORY, storeName), null));
+  public List<String> getStoreBackupManagerClassName(String storeName) {
+    List<String> storeBackupManagers = getList(String.format(STORE_BACKEND_BACKUP_FACTORIES, storeName), new ArrayList<>());
     // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
-    if (storeBackupManager == null && getChangelogStream(storeName).isPresent()) {
-      storeBackupManager = DEFAULT_STATE_BACKEND_BACKUP_FACTORY;
+    if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
+      storeBackupManagers = DEFAULT_STATE_BACKEND_BACKUP_FACTORIES;
     }
-    return Optional.ofNullable(storeBackupManager);
+    return storeBackupManagers;
   }
 
   public boolean getAccessLogEnabled(String storeName) {
@@ -269,9 +269,9 @@ public class StorageConfig extends MapConfig {
   public Set<String> getStateBackendBackupFactories() {
     Set<String> stateBackupFactories = new HashSet<>();
     getStoreNames().forEach((storeName) -> {
-      Optional<String> storeBackupFactory = getStoreBackupManagerClassName(storeName);
-      if (storeBackupFactory.isPresent() && !StringUtils.isBlank(storeBackupFactory.get())) {
-        stateBackupFactories.add(storeBackupFactory.get());
+      List<String> storeBackupFactory = getStoreBackupManagerClassName(storeName);
+      if (!storeBackupFactory.isEmpty()) {
+        stateBackupFactories.addAll(storeBackupFactory);
       }
     });
     return stateBackupFactories;

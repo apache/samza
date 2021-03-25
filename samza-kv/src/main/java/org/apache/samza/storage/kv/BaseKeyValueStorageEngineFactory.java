@@ -19,6 +19,7 @@
 package org.apache.samza.storage.kv;
 
 import java.io.File;
+import java.util.List;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
@@ -105,8 +106,8 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
       storePropertiesBuilder.setPersistedToDisk(true);
     }
     // The store is durable iff it is backed by the task backup manager
-    Optional<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
-    storePropertiesBuilder.setIsDurable(storeBackupManager.isPresent() && !StringUtils.isBlank(storeBackupManager.get()));
+    List<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
+    storePropertiesBuilder.setIsDurable(!storeBackupManager.isEmpty());
 
     int batchSize = storageConfigSubset.getInt(WRITE_BATCH_SIZE, DEFAULT_WRITE_BATCH_SIZE);
     int cacheSize = storageConfigSubset.getInt(OBJECT_CACHE_SIZE, Math.max(batchSize, DEFAULT_OBJECT_CACHE_SIZE));
