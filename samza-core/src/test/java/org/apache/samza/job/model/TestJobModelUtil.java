@@ -29,11 +29,75 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.powermock.api.mockito.PowerMockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
 public class TestJobModelUtil {
+  private static final String PROCESSOR_ID = "testProcessor";
+
+  @Test
+  public void testCompareContainerModel() {
+    assertTrue("Expecting null container models to return true", JobModelUtil.compareContainerModel(null, null));
+
+    assertFalse("Expecting false for two different container model",
+        JobModelUtil.compareContainerModel(mock(ContainerModel.class), mock(ContainerModel.class)));
+
+    final ContainerModel mockContainerModel = mock(ContainerModel.class);
+    assertTrue("Expecting true for same container model",
+        JobModelUtil.compareContainerModel(mockContainerModel, mockContainerModel));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testCompareContainerModelForNullProcessor() {
+    JobModelUtil.compareContainerModelForProcessor(null, mock(JobModel.class), mock(JobModel.class));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testCompareContainerModelForBlankProcessor() {
+    JobModelUtil.compareContainerModelForProcessor("", mock(JobModel.class), mock(JobModel.class));
+  }
+
+  /**
+   * Tests the following scenarios as part of the same tests to reduce boiler plate and potentially allow
+   * parallel executions of tests for the class.
+   *  1. Test null job models for processors
+   *  2. Test same container models across job models for processors
+   *  3. Test different container models across job models for processors
+   *  4. Test absence of container model vs presence across job models for processors
+   *
+   * The approach below leans towards performance (parallel execution) as opposed to readability; i.e sharing setup of
+   * the tests and having multiple tests that test individual scenarios. Additionally, the individual scenarios being
+   * tested are self explanatory.
+   */
+  @Test
+  public void testCompareContainerModelForProcessor() {
+    final JobModel firstJobModel = mock(JobModel.class);
+    final JobModel secondJobModel = mock(JobModel.class);
+    final ContainerModel mockContainerModel = mock(ContainerModel.class);
+    Map<String, ContainerModel> mockContainerModels = mock(Map.class);
+
+    assertTrue("Null job models should return true for comparison",
+        JobModelUtil.compareContainerModelForProcessor(PROCESSOR_ID, null, null));
+
+    when(firstJobModel.getContainers()).thenReturn(mockContainerModels);
+    when(secondJobModel.getContainers()).thenReturn(mockContainerModels);
+    when(mockContainerModels.get(PROCESSOR_ID)).thenReturn(mockContainerModel);
+    assertTrue("Expecting both job model to have same container model for the processor",
+        JobModelUtil.compareContainerModelForProcessor(PROCESSOR_ID, firstJobModel, secondJobModel));
+
+    when(mockContainerModels.get(PROCESSOR_ID))
+        .thenReturn(mockContainerModel)
+        .thenReturn(mock(ContainerModel.class));
+    assertFalse("Expecting container models to be different across job models for the processor",
+        JobModelUtil.compareContainerModelForProcessor(PROCESSOR_ID, firstJobModel, secondJobModel));
+
+    when(mockContainerModels.get(PROCESSOR_ID)).thenReturn(null)
+        .thenReturn(mockContainerModel);
+    assertFalse("Expecting container models to be different across job models for the processor",
+        JobModelUtil.compareContainerModelForProcessor(PROCESSOR_ID, firstJobModel, secondJobModel));
+  }
 
   @Test
   public void testGetTaskNamesForProcessorAbsentInJobModel() {

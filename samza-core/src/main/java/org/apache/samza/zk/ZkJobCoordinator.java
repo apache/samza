@@ -98,7 +98,6 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final String processorId;
 
   private final Config config;
-  private final ZkBarrierForVersionUpgrade barrier;
   private final ZkJobCoordinatorMetrics metrics;
   private final ZkLeaderElector leaderElector;
   private final AtomicBoolean initiatedShutdown = new AtomicBoolean(false);
@@ -111,9 +110,13 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final CoordinatorStreamStore coordinatorStreamStore;
 
   private JobCoordinatorListener coordinatorListener = null;
-  private JobModel newJobModel;
+  // denotes the most recent job model agreed by the quorum
+  private JobModel activeJobModel;
+  // denotes job model that is latest but may have not reached consensus
+  private JobModel latestJobModel;
   private boolean hasLoadedMetadataResources = false;
   private String cachedJobModelVersion = null;
+  private ZkBarrierForVersionUpgrade barrier;
 
   @VisibleForTesting
   ZkSessionMetrics zkSessionMetrics;
@@ -232,7 +235,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
   @Override
   public JobModel getJobModel() {
-    return newJobModel;
+    return latestJobModel;
   }
 
   @Override
@@ -269,11 +272,11 @@ public class ZkJobCoordinator implements JobCoordinator {
 
     // Generate the JobModel
     LOG.info("Generating new JobModel with processors: {}.", currentProcessorIds);
-    JobModel jobModel = generateNewJobModel(processorNodes);
+    JobModel newJobModel = generateNewJobModel(processorNodes);
 
     // Create checkpoint and changelog streams if they don't exist
     if (!hasLoadedMetadataResources) {
-      loadMetadataResources(jobModel);
+      loadMetadataResources(newJobModel);
       hasLoadedMetadataResources = true;
     }
 
@@ -283,7 +286,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     LOG.info("pid=" + processorId + "Generated new JobModel with version: " + nextJMVersion + " and processors: " + currentProcessorIds);
 
     // Publish the new job model
-    publishJobModelToMetadataStore(jobModel, nextJMVersion);
+    publishJobModelToMetadataStore(newJobModel, nextJMVersion);
 
     // Start the barrier for the job model update
     barrier.create(nextJMVersion, currentProcessorIds);
@@ -393,6 +396,90 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   /**
+   * Check if the new job model contains a different work assignment for the processor compared the last active job
+   * model. In case of different work assignment, expire the current job model by invoking the <i>onJobModelExpired</i>
+   * on the registered {@link JobCoordinatorListener}.
+   * At this phase, the job model is yet to be agreed by the quorum and hence, this optimization helps availability of
+   * the processors in the event no changes in the work assignment.
+   *
+   * @param newJobModel new job model published by the leader
+   */
+  @VisibleForTesting
+  void checkAndExpireJobModel(JobModel newJobModel) {
+    Preconditions.checkNotNull(newJobModel, "JobModel cannot be null");
+    if (coordinatorListener == null) {
+      LOG.info("Skipping job model expiration since there are no active listeners");
+      return;
+    }
+
+    if (JobModelUtil.compareContainerModelForProcessor(processorId, activeJobModel, newJobModel)) {
+      LOG.info("Skipping job model expiration for processor {} due to no change in work assignment.", processorId);
+    } else {
+      LOG.info("Work assignment changed for the processor {}. Notifying job model expiration to coordinator listener", processorId);
+      coordinatorListener.onJobModelExpired();
+    }
+  }
+
+  /**
+   * Checks if the new job model contains a different work assignment for the processor compared to the last active
+   * job model. In case of different work assignment, update the task locality of the tasks associated with the
+   * processor and notify new job model to the registered {@link JobCoordinatorListener}.
+   *
+   * @param newJobModel new job model agreed by the quorum
+   */
+  @VisibleForTesting
+  void onNewJobModel(JobModel newJobModel) {
+    Preconditions.checkNotNull(newJobModel, "JobModel cannot be null. Failing onNewJobModel");
+    // start the container with the new model
+    if (!JobModelUtil.compareContainerModelForProcessor(processorId, activeJobModel, newJobModel)) {
+      LOG.info("Work assignment changed for the processor {}. Updating task locality and notifying coordinator listener", processorId);
+      if (newJobModel.getContainers().containsKey(processorId)) {
+        for (TaskName taskName : JobModelUtil.getTaskNamesForProcessor(processorId, newJobModel)) {
+          zkUtils.writeTaskLocality(taskName, locationId);
+        }
+
+        if (coordinatorListener != null) {
+          coordinatorListener.onNewJobModel(processorId, newJobModel);
+        }
+      }
+    } else {
+      /*
+       * The implication of work assignment remaining the same can be categorized into
+       *   1. Processor part of the job model
+       *   2. Processor not part of the job model.
+       * For both the state of the processor remains what it was when the rebalance started. e.g.,
+       *   [1] should continue to process its work assignment without any interruption as part of the rebalance. i.e.,
+       *       there will be no expiration of the existing work (a.k.a samza container won't be stopped) and also no
+       *       notification to StreamProcessor about the rebalance since work assignment didn't change.
+       *   [2] should have no work and be idle processor and will continue to be idle.
+       */
+      LOG.info("Skipping onNewJobModel since there are no changes in work assignment.");
+    }
+
+    /*
+     * Update the last active job model to new job model regardless of whether the work assignment for the processor
+     * has changed or not. It is important to do it so that all the processors has a consistent view what the latest
+     * active job model is.
+     */
+    activeJobModel = newJobModel;
+  }
+
+  @VisibleForTesting
+  JobModel getActiveJobModel() {
+    return activeJobModel;
+  }
+
+  @VisibleForTesting
+  void setActiveJobModel(JobModel jobModel) {
+    activeJobModel = jobModel;
+  }
+
+  @VisibleForTesting
+  void setZkBarrierUpgradeForVersion(ZkBarrierForVersionUpgrade barrierUpgradeForVersion) {
+    barrier = barrierUpgradeForVersion;
+  }
+
+  /**
    * Builds the {@link GrouperMetadataImpl} based upon provided {@param jobModelVersion}
    * and {@param processorNodes}.
    * @param jobModelVersion the most recent jobModelVersion available in the zookeeper.
@@ -467,16 +554,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
         debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> {
           LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
-
-          // read the new Model
-          JobModel jobModel = getJobModel();
-          // start the container with the new model
-          if (coordinatorListener != null) {
-            for (TaskName taskName : JobModelUtil.getTaskNamesForProcessor(processorId, jobModel)) {
-              zkUtils.writeTaskLocality(taskName, locationId);
-            }
-            coordinatorListener.onNewJobModel(processorId, jobModel);
-          }
+          onNewJobModel(getJobModel());
         });
       } else {
         if (ZkBarrierForVersionUpgrade.State.TIMED_OUT.equals(state)) {
@@ -541,21 +619,11 @@ public class ZkJobCoordinator implements JobCoordinator {
 
         LOG.info("Got a notification for new JobModel version. Path = {} Version = {}", dataPath, data);
 
-        newJobModel = readJobModelFromMetadataStore(jobModelVersion);
-        LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + newJobModel);
-
-        if (!newJobModel.getContainers().containsKey(processorId)) {
-          LOG.info("New JobModel does not contain pid={}. Stopping this processor. New JobModel: {}",
-              processorId, newJobModel);
-          stop();
-        } else {
-          // stop current work
-          if (coordinatorListener != null) {
-            coordinatorListener.onJobModelExpired();
-          }
-          // update ZK and wait for all the processors to get this new version
-          barrier.join(jobModelVersion, processorId);
-        }
+        latestJobModel = readJobModelFromMetadataStore(jobModelVersion);
+        LOG.info("pid=" + processorId + ": new JobModel is available. Version =" + jobModelVersion + "; JobModel = " + latestJobModel);
+        checkAndExpireJobModel(latestJobModel);
+        // update ZK and wait for all the processors to get this new version
+        barrier.join(jobModelVersion, processorId);
       });
     }
 
