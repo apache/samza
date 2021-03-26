@@ -415,6 +415,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     if (JobModelUtil.compareContainerModelForProcessor(processorId, activeJobModel, newJobModel)) {
       LOG.info("Skipping job model expiration for processor {} due to no change in work assignment.", processorId);
     } else {
+      LOG.info("Work assignment changed for the processor {}. Notifying job model expiration to coordinator listener", processorId);
       coordinatorListener.onJobModelExpired();
     }
   }
@@ -431,6 +432,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     Preconditions.checkNotNull(newJobModel, "JobModel cannot be null. Failing onNewJobModel");
     // start the container with the new model
     if (!JobModelUtil.compareContainerModelForProcessor(processorId, activeJobModel, newJobModel)) {
+      LOG.info("Work assignment changed for the processor {}. Updating task locality and notifying coordinator listener", processorId);
       if (newJobModel.getContainers().containsKey(processorId)) {
         for (TaskName taskName : JobModelUtil.getTaskNamesForProcessor(processorId, newJobModel)) {
           zkUtils.writeTaskLocality(taskName, locationId);
@@ -441,6 +443,16 @@ public class ZkJobCoordinator implements JobCoordinator {
         }
       }
     } else {
+      /*
+       * The implication of work assignment remaining the same can be categorized into
+       *   1. Processor part of the job model
+       *   2. Processor not part of the job model.
+       * For both the state of the processor remains what it was when the rebalance started. e.g.,
+       *   [1] should continue to process its work assignment without any interruption as part of the rebalance. i.e.,
+       *       there will be no expiration of the existing work (a.k.a samza container won't be stopped) and also no
+       *       notification to StreamProcessor about the rebalance since work assignment didn't change.
+       *   [2] should have no work and be idle processor and will continue to be idle.
+       */
       LOG.info("Skipping onNewJobModel since there are no changes in work assignment.");
     }
 
