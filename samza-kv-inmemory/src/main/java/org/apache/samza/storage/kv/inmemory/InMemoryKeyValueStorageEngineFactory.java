@@ -25,7 +25,6 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.storage.kv.BaseKeyValueStorageEngineFactory;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.storage.kv.KeyValueStoreMetrics;
-import org.apache.samza.system.SystemStreamPartition;
 
 
 public class InMemoryKeyValueStorageEngineFactory<K, V> extends BaseKeyValueStorageEngineFactory<K, V> {

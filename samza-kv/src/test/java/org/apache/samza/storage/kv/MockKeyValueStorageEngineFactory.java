@@ -22,7 +22,6 @@ import java.io.File;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.system.SystemStreamPartition;
 
 
 /**

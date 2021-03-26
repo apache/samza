@@ -49,8 +49,8 @@ import org.apache.samza.util.Clock;
 
 
 public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
-  private static StreamMetadataCache streamCache;
-  private static SSPMetadataCache sspCache;
+  private StreamMetadataCache streamCache;
+  private SSPMetadataCache sspCache;
 
   @Override
   public TaskBackupManager getBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
@@ -107,8 +107,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
           storeConsumers,
           metricsRegistry,
           messageCollector,
-          KafkaChangelogStateBackendFactory
-              .getSspCache(systemAdmins, clock, changelogSSPs),
+          getSspCache(systemAdmins, clock, changelogSSPs),
           loggedStoreBaseDir,
           nonLoggedStoreBaseDir,
           config,
@@ -125,7 +124,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
           storageEngineFactories,
           serdes,
           systemAdmins,
-          KafkaChangelogStateBackendFactory.getStreamCache(systemAdmins, clock),
+          getStreamCache(systemAdmins, clock),
           storeConsumers,
           metricsRegistry,
           messageCollector,
@@ -150,7 +149,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
    * @param clock for cache invalidation
    * @return StreamMetadataCache containing the stream metadata
    */
-  private static StreamMetadataCache getStreamCache(SystemAdmins admins, Clock clock) {
+  private StreamMetadataCache getStreamCache(SystemAdmins admins, Clock clock) {
     if (streamCache == null) {
       streamCache = new StreamMetadataCache(admins, 5000, clock);
     }
@@ -165,7 +164,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
    * @param ssps SSPs to prefetch
    * @return SSPMetadataCache containing the partition metadata
    */
-  private static SSPMetadataCache getSspCache(SystemAdmins admins, Clock clock, Set<SystemStreamPartition> ssps) {
+  private SSPMetadataCache getSspCache(SystemAdmins admins, Clock clock, Set<SystemStreamPartition> ssps) {
     if (sspCache == null) {
       sspCache = new SSPMetadataCache(admins, Duration.ofSeconds(5), clock, ssps);
     }

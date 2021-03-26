@@ -183,7 +183,9 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
     storeNames.forEach(storeName -> {
       boolean isLogged = this.storeChangelogs.containsKey(storeName);
       File storeBaseDir = isLogged ? this.loggedStoreBaseDirectory : this.nonLoggedStoreBaseDirectory;
-      StorageEngine engine = ContainerStorageManager.createStore(storeName, storeBaseDir, taskModel, jobContext, containerContext,
+      File storeDirectory = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskModel.getTaskName(),
+          taskModel.getTaskMode());
+      StorageEngine engine = ContainerStorageManager.createStore(storeName, storeDirectory, taskModel, jobContext, containerContext,
           storageEngineFactories, serdes, metricsRegistry, messageCollector,
           StorageEngineFactory.StoreMode.BulkLoad, this.storeChangelogs, this.config);
       storageEngines.put(storeName, engine);

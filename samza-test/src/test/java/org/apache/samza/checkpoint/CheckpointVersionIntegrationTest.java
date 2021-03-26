@@ -121,6 +121,8 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
 
   private void secondRun(String changelogTopic, List<String> expectedChangelogMessages,
       List<String> expectedInitialStoreContents, Map<String, String> overriddenConfigs) {
+    // remove previous files so restore is from the checkpointV2
+    new FileUtil().rm(new File(LOGGED_STORE_BASE_DIR));
 
     // produce the second batch of input messages
 

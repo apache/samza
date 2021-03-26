@@ -66,6 +66,7 @@ public class TestTransactionalStateTaskBackupManager {
     doReturn(mock(java.util.Map.class)).when(tsm).getNewestChangelogSSPOffsets(any(), any(), any(), any());
 
     // invoke Kafka flush
+    commitManager.init();
     commitManager.commit(CheckpointId.create());
 
     // ensure that stores are flushed before we get newest changelog offsets
