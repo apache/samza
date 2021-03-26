@@ -370,7 +370,7 @@ Examples:
     
     // Group the pageView stream into 30 second tumbling windows keyed by the userId.
     MessageStream<PageView> pageViews = ...
-    MessageStream<WindowPane<String, Collection<PageView>>> = pageViews.window(
+    MessageStream<WindowPane<String, Collection<PageView>>> windowedStream = pageViews.window(
         Windows.keyedTumblingWindow(
             pageView -> pageView.getUserId(), // key extractor
             Duration.ofSeconds(30), // window duration
@@ -397,6 +397,11 @@ Examples:
 
 {% highlight java %}
 
+    // Sessionize a stream of page views with a session gap of 10 seconds
+    MessageStream<PageView> pageViews = …
+    MessageStream<WindowPane<String>, Collection<PageView>> windowedStream = pageViews.window(
+      Windows.keyedSessionWindow(pageView -> pageView.getUserId(), Duration.ofSeconds(10)));
+    
     // Sessionize a stream of page views, and count the number of page-views in a session for every user.
     MessageStream<PageView> pageViews = …
     Supplier<Integer> initialValue = () -> 0
@@ -410,18 +415,6 @@ Examples:
             initialValue, 
             countAggregator,
             new StringSerde(), new IntegerSerde()));
-
-    // Compute the maximum value over tumbling windows of 30 seconds.
-    MessageStream<Integer> integers = …
-    Supplier<Integer> initialValue = () -> Integer.MAX_INT
-    FoldLeftFunction<Integer, Integer> aggregateFunction = (msg, oldValue) -> Math.max(msg, oldValue)
-    
-    MessageStream<WindowPane<Void, Integer>> windowedStream = integers.window(
-        Windows.tumblingWindow(
-            Duration.ofSeconds(30), 
-            initialValue, 
-            aggregateFunction,
-            new IntegerSerde()));
          
 {% endhighlight %}
 
