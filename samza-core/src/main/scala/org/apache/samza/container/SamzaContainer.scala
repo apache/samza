@@ -28,7 +28,6 @@ import java.util
 import java.util.{Base64, Optional}
 import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, ThreadPoolExecutor, TimeUnit}
 import java.util.function.Consumer
-
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
@@ -479,10 +478,14 @@ object SamzaContainer extends Logging {
       null
     }
 
-
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
       taskFactory,
       taskThreadPool)
+
+    // executor for performing async commit operations for a task.
+    val commitThreadPoolSize = Math.min(containerModel.getTasks.size(), taskConfig.getCommitMaxThreadPoolSize)
+    val commitThreadPool = Executors.newFixedThreadPool(commitThreadPoolSize,
+      new ThreadFactoryBuilder().setNameFormat("Samza Task Commit Thread-%d").setDaemon(true).build())
 
     val taskModels = containerModel.getTasks.values.asScala
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
@@ -567,7 +570,7 @@ object SamzaContainer extends Logging {
       stateStorageBackendBackupFactories.asJava.forEach(new Consumer[StateBackendFactory] {
         override def accept(factory: StateBackendFactory): Unit = {
           val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
-            taskModel, config, new SystemClock)
+            taskModel, commitThreadPool, config, new SystemClock)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
         }
       })
@@ -597,6 +600,7 @@ object SamzaContainer extends Logging {
           streamMetadataCache = streamMetadataCache,
           inputStreamMetadata = inputStreamMetadata,
           timerExecutor = timerExecutor,
+          commitThreadPool = commitThreadPool,
           jobContext = jobContext,
           containerContext = containerContext,
           applicationContainerContextOption = applicationContainerContextOption,
@@ -687,6 +691,7 @@ object SamzaContainer extends Logging {
       diskSpaceMonitor = diskSpaceMonitor,
       hostStatisticsMonitor = hostStatisticsMonitor,
       taskThreadPool = taskThreadPool,
+      commitThreadPool = commitThreadPool,
       timerExecutor = timerExecutor,
       containerContext = containerContext,
       applicationContainerContextOption = applicationContainerContextOption,
@@ -726,6 +731,7 @@ class SamzaContainer(
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null,
   taskThreadPool: ExecutorService = null,
+  commitThreadPool: ExecutorService = null,
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
@@ -1058,6 +1064,18 @@ class SamzaContainer(
         taskThreadPool.shutdown()
         if(taskThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           taskThreadPool.shutdownNow()
+        }
+      } catch {
+        case e: Exception => error(e.getMessage, e)
+      }
+    }
+
+    if (commitThreadPool != null) {
+      info("Shutting down task commit thread pool")
+      try {
+        commitThreadPool.shutdown()
+        if(commitThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+          commitThreadPool.shutdownNow()
         }
       } catch {
         case e: Exception => error(e.getMessage, e)

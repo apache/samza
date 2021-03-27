@@ -21,6 +21,7 @@ package org.apache.samza.storage;
 
 import java.io.File;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.ContainerContext;
@@ -43,12 +44,14 @@ public interface StateBackendFactory {
   TaskBackupManager getBackupManager(JobModel jobModel,
       ContainerModel containerModel,
       TaskModel taskModel,
+      ExecutorService backupExecutor,
       Config config,
       Clock clock);
 
   TaskRestoreManager getRestoreManager(JobContext jobContext,
       ContainerContext containerContext,
       TaskModel taskModel,
+      ExecutorService restoreExecutor,
       Map<String, SystemConsumer> storeConsumers,
       Map<String, StorageEngine> inMemoryStores,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,

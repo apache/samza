@@ -65,7 +65,7 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, containerStorageManager,
-        Collections.EMPTY_MAP, new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
+        Collections.emptyMap(), new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
 
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
@@ -85,14 +85,14 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
     TaskStorageCommitManager cm = new TaskStorageCommitManager(task, backupManagers, containerStorageManager,
-        Collections.EMPTY_MAP, new Partition(1), null, new MapConfig(), new StorageManagerUtil(), null);
+        Collections.emptyMap(), new Partition(1), null, new MapConfig(), new StorageManagerUtil(), null);
     cm.init();
     verify(taskBackupManager1).init(null);
     verify(taskBackupManager2).init(null);
   }
 
   @Test
-  public void testCommitAllFactories() {
+  public void testSnapshotAndCommitAllFactories() {
     CheckpointManager checkpointManager = mock(CheckpointManager.class);
     TaskBackupManager taskBackupManager1 = mock(TaskBackupManager.class);
     TaskBackupManager taskBackupManager2 = mock(TaskBackupManager.class);
@@ -105,7 +105,7 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, containerStorageManager,
-        Collections.EMPTY_MAP, new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
+        Collections.emptyMap(), new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
     verify(taskBackupManager1).init(checkpoint);
@@ -121,27 +121,29 @@ public class TestTaskStorageCommitManager {
         "store2", "blobId2"
     );
 
-    when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.EMPTY_MAP);
-    when(taskBackupManager1.snapshot(newCheckpointId, Collections.EMPTY_MAP)).thenReturn(factory1Checkpoints);
-    when(taskBackupManager1.upload(newCheckpointId, factory1Checkpoints, Collections.EMPTY_MAP))
+    when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.emptyMap());
+    when(taskBackupManager1.snapshot(newCheckpointId, Collections.emptyMap())).thenReturn(factory1Checkpoints);
+    when(taskBackupManager2.snapshot(newCheckpointId, Collections.emptyMap())).thenReturn(factory2Checkpoints);
+
+    when(taskBackupManager1.upload(newCheckpointId, factory1Checkpoints, Collections.emptyMap()))
         .thenReturn(CompletableFuture.completedFuture(factory1Checkpoints));
-    when(taskBackupManager2.snapshot(newCheckpointId, Collections.EMPTY_MAP)).thenReturn(factory2Checkpoints);
-    when(taskBackupManager2.upload(newCheckpointId, factory2Checkpoints, Collections.EMPTY_MAP))
+    when(taskBackupManager2.upload(newCheckpointId, factory2Checkpoints, Collections.emptyMap()))
         .thenReturn(CompletableFuture.completedFuture(factory2Checkpoints));
 
-    cm.commit(newCheckpointId);
+    Map<String, Map<String, String>> snapshotSCMs = cm.snapshot(newCheckpointId);
+    cm.upload(newCheckpointId, snapshotSCMs);
 
-    // Test flow for factory 1
-    verify(taskBackupManager1).snapshot(newCheckpointId, Collections.EMPTY_MAP);
-    verify(taskBackupManager1).upload(newCheckpointId, factory1Checkpoints, Collections.EMPTY_MAP);
+    // Test flow for snapshot
+    verify(taskBackupManager1).snapshot(newCheckpointId, Collections.emptyMap());
+    verify(taskBackupManager2).snapshot(newCheckpointId, Collections.emptyMap());
 
-    // Test flow for factory 2
-    verify(taskBackupManager2).snapshot(newCheckpointId, Collections.EMPTY_MAP);
-    verify(taskBackupManager2).upload(newCheckpointId, factory2Checkpoints, Collections.EMPTY_MAP);
+    // Test flow for upload
+    verify(taskBackupManager1).upload(newCheckpointId, factory1Checkpoints, Collections.emptyMap());
+    verify(taskBackupManager2).upload(newCheckpointId, factory2Checkpoints, Collections.emptyMap());
   }
 
   @Test
-  public void testFlushAndCheckpointOnCommit() {
+  public void testFlushAndCheckpointOnSnapshot() {
     CheckpointManager checkpointManager = mock(CheckpointManager.class);
     TaskBackupManager taskBackupManager1 = mock(TaskBackupManager.class);
     TaskBackupManager taskBackupManager2 = mock(TaskBackupManager.class);
@@ -187,7 +189,7 @@ public class TestTaskStorageCommitManager {
     );
 
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, containerStorageManager,
-        Collections.EMPTY_MAP, new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
+        Collections.emptyMap(), new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
     verify(taskBackupManager1).init(checkpoint);
@@ -213,7 +215,7 @@ public class TestTaskStorageCommitManager {
     when(mockLIStore.checkpoint(newCheckpointId)).thenReturn(Optional.empty());
 
     cm.init();
-    cm.commit(newCheckpointId);
+    cm.snapshot(newCheckpointId);
 
     // Assert stores where flushed
     verify(mockIStore).flush();
@@ -231,7 +233,7 @@ public class TestTaskStorageCommitManager {
   }
 
   @Test(expected = IllegalStateException.class)
-  public void testCommitFailsIfErrorCreatingCheckpoint() {
+  public void testSnapshotFailsIfErrorCreatingCheckpoint() {
     CheckpointManager checkpointManager = mock(CheckpointManager.class);
     TaskBackupManager taskBackupManager1 = mock(TaskBackupManager.class);
     TaskBackupManager taskBackupManager2 = mock(TaskBackupManager.class);
@@ -254,12 +256,12 @@ public class TestTaskStorageCommitManager {
     );
 
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, containerStorageManager,
-        Collections.EMPTY_MAP, new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
+        Collections.emptyMap(), new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), null);
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(storageEngines);
     CheckpointId newCheckpointId = CheckpointId.create();
     cm.init();
-    cm.commit(newCheckpointId);
+    cm.snapshot(newCheckpointId);
 
     // Assert stores where flushed
     verify(mockLPStore).flush();
@@ -288,9 +290,9 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, containerStorageManager,
-        Collections.EMPTY_MAP,  new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), durableStoreDir);
+        Collections.emptyMap(),  new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), durableStoreDir);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
-    when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.EMPTY_MAP);
+    when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.emptyMap());
     Map<String, String> factory1Checkpoints = ImmutableMap.of(
         "store1", "system;stream;1",
         "store2", "system;stream;2"
@@ -320,13 +322,13 @@ public class TestTaskStorageCommitManager {
     when(durableStoreDir.listFiles()).thenReturn(new File[0]);
 
     TaskName taskName = new TaskName("task1");
-    when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.EMPTY_MAP);
-    TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, Collections.EMPTY_MAP, containerStorageManager,
-        Collections.EMPTY_MAP,  new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), durableStoreDir);
+    when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.emptyMap());
+    TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, Collections.emptyMap(), containerStorageManager,
+        Collections.emptyMap(),  new Partition(1), checkpointManager, new MapConfig(), new StorageManagerUtil(), durableStoreDir);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
 
     Map<String, Map<String, String>> factoryCheckpointsMap = ImmutableMap.of(
-        "factory3", Collections.EMPTY_MAP // factory 3 should be ignored
+        "factory3", Collections.emptyMap() // factory 3 should be ignored
     );
 
     CheckpointId newCheckpointId = CheckpointId.create();
@@ -386,7 +388,7 @@ public class TestTaskStorageCommitManager {
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(taskStores);
     TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
-        Collections.EMPTY_MAP, containerStorageManager, storeChangelogsStreams, changelogPartition,
+        Collections.emptyMap(), containerStorageManager, storeChangelogsStreams, changelogPartition,
         null, null, storageManagerUtil, durableStoreDir));
     doNothing().when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
 
@@ -417,7 +419,7 @@ public class TestTaskStorageCommitManager {
         "loggedInMemStore", "system;loggedInMemStoreStream;1",
         "inMemStore", "system;inMemStoreStream;1"
     );
-    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
+    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.emptyMap(), Collections.singletonMap("factory", storeSCM));
 
     // invoke persist to file system for v2 checkpoint
     commitManager.writeCheckpointToStoreDirectories(checkpoint);
@@ -480,7 +482,7 @@ public class TestTaskStorageCommitManager {
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(taskStores);
     TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
-        Collections.EMPTY_MAP, containerStorageManager, storeChangelogsStreams, changelogPartition,
+        Collections.emptyMap(), containerStorageManager, storeChangelogsStreams, changelogPartition,
         null, null, storageManagerUtil, durableStoreDir));
     doNothing().when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
 
@@ -492,7 +494,7 @@ public class TestTaskStorageCommitManager {
         "loggedInMemStore", "system;loggedInMemStoreStream;1",
         "inMemStore", "system;inMemStoreStream;1"
     );
-    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
+    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.emptyMap(), Collections.singletonMap("factory", storeSCM));
 
     commitManager.init();
     // invoke persist to file system
@@ -529,7 +531,7 @@ public class TestTaskStorageCommitManager {
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(taskStores);
     TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
-        Collections.EMPTY_MAP, containerStorageManager, storeChangelogsStreams, changelogPartition,
+        Collections.emptyMap(), containerStorageManager, storeChangelogsStreams, changelogPartition,
         null, null, storageManagerUtil, tmpTestPath));
 
     doAnswer(invocation -> {
@@ -601,7 +603,7 @@ public class TestTaskStorageCommitManager {
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(taskStores);
     TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
-        Collections.EMPTY_MAP, containerStorageManager, storeChangelogsStreams, changelogPartition,
+        Collections.emptyMap(), containerStorageManager, storeChangelogsStreams, changelogPartition,
         null, null, storageManagerUtil, tmpTestPath));
 
     doAnswer(invocation -> {
@@ -658,7 +660,7 @@ public class TestTaskStorageCommitManager {
         "loggedInMemStore", "system;loggedInMemStoreStream;1",
         "inMemStore", "system;inMemStoreStream;1"
     );
-    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
+    CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.emptyMap(), Collections.singletonMap("factory", storeSCM));
 
     // invoke persist to file system with checkpoint v2
     commitManager.writeCheckpointToStoreDirectories(checkpoint);
@@ -696,7 +698,7 @@ public class TestTaskStorageCommitManager {
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(taskStores);
     TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
-        Collections.EMPTY_MAP, containerStorageManager, storeChangelogsStreams, changelogPartition,
+        Collections.emptyMap(), containerStorageManager, storeChangelogsStreams, changelogPartition,
         null, null, storageManagerUtil, tmpTestPath));
 
     doAnswer(invocation -> {
@@ -753,7 +755,7 @@ public class TestTaskStorageCommitManager {
     TaskName taskName = new TaskName("task");
 
     TaskStorageCommitManager commitManager = spy(new TaskStorageCommitManager(taskName,
-        Collections.EMPTY_MAP, containerStorageManager, storeChangelogsStreams, mock(Partition.class),
+        Collections.emptyMap(), containerStorageManager, storeChangelogsStreams, mock(Partition.class),
         null, null, storageManagerUtil, tmpTestPath));
 
     java.util.Map<String, String> storeSCM = ImmutableMap.of(
@@ -763,7 +765,7 @@ public class TestTaskStorageCommitManager {
         "inMemStore", "system;inMemStoreStream;1"
     );
     when(containerStorageManager.getAllStores(taskName)).thenReturn(taskStores);
-    CheckpointV2 checkpoint = new CheckpointV2(CheckpointId.create(), Collections.EMPTY_MAP, Collections.singletonMap("factory", storeSCM));
+    CheckpointV2 checkpoint = new CheckpointV2(CheckpointId.create(), Collections.emptyMap(), Collections.singletonMap("factory", storeSCM));
     doThrow(IOException.class).when(storageManagerUtil).writeCheckpointV2File(eq(tmpTestPath), eq(checkpoint));
 
     commitManager.init();
@@ -787,9 +789,9 @@ public class TestTaskStorageCommitManager {
         "factory2", taskBackupManager2
     );
 
-    when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.EMPTY_MAP);
+    when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.emptyMap());
     TaskStorageCommitManager cm = new TaskStorageCommitManager(taskName, backupManagers, containerStorageManager,
-        Collections.EMPTY_MAP,  new Partition(1), checkpointManager, new MapConfig(), storageManagerUtil, durableStoreDir);
+        Collections.emptyMap(),  new Partition(1), checkpointManager, new MapConfig(), storageManagerUtil, durableStoreDir);
 
 
     File mockStoreDir = mock(File.class);

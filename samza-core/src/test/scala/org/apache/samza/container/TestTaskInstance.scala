@@ -22,8 +22,8 @@ package org.apache.samza.container
 import java.util
 import java.util.Collections
 import java.util.function.Consumer
-
-import com.google.common.collect.ImmutableSet
+import com.google.common.collect.{ImmutableMap, ImmutableSet}
+import com.google.common.util.concurrent.MoreExecutors
 import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
 import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.checkpoint._
@@ -226,8 +226,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
-    when(this.taskCommitManager.commit(any()))
-      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
+    val snapshotSCMs = ImmutableMap.of(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)
+    when(this.taskCommitManager.snapshot(any())).thenReturn(snapshotSCMs)
+    when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMs) // kafka is no-op
     doNothing().when(this.taskCommitManager).cleanUp(any(), any())
     taskInstance.commit
 
@@ -244,7 +245,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     mockOrder.verify(this.taskTableManager).flush()
 
     // Local state should be flushed next next
-    mockOrder.verify(this.taskCommitManager).commit(any())
+    mockOrder.verify(this.taskCommitManager).snapshot(any())
+
+    // Upload should be called next with the snapshot SCMs.
+    mockOrder.verify(this.taskCommitManager).upload(any(), Matchers.eq(snapshotSCMs))
 
     // Stores checkpoints should be created next with the newest changelog offsets
     mockOrder.verify(this.taskCommitManager).writeCheckpointToStoreDirectories(any())
@@ -293,7 +297,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val nullStateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, null).toString
     stateCheckpointMarkers.put("storeName", nullStateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any()))
+    when(this.taskCommitManager.upload(any(), any()))
       .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     taskInstance.commit
 
@@ -336,7 +340,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any()))
+    when(this.taskCommitManager.upload(any(), any()))
       .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     taskInstance.commit
 
@@ -362,9 +366,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any())).thenThrow(new SamzaException("Error getting changelog offsets"))
+    when(this.taskCommitManager.snapshot(any())).thenThrow(new SamzaException("Error getting changelog offsets"))
 
     try {
+      // sync stage exception should be caught and rethrown immediately
       taskInstance.commit
     } catch {
       case e: SamzaException =>
@@ -385,11 +390,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any()))
+    when(this.taskCommitManager.upload(any(), any()))
       .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     when(this.taskCommitManager.writeCheckpointToStoreDirectories(any())).thenThrow(new SamzaException("Error creating store checkpoint"))
 
     try {
+      taskInstance.commit
+
+      // async stage exception in first commit should be caught and rethrown by the subsequent commit
       taskInstance.commit
     } catch {
       case e: SamzaException =>
@@ -401,7 +409,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   }
 
   @Test
-  def testCommitContinuesIfErrorClearingOldCheckpoints() { // required for transactional state
+  def testCommitFailsIfErrorCleaningUpOldCheckpoints() { // required for blob store backend
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
 
@@ -409,7 +417,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
-    when(this.taskCommitManager.commit(any()))
+    when(this.taskCommitManager.upload(any(), any()))
       .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
     doNothing().when(this.taskCommitManager).writeCheckpointToStoreDirectories(any())
     when(this.taskCommitManager.cleanUp(any(), any()))
@@ -417,11 +425,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     try {
       taskInstance.commit
+
+      // async stage exception in first commit should be caught and rethrown by the subsequent commit
+      taskInstance.commit
     } catch {
       case e: SamzaException =>
-        // exception is expected, container should fail if could not get changelog offsets.
-        fail("Exception from removeOldCheckpoints should have been caught")
+        // exception is expected, container should fail if could not clean up old checkpoint.
+        return
     }
+
+    fail("Exception from removeOldCheckpoints should have been caught")
   }
 
   /**
@@ -499,6 +512,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       tableManager = this.taskTableManager,
       systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
       exceptionHandler = this.taskInstanceExceptionHandler,
+      commitThreadPool = MoreExecutors.newDirectExecutorService(), // execute on caller thread.
       jobContext = this.jobContext,
       containerContext = this.containerContext,
       applicationContainerContextOption = Some(this.applicationContainerContext),

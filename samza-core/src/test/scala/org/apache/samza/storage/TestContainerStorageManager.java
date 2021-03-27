@@ -223,7 +223,7 @@ public class TestContainerStorageManager {
 
     StateBackendFactory backendFactory = mock(StateBackendFactory.class);
     TaskRestoreManager restoreManager = mock(TaskRestoreManager.class);
-    when(backendFactory.getRestoreManager(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
+    when(backendFactory.getRestoreManager(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any(),
         any(), any(), any(), any())).thenReturn(restoreManager);
     doAnswer(invocation -> {
       storeRestoreCallCount++;

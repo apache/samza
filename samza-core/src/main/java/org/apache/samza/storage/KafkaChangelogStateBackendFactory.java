@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.SamzaException;
@@ -54,7 +55,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
 
   @Override
   public TaskBackupManager getBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
-      Config config, Clock clock) {
+      ExecutorService backupExecutor, Config config, Clock clock) {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     StorageConfig storageConfig = new StorageConfig(config);
     Map<String, SystemStream> storeChangelogs = storageConfig.getStoreChangelogs();
@@ -72,6 +73,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   public TaskRestoreManager getRestoreManager(JobContext jobContext,
       ContainerContext containerContext,
       TaskModel taskModel,
+      ExecutorService restoreExecutor,
       Map<String, SystemConsumer> storeConsumers,
       Map<String, StorageEngine> inMemoryStores,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,

@@ -67,7 +67,7 @@ public class TestTransactionalStateTaskBackupManager {
 
     // invoke Kafka flush
     commitManager.init();
-    commitManager.commit(CheckpointId.create());
+    commitManager.snapshot(CheckpointId.create());
 
     // ensure that stores are flushed before we get newest changelog offsets
     InOrder inOrder = inOrder(mockStore, tsm);

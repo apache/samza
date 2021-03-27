@@ -91,13 +91,14 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * Backs up the local state to the remote storage and returns the committed Map of state backend factory name to
-   * the Map of store name to state checkpoint marker.
+   * Synchronously captures the current state of the stores in order to persist it to the backup manager
+   * in the async {@link #upload(CheckpointId, Map)} phase. Returns a map of state backend factory name to
+   * a map of store name to state checkpoint markers for all configured state backends and stores.
    *
-   * @param checkpointId the {@link CheckpointId} associated with this commit
-   * @return committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
+   * @param checkpointId {@link CheckpointId} of the current commit
+   * @return a map of state backend factory name to a map of store name to state checkpoint markers
    */
-  public Map<String, Map<String, String>> commit(CheckpointId checkpointId) {
+  public Map<String, Map<String, String>> snapshot(CheckpointId checkpointId) {
     // Flush all stores
     storageEngines.values().forEach(StorageEngine::flush);
 
@@ -109,22 +110,43 @@ public class TaskStorageCommitManager {
       }
     });
 
-    // { state backend factory -> { store Name -> state checkpoint marker }}
+    // state backend factory -> store Name -> state checkpoint marker
     Map<String, Map<String, String>> stateBackendToStoreSCMs = new HashMap<>();
 
     // for each configured state backend factory, backup the state for all stores in this task.
     stateBackendToBackupManager.forEach((stateBackendFactoryName, backupManager) -> {
       Map<String, String> snapshotSCMs = backupManager.snapshot(checkpointId, storageEngines);
-      LOG.debug("Found snapshot SCMs for taskName: {}, checkpoint id: {}, state backend: {} to be: {}",
+      LOG.debug("Created snapshot for taskName: {}, checkpoint id: {}, state backend: {}. Snapshot SCMs: {}",
           taskName, checkpointId, stateBackendFactoryName, snapshotSCMs);
+      stateBackendToStoreSCMs.put(stateBackendFactoryName, snapshotSCMs);
+    });
 
-      CompletableFuture<Map<String, String>> uploadFuture = backupManager
-          .upload(checkpointId, snapshotSCMs, storageEngines);
+    return stateBackendToStoreSCMs;
+  }
+
+  /**
+   * Backs up the local state to the remote storage and returns the committed Map of state backend factory name to
+   * the Map of store name to state checkpoint marker.
+   *
+   * @param checkpointId the {@link CheckpointId} associated with this commit
+   * @return committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
+   */
+  public Map<String, Map<String, String>> upload(
+      CheckpointId checkpointId, Map<String, Map<String, String>> snapshotSCMs) {
+    // state backend factory -> store Name -> state checkpoint marker
+    Map<String, Map<String, String>> stateBackendToStoreSCMs = new HashMap<>();
+
+    // for each configured state backend factory, backup the state for all stores in this task.
+    stateBackendToBackupManager.forEach((stateBackendFactoryName, backupManager) -> {
+      Map<String, String> factorySnapshotSCMs =
+          snapshotSCMs.getOrDefault(stateBackendFactoryName, Collections.emptyMap());
+      LOG.debug("Starting upload for taskName: {}, checkpoint id: {}, state backend snapshot SCM: {}",
+          taskName, checkpointId, factorySnapshotSCMs);
+      CompletableFuture<Map<String, String>> uploadFuture =
+          backupManager.upload(checkpointId, factorySnapshotSCMs, storageEngines);
       try {
-        // TODO: HIGH dchen Make async with andThen and add thread management for concurrency and add timeouts,
-        // need to make upload threads independent
         Map<String, String> uploadSCMs = uploadFuture.get();
-        LOG.debug("Found upload SCMs for taskName: {}, checkpoint id: {}, state backend: {} to be: {}",
+        LOG.debug("Finished upload for taskName: {}, checkpoint id: {}, state backend: {}. Upload SCMs: {}",
             taskName, checkpointId, stateBackendFactoryName, uploadSCMs);
 
         stateBackendToStoreSCMs.put(stateBackendFactoryName, uploadSCMs);
@@ -139,7 +161,7 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * Writes the {@link Checkpoint} information returned by {@link #commit(CheckpointId)}
+   * Writes the {@link Checkpoint} information returned by {@link #upload(CheckpointId, Map)}
    * in each store directory and store checkpoint directory. Written content depends on the type of {@code checkpoint}.
    * For {@link CheckpointV2}, writes the entire task {@link CheckpointV2}.
    * For {@link CheckpointV1}, only writes the changelog ssp offsets in the OFFSET* files.
@@ -152,12 +174,12 @@ public class TaskStorageCommitManager {
    */
   public void writeCheckpointToStoreDirectories(Checkpoint checkpoint) {
     if (checkpoint instanceof CheckpointV1) {
-      LOG.debug("Persisting CheckpointV1 to store and checkpoint directories for taskName: {} with checkpoint: {}",
+      LOG.debug("Writing CheckpointV1 to store and checkpoint directories for taskName: {} with checkpoint: {}",
           taskName, checkpoint);
       // Write CheckpointV1 changelog offsets to store and checkpoint directories
       writeChangelogOffsetFiles(checkpoint.getOffsets());
     } else if (checkpoint instanceof CheckpointV2) {
-      LOG.debug("Persisting CheckpointV2 to store and checkpoint directories for taskName: {} with checkpoint: {}",
+      LOG.debug("Writing CheckpointV2 to store and checkpoint directories for taskName: {} with checkpoint: {}",
           taskName, checkpoint);
       storageEngines.forEach((storeName, storageEngine) -> {
         // Only write the checkpoint file if the store is durable and persisted to disk
