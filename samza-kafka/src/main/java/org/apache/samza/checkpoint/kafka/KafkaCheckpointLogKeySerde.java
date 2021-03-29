@@ -64,7 +64,7 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
           deserializedKey.get(SSP_GROUPER_FACTORY_FIELD));
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception in de-serializing checkpoint bytes: %s",
-          Arrays.toString(bytes)), e);
+          new String(bytes)), e);
     }
   }
 }
