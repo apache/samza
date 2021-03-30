@@ -394,8 +394,8 @@ public class ContainerStorageManager {
           .filter(storeName -> !sideInputStoreNames.contains(storeName))
           .collect(Collectors.toSet());
 
-      // TODO BLOCKER pmaheshw fix thread pool
-      ExecutorService restoreExecutor = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
+      // TODO BLOCKER pmaheshw fix thread pool and sizing
+      ExecutorService restoreExecutor = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize * 2,
           new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
 
       taskRestoreManagers.put(taskName,

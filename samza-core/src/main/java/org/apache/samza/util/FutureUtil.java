@@ -25,11 +25,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
-public class CompletableFutureUtil {
+public class FutureUtil {
+  private static final Logger LOG = LoggerFactory.getLogger(FutureUtil.class);
 
   /**
    * Helper method to convert: {@code Pair<CompletableFuture<L>, CompletableFuture<R>>}
@@ -85,5 +91,41 @@ public class CompletableFutureUtil {
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
 
     completeAllFutures.join(); // block and wait for all futures to complete.
+  }
+
+  // https://stackoverflow.com/questions/40485398/retry-logic-with-completablefuture
+  // TODO BLOCKER pmaheshw make retries configurable at all call sites
+  public static <T> CompletableFuture<T> executeAsyncWithRetries(
+      String name, Supplier<CompletableFuture<T>> action,
+      Executor executor, int maxRetries) {
+    return action.get()
+        .thenApplyAsync(CompletableFuture::completedFuture, executor)
+        .exceptionally(t -> {
+          LOG.warn("Initial action: {} completed with error. Will retry {} times. First error: ",
+              name, maxRetries, t);
+          return retryAsync(name, action, executor, t, maxRetries, 0);
+        }) // happens synchronously on the thread for previous stage
+        .thenComposeAsync(Function.identity(), executor);
+  }
+
+  private static <T> CompletableFuture<T> retryAsync(
+      String name, Supplier<CompletableFuture<T>> action, Executor executor,
+      Throwable firstError, int maxRetries, int currentAttempt) {
+    if (currentAttempt >= maxRetries) return failedFuture(firstError);
+    return action.get()
+        .thenApplyAsync(CompletableFuture::completedFuture, executor)
+        .exceptionally(t -> {
+          LOG.warn("Previous action: {} completed with error. Retry attempt {} of {}. Current error: ",
+              name, currentAttempt, maxRetries, t);
+          firstError.addSuppressed(t);
+          return retryAsync(name, action, executor, firstError, maxRetries, currentAttempt + 1);
+        })
+        .thenComposeAsync(Function.identity(), executor);
+  }
+
+  public static <T> CompletableFuture<T> failedFuture(Throwable t) {
+    final CompletableFuture<T> cf = new CompletableFuture<>();
+    cf.completeExceptionally(t);
+    return cf;
   }
 }

@@ -483,7 +483,8 @@ object SamzaContainer extends Logging {
       taskThreadPool)
 
     // executor for performing async commit operations for a task.
-    val commitThreadPoolSize = Math.min(containerModel.getTasks.size(), taskConfig.getCommitMaxThreadPoolSize)
+    // TODO BLOCKER pmaheshw tune thread pool sizing.
+    val commitThreadPoolSize = Math.min(containerModel.getTasks.size() * 2, taskConfig.getCommitMaxThreadPoolSize)
     val commitThreadPool = Executors.newFixedThreadPool(commitThreadPoolSize,
       new ThreadFactoryBuilder().setNameFormat("Samza Task Commit Thread-%d").setDaemon(true).build())
 

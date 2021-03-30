@@ -46,7 +46,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.util.CompletableFutureUtil;
+import org.apache.samza.util.FutureUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -165,7 +165,7 @@ public class TaskStorageCommitManager {
       }
     });
 
-    return CompletableFutureUtil.toFutureOfMap(stateBackendToStoreSCMs);
+    return FutureUtil.toFutureOfMap(stateBackendToStoreSCMs);
   }
 
   /**
@@ -240,7 +240,7 @@ public class TaskStorageCommitManager {
       }
     });
 
-    return CompletableFutureUtil.allOf(cleanUpFutures)
+    return FutureUtil.allOf(cleanUpFutures)
         .thenAcceptAsync(aVoid -> deleteOldCheckpointDirs(latestCheckpointId), backupExecutor);
   }
 

@@ -431,7 +431,8 @@ class TaskInstance(
     new BiConsumer[Void, Throwable] {
       override def accept(v: Void, e: Throwable): Unit = {
         try {
-          debug("Finishing async stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+          debug("%s finishing async stage of commit for taskName: %s checkpointId: %s."
+            format (if (e == null) "Successfully" else "Unsuccessfully", taskName, checkpointId))
           if (e != null) {
             val exception = new SamzaException("Unrecoverable error during async stage of commit " +
               "for taskName: %s checkpointId: %s" format(taskName, checkpointId), e)
