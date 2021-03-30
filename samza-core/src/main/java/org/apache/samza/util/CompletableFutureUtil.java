@@ -65,9 +65,7 @@ public class CompletableFutureUtil {
    * Blocks for a list of futures to complete.
    * @param futures list of futures to block for
    */
-  public static <V, FV extends CompletionStage<V>> void blockAndCompleteAll(Collection<FV> futures) {
-    // ToDo change whenComplete, replace with async version. Check docs.
-    // TODO HIGH shesharm: do we need the whenComplete here?
+  public static <V, FV extends CompletionStage<V>> void joinAll(Collection<FV> futures) {
     CompletableFuture<Void> completeAllFutures =
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
 
