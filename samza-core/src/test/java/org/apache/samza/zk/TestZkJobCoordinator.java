@@ -53,6 +53,7 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
@@ -68,10 +69,10 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 public class TestZkJobCoordinator {
+  private static final String LATEST_JOB_MODEL_VERSION = "2";
   private static final String PROCESSOR_ID = "testProcessor";
   private static final String TEST_BARRIER_ROOT = "/testBarrierRoot";
   private static final String TEST_JOB_MODEL_VERSION = "1";
-
 
   private final Config config;
   private final JobModel jobModel;
@@ -310,6 +311,62 @@ public class TestZkJobCoordinator {
   }
 
   @Test
+  public void testStartWorkWithLastActiveJobModel() {
+    final TaskName taskName = new TaskName("task1");
+    final ContainerModel mockContainerModel = mock(ContainerModel.class);
+    final JobCoordinatorListener mockListener = mock(JobCoordinatorListener.class);
+    final JobModel mockJobModel = mock(JobModel.class);
+
+    ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(PROCESSOR_ID, new MapConfig(),
+        new NoOpMetricsRegistry(), zkUtils, zkMetadataStore, coordinatorStreamStore));
+
+    when(mockContainerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, mock(TaskModel.class)));
+    when(mockJobModel.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel));
+    when(zkUtils.getLastActiveJobModelVersion()).thenReturn(TEST_JOB_MODEL_VERSION);
+    when(zkUtils.getJobModelVersion()).thenReturn(TEST_JOB_MODEL_VERSION);
+    doReturn(mockJobModel).when(zkJobCoordinator).readJobModelFromMetadataStore(TEST_JOB_MODEL_VERSION);
+
+    zkJobCoordinator.setListener(mockListener);
+    zkJobCoordinator.startWorkWithLastActiveJobModel();
+    verify(mockListener, times(1)).onJobModelExpired();
+    verify(zkUtils, times(1)).writeTaskLocality(eq(taskName), any());
+    verify(mockListener, times(1)).onNewJobModel(PROCESSOR_ID, mockJobModel);
+    assertEquals("Active job model should be updated with the new job model", mockJobModel,
+        zkJobCoordinator.getActiveJobModel());
+  }
+
+  @Test
+  public void testStartWorkWithLastActiveJobModelShouldNotStartContainer() {
+    final JobCoordinatorListener mockListener = mock(JobCoordinatorListener.class);
+    ZkJobCoordinator zkJobCoordinator = new ZkJobCoordinator(PROCESSOR_ID, new MapConfig(),
+        new NoOpMetricsRegistry(), zkUtils, zkMetadataStore, coordinatorStreamStore);
+
+    zkJobCoordinator.setListener(mockListener);
+
+    when(zkUtils.getLastActiveJobModelVersion()).thenReturn(TEST_JOB_MODEL_VERSION);
+    when(zkUtils.getJobModelVersion()).thenReturn(LATEST_JOB_MODEL_VERSION);
+
+    zkJobCoordinator.startWorkWithLastActiveJobModel();
+
+    verifyZeroInteractions(mockListener);
+    assertNull("Expected active job model to be null", zkJobCoordinator.getActiveJobModel());
+  }
+
+  @Test
+  public void testStartWorkWithLastActiveJobModelWithNullActiveJobModelVersion() {
+    final JobCoordinatorListener mockListener = mock(JobCoordinatorListener.class);
+    ZkJobCoordinator zkJobCoordinator = new ZkJobCoordinator(PROCESSOR_ID, new MapConfig(),
+        new NoOpMetricsRegistry(), zkUtils, zkMetadataStore, coordinatorStreamStore);
+
+    zkJobCoordinator.setListener(mockListener);
+
+    zkJobCoordinator.startWorkWithLastActiveJobModel();
+
+    verifyZeroInteractions(mockListener);
+    assertNull("Expected active job model to be null", zkJobCoordinator.getActiveJobModel());
+  }
+
+  @Test
   public void testLoadMetadataResources() throws IOException {
     when(zkUtils.getJobModel(TEST_JOB_MODEL_VERSION)).thenReturn(jobModel);
 
@@ -349,6 +406,25 @@ public class TestZkJobCoordinator {
 
     verify(zkUtils).publishJobModelVersion(anyString(), anyString());
     verify(zkJobCoordinator).loadMetadataResources(eq(jobModel));
+  }
+
+  @Test
+  public void testDoOnProcessorChangeWithNoChangesToWorkAssignment() {
+    ZkBarrierForVersionUpgrade mockBarrier = mock(ZkBarrierForVersionUpgrade.class);
+    ScheduleAfterDebounceTime mockDebounceTimer = mock(ScheduleAfterDebounceTime.class);
+    ZkJobCoordinator zkJobCoordinator = Mockito.spy(new ZkJobCoordinator(PROCESSOR_ID, config,
+        new NoOpMetricsRegistry(), zkUtils, zkMetadataStore, coordinatorStreamStore));
+    zkJobCoordinator.setActiveJobModel(jobModel);
+    zkJobCoordinator.setDebounceTimer(mockDebounceTimer);
+    zkJobCoordinator.setZkBarrierUpgradeForVersion(mockBarrier);
+
+    doReturn(jobModel).when(zkJobCoordinator).generateNewJobModel(any());
+    zkJobCoordinator.doOnProcessorChange();
+
+    verify(zkUtils, times(0)).publishJobModelVersion(anyString(), anyString());
+    verifyZeroInteractions(mockBarrier);
+    verifyZeroInteractions(mockDebounceTimer);
+    verify(zkJobCoordinator, times(0)).loadMetadataResources(any());
   }
 
   private void testNoChangesInWorkAssignmentHelper(BiConsumer<ZkJobCoordinator, JobModel> testMethod,
