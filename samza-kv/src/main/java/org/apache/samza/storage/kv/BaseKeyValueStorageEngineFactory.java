@@ -42,6 +42,8 @@ import org.apache.samza.util.ScalaJavaUtil;
  * This encapsulates all the steps needed to create a key value storage engine.
  * This is meant to be extended by the specific key value store factory implementations which will in turn override the
  * getKVStore method to return a raw key-value store.
+ *
+ * BaseKeyValueStorageEngineFactory assumes non null keySerde and msgSerde 
  */
 public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageEngineFactory<K, V> {
   private static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
