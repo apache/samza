@@ -608,7 +608,8 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     String newJobModelVersion = zkUtils.getJobModelVersion();
     JobModel newJobModel = JobModelUtil.readJobModel(newJobModelVersion, zkMetadataStore);
 
-    assertEquals(Integer.parseInt(jobModelVersion) + 1, Integer.parseInt(newJobModelVersion));
+    // leader should skip rebalance because of no change in work assignment
+    assertEquals(Integer.parseInt(jobModelVersion), Integer.parseInt(newJobModelVersion));
     assertEquals(jobModel.getContainers(), newJobModel.getContainers());
 
     appRunner2.kill();
