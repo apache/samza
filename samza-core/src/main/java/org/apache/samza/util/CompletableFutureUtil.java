@@ -19,6 +19,7 @@
 
 package org.apache.samza.util;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,20 @@ public class CompletableFutureUtil {
   public static <E> CompletableFuture<List<E>> toFutureOfList(List<CompletableFuture<E>> futures) {
     return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
         .thenApply(v -> futures.stream().map(CompletableFuture::join).collect(Collectors.toList()));
+  }
+
+  /**
+   * Returns a future that completes when all the futures in the provided collections of futures are complete.
+   * @param futureCollections collections of futures to complete before the returned future is complete
+   */
+  @SafeVarargs
+  public static <V, FV extends CompletionStage<V>> CompletableFuture<Void> allOf(Collection<FV>... futureCollections) {
+    List<CompletableFuture<Void>> fvs = new ArrayList<>();
+    for (Collection<FV> futureCollection : futureCollections) {
+      fvs.add(CompletableFuture.allOf(futureCollection.toArray(new CompletableFuture[0])));
+    }
+
+    return CompletableFuture.allOf(fvs.toArray(new CompletableFuture[0]));
   }
 
   /**

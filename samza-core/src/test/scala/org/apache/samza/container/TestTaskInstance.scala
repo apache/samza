@@ -45,6 +45,7 @@ import org.mockito.{ArgumentCaptor, Matchers, Mock, MockitoAnnotations}
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
+import java.util.concurrent.CompletableFuture
 import scala.collection.JavaConverters._
 
 class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
@@ -228,7 +229,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     val snapshotSCMs = ImmutableMap.of(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)
     when(this.taskCommitManager.snapshot(any())).thenReturn(snapshotSCMs)
-    when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMs) // kafka is no-op
+    val snapshotSCMFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+      CompletableFuture.completedFuture(snapshotSCMs)
+    when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMFuture) // kafka is no-op
     doNothing().when(this.taskCommitManager).cleanUp(any(), any())
     taskInstance.commit
 
@@ -298,7 +301,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     stateCheckpointMarkers.put("storeName", nullStateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.upload(any(), any()))
-      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
     taskInstance.commit
 
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
@@ -341,7 +345,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.upload(any(), any()))
-      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
     taskInstance.commit
 
     val captor = ArgumentCaptor.forClass(classOf[Checkpoint])
@@ -391,8 +396,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.upload(any(), any()))
-      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
-    when(this.taskCommitManager.writeCheckpointToStoreDirectories(any())).thenThrow(new SamzaException("Error creating store checkpoint"))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
+    when(this.taskCommitManager.writeCheckpointToStoreDirectories(any()))
+      .thenThrow(new SamzaException("Error creating store checkpoint"))
 
     try {
       taskInstance.commit
@@ -418,7 +425,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.upload(any(), any()))
-      .thenReturn(Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
     doNothing().when(this.taskCommitManager).writeCheckpointToStoreDirectories(any())
     when(this.taskCommitManager.cleanUp(any(), any()))
       .thenThrow(new SamzaException("Error clearing old checkpoints"))

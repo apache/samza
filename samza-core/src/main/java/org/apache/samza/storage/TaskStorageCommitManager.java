@@ -24,10 +24,13 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.samza.Partition;
@@ -43,6 +46,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.CompletableFutureUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +63,7 @@ public class TaskStorageCommitManager {
   private final Map<String, TaskBackupManager> stateBackendToBackupManager;
   private final Partition taskChangelogPartition;
   private final StorageManagerUtil storageManagerUtil;
+  private final ExecutorService backupExecutor;
   private final File durableStoreBaseDir;
   private final Map<String, SystemStream> storeChangelogs;
 
@@ -67,12 +72,14 @@ public class TaskStorageCommitManager {
 
   public TaskStorageCommitManager(TaskName taskName, Map<String, TaskBackupManager> stateBackendToBackupManager,
       ContainerStorageManager containerStorageManager, Map<String, SystemStream> storeChangelogs, Partition changelogPartition,
-      CheckpointManager checkpointManager, Config config, StorageManagerUtil storageManagerUtil, File durableStoreBaseDir) {
+      CheckpointManager checkpointManager, Config config, ExecutorService backupExecutor,
+      StorageManagerUtil storageManagerUtil, File durableStoreBaseDir) {
     this.taskName = taskName;
     this.containerStorageManager = containerStorageManager;
     this.stateBackendToBackupManager = stateBackendToBackupManager;
     this.taskChangelogPartition = changelogPartition;
     this.checkpointManager = checkpointManager;
+    this.backupExecutor = backupExecutor;
     this.durableStoreBaseDir = durableStoreBaseDir;
     this.storeChangelogs = storeChangelogs;
     this.storageManagerUtil = storageManagerUtil;
@@ -125,31 +132,32 @@ public class TaskStorageCommitManager {
   }
 
   /**
-   * Backs up the local state to the remote storage and returns the committed Map of state backend factory name to
-   * the Map of store name to state checkpoint marker.
+   * Asynchronously backs up the local state to the remote storage and returns a future containing the committed
+   * map of state backend factory name to the map of store name to state checkpoint marker.
    *
    * @param checkpointId the {@link CheckpointId} associated with this commit
-   * @return committed Map of FactoryName to (Map of StoreName to StateCheckpointMarker) mappings of the committed SSPs
+   * @return a future containing  the Map of FactoryName to (Map of StoreName to StateCheckpointMarker).
    */
-  public Map<String, Map<String, String>> upload(
+  public CompletableFuture<Map<String, Map<String, String>>> upload(
       CheckpointId checkpointId, Map<String, Map<String, String>> snapshotSCMs) {
     // state backend factory -> store Name -> state checkpoint marker
-    Map<String, Map<String, String>> stateBackendToStoreSCMs = new HashMap<>();
+    Map<String, CompletableFuture<Map<String, String>>> stateBackendToStoreSCMs = new HashMap<>();
 
     // for each configured state backend factory, backup the state for all stores in this task.
     stateBackendToBackupManager.forEach((stateBackendFactoryName, backupManager) -> {
-      Map<String, String> factorySnapshotSCMs =
-          snapshotSCMs.getOrDefault(stateBackendFactoryName, Collections.emptyMap());
-      LOG.debug("Starting upload for taskName: {}, checkpoint id: {}, state backend snapshot SCM: {}",
-          taskName, checkpointId, factorySnapshotSCMs);
-      CompletableFuture<Map<String, String>> uploadFuture =
-          backupManager.upload(checkpointId, factorySnapshotSCMs, storageEngines);
       try {
-        Map<String, String> uploadSCMs = uploadFuture.get();
-        LOG.debug("Finished upload for taskName: {}, checkpoint id: {}, state backend: {}. Upload SCMs: {}",
-            taskName, checkpointId, stateBackendFactoryName, uploadSCMs);
+        Map<String, String> factorySnapshotSCMs =
+            snapshotSCMs.getOrDefault(stateBackendFactoryName, Collections.emptyMap());
+        LOG.debug("Starting upload for taskName: {}, checkpoint id: {}, state backend snapshot SCM: {}",
+            taskName, checkpointId, factorySnapshotSCMs);
 
-        stateBackendToStoreSCMs.put(stateBackendFactoryName, uploadSCMs);
+        CompletableFuture<Map<String, String>> uploadFuture =
+            backupManager.upload(checkpointId, factorySnapshotSCMs, storageEngines);
+        uploadFuture.thenAccept(uploadSCMs ->
+            LOG.debug("Finished upload for taskName: {}, checkpoint id: {}, state backend: {}. Upload SCMs: {}",
+                taskName, checkpointId, stateBackendFactoryName, uploadSCMs));
+
+        stateBackendToStoreSCMs.put(stateBackendFactoryName, uploadFuture);
       } catch (Exception e) {
         throw new SamzaException(
             String.format("Error backing up local state for taskName: %s, checkpoint id: %s, state backend: %s",
@@ -157,7 +165,7 @@ public class TaskStorageCommitManager {
       }
     });
 
-    return stateBackendToStoreSCMs;
+    return CompletableFutureUtil.toFutureOfMap(stateBackendToStoreSCMs);
   }
 
   /**
@@ -215,22 +223,31 @@ public class TaskStorageCommitManager {
    * @param stateCheckpointMarkers map of map(stateBackendFactoryName to map(storeName to state checkpoint markers) from
    *                               the latest commit
    */
-  public void cleanUp(CheckpointId latestCheckpointId, Map<String, Map<String, String>> stateCheckpointMarkers) {
+  public CompletableFuture<Void> cleanUp(CheckpointId latestCheckpointId,
+      Map<String, Map<String, String>> stateCheckpointMarkers) {
+    List<CompletableFuture<Void>> cleanUpFutures = new ArrayList<>();
+
     // Call cleanup on each backup manager
     stateCheckpointMarkers.forEach((factoryName, storeSCMs) -> {
       if (stateBackendToBackupManager.containsKey(factoryName)) {
         LOG.debug("Cleaning up commit for factory: {} for task: {}", factoryName, taskName);
         TaskBackupManager backupManager = stateBackendToBackupManager.get(factoryName);
-        backupManager.cleanUp(latestCheckpointId, storeSCMs);
+        cleanUpFutures.add(backupManager.cleanUp(latestCheckpointId, storeSCMs));
       } else {
         // This may happen during migration from one state backend to another, where the latest commit contains
         // a state backend that is no longer supported for the current commit manager
         LOG.warn("Ignored cleanup for scm: {} due to unknown factory: {} ", storeSCMs, factoryName);
       }
     });
+
+    return CompletableFutureUtil.allOf(cleanUpFutures)
+        .thenAcceptAsync(aVoid -> deleteOldCheckpointDirs(latestCheckpointId), backupExecutor);
+  }
+
+  private void deleteOldCheckpointDirs(CheckpointId latestCheckpointId) {
     // Delete directories for checkpoints older than latestCheckpointId
     if (latestCheckpointId != null) {
-      LOG.debug("Deleting checkpoints older than Checkpoint Id: {}", latestCheckpointId);
+      LOG.debug("Deleting checkpoints older than checkpoint id: {}", latestCheckpointId);
       File[] files = durableStoreBaseDir.listFiles();
       if (files != null) {
         for (File storeDir : files) {

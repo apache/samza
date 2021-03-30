@@ -55,7 +55,10 @@ class KafkaNonTransactionalStateTaskBackupManager(
      CompletableFuture.completedFuture(stateCheckpointMarkers)
   }
 
-  override def cleanUp(checkpointId: CheckpointId, stateCheckpointMarker: util.Map[String, String]): Unit = {}
+  override def cleanUp(checkpointId: CheckpointId,
+    stateCheckpointMarker: util.Map[String, String]): CompletableFuture[Void] = {
+    CompletableFuture.completedFuture(null)
+  }
 
   override def close() {}
 

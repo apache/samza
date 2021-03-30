@@ -577,7 +577,7 @@ object SamzaContainer extends Logging {
 
       val commitManager = new TaskStorageCommitManager(taskName, taskBackupManagerMap,
         containerStorageManager, storeChangelogs, taskModel.getChangelogPartition, checkpointManager, config,
-        new StorageManagerUtil, loggedStorageBaseDir)
+        commitThreadPool, new StorageManagerUtil, loggedStorageBaseDir)
 
       val tableManager = new TableManager(config)
 

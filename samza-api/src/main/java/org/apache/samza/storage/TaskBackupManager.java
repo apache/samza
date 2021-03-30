@@ -85,7 +85,7 @@ public interface TaskBackupManager {
    * @param stateCheckpointMarkers a map of store name to state checkpoint markers returned by
    *                               {@link #upload(CheckpointId, Map, Map)} (CheckpointId, Map)} upload}
    */
-  void cleanUp(CheckpointId checkpointId, Map<String, String> stateCheckpointMarkers);
+  CompletableFuture<Void> cleanUp(CheckpointId checkpointId, Map<String, String> stateCheckpointMarkers);
 
   /**
    * Shutdown hook the backup manager to cleanup any allocated resources

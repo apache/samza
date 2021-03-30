@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 
 import java.util.HashMap;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
@@ -61,7 +62,7 @@ public class TestTransactionalStateTaskBackupManager {
     KafkaTransactionalStateTaskBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
     TaskStorageCommitManager commitManager = new TaskStorageCommitManager(new TaskName("task"),
         ImmutableMap.of("kafka", tsm), csm, null, null, null, null,
-        new StorageManagerUtil(), null);
+        ForkJoinPool.commonPool(), new StorageManagerUtil(), null);
     // stub actual method call
     doReturn(mock(java.util.Map.class)).when(tsm).getNewestChangelogSSPOffsets(any(), any(), any(), any());
 

@@ -21,7 +21,7 @@ package org.apache.samza.container
 
 
 import java.util.{Collections, Objects, Optional}
-import java.util.concurrent.{ExecutorService, ScheduledExecutorService, Semaphore, TimeUnit}
+import java.util.concurrent.{CompletableFuture, ExecutorService, ScheduledExecutorService, Semaphore, TimeUnit}
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
 import org.apache.samza.checkpoint.{CheckpointId, CheckpointV1, CheckpointV2, OffsetManager}
@@ -36,9 +36,11 @@ import org.apache.samza.table.TableManager
 import org.apache.samza.task._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals.toRichOptional
 import org.apache.samza.util.{Logging, ScalaJavaUtil}
-import org.checkerframework.checker.units.qual.s
 
+import java.util
 import java.util.concurrent.atomic.AtomicReference
+import java.util.function.BiConsumer
+import java.util.function.Function
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.collection.{JavaConverters, Map}
@@ -332,65 +334,107 @@ class TaskInstance(
       override def run(): Unit = {
         debug("Starting async stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
 
-        try {
-          val uploadSCMs = commitManager.upload(checkpointId, snapshotSCMs)
-          trace("Got asynchronous upload SCMs for taskName: %s checkpointId: %s as: %s "
-            format(taskName, checkpointId, uploadSCMs))
+        val uploadSCMsFuture = commitManager.upload(checkpointId, snapshotSCMs)
 
-          debug("Creating and writing checkpoints for taskName: %s checkpointId: %s" format (taskName, checkpointId))
-          checkpointWriteVersions.foreach(checkpointWriteVersion => {
-            val checkpoint = if (checkpointWriteVersion == 1) {
-              // build CheckpointV1 with KafkaChangelogSSPOffset for backwards compatibility
-              val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
-              allCheckpointOffsets.putAll(inputOffsets)
-              val newestChangelogOffsets = KafkaStateCheckpointMarker.scmsToSSPOffsetMap(uploadSCMs)
-              newestChangelogOffsets.foreach { case (ssp, newestOffsetOption) =>
-                val offset = new KafkaChangelogSSPOffset(checkpointId, newestOffsetOption.orNull).toString
-                allCheckpointOffsets.put(ssp, offset)
-              }
-              new CheckpointV1(allCheckpointOffsets)
-            } else if (checkpointWriteVersion == 2) {
-              new CheckpointV2(checkpointId, inputOffsets, uploadSCMs)
-            } else {
-              throw new SamzaException("Unsupported checkpoint write version: " + checkpointWriteVersion)
+        // explicit types required to make scala compiler happy
+        val checkpointWriteFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+          uploadSCMsFuture.thenApplyAsync(writeCheckpoint(checkpointId, inputOffsets), commitThreadPool)
+
+        val cleanUpFuture: CompletableFuture[Void] =
+          checkpointWriteFuture.thenComposeAsync(cleanUp(checkpointId), commitThreadPool)
+
+        val trimFuture = cleanUpFuture.thenRunAsync(
+          trim(checkpointId, inputOffsets), commitThreadPool)
+
+        trimFuture.whenCompleteAsync(handleCompletion(checkpointId), commitThreadPool)
+      }
+    })
+
+    debug("Finishing sync stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+  }
+
+  private def writeCheckpoint(checkpointId: CheckpointId, inputOffsets: util.Map[SystemStreamPartition, String]) = {
+    new Function[util.Map[String, util.Map[String, String]], util.Map[String, util.Map[String, String]]]() {
+      override def apply(uploadSCMs: util.Map[String, util.Map[String, String]]) = {
+        trace("Got asynchronous upload SCMs for taskName: %s checkpointId: %s as: %s "
+          format(taskName, checkpointId, uploadSCMs))
+
+        debug("Creating and writing checkpoints for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+        checkpointWriteVersions.foreach(checkpointWriteVersion => {
+          val checkpoint = if (checkpointWriteVersion == 1) {
+            // build CheckpointV1 with KafkaChangelogSSPOffset for backwards compatibility
+            val allCheckpointOffsets = new util.HashMap[SystemStreamPartition, String]()
+            allCheckpointOffsets.putAll(inputOffsets)
+            val newestChangelogOffsets = KafkaStateCheckpointMarker.scmsToSSPOffsetMap(uploadSCMs)
+            newestChangelogOffsets.foreach { case (ssp, newestOffsetOption) =>
+              val offset = new KafkaChangelogSSPOffset(checkpointId, newestOffsetOption.orNull).toString
+              allCheckpointOffsets.put(ssp, offset)
             }
-
-            trace("Writing checkpoint for taskName: %s checkpointId: %s as: %s"
-              format(taskName, checkpointId, checkpoint))
-
-            // Write input offsets and state checkpoint markers to task store and checkpoint directories
-            commitManager.writeCheckpointToStoreDirectories(checkpoint)
-
-            // Write input offsets and state checkpoint markers to the checkpoint topic atomically
-            offsetManager.writeCheckpoint(taskName, checkpoint)
-          })
-
-          // Perform cleanup on unused checkpoints
-          debug("Cleaning up old checkpoint state for taskName: %s checkpointId: %s" format(taskName, checkpointId))
-          try {
-            commitManager.cleanUp(checkpointId, uploadSCMs)
-          } catch {
-            case e: Exception =>
-              // WARNING: cleanUp is NOT optional with blob stores since this is where we reset the TTL for
-              // tracked blobs. if this TTL reset is skipped, some of the blobs retained by future commits may
-              // be deleted in the background by the blob store, leading to data loss.
-              throw new SamzaException(
-                "Failed to remove old checkpoint state for taskName: %s checkpointId: %s."
-                  format(taskName, checkpointId), e)
+            new CheckpointV1(allCheckpointOffsets)
+          } else if (checkpointWriteVersion == 2) {
+            new CheckpointV2(checkpointId, inputOffsets, uploadSCMs)
+          } else {
+            throw new SamzaException("Unsupported checkpoint write version: " + checkpointWriteVersion)
           }
 
-          trace("Deleting committed input offsets from intermediate topics for taskName: %s checkpointId: %s"
-            format (taskName, checkpointId))
-          inputOffsets.asScala
-            .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
-            .groupBy { case (ssp, _) => ssp.getSystem }
-            .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>
-              systemAdmins.getSystemAdmin(systemName).deleteMessages(offsets.asJava)
-            }
+          trace("Writing checkpoint for taskName: %s checkpointId: %s as: %s"
+            format(taskName, checkpointId, checkpoint))
+
+          // Write input offsets and state checkpoint markers to task store and checkpoint directories
+          commitManager.writeCheckpointToStoreDirectories(checkpoint)
+
+          // Write input offsets and state checkpoint markers to the checkpoint topic atomically
+          offsetManager.writeCheckpoint(taskName, checkpoint)
+        })
+
+        uploadSCMs
+      }
+    }
+  }
+
+  private def cleanUp(checkpointId: CheckpointId) = {
+    new Function[util.Map[String, util.Map[String, String]], CompletableFuture[Void]] {
+      override def apply(uploadSCMs: util.Map[String, util.Map[String, String]]): CompletableFuture[Void] = {
+        // Perform cleanup on unused checkpoints
+        debug("Cleaning up old checkpoint state for taskName: %s checkpointId: %s" format(taskName, checkpointId))
+        try {
+          commitManager.cleanUp(checkpointId, uploadSCMs)
         } catch {
-          case e: Exception => {
+          case e: Exception =>
+            // WARNING: cleanUp is NOT optional with blob stores since this is where we reset the TTL for
+            // tracked blobs. if this TTL reset is skipped, some of the blobs retained by future commits may
+            // be deleted in the background by the blob store, leading to data loss.
+            throw new SamzaException(
+              "Failed to remove old checkpoint state for taskName: %s checkpointId: %s."
+                format(taskName, checkpointId), e)
+        }
+      }
+    }
+  }
+
+  private def trim(checkpointId: CheckpointId, inputOffsets: util.Map[SystemStreamPartition, String]) = {
+    new Runnable {
+      override def run(): Unit = {
+        trace("Deleting committed input offsets from intermediate topics for taskName: %s checkpointId: %s"
+          format (taskName, checkpointId))
+        inputOffsets.asScala
+          .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
+          .groupBy { case (ssp, _) => ssp.getSystem }
+          .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>
+            systemAdmins.getSystemAdmin(systemName).deleteMessages(offsets.asJava)
+          }
+      }
+    }
+  }
+
+  private def handleCompletion(checkpointId: CheckpointId) = {
+    new BiConsumer[Void, Throwable] {
+      override def accept(v: Void, e: Throwable): Unit = {
+        try {
+          debug("Finishing async stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+          if (e != null) {
             val exception = new SamzaException("Unrecoverable error during async stage of commit " +
-              "for taskName: %s checkpointId: %s" format (taskName, checkpointId), e)
+              "for taskName: %s checkpointId: %s" format(taskName, checkpointId), e)
             val exceptionSet = commitException.compareAndSet(null, exception)
             if (!exceptionSet) {
               // should never happen because there should be at most one async stage of commit in progress
@@ -410,9 +454,7 @@ class TaskInstance(
           commitInProgress.release()
         }
       }
-    })
-
-    debug("Finishing sync stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+    }
   }
 
   def shutdownTask {
