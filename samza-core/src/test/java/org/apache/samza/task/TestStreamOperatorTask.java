@@ -22,17 +22,27 @@ package org.apache.samza.task;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.operators.OperatorSpecGraph;
 import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.Clock;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.*;
-
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.only;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 
 public class TestStreamOperatorTask {
   public static OperatorImplGraph getOperatorImplGraph(StreamOperatorTask task) {
@@ -79,5 +89,31 @@ public class TestStreamOperatorTask {
     operatorTask.processAsync(mock(IncomingMessageEnvelope.class), mockMessageCollector,
         mockTaskCoordinator, mockTaskCallback);
     failureLatch.await();
+  }
+
+  /**
+   * Tests if the appropriate SamzaException is propagated to the TaskCallback if there is no InputOperator for a given
+   * SystemStream in the OperatorGraph.
+   * */
+  @Test
+  public void testExceptionIfInputOperatorMissing() throws NoSuchFieldException, IllegalAccessException {
+    IncomingMessageEnvelope mockIme = mock(IncomingMessageEnvelope.class, RETURNS_DEEP_STUBS);
+    SystemStream testSystemStream = new SystemStream("foo", "bar");
+    when(mockIme.getSystemStreamPartition().getSystemStream()).thenReturn(testSystemStream);
+
+    OperatorImplGraph mockOperatorImplGraph = mock(OperatorImplGraph.class);
+    when(mockOperatorImplGraph.getInputOperator(anyObject())).thenReturn(null);
+    StreamOperatorTask operatorTask = new StreamOperatorTask(mock(OperatorSpecGraph.class));
+    operatorTask.setOperatorImplGraph(mockOperatorImplGraph);
+    TaskCallback mockTaskCallback = mock(TaskCallback.class);
+    operatorTask.processAsync(mockIme, mock(MessageCollector.class), mock(TaskCoordinator.class), mockTaskCallback);
+
+    ArgumentCaptor<Throwable> throwableCaptor = ArgumentCaptor.forClass(Throwable.class);
+    verify(mockTaskCallback, only()).failure(throwableCaptor.capture());
+    assertEquals(throwableCaptor.getValue().getClass(), SamzaException.class);
+    String expectedErrMessage = String.format("InputOperator not found in OperatorGraph for %s. The available input"
+        + " operators are: %s. Please check SystemStream configuration for the `SystemConsumer` and/or task.inputs"
+        + " task configuration.", testSystemStream, mockOperatorImplGraph.getAllInputOperators());
+    assertEquals(throwableCaptor.getValue().getMessage(), expectedErrMessage);
   }
 }
