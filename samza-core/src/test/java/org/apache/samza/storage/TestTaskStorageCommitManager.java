@@ -300,6 +300,8 @@ public class TestTaskStorageCommitManager {
         ForkJoinPool.commonPool(), new StorageManagerUtil(), durableStoreDir);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.emptyMap());
+    when(taskBackupManager1.cleanUp(any(), any())).thenReturn(CompletableFuture.<Void>completedFuture(null));
+    when(taskBackupManager2.cleanUp(any(), any())).thenReturn(CompletableFuture.<Void>completedFuture(null));
     Map<String, String> factory1Checkpoints = ImmutableMap.of(
         "store1", "system;stream;1",
         "store2", "system;stream;2"
@@ -314,7 +316,7 @@ public class TestTaskStorageCommitManager {
     );
 
     CheckpointId newCheckpointId = CheckpointId.create();
-    cm.cleanUp(newCheckpointId, factoryCheckpointsMap);
+    cm.cleanUp(newCheckpointId, factoryCheckpointsMap).join();
 
     verify(taskBackupManager1).cleanUp(newCheckpointId, factory1Checkpoints);
     verify(taskBackupManager2).cleanUp(newCheckpointId, factory2Checkpoints);
@@ -811,7 +813,7 @@ public class TestTaskStorageCommitManager {
     // null here can happen if listFiles is called on a non-directory
     when(mockStoreDir.listFiles(any(FileFilter.class))).thenReturn(null);
 
-    cm.cleanUp(CheckpointId.create(), new HashMap<>());
+    cm.cleanUp(CheckpointId.create(), new HashMap<>()).join();
     verify(durableStoreDir).listFiles();
     verify(mockStoreDir).listFiles(any(FileFilter.class));
     verify(storageManagerUtil).getTaskStoreDir(eq(durableStoreDir), eq(mockStoreDirName), eq(taskName), eq(TaskMode.Active));

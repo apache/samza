@@ -95,6 +95,7 @@ public class FutureUtil {
 
   // https://stackoverflow.com/questions/40485398/retry-logic-with-completablefuture
   // TODO BLOCKER pmaheshw make retries configurable at all call sites
+  // TODO BLOCKER pmaheshw don't retry on 410 errors, only retry on retriable errors.
   public static <T> CompletableFuture<T> executeAsyncWithRetries(
       String name, Supplier<CompletableFuture<T>> action,
       Executor executor, int maxRetries) {

@@ -232,7 +232,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val snapshotSCMFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
       CompletableFuture.completedFuture(snapshotSCMs)
     when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMFuture) // kafka is no-op
-    doNothing().when(this.taskCommitManager).cleanUp(any(), any())
+    when(this.taskCommitManager.cleanUp(any(), any())).thenReturn(CompletableFuture.completedFuture[Void](null))
     taskInstance.commit
 
     val mockOrder = inOrder(this.offsetManager, this.collector, this.taskTableManager, this.taskCommitManager)
