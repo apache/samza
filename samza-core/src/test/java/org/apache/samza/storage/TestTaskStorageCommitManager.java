@@ -315,6 +315,9 @@ public class TestTaskStorageCommitManager {
         "factory2", factory2Checkpoints
     );
 
+    when(taskBackupManager1.cleanUp(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(taskBackupManager2.cleanUp(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
     CheckpointId newCheckpointId = CheckpointId.create();
     cm.cleanUp(newCheckpointId, factoryCheckpointsMap).join();
 

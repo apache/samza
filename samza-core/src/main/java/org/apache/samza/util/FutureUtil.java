@@ -76,7 +76,10 @@ public class FutureUtil {
   public static <V, FV extends CompletionStage<V>> CompletableFuture<Void> allOf(Collection<FV>... futureCollections) {
     List<CompletableFuture<Void>> fvs = new ArrayList<>();
     for (Collection<FV> futureCollection : futureCollections) {
-      fvs.add(CompletableFuture.allOf(futureCollection.toArray(new CompletableFuture[0])));
+      if (!futureCollection.isEmpty()) {
+        fvs.add(CompletableFuture.allOf(
+            futureCollection.toArray(new CompletableFuture[0])));
+      }
     }
 
     return CompletableFuture.allOf(fvs.toArray(new CompletableFuture[0]));
