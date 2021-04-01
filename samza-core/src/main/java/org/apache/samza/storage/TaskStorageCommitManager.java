@@ -91,9 +91,11 @@ public class TaskStorageCommitManager {
     if (checkpointManager != null) {
       Checkpoint checkpoint = checkpointManager.readLastCheckpoint(taskName);
       LOG.debug("Last checkpoint on start for task: {} is: {}", taskName, checkpoint);
-      stateBackendToBackupManager.values().forEach(storageBackupManager -> storageBackupManager.init(checkpoint));
+      stateBackendToBackupManager.values()
+          .forEach(storageBackupManager -> storageBackupManager.init(checkpoint));
     } else {
-      stateBackendToBackupManager.values().forEach(storageBackupManager -> storageBackupManager.init(null));
+      stateBackendToBackupManager.values()
+          .forEach(storageBackupManager -> storageBackupManager.init(null));
     }
   }
 
@@ -122,7 +124,7 @@ public class TaskStorageCommitManager {
 
     // for each configured state backend factory, backup the state for all stores in this task.
     stateBackendToBackupManager.forEach((stateBackendFactoryName, backupManager) -> {
-      Map<String, String> snapshotSCMs = backupManager.snapshot(checkpointId, storageEngines);
+      Map<String, String> snapshotSCMs = backupManager.snapshot(checkpointId);
       LOG.debug("Created snapshot for taskName: {}, checkpoint id: {}, state backend: {}. Snapshot SCMs: {}",
           taskName, checkpointId, stateBackendFactoryName, snapshotSCMs);
       stateBackendToStoreSCMs.put(stateBackendFactoryName, snapshotSCMs);
@@ -152,7 +154,7 @@ public class TaskStorageCommitManager {
             taskName, checkpointId, factorySnapshotSCMs);
 
         CompletableFuture<Map<String, String>> uploadFuture =
-            backupManager.upload(checkpointId, factorySnapshotSCMs, storageEngines);
+            backupManager.upload(checkpointId, factorySnapshotSCMs);
         uploadFuture.thenAccept(uploadSCMs ->
             LOG.debug("Finished upload for taskName: {}, checkpoint id: {}, state backend: {}. Upload SCMs: {}",
                 taskName, checkpointId, stateBackendFactoryName, uploadSCMs));

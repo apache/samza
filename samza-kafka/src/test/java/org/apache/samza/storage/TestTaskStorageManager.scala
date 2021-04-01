@@ -137,8 +137,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
 
     // Test 2: flush should update the offset file
     val checkpointId = CheckpointId.create()
-    val snapshot = taskManager.snapshot(checkpointId, null)
-    val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot, null)
+    val snapshot = taskManager.snapshot(checkpointId)
+    val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot)
     //taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
     assertTrue(offsetFile.exists())
     validateOffsetFileContents(offsetFile, "kafka.testStream-loggedStore1.0", "50")
@@ -224,8 +224,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
 
     // Test 2: flush should NOT create/update the offset file. Store directory has no files
     val checkpointId = CheckpointId.create()
-    val snapshot = taskManager.snapshot(checkpointId, Collections.singletonMap(store, mockStorageEngine))
-    val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot, Collections.singletonMap(store, mockStorageEngine))
+    val snapshot = taskManager.snapshot(checkpointId)
+    val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot)
     //taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
     assertTrue(storeDirectory.list().isEmpty)
 
@@ -415,8 +415,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
 
     //Invoke test method
     val checkpointId = CheckpointId.create()
-    val snapshot = taskStorageManager.snapshot(checkpointId, null)
-    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot, null)
+    val snapshot = taskStorageManager.snapshot(checkpointId)
+    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
     //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
@@ -463,8 +463,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
 
     //Invoke test method
     val checkpointId = CheckpointId.create()
-    var snapshot = taskStorageManager.snapshot(checkpointId, null)
-    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot, null)
+    var snapshot = taskStorageManager.snapshot(checkpointId)
+    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
     //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
@@ -472,8 +472,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     validateOffsetFileContents(offsetFilePath, "kafka.testStream-loggedStore1.0", "100")
 
     //Invoke test method again
-    snapshot = taskStorageManager.snapshot(checkpointId, null)
-    val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot, null)
+    snapshot = taskStorageManager.snapshot(checkpointId)
+    val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot)
     //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
 
     //Check conditions
@@ -513,8 +513,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
 
     //Invoke test method
     val checkpointId = CheckpointId.create()
-    var snapshot = taskStorageManager.snapshot(checkpointId, null)
-    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot, null)
+    var snapshot = taskStorageManager.snapshot(checkpointId)
+    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
     //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
 
     //Check conditions
@@ -526,8 +526,8 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
       .thenReturn(ImmutableMap.of(ssp, new SystemStreamPartitionMetadata("20", "193", "194")))
 
     //Invoke test method
-    snapshot = taskStorageManager.snapshot(checkpointId, null)
-    val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot, null)
+    snapshot = taskStorageManager.snapshot(checkpointId)
+    val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot)
     //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
 
     //Check conditions

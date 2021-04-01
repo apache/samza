@@ -71,8 +71,8 @@ public class TestTaskStorageCommitManager {
 
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
-    verify(taskBackupManager1).init(checkpoint);
-    verify(taskBackupManager2).init(checkpoint);
+    verify(taskBackupManager1).init(eq(checkpoint));
+    verify(taskBackupManager2).init(eq(checkpoint));
   }
 
   @Test
@@ -90,8 +90,8 @@ public class TestTaskStorageCommitManager {
         Collections.emptyMap(), new Partition(1), null, new MapConfig(),
         ForkJoinPool.commonPool(), new StorageManagerUtil(), null);
     cm.init();
-    verify(taskBackupManager1).init(null);
-    verify(taskBackupManager2).init(null);
+    verify(taskBackupManager1).init(eq(null));
+    verify(taskBackupManager2).init(eq(null));
   }
 
   @Test
@@ -112,8 +112,8 @@ public class TestTaskStorageCommitManager {
         ForkJoinPool.commonPool(), new StorageManagerUtil(), null);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
-    verify(taskBackupManager1).init(checkpoint);
-    verify(taskBackupManager2).init(checkpoint);
+    verify(taskBackupManager1).init(eq(checkpoint));
+    verify(taskBackupManager2).init(eq(checkpoint));
 
     CheckpointId newCheckpointId = CheckpointId.create();
     Map<String, String> factory1Checkpoints = ImmutableMap.of(
@@ -126,24 +126,24 @@ public class TestTaskStorageCommitManager {
     );
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(Collections.emptyMap());
-    when(taskBackupManager1.snapshot(newCheckpointId, Collections.emptyMap())).thenReturn(factory1Checkpoints);
-    when(taskBackupManager2.snapshot(newCheckpointId, Collections.emptyMap())).thenReturn(factory2Checkpoints);
+    when(taskBackupManager1.snapshot(newCheckpointId)).thenReturn(factory1Checkpoints);
+    when(taskBackupManager2.snapshot(newCheckpointId)).thenReturn(factory2Checkpoints);
 
-    when(taskBackupManager1.upload(newCheckpointId, factory1Checkpoints, Collections.emptyMap()))
+    when(taskBackupManager1.upload(newCheckpointId, factory1Checkpoints))
         .thenReturn(CompletableFuture.completedFuture(factory1Checkpoints));
-    when(taskBackupManager2.upload(newCheckpointId, factory2Checkpoints, Collections.emptyMap()))
+    when(taskBackupManager2.upload(newCheckpointId, factory2Checkpoints))
         .thenReturn(CompletableFuture.completedFuture(factory2Checkpoints));
 
     Map<String, Map<String, String>> snapshotSCMs = cm.snapshot(newCheckpointId);
     cm.upload(newCheckpointId, snapshotSCMs);
 
     // Test flow for snapshot
-    verify(taskBackupManager1).snapshot(newCheckpointId, Collections.emptyMap());
-    verify(taskBackupManager2).snapshot(newCheckpointId, Collections.emptyMap());
+    verify(taskBackupManager1).snapshot(newCheckpointId);
+    verify(taskBackupManager2).snapshot(newCheckpointId);
 
     // Test flow for upload
-    verify(taskBackupManager1).upload(newCheckpointId, factory1Checkpoints, Collections.emptyMap());
-    verify(taskBackupManager2).upload(newCheckpointId, factory2Checkpoints, Collections.emptyMap());
+    verify(taskBackupManager1).upload(newCheckpointId, factory1Checkpoints);
+    verify(taskBackupManager2).upload(newCheckpointId, factory2Checkpoints);
   }
 
   @Test
@@ -197,8 +197,8 @@ public class TestTaskStorageCommitManager {
         ForkJoinPool.commonPool(), new StorageManagerUtil(), null);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
     cm.init();
-    verify(taskBackupManager1).init(checkpoint);
-    verify(taskBackupManager2).init(checkpoint);
+    verify(taskBackupManager1).init(eq(checkpoint));
+    verify(taskBackupManager2).init(eq(checkpoint));
 
     CheckpointId newCheckpointId = CheckpointId.create();
     Map<String, String> factory1Checkpoints = ImmutableMap.of(
@@ -211,11 +211,11 @@ public class TestTaskStorageCommitManager {
     );
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(storageEngines);
-    when(taskBackupManager1.snapshot(newCheckpointId, storageEngines)).thenReturn(factory1Checkpoints);
-    when(taskBackupManager1.upload(newCheckpointId, factory1Checkpoints, storageEngines))
+    when(taskBackupManager1.snapshot(newCheckpointId)).thenReturn(factory1Checkpoints);
+    when(taskBackupManager1.upload(newCheckpointId, factory1Checkpoints))
         .thenReturn(CompletableFuture.completedFuture(factory1Checkpoints));
-    when(taskBackupManager2.snapshot(newCheckpointId, storageEngines)).thenReturn(factory2Checkpoints);
-    when(taskBackupManager2.upload(newCheckpointId, factory2Checkpoints, storageEngines))
+    when(taskBackupManager2.snapshot(newCheckpointId)).thenReturn(factory2Checkpoints);
+    when(taskBackupManager2.upload(newCheckpointId, factory2Checkpoints))
         .thenReturn(CompletableFuture.completedFuture(factory2Checkpoints));
     when(mockLIStore.checkpoint(newCheckpointId)).thenReturn(Optional.empty());
 
@@ -273,10 +273,10 @@ public class TestTaskStorageCommitManager {
     verify(mockLPStore).flush();
     // only logged and persisted stores are checkpointed
     verify(mockLPStore).checkpoint(newCheckpointId);
-    verify(taskBackupManager1, never()).snapshot(any(), any());
-    verify(taskBackupManager2, never()).snapshot(any(), any());
-    verify(taskBackupManager1, never()).upload(any(), any(), any());
-    verify(taskBackupManager2, never()).upload(any(), any(), any());
+    verify(taskBackupManager1, never()).snapshot(any());
+    verify(taskBackupManager2, never()).snapshot(any());
+    verify(taskBackupManager1, never()).upload(any(), any());
+    verify(taskBackupManager2, never()).upload(any(), any());
     fail("Should have thrown an exception when the storageEngine#checkpoint did not succeed");
   }
 

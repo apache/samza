@@ -67,10 +67,11 @@ public class StorageConfig extends MapConfig {
   public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
   public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
 
+  public static final String DEFAULT_STATE_BACKEND_FACTORY = "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
   public static final String STORE_BACKEND_BACKUP_FACTORIES = STORE_PREFIX + "%s.state.backend.backup.factories";
-  public static final List<String> DEFAULT_STATE_BACKEND_BACKUP_FACTORIES = ImmutableList.of("org.apache.samza.storage.KafkaChangelogStateBackendFactory");
-  public static final String STATE_BACKEND_RESTORE_FACTORY = STORE_PREFIX + "state.backend.restore.factory";
-  public static final String DEFAULT_STATE_BACKEND_RESTORE_FACTORY = "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
+  public static final List<String> DEFAULT_STATE_BACKEND_BACKUP_FACTORIES = ImmutableList.of(
+      DEFAULT_STATE_BACKEND_FACTORY);
+  public static final String STATE_BACKEND_RESTORE_FACTORY = STORE_PREFIX + "state.restore.backend";
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -277,8 +278,15 @@ public class StorageConfig extends MapConfig {
     return stateBackupFactories;
   }
 
+  public List<String> getBackupStoreNamesForStateBackupFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter((storeName) -> getStoreBackupManagerClassName(storeName)
+            .contains(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
   public String getStateBackendRestoreFactory() {
-    return get(STATE_BACKEND_RESTORE_FACTORY, DEFAULT_STATE_BACKEND_RESTORE_FACTORY);
+    return get(STATE_BACKEND_RESTORE_FACTORY, DEFAULT_STATE_BACKEND_FACTORY);
   }
 
   /**

@@ -43,15 +43,13 @@ class KafkaNonTransactionalStateTaskBackupManager(
 
   override def init(checkpoint: Checkpoint): Unit = {}
 
-  override def snapshot(checkpointId: CheckpointId,
-    taskStores: util.Map[String, StorageEngine]): util.Map[String, String] = {
+  override def snapshot(checkpointId: CheckpointId): util.Map[String, String] = {
     debug("Getting newest offsets for kafka changelog SSPs.")
     getNewestChangelogSSPOffsets()
   }
 
   override def upload(checkpointId: CheckpointId,
-    stateCheckpointMarkers: util.Map[String, String],
-    taskStores: util.Map[String, StorageEngine]): CompletableFuture[util.Map[String, String]] = {
+    stateCheckpointMarkers: util.Map[String, String]): CompletableFuture[util.Map[String, String]] = {
      CompletableFuture.completedFuture(stateCheckpointMarkers)
   }
 

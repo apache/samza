@@ -170,6 +170,33 @@ public class TestStorageConfig {
   }
 
   @Test
+  public void testGetStoreToBackup() {
+    String targetFactory = "target.class";
+    StorageConfig config = new StorageConfig(new MapConfig(
+        ImmutableMap.of(
+            String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME0), targetFactory,
+            String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME1), targetFactory + "," +
+                DEFAULT_STATE_BACKEND_FACTORY,
+            String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME2), DEFAULT_STATE_BACKEND_FACTORY),
+        ImmutableMap.of(
+            String.format(FACTORY, STORE_NAME0), "store0.factory.class",
+            String.format(FACTORY, STORE_NAME1), "store1.factory.class",
+            String.format(FACTORY, STORE_NAME2), "store2.factory.class",
+            String.format(FACTORY, STORE_NAME3), "store3.factory.class",
+            String.format(CHANGELOG_STREAM, STORE_NAME3), "nondefault-changelog-system.streamName"
+        )
+    ));
+
+    List<String> targetStoreNames = config.getBackupStoreNamesForStateBackupFactory(targetFactory);
+    List<String> defaultStoreNames = config.getBackupStoreNamesForStateBackupFactory(
+        DEFAULT_STATE_BACKEND_FACTORY);
+    assertTrue(targetStoreNames.containsAll(ImmutableList.of(STORE_NAME0, STORE_NAME1)));
+    assertEquals(2, targetStoreNames.size());
+    assertTrue(defaultStoreNames.containsAll(ImmutableList.of(STORE_NAME2, STORE_NAME1, STORE_NAME3)));
+    assertEquals(3, defaultStoreNames.size());
+  }
+
+  @Test
   public void testGetAccessLogEnabled() {
     // empty config, access log disabled
     assertFalse(new StorageConfig(new MapConfig()).getAccessLogEnabled(STORE_NAME0));
