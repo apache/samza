@@ -164,7 +164,7 @@ class TaskInstance(
 
     if (taskConfig.getTransactionalStateRestoreEnabled() && taskConfig.getCommitMs > 0) {
       debug("Committing immediately on startup for taskName: %s so that the trimmed changelog " +
-        "messages will be sealed in a checkpoint: %s" format taskName)
+        "messages will be sealed in a checkpoint" format taskName)
       commit
     }
 
@@ -334,19 +334,23 @@ class TaskInstance(
       override def run(): Unit = {
         debug("Starting async stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
 
-        val uploadSCMsFuture = commitManager.upload(checkpointId, snapshotSCMs)
+        try {
+          val uploadSCMsFuture = commitManager.upload(checkpointId, snapshotSCMs)
 
-        // explicit types required to make scala compiler happy
-        val checkpointWriteFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
-          uploadSCMsFuture.thenApplyAsync(writeCheckpoint(checkpointId, inputOffsets), commitThreadPool)
+          // explicit types required to make scala compiler happy
+          val checkpointWriteFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+            uploadSCMsFuture.thenApplyAsync(writeCheckpoint(checkpointId, inputOffsets), commitThreadPool)
 
-        val cleanUpFuture: CompletableFuture[Void] =
-          checkpointWriteFuture.thenComposeAsync(cleanUp(checkpointId), commitThreadPool)
+          val cleanUpFuture: CompletableFuture[Void] =
+            checkpointWriteFuture.thenComposeAsync(cleanUp(checkpointId), commitThreadPool)
 
-        val trimFuture = cleanUpFuture.thenRunAsync(
-          trim(checkpointId, inputOffsets), commitThreadPool)
+          val trimFuture = cleanUpFuture.thenRunAsync(
+            trim(checkpointId, inputOffsets), commitThreadPool)
 
-        trimFuture.whenCompleteAsync(handleCompletion(checkpointId), commitThreadPool)
+          trimFuture.whenCompleteAsync(handleCompletion(checkpointId), commitThreadPool)
+        } catch {
+          case t: Throwable => handleCompletion(checkpointId).accept(null, t)
+        }
       }
     })
 

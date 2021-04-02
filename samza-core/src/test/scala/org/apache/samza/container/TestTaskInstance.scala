@@ -19,14 +19,10 @@
 
 package org.apache.samza.container
 
-import java.util
-import java.util.Collections
-import java.util.function.Consumer
 import com.google.common.collect.{ImmutableMap, ImmutableSet}
 import com.google.common.util.concurrent.MoreExecutors
-import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
-import org.apache.samza.{Partition, SamzaException}
 import org.apache.samza.checkpoint._
+import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
 import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
@@ -35,6 +31,8 @@ import org.apache.samza.storage.TaskStorageCommitManager
 import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
+import org.apache.samza.util.FutureUtil
+import org.apache.samza.{Partition, SamzaException}
 import org.junit.Assert._
 import org.junit.{Before, Test}
 import org.mockito.Matchers._
@@ -45,7 +43,10 @@ import org.mockito.{ArgumentCaptor, Matchers, Mock, MockitoAnnotations}
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
 
-import java.util.concurrent.CompletableFuture
+import java.util
+import java.util.Collections
+import java.util.concurrent.{CompletableFuture, ExecutorService, Executors, ForkJoinPool}
+import java.util.function.Consumer
 import scala.collection.JavaConverters._
 
 class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
@@ -106,7 +107,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       Matchers.eq(this.containerContext), any(), Matchers.eq(this.applicationContainerContext)))
       .thenReturn(this.applicationTaskContext)
     when(this.systemAdmins.getSystemAdmin(SYSTEM_NAME)).thenReturn(this.systemAdmin)
-    when(this.jobContext.getConfig).thenReturn(new MapConfig(Collections.singletonMap("task.commit.ms", "-1")))
+    val taskConfigsMap = new util.HashMap[String, String]()
+    taskConfigsMap.put("task.commit.ms", "-1")
+    taskConfigsMap.put("task.commit.max.delay.ms", "100000")
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(taskConfigsMap))
     setupTaskInstance(Some(this.applicationTaskContextFactory))
   }
 
@@ -233,6 +237,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       CompletableFuture.completedFuture(snapshotSCMs)
     when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMFuture) // kafka is no-op
     when(this.taskCommitManager.cleanUp(any(), any())).thenReturn(CompletableFuture.completedFuture[Void](null))
+
+
     taskInstance.commit
 
     val mockOrder = inOrder(this.offsetManager, this.collector, this.taskTableManager, this.taskCommitManager)
@@ -383,11 +389,40 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
         return
     }
 
-    fail("Should have failed commit if error getting newest changelog offests")
+    fail("Should have failed commit if error getting newest changelog offsets")
   }
 
   @Test
-  def testCommitFailsIfErrorCreatingStoreCheckpoints() { // required for transactional state
+  def testCommitFailsIfPreviousAsyncUploadFails() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(FutureUtil.failedFuture[util.Map[String, util.Map[String, String]]](new RuntimeException))
+
+    try {
+      taskInstance.commit
+
+      // async stage exception in first commit should be caught and rethrown by the subsequent commit
+      taskInstance.commit
+    } catch {
+      case e: SamzaException =>
+        // exception is expected, container should fail if could not upload previous snapshot.
+        return
+    }
+
+    fail("Should have failed commit if error uploading store contents")
+  }
+
+  @Test
+  def testCommitFailsIfAsyncStoreDirCheckpointWriteFails() { // required for transactional state
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
 
@@ -412,11 +447,41 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
         return
     }
 
-    fail("Should have failed commit if error getting newest changelog offests")
+    fail("Should have failed commit if error writing checkpoint to store dirs")
   }
 
   @Test
-  def testCommitFailsIfErrorCleaningUpOldCheckpoints() { // required for blob store backend
+  def testCommitFailsIfPreviousAsyncCheckpointTopicWriteFails() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
+    doNothing().when(this.taskCommitManager).writeCheckpointToStoreDirectories(any())
+    when(this.offsetManager.writeCheckpoint(any(), any()))
+      .thenThrow(new SamzaException("Error writing checkpoint"))
+
+    try {
+      taskInstance.commit
+
+      // async stage exception in first commit should be caught and rethrown by the subsequent commit
+      taskInstance.commit
+    } catch {
+      case e: SamzaException =>
+        // exception is expected, container should fail if could not write previous checkpoint.
+        return
+    }
+
+    fail("Should have failed commit if error writing checkpoints to checkpoint topic")
+  }
+
+  @Test
+  def testCommitFailsIfPreviousAsyncCleanUpFails() { // required for blob store backend
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
 
@@ -429,7 +494,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
         Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
     doNothing().when(this.taskCommitManager).writeCheckpointToStoreDirectories(any())
     when(this.taskCommitManager.cleanUp(any(), any()))
-      .thenThrow(new SamzaException("Error clearing old checkpoints"))
+      .thenReturn(FutureUtil.failedFuture[Void](new SamzaException("Error during cleanup")))
 
     try {
       taskInstance.commit
@@ -442,8 +507,209 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
         return
     }
 
-    fail("Exception from removeOldCheckpoints should have been caught")
+    fail("Should have failed commit if error cleaning up previous commit")
   }
+
+  @Test
+  def testCommitFailsIfPreviousAsyncUploadFailsSynchronously() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
+
+    // Fail synchronously instead of returning a failed future.
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenThrow(new RuntimeException)
+
+    try {
+      taskInstance.commit
+
+      // async stage exception in first commit should be caught and rethrown by the subsequent commit
+      taskInstance.commit
+    } catch {
+      case e: SamzaException =>
+        // exception is expected, container should fail if could not upload previous snapshot.
+        return
+    }
+
+    fail("Should have failed commit if synchronous error during upload in async stage of previous commit")
+  }
+
+  @Test
+  def testCommitSucceedsIfPreviousAsyncStageSucceeds() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
+    doNothing().when(this.taskCommitManager).writeCheckpointToStoreDirectories(any())
+    when(this.taskCommitManager.cleanUp(any(), any()))
+      .thenReturn(CompletableFuture.completedFuture[Void](null))
+
+    taskInstance.commit // async stage will be run by caller due to direct executor
+
+    taskInstance.commit
+
+    // verify that all commit operations ran twice
+    verify(taskCommitManager, times(2)).snapshot(any())
+    verify(taskCommitManager, times(2)).upload(any(), any())
+    // called 2x per commit, once for each checkpoint version
+    verify(taskCommitManager, times(4)).writeCheckpointToStoreDirectories(any())
+    verify(offsetManager, times(4)).writeCheckpoint(any(), any())
+    verify(taskCommitManager, times(2)).cleanUp(any(), any())
+    verify(commitsCounter, times(2)).inc()
+  }
+
+  @Test
+  def testCommitSkipsIfPreviousAsyncCommitInProgressWithinMaxCommitDelay() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+
+    val snapshotSCMs = ImmutableMap.of(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)
+    when(this.taskCommitManager.snapshot(any())).thenReturn(snapshotSCMs)
+    val snapshotSCMFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+      CompletableFuture.completedFuture(snapshotSCMs)
+
+    when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMFuture) // kafka is no-op
+
+    val cleanUpFuture = new CompletableFuture[Void]() // not completed until subsequent commit starts
+    when(this.taskCommitManager.cleanUp(any(), any())).thenReturn(cleanUpFuture)
+
+    // use a separate executor to perform async operations on to test caller thread blocking behavior
+    setupTaskInstance(None, ForkJoinPool.commonPool())
+
+    taskInstance.commit // async stage will not complete until cleanUpFuture is completed
+
+    taskInstance.commit
+
+    verify(commitsCounter, times(1)).inc() // should only have been incremented once on the initial commit
+
+    cleanUpFuture.complete(null) // just to unblock shared executor
+  }
+
+  @Test
+  def testCommitThrowsIfPreviousAsyncCommitInProgressAfterMaxCommitDelayAndBlockTime() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+
+    val snapshotSCMs = ImmutableMap.of(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)
+    when(this.taskCommitManager.snapshot(any())).thenReturn(snapshotSCMs)
+    val snapshotSCMFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+      CompletableFuture.completedFuture(snapshotSCMs)
+
+    when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMFuture) // kafka is no-op
+
+    val cleanUpFuture = new CompletableFuture[Void]()
+    when(this.taskCommitManager.cleanUp(any(), any())).thenReturn(cleanUpFuture)
+
+    // use a separate executor to perform async operations on to test caller thread blocking behavior
+    val taskConfigsMap = new util.HashMap[String, String]()
+    taskConfigsMap.put("task.commit.ms", "-1")
+    // "block" immediately if previous commit async stage not complete
+    taskConfigsMap.put("task.commit.max.delay.ms", "-1")
+    taskConfigsMap.put("task.commit.timeout.ms", "0") // throw exception immediately if blocked
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(taskConfigsMap)) // override default behavior
+
+    setupTaskInstance(None, ForkJoinPool.commonPool())
+
+    taskInstance.commit // async stage will not complete until cleanUpFuture is completed
+
+    try {
+      taskInstance.commit // should throw exception
+      fail("Should have thrown an exception if blocked for previous commit async stage.")
+    } catch {
+      case e: Exception =>
+        verify(commitsCounter, times(1)).inc() // should only have been incremented once on the initial commit
+    }
+
+    cleanUpFuture.complete(null) // just to unblock shared executor
+  }
+
+  @Test
+  def testCommitBlocksIfPreviousAsyncCommitInProgressAfterMaxCommitDelayButWithinBlockTime() {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+
+    val snapshotSCMs = ImmutableMap.of(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)
+    when(this.taskCommitManager.snapshot(any())).thenReturn(snapshotSCMs)
+    val snapshotSCMFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+      CompletableFuture.completedFuture(snapshotSCMs)
+
+    when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMFuture) // kafka is no-op
+
+    val cleanUpFuture = new CompletableFuture[Void]()
+    when(this.taskCommitManager.cleanUp(any(), any())).thenReturn(cleanUpFuture)
+
+    // use a separate executor to perform async operations on to test caller thread blocking behavior
+    val taskConfigsMap = new util.HashMap[String, String]()
+    taskConfigsMap.put("task.commit.ms", "-1")
+    // "block" immediately if previous commit async stage not complete
+    taskConfigsMap.put("task.commit.max.delay.ms", "-1")
+    taskConfigsMap.put("task.commit.timeout.ms", "1000000") // block until previous stage is complete
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(taskConfigsMap)) // override default behavior
+
+    setupTaskInstance(None, ForkJoinPool.commonPool())
+
+    taskInstance.commit // async stage will not complete until cleanUpFuture is completed
+
+    val executorService = Executors.newSingleThreadExecutor()
+    val secondCommitFuture = CompletableFuture.runAsync(new Runnable {
+      override def run(): Unit = taskInstance.commit // will block on executor
+    }, executorService)
+
+    var retries = 0 // wait no more than ~100 millis
+    while (!taskInstance.commitInProgress.hasQueuedThreads && retries < 10) {
+      retries += 1
+      Thread.sleep(10) // wait until commit in other thread blocks on the sempahore.
+    }
+    if (!taskInstance.commitInProgress.hasQueuedThreads) {
+      fail("Other thread should have blocked on semaphore acquisition. " +
+        "May need to increase retries if transient failure.")
+    }
+
+    cleanUpFuture.complete(null) // will eventually unblock the 2nd commit in other thread.
+    secondCommitFuture.join() // will complete when the sync phase of 2nd commit is complete.
+    verify(commitsCounter, times(2)).inc() // should only have been incremented twice - once for each commit
+  }
+
 
   /**
     * Given that no application task context factory is provided, then no lifecycle calls should be made.
@@ -508,7 +774,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   }
 
   private def setupTaskInstance(
-    applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]]): Unit = {
+    applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
+    commitThreadPool: ExecutorService = MoreExecutors.newDirectExecutorService()): Unit = {
     this.taskInstance = new TaskInstance(this.task,
       this.taskModel,
       this.metrics,
@@ -520,7 +787,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       tableManager = this.taskTableManager,
       systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
       exceptionHandler = this.taskInstanceExceptionHandler,
-      commitThreadPool = MoreExecutors.newDirectExecutorService(), // execute on caller thread.
+      commitThreadPool = commitThreadPool,
       jobContext = this.jobContext,
       containerContext = this.containerContext,
       applicationContainerContextOption = Some(this.applicationContainerContext),
