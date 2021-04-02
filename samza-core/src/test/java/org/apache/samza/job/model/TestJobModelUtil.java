@@ -42,7 +42,7 @@ public class TestJobModelUtil {
     final ContainerModel mockContainerModel = mock(ContainerModel.class);
     final JobModel first = mock(JobModel.class);
     final JobModel second = mock(JobModel.class);
-    final String TEST_PROCESSOR = "testProcessor2";
+    final String testProcessor2 = "testProcessor2";
 
     when(first.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel));
     when(second.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel));
@@ -55,7 +55,7 @@ public class TestJobModelUtil {
     assertFalse("Expecting false for two different job model",
         JobModelUtil.compareContainerModels(first, second));
 
-    when(second.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel, TEST_PROCESSOR,
+    when(second.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel, testProcessor2,
         mock(ContainerModel.class)));
     assertFalse("Expecting false for two different job model",
         JobModelUtil.compareContainerModels(first, second));
