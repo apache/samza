@@ -49,7 +49,7 @@
   yarnVersion = "2.7.1"
   zkClientVersion = "0.11"
   zookeeperVersion = "3.4.13"
-  failsafeVersion = "1.1.0"
+  failsafeVersion = "2.4.0"
   jlineVersion = "3.8.2"
   jnaVersion = "4.5.1"
   couchbaseClientVersion = "2.7.2"

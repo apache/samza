@@ -19,14 +19,13 @@
 
 package org.apache.samza.table.retry;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.samza.SamzaException;
-
-import net.jodah.failsafe.AsyncFailsafe;
 import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.RetryPolicy;
+
+import java.time.temporal.ChronoUnit;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.samza.SamzaException;
 
 
 /**
@@ -39,23 +38,24 @@ class FailsafeAdapter {
    * @return this policy instance
    */
   static RetryPolicy valueOf(TableRetryPolicy policy) {
-    RetryPolicy failSafePolicy = new RetryPolicy();
+    // max retries default changed to 2 in v2.0. switching back to infinite retries by default for back compat.
+    RetryPolicy failSafePolicy = new RetryPolicy().withMaxRetries(-1);
 
     switch (policy.getBackoffType()) {
       case NONE:
         break;
 
       case FIXED:
-        failSafePolicy.withDelay(policy.getSleepTime().toMillis(), TimeUnit.MILLISECONDS);
+        failSafePolicy.withDelay(policy.getSleepTime());
         break;
 
       case RANDOM:
-        failSafePolicy.withDelay(policy.getRandomMin().toMillis(), policy.getRandomMax().toMillis(), TimeUnit.MILLISECONDS);
+        failSafePolicy.withDelay(policy.getRandomMin().toMillis(), policy.getRandomMax().toMillis(), ChronoUnit.MILLIS);
         break;
 
       case EXPONENTIAL:
-        failSafePolicy.withBackoff(policy.getSleepTime().toMillis(), policy.getExponentialMaxSleep().toMillis(), TimeUnit.MILLISECONDS,
-            policy.getExponentialFactor());
+        failSafePolicy.withBackoff(policy.getSleepTime().toMillis(), policy.getExponentialMaxSleep().toMillis(),
+            ChronoUnit.MILLIS, policy.getExponentialFactor());
         break;
 
       default:
@@ -63,17 +63,16 @@ class FailsafeAdapter {
     }
 
     if (policy.getMaxDuration() != null) {
-      failSafePolicy.withMaxDuration(policy.getMaxDuration().toMillis(), TimeUnit.MILLISECONDS);
+      failSafePolicy.withMaxDuration(policy.getMaxDuration());
     }
     if (policy.getMaxAttempts() != null) {
       failSafePolicy.withMaxRetries(policy.getMaxAttempts());
     }
     if (policy.getJitter() != null && policy.getBackoffType() != TableRetryPolicy.BackoffType.RANDOM) {
-      failSafePolicy.withJitter(policy.getJitter().toMillis(), TimeUnit.MILLISECONDS);
+      failSafePolicy.withJitter(policy.getJitter());
     }
 
-    failSafePolicy.retryOn(e -> policy.getRetryPredicate().test(e));
-
+    failSafePolicy.abortOn(policy.getRetryPredicate().negate());
     return failSafePolicy;
   }
 
@@ -82,22 +81,24 @@ class FailsafeAdapter {
    * @param retryPolicy retry policy
    * @param metrics retry metrics
    * @param retryExec executor service for scheduling async retries
-   * @return {@link net.jodah.failsafe.AsyncFailsafe} instance
+   * @return {@link net.jodah.failsafe.FailsafeExecutor} instance
    */
-  static AsyncFailsafe<?> failsafe(RetryPolicy retryPolicy, RetryMetrics metrics, ScheduledExecutorService retryExec) {
+  static <T> FailsafeExecutor<T> failsafe(RetryPolicy<T> retryPolicy, RetryMetrics metrics, ScheduledExecutorService retryExec) {
     long startMs = System.currentTimeMillis();
-    return Failsafe.with(retryPolicy).with(retryExec)
+
+    RetryPolicy<T> retryPolicyWithMetrics = retryPolicy
         .onRetry(e -> metrics.retryCount.inc())
         .onRetriesExceeded(e -> {
           metrics.retryTimer.update(System.currentTimeMillis() - startMs);
           metrics.permFailureCount.inc();
-        })
-        .onSuccess((e, ctx) -> {
-          if (ctx.getExecutions() > 1) {
+        }).onSuccess((e) -> {
+          if (e.getAttemptCount() > 1) {
             metrics.retryTimer.update(System.currentTimeMillis() - startMs);
           } else {
             metrics.successCount.inc();
           }
         });
+
+    return Failsafe.with(retryPolicyWithMetrics).with(retryExec);
   }
 }
