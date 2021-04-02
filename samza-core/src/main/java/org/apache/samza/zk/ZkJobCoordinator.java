@@ -292,7 +292,7 @@ public class ZkJobCoordinator implements JobCoordinator {
      *   2. Processors in the quorum which don't have work assignment and their failures/restarts don't impact the
      *      quorum.
      */
-    if (newJobModel.equals(activeJobModel)) {
+    if (JobModelUtil.compareContainerModels(newJobModel, activeJobModel)) {
       LOG.info("Skipping rebalance since there are no changes in work assignment");
       return;
     }
@@ -435,6 +435,8 @@ public class ZkJobCoordinator implements JobCoordinator {
       return;
     }
 
+    LOG.info("Checking for work assignment changes for processor {} between active job model {} and new job model {}",
+        processorId, activeJobModel, newJobModel);
     if (JobModelUtil.compareContainerModelForProcessor(processorId, activeJobModel, newJobModel)) {
       LOG.info("Skipping job model expiration for processor {} due to no change in work assignment.", processorId);
     } else {
@@ -538,8 +540,8 @@ public class ZkJobCoordinator implements JobCoordinator {
       final JobModel lastActiveJobModel = readJobModelFromMetadataStore(lastActiveJobModelVersion);
 
       /*
-       * TODO: A temporary workaround since job model can be started only if the stream processor is in the rebalance
-       *  state but not in starting state. All our current flows expect job model expired is invoked first.
+       * TODO: SAMZA-2645: Allow onNewJobModel as a valid state transition. Due to this limitation, we are forced
+       *  to invoke onJobModelExpired even if there is nothing to expire.
        */
       checkAndExpireJobModel(lastActiveJobModel);
       onNewJobModel(lastActiveJobModel);
@@ -621,6 +623,13 @@ public class ZkJobCoordinator implements JobCoordinator {
       if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
         debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> {
           LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
+          /*
+           * Publish the active job model version separately to denote that the job model version is agreed by
+           * the quorum. The active job model version is used by processors as an optimization during their startup
+           * so that processors can start with the work assignment that was agreed by the quorum and allows the
+           * leader to skip the rebalance if there is no change in the work assignment for the quorum across
+           * quorum changes (processors leaving or joining)
+           */
           if (leaderElector.amILeader()) {
             zkUtils.publishActiveJobModelVersion(version);
           }
