@@ -81,8 +81,6 @@ public class ZkJobCoordinator implements JobCoordinator {
   private static final int METADATA_CACHE_TTL_MS = 5000;
   private static final int NUM_VERSIONS_TO_LEAVE = 10;
 
-  // Action name when the processor starts with last agreed job model upon start
-  private static final String START_WORK_WITH_LAST_ACTIVE_JOB_MODEL = "StartWorkWithLastActiveJobModel";
   // Action name when the JobModel version changes
   private static final String JOB_MODEL_VERSION_CHANGE = "JobModelVersionChange";
 
@@ -96,12 +94,14 @@ public class ZkJobCoordinator implements JobCoordinator {
    **/
   private static final String ON_ZK_CLEANUP = "OnCleanUp";
 
+  // Action name when the processor starts with last agreed job model upon start
+  static final String START_WORK_WITH_LAST_ACTIVE_JOB_MODEL = "StartWorkWithLastActiveJobModel";
+
   private final ZkUtils zkUtils;
   private final String processorId;
 
   private final Config config;
   private final ZkJobCoordinatorMetrics metrics;
-  private final ZkLeaderElector leaderElector;
   private final AtomicBoolean initiatedShutdown = new AtomicBoolean(false);
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
@@ -119,6 +119,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   private boolean hasLoadedMetadataResources = false;
   private String cachedJobModelVersion = null;
   private ZkBarrierForVersionUpgrade barrier;
+  private ZkLeaderElector leaderElector;
 
   @VisibleForTesting
   ZkSessionMetrics zkSessionMetrics;
@@ -176,8 +177,11 @@ public class ZkJobCoordinator implements JobCoordinator {
     systemAdmins.start();
     leaderElector.tryBecomeLeader();
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
-    debounceTimer.scheduleAfterDebounceTime(START_WORK_WITH_LAST_ACTIVE_JOB_MODEL, 0,
-        this::startWorkWithLastActiveJobModel);
+
+    if (new ZkConfig(config).getEnableStartupWithActiveJobModel()) {
+      debounceTimer.scheduleAfterDebounceTime(START_WORK_WITH_LAST_ACTIVE_JOB_MODEL, 0,
+          this::startWorkWithLastActiveJobModel);
+    }
   }
 
   @Override
@@ -292,7 +296,8 @@ public class ZkJobCoordinator implements JobCoordinator {
      *   2. Processors in the quorum which don't have work assignment and their failures/restarts don't impact the
      *      quorum.
      */
-    if (JobModelUtil.compareContainerModels(newJobModel, activeJobModel)) {
+    if (new ZkConfig(config).getEnableStartupWithActiveJobModel() &&
+        JobModelUtil.compareContainerModels(newJobModel, activeJobModel)) {
       LOG.info("Skipping rebalance since there are no changes in work assignment");
       return;
     }
@@ -502,6 +507,11 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   void setDebounceTimer(ScheduleAfterDebounceTime scheduleAfterDebounceTime) {
     debounceTimer = scheduleAfterDebounceTime;
+  }
+
+  @VisibleForTesting
+  void setLeaderElector(ZkLeaderElector zkLeaderElector) {
+    leaderElector = zkLeaderElector;
   }
 
   @VisibleForTesting

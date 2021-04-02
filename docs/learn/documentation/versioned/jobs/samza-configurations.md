@@ -373,6 +373,7 @@ Samza supports both standalone and clustered ([YARN](yarn-jobs.html)) [deploymen
 |job.coordinator.zk.connection.timeout.ms|60000|Zookeeper connection timeout in milliseconds. Zk connection timeout controls how long client tries to connect to ZK server before giving up.|
 |job.coordinator.zk.consensus.timeout.ms|40000|Zookeeper-based coordination. How long each processor will wait for all the processors to report acceptance of the new job model before rolling back.|
 |job.debounce.time.ms|20000|Zookeeper-based coordination. How long the Leader processor will wait before recalculating the JobModel on change of registered processors.|
+|job.coordinator.zk.enable-startup-with-active-job-model|false|Enable stream processors to run with the active job model version on startup without waiting for leader to trigger rebalance. It is useful in scenarios where processors leave the quorum and comeback within debounce time and the work assignment for new quorum remains unchanged. If disabled, processors will wait for leader to generate and notify work assignment.
 
 ### <a name="metrics"></a>[6. Metrics](#metrics)
 |Name|Default|Description|

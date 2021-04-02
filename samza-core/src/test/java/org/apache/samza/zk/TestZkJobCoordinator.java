@@ -32,6 +32,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.MetadataResourceUtil;
@@ -96,7 +97,8 @@ public class TestZkJobCoordinator {
     Map<String, String> configMap = ImmutableMap.of(
         "job.coordinator.system", "kafka",
         "job.name", "test-job",
-        "systems.kafka.samza.factory", "org.apache.samza.system.MockSystemFactory");
+        "systems.kafka.samza.factory", "org.apache.samza.system.MockSystemFactory",
+        ZkConfig.STARTUP_WITH_ACTIVE_JOB_MODEL, "true");
     config = new MapConfig(configMap);
 
     Set<SystemStreamPartition> ssps = ImmutableSet.of(
@@ -308,6 +310,35 @@ public class TestZkJobCoordinator {
     zkJobCoordinator.stop();
 
     Mockito.verify(monitor).stop();
+  }
+
+  @Test
+  public void testStartWithActiveJobModelDisabled() {
+    final ScheduleAfterDebounceTime mockDebounceTimer = mock(ScheduleAfterDebounceTime.class);
+    ZkJobCoordinator zkJobCoordinator = new ZkJobCoordinator(PROCESSOR_ID, new MapConfig(),
+        new NoOpMetricsRegistry(), zkUtils, zkMetadataStore, coordinatorStreamStore);
+    zkJobCoordinator.setLeaderElector(mock(ZkLeaderElector.class));
+    zkJobCoordinator.setDebounceTimer(mockDebounceTimer);
+
+    zkJobCoordinator.start();
+
+    verifyZeroInteractions(mockDebounceTimer);
+  }
+
+  @Test
+  public void testStartWithActiveJobModelEnabled() {
+    final ScheduleAfterDebounceTime mockDebounceTimer = mock(ScheduleAfterDebounceTime.class);
+    ZkJobCoordinator zkJobCoordinator = new ZkJobCoordinator(PROCESSOR_ID, config, new NoOpMetricsRegistry(), zkUtils,
+        zkMetadataStore, coordinatorStreamStore);
+    zkJobCoordinator.setLeaderElector(mock(ZkLeaderElector.class));
+    zkJobCoordinator.setDebounceTimer(mockDebounceTimer);
+
+    zkJobCoordinator.start();
+
+    verify(mockDebounceTimer, times(1)).scheduleAfterDebounceTime(
+        eq(ZkJobCoordinator.START_WORK_WITH_LAST_ACTIVE_JOB_MODEL),
+        anyLong(),
+        any());
   }
 
   @Test
