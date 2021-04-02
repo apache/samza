@@ -511,7 +511,7 @@ public class ZkJobCoordinator implements JobCoordinator {
 
   /**
    * Start the processor with the last known active job model. It is safe to start with last active job model
-   * version in all the scenarios unless the event of concurrent rebalance. We define safe as a way to ensure that no
+   * version in all the scenarios unless in the event of concurrent rebalance. We define safe as a way to ensure that no
    * two processors in the quorum have overlapping work assignments.
    * In case of a concurrent rebalance there two scenarios
    *   1. Job model version update happens before processor registration
