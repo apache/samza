@@ -27,6 +27,7 @@ import com.google.common.base.Strings;
  *   - /
  *      |- groupId/
  *          |- JobModelGeneration/
+ *              |- activeJobModelVersion (data contains the most recent active job model version)
  *              |- jobModelVersion (data contains the version)
  *              |- jobModelUpgradeBarrier/ (contains barrier related data)
  *              |- jobModels/
@@ -42,7 +43,6 @@ import com.google.common.base.Strings;
  * This class provides helper methods to easily generate/parse the path in the ZK hierarchy.
  */
 public class ZkKeyBuilder {
-
   static final String PROCESSORS_PATH = "processors";
   static final String JOBMODEL_GENERATION_PATH = "jobModelGeneration";
   static final String JOB_MODEL_UPGRADE_BARRIER_PATH = "jobModelUpgradeBarrier";
@@ -87,6 +87,16 @@ public class ZkKeyBuilder {
 
   String getJobModelVersionPath() {
     return String.format("%s/%s/jobModelVersion", getRootPath(), JOBMODEL_GENERATION_PATH);
+  }
+
+  /**
+   * Denotes the path where the most recent active job model version is stored. The version of the job model is the
+   * most recent agreed upon version by the quorum. It differs from the <i>jobModelVersion</i> path which may
+   * have a newer version of job model published by the leader in during rebalance before consensus is achieved.
+   * @return the path where most recent active job model is stored
+   */
+  String getActiveJobModelVersionPath() {
+    return String.format("%s/%s/activeJobModelVersion", getRootPath(), JOBMODEL_GENERATION_PATH);
   }
 
   String getJobModelPathPrefix() {

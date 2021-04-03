@@ -18,12 +18,12 @@
  */
 package org.apache.samza.job.model;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -138,18 +138,17 @@ public class JobModelUtil {
       return false;
     }
 
-    return compareContainerModel(first.getContainers().get(processorId), second.getContainers().get(processorId));
+    return Objects.equals(first.getContainers().get(processorId), second.getContainers().get(processorId));
   }
 
   /**
-   * Helper method to compare the two input {@link ContainerModel}s.
-   * @param first first container model
-   * @param second second container model
-   * @return true - if two input {@link ContainerModel} are equal
+   * Compares the {@link ContainerModel}s across the two {@link JobModel}s.
+   * @param first first job model
+   * @param second second job model
+   * @return true - if {@link ContainerModel}s are the same across {@link JobModel}s
    *         false - otherwise
    */
-  @VisibleForTesting
-  static boolean compareContainerModel(ContainerModel first, ContainerModel second) {
+  public static boolean compareContainerModels(JobModel first, JobModel second) {
     if (first == second) {
       return true;
     }
@@ -158,7 +157,7 @@ public class JobModelUtil {
       return false;
     }
 
-    return first.equals(second);
+    return Objects.equals(first.getContainers(), second.getContainers());
   }
 
   private static String getJobModelKey(String version) {

@@ -94,12 +94,14 @@ public class ZkJobCoordinator implements JobCoordinator {
    **/
   private static final String ON_ZK_CLEANUP = "OnCleanUp";
 
+  // Action name when the processor starts with last agreed job model upon start
+  static final String START_WORK_WITH_LAST_ACTIVE_JOB_MODEL = "StartWorkWithLastActiveJobModel";
+
   private final ZkUtils zkUtils;
   private final String processorId;
 
   private final Config config;
   private final ZkJobCoordinatorMetrics metrics;
-  private final ZkLeaderElector leaderElector;
   private final AtomicBoolean initiatedShutdown = new AtomicBoolean(false);
   private final StreamMetadataCache streamMetadataCache;
   private final SystemAdmins systemAdmins;
@@ -117,6 +119,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   private boolean hasLoadedMetadataResources = false;
   private String cachedJobModelVersion = null;
   private ZkBarrierForVersionUpgrade barrier;
+  private ZkLeaderElector leaderElector;
 
   @VisibleForTesting
   ZkSessionMetrics zkSessionMetrics;
@@ -163,12 +166,22 @@ public class ZkJobCoordinator implements JobCoordinator {
   public void start() {
     ZkKeyBuilder keyBuilder = zkUtils.getKeyBuilder();
     zkUtils.validateZkVersion();
-    zkUtils.validatePaths(new String[]{keyBuilder.getProcessorsPath(), keyBuilder.getJobModelVersionPath(), keyBuilder.getJobModelPathPrefix(), keyBuilder.getTaskLocalityPath()});
+    zkUtils.validatePaths(new String[]{
+        keyBuilder.getProcessorsPath(),
+        keyBuilder.getJobModelVersionPath(),
+        keyBuilder.getActiveJobModelVersionPath(),
+        keyBuilder.getJobModelPathPrefix(),
+        keyBuilder.getTaskLocalityPath()});
 
     this.jobModelMetadataStore.init();
     systemAdmins.start();
     leaderElector.tryBecomeLeader();
     zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
+
+    if (new ZkConfig(config).getEnableStartupWithActiveJobModel()) {
+      debounceTimer.scheduleAfterDebounceTime(START_WORK_WITH_LAST_ACTIVE_JOB_MODEL, 0,
+          this::startWorkWithLastActiveJobModel);
+    }
   }
 
   @Override
@@ -273,6 +286,21 @@ public class ZkJobCoordinator implements JobCoordinator {
     // Generate the JobModel
     LOG.info("Generating new JobModel with processors: {}.", currentProcessorIds);
     JobModel newJobModel = generateNewJobModel(processorNodes);
+
+    /*
+     * Leader skips the rebalance even if there are changes in the quorum as long as the work assignment remains the same
+     * across all the processors. The optimization is useful in the following scenarios
+     *   1. The processor in the quorum restarts within the debounce window. Originally, this would trigger rebalance
+     *      across the processors stopping and starting their work assignment which is detrimental to availability of
+     *      the system. e.g. common scenario during rolling upgrades
+     *   2. Processors in the quorum which don't have work assignment and their failures/restarts don't impact the
+     *      quorum.
+     */
+    if (new ZkConfig(config).getEnableStartupWithActiveJobModel() &&
+        JobModelUtil.compareContainerModels(newJobModel, activeJobModel)) {
+      LOG.info("Skipping rebalance since there are no changes in work assignment");
+      return;
+    }
 
     // Create checkpoint and changelog streams if they don't exist
     if (!hasLoadedMetadataResources) {
@@ -412,6 +440,8 @@ public class ZkJobCoordinator implements JobCoordinator {
       return;
     }
 
+    LOG.info("Checking for work assignment changes for processor {} between active job model {} and new job model {}",
+        processorId, activeJobModel, newJobModel);
     if (JobModelUtil.compareContainerModelForProcessor(processorId, activeJobModel, newJobModel)) {
       LOG.info("Skipping job model expiration for processor {} due to no change in work assignment.", processorId);
     } else {
@@ -475,8 +505,57 @@ public class ZkJobCoordinator implements JobCoordinator {
   }
 
   @VisibleForTesting
+  void setDebounceTimer(ScheduleAfterDebounceTime scheduleAfterDebounceTime) {
+    debounceTimer = scheduleAfterDebounceTime;
+  }
+
+  @VisibleForTesting
+  void setLeaderElector(ZkLeaderElector zkLeaderElector) {
+    leaderElector = zkLeaderElector;
+  }
+
+  @VisibleForTesting
   void setZkBarrierUpgradeForVersion(ZkBarrierForVersionUpgrade barrierUpgradeForVersion) {
     barrier = barrierUpgradeForVersion;
+  }
+
+  /**
+   * Start the processor with the last known active job model. It is safe to start with last active job model
+   * version in all the scenarios unless in the event of concurrent rebalance. We define safe as a way to ensure that no
+   * two processors in the quorum have overlapping work assignments.
+   * In case of a concurrent rebalance there two scenarios
+   *   1. Job model version update happens before processor registration
+   *   2. Job model version update happens after processor registration
+   * ZK guarantees FIFO order for client operations, the processor is guaranteed to see all the state up until its
+   * own registration.
+   * For scenario 1, due to above guarantee, the processor will not start with old assignment due to mismatch in
+   * latest vs last active. (If there is no mismatch, the scenario reduces to one of the safe scenarios)
+   *
+   * For scenario 2, it is possible for the processor to not see the writes by the leader about job model version change
+   * but will eventually receive a notification on the job model version change and act on it (potentially stop
+   * the work assignment if its not part of the job model).
+   *
+   * In the scenario where the processor doesn't start with last active job model version, it will continue to follow
+   * the old protocol where leader should get notified about the processor registration and potentially trigger
+   * rebalance and notify about changes in work assignment after consensus.
+   * TODO: SAMZA-2635: Rebalances in standalone doesn't handle DAG changes for restarted processor
+   */
+  @VisibleForTesting
+  void startWorkWithLastActiveJobModel() {
+    LOG.info("Starting the processor with the recent active job model");
+    String lastActiveJobModelVersion = zkUtils.getLastActiveJobModelVersion();
+    String latestJobModelVersion = zkUtils.getJobModelVersion();
+
+    if (lastActiveJobModelVersion != null && lastActiveJobModelVersion.equals(latestJobModelVersion)) {
+      final JobModel lastActiveJobModel = readJobModelFromMetadataStore(lastActiveJobModelVersion);
+
+      /*
+       * TODO: SAMZA-2645: Allow onNewJobModel as a valid state transition. Due to this limitation, we are forced
+       *  to invoke onJobModelExpired even if there is nothing to expire.
+       */
+      checkAndExpireJobModel(lastActiveJobModel);
+      onNewJobModel(lastActiveJobModel);
+    }
   }
 
   /**
@@ -554,6 +633,16 @@ public class ZkJobCoordinator implements JobCoordinator {
       if (ZkBarrierForVersionUpgrade.State.DONE.equals(state)) {
         debounceTimer.scheduleAfterDebounceTime(barrierAction, 0, () -> {
           LOG.info("pid=" + processorId + "new version " + version + " of the job model got confirmed");
+          /*
+           * Publish the active job model version separately to denote that the job model version is agreed by
+           * the quorum. The active job model version is used by processors as an optimization during their startup
+           * so that processors can start with the work assignment that was agreed by the quorum and allows the
+           * leader to skip the rebalance if there is no change in the work assignment for the quorum across
+           * quorum changes (processors leaving or joining)
+           */
+          if (leaderElector.amILeader()) {
+            zkUtils.publishActiveJobModelVersion(version);
+          }
           onNewJobModel(getJobModel());
         });
       } else {

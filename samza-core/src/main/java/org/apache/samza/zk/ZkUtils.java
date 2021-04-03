@@ -503,6 +503,16 @@ public class ZkUtils {
   }
 
   /**
+   * Read the version of the job model that is the most recent agreed version by the quorum.
+   * @return most recent active job model version
+   */
+  public String getLastActiveJobModelVersion() {
+    String lastActiveJobModelVersion = zkClient.readData(keyBuilder.getActiveJobModelVersionPath(), true);
+    metrics.reads.inc();
+    return lastActiveJobModelVersion;
+  }
+
+  /**
    * Generates the next JobModel version that should be used by a processor group in a rebalancing phase
    * for coordination.
    * @param currentJobModelVersion the current version of JobModel.
@@ -553,6 +563,32 @@ public class ZkUtils {
     }
     LOG.info("published new version: " + newVersion + "; expected data version = " + (dataVersion + 1) +
         "(actual data version after update = " + stat.getVersion() + ")");
+  }
+
+  /**
+   * Publish to most recent job model version that is agreed by the quorum.
+   * @param version active job model version
+   */
+  public void publishActiveJobModelVersion(String version) {
+    try {
+      zkClient.writeData(keyBuilder.getActiveJobModelVersionPath(), version);
+      metrics.writes.inc();
+      LOG.info("Published the active job model version = {} to zookeeper successfully.", version);
+    } catch (Exception e) {
+      /*
+       * Failure to write the most recent job model version has the following implications
+       *  1. Processors no longer benefit from the optimization to start the container upon restarts based
+       *     on the most recent active job model. It is useful in scenarios where processors leave the quorum and
+       *     comeback within debounce time and the work assignment for new quorum remains unchanged.
+       *  2. During rolling upgrades, processors that are upgraded initially will wait for the min(deployment
+       *     window, T + debounce time) where T is the time at which the last change notification of the quorum was received
+       *     by the leader.
+       *
+       *  That said, failures don't impact correctness and is better to continue processing as opposed to bringing down
+       *  the processor as a fatal error.
+       */
+      LOG.warn("Failed to persist the active job model version = {} due to {}", version, e);
+    }
   }
 
   // validate that Zk protocol currently used by the job is the same as in this participant
