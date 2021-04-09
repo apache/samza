@@ -81,7 +81,7 @@ public class StreamAppender extends AbstractAppender {
   private static final String CREATE_STREAM_ENABLED = "task.log4j.create.stream.enabled";
 
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
-  private final BlockingQueue<byte[]> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
+  private final BlockingQueue<EncodedLogEvent> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
 
   private SystemStream systemStream = null;
   private SystemProducer systemProducer = null;
@@ -265,8 +265,8 @@ public class StreamAppender extends AbstractAppender {
     metrics.bufferFillPct.set(Math.round(100f * logQueue.size() / DEFAULT_QUEUE_SIZE));
   }
 
-  protected byte[] encodeLogEventToBytes(LogEvent event) {
-    return serde.toBytes(subLog(event));
+  protected EncodedLogEvent encodeLogEventToBytes(LogEvent event) {
+    return new ByteArrayEncodedLogEvent(serde.toBytes(subLog(event)));
   }
 
   private Message subAppend(LogEvent event) {
@@ -437,21 +437,21 @@ public class StreamAppender extends AbstractAppender {
 
   /**
    * Helper method to send a serialized log-event to the systemProducer, and increment respective methods.
-   * @param serializedLogEvent
+   * @param logQueueEntry the serialized log-event to be sent to the systemProducer
    */
-  private void sendEventToSystemProducer(byte[] serializedLogEvent) {
-    metrics.logMessagesBytesSent.inc(serializedLogEvent.length);
+  private void sendEventToSystemProducer(EncodedLogEvent logQueueEntry) {
+    metrics.logMessagesBytesSent.inc(logQueueEntry.getEntryValueSize());
     metrics.logMessagesCountSent.inc();
-    systemProducer.send(SOURCE, decorateLogEvent(serializedLogEvent));
+    systemProducer.send(SOURCE, decorateLogEvent(logQueueEntry));
   }
 
   /**
    * Helper method to create an OutgoingMessageEnvelope from the serialized log event.
-   * @param messageBytes message bytes
+   * @param logQueueEntry message bytes
    * @return OutgoingMessageEnvelope that contains the message bytes along with the system stream
    */
-  protected OutgoingMessageEnvelope decorateLogEvent(byte[] messageBytes) {
-    return new OutgoingMessageEnvelope(systemStream, keyBytes, messageBytes);
+  protected OutgoingMessageEnvelope decorateLogEvent(EncodedLogEvent logQueueEntry) {
+    return new OutgoingMessageEnvelope(systemStream, keyBytes, logQueueEntry.getValue());
   }
 
   protected String getStreamName(String jobName, String jobId) {
@@ -497,5 +497,43 @@ public class StreamAppender extends AbstractAppender {
    */
   public Serde<LogEvent> getSerde() {
     return serde;
+  }
+
+  /**
+   * A LogQeueEntry is the element inserted into the log queue of the stream appender
+   * that holds the log messages before they are sent to the underlying system producer.
+   * @param <T> type of object held as the entry
+   */
+  protected interface EncodedLogEvent<T> {
+    /**
+     * fetches the size of the log message held within the LogQueueEntry
+     * @return size of the log message
+     */
+    public long getEntryValueSize();
+
+    /**
+     * fetches the actual log message held within the LogQueueEntry
+     * @return the actual log message
+     */
+    public T getValue();
+  }
+
+  /**
+   * LogQueueEntry impl that holds the serialized byte[] of the log message.
+   */
+  private class ByteArrayEncodedLogEvent implements EncodedLogEvent<byte[]> {
+    final byte[] entryValue;
+    public ByteArrayEncodedLogEvent(byte[] array) {
+      entryValue = array;
+    }
+    @Override
+    public byte[] getValue() {
+      return entryValue;
+    }
+
+    @Override
+    public long getEntryValueSize() {
+      return entryValue.length;
+    }
   }
 }
