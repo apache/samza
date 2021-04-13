@@ -24,7 +24,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.serializers.Serde;
 
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 
 /**

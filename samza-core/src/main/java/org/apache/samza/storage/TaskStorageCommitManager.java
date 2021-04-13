@@ -242,7 +242,7 @@ public class TaskStorageCommitManager {
       }
     });
 
-     return FutureUtil.allOf(cleanUpFutures)
+    return FutureUtil.allOf(cleanUpFutures)
         .thenAcceptAsync(aVoid -> deleteOldCheckpointDirs(latestCheckpointId), backupExecutor);
   }
 
