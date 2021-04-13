@@ -381,14 +381,12 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
   }
 
   def getKafkaSystemProducerConfig( systemName: String,
-                                    clientId: String,
-                                    injectedProps: Map[String, String] = Map()) = {
+                                    clientId: String) = {
 
     val subConf = config.subset("systems.%s.producer." format systemName, true)
     val producerProps = new util.HashMap[String, String]()
     producerProps.putAll(subConf)
     producerProps.put("client.id", clientId)
-    producerProps.putAll(injectedProps.asJava)
     new KafkaProducerConfig(systemName, clientId, producerProps)
   }
 }
