@@ -20,9 +20,7 @@
 package org.apache.samza.storage;
 
 import java.io.File;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.Set;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
@@ -30,9 +28,6 @@ import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.serializers.Serde;
-import org.apache.samza.system.SystemConsumer;
-import org.apache.samza.task.MessageCollector;
 import org.apache.samza.util.Clock;
 
 
@@ -45,6 +40,7 @@ public interface StateBackendFactory {
       ContainerModel containerModel,
       TaskModel taskModel,
       ExecutorService backupExecutor,
+      MetricsRegistry taskInstanceMetricsRegistry,
       Config config,
       Clock clock);
 
@@ -52,17 +48,12 @@ public interface StateBackendFactory {
       ContainerContext containerContext,
       TaskModel taskModel,
       ExecutorService restoreExecutor,
-      Map<String, SystemConsumer> storeConsumers,
-      Map<String, StorageEngine> inMemoryStores,
-      Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
-      Map<String, Serde<Object>> serdes,
-      MetricsRegistry taskInstanceMetrics,
-      MessageCollector collector,
-      Set<String> storeNames,
+      MetricsRegistry metricsRegistry,
       Config config,
       Clock clock,
       File loggedStoreBaseDir,
-      File nonLoggedStoreBaseDir);
+      File nonLoggedStoreBaseDir,
+      KafkaChangelogRestoreParams kafkaChangelogRestoreParams);
 
   TaskStorageAdmin getAdmin();
 }

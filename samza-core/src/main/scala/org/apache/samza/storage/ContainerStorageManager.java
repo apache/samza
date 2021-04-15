@@ -118,6 +118,8 @@ public class ContainerStorageManager {
   private static final int SIDE_INPUT_CHECK_TIMEOUT_SECONDS = 10;
   private static final int SIDE_INPUT_SHUTDOWN_TIMEOUT_SECONDS = 60;
 
+  private static final int RESTORE_THREAD_POOL_SHUTDOWN_TIMEOUT_SECONDS = 60;
+
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, TaskRestoreManager> taskRestoreManagers;
   private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
@@ -144,8 +146,6 @@ public class ContainerStorageManager {
   private final File nonLoggedStoreBaseDirectory;
   private final Set<Path> storeDirectoryPaths; // the set of store directory paths, used by SamzaContainer to initialize its disk-space-monitor
 
-  private final int parallelRestoreThreadPoolSize;
-
   /* Sideinput related parameters */
   private final boolean hasSideInputs;
   private final Map<TaskName, Map<String, StorageEngine>> sideInputStores; // subset of taskStores after #start()
@@ -160,6 +160,7 @@ public class ContainerStorageManager {
 
   private final ExecutorService sideInputsExecutor = Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder().setDaemon(true).setNameFormat(SIDEINPUTS_THREAD_NAME).build());
+  private final ExecutorService restoreExecutor;
 
   private volatile Throwable sideInputException = null;
 
@@ -228,9 +229,6 @@ public class ContainerStorageManager {
     // initializing the set of store directory paths
     this.storeDirectoryPaths = new HashSet<>();
 
-    // Setting the restore thread pool size equal to the number of taskInstances
-    this.parallelRestoreThreadPoolSize = containerModel.getTasks().size();
-
     this.streamMetadataCache = streamMetadataCache;
     this.systemAdmins = systemAdmins;
 
@@ -255,6 +253,10 @@ public class ContainerStorageManager {
     Map<String, SystemConsumer> storeSystemConsumers = createConsumers(
         containerChangelogSystems, systemFactories, config, this.samzaContainerMetrics.registry());
     this.storeConsumers = createStoreIndexedMap(this.changelogSystemStreams, storeSystemConsumers);
+
+    // TODO HIGH dchen tune based on observed concurrency
+    this.restoreExecutor = Executors.newFixedThreadPool(containerModel.getTasks().size(),
+        new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
 
     // creating task restore managers
     this.taskRestoreManagers = createTaskRestoreManagers(stateBackendFactory, clock,
@@ -388,21 +390,19 @@ public class ContainerStorageManager {
     Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
 
     containerModel.getTasks().forEach((taskName, taskModel) -> {
-      MetricsRegistry storeMetricsRegistry =
+      MetricsRegistry taskMetricsRegistry =
           taskInstanceMetrics.get(taskName) != null ? taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
       Set<String> nonSideInputStoreNames = storageEngineFactories.keySet().stream()
           .filter(storeName -> !sideInputStoreNames.contains(storeName))
           .collect(Collectors.toSet());
-
-      // TODO BLOCKER pmaheshw fix thread pool and sizing
-      ExecutorService restoreExecutor = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize * 2,
-          new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
+      KafkaChangelogRestoreParams kafkaChangelogRestoreParams = new KafkaChangelogRestoreParams(storeConsumers,
+          inMemoryStores.get(taskName), systemAdmins.getSystemAdmins(), storageEngineFactories, serdes,
+          taskInstanceCollectors.get(taskName), nonSideInputStoreNames);
 
       taskRestoreManagers.put(taskName,
-          factory.getRestoreManager(jobContext, containerContext, taskModel, restoreExecutor, storeConsumers,
-              inMemoryStores.get(taskName), storageEngineFactories, serdes, storeMetricsRegistry,
-              taskInstanceCollectors.get(taskName), nonSideInputStoreNames, config, clock, loggedStoreBaseDirectory,
-              nonLoggedStoreBaseDirectory));
+          factory.getRestoreManager(jobContext, containerContext, taskModel, restoreExecutor,
+              taskMetricsRegistry, config, clock, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory,
+              kafkaChangelogRestoreParams));
       samzaContainerMetrics.addStoresRestorationGauge(taskName);
     });
     return taskRestoreManagers;
@@ -619,6 +619,15 @@ public class ContainerStorageManager {
   public void start() throws SamzaException, InterruptedException {
     // Restores and recreates
     restoreStores();
+    // Shutdown restore executor since it will no longer be used
+    try {
+      restoreExecutor.shutdown();
+      if (restoreExecutor.awaitTermination(RESTORE_THREAD_POOL_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.MILLISECONDS)) {
+        restoreExecutor.shutdownNow();
+      }
+    } catch (Exception e) {
+      LOG.error(e.getMessage());
+    }
     if (this.hasSideInputs) {
       startSideInputs();
     }
@@ -643,15 +652,11 @@ public class ContainerStorageManager {
     // Start each store consumer once
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);
 
-    // Create a thread pool for parallel restores (and stopping of persistent stores)
-    ExecutorService executorService = Executors.newFixedThreadPool(this.parallelRestoreThreadPoolSize,
-        new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
-
     List<Future> taskRestoreFutures = new ArrayList<>(this.taskRestoreManagers.entrySet().size());
 
     // Submit restore callable for each taskInstance
     this.taskRestoreManagers.forEach((taskInstance, taskRestoreManager) -> {
-      taskRestoreFutures.add(executorService.submit(
+      taskRestoreFutures.add(restoreExecutor.submit(
           new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskRestoreManager)));
     });
 
@@ -663,15 +668,13 @@ public class ContainerStorageManager {
       } catch (InterruptedException e) {
         LOG.warn("Received an interrupt during store restoration. Issuing interrupts to the store restoration workers to exit "
             + "prematurely without restoring full state.");
-        executorService.shutdownNow();
+        restoreExecutor.shutdownNow();
         throw e;
       } catch (Exception e) {
         LOG.error("Exception when restoring ", e);
         throw new SamzaException("Exception when restoring ", e);
       }
     }
-
-    executorService.shutdown();
 
     // Stop each store consumer once
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::stop);

@@ -38,7 +38,7 @@ import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStati
 import org.apache.samza.context._
 import org.apache.samza.diagnostics.DiagnosticsManager
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
-import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistry, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.startpoint.StartpointManager
@@ -570,8 +570,12 @@ object SamzaContainer extends Logging {
       val taskBackupManagerMap = new util.HashMap[String, TaskBackupManager]()
       stateStorageBackendBackupFactories.asJava.forEach(new Consumer[StateBackendFactory] {
         override def accept(factory: StateBackendFactory): Unit = {
+          val taskMetricsRegistry =
+            if (taskInstanceMetrics.contains(taskName) &&
+              taskInstanceMetrics.get(taskName).isDefined) taskInstanceMetrics.get(taskName).get.registry
+            else new MetricsRegistryMap
           val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
-            taskModel, commitThreadPool, config, new SystemClock)
+            taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
         }
       })

@@ -38,14 +38,11 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
-import org.apache.samza.task.MessageCollector;
 import org.apache.samza.util.Clock;
 
 
@@ -54,8 +51,13 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   private SSPMetadataCache sspCache;
 
   @Override
-  public TaskBackupManager getBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
-      ExecutorService backupExecutor, Config config, Clock clock) {
+  public TaskBackupManager getBackupManager(JobModel jobModel,
+      ContainerModel containerModel,
+      TaskModel taskModel,
+      ExecutorService backupExecutor,
+      MetricsRegistry metricsRegistry,
+      Config config,
+      Clock clock) {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     StorageConfig storageConfig = new StorageConfig(config);
     Map<String, SystemStream> storeChangelogs = storageConfig.getStoreChangelogs();
@@ -74,18 +76,12 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
       ContainerContext containerContext,
       TaskModel taskModel,
       ExecutorService restoreExecutor,
-      Map<String, SystemConsumer> storeConsumers,
-      Map<String, StorageEngine> inMemoryStores,
-      Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
-      Map<String, Serde<Object>> serdes,
       MetricsRegistry metricsRegistry,
-      MessageCollector messageCollector,
-      Set<String> storeNames,
       Config config,
       Clock clock,
       File loggedStoreBaseDir,
-      File nonLoggedStoreBaseDir) {
-    SystemAdmins systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
+      File nonLoggedStoreBaseDir,
+      KafkaChangelogRestoreParams kafkaChangelogRestoreParams) {
     Map<String, SystemStream> storeChangelogs = new StorageConfig(config).getStoreChangelogs();
     Set<SystemStreamPartition> changelogSSPs = storeChangelogs.values().stream()
         .flatMap(ss -> containerContext.getContainerModel().getTasks().values().stream()
@@ -94,21 +90,22 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
     // filter out standby store-ssp pairs
     Map<String, SystemStream> filteredStoreChangelogs =
         filterStandbySystemStreams(storeChangelogs, containerContext.getContainerModel());
+    SystemAdmins systemAdmins = new SystemAdmins(kafkaChangelogRestoreParams.getSystemAdmins());
 
     if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
       return new TransactionalStateTaskRestoreManager(
-          storeNames,
+          kafkaChangelogRestoreParams.getStoreNames(),
           jobContext,
           containerContext,
           taskModel,
           filteredStoreChangelogs,
-          inMemoryStores,
-          storageEngineFactories,
-          serdes,
+          kafkaChangelogRestoreParams.getInMemoryStores(),
+          kafkaChangelogRestoreParams.getStorageEngineFactories(),
+          kafkaChangelogRestoreParams.getSerdes(),
           systemAdmins,
-          storeConsumers,
+          kafkaChangelogRestoreParams.getStoreConsumers(),
           metricsRegistry,
-          messageCollector,
+          kafkaChangelogRestoreParams.getCollector(),
           getSspCache(systemAdmins, clock, changelogSSPs),
           loggedStoreBaseDir,
           nonLoggedStoreBaseDir,
@@ -117,19 +114,19 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
       );
     } else {
       return new NonTransactionalStateTaskRestoreManager(
-          storeNames,
+          kafkaChangelogRestoreParams.getStoreNames(),
           jobContext,
           containerContext,
           taskModel,
           filteredStoreChangelogs,
-          inMemoryStores,
-          storageEngineFactories,
-          serdes,
+          kafkaChangelogRestoreParams.getInMemoryStores(),
+          kafkaChangelogRestoreParams.getStorageEngineFactories(),
+          kafkaChangelogRestoreParams.getSerdes(),
           systemAdmins,
           getStreamCache(systemAdmins, clock),
-          storeConsumers,
+          kafkaChangelogRestoreParams.getStoreConsumers(),
           metricsRegistry,
-          messageCollector,
+          kafkaChangelogRestoreParams.getCollector(),
           jobContext.getJobModel().getMaxChangeLogStreamPartitions(),
           loggedStoreBaseDir,
           nonLoggedStoreBaseDir,
