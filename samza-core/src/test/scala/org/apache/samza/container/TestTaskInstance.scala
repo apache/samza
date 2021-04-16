@@ -26,7 +26,7 @@ import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateChe
 import org.apache.samza.config.MapConfig
 import org.apache.samza.context.{TaskContext => _, _}
 import org.apache.samza.job.model.TaskModel
-import org.apache.samza.metrics.Counter
+import org.apache.samza.metrics.{Counter, Gauge, Timer}
 import org.apache.samza.storage.TaskStorageCommitManager
 import org.apache.samza.system.{IncomingMessageEnvelope, StreamMetadataCache, SystemAdmin, SystemConsumers, SystemStream, SystemStreamMetadata, _}
 import org.apache.samza.table.TableManager
@@ -223,6 +223,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitOrder() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
@@ -293,12 +303,27 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     // Old checkpointed stores should be cleared
     mockOrder.verify(this.taskCommitManager).cleanUp(any(), any())
     verify(commitsCounter).inc()
+    verify(uploadCounter).inc()
+    verify(snapshotTimer).update(anyLong())
+    verify(uploadTimer).update(anyLong())
+    verify(commitTimer).update(anyLong())
+    verify(skippedCounter).set(0)
   }
 
   @Test
   def testEmptyChangelogSSPOffsetInCommit() { // e.g. if changelog topic is empty
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
@@ -340,12 +365,25 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       }
     })
     verify(commitsCounter).inc()
+    verify(uploadCounter).inc()
+    verify(snapshotTimer).update(anyLong())
+    verify(uploadTimer).update(anyLong())
   }
 
   @Test
   def testEmptyChangelogOffsetsInCommit() { // e.g. if stores have no changelogs
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
@@ -367,12 +405,17 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       }
     })
     verify(commitsCounter).inc()
+    verify(uploadCounter).inc()
+    verify(snapshotTimer).update(anyLong())
+    verify(uploadTimer).update(anyLong())
   }
 
   @Test
   def testCommitFailsIfErrorGettingChangelogOffset() { // required for transactional state
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -382,6 +425,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     try {
       // sync stage exception should be caught and rethrown immediately
       taskInstance.commit
+
+      verify(commitsCounter).inc()
+      verifyZeroInteractions(snapshotTimer)
     } catch {
       case e: SamzaException =>
         val msg = e.getMessage
@@ -396,6 +442,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitFailsIfPreviousAsyncUploadFails() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -410,8 +466,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     try {
       taskInstance.commit
 
+      verify(commitsCounter).inc()
+      verifyZeroInteractions(uploadCounter)
+      verify(snapshotTimer).update(anyLong())
+      verifyZeroInteractions(uploadTimer)
+      verifyZeroInteractions(commitTimer)
+      verifyZeroInteractions(skippedCounter)
+
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
       taskInstance.commit
+      verifyNoMoreInteractions(commitsCounter)
     } catch {
       case e: SamzaException =>
         // exception is expected, container should fail if could not upload previous snapshot.
@@ -425,6 +489,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitFailsIfAsyncStoreDirCheckpointWriteFails() { // required for transactional state
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -439,8 +513,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     try {
       taskInstance.commit
 
+      verify(commitsCounter).inc()
+      verify(uploadCounter).inc()
+      verify(snapshotTimer).update(anyLong())
+      verify(uploadTimer).update(anyLong())
+      verifyZeroInteractions(commitTimer)
+      verifyZeroInteractions(skippedCounter)
+
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
       taskInstance.commit
+      verifyNoMoreInteractions(commitsCounter)
     } catch {
       case e: SamzaException =>
         // exception is expected, container should fail if could not get changelog offsets.
@@ -454,6 +536,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitFailsIfPreviousAsyncCheckpointTopicWriteFails() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -469,8 +561,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     try {
       taskInstance.commit
 
+      verify(commitsCounter).inc()
+      verify(uploadCounter).inc()
+      verify(snapshotTimer).update(anyLong())
+      verify(uploadTimer).update(anyLong())
+      verifyZeroInteractions(commitTimer)
+      verifyZeroInteractions(skippedCounter)
+
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
       taskInstance.commit
+      verifyNoMoreInteractions(commitsCounter)
     } catch {
       case e: SamzaException =>
         // exception is expected, container should fail if could not write previous checkpoint.
@@ -484,6 +584,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitFailsIfPreviousAsyncCleanUpFails() { // required for blob store backend
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -499,8 +609,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     try {
       taskInstance.commit
 
+      verify(commitsCounter).inc()
+      verify(uploadCounter).inc()
+      verify(snapshotTimer).update(anyLong())
+      verify(uploadTimer).update(anyLong())
+      verifyZeroInteractions(commitTimer)
+      verifyZeroInteractions(skippedCounter)
+
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
       taskInstance.commit
+      verifyNoMoreInteractions(commitsCounter)
     } catch {
       case e: SamzaException =>
         // exception is expected, container should fail if could not clean up old checkpoint.
@@ -514,6 +632,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitFailsIfPreviousAsyncUploadFailsSynchronously() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -530,8 +658,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     try {
       taskInstance.commit
 
+      verify(commitsCounter).inc()
+      verifyZeroInteractions(uploadCounter)
+      verify(snapshotTimer).update(anyLong())
+      verifyZeroInteractions(uploadTimer)
+      verifyZeroInteractions(commitTimer)
+      verifyZeroInteractions(skippedCounter)
+
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
       taskInstance.commit
+      verifyNoMoreInteractions(commitsCounter)
     } catch {
       case e: SamzaException =>
         // exception is expected, container should fail if could not upload previous snapshot.
@@ -545,6 +681,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitSucceedsIfPreviousAsyncStageSucceeds() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -558,6 +704,13 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       .thenReturn(CompletableFuture.completedFuture[Void](null))
 
     taskInstance.commit // async stage will be run by caller due to direct executor
+
+    verify(commitsCounter).inc()
+    verify(uploadCounter).inc()
+    verify(snapshotTimer).update(anyLong())
+    verify(uploadTimer).update(anyLong())
+    verify(commitTimer).update(anyLong())
+    verify(skippedCounter).set(0)
 
     taskInstance.commit
 
@@ -575,6 +728,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitSkipsIfPreviousAsyncCommitInProgressWithinMaxCommitDelay() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -602,7 +765,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     taskInstance.commit
 
+    verify(skippedCounter).set(1)
+
     verify(commitsCounter, times(1)).inc() // should only have been incremented once on the initial commit
+    verify(uploadCounter).inc()
+    verify(snapshotTimer).update(anyLong())
+    verify(uploadTimer).update(anyLong())
+    verifyZeroInteractions(commitTimer)
+    verifyZeroInteractions(skippedCounter)
 
     cleanUpFuture.complete(null) // just to unblock shared executor
   }
@@ -611,6 +781,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitThrowsIfPreviousAsyncCommitInProgressAfterMaxCommitDelayAndBlockTime() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -658,6 +838,16 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   def testCommitBlocksIfPreviousAsyncCommitInProgressAfterMaxCommitDelayButWithinBlockTime() {
     val commitsCounter = mock[Counter]
     when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val uploadCounter = mock[Counter]
+    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -698,7 +888,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     var retries = 0 // wait no more than ~100 millis
     while (!taskInstance.commitInProgress.hasQueuedThreads && retries < 10) {
       retries += 1
-      Thread.sleep(10) // wait until commit in other thread blocks on the sempahore.
+      Thread.sleep(10) // wait until commit in other thread blocks on the semaphore.
     }
     if (!taskInstance.commitInProgress.hasQueuedThreads) {
       fail("Other thread should have blocked on semaphore acquisition. " +
@@ -708,6 +898,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     cleanUpFuture.complete(null) // will eventually unblock the 2nd commit in other thread.
     secondCommitFuture.join() // will complete when the sync phase of 2nd commit is complete.
     verify(commitsCounter, times(2)).inc() // should only have been incremented twice - once for each commit
+    verify(uploadCounter, times(2)).inc()
+    verify(snapshotTimer, times(2)).update(anyLong())
+    verify(uploadTimer, times(2)).update(anyLong())
   }
 
 
