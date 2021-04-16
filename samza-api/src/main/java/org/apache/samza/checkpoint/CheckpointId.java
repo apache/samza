@@ -36,7 +36,7 @@ public class CheckpointId {
   private final long millis;
   private final long nanos;
 
-  public CheckpointId(long millis, long nanos) {
+  private CheckpointId(long millis, long nanos) {
     this.millis = millis;
     this.nanos = nanos;
   }
@@ -61,6 +61,11 @@ public class CheckpointId {
     return nanos;
   }
 
+  /**
+   * WARNING: Do not change the toString() representation. It is used for serde'ing {@link CheckpointId} as part of task
+   * checkpoints, in conjunction with {@link #fromString(String)}.
+   * @return the String representation of this {@link CheckpointId}.
+   */
   @Override
   public String toString() {
     return String.format("%s%s%s", millis, SEPARATOR, nanos);

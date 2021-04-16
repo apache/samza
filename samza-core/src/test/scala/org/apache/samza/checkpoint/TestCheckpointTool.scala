@@ -91,9 +91,9 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     when(TestCheckpointTool.systemAdmin.getSystemStreamPartitionCounts(Set("foo").asJava, 0))
       .thenReturn(Map("foo" -> metadata).asJava)
     when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn0))
-      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "1234").asJava))
+      .thenReturn(new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p0) -> "1234").asJava))
     when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn1))
-      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "4321").asJava))
+      .thenReturn(new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p1) -> "4321").asJava))
   }
 
   @Test
@@ -113,9 +113,9 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     val checkpointTool = CheckpointTool(config, toOverwrite)
     checkpointTool.run()
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
+      .writeCheckpoint(tn0, new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
+      .writeCheckpoint(tn1, new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
   }
 
   @Test
@@ -157,9 +157,9 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     checkpointTool.run()
 
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
+      .writeCheckpoint(tn0, new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
+      .writeCheckpoint(tn1, new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
 
     // Two configurations job.id, job.name are populated in the coordinator config by SamzaRuntime and it is not present in generated config.
     assert(generatedConfigs.entrySet().containsAll(TestCheckpointTool.coordinatorConfig.entrySet()))

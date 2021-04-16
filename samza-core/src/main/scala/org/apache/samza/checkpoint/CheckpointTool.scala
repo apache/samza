@@ -187,7 +187,7 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
 
       val lastCheckpoints = taskNames.map(taskName => {
         taskName -> Option(checkpointManager.readLastCheckpoint(taskName))
-          .getOrElse(new Checkpoint(new java.util.HashMap[SystemStreamPartition, String]()))
+          .getOrElse(new CheckpointV1(new java.util.HashMap[SystemStreamPartition, String]()))
           .getOffsets
           .asScala
           .toMap
@@ -199,7 +199,7 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
         newOffsets.foreach {
           case (taskName: TaskName, offsets: Map[SystemStreamPartition, String]) =>
             logCheckpoint(taskName, offsets, "New offset to be written for task: " + taskName)
-            val checkpoint = new Checkpoint(offsets.asJava)
+            val checkpoint = new CheckpointV1(offsets.asJava)
             checkpointManager.writeCheckpoint(taskName, checkpoint)
             info(s"Updated the checkpoint of the task: $taskName to: $offsets")
         }

@@ -24,7 +24,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.serializers.Serde;
 
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 
 /**
@@ -58,16 +57,13 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
   public KafkaCheckpointLogKey fromBytes(byte[] bytes) {
     try {
       LinkedHashMap<String, String> deserializedKey = MAPPER.readValue(bytes, LinkedHashMap.class);
+      String key = deserializedKey.get(TYPE_FIELD);
 
-      if (!KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE.equals(deserializedKey.get(TYPE_FIELD))) {
-        throw new IllegalArgumentException(String.format("Invalid key detected. Type of the key is %s", deserializedKey.get(TYPE_FIELD)));
-      }
-
-      return new KafkaCheckpointLogKey(deserializedKey.get(TYPE_FIELD), new TaskName(deserializedKey.get(TASK_NAME_FIELD)), deserializedKey.get(SSP_GROUPER_FACTORY_FIELD)
-      );
+      return new KafkaCheckpointLogKey(key, new TaskName(deserializedKey.get(TASK_NAME_FIELD)),
+          deserializedKey.get(SSP_GROUPER_FACTORY_FIELD));
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception in de-serializing checkpoint bytes: %s",
-          Arrays.toString(bytes)), e);
+          new String(bytes)), e);
     }
   }
 }

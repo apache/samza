@@ -19,16 +19,22 @@
 
 package org.apache.samza.config;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.StreamUtil;
 
 import static com.google.common.base.Preconditions.*;
@@ -60,6 +66,12 @@ public class StorageConfig extends MapConfig {
   public static final String MIN_COMPACTION_LAG_MS = "min.compaction.lag.ms";
   public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
   public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
+
+  public static final String DEFAULT_STATE_BACKEND_FACTORY = "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
+  public static final String STORE_BACKEND_BACKUP_FACTORIES = STORE_PREFIX + "%s.state.backend.backup.factories";
+  public static final List<String> DEFAULT_STATE_BACKEND_BACKUP_FACTORIES = ImmutableList.of(
+      DEFAULT_STATE_BACKEND_FACTORY);
+  public static final String STATE_BACKEND_RESTORE_FACTORY = STORE_PREFIX + "state.restore.backend";
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -94,6 +106,11 @@ public class StorageConfig extends MapConfig {
     return storeNames;
   }
 
+  public Map<String, SystemStream> getStoreChangelogs() {
+    return getStoreNames().stream().filter(store -> getChangelogStream(store).isPresent())
+        .collect(Collectors.toMap(Function.identity(), n -> StreamUtil.getSystemStreamFromNames(getChangelogStream(n).get())));
+  }
+
   /**
    * If the config specifies 'stores.&lt;storename&gt;.changelog' as '&lt;system&gt;.&lt;stream&gt;' combination - it will take
    * precedence.
@@ -120,6 +137,15 @@ public class StorageConfig extends MapConfig {
       systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, this);
     }
     return Optional.ofNullable(systemStreamRes);
+  }
+
+  public List<String> getStoreBackupManagerClassName(String storeName) {
+    List<String> storeBackupManagers = getList(String.format(STORE_BACKEND_BACKUP_FACTORIES, storeName), new ArrayList<>());
+    // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
+    if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
+      storeBackupManagers = DEFAULT_STATE_BACKEND_BACKUP_FACTORIES;
+    }
+    return storeBackupManagers;
   }
 
   public boolean getAccessLogEnabled(String storeName) {
@@ -238,6 +264,29 @@ public class StorageConfig extends MapConfig {
         "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
 
     return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
+  }
+
+
+  public Set<String> getStateBackendBackupFactories() {
+    Set<String> stateBackupFactories = new HashSet<>();
+    getStoreNames().forEach((storeName) -> {
+      List<String> storeBackupFactory = getStoreBackupManagerClassName(storeName);
+      if (!storeBackupFactory.isEmpty()) {
+        stateBackupFactories.addAll(storeBackupFactory);
+      }
+    });
+    return stateBackupFactories;
+  }
+
+  public List<String> getBackupStoreNamesForStateBackupFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter((storeName) -> getStoreBackupManagerClassName(storeName)
+            .contains(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
+  public String getStateBackendRestoreFactory() {
+    return get(STATE_BACKEND_RESTORE_FACTORY, DEFAULT_STATE_BACKEND_FACTORY);
   }
 
   /**

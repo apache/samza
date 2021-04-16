@@ -19,6 +19,9 @@
 
 package org.apache.samza.config;
 
+import com.google.common.collect.ImmutableList;
+
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -53,6 +56,18 @@ public class TaskConfig extends MapConfig {
   // commit period in milliseconds
   public static final String COMMIT_MS = "task.commit.ms";
   static final long DEFAULT_COMMIT_MS = 60000L;
+  // upper bound for the task commit thread pool size in a container .
+  // num threads == min(num tasks in container, max thread pool size)
+  public static final String COMMIT_MAX_THREAD_POOL_SIZE = "task.commit.max.thread.pool.size";
+  static final int DEFAULT_COMMIT_MAX_THREAD_POOL_SIZE = 64;
+  // maximum amount of time a task may continue processing while a previous commit is pending
+  public static final String COMMIT_MAX_DELAY_MS = "task.commit.max.delay.ms";
+  static final long DEFAULT_COMMIT_MAX_DELAY_MS = Duration.ofMinutes(10).toMillis();
+  // maximum amount of time to block for a pending task commit to complete *after*
+  // COMMIT_MAX_DELAY_MS have passed since the pending commit start. if the pending commit
+  // does not complete within this timeout, the container will shut down.
+  public static final String COMMIT_TIMEOUT_MS = "task.commit.timeout.ms";
+  static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(1).toMillis();
   // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
@@ -108,6 +123,14 @@ public class TaskConfig extends MapConfig {
   // standby containers use this flag to indicate that checkpoints will be polled continually, rather than only once at startup like in an active container
   public static final String INTERNAL_CHECKPOINT_MANAGER_CONSUMER_STOP_AFTER_FIRST_READ = "samza.internal.task.checkpoint.consumer.stop.after.first.read";
 
+  // list of checkpoint versions to write during processing
+  public static final String CHECKPOINT_WRITE_VERSIONS = "task.checkpoint.write.versions";
+  public static final List<String> DEFAULT_CHECKPOINT_WRITE_VERSIONS = ImmutableList.of("1", "2");
+
+  // checkpoint version to read during container startup
+  public static final String CHECKPOINT_READ_VERSION = "task.checkpoint.read.version";
+  public static final short DEFAULT_CHECKPOINT_READ_VERSION = 1;
+
   public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
   public static final String TRANSACTIONAL_STATE_RESTORE_ENABLED = "task.transactional.state.restore.enabled";
@@ -141,6 +164,18 @@ public class TaskConfig extends MapConfig {
 
   public long getCommitMs() {
     return getLong(COMMIT_MS, DEFAULT_COMMIT_MS);
+  }
+
+  public int getCommitMaxThreadPoolSize() {
+    return getInt(COMMIT_MAX_THREAD_POOL_SIZE, DEFAULT_COMMIT_MAX_THREAD_POOL_SIZE);
+  }
+
+  public long getCommitMaxDelayMs() {
+    return getLong(COMMIT_MAX_DELAY_MS, DEFAULT_COMMIT_MAX_DELAY_MS);
+  }
+
+  public long getCommitTimeoutMs() {
+    return getLong(COMMIT_TIMEOUT_MS, DEFAULT_COMMIT_TIMEOUT_MS);
   }
 
   public Optional<String> getTaskClass() {
@@ -313,6 +348,15 @@ public class TaskConfig extends MapConfig {
           DEFAULT_TASK_SHUTDOWN_MS));
       return DEFAULT_TASK_SHUTDOWN_MS;
     }
+  }
+
+  public List<Short> getCheckpointWriteVersions() {
+    return getList(CHECKPOINT_WRITE_VERSIONS, DEFAULT_CHECKPOINT_WRITE_VERSIONS)
+        .stream().map(Short::valueOf).collect(Collectors.toList());
+  }
+
+  public short getCheckpointReadVersion() {
+    return getShort(CHECKPOINT_READ_VERSION, DEFAULT_CHECKPOINT_READ_VERSION);
   }
 
   public boolean getTransactionalStateCheckpointEnabled() {
