@@ -24,8 +24,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import org.apache.samza.Partition;
-import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
@@ -205,11 +205,15 @@ public class TestContainerStorageManager {
             new scala.collection.immutable.Map.Map1(new SystemStream(SYSTEM_NAME, STREAM_NAME), systemStreamMetadata));
 
     CheckpointManager checkpointManager = mock(CheckpointManager.class);
-    when(checkpointManager.readLastCheckpoint(any(TaskName.class))).thenReturn(new Checkpoint(new HashMap<>()));
+    when(checkpointManager.readLastCheckpoint(any(TaskName.class))).thenReturn(new CheckpointV1(new HashMap<>()));
 
     SSPMetadataCache mockSSPMetadataCache = mock(SSPMetadataCache.class);
     when(mockSSPMetadataCache.getMetadata(any(SystemStreamPartition.class)))
         .thenReturn(new SystemStreamMetadata.SystemStreamPartitionMetadata("0", "10", "11"));
+
+    ContainerContext mockContainerContext = mock(ContainerContext.class);
+    ContainerModel mockContainerModel = new ContainerModel("samza-container-test", tasks);
+    when(mockContainerContext.getContainerModel()).thenReturn(mockContainerModel);
 
     // Reset the  expected number of sysConsumer create, start and stop calls, and store.restore() calls
     this.systemConsumerCreationCount = 0;
@@ -217,12 +221,20 @@ public class TestContainerStorageManager {
     this.systemConsumerStopCount = 0;
     this.storeRestoreCallCount = 0;
 
+    StateBackendFactory backendFactory = mock(StateBackendFactory.class);
+    TaskRestoreManager restoreManager = mock(TaskRestoreManager.class);
+    when(backendFactory.getRestoreManager(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(restoreManager);
+    doAnswer(invocation -> {
+      storeRestoreCallCount++;
+      return null;
+    }).when(restoreManager).restore();
+
     // Create the container storage manager
     this.containerStorageManager = new ContainerStorageManager(
         checkpointManager,
-        new ContainerModel("samza-container-test", tasks),
+        mockContainerModel,
         mockStreamMetadataCache,
-        mockSSPMetadataCache,
         mockSystemAdmins,
         changelogSystemStreams,
         new HashMap<>(),
@@ -233,11 +245,11 @@ public class TestContainerStorageManager {
         taskInstanceMetrics,
         samzaContainerMetrics,
         mock(JobContext.class),
-        mock(ContainerContext.class),
+        mockContainerContext,
+        backendFactory,
         mock(Map.class),
         DEFAULT_LOGGED_STORE_BASE_DIR,
         DEFAULT_STORE_BASE_DIR,
-        2,
         null,
         new SystemClock());
   }
@@ -252,10 +264,10 @@ public class TestContainerStorageManager {
           mockingDetails(gauge).getInvocations().size() >= 1);
     }
 
-    Assert.assertTrue("Store restore count should be 2 because there are 2 tasks", this.storeRestoreCallCount == 2);
-    Assert.assertTrue("systemConsumerCreation count should be 1 (1 consumer per system)",
-        this.systemConsumerCreationCount == 1);
-    Assert.assertTrue("systemConsumerStopCount count should be 1", this.systemConsumerStopCount == 1);
-    Assert.assertTrue("systemConsumerStartCount count should be 1", this.systemConsumerStartCount == 1);
+    Assert.assertEquals("Store restore count should be 2 because there are 2 tasks", 2, this.storeRestoreCallCount);
+    Assert.assertEquals("systemConsumerCreation count should be 1 (1 consumer per system)", 1,
+        this.systemConsumerCreationCount);
+    Assert.assertEquals("systemConsumerStopCount count should be 1", 1, this.systemConsumerStopCount);
+    Assert.assertEquals("systemConsumerStartCount count should be 1", 1, this.systemConsumerStartCount);
   }
 }

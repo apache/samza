@@ -25,7 +25,6 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.storage.kv.BaseKeyValueStorageEngineFactory;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.storage.kv.KeyValueStoreMetrics;
-import org.apache.samza.system.SystemStreamPartition;
 
 
 public class InMemoryKeyValueStorageEngineFactory<K, V> extends BaseKeyValueStorageEngineFactory<K, V> {
@@ -33,7 +32,6 @@ public class InMemoryKeyValueStorageEngineFactory<K, V> extends BaseKeyValueStor
   protected KeyValueStore<byte[], byte[]> getKVStore(String storeName,
       File storeDir,
       MetricsRegistry registry,
-      SystemStreamPartition changeLogSystemStreamPartition,
       JobContext jobContext,
       ContainerContext containerContext,
       StoreMode storeMode) {

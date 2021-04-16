@@ -19,6 +19,7 @@
 package org.apache.samza.storage.kv;
 
 import java.io.File;
+import java.util.List;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
@@ -60,7 +61,6 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
    * @param storeName Name of the store
    * @param storeDir The directory of the store
    * @param registry MetricsRegistry to which to publish store specific metrics.
-   * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
    * @param jobContext Information about the job in which the task is executing.
    * @param containerContext Information about the container in which the task is executing.
    * @return A raw KeyValueStore instance
@@ -68,7 +68,6 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
   protected abstract KeyValueStore<byte[], byte[]> getKVStore(String storeName,
       File storeDir,
       MetricsRegistry registry,
-      SystemStreamPartition changeLogSystemStreamPartition,
       JobContext jobContext,
       ContainerContext containerContext,
       StoreMode storeMode);
@@ -106,6 +105,10 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     if (!storeFactory.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY)) {
       storePropertiesBuilder.setPersistedToDisk(true);
     }
+    // The store is durable iff it is backed by the task backup manager
+    List<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
+    storePropertiesBuilder.setIsDurable(!storeBackupManager.isEmpty());
+
     int batchSize = storageConfigSubset.getInt(WRITE_BATCH_SIZE, DEFAULT_WRITE_BATCH_SIZE);
     int cacheSize = storageConfigSubset.getInt(OBJECT_CACHE_SIZE, Math.max(batchSize, DEFAULT_OBJECT_CACHE_SIZE));
     if (cacheSize > 0 && cacheSize < batchSize) {
@@ -123,7 +126,7 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
     }
 
     KeyValueStore<byte[], byte[]> rawStore =
-        getKVStore(storeName, storeDir, registry, changelogSSP, jobContext, containerContext, storeMode);
+        getKVStore(storeName, storeDir, registry, jobContext, containerContext, storeMode);
     KeyValueStore<byte[], byte[]> maybeLoggedStore = buildMaybeLoggedStore(changelogSSP,
         storeName, registry, storePropertiesBuilder, rawStore, changelogCollector);
     // this also applies serialization and caching layers

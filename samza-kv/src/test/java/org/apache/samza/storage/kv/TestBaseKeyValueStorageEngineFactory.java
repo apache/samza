@@ -127,7 +127,23 @@ public class TestBaseKeyValueStorageEngineFactory {
         "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory"));
     StorageEngine storageEngine = callGetStorageEngine(config, null);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), false, false);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), false, false, false);
+    NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
+        assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
+    SerializedKeyValueStore<?, ?> serializedKeyValueStore =
+        assertAndCast(nullSafeKeyValueStore.getStore(), SerializedKeyValueStore.class);
+    // config has the in-memory key-value factory, but still calling the test factory, so store will be the test store
+    assertEquals(this.rawKeyValueStore, serializedKeyValueStore.getStore());
+  }
+
+  @Test
+  public void testDurableKeyValueStore() {
+    Config config = new MapConfig(BASE_CONFIG, DISABLE_CACHE,
+        ImmutableMap.of(String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME),
+        "backendFactory,backendFactory2"));
+    StorageEngine storageEngine = callGetStorageEngine(config, null);
+    KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false, true);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     SerializedKeyValueStore<?, ?> serializedKeyValueStore =
@@ -141,7 +157,7 @@ public class TestBaseKeyValueStorageEngineFactory {
     Config config = new MapConfig(BASE_CONFIG, DISABLE_CACHE);
     StorageEngine storageEngine = callGetStorageEngine(config, null);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false, false);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     SerializedKeyValueStore<?, ?> serializedKeyValueStore =
@@ -154,7 +170,7 @@ public class TestBaseKeyValueStorageEngineFactory {
     Config config = new MapConfig(BASE_CONFIG, DISABLE_CACHE);
     StorageEngine storageEngine = callGetStorageEngine(config, CHANGELOG_SSP);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, true);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, true, false);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     SerializedKeyValueStore<?, ?> serializedKeyValueStore =
@@ -170,7 +186,7 @@ public class TestBaseKeyValueStorageEngineFactory {
     Config config = new MapConfig(BASE_CONFIG);
     StorageEngine storageEngine = callGetStorageEngine(config, CHANGELOG_SSP);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, true);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, true, false);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     CachedStore<?, ?> cachedStore = assertAndCast(nullSafeKeyValueStore.getStore(), CachedStore.class);
@@ -187,7 +203,7 @@ public class TestBaseKeyValueStorageEngineFactory {
     Config config = new MapConfig(BASE_CONFIG, DISABLE_CACHE, DISALLOW_LARGE_MESSAGES);
     StorageEngine storageEngine = callGetStorageEngine(config, null);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false, false);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     SerializedKeyValueStore<?, ?> serializedKeyValueStore =
@@ -202,7 +218,7 @@ public class TestBaseKeyValueStorageEngineFactory {
     Config config = new MapConfig(BASE_CONFIG, DISALLOW_LARGE_MESSAGES);
     StorageEngine storageEngine = callGetStorageEngine(config, null);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false, false);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     SerializedKeyValueStore<?, ?> serializedKeyValueStore =
@@ -220,7 +236,7 @@ public class TestBaseKeyValueStorageEngineFactory {
     Config config = new MapConfig(BASE_CONFIG, DISABLE_CACHE, DROP_LARGE_MESSAGES);
     StorageEngine storageEngine = callGetStorageEngine(config, null);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false, false);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     SerializedKeyValueStore<?, ?> serializedKeyValueStore =
@@ -235,7 +251,7 @@ public class TestBaseKeyValueStorageEngineFactory {
     Config config = new MapConfig(BASE_CONFIG, DROP_LARGE_MESSAGES);
     StorageEngine storageEngine = callGetStorageEngine(config, null);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, false, false);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     CachedStore<?, ?> cachedStore = assertAndCast(nullSafeKeyValueStore.getStore(), CachedStore.class);
@@ -252,7 +268,7 @@ public class TestBaseKeyValueStorageEngineFactory {
     // AccessLoggedStore requires a changelog SSP
     StorageEngine storageEngine = callGetStorageEngine(config, CHANGELOG_SSP);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);
-    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, true);
+    assertStoreProperties(keyValueStorageEngine.getStoreProperties(), true, true, false);
     NullSafeKeyValueStore<?, ?> nullSafeKeyValueStore =
         assertAndCast(keyValueStorageEngine.getWrapperStore(), NullSafeKeyValueStore.class);
     AccessLoggedStore<?, ?> accessLoggedStore =
@@ -278,9 +294,10 @@ public class TestBaseKeyValueStorageEngineFactory {
   }
 
   private static void assertStoreProperties(StoreProperties storeProperties, boolean expectedPersistedToDisk,
-      boolean expectedLoggedStore) {
+      boolean expectedLoggedStore, boolean expectedDurable) {
     assertEquals(expectedPersistedToDisk, storeProperties.isPersistedToDisk());
     assertEquals(expectedLoggedStore, storeProperties.isLoggedStore());
+    assertEquals(expectedDurable, storeProperties.isDurableStore());
   }
 
   /**

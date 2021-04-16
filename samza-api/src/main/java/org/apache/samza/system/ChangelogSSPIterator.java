@@ -61,7 +61,7 @@ public class ChangelogSSPIterator extends BoundedSSPIterator {
   public IncomingMessageEnvelope next() {
     IncomingMessageEnvelope envelope = super.next();
 
-    // if trimming changelog is enabled, then switch to trim mode if if we've consumed past the restore offset
+    // if trimming changelog is enabled, then switch to trim mode if we've consumed past the restore offset
     // (i.e., restoreOffset was null or current offset is > restoreOffset)
     if (this.trimEnabled && (restoreOffset == null || admin.offsetComparator(envelope.getOffset(), restoreOffset) > 0)) {
       mode = Mode.TRIM;

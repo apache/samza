@@ -24,11 +24,11 @@ import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.{Comparator, Optional}
-
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.config.Config
-import org.apache.samza.util.Logging
+import org.apache.samza.storage.StorageManagerUtil
+import org.apache.samza.util.{FileUtil, Logging}
 import org.rocksdb.{TtlDB, _}
 
 object RocksDbKeyValueStore extends Logging {
@@ -67,6 +67,9 @@ object RocksDbKeyValueStore extends Logging {
     }
 
     try {
+      // Create the path if it doesn't exist
+      new FileUtil().createDirectories(dir.toPath)
+
       val rocksDb =
         if (useTTL) {
           info("Opening RocksDB store: %s in path: %s with TTL value: %s" format (storeName, dir.toString, ttl))
@@ -239,7 +242,7 @@ class RocksDbKeyValueStore(
 
   override def checkpoint(id: CheckpointId): Optional[Path] = {
     val checkpoint = Checkpoint.create(db)
-    val checkpointPath = dir.getPath + "-" + id.toString
+    val checkpointPath = StorageManagerUtil.getCheckpointDirPath(dir, id)
     checkpoint.createCheckpoint(checkpointPath)
     Optional.of(Paths.get(checkpointPath))
   }

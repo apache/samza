@@ -856,7 +856,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     }
 
     Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
-    Assert.assertEquals(32, jobModel.maxChangeLogStreamPartitions);
+    Assert.assertEquals(32, jobModel.getMaxChangeLogStreamPartitions());
   }
 
   /**
@@ -958,7 +958,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     // Validate that the new JobModel has the expected task assignments.
     actualTaskAssignments = getTaskAssignments(jobModel);
     Assert.assertEquals(expectedTaskAssignments, actualTaskAssignments);
-    Assert.assertEquals(32, jobModel.maxChangeLogStreamPartitions);
+    Assert.assertEquals(32, jobModel.getMaxChangeLogStreamPartitions());
   }
 
   @Test

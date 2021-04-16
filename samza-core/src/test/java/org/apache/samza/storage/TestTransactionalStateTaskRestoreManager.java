@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.CheckpointId;
-import org.apache.samza.checkpoint.CheckpointedChangelogOffset;
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.TaskConfig;
@@ -134,7 +134,7 @@ public class TestTransactionalStateTaskRestoreManager {
 
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of();
 
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset = ImmutableMap.of();
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset = ImmutableMap.of();
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets = ImmutableMap.of();
 
     SystemAdmins mockSystemAdmins = mock(SystemAdmins.class);
@@ -149,7 +149,7 @@ public class TestTransactionalStateTaskRestoreManager {
         .thenReturn(mockCurrentStoreDir);
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, null,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -185,10 +185,11 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    ImmutableMap<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(store1Name, kafkaStateCheckpointMarker);
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
@@ -218,7 +219,7 @@ public class TestTransactionalStateTaskRestoreManager {
         .thenReturn(ImmutableList.of(dummyCheckpointDir));
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -255,10 +256,11 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    ImmutableMap<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(store1Name, kafkaStateCheckpointMarker);
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
@@ -279,7 +281,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -319,11 +321,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "21";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -345,7 +348,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -386,11 +389,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -412,7 +416,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -454,11 +458,11 @@ public class TestTransactionalStateTaskRestoreManager {
 
     String changelog1CheckpointedOffset = "5";
     CheckpointId checkpointId = CheckpointId.fromString("0-0"); // checkpoint id older than default min.compaction.lag.ms
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(checkpointId, changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -480,7 +484,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -524,11 +528,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = null;
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -552,7 +557,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -588,11 +593,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = null;
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -616,7 +622,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -652,10 +658,11 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    ImmutableMap<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(store1Name, kafkaStateCheckpointMarker);
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
@@ -679,7 +686,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -717,10 +724,11 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    ImmutableMap<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(store1Name, kafkaStateCheckpointMarker);
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
@@ -760,7 +768,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -800,10 +808,11 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    ImmutableMap<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(store1Name, kafkaStateCheckpointMarker);
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
@@ -843,7 +852,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -886,10 +895,11 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    ImmutableMap<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(store1Name, kafkaStateCheckpointMarker);
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
@@ -927,7 +937,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -971,10 +981,11 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    ImmutableMap<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(store1Name, kafkaStateCheckpointMarker);
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
@@ -1012,7 +1023,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -1056,10 +1067,11 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    ImmutableMap<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        ImmutableMap.of(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    ImmutableMap<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        ImmutableMap.of(store1Name, kafkaStateCheckpointMarker);
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
 
@@ -1097,7 +1109,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -1144,11 +1156,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = null;
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -1191,7 +1204,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -1239,11 +1252,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = null;
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -1286,7 +1300,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -1332,11 +1346,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -1376,7 +1391,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -1421,11 +1436,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = null;
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -1471,7 +1487,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -1516,11 +1532,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -1561,7 +1578,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -1607,11 +1624,11 @@ public class TestTransactionalStateTaskRestoreManager {
 
     String changelog1CheckpointedOffset = "5";
     CheckpointId checkpointId = CheckpointId.fromString("0-0"); // checkpoint timestamp older than default min compaction lag
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(checkpointId, changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -1652,7 +1669,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
@@ -1697,11 +1714,12 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "21";
-    CheckpointedChangelogOffset changelog1CheckpointMessage =
-        new CheckpointedChangelogOffset(CheckpointId.create(), changelog1CheckpointedOffset);
-    Map<SystemStreamPartition, String> mockCheckpointedChangelogOffset =
-        new HashMap<SystemStreamPartition, String>() { {
-          put(changelog1SSP, changelog1CheckpointMessage.toString());
+    CheckpointId checkpointId = CheckpointId.create();
+    KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
+        new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
+    Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
+        new HashMap<String, KafkaStateCheckpointMarker>() { {
+          put(store1Name, kafkaStateCheckpointMarker);
         } };
     Map<SystemStreamPartition, SystemStreamPartitionMetadata> mockCurrentChangelogOffsets =
         ImmutableMap.of(changelog1SSP, changelog1SSPMetadata);
@@ -1742,7 +1760,7 @@ public class TestTransactionalStateTaskRestoreManager {
         });
 
     StoreActions storeActions = TransactionalStateTaskRestoreManager.getStoreActions(
-        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset,
+        mockTaskModel, mockStoreEngines, mockStoreChangelogs, mockCheckpointedChangelogOffset, checkpointId,
         mockCurrentChangelogOffsets, mockSystemAdmins, mockStorageManagerUtil,
         mockLoggedStoreBaseDir, mockNonLoggedStoreBaseDir, mockConfig, mockClock);
 
