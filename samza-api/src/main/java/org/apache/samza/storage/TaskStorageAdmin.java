@@ -17,21 +17,11 @@
  * under the License.
  */
 
-package org.apache.samza.storage
+package org.apache.samza.storage;
 
-import org.apache.samza.checkpoint.CheckpointId
-import org.apache.samza.system.SystemStreamPartition
+public interface TaskStorageAdmin {
 
-trait TaskStorageManager {
+  void createResources();
 
-  def getStore(storeName: String): Option[StorageEngine]
-
-  def flush(): Map[SystemStreamPartition, Option[String]]
-
-  def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit
-
-  def removeOldCheckpoints(checkpointId: CheckpointId): Unit
-
-  def stop(): Unit
-
+  void validateResources();
 }

@@ -20,15 +20,13 @@ package org.apache.samza.table.retry;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import net.jodah.failsafe.RetryPolicy;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-
 import java.util.function.Predicate;
-import net.jodah.failsafe.RetryPolicy;
-
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
@@ -36,9 +34,8 @@ import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
-import static org.apache.samza.table.retry.FailsafeAdapter.failsafe;
-
 import static org.apache.samza.table.BaseReadWriteTable.Func1;
+import static org.apache.samza.table.retry.FailsafeAdapter.failsafe;
 
 
 /**
@@ -156,13 +153,13 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   private <T> CompletableFuture<T> doRead(Func1<T> func) {
     return readRetryPolicy != null
-        ? failsafe(readRetryPolicy, readRetryMetrics, retryExecutor).future(() -> func.apply())
+        ? failsafe(readRetryPolicy, readRetryMetrics, retryExecutor).getStageAsync(() ->  func.apply())
         : func.apply();
   }
 
   private <T> CompletableFuture<T> doWrite(Func1<T> func) {
     return writeRetryPolicy != null
-        ? failsafe(writeRetryPolicy, writeRetryMetrics, retryExecutor).future(() -> func.apply())
+        ? failsafe(writeRetryPolicy, writeRetryMetrics, retryExecutor).getStageAsync(() -> func.apply())
         : func.apply();
   }
 }

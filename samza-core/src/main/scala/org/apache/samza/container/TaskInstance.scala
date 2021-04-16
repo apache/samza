@@ -21,21 +21,26 @@ package org.apache.samza.container
 
 
 import java.util.{Collections, Objects, Optional}
-import java.util.concurrent.ScheduledExecutorService
-
+import java.util.concurrent.{CompletableFuture, ExecutorService, ScheduledExecutorService, Semaphore, TimeUnit}
 import org.apache.samza.SamzaException
-import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointedChangelogOffset, OffsetManager}
+import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
+import org.apache.samza.checkpoint.{CheckpointId, CheckpointV1, CheckpointV2, OffsetManager}
 import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
 import org.apache.samza.storage.kv.KeyValueStore
-import org.apache.samza.storage.TaskStorageManager
+import org.apache.samza.storage.{ContainerStorageManager, TaskStorageCommitManager}
 import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
+import org.apache.samza.util.ScalaJavaUtil.JavaOptionals.toRichOptional
 import org.apache.samza.util.{Logging, ScalaJavaUtil}
 
+import java.util
+import java.util.concurrent.atomic.AtomicReference
+import java.util.function.BiConsumer
+import java.util.function.Function
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.collection.{JavaConverters, Map}
@@ -48,14 +53,16 @@ class TaskInstance(
   consumerMultiplexer: SystemConsumers,
   collector: TaskInstanceCollector,
   override val offsetManager: OffsetManager = new OffsetManager,
-  storageManager: TaskStorageManager = null,
+  commitManager: TaskStorageCommitManager = null,
+  containerStorageManager: ContainerStorageManager = null,
   tableManager: TableManager = null,
   val systemStreamPartitions: java.util.Set[SystemStreamPartition] = Collections.emptySet(),
   val exceptionHandler: TaskInstanceExceptionHandler = new TaskInstanceExceptionHandler,
   jobModel: JobModel = null,
   streamMetadataCache: StreamMetadataCache = null,
   inputStreamMetadata: Map[SystemStream, SystemStreamMetadata] = Map(),
-  timerExecutor : ScheduledExecutorService = null,
+  timerExecutor: ScheduledExecutorService = null,
+  commitThreadPool: ExecutorService = null,
   jobContext: JobContext,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
@@ -73,8 +80,9 @@ class TaskInstance(
 
   private val kvStoreSupplier = ScalaJavaUtil.toJavaFunction(
     (storeName: String) => {
-      if (storageManager != null && storageManager.getStore(storeName).isDefined) {
-        storageManager.getStore(storeName).get.asInstanceOf[KeyValueStore[_, _]]
+      if (containerStorageManager != null) {
+        val storeOption = containerStorageManager.getStore(taskName, storeName).toOption
+        if (storeOption.isDefined) storeOption.get.asInstanceOf[KeyValueStore[_, _]] else null
       } else {
         null
       }
@@ -97,11 +105,21 @@ class TaskInstance(
   systemStreamPartitions.foreach(ssp2CaughtupMapping += _ -> false)
 
   private val config: Config = jobContext.getConfig
+  val taskConfig = new TaskConfig(config)
 
   val streamConfig: StreamConfig = new StreamConfig(config)
   override val intermediateStreams: java.util.Set[String] = JavaConverters.setAsJavaSetConverter(streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream)).asJava
 
   val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
+
+  val checkpointWriteVersions = new TaskConfig(config).getCheckpointWriteVersions
+
+  @volatile var lastCommitStartTimeMs = System.currentTimeMillis()
+  @volatile var numSkippedCommits = 0
+  val commitMaxDelayMs = taskConfig.getCommitMaxDelayMs
+  val commitTimeoutMs = taskConfig.getCommitTimeoutMs
+  val commitInProgress = new Semaphore(1)
+  val commitException = new AtomicReference[Exception]()
 
   def registerOffsets {
     debug("Registering offsets for taskName: %s" format taskName)
@@ -121,10 +139,33 @@ class TaskInstance(
   def initTask {
     initCaughtUpMapping()
 
-    val taskConfig = new TaskConfig(config)
+    if (commitManager != null) {
+      debug("Starting commit manager for taskName: %s" format taskName)
+
+      commitManager.init()
+    } else {
+      debug("Skipping commit manager initialization for taskName: %s" format taskName)
+    }
+
+    if (offsetManager != null) {
+      val checkpoint = offsetManager.getLastTaskCheckpoint(taskName)
+      // Only required for checkpointV2
+      if (checkpoint != null && checkpoint.getVersion == 2) {
+        val checkpointV2 = checkpoint.asInstanceOf[CheckpointV2]
+        // call cleanUp on backup managers in case the container previously failed during commit
+        // before completing this step
+
+        // WARNING: cleanUp is NOT optional with blob stores since this is where we reset the TTL for
+        // tracked blobs. if this TTL reset is skipped, some of the blobs retained by future commits may
+        // be deleted in the background by the blob store, leading to data loss.
+        debug("Cleaning up stale state from previous run for taskName: %s" format taskName)
+        commitManager.cleanUp(checkpointV2.getCheckpointId, checkpointV2.getStateCheckpointMarkers)
+      }
+    }
+
     if (taskConfig.getTransactionalStateRestoreEnabled() && taskConfig.getCommitMs > 0) {
-      // Commit immediately so the trimmed changelog messages
-      // will be sealed in a checkpoint
+      debug("Committing immediately on startup for taskName: %s so that the trimmed changelog " +
+        "messages will be sealed in a checkpoint" format taskName)
       commit
     }
 
@@ -178,8 +219,9 @@ class TaskInstance(
     if (ssp2CaughtupMapping(incomingMessageSsp)) {
       metrics.messagesActuallyProcessed.inc
 
-      trace("Processing incoming message envelope for taskName and SSP: %s, %s"
-        format (taskName, incomingMessageSsp))
+      // TODO BLOCKER pmaheshw reenable after demo
+//      trace("Processing incoming message envelope for taskName: %s SSP: %s offset: %s"
+//        format (taskName, incomingMessageSsp, envelope.getOffset))
 
       exceptionHandler.maybeHandle {
         val callback = callbackFactory.createCallback()
@@ -219,68 +261,238 @@ class TaskInstance(
   }
 
   def commit {
-    metrics.commits.inc
+    // TODO BLOCKER pmaheshw add tests.
+    // ensure that only one commit (including sync and async phases) is ever in progress for a task.
 
-    val allCheckpointOffsets = new java.util.HashMap[SystemStreamPartition, String]()
-    val inputCheckpoint = offsetManager.buildCheckpoint(taskName)
-    if (inputCheckpoint != null) {
-      trace("Got input offsets for taskName: %s as: %s" format(taskName, inputCheckpoint.getOffsets))
-      allCheckpointOffsets.putAll(inputCheckpoint.getOffsets)
+    val commitStartNs = System.nanoTime()
+    // first check if there were any unrecoverable errors during the async stage of the pending commit
+    // and if so, shut down the container.
+    if (commitException.get() != null) {
+      throw new SamzaException("Unrecoverable error during pending commit for taskName: %s." format taskName,
+        commitException.get())
     }
 
-    trace("Flushing producers for taskName: %s" format taskName)
+    // if no commit is in progress for this task, continue with this commit.
+    // if a previous commit is in progress but less than {@code task.commit.max.delay.ms}
+    // have elapsed since it started, skip this commit request.
+    // if more time has elapsed than that, block this commit until the previous commit
+    // is complete, then continue with this commit.
+    if (!commitInProgress.tryAcquire()) {
+      val timeSinceLastCommit = System.currentTimeMillis() - lastCommitStartTimeMs
+      if (timeSinceLastCommit < commitMaxDelayMs) {
+        info("Skipping commit for taskName: %s since another commit is in progress. " +
+          "%s ms have elapsed since the pending commit started." format (taskName, timeSinceLastCommit))
+        metrics.asyncCommitSkipped.set(numSkippedCommits + 1)
+        return
+      } else {
+        warn("Blocking processing for taskName: %s until in-flight commit is complete. " +
+          "%s ms have elapsed since the pending commit started, " +
+          "which is greater than the max allowed commit delay: %s."
+          format (taskName, timeSinceLastCommit, commitMaxDelayMs))
+
+        if (!commitInProgress.tryAcquire(commitTimeoutMs, TimeUnit.MILLISECONDS)) {
+          val timeSinceLastCommit = System.currentTimeMillis() - lastCommitStartTimeMs
+          throw new SamzaException("Timeout waiting for pending commit for taskName: %s to finish. " +
+            "%s ms have elapsed since the pending commit started. Max allowed commit delay is %s ms " +
+            "and commit timeout beyond that is %s ms" format (taskName, timeSinceLastCommit,
+            commitMaxDelayMs, commitTimeoutMs))
+        }
+      }
+    }
+    // at this point the permit for semaphore has been acquired, proceed with commit.
+    // the first part of the commit needs to be exclusive with processing, so do it on the caller thread.
+    lastCommitStartTimeMs = System.currentTimeMillis()
+
+    metrics.commits.inc
+    val checkpointId = CheckpointId.create()
+
+    debug("Starting sync stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+
+    val inputOffsets = offsetManager.getLastProcessedOffsets(taskName)
+    trace("Got last processed input offsets for taskName: %s checkpointId: %s as: %s"
+      format(taskName, checkpointId, inputOffsets))
+
+    trace("Flushing producers for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+    // Flushes output, checkpoint and changelog producers
     collector.flush
 
     if (tableManager != null) {
-      trace("Flushing tables for taskName: %s" format taskName)
+      trace("Flushing tables for taskName: %s checkpointId: %s" format (taskName, checkpointId))
       tableManager.flush()
     }
 
-    var newestChangelogOffsets: Map[SystemStreamPartition, Option[String]] = null
-    if (storageManager != null) {
-      trace("Flushing state stores for taskName: %s" format taskName)
-      newestChangelogOffsets = storageManager.flush()
-      trace("Got newest changelog offsets for taskName: %s as: %s " format(taskName, newestChangelogOffsets))
-    }
+    // create a synchronous snapshot of stores for commit
+    debug("Creating synchronous state store snapshots for taskName: %s checkpointId: %s"
+      format (taskName, checkpointId))
+    val snapshotStartTimeNs = System.nanoTime()
+    val snapshotSCMs = commitManager.snapshot(checkpointId)
 
-    val checkpointId = CheckpointId.create()
-    if (storageManager != null && newestChangelogOffsets != null) {
-      trace("Checkpointing stores for taskName: %s with checkpoint id: %s" format (taskName, checkpointId))
-      storageManager.checkpoint(checkpointId, newestChangelogOffsets.toMap)
-    }
+    metrics.snapshotNs.update(System.nanoTime() - snapshotStartTimeNs)
+    trace("Got synchronous snapshot SCMs for taskName: %s checkpointId: %s as: %s "
+      format(taskName, checkpointId, snapshotSCMs))
 
-    if (newestChangelogOffsets != null) {
-      newestChangelogOffsets.foreach {case (ssp, newestOffsetOption) =>
-        val offset = new CheckpointedChangelogOffset(checkpointId, newestOffsetOption.orNull).toString
-        allCheckpointOffsets.put(ssp, offset)
-      }
-    }
-    val checkpoint = new Checkpoint(allCheckpointOffsets)
-    trace("Got combined checkpoint offsets for taskName: %s as: %s" format (taskName, allCheckpointOffsets))
+    debug("Submitting async stage of commit for taskName: %s checkpointId: %s for execution"
+      format (taskName, checkpointId))
+    // rest of the commit can happen asynchronously and concurrently with processing.
+    // schedule it on the commit executor and return. submitted runnable releases the
+    // commit semaphore permit when this commit is complete.
+    commitThreadPool.submit(new Runnable {
+      override def run(): Unit = {
+        debug("Starting async stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
 
-    offsetManager.writeCheckpoint(taskName, checkpoint)
+        try {
+          val uploadStartTimeNs = System.nanoTime()
+          val uploadSCMsFuture = commitManager.upload(checkpointId, snapshotSCMs)
 
-    if (storageManager != null) {
-      trace("Remove old checkpoint stores for taskName: %s" format taskName)
-      try {
-        storageManager.removeOldCheckpoints(checkpointId)
-      } catch {
-        case e: Exception => error("Failed to remove old checkpoints for task: %s. Current checkpointId: %s" format (taskName, checkpointId), e)
-      }
-    }
+          uploadSCMsFuture.whenComplete(new BiConsumer[util.Map[String, util.Map[String, String]], Throwable] {
+            override def accept(t: util.Map[String, util.Map[String, String]], throwable: Throwable): Unit = {
+              if (throwable == null) {
+                metrics.asyncUploadNs.update(System.nanoTime() - uploadStartTimeNs)
+                metrics.asyncUploadsCompleted.inc()
+              } else {
+                debug("Commit upload did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
+                  format (taskName, checkpointId, throwable.getMessage))
+              }
+            }
+          })
 
-    if (inputCheckpoint != null) {
-      trace("Deleting committed input offsets for taskName: %s" format taskName)
-      inputCheckpoint.getOffsets.asScala
-        .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
-        .groupBy { case (ssp, _) => ssp.getSystem }
-        .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>
-          systemAdmins.getSystemAdmin(systemName).deleteMessages(offsets.asJava)
+          // explicit types required to make scala compiler happy
+          val checkpointWriteFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+            uploadSCMsFuture.thenApplyAsync(writeCheckpoint(checkpointId, inputOffsets), commitThreadPool)
+
+          val cleanUpFuture: CompletableFuture[Void] =
+            checkpointWriteFuture.thenComposeAsync(cleanUp(checkpointId), commitThreadPool)
+
+          val trimFuture = cleanUpFuture.thenRunAsync(
+            trim(checkpointId, inputOffsets), commitThreadPool)
+
+          trimFuture.whenCompleteAsync(handleCompletion(checkpointId, commitStartNs), commitThreadPool)
+        } catch {
+          case t: Throwable => handleCompletion(checkpointId, commitStartNs).accept(null, t)
         }
+      }
+    })
+
+    debug("Finishing sync stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+  }
+
+  private def writeCheckpoint(checkpointId: CheckpointId, inputOffsets: util.Map[SystemStreamPartition, String]) = {
+    new Function[util.Map[String, util.Map[String, String]], util.Map[String, util.Map[String, String]]]() {
+      override def apply(uploadSCMs: util.Map[String, util.Map[String, String]]) = {
+        trace("Got asynchronous upload SCMs for taskName: %s checkpointId: %s as: %s "
+          format(taskName, checkpointId, uploadSCMs))
+
+        debug("Creating and writing checkpoints for taskName: %s checkpointId: %s" format (taskName, checkpointId))
+        checkpointWriteVersions.foreach(checkpointWriteVersion => {
+          val checkpoint = if (checkpointWriteVersion == 1) {
+            // build CheckpointV1 with KafkaChangelogSSPOffset for backwards compatibility
+            val allCheckpointOffsets = new util.HashMap[SystemStreamPartition, String]()
+            allCheckpointOffsets.putAll(inputOffsets)
+            val newestChangelogOffsets = KafkaStateCheckpointMarker.scmsToSSPOffsetMap(uploadSCMs)
+            newestChangelogOffsets.foreach { case (ssp, newestOffsetOption) =>
+              val offset = new KafkaChangelogSSPOffset(checkpointId, newestOffsetOption.orNull).toString
+              allCheckpointOffsets.put(ssp, offset)
+            }
+            new CheckpointV1(allCheckpointOffsets)
+          } else if (checkpointWriteVersion == 2) {
+            new CheckpointV2(checkpointId, inputOffsets, uploadSCMs)
+          } else {
+            throw new SamzaException("Unsupported checkpoint write version: " + checkpointWriteVersion)
+          }
+
+          trace("Writing checkpoint for taskName: %s checkpointId: %s as: %s"
+            format(taskName, checkpointId, checkpoint))
+
+          // Write input offsets and state checkpoint markers to task store and checkpoint directories
+          commitManager.writeCheckpointToStoreDirectories(checkpoint)
+
+          // Write input offsets and state checkpoint markers to the checkpoint topic atomically
+          offsetManager.writeCheckpoint(taskName, checkpoint)
+        })
+
+        uploadSCMs
+      }
+    }
+  }
+
+  private def cleanUp(checkpointId: CheckpointId) = {
+    new Function[util.Map[String, util.Map[String, String]], CompletableFuture[Void]] {
+      override def apply(uploadSCMs: util.Map[String, util.Map[String, String]]): CompletableFuture[Void] = {
+        // Perform cleanup on unused checkpoints
+        debug("Cleaning up old checkpoint state for taskName: %s checkpointId: %s" format(taskName, checkpointId))
+        try {
+          commitManager.cleanUp(checkpointId, uploadSCMs)
+        } catch {
+          case e: Exception =>
+            // WARNING: cleanUp is NOT optional with blob stores since this is where we reset the TTL for
+            // tracked blobs. if this TTL reset is skipped, some of the blobs retained by future commits may
+            // be deleted in the background by the blob store, leading to data loss.
+            throw new SamzaException(
+              "Failed to remove old checkpoint state for taskName: %s checkpointId: %s."
+                format(taskName, checkpointId), e)
+        }
+      }
+    }
+  }
+
+  private def trim(checkpointId: CheckpointId, inputOffsets: util.Map[SystemStreamPartition, String]) = {
+    new Runnable {
+      override def run(): Unit = {
+        trace("Deleting committed input offsets from intermediate topics for taskName: %s checkpointId: %s"
+          format (taskName, checkpointId))
+        inputOffsets.asScala
+          .filter { case (ssp, _) => streamsToDeleteCommittedMessages.contains(ssp.getStream) } // Only delete data of intermediate streams
+          .groupBy { case (ssp, _) => ssp.getSystem }
+          .foreach { case (systemName: String, offsets: Map[SystemStreamPartition, String]) =>
+            systemAdmins.getSystemAdmin(systemName).deleteMessages(offsets.asJava)
+          }
+      }
+    }
+  }
+
+  private def handleCompletion(checkpointId: CheckpointId, commitStartNs: Long) = {
+    new BiConsumer[Void, Throwable] {
+      override def accept(v: Void, e: Throwable): Unit = {
+        try {
+          debug("%s finishing async stage of commit for taskName: %s checkpointId: %s."
+            format (if (e == null) "Successfully" else "Unsuccessfully", taskName, checkpointId))
+          if (e != null) {
+            val exception = new SamzaException("Unrecoverable error during async stage of commit " +
+              "for taskName: %s checkpointId: %s" format(taskName, checkpointId), e)
+            val exceptionSet = commitException.compareAndSet(null, exception)
+            if (!exceptionSet) {
+              // should never happen because there should be at most one async stage of commit in progress
+              // for a task and another one shouldn't be schedule if the previous one failed. throw a new
+              // exception on the caller thread for logging and debugging if this happens.
+              error("Should not have encountered a non-null saved exception during async stage of " +
+                "commit for taskName: %s checkpointId: %s" format(taskName, checkpointId), commitException.get())
+              error("New exception during async stage of commit for taskName: %s checkpointId: %s"
+                format(taskName, checkpointId), exception)
+              throw new SamzaException("Should not have encountered a non-null saved exception " +
+                "during async stage of commit for taskName: %s checkpointId: %s. New exception logged above. " +
+                "Saved exception under Caused By.", commitException.get())
+            }
+          } else {
+            metrics.commitNs.update(System.nanoTime() - commitStartNs)
+            // reset the numbers skipped commits for the current commit
+            numSkippedCommits = 0
+            metrics.asyncCommitSkipped.set(numSkippedCommits)
+          }
+        } finally {
+          // release the permit indicating that previous commit is complete.
+          commitInProgress.release()
+        }
+      }
     }
   }
 
   def shutdownTask {
+    if (commitManager != null) {
+      debug("Shutting down commit manager for taskName: %s" format taskName)
+      commitManager.close()
+    } else {
+      debug("Skipping commit manager shutdown for taskName: %s" format taskName)
+    }
     applicationTaskContextOption.foreach(applicationTaskContext => {
       debug("Stopping application-defined task context for taskName: %s" format taskName)
       applicationTaskContext.stop()

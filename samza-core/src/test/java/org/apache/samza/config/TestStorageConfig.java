@@ -41,6 +41,8 @@ import static org.junit.Assert.assertTrue;
 public class TestStorageConfig {
   private static final String STORE_NAME0 = "store0";
   private static final String STORE_NAME1 = "store1";
+  private static final String STORE_NAME2 = "store2";
+  private static final String STORE_NAME3 = "store3";
 
   @Test
   public void testGetStoreNames() {
@@ -135,6 +137,63 @@ public class TestStorageConfig {
     StorageConfig storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "changelog-stream0")));
     storageConfig.getChangelogStream(STORE_NAME0);
+  }
+
+  @Test
+  public void testGetBackupManagerFactories() {
+    String factory1 = "factory1";
+    String factory2 = "factory2";
+    String factory3 = "factory3";
+    StorageConfig storageConfig = new StorageConfig(new MapConfig(
+        ImmutableMap.of(
+            String.format(STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME0), factory1 + "," + factory2,
+            String.format(STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME1), factory1,
+            String.format(STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME2), factory3,
+            String.format(CHANGELOG_STREAM, STORE_NAME3), "nondefault-changelog-system.streamName"),
+        ImmutableMap.of(
+            String.format(FACTORY, STORE_NAME0), "store0.factory.class",
+            String.format(FACTORY, STORE_NAME1), "store1.factory.class",
+            String.format(FACTORY, STORE_NAME2), "store2.factory.class",
+            String.format(FACTORY, STORE_NAME3), "store3.factory.class"
+            )
+        ));
+    Set<String> factories = storageConfig.getStateBackendBackupFactories();
+    assertTrue(factories.contains(factory1));
+    assertTrue(factories.contains(factory2));
+    assertTrue(factories.contains(factory3));
+    assertEquals(4, factories.size());
+    assertEquals(ImmutableList.of(factory1, factory2), storageConfig.getStoreBackupManagerClassName(STORE_NAME0));
+    assertEquals(ImmutableList.of(factory1), storageConfig.getStoreBackupManagerClassName(STORE_NAME1));
+    assertEquals(ImmutableList.of(factory3), storageConfig.getStoreBackupManagerClassName(STORE_NAME2));
+    assertEquals(DEFAULT_STATE_BACKEND_BACKUP_FACTORIES, storageConfig.getStoreBackupManagerClassName(STORE_NAME3));
+    assertTrue(storageConfig.getStoreBackupManagerClassName("emptystore").isEmpty());
+  }
+
+  @Test
+  public void testGetStoreToBackup() {
+    String targetFactory = "target.class";
+    StorageConfig config = new StorageConfig(new MapConfig(
+        ImmutableMap.of(
+            String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME0), targetFactory,
+            String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME1), targetFactory + "," +
+                DEFAULT_STATE_BACKEND_FACTORY,
+            String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME2), DEFAULT_STATE_BACKEND_FACTORY),
+        ImmutableMap.of(
+            String.format(FACTORY, STORE_NAME0), "store0.factory.class",
+            String.format(FACTORY, STORE_NAME1), "store1.factory.class",
+            String.format(FACTORY, STORE_NAME2), "store2.factory.class",
+            String.format(FACTORY, STORE_NAME3), "store3.factory.class",
+            String.format(CHANGELOG_STREAM, STORE_NAME3), "nondefault-changelog-system.streamName"
+        )
+    ));
+
+    List<String> targetStoreNames = config.getBackupStoreNamesForStateBackupFactory(targetFactory);
+    List<String> defaultStoreNames = config.getBackupStoreNamesForStateBackupFactory(
+        DEFAULT_STATE_BACKEND_FACTORY);
+    assertTrue(targetStoreNames.containsAll(ImmutableList.of(STORE_NAME0, STORE_NAME1)));
+    assertEquals(2, targetStoreNames.size());
+    assertTrue(defaultStoreNames.containsAll(ImmutableList.of(STORE_NAME2, STORE_NAME1, STORE_NAME3)));
+    assertEquals(3, defaultStoreNames.size());
   }
 
   @Test
