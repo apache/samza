@@ -21,8 +21,8 @@ package org.apache.samza.storage.kv;
 
 import com.google.common.collect.ImmutableList;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -31,25 +31,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.samza.application.TaskApplication;
-import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
+import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.KafkaConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.context.Context;
-import org.apache.samza.operators.KV;
-import org.apache.samza.serializers.KVSerde;
-import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
-import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
-import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
-import org.apache.samza.task.InitableTask;
-import org.apache.samza.task.MessageCollector;
-import org.apache.samza.task.StreamTask;
-import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.task.TaskCoordinator;
+import org.apache.samza.storage.MyStatefulApplication;
 import org.apache.samza.test.framework.StreamApplicationIntegrationTestHarness;
 import org.apache.samza.util.FileUtil;
 import org.junit.Assert;
@@ -80,6 +67,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
   private static final String STORE_2_NAME = "store2";
   private static final String STORE_1_CHANGELOG = "changelog1";
   private static final String STORE_2_CHANGELOG = "changelog2";
+  private static final String APP_NAME = "myApp";
   private static final String LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "logged-store").getAbsolutePath();
   private static final Map<String, String> CONFIGS = new HashMap<String, String>() { {
       put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
@@ -93,9 +81,6 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
       put(JobConfig.JOB_LOGGED_STORE_BASE_DIR, LOGGED_STORE_BASE_DIR);
     } };
 
-  private static List<String> actualInitialStoreContents = new ArrayList<>();
-  private static boolean crashedOnce = false;
-
   private final boolean hostAffinity;
 
   public TransactionalStateMultiStoreIntegrationTest(boolean hostAffinity) {
@@ -107,8 +92,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
   public void setUp() {
     super.setUp();
     // reset static state shared with task between each parameterized iteration
-    crashedOnce = false;
-    actualInitialStoreContents = new ArrayList<>();
+    MyStatefulApplication.resetTestState();
     new FileUtil().rm(new File(LOGGED_STORE_BASE_DIR)); // always clear local store on startup
   }
 
@@ -118,7 +102,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     List<String> expectedChangelogMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", null, "98", "99");
     initialRun(inputMessagesOnInitialRun, expectedChangelogMessagesOnInitialRun);
 
-    // first two are reverts for uncommitted messages from last run
+    // first two are reverts for uncommitted messages from last run for keys 98 and 99
     List<String> expectedChangelogMessagesOnSecondRun =
         Arrays.asList(null, null, "98", "99", "4", "5", "5");
     List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
@@ -159,8 +143,14 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
       Assert.assertEquals(inputMessages, readInputMessages);
     }
 
+    SamzaApplication app =  new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, ImmutableMap.of(
+        STORE_1_NAME, STORE_1_CHANGELOG,
+        STORE_2_NAME, STORE_2_CHANGELOG
+    ));
+
     // run the application
-    RunApplicationContext context = runApplication(new MyApplication(STORE_1_CHANGELOG), "myApp", CONFIGS);
+    RunApplicationContext context = runApplication(app, APP_NAME, CONFIGS);
+
 
     // consume and verify the changelog messages
     if (expectedChangelogMessages.size() > 0) {
@@ -187,8 +177,12 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     List<String> inputMessages = Arrays.asList("4", "5", "5", ":shutdown");
     inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
 
+    SamzaApplication app =  new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, ImmutableMap.of(
+        STORE_1_NAME, changelogTopic,
+        STORE_2_NAME, STORE_2_CHANGELOG
+    ));
     // run the application
-    RunApplicationContext context = runApplication(new MyApplication(changelogTopic), "myApp", CONFIGS);
+    RunApplicationContext context = runApplication(app, APP_NAME, CONFIGS);
 
     // wait for the application to finish
     context.getRunner().waitForFinish();
@@ -200,81 +194,6 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     Assert.assertEquals(expectedChangelogMessages, changelogMessages);
 
     // verify the store contents during startup (this is after changelog verification to ensure init has completed)
-    Assert.assertEquals(expectedInitialStoreContents, actualInitialStoreContents);
-  }
-
-  static class MyApplication implements TaskApplication {
-    private final String changelogTopic;
-
-    public MyApplication(String changelogTopic) {
-      this.changelogTopic = changelogTopic;
-    }
-
-    @Override
-    public void describe(TaskApplicationDescriptor appDescriptor) {
-      KafkaSystemDescriptor ksd = new KafkaSystemDescriptor(INPUT_SYSTEM);
-      KVSerde<String, String> serde = KVSerde.of(new StringSerde(), new StringSerde());
-
-      KafkaInputDescriptor<KV<String, String>> isd = ksd.getInputDescriptor(INPUT_TOPIC, serde);
-
-      RocksDbTableDescriptor<String, String> td1 = new RocksDbTableDescriptor<>(STORE_1_NAME, serde)
-          .withChangelogStream(changelogTopic)
-          .withChangelogReplicationFactor(1);
-
-      RocksDbTableDescriptor<String, String> td2 = new RocksDbTableDescriptor<>(STORE_2_NAME, serde)
-          .withChangelogStream(STORE_2_CHANGELOG)
-          .withChangelogReplicationFactor(1);
-
-      appDescriptor
-          .withInputStream(isd)
-          .withTaskFactory((StreamTaskFactory) () -> new MyTask())
-          .withTable(td1)
-          .withTable(td2);
-    }
-  }
-
-  static class MyTask implements StreamTask, InitableTask {
-    private KeyValueStore<String, String> store;
-
-    @Override
-    public void init(Context context) {
-      this.store = (KeyValueStore<String, String>) context.getTaskContext().getStore(STORE_1_NAME);
-      KeyValueIterator<String, String> storeEntries = store.all();
-      while (storeEntries.hasNext()) {
-        actualInitialStoreContents.add(storeEntries.next().getValue());
-      }
-      storeEntries.close();
-    }
-
-    @Override
-    public void process(IncomingMessageEnvelope envelope,
-        MessageCollector collector, TaskCoordinator coordinator) {
-      String key = (String) envelope.getKey();
-      LOG.info("Received key: {}", key);
-
-      if (key.endsWith("crash_once")) {  // endsWith allows :crash_once and crash_once
-        if (!crashedOnce) {
-          crashedOnce = true;
-          coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-        } else {
-          return;
-        }
-      } else if (key.endsWith("shutdown")) {
-        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-      } else if (key.startsWith("-")) {
-        store.delete(key.substring(1));
-      } else if (key.startsWith(":")) {
-        // write the message and flush, but don't invoke commit later
-        String msg = key.substring(1);
-        store.put(msg, msg);
-      } else {
-        store.put(key, key);
-      }
-      store.flush();
-
-      if (!key.startsWith(":")) {
-        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
-      }
-    }
+    Assert.assertEquals(expectedInitialStoreContents, MyStatefulApplication.getInitialStoreContents().get(STORE_1_NAME));
   }
 }

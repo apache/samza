@@ -27,7 +27,7 @@ import java.time.Duration
 import java.util
 import java.util.{Base64, Optional}
 import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, ThreadPoolExecutor, TimeUnit}
-
+import java.util.function.Consumer
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
@@ -38,7 +38,7 @@ import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStati
 import org.apache.samza.context._
 import org.apache.samza.diagnostics.DiagnosticsManager
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
-import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistry, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.startpoint.StartpointManager
@@ -52,7 +52,6 @@ import org.apache.samza.util.{Util, _}
 import org.apache.samza.SamzaException
 import org.apache.samza.clustermanager.StandbyTaskUtil
 
-import scala.collection.JavaConversions
 import scala.collection.JavaConverters._
 
 object SamzaContainer extends Logging {
@@ -146,7 +145,6 @@ object SamzaContainer extends Logging {
     val systemConfig = new SystemConfig(config)
     val containerModel = jobModel.getContainers.get(containerId)
     val containerName = "samza-container-%s" format containerId
-    val maxChangeLogStreamPartitions = jobModel.maxChangeLogStreamPartitions
 
     val containerPID = ManagementFactory.getRuntimeMXBean().getName()
 
@@ -343,11 +341,7 @@ object SamzaContainer extends Logging {
 
     debug("Got system stream message serdes: %s" format systemStreamMessageSerdes)
 
-    val storeChangelogs = storageConfig
-      .getStoreNames.asScala
-      .filter(storageConfig.getChangelogStream(_).isPresent)
-      .map(name => (name, storageConfig.getChangelogStream(name).get)).toMap
-      .mapValues(StreamUtil.getSystemStreamFromNames(_))
+    val storeChangelogs = storageConfig.getStoreChangelogs
 
     info("Got change log system streams: %s" format storeChangelogs)
 
@@ -398,7 +392,7 @@ object SamzaContainer extends Logging {
       systemMessageSerdes = systemMessageSerdes,
       systemStreamKeySerdes = systemStreamKeySerdes,
       systemStreamMessageSerdes = systemStreamMessageSerdes,
-      changeLogSystemStreams = storeChangelogs.values.toSet,
+      changeLogSystemStreams = storeChangelogs.asScala.values.toSet,
       controlMessageKeySerdes = controlMessageKeySerdes,
       intermediateMessageSerdes = intermediateStreamMessageSerdes)
 
@@ -484,10 +478,15 @@ object SamzaContainer extends Logging {
       null
     }
 
-
     val finalTaskFactory = TaskFactoryUtil.finalizeTaskFactory(
       taskFactory,
       taskThreadPool)
+
+    // executor for performing async commit operations for a task.
+    // TODO BLOCKER pmaheshw tune thread pool sizing.
+    val commitThreadPoolSize = Math.min(containerModel.getTasks.size() * 2, taskConfig.getCommitMaxThreadPoolSize)
+    val commitThreadPool = Executors.newFixedThreadPool(commitThreadPoolSize,
+      new ThreadFactoryBuilder().setNameFormat("Samza Task Commit Thread-%d").setDaemon(true).build())
 
     val taskModels = containerModel.getTasks.values.asScala
     val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
@@ -497,8 +496,6 @@ object SamzaContainer extends Logging {
     val storeWatchPaths = new util.HashSet[Path]()
 
     val timerExecutor = Executors.newSingleThreadScheduledExecutor
-
-    var taskStorageManagers : Map[TaskName, TaskStorageManager] = Map()
 
     val taskInstanceMetrics: Map[TaskName, TaskInstanceMetrics] = taskModels.map(taskModel => {
       (taskModel.getTaskName, new TaskInstanceMetrics("TaskName-%s" format taskModel.getTaskName))
@@ -517,13 +514,16 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
+    // TODO dchen should we enforce restore factories to be subset of backup factories?
+    val stateStorageBackendRestoreFactory = ReflectionUtil
+      .getObj(storageConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
+
     val containerStorageManager = new ContainerStorageManager(
       checkpointManager,
       containerModel,
       streamMetadataCache,
-      changelogSSPMetadataCache,
       systemAdmins,
-      storeChangelogs.asJava,
+      storeChangelogs,
       sideInputStoresToSystemStreams.mapValues(systemStreamSet => systemStreamSet.toSet.asJava).asJava,
       storageEngineFactories.asJava,
       systemFactories.asJava,
@@ -533,14 +533,18 @@ object SamzaContainer extends Logging {
       samzaContainerMetrics,
       jobContext,
       containerContext,
+      stateStorageBackendRestoreFactory,
       taskCollectors.asJava,
       loggedStorageBaseDir,
       nonLoggedStorageBaseDir,
-      maxChangeLogStreamPartitions,
       serdeManager,
       new SystemClock)
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
+
+    val stateStorageBackendBackupFactories = storageConfig.getStateBackendBackupFactories.asScala.map(
+      ReflectionUtil.getObj(_, classOf[StateBackendFactory])
+    )
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = taskModels
@@ -563,15 +567,22 @@ object SamzaContainer extends Logging {
       val taskSideInputSSPs = sideInputStoresToSSPs.values.flatMap(_.asScala).toSet
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
-      val storageManager = TaskStorageManagerFactory.create(
-        taskName,
-        containerStorageManager,
-        storeChangelogs,
-        systemAdmins,
-        loggedStorageBaseDir,
-        taskModel.getChangelogPartition,
-        config,
-        taskModel.getTaskMode)
+      val taskBackupManagerMap = new util.HashMap[String, TaskBackupManager]()
+      stateStorageBackendBackupFactories.asJava.forEach(new Consumer[StateBackendFactory] {
+        override def accept(factory: StateBackendFactory): Unit = {
+          val taskMetricsRegistry =
+            if (taskInstanceMetrics.contains(taskName) &&
+              taskInstanceMetrics.get(taskName).isDefined) taskInstanceMetrics.get(taskName).get.registry
+            else new MetricsRegistryMap
+          val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
+            taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock)
+          taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
+        }
+      })
+
+      val commitManager = new TaskStorageCommitManager(taskName, taskBackupManagerMap,
+        containerStorageManager, storeChangelogs, taskModel.getChangelogPartition, checkpointManager, config,
+        commitThreadPool, new StorageManagerUtil, loggedStorageBaseDir)
 
       val tableManager = new TableManager(config)
 
@@ -585,14 +596,16 @@ object SamzaContainer extends Logging {
           consumerMultiplexer = consumerMultiplexer,
           collector = taskCollectors.get(taskName).get,
           offsetManager = offsetManager,
-          storageManager = storageManager,
+          commitManager = commitManager,
+          containerStorageManager = containerStorageManager,
           tableManager = tableManager,
-          systemStreamPartitions = JavaConversions.setAsJavaSet(taskSSPs -- taskSideInputSSPs),
+          systemStreamPartitions = (taskSSPs -- taskSideInputSSPs).asJava,
           exceptionHandler = TaskInstanceExceptionHandler(taskInstanceMetrics.get(taskName).get, taskConfig),
           jobModel = jobModel,
           streamMetadataCache = streamMetadataCache,
           inputStreamMetadata = inputStreamMetadata,
           timerExecutor = timerExecutor,
+          commitThreadPool = commitThreadPool,
           jobContext = jobContext,
           containerContext = containerContext,
           applicationContainerContextOption = applicationContainerContextOption,
@@ -601,7 +614,6 @@ object SamzaContainer extends Logging {
 
       val taskInstance = createTaskInstance(task)
 
-      taskStorageManagers += taskInstance.taskName -> storageManager
       (taskName, taskInstance)
     }).toMap
 
@@ -684,6 +696,7 @@ object SamzaContainer extends Logging {
       diskSpaceMonitor = diskSpaceMonitor,
       hostStatisticsMonitor = hostStatisticsMonitor,
       taskThreadPool = taskThreadPool,
+      commitThreadPool = commitThreadPool,
       timerExecutor = timerExecutor,
       containerContext = containerContext,
       applicationContainerContextOption = applicationContainerContextOption,
@@ -697,10 +710,10 @@ object SamzaContainer extends Logging {
     */
   @VisibleForTesting
   private[container] def getChangelogSSPsForContainer(containerModel: ContainerModel,
-    changeLogSystemStreams: Map[String, SystemStream]): Set[SystemStreamPartition] = {
+    changeLogSystemStreams: util.Map[String, SystemStream]): Set[SystemStreamPartition] = {
     containerModel.getTasks.values().asScala
       .map(taskModel => taskModel.getChangelogPartition)
-      .flatMap(changelogPartition => changeLogSystemStreams.map { case (_, systemStream) =>
+      .flatMap(changelogPartition => changeLogSystemStreams.asScala.map { case (_, systemStream) =>
         new SystemStreamPartition(systemStream, changelogPartition) })
       .toSet
   }
@@ -723,6 +736,7 @@ class SamzaContainer(
   reporters: Map[String, MetricsReporter] = Map(),
   jvm: JvmMetrics = null,
   taskThreadPool: ExecutorService = null,
+  commitThreadPool: ExecutorService = null,
   timerExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor,
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
@@ -1055,6 +1069,18 @@ class SamzaContainer(
         taskThreadPool.shutdown()
         if(taskThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           taskThreadPool.shutdownNow()
+        }
+      } catch {
+        case e: Exception => error(e.getMessage, e)
+      }
+    }
+
+    if (commitThreadPool != null) {
+      info("Shutting down task commit thread pool")
+      try {
+        commitThreadPool.shutdown()
+        if(commitThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+          commitThreadPool.shutdownNow()
         }
       } catch {
         case e: Exception => error(e.getMessage, e)

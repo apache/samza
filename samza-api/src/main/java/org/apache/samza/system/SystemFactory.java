@@ -73,7 +73,7 @@ public interface SystemFactory {
    *
    * @param systemName The name of the system to create admin for.
    * @param config The config to create admin with.
-   * @param adminLabel a string to provide info the admin instance.
+   * @param adminLabel a string to provide info for the admin instance.
    * @return A SystemAdmin
    */
   default SystemAdmin getAdmin(String systemName, Config config, String adminLabel) {
