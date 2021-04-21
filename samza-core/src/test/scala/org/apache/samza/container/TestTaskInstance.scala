@@ -898,9 +898,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     cleanUpFuture.complete(null) // will eventually unblock the 2nd commit in other thread.
     secondCommitFuture.join() // will complete when the sync phase of 2nd commit is complete.
     verify(commitsCounter, times(2)).inc() // should only have been incremented twice - once for each commit
-    verify(uploadCounter, times(2)).inc()
     verify(snapshotTimer, times(2)).update(anyLong())
-    verify(uploadTimer, times(2)).update(anyLong())
   }
 
 
