@@ -42,7 +42,9 @@ public interface StateBackendFactory {
       ExecutorService backupExecutor,
       MetricsRegistry taskInstanceMetricsRegistry,
       Config config,
-      Clock clock);
+      Clock clock,
+      File loggedStoreBaseDir,
+      File nonLoggedStoreBaseDir);
 
   TaskRestoreManager getRestoreManager(JobContext jobContext,
       ContainerContext containerContext,

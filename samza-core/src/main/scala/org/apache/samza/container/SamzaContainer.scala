@@ -575,7 +575,8 @@ object SamzaContainer extends Logging {
               taskInstanceMetrics.get(taskName).isDefined) taskInstanceMetrics.get(taskName).get.registry
             else new MetricsRegistryMap
           val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
-            taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock)
+            taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock,
+            loggedStorageBaseDir, nonLoggedStorageBaseDir)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
         }
       })
