@@ -255,7 +255,7 @@ public class ContainerStorageManager {
     this.storeConsumers = createStoreIndexedMap(this.changelogSystemStreams, storeSystemConsumers);
 
     // TODO HIGH dchen tune based on observed concurrency
-    this.restoreExecutor = Executors.newFixedThreadPool(containerModel.getTasks().size(),
+    this.restoreExecutor = Executors.newFixedThreadPool(containerModel.getTasks().size() * 2,
         new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
 
     // creating task restore managers
