@@ -265,7 +265,7 @@ public class StreamAppender extends AbstractAppender {
     metrics.bufferFillPct.set(Math.round(100f * logQueue.size() / DEFAULT_QUEUE_SIZE));
   }
 
-  protected EncodedLogEvent encodeLogEventToBytes(LogEvent event) {
+  protected EncodedLogEvent encodeLogEvent(LogEvent event) {
     return new ByteArrayEncodedLogEvent(serde.toBytes(subLog(event)));
   }
 
