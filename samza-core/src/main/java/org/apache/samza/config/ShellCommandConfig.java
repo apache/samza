@@ -57,29 +57,6 @@ public class ShellCommandConfig extends MapConfig {
    */
   public static final String ENV_EXECUTION_ENV_CONTAINER_ID = "EXECUTION_ENV_CONTAINER_ID";
 
-  /**
-   * Set to "true" if split deployment feature is enabled. Otherwise, will be considered false.
-   *
-   * The launch process for the cluster-based job coordinator and job container depends on the value of this, since it
-   * needs to be known if the cluster-based job coordinator and job container should be launched in a split deployment
-   * mode.
-   * This needs to be an environment variable, because the value needs to be known before the full configs can be read
-   * from the metadata store (full configs are only read after launch is complete).
-   */
-  public static final String ENV_SPLIT_DEPLOYMENT_ENABLED = "ENV_SPLIT_DEPLOYMENT_ENABLED";
-
-  /**
-   * When running the cluster-based job coordinator and job container in a split deployment mode, it uses JARs and
-   * resources from a lib directory which is provided by the framework. In some cases, it is necessary to use some
-   * resources specified by the application as well. This environment variable can be set to a directory which is
-   * different from the framework lib directory in order to tell Samza where application resources live.
-   * This is an environment variable because it is needed in order to launch the cluster-based job coordinator and job
-   * container Java processes, which means access to full configs is not available yet.
-   * For example, this is used to set a system property for the location of an application-specified log4j configuration
-   * file when launching the cluster-based job coordinator and job container Java processes.
-   */
-  public static final String ENV_APPLICATION_LIB_DIR = "APPLICATION_LIB_DIR";
-
   /*
    * The base directory for storing logged data stores used in Samza. This has to be set on all machine running Samza
    * containers. For example, when using YARN, it has to be set in all NMs and passed to the containers.

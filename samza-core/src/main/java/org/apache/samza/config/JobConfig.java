@@ -143,8 +143,6 @@ public class JobConfig extends MapConfig {
   public static final String COORDINATOR_STREAM_FACTORY = "job.coordinatorstream.config.factory";
   public static final String DEFAULT_COORDINATOR_STREAM_CONFIG_FACTORY = "org.apache.samza.util.DefaultCoordinatorStreamConfigFactory";
 
-  public static final String JOB_SPLIT_DEPLOYMENT_ENABLED = "job.split.deployment.enabled";
-
   private static final String JOB_STARTPOINT_ENABLED = "job.startpoint.enabled";
 
   // Enable ClusterBasedJobCoordinator aka ApplicationMaster High Availability (AM-HA).
@@ -384,10 +382,6 @@ public class JobConfig extends MapConfig {
 
   public boolean getStandbyTasksEnabled() {
     return getStandbyTaskReplicationFactor() > 1;
-  }
-
-  public boolean isSplitDeploymentEnabled() {
-    return getBoolean(JOB_SPLIT_DEPLOYMENT_ENABLED, false);
   }
 
   /**
