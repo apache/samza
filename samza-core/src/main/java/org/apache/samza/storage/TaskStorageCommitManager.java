@@ -42,6 +42,7 @@ import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.kafka.KafkaChangelogSSPOffset;
 import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.system.SystemStream;
@@ -66,6 +67,7 @@ public class TaskStorageCommitManager {
   private final ExecutorService backupExecutor;
   private final File durableStoreBaseDir;
   private final Map<String, SystemStream> storeChangelogs;
+  private final TaskInstanceMetrics metrics;
 
   // Available after init(), since stores are created by ContainerStorageManager#start()
   private Map<String, StorageEngine> storageEngines;
@@ -73,7 +75,7 @@ public class TaskStorageCommitManager {
   public TaskStorageCommitManager(TaskName taskName, Map<String, TaskBackupManager> stateBackendToBackupManager,
       ContainerStorageManager containerStorageManager, Map<String, SystemStream> storeChangelogs, Partition changelogPartition,
       CheckpointManager checkpointManager, Config config, ExecutorService backupExecutor,
-      StorageManagerUtil storageManagerUtil, File durableStoreBaseDir) {
+      StorageManagerUtil storageManagerUtil, File durableStoreBaseDir, TaskInstanceMetrics metrics) {
     this.taskName = taskName;
     this.containerStorageManager = containerStorageManager;
     this.stateBackendToBackupManager = stateBackendToBackupManager;
@@ -83,6 +85,7 @@ public class TaskStorageCommitManager {
     this.durableStoreBaseDir = durableStoreBaseDir;
     this.storeChangelogs = storeChangelogs;
     this.storageManagerUtil = storageManagerUtil;
+    this.metrics = metrics;
   }
 
   public void init() {
@@ -110,7 +113,10 @@ public class TaskStorageCommitManager {
   public Map<String, Map<String, String>> snapshot(CheckpointId checkpointId) {
     // Flush all stores
     storageEngines.values().forEach(StorageEngine::flush);
+    LOG.debug("Flushed all storage engines for taskName: {}, checkpoint id: {}",
+        taskName, checkpointId);
 
+    long checkpointStartNs = System.nanoTime();
     // Checkpoint all persisted and durable stores
     storageEngines.forEach((storeName, storageEngine) -> {
       if (storageEngine.getStoreProperties().isPersistedToDisk() &&
@@ -118,6 +124,10 @@ public class TaskStorageCommitManager {
         storageEngine.checkpoint(checkpointId);
       }
     });
+    long checkpointNs = System.nanoTime() - checkpointStartNs;
+    metrics.storeCheckpointNs().update(checkpointNs);
+    LOG.debug("Checkpointed all storage engines for taskName: {}, checkpoint id: {} in {} ns",
+        taskName, checkpointId, checkpointNs);
 
     // state backend factory -> store Name -> state checkpoint marker
     Map<String, Map<String, String>> stateBackendToStoreSCMs = new HashMap<>();

@@ -28,7 +28,9 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.metrics.Timer;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
@@ -58,11 +60,14 @@ public class TestTransactionalStateTaskBackupManager {
     when(csm.getAllStores(any())).thenReturn(taskStores);
     when(mockStore.getStoreProperties()).thenReturn(new StoreProperties
         .StorePropertiesBuilder().setPersistedToDisk(true).setLoggedStore(true).build());
+    TaskInstanceMetrics metrics = mock(TaskInstanceMetrics.class);
+    Timer checkpointTimer = mock(Timer.class);
+    when(metrics.storeCheckpointNs()).thenReturn(checkpointTimer);
 
     KafkaTransactionalStateTaskBackupManager tsm = spy(buildTSM(csm, mock(Partition.class), new StorageManagerUtil()));
     TaskStorageCommitManager commitManager = new TaskStorageCommitManager(new TaskName("task"),
         ImmutableMap.of("kafka", tsm), csm, null, null, null, null,
-        ForkJoinPool.commonPool(), new StorageManagerUtil(), null);
+        ForkJoinPool.commonPool(), new StorageManagerUtil(), null, metrics);
     // stub actual method call
     doReturn(mock(java.util.Map.class)).when(tsm).getNewestChangelogSSPOffsets(any(), any(), any(), any());
 
