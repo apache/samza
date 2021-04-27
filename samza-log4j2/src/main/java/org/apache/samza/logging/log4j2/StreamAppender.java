@@ -233,13 +233,13 @@ public class StreamAppender extends AbstractAppender {
    */
   private void handleEvent(LogEvent event) throws InterruptedException {
     if (usingAsyncLogger) {
-      sendEventToSystemProducer(encodeLogEventToBytes(event));
+      sendEventToSystemProducer(encodeLogEvent(event));
       return;
     }
 
     // Serialize the event before adding to the queue to leverage the caller thread
     // and ensure that the transferThread can keep up.
-    if (!logQueue.offer(encodeLogEventToBytes(event), queueTimeoutS, TimeUnit.SECONDS)) {
+    if (!logQueue.offer(encodeLogEvent(event), queueTimeoutS, TimeUnit.SECONDS)) {
       // Do NOT retry adding system to the queue. Dropping the event allows us to alleviate the unlikely
       // possibility of a deadlock, which can arise due to a circular dependency between the SystemProducer
       // which is used for StreamAppender and the log, which uses StreamAppender. Any locks held in the callstack
