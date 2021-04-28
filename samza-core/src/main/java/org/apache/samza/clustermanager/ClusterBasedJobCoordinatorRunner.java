@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
-import org.apache.samza.classloader.IsolatingClassLoaderFactory;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -35,7 +34,6 @@ import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.util.CoordinatorStreamUtil;
-import org.apache.samza.util.SplitDeploymentUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,19 +50,12 @@ public class ClusterBasedJobCoordinatorRunner {
       LOG.error("Uncaught exception in ClusterBasedJobCoordinator::main. Exiting job coordinator", exception);
       System.exit(1);
     });
-    if (!SplitDeploymentUtil.isSplitDeploymentEnabled()) {
-      // no isolation enabled, so can just execute runClusterBasedJobCoordinator directly
-      runClusterBasedJobCoordinator(args);
-    } else {
-      SplitDeploymentUtil.runWithClassLoader(new IsolatingClassLoaderFactory().buildClassLoader(),
-          ClusterBasedJobCoordinatorRunner.class, "runClusterBasedJobCoordinator", args);
-    }
+    runClusterBasedJobCoordinator(args);
     System.exit(0);
   }
 
   /**
-   * This is the actual execution for the {@link ClusterBasedJobCoordinator}. This is separated out from
-   * {@link #main(String[])} so that it can be executed directly or from a separate classloader.
+   * This is the actual execution for the {@link ClusterBasedJobCoordinator}.
    */
   @VisibleForTesting
   static void runClusterBasedJobCoordinator(String[] args) {
