@@ -185,6 +185,7 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
       taskNames.foreach(checkpointManager.register)
       checkpointManager.start()
 
+      // TODO dchen make add support for checkpointv2
       val lastCheckpoints = taskNames.map(taskName => {
         taskName -> Option(checkpointManager.readLastCheckpoint(taskName))
           .getOrElse(new CheckpointV1(new java.util.HashMap[SystemStreamPartition, String]()))

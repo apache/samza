@@ -1068,7 +1068,7 @@ class SamzaContainer(
       info("Shutting down task thread pool")
       try {
         taskThreadPool.shutdown()
-        if(taskThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+        if (!taskThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           taskThreadPool.shutdownNow()
         }
       } catch {
@@ -1080,7 +1080,7 @@ class SamzaContainer(
       info("Shutting down task commit thread pool")
       try {
         commitThreadPool.shutdown()
-        if(commitThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+        if(!commitThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           commitThreadPool.shutdownNow()
         }
       } catch {
@@ -1092,7 +1092,7 @@ class SamzaContainer(
       info("Shutting down timer executor")
       try {
         timerExecutor.shutdown()
-        if (timerExecutor.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+        if (!timerExecutor.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           timerExecutor.shutdownNow()
         }
       } catch {

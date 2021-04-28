@@ -113,7 +113,7 @@ public class TestTransactionalStateTaskBackupManager {
 
     // verify results
     assertEquals(1, stateCheckpointMarkerMap.size());
-    KafkaStateCheckpointMarker kscm = KafkaStateCheckpointMarker.fromString(stateCheckpointMarkerMap.get(storeName));
+    KafkaStateCheckpointMarker kscm = KafkaStateCheckpointMarker.deserialize(stateCheckpointMarkerMap.get(storeName));
     assertEquals(newestChangelogSSPOffset, kscm.getChangelogOffset());
     assertEquals(changelogSSP, kscm.getChangelogSSP());
   }
@@ -151,7 +151,7 @@ public class TestTransactionalStateTaskBackupManager {
 
     // verify results
     assertEquals(1, stateCheckpointMarkerMap.size());
-    KafkaStateCheckpointMarker kscm = KafkaStateCheckpointMarker.fromString(stateCheckpointMarkerMap.get(storeName));
+    KafkaStateCheckpointMarker kscm = KafkaStateCheckpointMarker.deserialize(stateCheckpointMarkerMap.get(storeName));
     assertEquals(changelogSSP, kscm.getChangelogSSP());
     assertNull(kscm.getChangelogOffset());
   }

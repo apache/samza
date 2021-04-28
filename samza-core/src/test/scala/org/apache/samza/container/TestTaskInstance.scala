@@ -239,7 +239,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
@@ -291,7 +291,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
           assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
           val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get("storeName")
           assertTrue(checkpointedStateCheckpointMarker.equals(stateCheckpointMarker))
-          val kafkaMarker = KafkaStateCheckpointMarker.fromString(checkpointedStateCheckpointMarker)
+          val kafkaMarker = KafkaStateCheckpointMarker.deserialize(checkpointedStateCheckpointMarker)
           assertEquals(kafkaMarker.getChangelogOffset, "5")
           assertEquals(kafkaMarker.getChangelogSSP, changelogSSP)
         } else { // c.getVersion == 1
@@ -327,7 +327,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val nullStateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, null).toString
+    val nullStateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, null))
     stateCheckpointMarkers.put("storeName", nullStateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.upload(any(), any()))
@@ -350,7 +350,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
           assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
           val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get("storeName")
           assertTrue(checkpointedStateCheckpointMarker.equals(nullStateCheckpointMarker))
-          val kafkaMarker = KafkaStateCheckpointMarker.fromString(checkpointedStateCheckpointMarker)
+          val kafkaMarker = KafkaStateCheckpointMarker.deserialize(checkpointedStateCheckpointMarker)
           assertNull(kafkaMarker.getChangelogOffset)
           assertEquals(kafkaMarker.getChangelogSSP, changelogSSP)
         } else { // c.getVersion == 1
@@ -752,7 +752,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
 
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
@@ -806,7 +806,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
 
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
@@ -865,7 +865,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
 
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 

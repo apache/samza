@@ -41,6 +41,9 @@ import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
@@ -51,6 +54,7 @@ import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.LocalityModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.serializers.JsonCheckpointIdMixin;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import java.io.IOException;
@@ -100,6 +104,9 @@ public class SamzaObjectMapper {
     mapper.addMixIn(TaskModel.class, JsonTaskModelMixIn.class);
     mapper.addMixIn(ContainerModel.class, JsonContainerModelMixIn.class);
     mapper.addMixIn(JobModel.class, JsonJobModelMixIn.class);
+    mapper.addMixIn(CheckpointV2.class, JsonCheckpointV2Mixin.class);
+    mapper.addMixIn(KafkaStateCheckpointMarker.class, KafkaStateCheckpointMarkerMixin.class);
+    mapper.addMixIn(CheckpointId.class, JsonCheckpointIdMixin.class);
 
     module.addDeserializer(ContainerModel.class, new JsonDeserializer<ContainerModel>() {
       @Override

@@ -260,7 +260,6 @@ class TaskInstance(
   }
 
   def commit {
-    // TODO BLOCKER pmaheshw add tests.
     // ensure that only one commit (including sync and async phases) is ever in progress for a task.
 
     val commitStartNs = System.nanoTime()
@@ -346,7 +345,7 @@ class TaskInstance(
               if (throwable == null) {
                 metrics.asyncUploadNs.update(System.nanoTime() - uploadStartTimeNs)
               } else {
-                debug("Commit upload did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
+                warn("Commit upload did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
                   format (taskName, checkpointId, throwable.getMessage))
               }
             }
@@ -364,7 +363,7 @@ class TaskInstance(
               if (throwable == null) {
                 metrics.asyncCleanupNs.update(System.nanoTime() - cleanupStartTimeNs)
               } else {
-                debug("Commit cleanup did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
+                warn("Commit cleanup did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
                   format (taskName, checkpointId, throwable.getMessage))
               }
             }

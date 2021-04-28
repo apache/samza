@@ -62,7 +62,7 @@ public class TaskConfig extends MapConfig {
   static final int DEFAULT_COMMIT_MAX_THREAD_POOL_SIZE = 64;
   // maximum amount of time a task may continue processing while a previous commit is pending
   public static final String COMMIT_MAX_DELAY_MS = "task.commit.max.delay.ms";
-  static final long DEFAULT_COMMIT_MAX_DELAY_MS = Duration.ofMinutes(10).toMillis();
+  static final long DEFAULT_COMMIT_MAX_DELAY_MS = Duration.ofMinutes(1).toMillis();
   // maximum amount of time to block for a pending task commit to complete *after*
   // COMMIT_MAX_DELAY_MS have passed since the pending commit start. if the pending commit
   // does not complete within this timeout, the container will shut down.

@@ -270,7 +270,7 @@ public class TaskStorageCommitManager {
           File[] checkpointDirs = storeDir.listFiles(fileFilter);
           if (checkpointDirs != null) {
             for (File checkpointDir : checkpointDirs) {
-              if (!checkpointDir.getName().contains(latestCheckpointId.toString())) {
+              if (!checkpointDir.getName().contains(latestCheckpointId.serialize())) {
                 try {
                   FileUtils.deleteDirectory(checkpointDir);
                 } catch (IOException e) {
