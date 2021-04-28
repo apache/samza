@@ -46,6 +46,11 @@ public class TestShellCommandBuilder {
         ShellCommandConfig.ENV_COORDINATOR_URL, URL_STRING,
         ShellCommandConfig.ENV_JAVA_OPTS, "",
         ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
+    // assertions when command path is not set
+    assertEquals("foo", shellCommandBuilder.buildCommand());
+    assertEquals(expectedEnvironment, shellCommandBuilder.buildEnvironment());
+    // assertions when command path is set to empty string
+    shellCommandBuilder.setCommandPath("");
     assertEquals("foo", shellCommandBuilder.buildCommand());
     assertEquals(expectedEnvironment, shellCommandBuilder.buildEnvironment());
   }

@@ -22,6 +22,7 @@ package org.apache.samza.job;
 import java.io.File;
 import java.util.Map;
 import com.google.common.collect.ImmutableMap;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ShellCommandConfig;
 
 
@@ -29,7 +30,7 @@ public class ShellCommandBuilder extends CommandBuilder {
   @Override
   public String buildCommand() {
     ShellCommandConfig shellCommandConfig = new ShellCommandConfig(config);
-    if (this.commandPath == null || this.commandPath.isEmpty()) {
+    if (StringUtils.isEmpty(this.commandPath)) {
       return shellCommandConfig.getCommand();
     } else {
       return this.commandPath + File.separator + shellCommandConfig.getCommand();
