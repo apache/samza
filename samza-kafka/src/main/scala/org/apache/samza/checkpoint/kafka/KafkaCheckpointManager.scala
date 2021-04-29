@@ -265,7 +265,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
         checkpointKeySerde.fromBytes(keyBytes)
       } catch {
         case e: Exception => if (validateCheckpoint) {
-          throw new SamzaException(s"Exception while serializing checkpoint-key. " +
+          throw new SamzaException(s"Exception while deserializing checkpoint-key. " +
             s"Topic: $checkpointTopic Offset: $offset", e)
         } else {
           warn(s"Ignoring exception while deserializing checkpoint-key. Topic: $checkpointTopic Offset: $offset", e)
@@ -298,8 +298,13 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
             checkpoints.put(checkpointKey.getTaskName, checkpoint)
           } // else ignore and skip the message
         } catch {
-          case e: Exception => throw new SamzaException(s"Exception while deserializing checkpoint-message. " +
-            s"Topic: $checkpointTopic Offset: $offset", e)
+          case e: Exception =>
+            if (validateCheckpoint) {
+              throw new SamzaException(s"Exception while deserializing checkpoint-message. " +
+                s"Topic: $checkpointTopic Offset: $offset", e)
+            } else {
+              warn(s"Ignoring exception while deserializing checkpoint-msg. Topic: $checkpointTopic Offset: $offset", e)
+            }
         }
       }
     }

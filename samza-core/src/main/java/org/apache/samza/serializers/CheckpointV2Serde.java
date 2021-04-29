@@ -20,17 +20,11 @@
 package org.apache.samza.serializers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemStreamPartition;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 
 /**
@@ -50,7 +44,7 @@ public class CheckpointV2Serde implements Serde<CheckpointV2> {
     try {
       return OBJECT_MAPPER.readValue(bytes, CheckpointV2.class);
     } catch (Exception e) {
-      throw new SamzaException(String.format("Exception while deserializing checkpoint: %s", Arrays.toString(bytes)), e);
+      throw new SamzaException(String.format("Exception while deserializing checkpoint: %s", new String(bytes)), e);
     }
   }
 

@@ -56,10 +56,6 @@ public class TaskConfig extends MapConfig {
   // commit period in milliseconds
   public static final String COMMIT_MS = "task.commit.ms";
   static final long DEFAULT_COMMIT_MS = 60000L;
-  // upper bound for the task commit thread pool size in a container .
-  // num threads == min(num tasks in container, max thread pool size)
-  public static final String COMMIT_MAX_THREAD_POOL_SIZE = "task.commit.max.thread.pool.size";
-  static final int DEFAULT_COMMIT_MAX_THREAD_POOL_SIZE = 64;
   // maximum amount of time a task may continue processing while a previous commit is pending
   public static final String COMMIT_MAX_DELAY_MS = "task.commit.max.delay.ms";
   static final long DEFAULT_COMMIT_MAX_DELAY_MS = Duration.ofMinutes(1).toMillis();
@@ -68,6 +64,7 @@ public class TaskConfig extends MapConfig {
   // does not complete within this timeout, the container will shut down.
   public static final String COMMIT_TIMEOUT_MS = "task.commit.timeout.ms";
   static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(1).toMillis();
+
   // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
@@ -164,10 +161,6 @@ public class TaskConfig extends MapConfig {
 
   public long getCommitMs() {
     return getLong(COMMIT_MS, DEFAULT_COMMIT_MS);
-  }
-
-  public int getCommitMaxThreadPoolSize() {
-    return getInt(COMMIT_MAX_THREAD_POOL_SIZE, DEFAULT_COMMIT_MAX_THREAD_POOL_SIZE);
   }
 
   public long getCommitMaxDelayMs() {

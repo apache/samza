@@ -51,9 +51,9 @@ public class CheckpointV2 implements Checkpoint {
       Map<SystemStreamPartition, String> inputOffsets,
       Map<String, Map<String, String>> stateCheckpoints) {
     Preconditions.checkArgument(inputOffsets != null,
-        "inputOffsets for CheckpointV2 could not be null");
+        "inputOffsets for CheckpointV2 must not be null");
     Preconditions.checkArgument(stateCheckpoints != null,
-        "stateCheckpoints for CheckpointV2 could not be null");
+        "stateCheckpoints for CheckpointV2 must not be null");
     this.checkpointId = checkpointId;
     this.inputOffsets = ImmutableMap.copyOf(inputOffsets);
     this.stateCheckpointMarkers = ImmutableMap.copyOf(stateCheckpoints);
