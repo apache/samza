@@ -146,7 +146,14 @@ class FileUtil extends Logging {
   }
 
   def createDirectories(path: Path): Path = {
-    Files.createDirectories(path)
+    // Files.createDirectories throws FileAlreadyExistsException if the path already exists
+    // but the last dir in the path is a symlink to another dir. Check explicitly if the path
+    // already exists to avoid this behavior.
+    if (!Files.exists(path)) {
+      Files.createDirectories(path)
+    } else {
+      path
+    }
   }
 
   /**

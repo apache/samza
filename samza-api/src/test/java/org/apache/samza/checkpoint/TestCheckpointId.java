@@ -21,6 +21,7 @@ package org.apache.samza.checkpoint;
 
 import org.junit.Test;
 
+import static org.apache.samza.checkpoint.CheckpointId.*;
 import static org.junit.Assert.assertEquals;
 
 
@@ -28,22 +29,25 @@ public class TestCheckpointId {
   @Test
   public void testSerializationDeserialization() {
     CheckpointId checkpointId = CheckpointId.create();
-    CheckpointId deserializedCheckpointId = CheckpointId.fromString(checkpointId.toString());
+    CheckpointId deserializedCheckpointId = CheckpointId.deserialize(checkpointId.serialize());
 
     assertEquals(checkpointId.getMillis(), deserializedCheckpointId.getMillis());
-    assertEquals(checkpointId.getNanos(), deserializedCheckpointId.getNanos());
+    assertEquals(checkpointId.getNanoId(), deserializedCheckpointId.getNanoId());
     assertEquals(checkpointId, deserializedCheckpointId);
   }
 
   @Test
   public void testSerializationFormatForBackwardsCompatibility() {
     CheckpointId checkpointId = CheckpointId.create();
-    String serializedCheckpointId = checkpointId.toString();
+    String serializedCheckpointId = checkpointId.serialize();
 
     // WARNING: This format is written to persisted remotes stores and local files, making a change in the format
     // would be backwards incompatible
-    String expectedSerializedFormat = checkpointId.getMillis() + CheckpointId.SEPARATOR + checkpointId.getNanos();
-    assertEquals(expectedSerializedFormat, serializedCheckpointId);
-    assertEquals(checkpointId, CheckpointId.fromString(expectedSerializedFormat));
+    String legacySerializedFormat = serializeLegacy(checkpointId);
+    assertEquals(checkpointId, CheckpointId.deserialize(legacySerializedFormat));
+  }
+
+  public String serializeLegacy(CheckpointId id) {
+    return String.format("%s%s%s", id.getMillis(), SEPARATOR, id.getNanoId());
   }
 }

@@ -60,6 +60,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
       put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
       put(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR(), "1");
       put(JobConfig.JOB_LOGGED_STORE_BASE_DIR, LOGGED_STORE_BASE_DIR);
+      put(TaskConfig.COMMIT_MAX_DELAY_MS, "0"); // Ensure no commits are skipped due to in progress commits
     } };
 
   @Before
@@ -136,13 +137,13 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     // wait for the application to finish
     context.getRunner().waitForFinish();
 
+    // verify the store contents during startup (this is after changelog verification to ensure init has completed)
+    Assert.assertEquals(expectedInitialStoreContents, MyStatefulApplication.getInitialStoreContents().get(STORE_NAME));
+
     // consume and verify any additional changelog messages
     List<ConsumerRecord<String, String>> changelogRecords =
         consumeMessages(Collections.singletonList(changelogTopic), expectedChangelogMessages.size());
     List<String> changelogMessages = changelogRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
     Assert.assertEquals(expectedChangelogMessages, changelogMessages);
-
-    // verify the store contents during startup (this is after changelog verification to ensure init has completed)
-    Assert.assertEquals(expectedInitialStoreContents, MyStatefulApplication.getInitialStoreContents().get(STORE_NAME));
   }
 }

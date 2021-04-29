@@ -38,8 +38,10 @@ public class TestKafkaStateCheckpointMarker {
   public void testSerializeDeserialize() {
     SystemStreamPartition ssp = new SystemStreamPartition("system", "stream", new Partition(1));
     KafkaStateCheckpointMarker marker = new KafkaStateCheckpointMarker(ssp, "offset");
-    KafkaStateCheckpointMarker deserializedMarker = KafkaStateCheckpointMarker.fromString(marker.toString());
+    KafkaStateCheckpointMarker deserializedMarker = KafkaStateCheckpointMarker
+        .deserialize(KafkaStateCheckpointMarker.serialize(marker));
 
+    assertEquals(MARKER_VERSION, deserializedMarker.getVersion());
     assertEquals(marker.getChangelogOffset(), deserializedMarker.getChangelogOffset());
     assertEquals(marker.getChangelogSSP(), deserializedMarker.getChangelogSSP());
     assertEquals(marker, deserializedMarker);
@@ -49,36 +51,13 @@ public class TestKafkaStateCheckpointMarker {
   public void testSerializeDeserializeNullOffsets() {
     SystemStreamPartition ssp = new SystemStreamPartition("system", "stream", new Partition(1));
     KafkaStateCheckpointMarker marker = new KafkaStateCheckpointMarker(ssp, null);
-    KafkaStateCheckpointMarker deserializedMarker = KafkaStateCheckpointMarker.fromString(marker.toString());
+    KafkaStateCheckpointMarker deserializedMarker = KafkaStateCheckpointMarker
+        .deserialize(KafkaStateCheckpointMarker.serialize(marker));
 
+    assertEquals(MARKER_VERSION, deserializedMarker.getVersion());
     assertNull(deserializedMarker.getChangelogOffset());
     assertEquals(marker.getChangelogSSP(), deserializedMarker.getChangelogSSP());
     assertEquals(marker, deserializedMarker);
-  }
-
-  @Test
-  public void testSerdeFormatForBackwardsCompatibility() {
-    SystemStreamPartition ssp = new SystemStreamPartition("system", "stream", new Partition(1));
-    KafkaStateCheckpointMarker marker = new KafkaStateCheckpointMarker(ssp, "offset");
-    String expectedSerializedMarker = String.format("%s%s%s%s%s%s%s",
-        ssp.getSystem(), SEPARATOR, ssp.getStream(), SEPARATOR,
-        ssp.getPartition().getPartitionId(), SEPARATOR, "offset");
-
-    assertEquals(expectedSerializedMarker, marker.toString());
-    assertEquals(marker, KafkaStateCheckpointMarker.fromString(expectedSerializedMarker));
-  }
-
-  @Test
-  public void testNullOffsetSerdeFormatForBackwardsCompatibility() {
-    SystemStreamPartition ssp = new SystemStreamPartition("system", "stream", new Partition(1));
-    KafkaStateCheckpointMarker marker = new KafkaStateCheckpointMarker(ssp, null);
-    String expectedSerializedMarker = String.format("%s%s%s%s%s%s%s",
-        ssp.getSystem(), SEPARATOR, ssp.getStream(), SEPARATOR,
-        ssp.getPartition().getPartitionId(), SEPARATOR, "null");
-
-    assertEquals(expectedSerializedMarker, marker.toString());
-    assertEquals(marker, KafkaStateCheckpointMarker.fromString(expectedSerializedMarker));
-    assertNull(KafkaStateCheckpointMarker.fromString(expectedSerializedMarker).getChangelogOffset());
   }
 
   @Test
@@ -88,8 +67,8 @@ public class TestKafkaStateCheckpointMarker {
     SystemStreamPartition ssp2 = new SystemStreamPartition("system2", "stream2", new Partition(2));
     KafkaStateCheckpointMarker marker2 = new KafkaStateCheckpointMarker(ssp2, null);
     Map<String, String> storesToKSCM = ImmutableMap.of(
-        "store1", marker1.toString(),
-        "store2", marker2.toString()
+        "store1", KafkaStateCheckpointMarker.serialize(marker1),
+        "store2", KafkaStateCheckpointMarker.serialize(marker2)
     );
     Map<String, Map<String, String>> factoryToSCMs = ImmutableMap.of(
         KAFKA_STATE_BACKEND_FACTORY_NAME, storesToKSCM,

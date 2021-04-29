@@ -47,7 +47,7 @@ public class KafkaChangelogSSPOffset {
     if (checkpointIdAndOffset.length != 2) {
       throw new IllegalArgumentException("Invalid checkpointed changelog offset: " + message);
     }
-    CheckpointId checkpointId = CheckpointId.fromString(checkpointIdAndOffset[0]);
+    CheckpointId checkpointId = CheckpointId.deserialize(checkpointIdAndOffset[0]);
     String offset = null;
     if (!"null".equals(checkpointIdAndOffset[1])) {
       offset = checkpointIdAndOffset[1];
