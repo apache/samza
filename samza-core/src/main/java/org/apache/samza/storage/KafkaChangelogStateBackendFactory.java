@@ -57,7 +57,9 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
       ExecutorService backupExecutor,
       MetricsRegistry metricsRegistry,
       Config config,
-      Clock clock) {
+      Clock clock,
+      File loggedStoreBaseDir,
+      File nonLoggedStoreBaseDir) {
     SystemAdmins systemAdmins = new SystemAdmins(config);
     StorageConfig storageConfig = new StorageConfig(config);
     Map<String, SystemStream> storeChangelogs = storageConfig.getStoreChangelogs();

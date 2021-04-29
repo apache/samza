@@ -35,14 +35,16 @@ import org.apache.samza.util.Clock;
  * Factory to build the Samza {@link TaskBackupManager}, {@link TaskRestoreManager} and {@link TaskStorageAdmin}
  * for a particular state storage backend, which are used to durably backup the Samza task state.
  */
-public interface StateBackendFactory {
+  public interface StateBackendFactory {
   TaskBackupManager getBackupManager(JobModel jobModel,
       ContainerModel containerModel,
       TaskModel taskModel,
       ExecutorService backupExecutor,
       MetricsRegistry taskInstanceMetricsRegistry,
       Config config,
-      Clock clock);
+      Clock clock,
+      File loggedStoreBaseDir,
+      File nonLoggedStoreBaseDir);
 
   TaskRestoreManager getRestoreManager(JobContext jobContext,
       ContainerContext containerContext,

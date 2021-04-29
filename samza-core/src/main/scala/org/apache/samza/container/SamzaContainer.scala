@@ -575,14 +575,15 @@ object SamzaContainer extends Logging {
               taskInstanceMetrics.get(taskName).isDefined) taskInstanceMetrics.get(taskName).get.registry
             else new MetricsRegistryMap
           val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
-            taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock)
+            taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock,
+            loggedStorageBaseDir, nonLoggedStorageBaseDir)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
         }
       })
 
       val commitManager = new TaskStorageCommitManager(taskName, taskBackupManagerMap,
         containerStorageManager, storeChangelogs, taskModel.getChangelogPartition, checkpointManager, config,
-        commitThreadPool, new StorageManagerUtil, loggedStorageBaseDir)
+        commitThreadPool, new StorageManagerUtil, loggedStorageBaseDir, taskInstanceMetrics.get(taskName).get)
 
       val tableManager = new TableManager(config)
 
@@ -1067,7 +1068,7 @@ class SamzaContainer(
       info("Shutting down task thread pool")
       try {
         taskThreadPool.shutdown()
-        if(taskThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+        if (!taskThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           taskThreadPool.shutdownNow()
         }
       } catch {
@@ -1079,7 +1080,7 @@ class SamzaContainer(
       info("Shutting down task commit thread pool")
       try {
         commitThreadPool.shutdown()
-        if(commitThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+        if(!commitThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           commitThreadPool.shutdownNow()
         }
       } catch {
@@ -1091,7 +1092,7 @@ class SamzaContainer(
       info("Shutting down timer executor")
       try {
         timerExecutor.shutdown()
-        if (timerExecutor.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+        if (!timerExecutor.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
           timerExecutor.shutdownNow()
         }
       } catch {

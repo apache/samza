@@ -85,7 +85,7 @@ class KafkaTransactionalStateTaskBackupManager(
           newestOffsetOption.foreach(newestOffset =>
             debug("Got newest offset %s for taskName %s store %s changelog %s" format(newestOffset, taskName, storeName, systemStream)))
 
-          (storeName, new KafkaStateCheckpointMarker(ssp, newestOffsetOption.orNull).toString)
+          (storeName, KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(ssp, newestOffsetOption.orNull)))
         } catch {
           case e: Exception =>
             throw new SamzaException("Error getting newest changelog offset for taskName %s store %s changelog %s."

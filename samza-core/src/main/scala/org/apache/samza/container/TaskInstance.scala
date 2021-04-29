@@ -115,7 +115,6 @@ class TaskInstance(
   val checkpointWriteVersions = new TaskConfig(config).getCheckpointWriteVersions
 
   @volatile var lastCommitStartTimeMs = System.currentTimeMillis()
-  @volatile var numSkippedCommits = 0
   val commitMaxDelayMs = taskConfig.getCommitMaxDelayMs
   val commitTimeoutMs = taskConfig.getCommitTimeoutMs
   val commitInProgress = new Semaphore(1)
@@ -261,7 +260,6 @@ class TaskInstance(
   }
 
   def commit {
-    // TODO BLOCKER pmaheshw add tests.
     // ensure that only one commit (including sync and async phases) is ever in progress for a task.
 
     val commitStartNs = System.nanoTime()
@@ -282,7 +280,7 @@ class TaskInstance(
       if (timeSinceLastCommit < commitMaxDelayMs) {
         info("Skipping commit for taskName: %s since another commit is in progress. " +
           "%s ms have elapsed since the pending commit started." format (taskName, timeSinceLastCommit))
-        metrics.asyncCommitSkipped.set(numSkippedCommits + 1)
+        metrics.commitsSkipped.set(metrics.commitsSkipped.getValue + 1)
         return
       } else {
         warn("Blocking processing for taskName: %s until in-flight commit is complete. " +
@@ -326,7 +324,6 @@ class TaskInstance(
       format (taskName, checkpointId))
     val snapshotStartTimeNs = System.nanoTime()
     val snapshotSCMs = commitManager.snapshot(checkpointId)
-
     metrics.snapshotNs.update(System.nanoTime() - snapshotStartTimeNs)
     trace("Got synchronous snapshot SCMs for taskName: %s checkpointId: %s as: %s "
       format(taskName, checkpointId, snapshotSCMs))
@@ -343,14 +340,12 @@ class TaskInstance(
         try {
           val uploadStartTimeNs = System.nanoTime()
           val uploadSCMsFuture = commitManager.upload(checkpointId, snapshotSCMs)
-
           uploadSCMsFuture.whenComplete(new BiConsumer[util.Map[String, util.Map[String, String]], Throwable] {
             override def accept(t: util.Map[String, util.Map[String, String]], throwable: Throwable): Unit = {
               if (throwable == null) {
                 metrics.asyncUploadNs.update(System.nanoTime() - uploadStartTimeNs)
-                metrics.asyncUploadsCompleted.inc()
               } else {
-                debug("Commit upload did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
+                warn("Commit upload did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
                   format (taskName, checkpointId, throwable.getMessage))
               }
             }
@@ -360,8 +355,19 @@ class TaskInstance(
           val checkpointWriteFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
             uploadSCMsFuture.thenApplyAsync(writeCheckpoint(checkpointId, inputOffsets), commitThreadPool)
 
+          val cleanupStartTimeNs = System.nanoTime()
           val cleanUpFuture: CompletableFuture[Void] =
             checkpointWriteFuture.thenComposeAsync(cleanUp(checkpointId), commitThreadPool)
+          cleanUpFuture.whenComplete(new BiConsumer[Void, Throwable] {
+            override def accept(v: Void, throwable: Throwable): Unit = {
+              if (throwable == null) {
+                metrics.asyncCleanupNs.update(System.nanoTime() - cleanupStartTimeNs)
+              } else {
+                warn("Commit cleanup did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
+                  format (taskName, checkpointId, throwable.getMessage))
+              }
+            }
+          })
 
           val trimFuture = cleanUpFuture.thenRunAsync(
             trim(checkpointId, inputOffsets), commitThreadPool)
@@ -474,9 +480,7 @@ class TaskInstance(
             }
           } else {
             metrics.commitNs.update(System.nanoTime() - commitStartNs)
-            // reset the numbers skipped commits for the current commit
-            numSkippedCommits = 0
-            metrics.asyncCommitSkipped.set(numSkippedCommits)
+            metrics.asyncCommitsCompleted.inc()
           }
         } finally {
           // release the permit indicating that previous commit is complete.

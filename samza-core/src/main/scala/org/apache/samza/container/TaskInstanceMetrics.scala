@@ -39,11 +39,14 @@ class TaskInstanceMetrics(
   val messagesInFlight = newGauge("messages-in-flight", 0)
   val asyncCallbackCompleted = newCounter("async-callback-complete-calls")
 
-  val asyncCommitSkipped = newGauge("async-commits-skipped", 0)
-  val asyncUploadsCompleted = newCounter("async-uploads-completed")
-  val asyncUploadNs = newTimer("async-upload-ns")
+
   val commitNs = newTimer("commit-ns")
+  val asyncCommitsCompleted = newCounter("async-uploads-completed")
+  val commitsSkipped = newGauge("commits-skipped", 0)
   val snapshotNs = newTimer("snapshot-ns")
+  val storeCheckpointNs = newTimer("store-checkpoint-ns")
+  val asyncUploadNs = newTimer("async-upload-ns")
+  val asyncCleanupNs = newTimer("async-cleanup-ns")
 
 
   def addOffsetGauge(systemStreamPartition: SystemStreamPartition, getValue: () => String) {

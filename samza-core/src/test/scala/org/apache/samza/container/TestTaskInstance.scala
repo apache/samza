@@ -229,15 +229,17 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
@@ -289,7 +291,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
           assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
           val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get("storeName")
           assertTrue(checkpointedStateCheckpointMarker.equals(stateCheckpointMarker))
-          val kafkaMarker = KafkaStateCheckpointMarker.fromString(checkpointedStateCheckpointMarker)
+          val kafkaMarker = KafkaStateCheckpointMarker.deserialize(checkpointedStateCheckpointMarker)
           assertEquals(kafkaMarker.getChangelogOffset, "5")
           assertEquals(kafkaMarker.getChangelogSSP, changelogSSP)
         } else { // c.getVersion == 1
@@ -307,7 +309,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
     verify(commitTimer).update(anyLong())
-    verify(skippedCounter).set(0)
   }
 
   @Test
@@ -320,15 +321,13 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val nullStateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, null).toString
+    val nullStateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, null))
     stateCheckpointMarkers.put("storeName", nullStateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
     when(this.taskCommitManager.upload(any(), any()))
@@ -351,7 +350,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
           assertTrue(checkpointedStateCheckpointMarkers.size() == 1)
           val checkpointedStateCheckpointMarker = checkpointedStateCheckpointMarkers.get("storeName")
           assertTrue(checkpointedStateCheckpointMarker.equals(nullStateCheckpointMarker))
-          val kafkaMarker = KafkaStateCheckpointMarker.fromString(checkpointedStateCheckpointMarker)
+          val kafkaMarker = KafkaStateCheckpointMarker.deserialize(checkpointedStateCheckpointMarker)
           assertNull(kafkaMarker.getChangelogOffset)
           assertEquals(kafkaMarker.getChangelogSSP, changelogSSP)
         } else { // c.getVersion == 1
@@ -365,7 +364,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       }
     })
     verify(commitsCounter).inc()
-    verify(uploadCounter).inc()
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
   }
@@ -380,10 +378,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
@@ -405,7 +401,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       }
     })
     verify(commitsCounter).inc()
-    verify(uploadCounter).inc()
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
   }
@@ -448,10 +443,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -495,10 +492,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
+    val commitCounter = mock[Counter]
+    when(this.metrics.asyncCommitsCompleted).thenReturn(commitCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -514,11 +513,11 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       taskInstance.commit
 
       verify(commitsCounter).inc()
-      verify(uploadCounter).inc()
       verify(snapshotTimer).update(anyLong())
       verify(uploadTimer).update(anyLong())
       verifyZeroInteractions(commitTimer)
       verifyZeroInteractions(skippedCounter)
+      verifyZeroInteractions(commitCounter)
 
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
       taskInstance.commit
@@ -542,10 +541,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val commitCounter = mock[Counter]
+    when(this.metrics.asyncCommitsCompleted).thenReturn(commitCounter)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -562,7 +563,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       taskInstance.commit
 
       verify(commitsCounter).inc()
-      verify(uploadCounter).inc()
+      verifyZeroInteractions(commitCounter)
       verify(snapshotTimer).update(anyLong())
       verify(uploadTimer).update(anyLong())
       verifyZeroInteractions(commitTimer)
@@ -590,10 +591,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
+    val commitCounter = mock[Counter]
+    when(this.metrics.asyncCommitsCompleted).thenReturn(commitCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -610,10 +613,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       taskInstance.commit
 
       verify(commitsCounter).inc()
-      verify(uploadCounter).inc()
       verify(snapshotTimer).update(anyLong())
       verify(uploadTimer).update(anyLong())
       verifyZeroInteractions(commitTimer)
+      verifyZeroInteractions(commitCounter)
       verifyZeroInteractions(skippedCounter)
 
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
@@ -638,10 +641,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -687,10 +692,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -710,7 +717,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
     verify(commitTimer).update(anyLong())
-    verify(skippedCounter).set(0)
 
     taskInstance.commit
 
@@ -734,17 +740,19 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
+    val commitCounter = mock[Counter]
+    when(this.metrics.asyncCommitsCompleted).thenReturn(commitCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
 
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
@@ -768,11 +776,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(skippedCounter).set(1)
 
     verify(commitsCounter, times(1)).inc() // should only have been incremented once on the initial commit
-    verify(uploadCounter).inc()
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
     verifyZeroInteractions(commitTimer)
-    verifyZeroInteractions(skippedCounter)
+    verifyZeroInteractions(commitCounter)
 
     cleanUpFuture.complete(null) // just to unblock shared executor
   }
@@ -787,17 +794,19 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
 
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
@@ -844,17 +853,19 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val uploadCounter = mock[Counter]
-    when(this.metrics.asyncUploadsCompleted).thenReturn(uploadCounter)
+    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
-    when(this.metrics.asyncCommitSkipped).thenReturn(skippedCounter)
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
     val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
 
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
-    val stateCheckpointMarker = new KafkaStateCheckpointMarker(changelogSSP, "5").toString
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
     stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
     when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
 
@@ -898,9 +909,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     cleanUpFuture.complete(null) // will eventually unblock the 2nd commit in other thread.
     secondCommitFuture.join() // will complete when the sync phase of 2nd commit is complete.
     verify(commitsCounter, times(2)).inc() // should only have been incremented twice - once for each commit
-    verify(uploadCounter, times(2)).inc()
     verify(snapshotTimer, times(2)).update(anyLong())
-    verify(uploadTimer, times(2)).update(anyLong())
   }
 
 

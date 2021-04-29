@@ -78,7 +78,7 @@ public class StorageManagerUtil {
    * @return String denoting the file path of the store with the given checkpoint id
    */
   public static String getCheckpointDirPath(File taskStoreDir, CheckpointId checkpointId) {
-    return taskStoreDir.getPath() + "-" + checkpointId.toString();
+    return taskStoreDir.getPath() + "-" + checkpointId.serialize();
   }
 
   /**
