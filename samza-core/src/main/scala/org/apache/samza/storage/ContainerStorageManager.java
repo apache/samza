@@ -45,6 +45,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.RunLoop;
@@ -255,7 +256,13 @@ public class ContainerStorageManager {
     this.storeConsumers = createStoreIndexedMap(this.changelogSystemStreams, storeSystemConsumers);
 
     // TODO HIGH dchen tune based on observed concurrency
-    this.restoreExecutor = Executors.newFixedThreadPool(containerModel.getTasks().size() * 2,
+    JobConfig jobConfig = new JobConfig(config);
+    int restoreThreadPoolSize =
+        Math.min(
+            Math.max(containerModel.getTasks().size() * 2, jobConfig.getRestoreThreadPoolSize()),
+            jobConfig.getRestoreThreadPoolMaxSize()
+        );
+    this.restoreExecutor = Executors.newFixedThreadPool(restoreThreadPoolSize,
         new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
 
     // creating task restore managers
