@@ -227,12 +227,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
@@ -305,7 +307,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     // Old checkpointed stores should be cleared
     mockOrder.verify(this.taskCommitManager).cleanUp(any(), any())
     verify(commitsCounter).inc()
-    verify(uploadCounter).inc()
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
     verify(commitTimer).update(anyLong())
@@ -319,6 +320,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val skippedCounter = mock[Gauge[Int]]
@@ -376,6 +381,10 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val skippedCounter = mock[Gauge[Int]]
@@ -441,12 +450,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
@@ -464,7 +475,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       taskInstance.commit
 
       verify(commitsCounter).inc()
-      verifyZeroInteractions(uploadCounter)
       verify(snapshotTimer).update(anyLong())
       verifyZeroInteractions(uploadTimer)
       verifyZeroInteractions(commitTimer)
@@ -490,12 +500,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val commitCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(commitCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
@@ -517,7 +529,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       verify(uploadTimer).update(anyLong())
       verifyZeroInteractions(commitTimer)
       verifyZeroInteractions(skippedCounter)
-      verifyZeroInteractions(commitCounter)
 
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
       taskInstance.commit
@@ -539,10 +550,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val commitCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(commitCounter)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
@@ -563,7 +576,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       taskInstance.commit
 
       verify(commitsCounter).inc()
-      verifyZeroInteractions(commitCounter)
       verify(snapshotTimer).update(anyLong())
       verify(uploadTimer).update(anyLong())
       verifyZeroInteractions(commitTimer)
@@ -589,12 +601,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val commitCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(commitCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
@@ -616,7 +630,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       verify(snapshotTimer).update(anyLong())
       verify(uploadTimer).update(anyLong())
       verifyZeroInteractions(commitTimer)
-      verifyZeroInteractions(commitCounter)
       verifyZeroInteractions(skippedCounter)
 
       // async stage exception in first commit should be caught and rethrown by the subsequent commit
@@ -639,12 +652,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
@@ -664,7 +679,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       taskInstance.commit
 
       verify(commitsCounter).inc()
-      verifyZeroInteractions(uploadCounter)
       verify(snapshotTimer).update(anyLong())
       verifyZeroInteractions(uploadTimer)
       verifyZeroInteractions(commitTimer)
@@ -690,12 +704,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
@@ -713,7 +729,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     taskInstance.commit // async stage will be run by caller due to direct executor
 
     verify(commitsCounter).inc()
-    verify(uploadCounter).inc()
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
     verify(commitTimer).update(anyLong())
@@ -738,12 +753,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val commitCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(commitCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
@@ -779,7 +796,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
     verifyZeroInteractions(commitTimer)
-    verifyZeroInteractions(commitCounter)
 
     cleanUpFuture.complete(null) // just to unblock shared executor
   }
@@ -792,12 +808,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
@@ -852,11 +870,13 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
     val uploadTimer = mock[Timer]
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val uploadCounter = mock[Counter]
-    when(this.metrics.asyncCommitsCompleted).thenReturn(uploadCounter)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 

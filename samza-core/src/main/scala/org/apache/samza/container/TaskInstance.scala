@@ -330,6 +330,7 @@ class TaskInstance(
 
     debug("Submitting async stage of commit for taskName: %s checkpointId: %s for execution"
       format (taskName, checkpointId))
+    val asyncStageStartNs = System.nanoTime()
     // rest of the commit can happen asynchronously and concurrently with processing.
     // schedule it on the commit executor and return. submitted runnable releases the
     // commit semaphore permit when this commit is complete.
@@ -372,13 +373,14 @@ class TaskInstance(
           val trimFuture = cleanUpFuture.thenRunAsync(
             trim(checkpointId, inputOffsets), commitThreadPool)
 
-          trimFuture.whenCompleteAsync(handleCompletion(checkpointId, commitStartNs), commitThreadPool)
+          trimFuture.whenCompleteAsync(handleCompletion(checkpointId, commitStartNs, asyncStageStartNs), commitThreadPool)
         } catch {
-          case t: Throwable => handleCompletion(checkpointId, commitStartNs).accept(null, t)
+          case t: Throwable => handleCompletion(checkpointId, commitStartNs, asyncStageStartNs).accept(null, t)
         }
       }
     })
 
+    metrics.commitSyncNs.update(System.nanoTime() - commitStartNs)
     debug("Finishing sync stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
   }
 
@@ -456,7 +458,7 @@ class TaskInstance(
     }
   }
 
-  private def handleCompletion(checkpointId: CheckpointId, commitStartNs: Long) = {
+  private def handleCompletion(checkpointId: CheckpointId, commitStartNs: Long, asyncStageStartNs: Long) = {
     new BiConsumer[Void, Throwable] {
       override def accept(v: Void, e: Throwable): Unit = {
         try {
@@ -479,8 +481,8 @@ class TaskInstance(
                 "Saved exception under Caused By.", commitException.get())
             }
           } else {
+            metrics.commitAsyncNs.update(System.nanoTime() - asyncStageStartNs)
             metrics.commitNs.update(System.nanoTime() - commitStartNs)
-            metrics.asyncCommitsCompleted.inc()
           }
         } finally {
           // release the permit indicating that previous commit is complete.
