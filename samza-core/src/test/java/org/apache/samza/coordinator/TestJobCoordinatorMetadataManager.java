@@ -141,13 +141,13 @@ public class TestJobCoordinatorMetadataManager {
     JobCoordinatorMetadata newMetadataWithNoChange =
         new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
     assertEquals("Application attempt count should be 0", 0,
-        metrics.getApplicationAttemptCount().getCount());
+        metrics.getApplicationAttemptCount().getValue().intValue());
 
     metadataChanged =
         jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithNoChange);
     assertFalse("Metadata check should return false", metadataChanged);
     assertEquals("Application attempt count should be 1", 1,
-        metrics.getApplicationAttemptCount().getCount());
+        metrics.getApplicationAttemptCount().getValue().intValue());
   }
 
   @Test
@@ -161,7 +161,7 @@ public class TestJobCoordinatorMetadataManager {
     } catch (Exception e) {
       assertTrue("Expecting SamzaException to be thrown", e instanceof SamzaException);
       assertEquals("Metadata generation failed count should be 1", 1,
-          jobCoordinatorMetadataManager.getMetrics().getMetadataGenerationFailedCount().getCount());
+          jobCoordinatorMetadataManager.getMetrics().getMetadataGenerationFailedCount().getValue().intValue());
     }
   }
 
@@ -211,7 +211,7 @@ public class TestJobCoordinatorMetadataManager {
     JobCoordinatorMetadata actualMetadata = jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
     assertNull("Read failed should return null", actualMetadata);
     assertEquals("Metadata read failed count should be 1", 1,
-        jobCoordinatorMetadataManager.getMetrics().getMetadataReadFailedCount().getCount());
+        jobCoordinatorMetadataManager.getMetrics().getMetadataReadFailedCount().getValue().intValue());
   }
 
   @Test
@@ -240,7 +240,7 @@ public class TestJobCoordinatorMetadataManager {
     } catch (Exception e) {
       assertTrue("Expecting SamzaException to be thrown", e instanceof SamzaException);
       assertEquals("Metadata write failed count should be 1", 1,
-          jobCoordinatorMetadataManager.getMetrics().getMetadataWriteFailedCount().getCount());
+          jobCoordinatorMetadataManager.getMetrics().getMetadataWriteFailedCount().getValue().intValue());
     }
   }
 }
