@@ -19,13 +19,9 @@
 
 package org.apache.samza.checkpoint;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
-import org.apache.samza.serializers.JsonCheckpointIdMixin;
 
 
 /**
@@ -38,8 +34,6 @@ import org.apache.samza.serializers.JsonCheckpointIdMixin;
 @InterfaceStability.Unstable
 public class CheckpointId implements Comparable<CheckpointId> {
   public static final String SEPARATOR = "-";
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-      .addMixIn(CheckpointId.class, JsonCheckpointIdMixin.class);
 
   private final long millis;
   private final long nanoId;
@@ -54,21 +48,15 @@ public class CheckpointId implements Comparable<CheckpointId> {
   }
 
   public static CheckpointId deserialize(String checkpointId) {
+    if (StringUtils.isBlank(checkpointId)) {
+      throw new IllegalArgumentException("Invalid checkpoint id: " + checkpointId);
+    }
     try {
-      return OBJECT_MAPPER.readValue(checkpointId, CheckpointId.class);
-    } catch (JsonProcessingException e) {
-
-      // Try using the legacy deserialize method
-      if (StringUtils.isBlank(checkpointId)) {
-        throw new IllegalArgumentException("Invalid checkpoint id: " + checkpointId);
-      }
-      try {
-        String[] parts = checkpointId.split(SEPARATOR);
-        return new CheckpointId(Long.parseLong(parts[0]), Long.parseLong(parts[1]));
-      } catch (NumberFormatException ex) {
-        throw new IllegalArgumentException(String.format(
-            "Could not deserialize CheckpointId: %s, with previous exception: %s", checkpointId, e.getMessage()), ex);
-      }
+      String[] parts = checkpointId.split(SEPARATOR);
+      return new CheckpointId(Long.parseLong(parts[0]), Long.parseLong(parts[1]));
+    } catch (NumberFormatException ex) {
+      throw new IllegalArgumentException(String.format(
+          "Could not deserialize CheckpointId: %s", checkpointId), ex);
     }
   }
 
@@ -85,11 +73,7 @@ public class CheckpointId implements Comparable<CheckpointId> {
    * @return the String representation of this {@link CheckpointId}.
    */
   public String serialize() {
-    try {
-      return OBJECT_MAPPER.writeValueAsString(this);
-    } catch (JsonProcessingException e) {
-      throw new SamzaException(String.format("Error serializing CheckpointId: %s", this), e);
-    }
+    return String.format("%s%s%s", getMillis(), SEPARATOR, getNanoId());
   }
 
   @Override
