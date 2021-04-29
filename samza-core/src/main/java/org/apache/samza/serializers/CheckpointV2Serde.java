@@ -50,7 +50,7 @@ public class CheckpointV2Serde implements Serde<CheckpointV2> {
     try {
       return OBJECT_MAPPER.readValue(bytes, CheckpointV2.class);
     } catch (Exception e) {
-      throw new SamzaException(String.format("Exception while deserializing checkpoint: %s", Arrays.toString(bytes)), e);
+      throw new SamzaException(String.format("Exception while deserializing checkpoint: %s", new String(bytes)), e);
     }
   }
 
