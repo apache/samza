@@ -137,6 +137,15 @@ public class ClusterManagerConfig extends MapConfig {
   private static final String AM_JMX_ENABLED = "yarn.am.jmx.enabled";
   private static final String CLUSTER_MANAGER_JMX_ENABLED = "cluster-manager.jobcoordinator.jmx.enabled";
 
+  /**
+   * Use this to configure a static port for the job coordinator url for a Samza job. This url is used to provide
+   * information such as job model and locality.
+   * If the value is set to 0, then the port will be dynamically allocated from the available free ports on the node.
+   * The default value of this config is 0.
+   */
+  private static final String JOB_COORDINATOR_URL_PORT = "cluster-manager.jobcoordinator.url.port";
+  private static final int DEFAULT_JOB_COORDINATOR_URL_PORT = 0;
+
   public ClusterManagerConfig(Config config) {
       super(config);
   }
@@ -279,5 +288,9 @@ public class ClusterManagerConfig extends MapConfig {
     } else {
       return true;
     }
+  }
+
+  public int getCoordinatorUrlPort() {
+    return getInt(JOB_COORDINATOR_URL_PORT, DEFAULT_JOB_COORDINATOR_URL_PORT);
   }
 }
