@@ -345,23 +345,6 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format storeChangelogs)
 
-    /*
-     * This keeps track of the changelog SSPs that are associated with the whole container. This is used so that we can
-     * prefetch the metadata about the all of the changelog SSPs associated with the container whenever we need the
-     * metadata about some of the changelog SSPs.
-     * An example use case is when Samza writes offset files for stores ({@link TaskStorageManager}). Each task is
-     * responsible for its own offset file, but if we can do prefetching, then most tasks will already have cached
-     * metadata by the time they need the offset metadata.
-     * Note: By using all changelog streams to build the sspsToPrefetch, any fetches done for persisted stores will
-     * include the ssps for non-persisted stores, so this is slightly suboptimal. However, this does not increase the
-     * actual number of calls to the {@link SystemAdmin}, and we can decouple this logic from the per-task objects (e.g.
-     * {@link TaskStorageManager}).
-     */
-    val changelogSSPMetadataCache = new SSPMetadataCache(systemAdmins,
-      Duration.ofSeconds(5),
-      SystemClock.instance,
-      getChangelogSSPsForContainer(containerModel, storeChangelogs).asJava)
-
     val intermediateStreams = streamConfig
       .getStreamIds()
       .asScala
@@ -517,7 +500,6 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
-    // TODO dchen should we enforce restore factories to be subset of backup factories?
     val stateStorageBackendRestoreFactory = ReflectionUtil
       .getObj(storageConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
 
@@ -577,7 +559,7 @@ object SamzaContainer extends Logging {
             if (taskInstanceMetrics.contains(taskName) &&
               taskInstanceMetrics.get(taskName).isDefined) taskInstanceMetrics.get(taskName).get.registry
             else new MetricsRegistryMap
-          val taskBackupManager = factory.getBackupManager(jobModel, containerModel,
+          val taskBackupManager = factory.getBackupManager(jobContext, containerContext,
             taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock,
             loggedStorageBaseDir, nonLoggedStorageBaseDir)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
@@ -707,19 +689,6 @@ object SamzaContainer extends Logging {
       externalContextOption = externalContextOption,
       containerStorageManager = containerStorageManager,
       diagnosticsManager = diagnosticsManager)
-  }
-
-  /**
-    * Builds the set of SSPs for all changelogs on this container.
-    */
-  @VisibleForTesting
-  private[container] def getChangelogSSPsForContainer(containerModel: ContainerModel,
-    changeLogSystemStreams: util.Map[String, SystemStream]): Set[SystemStreamPartition] = {
-    containerModel.getTasks.values().asScala
-      .map(taskModel => taskModel.getChangelogPartition)
-      .flatMap(changelogPartition => changeLogSystemStreams.asScala.map { case (_, systemStream) =>
-        new SystemStreamPartition(systemStream, changelogPartition) })
-      .toSet
   }
 }
 

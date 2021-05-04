@@ -19,6 +19,9 @@
 
 package org.apache.samza.storage;
 
+/**
+ * Creates and validate resources for the StateBackendFactory
+ */
 public interface TaskStorageAdmin {
 
   void createResources();
