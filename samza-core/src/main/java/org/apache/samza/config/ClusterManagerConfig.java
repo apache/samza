@@ -142,6 +142,11 @@ public class ClusterManagerConfig extends MapConfig {
    * information such as job model and locality.
    * If the value is set to 0, then the port will be dynamically allocated from the available free ports on the node.
    * The default value of this config is 0.
+   *
+   * Be careful when using this configuration. If the configured port is already in use on the node, then the job
+   * coordinator will fail to start.
+   *
+   * This configuration is experimental, and it might be removed in a future release.
    */
   private static final String JOB_COORDINATOR_URL_PORT = "cluster-manager.jobcoordinator.url.port";
   private static final int DEFAULT_JOB_COORDINATOR_URL_PORT = 0;
