@@ -40,7 +40,7 @@ import org.junit.Assert._
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import org.junit.{After, Before, Ignore, Test}
+import org.junit.{After, Before, Test}
 import org.mockito.Matchers._
 import org.mockito.Mockito
 import org.mockito.Mockito._
@@ -183,7 +183,6 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     val checkpointId = CheckpointId.create()
     val snapshot = taskManager.snapshot(checkpointId)
     val stateCheckpointMarkers = taskManager.upload(checkpointId, snapshot)
-    //taskManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
     assertTrue(storeDirectory.list().isEmpty)
 
     // Test 3: Update sspMetadata before shutdown and verify that offset file is NOT created
@@ -271,7 +270,6 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
   }
 
   @Test
-  @Ignore
   def testStoreDeletedWhenCleanDirsFlagSet() {
     // This test ensures that store gets deleted when the stores.container.start.clean config is set,
     // and new dir is created with a new last modified time
@@ -384,62 +382,6 @@ class TestKafkaNonTransactionalStateTaskBackupManager(offsetFileName: String) ex
     val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot)
 
     assertNull(KafkaStateCheckpointMarker.deserialize(stateCheckpointMarkers2.get.get(loggedStore)).getChangelogOffset)
-  }
-
-  @Test
-  @Ignore
-  def testFlushOverwritesOffsetFileForLoggedStore() {
-    val partition = new Partition(0)
-    val ssp = new SystemStreamPartition("kafka", getStreamName(loggedStore), partition)
-
-    val offsetFilePath = new File(storageManagerUtil.getTaskStoreDir(TaskStorageManagerBuilder.defaultLoggedStoreBaseDir, loggedStore, taskName, TaskMode.Active) + File.separator + offsetFileName)
-    fileUtil.writeWithChecksum(offsetFilePath, "100")
-
-    val sspMetadata = new SystemStreamPartitionMetadata("20", "139", "140")
-    val mockSystemAdmin = mock[SystemAdmin]
-    when(mockSystemAdmin.getSSPMetadata(ImmutableSet.of(ssp))).thenReturn(ImmutableMap.of(ssp, sspMetadata))
-
-
-    var metadata = new SystemStreamMetadata(getStreamName(loggedStore), new java.util.HashMap[Partition, SystemStreamPartitionMetadata]() {
-      {
-        put(partition, sspMetadata)
-      }
-    })
-
-    val mockStreamMetadataCache = mock[StreamMetadataCache]
-    when(mockStreamMetadataCache.getStreamMetadata(any(), any())).thenReturn(Map(new SystemStream("kafka", getStreamName(loggedStore)) -> metadata))
-
-    //Build TaskStorageManager
-    val taskStorageManager = new TaskStorageManagerBuilder()
-      .addLoggedStore(loggedStore, true)
-      .setSystemAdmin("kafka", mockSystemAdmin)
-      .setPartition(partition)
-      .setStreamMetadataCache(mockStreamMetadataCache)
-      .initializeContainerStorageManager()
-      .build
-
-    //Invoke test method
-    val checkpointId = CheckpointId.create()
-    var snapshot = taskStorageManager.snapshot(checkpointId)
-    val stateCheckpointMarkers = taskStorageManager.upload(checkpointId, snapshot)
-    //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers.get())
-
-    //Check conditions
-    assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
-    validateOffsetFileContents(offsetFilePath, "kafka.testStream-loggedStore1.0", "139")
-
-    // Flush again
-    when(mockSystemAdmin.getSSPMetadata(ImmutableSet.of(ssp)))
-      .thenReturn(ImmutableMap.of(ssp, new SystemStreamPartitionMetadata("20", "193", "194")))
-
-    //Invoke test method
-    snapshot = taskStorageManager.snapshot(checkpointId)
-    val stateCheckpointMarkers2 = taskStorageManager.upload(checkpointId, snapshot)
-    //taskStorageManager.persistToFilesystem(checkpointId, stateCheckpointMarkers2.get())
-
-    //Check conditions
-    assertTrue("Offset file doesn't exist!", offsetFilePath.exists())
-    validateOffsetFileContents(offsetFilePath, "kafka.testStream-loggedStore1.0", "193")
   }
 
   /**
