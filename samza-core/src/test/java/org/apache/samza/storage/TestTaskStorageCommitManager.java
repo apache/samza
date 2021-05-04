@@ -718,6 +718,16 @@ public class TestTaskStorageCommitManager {
     assertTrue(mockCheckpointFileSystem.containsKey(v1FilePath));
     assertEquals(checkpoint, mockCheckpointFileSystem.get(v1FilePath));
     assertEquals(2, mockCheckpointFileSystem.size());
+
+    CheckpointV2 updatedCheckpoint = new CheckpointV2(
+        newCheckpointId, ImmutableMap.of(
+        new SystemStreamPartition("inputSystem", "inputStream", changelogPartition), "5"),
+        Collections.singletonMap("factory", storeSCM));
+    commitManager.writeCheckpointToStoreDirectories(updatedCheckpoint);
+
+    assertEquals(updatedCheckpoint, mockCheckpointFileSystem.get(v2FilePath));
+    assertEquals(updatedCheckpoint, mockCheckpointFileSystem.get(v1FilePath));
+    assertEquals(2, mockCheckpointFileSystem.size());
   }
 
   @Test
