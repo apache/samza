@@ -100,7 +100,8 @@ object JobModelManager extends Logging {
 
       updateTaskAssignments(jobModel, taskAssignmentManager, taskPartitionAssignmentManager, grouperMetadata)
 
-      val server = new HttpServer
+      val clusterManagerConfig = new ClusterManagerConfig(config)
+      val server = new HttpServer(port = clusterManagerConfig.getCoordinatorUrlPort)
       server.addServlet("/", new JobServlet(serializedJobModelRef))
       server.addServlet("/locality", new LocalityServlet(localityManager))
 
