@@ -21,10 +21,14 @@
 
 package org.apache.samza.util
 
-import java.io.{File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
+import org.apache.samza.testUtils.FileUtil
 
-import org.junit.Assert.{assertEquals, assertNull, assertTrue}
+import java.io.{File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
+import org.junit.Assert.{assertEquals, assertNull, assertTrue, fail}
 import org.junit.Test
+
+import java.nio.file.{FileAlreadyExistsException, Files, Paths}
+import scala.util.Random
 
 class TestFileUtil {
   val data = "100"
@@ -103,5 +107,46 @@ class TestFileUtil {
 
     // Check data returned
     assertNull(result)
+  }
+
+  /**
+   * Files.createDirectories fails with a FileAlreadyExistsException if the last directory
+   * in the path already exists but is a symlink to another directory. It works correctly
+   * if one of the intermediate directory is a symlink. Verify this behavior and
+   * test that the util method handles this correctly.
+   */
+  @Test
+  def testCreateDirectoriesWithSymlinks(): Unit = {
+    /**
+     * Directory structure:
+     * /tmp/samza-file-util-RANDOM
+     * /tmp/samza-file-util-RANDOM-symlink (symlink to dir above)
+     * /tmp/samza-file-util-RANDOM/subdir (created via the symlink above)
+     */
+    val tmpDirPath = Paths.get(FileUtil.TMP_DIR)
+    val tmpSubDirName = "samza-file-util-" + Random.nextInt()
+    val tmpSubDirSymlinkName = tmpSubDirName + "-symlink"
+
+    val tmpSubDirPath = Paths.get(FileUtil.TMP_DIR, tmpSubDirName);
+    fileUtil.createDirectories(tmpSubDirPath)
+
+    val tmpSymlinkPath = Paths.get(FileUtil.TMP_DIR, tmpSubDirSymlinkName)
+    Files.createSymbolicLink(tmpSymlinkPath, tmpDirPath);
+
+    try {
+      Files.createDirectories(tmpSymlinkPath)
+      fail("Should have thrown a FileAlreadyExistsException since last dir in path already " +
+        "exists and is a symlink")
+    } catch {
+      case e: FileAlreadyExistsException =>
+        // ignore and continue
+    }
+
+    // test that the util method handles this correctly and does not throw an exception
+    fileUtil.createDirectories(tmpSymlinkPath)
+
+    // verify that subdirs can be created via symlinks correctly.
+    val tmpSubSubDirPath = Paths.get(FileUtil.TMP_DIR, tmpSubDirName + "-symlink", "subdir")
+    fileUtil.createDirectories(tmpSubSubDirPath)
   }
 }

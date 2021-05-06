@@ -19,6 +19,7 @@
 
 package org.apache.samza.checkpoint.azure;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.table.*;
@@ -28,6 +29,7 @@ import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.serializers.JsonSerdeV2;
@@ -113,13 +115,17 @@ public class AzureCheckpointManager implements CheckpointManager {
 
   @Override
   public void writeCheckpoint(TaskName taskName, Checkpoint checkpoint) {
+    Preconditions.checkArgument(checkpoint instanceof CheckpointV1,
+        "Only CheckpointV1 could be written to Azure");
+
     if (!taskNames.contains(taskName)) {
       throw new SamzaException("writing checkpoint of unregistered task");
     }
 
     TableBatchOperation batchOperation = new TableBatchOperation();
 
-    Iterator<Map.Entry<SystemStreamPartition, String>> iterator = checkpoint.getOffsets().entrySet().iterator();
+    Iterator<Map.Entry<SystemStreamPartition, String>> iterator =
+        checkpoint.getOffsets().entrySet().iterator();
     while (iterator.hasNext()) {
       Map.Entry<SystemStreamPartition, String> entry = iterator.next();
       SystemStreamPartition ssp = entry.getKey();
@@ -205,7 +211,7 @@ public class AzureCheckpointManager implements CheckpointManager {
       return null;
     }
     LOG.debug("Received checkpoint state for taskName=%s", taskName);
-    return new Checkpoint(builder.build());
+    return new CheckpointV1(builder.build());
   }
 
   @Override

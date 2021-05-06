@@ -41,6 +41,9 @@ import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
@@ -95,11 +98,15 @@ public class SamzaObjectMapper {
     module.addKeyDeserializer(SystemStreamPartition.class, new SystemStreamPartitionKeyDeserializer());
     module.addDeserializer(Config.class, new ConfigDeserializer());
     module.addDeserializer(TaskMode.class, new TaskModeDeserializer());
+    module.addSerializer(CheckpointId.class, new CheckpointIdSerializer());
+    module.addDeserializer(CheckpointId.class, new CheckpointIdDeserializer());
 
     // Setup mixins for data models.
     mapper.addMixIn(TaskModel.class, JsonTaskModelMixIn.class);
     mapper.addMixIn(ContainerModel.class, JsonContainerModelMixIn.class);
     mapper.addMixIn(JobModel.class, JsonJobModelMixIn.class);
+    mapper.addMixIn(CheckpointV2.class, JsonCheckpointV2Mixin.class);
+    mapper.addMixIn(KafkaStateCheckpointMarker.class, KafkaStateCheckpointMarkerMixin.class);
 
     module.addDeserializer(ContainerModel.class, new JsonDeserializer<ContainerModel>() {
       @Override
@@ -252,6 +259,22 @@ public class SamzaObjectMapper {
       String stream = node.get("stream").textValue();
       Partition partition = new Partition(node.get("partition").intValue());
       return new SystemStreamPartition(system, stream, partition);
+    }
+  }
+
+  public static class CheckpointIdSerializer extends JsonSerializer<CheckpointId> {
+    @Override
+    public void serialize(CheckpointId checkpointId, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+      gen.writeString(checkpointId.serialize());
+    }
+  }
+
+  public static class CheckpointIdDeserializer extends JsonDeserializer<CheckpointId> {
+    @Override
+    public CheckpointId deserialize(JsonParser jsonParser, DeserializationContext context) throws IOException {
+      ObjectCodec oc = jsonParser.getCodec();
+      JsonNode node = oc.readTree(jsonParser);
+      return CheckpointId.deserialize(node.textValue());
     }
   }
 

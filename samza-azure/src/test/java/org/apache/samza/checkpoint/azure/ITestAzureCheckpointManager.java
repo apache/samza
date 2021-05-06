@@ -22,6 +22,7 @@ package org.apache.samza.checkpoint.azure;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.config.AzureConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
@@ -69,10 +70,10 @@ public class ITestAzureCheckpointManager {
     Map<SystemStreamPartition, String> sspMap = new HashMap<>();
 
     sspMap.put(ssp, "12345");
-    Checkpoint cp0 = new Checkpoint(sspMap);
+    Checkpoint cp0 = new CheckpointV1(sspMap);
 
     sspMap.put(ssp, "54321");
-    Checkpoint cp1 = new Checkpoint(sspMap);
+    Checkpoint cp1 = new CheckpointV1(sspMap);
 
     checkpointManager.register(taskName);
 
@@ -96,12 +97,12 @@ public class ITestAzureCheckpointManager {
     Map<SystemStreamPartition, String> sspMap = new HashMap<>();
     sspMap.put(ssp, "12345");
     sspMap.put(ssp1, "54321");
-    Checkpoint cp1 = new Checkpoint(sspMap);
+    Checkpoint cp1 = new CheckpointV1(sspMap);
 
     Map<SystemStreamPartition, String> sspMap2 = new HashMap<>();
     sspMap2.put(ssp, "12347");
     sspMap2.put(ssp1, "54323");
-    Checkpoint cp2 = new Checkpoint(sspMap2);
+    Checkpoint cp2 = new CheckpointV1(sspMap2);
 
     checkpointManager.register(taskName);
 
@@ -126,12 +127,12 @@ public class ITestAzureCheckpointManager {
     Map<SystemStreamPartition, String> sspMap = new HashMap<>();
     sspMap.put(ssp, "12345");
     sspMap.put(ssp1, "54321");
-    Checkpoint cp1 = new Checkpoint(sspMap);
+    Checkpoint cp1 = new CheckpointV1(sspMap);
 
     Map<SystemStreamPartition, String> sspMap2 = new HashMap<>();
     sspMap2.put(ssp, "12347");
     sspMap2.put(ssp1, "54323");
-    Checkpoint cp2 = new Checkpoint(sspMap2);
+    Checkpoint cp2 = new CheckpointV1(sspMap2);
 
     checkpointManager.register(taskName);
     checkpointManager.register(taskName1);
@@ -171,7 +172,7 @@ public class ITestAzureCheckpointManager {
       sspMap.put(ssp, String.valueOf(i));
     }
 
-    Checkpoint cp0 = new Checkpoint(sspMap);
+    Checkpoint cp0 = new CheckpointV1(sspMap);
     checkpointManager.register(taskName);
     checkpointManager.writeCheckpoint(taskName, cp0);
     Checkpoint readCp = checkpointManager.readLastCheckpoint(taskName);

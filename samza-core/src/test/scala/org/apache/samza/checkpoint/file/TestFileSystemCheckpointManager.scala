@@ -20,13 +20,15 @@
 package org.apache.samza.checkpoint.file
 
 import java.io.File
+
 import scala.collection.JavaConverters._
 import java.util.Random
+
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
 import org.apache.samza.SamzaException
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointV1}
 import org.apache.samza.system.SystemStreamPartition
 import org.apache.samza.container.TaskName
 import org.junit.rules.TemporaryFolder
@@ -52,17 +54,17 @@ class TestFileSystemCheckpointManager  {
 
   @Test
   def testReadForCheckpointFileThatDoesExistShouldReturnProperCheckpoint {
-    val cp = new Checkpoint(Map(
+    val cp = new CheckpointV1(Map(
       new SystemStreamPartition("a", "b", new Partition(0)) -> "c",
       new SystemStreamPartition("a", "c", new Partition(1)) -> "d",
       new SystemStreamPartition("b", "d", new Partition(2)) -> "e").asJava)
 
-    var readCp:Checkpoint = null
+    var readCp:CheckpointV1 = null
     val cpm =  new FileSystemCheckpointManager("some-job-name", tempFolder.getRoot)
 
     cpm.start
     cpm.writeCheckpoint(taskName, cp)
-    readCp = cpm.readLastCheckpoint(taskName)
+    readCp = cpm.readLastCheckpoint(taskName).asInstanceOf[CheckpointV1]
     cpm.stop
 
     assertNotNull(readCp)
