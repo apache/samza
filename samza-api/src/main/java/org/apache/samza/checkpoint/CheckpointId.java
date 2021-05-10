@@ -92,7 +92,7 @@ public class CheckpointId implements Comparable<CheckpointId> {
 
   @Override
   public int compareTo(CheckpointId that) {
-    if(this.millis != that.millis) return Long.compare(this.millis, that.millis);
+    if (this.millis != that.millis) return Long.compare(this.millis, that.millis);
     else return Long.compare(this.nanoId, that.nanoId);
   }
 

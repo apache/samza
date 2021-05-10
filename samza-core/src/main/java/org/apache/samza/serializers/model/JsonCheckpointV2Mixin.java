@@ -23,10 +23,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
-import java.util.Set;
-import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.CheckpointId;
-import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
 
 @JsonIgnoreProperties(ignoreUnknown = true)

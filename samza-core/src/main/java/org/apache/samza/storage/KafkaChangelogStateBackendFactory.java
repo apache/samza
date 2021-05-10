@@ -202,7 +202,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
     Map<SystemStreamPartition, String> changelogSSPToStore = new HashMap<>();
     changelogSystemStreams.forEach((storeName, systemStream) ->
         containerModel.getTasks().forEach((taskName, taskModel) -> {
-          if (TaskMode.Standby.equals(taskModel.getTaskMode())) {
+          if (!TaskMode.Standby.equals(taskModel.getTaskMode())) {
             changelogSSPToStore.put(new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()),
                 storeName);
           }
