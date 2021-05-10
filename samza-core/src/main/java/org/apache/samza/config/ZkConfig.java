@@ -20,6 +20,7 @@
 package org.apache.samza.config;
 
 public class ZkConfig extends MapConfig {
+  public static final String STARTUP_WITH_ACTIVE_JOB_MODEL = "job.coordinator.zk.enable-startup-with-active-job-model";
   // Connection string for ZK, format: :<hostname>:<port>,..."
   public static final String ZK_CONNECT = "job.coordinator.zk.connect";
   public static final String ZK_SESSION_TIMEOUT_MS = "job.coordinator.zk.session.timeout.ms";
@@ -32,6 +33,10 @@ public class ZkConfig extends MapConfig {
 
   public ZkConfig(Config config) {
     super(config);
+  }
+
+  public boolean getEnableStartupWithActiveJobModel() {
+    return getBoolean(STARTUP_WITH_ACTIVE_JOB_MODEL, false);
   }
 
   public String getZkConnect() {

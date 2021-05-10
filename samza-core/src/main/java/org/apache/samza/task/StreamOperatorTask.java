@@ -18,6 +18,7 @@
  */
 package org.apache.samza.task;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -146,6 +147,14 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
               callback.complete();
             }
           });
+        } else {
+          // If InputOperator is not found in the operator graph for a given SystemStream, throw an exception else the
+          // job will timeout due to async task callback timeout (TaskCallbackTimeoutException)
+          final String errMessage = String.format("InputOperator not found in OperatorGraph for %s. The available input"
+              + " operators are: %s. Please check SystemStream configuration for the `SystemConsumer` and/or task.inputs"
+              + " task configuration.", systemStream, operatorImplGraph.getAllInputOperators());
+          LOG.error(errMessage);
+          callback.failure(new SamzaException(errMessage));
         }
       } catch (Exception e) {
         LOG.error("Failed to process the incoming message due to ", e);
@@ -182,6 +191,14 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
   /* package private setter for TaskFactoryUtil to initialize the taskThreadPool */
   void setTaskThreadPool(ExecutorService taskThreadPool) {
     this.taskThreadPool = taskThreadPool;
+  }
+
+  /**
+   * Package private setter for private var operatorImplGraph to be used in TestStreamOperatorTask tests.
+   * */
+  @VisibleForTesting
+  void setOperatorImplGraph(OperatorImplGraph operatorImplGraph) {
+    this.operatorImplGraph = operatorImplGraph;
   }
 
   /* package private for testing */

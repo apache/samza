@@ -36,6 +36,9 @@ import org.apache.samza.checkpoint.CheckpointId
  * A key value store.
  *
  * This implements both the key/value interface and the storage engine interface.
+ *
+ * There should be no implicit assumption that wrappedStore is a logical extension or a decorated view of rawStore
+ * Either can exist independently
  */
 class KeyValueStorageEngine[K, V](
   storeName: String,

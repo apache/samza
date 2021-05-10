@@ -19,14 +19,11 @@
 
 package org.apache.samza.job.yarn
 
-import java.lang.Boolean
-
 import com.google.common.annotations.VisibleForTesting
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.yarn.api.ApplicationConstants
 import org.apache.hadoop.yarn.api.records.ApplicationId
 import org.apache.samza.SamzaException
-import org.apache.samza.classloader.DependencyIsolationUtils
 import org.apache.samza.config.{Config, JobConfig, ShellCommandConfig, YarnConfig}
 import org.apache.samza.job.ApplicationStatus.{SuccessfulFinish, UnsuccessfulFinish}
 import org.apache.samza.job.{ApplicationStatus, StreamJob}
@@ -46,7 +43,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob wit
   def submit: YarnJob = {
     try {
       val jobConfig = new JobConfig(config)
-      val cmdExec = YarnJob.buildJobCoordinatorCmd(config, jobConfig)
+      val cmdExec = "./__package/bin/run-jc.sh"
       val environment = YarnJob.buildEnvironment(config, this.yarnConfig, jobConfig)
 
       appId = client.submitApplication(
@@ -184,32 +181,11 @@ object YarnJob extends Logging {
         Util.envVarEscape(SamzaObjectMapper.getObjectMapper.writeValueAsString(coordinatorSystemConfig))
     }
     envMapBuilder += ShellCommandConfig.ENV_JAVA_OPTS -> Util.envVarEscape(yarnConfig.getAmOpts)
-    val splitDeploymentEnabled = jobConfig.isSplitDeploymentEnabled
-    envMapBuilder += ShellCommandConfig.ENV_SPLIT_DEPLOYMENT_ENABLED -> Util.envVarEscape(Boolean.toString(splitDeploymentEnabled))
-    if (splitDeploymentEnabled) {
-      //split deployment is enabled, so need to specify where the application lib directory is for app resources
-      envMapBuilder += ShellCommandConfig.ENV_APPLICATION_LIB_DIR ->
-        Util.envVarEscape(String.format("./%s/lib", DependencyIsolationUtils.APPLICATION_DIRECTORY))
-    }
     Option.apply(yarnConfig.getAMJavaHome).foreach {
       amJavaHome => envMapBuilder += ShellCommandConfig.ENV_JAVA_HOME -> amJavaHome
     }
     envMapBuilder += ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR ->
       Util.envVarEscape(config.get(ShellCommandConfig.ADDITIONAL_CLASSPATH_DIR, ""))
     envMapBuilder.result()
-  }
-
-  /**
-    * Build the command for the job coordinator execution.
-    * Passing multiple separate config objects so that they can be reused in other places.
-    */
-  @VisibleForTesting
-  private[yarn] def buildJobCoordinatorCmd(config: Config, jobConfig: JobConfig): String = {
-    var cmdExec = "./__package/bin/run-jc.sh" // default location
-    if (jobConfig.isSplitDeploymentEnabled) {
-      cmdExec = "./%s/bin/run-jc.sh" format DependencyIsolationUtils.FRAMEWORK_INFRASTRUCTURE_DIRECTORY
-      logger.info("Using isolated cluster-based job coordinator path: %s" format cmdExec)
-    }
-    cmdExec
   }
 }

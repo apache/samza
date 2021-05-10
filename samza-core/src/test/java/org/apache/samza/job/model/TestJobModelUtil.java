@@ -38,15 +38,28 @@ public class TestJobModelUtil {
   private static final String PROCESSOR_ID = "testProcessor";
 
   @Test
-  public void testCompareContainerModel() {
-    assertTrue("Expecting null container models to return true", JobModelUtil.compareContainerModel(null, null));
-
-    assertFalse("Expecting false for two different container model",
-        JobModelUtil.compareContainerModel(mock(ContainerModel.class), mock(ContainerModel.class)));
-
+  public void testCompareContainerModels() {
     final ContainerModel mockContainerModel = mock(ContainerModel.class);
-    assertTrue("Expecting true for same container model",
-        JobModelUtil.compareContainerModel(mockContainerModel, mockContainerModel));
+    final JobModel first = mock(JobModel.class);
+    final JobModel second = mock(JobModel.class);
+    final String testProcessor2 = "testProcessor2";
+
+    when(first.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel));
+    when(second.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel));
+
+    assertTrue("Expecting null job models to return true", JobModelUtil.compareContainerModels(null, null));
+    assertTrue("Expecting true for job model with same container model",
+        JobModelUtil.compareContainerModels(first, second));
+
+    when(second.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mock(ContainerModel.class)));
+    assertFalse("Expecting false for two different job model",
+        JobModelUtil.compareContainerModels(first, second));
+
+    when(second.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel, testProcessor2,
+        mock(ContainerModel.class)));
+    assertFalse("Expecting false for two different job model",
+        JobModelUtil.compareContainerModels(first, second));
+
   }
 
   @Test(expected = IllegalArgumentException.class)
