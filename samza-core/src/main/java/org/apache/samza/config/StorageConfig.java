@@ -268,14 +268,9 @@ public class StorageConfig extends MapConfig {
 
 
   public Set<String> getStateBackendBackupFactories() {
-    Set<String> stateBackupFactories = new HashSet<>();
-    getStoreNames().forEach((storeName) -> {
-      List<String> storeBackupFactory = getStoreBackupManagerClassName(storeName);
-      if (!storeBackupFactory.isEmpty()) {
-        stateBackupFactories.addAll(storeBackupFactory);
-      }
-    });
-    return stateBackupFactories;
+    return getStoreNames().stream()
+        .flatMap((storeName) -> getStoreBackupManagerClassName(storeName).stream())
+        .collect(Collectors.toSet());
   }
 
   public List<String> getBackupStoreNamesForStateBackupFactory(String backendFactoryName) {

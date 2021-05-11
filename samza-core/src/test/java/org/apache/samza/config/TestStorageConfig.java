@@ -149,24 +149,29 @@ public class TestStorageConfig {
             String.format(STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME0), factory1 + "," + factory2,
             String.format(STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME1), factory1,
             String.format(STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME2), factory3,
+            // store_name3 should use DEFAULT_STATE_BACKEND_FACTORY due to changelog presence
             String.format(CHANGELOG_STREAM, STORE_NAME3), "nondefault-changelog-system.streamName"),
         ImmutableMap.of(
             String.format(FACTORY, STORE_NAME0), "store0.factory.class",
             String.format(FACTORY, STORE_NAME1), "store1.factory.class",
             String.format(FACTORY, STORE_NAME2), "store2.factory.class",
-            String.format(FACTORY, STORE_NAME3), "store3.factory.class"
+            String.format(FACTORY, STORE_NAME3), "store3.factory.class",
+            // this store should have no backend factory configured
+            String.format(FACTORY, "noFactoryStore"), "noFactory.factory.class"
             )
         ));
     Set<String> factories = storageConfig.getStateBackendBackupFactories();
     assertTrue(factories.contains(factory1));
     assertTrue(factories.contains(factory2));
     assertTrue(factories.contains(factory3));
+    assertTrue(factories.contains(DEFAULT_STATE_BACKEND_FACTORY));
     assertEquals(4, factories.size());
     assertEquals(ImmutableList.of(factory1, factory2), storageConfig.getStoreBackupManagerClassName(STORE_NAME0));
     assertEquals(ImmutableList.of(factory1), storageConfig.getStoreBackupManagerClassName(STORE_NAME1));
     assertEquals(ImmutableList.of(factory3), storageConfig.getStoreBackupManagerClassName(STORE_NAME2));
     assertEquals(DEFAULT_STATE_BACKEND_BACKUP_FACTORIES, storageConfig.getStoreBackupManagerClassName(STORE_NAME3));
-    assertTrue(storageConfig.getStoreBackupManagerClassName("emptystore").isEmpty());
+    assertTrue(storageConfig.getStoreBackupManagerClassName("emptyStore").isEmpty());
+    assertTrue(storageConfig.getStoreBackupManagerClassName("noFactoryStore").isEmpty());
   }
 
   @Test

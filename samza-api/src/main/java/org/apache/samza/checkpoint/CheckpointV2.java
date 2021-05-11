@@ -19,6 +19,7 @@
 
 package org.apache.samza.checkpoint;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import java.util.Objects;
 import org.apache.samza.system.SystemStreamPartition;
@@ -49,6 +50,10 @@ public class CheckpointV2 implements Checkpoint {
   public CheckpointV2(CheckpointId checkpointId,
       Map<SystemStreamPartition, String> inputOffsets,
       Map<String, Map<String, String>> stateCheckpoints) {
+    Preconditions.checkArgument(inputOffsets != null,
+        "inputOffsets for CheckpointV2 must not be null");
+    Preconditions.checkArgument(stateCheckpoints != null,
+        "stateCheckpoints for CheckpointV2 must not be null");
     this.checkpointId = checkpointId;
     this.inputOffsets = ImmutableMap.copyOf(inputOffsets);
     this.stateCheckpointMarkers = ImmutableMap.copyOf(stateCheckpoints);
@@ -92,9 +97,12 @@ public class CheckpointV2 implements Checkpoint {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof CheckpointV2)) return false;
-
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     CheckpointV2 that = (CheckpointV2) o;
 
     return checkpointId.equals(that.checkpointId) &&

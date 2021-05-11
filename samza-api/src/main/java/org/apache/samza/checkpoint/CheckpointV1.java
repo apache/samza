@@ -60,9 +60,12 @@ public class CheckpointV1 implements Checkpoint {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof CheckpointV1)) return false;
-
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     CheckpointV1 that = (CheckpointV1) o;
 
     return Objects.equals(offsets, that.offsets);
@@ -70,7 +73,7 @@ public class CheckpointV1 implements Checkpoint {
 
   @Override
   public int hashCode() {
-    return offsets != null ? offsets.hashCode() : 0;
+    return Objects.hash(offsets);
   }
 
   @Override

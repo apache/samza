@@ -17,14 +17,26 @@
  * under the License.
  */
 
-package org.apache.samza.storage;
+package org.apache.samza.serializers;
+
+import org.apache.samza.checkpoint.CheckpointId;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 
 /**
- * Creates and validate resources for the StateBackendFactory
+ * A mix-in Jackson class to convert {@link CheckpointId} to/from JSON.
  */
-public interface TaskStorageAdmin {
+public abstract class JsonCheckpointIdMixin {
+  @JsonCreator
+  private JsonCheckpointIdMixin(
+      @JsonProperty("millis") long millis,
+      @JsonProperty("nanos") long nanos) {
+  }
 
-  void createResources();
+  @JsonProperty("millis")
+  abstract long getMillis();
 
-  void validateResources();
+  @JsonProperty("nanos")
+  abstract long getNanos();
 }

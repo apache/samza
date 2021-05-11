@@ -211,6 +211,18 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   }
 
   @Test
+  def testCheckpointValidationSkipped(): Unit = {
+    val checkpointTopic = "checkpoint-topic-1"
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic, serde = new MockCheckpointSerde(),
+      failOnTopicValidation = false)
+    kcm1.register(taskName)
+    kcm1.start
+    kcm1.writeCheckpoint(taskName, new CheckpointV1(ImmutableMap.of(ssp, "offset-1")))
+    kcm1.readLastCheckpoint(taskName)
+    kcm1.stop
+  }
+
+  @Test
   def testWriteCheckpointShouldRetryFiniteTimesOnFailure(): Unit = {
     val checkpointTopic = "checkpoint-topic-2"
     val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
@@ -382,6 +394,12 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
 
     override def getConsumer(systemName: String, config: Config, registry: MetricsRegistry): SystemConsumer = {
       mockKafkaSystemConsumer
+    }
+  }
+
+  class MockCheckpointSerde() extends CheckpointV1Serde {
+    override def fromBytes(bytes: Array[Byte]): CheckpointV1 = {
+      throw new SamzaException("Failed to deserialize")
     }
   }
 

@@ -70,6 +70,7 @@ public class TransactionalStateIntegrationTest extends StreamApplicationIntegrat
       put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
       put(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR(), "1");
       put(JobConfig.JOB_LOGGED_STORE_BASE_DIR, LOGGED_STORE_BASE_DIR);
+      put(TaskConfig.COMMIT_MAX_DELAY_MS, "0"); // Ensure no commits are skipped due to in progress commits
     } };
 
   private final boolean hostAffinity;
