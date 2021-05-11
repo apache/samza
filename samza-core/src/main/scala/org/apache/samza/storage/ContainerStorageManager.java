@@ -878,9 +878,13 @@ public class ContainerStorageManager {
 
   public void shutdown() {
     // stop all nonsideinputstores including persistent and non-persistent stores
-    this.containerModel.getTasks().forEach((taskName, taskModel) ->
-        taskStores.get(taskName).forEach((storeName, store) -> store.stop())
-    );
+    if (taskStores != null) {
+      this.containerModel.getTasks()
+          .forEach((taskName, taskModel) -> taskStores.get(taskName)
+              .entrySet().stream()
+              .filter(e -> !sideInputStoreNames.contains(e.getKey()))
+              .forEach(e -> e.getValue().stop()));
+    }
 
     this.shouldShutdown = true;
 
