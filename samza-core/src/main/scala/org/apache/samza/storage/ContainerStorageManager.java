@@ -111,8 +111,6 @@ public class ContainerStorageManager {
   private static final String RESTORE_THREAD_NAME = "Samza Restore Thread-%d";
   private static final String SIDEINPUTS_THREAD_NAME = "SideInputs Thread";
   private static final String SIDEINPUTS_METRICS_PREFIX = "side-inputs-";
-  private static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
-      "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
   // We use a prefix to differentiate the SystemConsumersMetrics for sideInputs from the ones in SamzaContainer
 
   // Timeout with which sideinput thread checks for exceptions and for whether SSPs as caught up
@@ -842,7 +840,7 @@ public class ContainerStorageManager {
    * @return the task store.
    */
   public Optional<StorageEngine> getStore(TaskName taskName, String storeName) {
-    if (taskStores == null) {
+    if (!isStarted) {
       throw new SamzaException(String.format(
           "Attempting to access store %s for task %s before ContainerStorageManager is started.",
           storeName, taskName));
