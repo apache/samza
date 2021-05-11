@@ -605,7 +605,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       if (factoryStoreSCMs.containsKey(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME)) {
         factoryStoreSCMs.get(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME)
             .forEach((storeName, scmString) -> {
-              KafkaStateCheckpointMarker kafkaSCM = KafkaStateCheckpointMarker.fromString(scmString);
+              KafkaStateCheckpointMarker kafkaSCM = KafkaStateCheckpointMarker.deserialize(scmString);
               checkpointedChangelogOffsets.put(storeName, kafkaSCM);
             });
       } // skip the non-KafkaStateCheckpointMarkers

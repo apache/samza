@@ -457,7 +457,7 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointId checkpointId = CheckpointId.fromString("0-0"); // checkpoint id older than default min.compaction.lag.ms
+    CheckpointId checkpointId = CheckpointId.deserialize("0-0"); // checkpoint id older than default min.compaction.lag.ms
     KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
         new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
     Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =
@@ -1623,7 +1623,7 @@ public class TestTransactionalStateTaskRestoreManager {
     Map<String, SystemStream> mockStoreChangelogs = ImmutableMap.of(store1Name, changelog1SystemStream);
 
     String changelog1CheckpointedOffset = "5";
-    CheckpointId checkpointId = CheckpointId.fromString("0-0"); // checkpoint timestamp older than default min compaction lag
+    CheckpointId checkpointId = CheckpointId.deserialize("0-0"); // checkpoint timestamp older than default min compaction lag
     KafkaStateCheckpointMarker kafkaStateCheckpointMarker =
         new KafkaStateCheckpointMarker(changelog1SSP, changelog1CheckpointedOffset);
     Map<String, KafkaStateCheckpointMarker> mockCheckpointedChangelogOffset =

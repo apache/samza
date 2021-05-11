@@ -45,6 +45,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.RunLoop;
@@ -167,6 +168,8 @@ public class ContainerStorageManager {
   private final Config config;
   private final StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
 
+  private boolean isStarted = false;
+
   public ContainerStorageManager(
       CheckpointManager checkpointManager,
       ContainerModel containerModel,
@@ -239,7 +242,8 @@ public class ContainerStorageManager {
     Set<String> inMemoryStoreNames = storageEngineFactories.keySet().stream()
         .filter(storeName -> {
           Optional<String> storeFactory = storageConfig.getStorageFactoryClassName(storeName);
-          return storeFactory.isPresent() && !storeFactory.get().equals(INMEMORY_KV_STORAGE_ENGINE_FACTORY);
+          return storeFactory.isPresent() && !storeFactory.get()
+              .equals(StorageConfig.INMEMORY_KV_STORAGE_ENGINE_FACTORY);
         })
         .collect(Collectors.toSet());
     this.inMemoryStores = createTaskStores(inMemoryStoreNames,
@@ -255,7 +259,13 @@ public class ContainerStorageManager {
     this.storeConsumers = createStoreIndexedMap(this.changelogSystemStreams, storeSystemConsumers);
 
     // TODO HIGH dchen tune based on observed concurrency
-    this.restoreExecutor = Executors.newFixedThreadPool(containerModel.getTasks().size(),
+    JobConfig jobConfig = new JobConfig(config);
+    int restoreThreadPoolSize =
+        Math.min(
+            Math.max(containerModel.getTasks().size() * 2, jobConfig.getRestoreThreadPoolSize()),
+            jobConfig.getRestoreThreadPoolMaxSize()
+        );
+    this.restoreExecutor = Executors.newFixedThreadPool(restoreThreadPoolSize,
         new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
 
     // creating task restore managers
@@ -438,7 +448,7 @@ public class ContainerStorageManager {
         // A store is considered durable if it is backed by a changelog or another backupManager factory
         boolean isDurable = changelogSystemStreams.containsKey(storeName) ||
             !storageConfig.getStoreBackupManagerClassName(storeName).isEmpty();
-        boolean isSideInput = this.taskSideInputStoreSSPs.get(taskName).containsKey(storeName);
+        boolean isSideInput = this.sideInputStoreNames.contains(storeName);
         // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
         // for non logged stores
         File storeBaseDir = isDurable || isSideInput ? this.loggedStoreBaseDirectory : this.nonLoggedStoreBaseDirectory;
@@ -631,16 +641,17 @@ public class ContainerStorageManager {
     if (this.hasSideInputs) {
       startSideInputs();
     }
+    isStarted = true;
   }
 
   // Restoration of all stores, in parallel across tasks
   private void restoreStores() throws InterruptedException {
     LOG.info("Store Restore started");
+    Set<TaskName> activeTasks = getTasks(containerModel, TaskMode.Active).keySet();
 
     // initialize each TaskStorageManager
     this.taskRestoreManagers.forEach((taskName, taskRestoreManager) -> {
       Checkpoint taskCheckpoint = null;
-      Set<TaskName> activeTasks = getTasks(containerModel, TaskMode.Active).keySet(); // TODO HIGH dchen verify standby taskRestoreManagers behavior
       if (checkpointManager != null && activeTasks.contains(taskName)) {
         // only pass in checkpoints for active tasks
         taskCheckpoint = checkpointManager.readLastCheckpoint(taskName);
@@ -845,7 +856,7 @@ public class ContainerStorageManager {
    * @return map of stores used by the given task, indexed by storename
    */
   public Map<String, StorageEngine> getAllStores(TaskName taskName) {
-    if (taskStores == null) {
+    if (!isStarted) {
       throw new SamzaException(String.format(
           "Attempting to access stores for task %s before ContainerStorageManager is started.", taskName));
     }
@@ -867,9 +878,13 @@ public class ContainerStorageManager {
 
   public void shutdown() {
     // stop all nonsideinputstores including persistent and non-persistent stores
-    this.containerModel.getTasks().forEach((taskName, taskModel) ->
-        taskStores.get(taskName).forEach((storeName, store) -> store.stop())
-    );
+    if (taskStores != null) {
+      this.containerModel.getTasks()
+          .forEach((taskName, taskModel) -> taskStores.get(taskName)
+              .entrySet().stream()
+              .filter(e -> !sideInputStoreNames.contains(e.getKey()))
+              .forEach(e -> e.getValue().stop()));
+    }
 
     this.shouldShutdown = true;
 
