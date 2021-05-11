@@ -77,7 +77,9 @@ class NonTransactionalStateIntegrationTest extends StreamTaskTestUtil {
     "stores.mystore.changelog.replication.factor" -> "1",
     // However, don't have the inputs use the checkpoint manager
     // since the second part of the test expects to replay the input streams.
-    "systems.kafka.streams.input.samza.reset.offset" -> "true"))
+    "systems.kafka.streams.input.samza.reset.offset" -> "true",
+    TaskConfig.COMMIT_MAX_DELAY_MS -> "0" // Ensure no commits are skipped due to in progress commits
+  ))
 
   @Test
   def testShouldStartAndRestore {
