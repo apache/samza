@@ -49,6 +49,9 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
   static final public String ROCKSDB_NUM_WRITE_BUFFERS = "rocksdb.num.write.buffers";
   static final public String ROCKSDB_MAX_LOG_FILE_SIZE_BYTES = "rocksdb.max.log.file.size.bytes";
   static final public String ROCKSDB_KEEP_LOG_FILE_NUM = "rocksdb.keep.log.file.num";
+  static final public String ROCKSDB_MAX_OPEN_FILES = "rocksdb.max.open.files";
+  static final public String ROCKSDB_MAX_FILE_OPENING_THREADS = "rocksdb.max.file.opening.threads";
+
 
   private Integer writeBatchSize;
   private Integer objectCacheSize;
@@ -61,6 +64,8 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
   private Integer numLogFilesToKeep;
   private String compressionType;
   private String compactionStyle;
+  private Integer maxOpenFiles;
+  private Integer maxFileOpeningThreads;
 
   /**
    * Constructs a table descriptor instance
@@ -273,6 +278,35 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     return this;
   }
 
+  /**
+   * Limits the number of open files that can be used by the DB.  You may need to increase this if your database
+   * has a large working set. Value -1 means files opened are always kept open.
+   * <p>
+   *  Default value is -1.
+   * <p>
+   * @param maxOpenFiles the number of open files that can be used by the DB.
+   * @return this table descriptor instance
+   */
+  public RocksDbTableDescriptor<K, V> withMaxOpenFiles(int maxOpenFiles) {
+    this.maxOpenFiles = maxOpenFiles;
+    return this;
+  }
+
+  /**
+   * Sets the number of threads used to open DB files.
+   * If max_open_files is -1, DB will open all files on DB::Open(). You can use this option to increase the number of
+   * threads used to open files.
+   * <p>
+   * Default is 16.
+   * <p>
+   * @param maxFileOpeningThreads The number of threads to use when opening DB files.
+   * @return the table descriptor instance
+   */
+  public RocksDbTableDescriptor<K, V> withMaxFileOpeningThreads(int maxFileOpeningThreads) {
+    this.maxFileOpeningThreads = maxFileOpeningThreads;
+    return this;
+  }
+
   @Override
   public String getProviderFactoryClassName() {
     return LocalTableProviderFactory.class.getName();
@@ -319,6 +353,12 @@ public class RocksDbTableDescriptor<K, V> extends LocalTableDescriptor<K, V, Roc
     }
     if (numLogFilesToKeep != null) {
       addStoreConfig(ROCKSDB_KEEP_LOG_FILE_NUM, numLogFilesToKeep.toString(), tableConfig);
+    }
+    if (maxOpenFiles != null) {
+      addStoreConfig(ROCKSDB_MAX_OPEN_FILES, maxOpenFiles.toString(), tableConfig);
+    }
+    if (maxFileOpeningThreads != null) {
+      addStoreConfig(ROCKSDB_MAX_FILE_OPENING_THREADS, maxFileOpeningThreads.toString(), tableConfig);
     }
 
     return Collections.unmodifiableMap(tableConfig);

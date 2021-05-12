@@ -328,7 +328,7 @@ public class TestZkStreamProcessorBase extends IntegrationTestHarness {
     stopLatch.countDown();
   }
 
-  // StreamTaskClass
+  // StreamTaskClassc
   public static class TestStreamTask implements StreamTask, InitableTask {
     // static field since there's no other way to share state b/w a task instance and
     // stream processor when constructed from "task.class".
