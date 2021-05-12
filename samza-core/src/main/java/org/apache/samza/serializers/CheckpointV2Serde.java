@@ -21,15 +21,13 @@ package org.apache.samza.serializers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.samza.SamzaException;
-import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
-import org.apache.samza.system.SystemStreamPartition;
 
 
 /**
- * The {@link Serde} for {@link CheckpointV2} which includes {@link CheckpointId}s, state checkpoint markers
- * and the input {@link SystemStreamPartition} offsets.
+ * The {@link Serde} for {@link CheckpointV2} which includes {@link org.apache.samza.checkpoint.CheckpointId}s,
+ * state checkpoint markers and the input {@link org.apache.samza.system.SystemStreamPartition} offsets.
  *
  * The overall payload is serde'd as JSON using {@link SamzaObjectMapper}. Since the Samza classes cannot be directly
  * serialized by Jackson using {@link org.apache.samza.serializers.model.JsonCheckpointV2Mixin}.

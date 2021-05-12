@@ -211,6 +211,7 @@ public class TaskSideInputStorageManager {
 
   private void validateStoreConfiguration(Map<String, StorageEngine> stores) {
     stores.forEach((storeName, storageEngine) -> {
+      // Ensure that the side inputs store is NOT logged (they are durable)
       if (storageEngine.getStoreProperties().isLoggedStore()) {
         throw new SamzaException(
             String.format("Cannot configure both side inputs and a changelog for store: %s.", storeName));

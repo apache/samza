@@ -24,12 +24,15 @@ package org.apache.samza.storage;
 public class StoreProperties {
   private final boolean persistedToDisk;
   private final boolean loggedStore;
+  private final boolean durable;
 
   private StoreProperties(
       final boolean persistedToDisk,
-      final boolean loggedStore) {
+      final boolean loggedStore,
+      final boolean durable) {
     this.persistedToDisk = persistedToDisk;
     this.loggedStore = loggedStore;
+    this.durable = durable;
   }
 
   /**
@@ -50,9 +53,20 @@ public class StoreProperties {
     return loggedStore;
   }
 
+  /**
+   * Flag to indicate whether a store is durable, that is, it's contents are available cross container restarts
+   * or host reallocation.
+   *
+   * @return True, if the store is durable. False by default.
+   */
+  public boolean isDurableStore() {
+    return durable;
+  }
+
   public static class StorePropertiesBuilder {
     private boolean persistedToDisk = false;
     private boolean loggedStore = false;
+    private boolean durable = false;
 
     public StorePropertiesBuilder setPersistedToDisk(boolean persistedToDisk) {
       this.persistedToDisk = persistedToDisk;
@@ -64,8 +78,13 @@ public class StoreProperties {
       return this;
     }
 
+    public StorePropertiesBuilder setIsDurable(boolean durable) {
+      this.durable = durable;
+      return this;
+    }
+
     public StoreProperties build() {
-      return new StoreProperties(persistedToDisk, loggedStore);
+      return new StoreProperties(persistedToDisk, loggedStore, durable);
     }
   }
 }

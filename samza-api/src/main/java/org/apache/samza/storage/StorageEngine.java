@@ -24,6 +24,9 @@ import java.nio.file.Path;
 import java.util.Optional;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.context.ContainerContext;
+import org.apache.samza.context.ExternalContext;
+import org.apache.samza.context.JobContext;
 import org.apache.samza.system.ChangelogSSPIterator;
 
 /**
@@ -37,6 +40,11 @@ import org.apache.samza.system.ChangelogSSPIterator;
  * </p>
  */
 public interface StorageEngine {
+
+  /**
+   * Initialize the storage engine
+   */
+  default void init(ExternalContext externalContext, JobContext jobContext, ContainerContext containerContext) { };
 
   /**
    * Restore the content of this StorageEngine from the changelog. Messages are

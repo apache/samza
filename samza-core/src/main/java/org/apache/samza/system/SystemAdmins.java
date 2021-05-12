@@ -43,6 +43,10 @@ public class SystemAdmins {
     this.systemAdminMap = systemConfig.getSystemAdmins(adminLabel);
   }
 
+  public SystemAdmins(Map<String, SystemAdmin> systemAdminMap) {
+    this.systemAdminMap = systemAdminMap;
+  }
+
   /**
    * Creates a new instance of {@link SystemAdmins} with an empty admin mapping.
    * @return New empty instance of {@link SystemAdmins}
@@ -68,6 +72,10 @@ public class SystemAdmins {
       throw new SamzaException("Cannot get systemAdmin for system " + systemName);
     }
     return systemAdminMap.get(systemName);
+  }
+
+  public Map<String, SystemAdmin> getSystemAdmins() {
+    return systemAdminMap;
   }
 
   public Set<String> getSystemNames() {
