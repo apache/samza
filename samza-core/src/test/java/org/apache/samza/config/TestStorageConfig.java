@@ -192,8 +192,8 @@ public class TestStorageConfig {
         )
     ));
 
-    List<String> targetStoreNames = config.getBackupStoreNamesForStateBackupFactory(targetFactory);
-    List<String> defaultStoreNames = config.getBackupStoreNamesForStateBackupFactory(
+    List<String> targetStoreNames = config.getStoresWithStateBackendBackupFactory(targetFactory);
+    List<String> defaultStoreNames = config.getStoresWithStateBackendBackupFactory(
         DEFAULT_STATE_BACKEND_FACTORY);
     assertTrue(targetStoreNames.containsAll(ImmutableList.of(STORE_NAME0, STORE_NAME1)));
     assertEquals(2, targetStoreNames.size());

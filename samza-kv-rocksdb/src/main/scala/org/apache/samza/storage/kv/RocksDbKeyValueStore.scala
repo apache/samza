@@ -19,6 +19,8 @@
 
 package org.apache.samza.storage.kv
 
+import com.google.common.annotations.VisibleForTesting
+
 import java.io.File
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
@@ -125,7 +127,7 @@ class RocksDbKeyValueStore(
 
   // lazy val here is important because the store directories do not exist yet, it can only be opened
   // after the directories are created, which happens much later from now.
-  private lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName, metrics)
+  @VisibleForTesting lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName, metrics)
   private val lexicographic = new LexicographicComparator()
 
   /**
@@ -236,13 +238,17 @@ class RocksDbKeyValueStore(
   def flush(): Unit = ifOpen {
     metrics.flushes.inc
     trace("Flushing store: %s" format storeName)
-    db.flush(flushOptions)
+    if (storeConfig.getBoolean(RocksDbOptionsHelper.ROCKSDB_WAL_ENABLED, false)) {
+      db.flushWal(true)
+    } else {
+      db.flush(flushOptions)
+    }
     trace("Flushed store: %s" format storeName)
   }
 
   override def checkpoint(id: CheckpointId): Optional[Path] = {
     val checkpoint = Checkpoint.create(db)
-    val checkpointPath = StorageManagerUtil.getCheckpointDirPath(dir, id)
+    val checkpointPath = new StorageManagerUtil().getStoreCheckpointDir(dir, id)
     checkpoint.createCheckpoint(checkpointPath)
     Optional.of(Paths.get(checkpointPath))
   }

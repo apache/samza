@@ -28,13 +28,13 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -152,8 +152,8 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   }
 
   @Override
-  public TaskStorageAdmin getAdmin() {
-    throw new SamzaException("getAdmin() method not supported for KafkaStateBackendFactory");
+  public StateBackendAdmin getStateBackendAdmin(JobModel jobModel, Config config) {
+    return new NoOpKafkaChangelogStateBackendAdmin();
   }
 
   @VisibleForTesting
@@ -211,5 +211,18 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
     // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to sideInputs above)
     return MapUtils.invertMap(changelogSSPToStore).entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getSystemStream()));
+  }
+
+  public class NoOpKafkaChangelogStateBackendAdmin implements StateBackendAdmin {
+
+    @Override
+    public void createResources() {
+      // all the changelog creations are handled by {@link ChangelogStreamManager}
+    }
+
+    @Override
+    public void validateResources() {
+      // all the changelog validations are handled by {@link ChangelogStreamManager}
+    }
   }
 }

@@ -71,17 +71,6 @@ public class StorageManagerUtil {
   private static final CheckpointV2Serde CHECKPOINT_V2_SERDE = new CheckpointV2Serde();
 
   /**
-   * Returns the path for a storage engine to create its checkpoint based on the current checkpoint id.
-   *
-   * @param taskStoreDir directory of the store as returned by {@link #getTaskStoreDir}
-   * @param checkpointId current checkpoint id
-   * @return String denoting the file path of the store with the given checkpoint id
-   */
-  public static String getCheckpointDirPath(File taskStoreDir, CheckpointId checkpointId) {
-    return taskStoreDir.getPath() + "-" + checkpointId.serialize();
-  }
-
-  /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
    *
    * Note: The method doesn't respect {@link org.apache.samza.config.StreamConfig#CONSUMER_OFFSET_DEFAULT} and
@@ -403,6 +392,17 @@ public class StorageManagerUtil {
           String.format("Error finding checkpoint dirs for task: %s mode: %s store: %s in dir: %s",
               taskName, taskMode, storeName, storeBaseDir), e);
     }
+  }
+
+  /**
+   * Returns the path for a storage engine to create its checkpoint based on the current checkpoint id.
+   *
+   * @param taskStoreDir directory of the store as returned by {@link #getTaskStoreDir}
+   * @param checkpointId current checkpoint id
+   * @return String denoting the file path of the store with the given checkpoint id
+   */
+  public String getStoreCheckpointDir(File taskStoreDir, CheckpointId checkpointId) {
+    return taskStoreDir.getPath() + "-" + checkpointId.serialize();
   }
 
   public void restoreCheckpointFiles(File checkpointDir, File storeDir) {

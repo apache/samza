@@ -21,6 +21,7 @@ package org.apache.samza.standalone;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
@@ -32,6 +33,8 @@ import org.apache.samza.runtime.LocationId;
 import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.storage.StateBackendAdmin;
+import org.apache.samza.storage.StateBackendFactory;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.util.*;
@@ -87,6 +90,18 @@ public class PassthroughJobCoordinator implements JobCoordinator {
       // TODO metrics registry has been null here for a while; is it safe?
       MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, null, config);
       metadataResourceUtil.createResources();
+
+      // create all the resources required for state backend factories
+      new StorageConfig(config).getStateBackendBackupFactories().forEach(stateStorageBackendBackupFactory -> {
+        StateBackendFactory stateBackendFactory =
+            ReflectionUtil.getObj(stateStorageBackendBackupFactory, StateBackendFactory.class);
+        StateBackendAdmin stateBackendAdmin = stateBackendFactory.getStateBackendAdmin(getJobModel(), config);
+        // Create resources required for state backend admin
+        stateBackendAdmin.createResources();
+        // Validate resources required for state backend admin
+        stateBackendAdmin.validateResources();
+      });
+
     } catch (Exception e) {
       LOGGER.error("Exception while trying to getJobModel.", e);
       if (coordinatorListener != null) {

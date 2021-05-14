@@ -17,14 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.storage;
+package org.apache.samza.storage.blobstore.index.serde;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 
 /**
- * Creates and validate resources for the StateBackendFactory
+ * A mix-in Jackson class to convert FileBlob to/from JSON.
  */
-public interface TaskStorageAdmin {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public abstract class JsonFileBlobMixin {
+  @JsonCreator
+  public JsonFileBlobMixin(@JsonProperty("blob-id") String blobId, @JsonProperty("offset") int offset) {
+  }
 
-  void createResources();
+  @JsonProperty("blob-id")
+  abstract String getBlobId();
 
-  void validateResources();
+  @JsonProperty("offset")
+  abstract int getOffset();
 }

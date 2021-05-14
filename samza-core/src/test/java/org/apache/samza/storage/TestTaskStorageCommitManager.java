@@ -20,6 +20,7 @@
 package org.apache.samza.storage;
 
 import com.google.common.collect.ImmutableMap;
+
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
@@ -47,10 +48,23 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Test;
+import org.mockito.stubbing.Answer;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 public class TestTaskStorageCommitManager {
@@ -400,7 +414,7 @@ public class TestTaskStorageCommitManager {
     when(iStoreProps.isPersistedToDisk()).thenReturn(false);
     when(iStoreProps.isDurableStore()).thenReturn(false);
 
-    java.util.Map<String, StorageEngine> taskStores = ImmutableMap.of(
+    Map<String, StorageEngine> taskStores = ImmutableMap.of(
         "loggedPersistentStore", mockLPStore,
         "persistentStore", mockPStore,
         "loggedInMemStore", mockLIStore,
@@ -410,7 +424,7 @@ public class TestTaskStorageCommitManager {
     Partition changelogPartition = new Partition(0);
     SystemStream changelogSystemStream = new SystemStream("changelogSystem", "changelogStream");
     SystemStreamPartition changelogSSP = new SystemStreamPartition(changelogSystemStream, changelogPartition);
-    java.util.Map<String, SystemStream> storeChangelogsStreams = ImmutableMap.of(
+    Map<String, SystemStream> storeChangelogsStreams = ImmutableMap.of(
         "loggedPersistentStore", changelogSystemStream,
         "loggedInMemStore", new SystemStream("system", "stream")
     );
@@ -429,12 +443,17 @@ public class TestTaskStorageCommitManager {
         Collections.emptyMap(), containerStorageManager, storeChangelogsStreams, changelogPartition,
         null, null, ForkJoinPool.commonPool(), storageManagerUtil, durableStoreDir, metrics));
     doNothing().when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
-
+    when(storageManagerUtil.getStoreCheckpointDir(any(File.class), any(CheckpointId.class)))
+        .thenAnswer((Answer<String>) invocation -> {
+          File file = invocation.getArgumentAt(0, File.class);
+          CheckpointId checkpointId = invocation.getArgumentAt(1, CheckpointId.class);
+          return file + "-" + checkpointId;
+        });
     CheckpointId newCheckpointId = CheckpointId.create();
 
     String newestOffset = "1";
     KafkaChangelogSSPOffset kafkaChangelogSSPOffset = new KafkaChangelogSSPOffset(newCheckpointId, newestOffset);
-    java.util.Map<SystemStreamPartition, String> offsetsJava = ImmutableMap.of(
+    Map<SystemStreamPartition, String> offsetsJava = ImmutableMap.of(
         changelogSSP, kafkaChangelogSSPOffset.toString()
     );
 
@@ -446,12 +465,12 @@ public class TestTaskStorageCommitManager {
     // evoked twice, for OFFSET-V1 and OFFSET-V2
     verify(commitManager).writeChangelogOffsetFile(
         eq("loggedPersistentStore"), eq(changelogSSP), eq(newestOffset), eq(durableStoreDir));
-    File checkpointFile = Paths.get(StorageManagerUtil
-        .getCheckpointDirPath(durableStoreDir, kafkaChangelogSSPOffset.getCheckpointId())).toFile();
+    File checkpointFile = Paths.get(storageManagerUtil.getStoreCheckpointDir(
+        durableStoreDir, kafkaChangelogSSPOffset.getCheckpointId())).toFile();
     verify(commitManager).writeChangelogOffsetFile(
         eq("loggedPersistentStore"), eq(changelogSSP), eq(newestOffset), eq(checkpointFile));
 
-    java.util.Map<String, String> storeSCM = ImmutableMap.of(
+    Map<String, String> storeSCM = ImmutableMap.of(
         "loggedPersistentStore", "system;loggedPersistentStoreStream;1",
         "persistentStore", "system;persistentStoreStream;1",
         "loggedInMemStore", "system;loggedInMemStoreStream;1",
@@ -464,7 +483,7 @@ public class TestTaskStorageCommitManager {
     // Validate only durable and persisted stores are persisted
     // This should be evoked twice, for checkpointV1 and checkpointV2
     verify(storageManagerUtil, times(2)).getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), eq(taskName), any());
-    File checkpointPath = Paths.get(StorageManagerUtil.getCheckpointDirPath(durableStoreDir, newCheckpointId)).toFile();
+    File checkpointPath = Paths.get(storageManagerUtil.getStoreCheckpointDir(durableStoreDir, newCheckpointId)).toFile();
     verify(storageManagerUtil).writeCheckpointV2File(eq(checkpointPath), eq(checkpoint));
   }
 
@@ -528,6 +547,13 @@ public class TestTaskStorageCommitManager {
         null, null, ForkJoinPool.commonPool(), storageManagerUtil, durableStoreDir, metrics));
     doNothing().when(commitManager).writeChangelogOffsetFile(any(), any(), any(), any());
 
+    when(storageManagerUtil.getStoreCheckpointDir(any(File.class), any(CheckpointId.class)))
+        .thenAnswer((Answer<String>) invocation -> {
+          File file = invocation.getArgumentAt(0, File.class);
+          CheckpointId checkpointId = invocation.getArgumentAt(1, CheckpointId.class);
+          return file + "-" + checkpointId;
+        });
+
     CheckpointId newCheckpointId = CheckpointId.create();
 
     java.util.Map<String, String> storeSCM = ImmutableMap.of(
@@ -543,7 +569,7 @@ public class TestTaskStorageCommitManager {
     commitManager.writeCheckpointToStoreDirectories(checkpoint);
     // Validate only durable and persisted stores are persisted
     verify(storageManagerUtil).getTaskStoreDir(eq(durableStoreDir), eq("loggedPersistentStore"), eq(taskName), any());
-    File checkpointPath = Paths.get(StorageManagerUtil.getCheckpointDirPath(durableStoreDir, newCheckpointId)).toFile();
+    File checkpointPath = Paths.get(storageManagerUtil.getStoreCheckpointDir(durableStoreDir, newCheckpointId)).toFile();
     verify(storageManagerUtil).writeCheckpointV2File(eq(checkpointPath), eq(checkpoint));
   }
 
@@ -579,6 +605,13 @@ public class TestTaskStorageCommitManager {
         Collections.emptyMap(), containerStorageManager, storeChangelogsStreams, changelogPartition,
         null, null, ForkJoinPool.commonPool(), storageManagerUtil, tmpTestPath, metrics));
 
+    when(storageManagerUtil.getStoreCheckpointDir(any(File.class), any(CheckpointId.class)))
+        .thenAnswer((Answer<String>) invocation -> {
+          File file = invocation.getArgumentAt(0, File.class);
+          CheckpointId checkpointId = invocation.getArgumentAt(1, CheckpointId.class);
+          return file + "-" + checkpointId;
+        });
+
     doAnswer(invocation -> {
       String fileDir = invocation.getArgumentAt(3, File.class).getName();
       SystemStreamPartition ssp = invocation.getArgumentAt(1, SystemStreamPartition.class);
@@ -607,8 +640,7 @@ public class TestTaskStorageCommitManager {
 
     assertEquals(2, mockFileSystem.size());
     // check if v2 offsets are written correctly
-    String v2FilePath = StorageManagerUtil
-        .getCheckpointDirPath(tmpTestPath, newCheckpointId);
+    String v2FilePath = storageManagerUtil.getStoreCheckpointDir(tmpTestPath, newCheckpointId);
     assertTrue(mockFileSystem.containsKey(v2FilePath));
     assertTrue(mockFileSystem.get(v2FilePath).containsKey(changelogSSP));
     assertEquals(1, mockFileSystem.get(v2FilePath).size());
@@ -675,6 +707,13 @@ public class TestTaskStorageCommitManager {
       return null;
     }).when(storageManagerUtil).writeCheckpointV2File(any(), any());
 
+    when(storageManagerUtil.getStoreCheckpointDir(any(File.class), any(CheckpointId.class)))
+        .thenAnswer((Answer<String>) invocation -> {
+          File file = invocation.getArgumentAt(0, File.class);
+          CheckpointId checkpointId = invocation.getArgumentAt(1, CheckpointId.class);
+          return file + "-" + checkpointId;
+        });
+
     CheckpointId newCheckpointId = CheckpointId.create();
 
     String newestOffset = "1";
@@ -689,8 +728,7 @@ public class TestTaskStorageCommitManager {
 
     assertEquals(2, mockFileSystem.size());
     // check if v2 offsets are written correctly
-    String v2FilePath = StorageManagerUtil
-        .getCheckpointDirPath(tmpTestPath, newCheckpointId);
+    String v2FilePath = storageManagerUtil.getStoreCheckpointDir(tmpTestPath, newCheckpointId);
     assertTrue(mockFileSystem.containsKey(v2FilePath));
     assertTrue(mockFileSystem.get(v2FilePath).containsKey(changelogSSP));
     assertEquals(1, mockFileSystem.get(v2FilePath).size());
