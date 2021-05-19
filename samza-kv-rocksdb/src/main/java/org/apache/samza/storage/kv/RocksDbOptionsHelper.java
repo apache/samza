@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 public class RocksDbOptionsHelper {
   private static final Logger log = LoggerFactory.getLogger(RocksDbOptionsHelper.class);
 
+  // TODO HIGH pmaheshw Add these to RockdDBTableDescriptor
   public static final String ROCKSDB_WAL_ENABLED = "rocksdb.wal.enabled";
   private static final String ROCKSDB_COMPRESSION = "rocksdb.compression";
   private static final String ROCKSDB_BLOCK_SIZE_BYTES = "rocksdb.block.size.bytes";

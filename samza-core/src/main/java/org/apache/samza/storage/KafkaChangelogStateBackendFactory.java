@@ -19,7 +19,6 @@
 
 package org.apache.samza.storage;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.time.Duration;
 import java.util.HashMap;
@@ -46,29 +45,13 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 
 
-/**
- * Class used the provide the {@link TaskRestoreManager} and the {@link TaskBackupManager} for the Kafka changelog
- * state backend.
- */
 public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   private StreamMetadataCache streamCache;
-  /*
-   * This keeps track of the changelog SSPs that are associated with the whole container. This is used so that we can
-   * prefetch the metadata about the all of the changelog SSPs associated with the container whenever we need the
-   * metadata about some of the changelog SSPs.
-   * An example use case is when Samza writes offset files for stores ({@link TaskStorageManager}). Each task is
-   * responsible for its own offset file, but if we can do prefetching, then most tasks will already have cached
-   * metadata by the time they need the offset metadata.
-   * Note: By using all changelog streams to build the sspsToPrefetch, any fetches done for persisted stores will
-   * include the ssps for non-persisted stores, so this is slightly suboptimal. However, this does not increase the
-   * actual number of calls to the {@link SystemAdmin}, and we can decouple this logic from the per-task objects (e.g.
-   * {@link TaskStorageManager}).
-   */
   private SSPMetadataCache sspCache;
 
   @Override
   public TaskBackupManager getBackupManager(JobContext jobContext,
-      ContainerContext containerContext,
+      ContainerModel containerModel,
       TaskModel taskModel,
       ExecutorService backupExecutor,
       MetricsRegistry metricsRegistry,
@@ -101,7 +84,10 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
       File nonLoggedStoreBaseDir,
       KafkaChangelogRestoreParams kafkaChangelogRestoreParams) {
     Map<String, SystemStream> storeChangelogs = new StorageConfig(config).getStoreChangelogs();
-    Set<SystemStreamPartition> changelogSSPs = getChangelogSSPForContainer(storeChangelogs, containerContext);
+    Set<SystemStreamPartition> changelogSSPs = storeChangelogs.values().stream()
+        .flatMap(ss -> containerContext.getContainerModel().getTasks().values().stream()
+            .map(tm -> new SystemStreamPartition(ss, tm.getChangelogPartition())))
+        .collect(Collectors.toSet());
     // filter out standby store-ssp pairs
     Map<String, SystemStream> filteredStoreChangelogs =
         filterStandbySystemStreams(storeChangelogs, containerContext.getContainerModel());
@@ -152,17 +138,9 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
   }
 
   @Override
-  public StateBackendAdmin getStateBackendAdmin(JobModel jobModel, Config config) {
+  //TODO HIGH snjain implement this
+  public StateBackendAdmin getAdmin(JobModel jobModel, Config config) {
     return new NoOpKafkaChangelogStateBackendAdmin();
-  }
-
-  @VisibleForTesting
-  Set<SystemStreamPartition> getChangelogSSPForContainer(Map<String, SystemStream> storeChangelogs,
-      ContainerContext containerContext) {
-    return storeChangelogs.values().stream()
-        .flatMap(ss -> containerContext.getContainerModel().getTasks().values().stream()
-            .map(tm -> new SystemStreamPartition(ss, tm.getChangelogPartition())))
-        .collect(Collectors.toSet());
   }
 
   /**
@@ -172,8 +150,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
    * @param clock for cache invalidation
    * @return StreamMetadataCache containing the stream metadata
    */
-  @VisibleForTesting
-  StreamMetadataCache getStreamCache(SystemAdmins admins, Clock clock) {
+  private StreamMetadataCache getStreamCache(SystemAdmins admins, Clock clock) {
     if (streamCache == null) {
       streamCache = new StreamMetadataCache(admins, 5000, clock);
     }
@@ -188,26 +165,33 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
    * @param ssps SSPs to prefetch
    * @return SSPMetadataCache containing the partition metadata
    */
-  @VisibleForTesting
-  SSPMetadataCache getSspCache(SystemAdmins admins, Clock clock, Set<SystemStreamPartition> ssps) {
+  private SSPMetadataCache getSspCache(SystemAdmins admins, Clock clock, Set<SystemStreamPartition> ssps) {
     if (sspCache == null) {
       sspCache = new SSPMetadataCache(admins, Duration.ofSeconds(5), clock, ssps);
     }
     return sspCache;
   }
 
-  @VisibleForTesting
-  Map<String, SystemStream> filterStandbySystemStreams(Map<String, SystemStream> changelogSystemStreams,
+  private Map<String, SystemStream> filterStandbySystemStreams(Map<String, SystemStream> changelogSystemStreams,
       ContainerModel containerModel) {
     Map<SystemStreamPartition, String> changelogSSPToStore = new HashMap<>();
     changelogSystemStreams.forEach((storeName, systemStream) ->
-        containerModel.getTasks().forEach((taskName, taskModel) -> {
-          if (!TaskMode.Standby.equals(taskModel.getTaskMode())) {
-            changelogSSPToStore.put(new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()),
-                storeName);
-          }
-        })
+        containerModel.getTasks().forEach((taskName, taskModel) ->
+            changelogSSPToStore.put(new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()), storeName))
     );
+
+    Set<TaskModel> standbyTaskModels = containerModel.getTasks().values().stream()
+        .filter(taskModel -> taskModel.getTaskMode().equals(TaskMode.Standby))
+        .collect(Collectors.toSet());
+
+    // remove all standby task changelog ssps
+    standbyTaskModels.forEach((taskModel) -> {
+      changelogSystemStreams.forEach((storeName, systemStream) -> {
+        SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
+        changelogSSPToStore.remove(ssp);
+      });
+    });
+
     // changelogSystemStreams correspond only to active tasks (since those of standby-tasks moved to sideInputs above)
     return MapUtils.invertMap(changelogSSPToStore).entrySet().stream()
         .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getSystemStream()));

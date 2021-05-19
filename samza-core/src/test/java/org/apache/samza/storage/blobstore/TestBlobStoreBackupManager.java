@@ -165,6 +165,7 @@ public class TestBlobStoreBackupManager {
     // verify delete snapshot index blob called from init 0 times because prevSnapshotMap returned from init is empty
     // in case of null checkpoint.
     verify(blobStoreUtil, times(0)).deleteSnapshotIndexBlob(anyString(), any(Metadata.class));
+    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class))).thenCallRealMethod();
 
     // init called with Checkpoint V1 -> unsupported
     Checkpoint checkpoint = new CheckpointV1(new HashMap<>());
@@ -257,7 +258,7 @@ public class TestBlobStoreBackupManager {
           File localCheckpointDir = new File(localRemoteSnapshotPair.getFirst() + "-" + checkpointId.serialize());
           DirIndex dirIndex = new DirIndex(localCheckpointDir.getName(), Collections.emptyList(), Collections.emptyList(),
               Collections.emptyList(), Collections.emptyList());
-          return DirDiffUtil.getDirDiff(localCheckpointDir, dirIndex, BlobStoreUtil.areSameFile(false));
+          return DirDiffUtil.getDirDiff(localCheckpointDir, dirIndex, DirDiffUtil.areSameFile(false));
         }).collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(DirDiff::getDirName))));
 
     // assert - asset all DirDiff are put to blob store
@@ -293,6 +294,7 @@ public class TestBlobStoreBackupManager {
     Checkpoint checkpoint =
         new CheckpointV2(checkpointId, new HashMap<>(),
             ImmutableMap.of(StorageConfig.BLOB_STORE_STATE_BACKEND_FACTORY, previousCheckpoints));
+    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class))).thenCallRealMethod();
     blobStoreBackupManager.init(checkpoint);
 
     // mock: set task store dir to return corresponding test local store and create checkpoint dir
@@ -359,7 +361,7 @@ public class TestBlobStoreBackupManager {
         .stream()
         .map(localRemoteSnapshotPair ->
             DirDiffUtil.getDirDiff(new File(localRemoteSnapshotPair.getFirst() + "-" + checkpointId.serialize()),
-            localRemoteSnapshotPair.getSecond().getDirIndex(), BlobStoreUtil.areSameFile(false)))
+            localRemoteSnapshotPair.getSecond().getDirIndex(), DirDiffUtil.areSameFile(false)))
         .collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(DirDiff::getDirName))));
 
     // assert - asset all DirDiff are put to blob store
@@ -468,6 +470,11 @@ public class TestBlobStoreBackupManager {
 
     // Assert
     Assert.assertEquals(actualOldSnapshotsRemoved, expectedOldSnapshotsRemoved);
+  }
+
+  @Test
+  public void testCleanupIgnoresStoresNotConfiguredWithBlobStoreStateBackend() throws Exception {
+    // TODO HIGH shesharm Complete test
   }
 
   private Map<String, String> setupTestStoreSCMMapAndStoreBackedFactoryConfig(Map<String,

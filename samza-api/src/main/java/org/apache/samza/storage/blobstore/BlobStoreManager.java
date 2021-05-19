@@ -31,11 +31,14 @@ import org.apache.samza.annotation.InterfaceStability;
 @InterfaceStability.Unstable
 public interface BlobStoreManager {
   /**
-   * init method to initialize underlying blob store client, if necessary
+   * Initialize underlying blob store client, if necessary.
+   *
    */
   void init();
   /**
    * Non-blocking PUT call to remote blob store with supplied metadata
+   * @param inputStream InputStream to read the file
+   * @param metadata user supplied {@link Metadata} of the request
    * @return a future containing the blob ID of the uploaded blob if the upload is successful.
    */
   CompletionStage<String> put(InputStream inputStream, Metadata metadata);

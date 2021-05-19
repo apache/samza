@@ -14,7 +14,7 @@ public class BlobStoreBackupManagerMetrics {
   private static final String GROUP = BlobStoreBackupManagerMetrics.class.getName();
   private final MetricsRegistry metricsRegistry;
 
-  // ToDo per-task throughput
+  // TODO LOW shesharm  per-task throughput
   public final Gauge<Long> initNs;
 
   public final Timer uploadNs;
@@ -46,7 +46,7 @@ public class BlobStoreBackupManagerMetrics {
 
   public final Timer cleanupNs;
 
-  // ToDO move to SamzaHistogram
+  // TODO shesharm LOW move to SamzaHistogram
   public final Timer avgFileUploadNs; // avg time for each file uploaded
   public final Timer avgFileSizeBytes; // avg size of each file uploaded
 

@@ -59,6 +59,7 @@ import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
+import org.apache.samza.storage.StateBackendAdmin;
 import org.apache.samza.storage.StateBackendFactory;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
@@ -273,10 +274,11 @@ public class ClusterBasedJobCoordinator {
       new StorageConfig(config).getStateBackendBackupFactories().forEach(stateStorageBackendBackupFactory -> {
         StateBackendFactory stateBackendFactory =
             ReflectionUtil.getObj(stateStorageBackendBackupFactory, StateBackendFactory.class);
+        StateBackendAdmin stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config);
         // Create resources required for state backend admin
-        stateBackendFactory.getStateBackendAdmin(jobModel, config).createResources();
+        stateBackendAdmin.createResources();
         // Validate resources required for state backend admin
-        stateBackendFactory.getStateBackendAdmin(jobModel, config).validateResources();
+        stateBackendAdmin.validateResources();
       });
 
       /*

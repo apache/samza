@@ -25,7 +25,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 
 public class Metadata {
-  public static final String PAYLOAD_PATH_SNAPSHOT_INDEX = "snapshot-index";
+  public static final String SNAPSHOT_INDEX_PAYLOAD_PATH = "snapshot-index";
 
   private final String payloadPath;
   private final long payloadSize;

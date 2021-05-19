@@ -21,7 +21,6 @@ package org.apache.samza.storage.blobstore;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,11 +51,10 @@ import org.apache.samza.storage.TaskRestoreManager;
 import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
-import org.apache.samza.storage.blobstore.util.BlobStoreStateBackendUtil;
 import org.apache.samza.storage.blobstore.util.BlobStoreUtil;
+import org.apache.samza.storage.blobstore.util.DirDiffUtil;
 import org.apache.samza.util.FileUtil;
 import org.apache.samza.util.FutureUtil;
-import org.checkerframework.checker.nullness.Opt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,22 +78,22 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   private final StorageConfig storageConfig;
   private final StorageManagerUtil storageManagerUtil;
   private final BlobStoreUtil blobStoreUtil;
+  private final DirDiffUtil dirDiffUtil;
   private final File loggedBaseDir;
   private final File nonLoggedBaseDir;
   private final String taskName;
   private final List<String> storesToRestore;
-
   private final BlobStoreRestoreManagerMetrics metrics;
 
   /**
-   * Map of store name and Pair of blob id of SnapshotIndex and the corresponding SnapshotIndex from last snapshot
-   * creation
+   * Map of store name and Pair of blob id of SnapshotIndex and the corresponding SnapshotIndex from last successful
+   * task checkpoint
    */
   private Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes;
 
   public BlobStoreRestoreManager(TaskModel taskModel, ExecutorService restoreExecutor,
-      BlobStoreRestoreManagerMetrics metrics, Config config, StorageManagerUtil storageManagerUtil,
-      BlobStoreUtil blobStoreUtil, File loggedBaseDir, File nonLoggedBaseDir) {
+      BlobStoreRestoreManagerMetrics metrics, Config config, File loggedBaseDir, File nonLoggedBaseDir,
+      StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil) {
     this.taskModel = taskModel;
     this.jobName = new JobConfig(config).getName().get();
     this.jobId = new JobConfig(config).getJobId();
@@ -104,12 +102,12 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     this.storageConfig = new StorageConfig(config);
     this.storageManagerUtil = storageManagerUtil;
     this.blobStoreUtil = blobStoreUtil;
+    this.dirDiffUtil = new DirDiffUtil();
     this.prevStoreSnapshotIndexes = new HashMap<>();
     this.loggedBaseDir = loggedBaseDir;
     this.nonLoggedBaseDir = nonLoggedBaseDir;
     this.taskName = taskModel.getTaskName().getTaskName();
-    this.storesToRestore =
-        storageConfig.getStoresWithStateBackendRestoreFactory(BlobStoreStateBackendFactory.class.getName());
+    this.storesToRestore = storageConfig.getStoresWithRestoreFactory(BlobStoreStateBackendFactory.class.getName());
     this.metrics = metrics;
   }
 
@@ -118,26 +116,26 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store restore manager for task: {}", taskName);
     // get previous SCMs from checkpoint
-    prevStoreSnapshotIndexes =
-        BlobStoreStateBackendUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, blobStoreUtil);
+    prevStoreSnapshotIndexes = blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint);
     metrics.getSnapshotIndexNs.set(System.nanoTime() - startTime);
     LOG.trace("Found previous snapshot index during blob store restore manager init for task: {} to be: {}",
         taskName, prevStoreSnapshotIndexes);
 
     metrics.initStoreMetrics(storesToRestore);
 
-    // Note: blocks the caller (main) thread.
+    // Note: blocks the caller thread.
     deleteUnusedStoresFromBlobStore(jobName, jobId, taskName, storageConfig, prevStoreSnapshotIndexes, blobStoreUtil, executor);
     metrics.initNs.set(System.nanoTime() - startTime);
   }
 
   /**
-   * Restore state from checkpoints, state snapshots and changelog.
+   * Restore state from checkpoints and state snapshots.
+   *
    */
   @Override
   public void restore() {
     restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes, loggedBaseDir,
-        storageConfig, metrics, storageManagerUtil, blobStoreUtil, executor);
+        storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor);
   }
 
   @Override
@@ -159,7 +157,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     List<String> storesToBackup =
         storageConfig.getStoresWithStateBackendBackupFactory(BlobStoreStateBackendFactory.class.getName());
     List<String> storesToRestore =
-        storageConfig.getStoresWithStateBackendRestoreFactory(BlobStoreStateBackendFactory.class.getName());
+        storageConfig.getStoresWithRestoreFactory(BlobStoreStateBackendFactory.class.getName());
 
     List<CompletionStage<Void>> storeDeletionFutures = new ArrayList<>();
     initialStoreSnapshotIndexes.forEach((storeName, scmAndSnapshotIndex) -> {
@@ -168,7 +166,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
             "or is no longer configured to be backed up or restored with blob store.", taskName, storeName);
         DirIndex dirIndex = scmAndSnapshotIndex.getRight().getDirIndex();
         Metadata requestMetadata =
-            new Metadata(Metadata.PAYLOAD_PATH_SNAPSHOT_INDEX, Optional.empty(), jobName, jobId, taskName, storeName);
+            new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
         CompletionStage<Void> storeDeletionFuture =
             blobStoreUtil.cleanUpDir(dirIndex, requestMetadata) // delete files and sub-dirs previously marked for removal
                 .thenComposeAsync(v ->
@@ -190,7 +188,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   static void restoreStores(String jobName, String jobId, TaskName taskName, List<String> storesToRestore,
       Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
       File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
-      StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil,
+      StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
       ExecutorService executor) {
     long restoreStartTime = System.nanoTime();
     List<CompletionStage<Void>> restoreFutures = new ArrayList<>();
@@ -198,7 +196,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     LOG.debug("Starting restore for task: {} stores: {}", taskName, storesToRestore);
     storesToRestore.forEach(storeName -> {
       if (!prevStoreSnapshotIndexes.containsKey(storeName)) {
-        LOG.debug("No checkpointed snapshot index found for task: {} store: {}. Skipping restore.", taskName, storeName);
+        LOG.info("No checkpointed snapshot index found for task: {} store: {}. Skipping restore.", taskName, storeName);
         // TODO HIGH shesharm what should we do with the local state already present on disk, if any?
         // E.g. this will be the case if user changes a store from changelog based backup and restore to
         // blob store based backup and restore, both at the same time.
@@ -211,12 +209,11 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       SnapshotIndex snapshotIndex = scmAndSnapshotIndex.getRight();
       DirIndex dirIndex = snapshotIndex.getDirIndex();
 
-      // TODO MINOR shesharm: calculate recursively similar to DirDiff.Stats
-      long bytesToRestore = dirIndex.getFilesPresent().stream().mapToLong(fi -> fi.getFileMetadata().getSize()).sum();
-      metrics.filesToRestore.getValue().addAndGet(dirIndex.getFilesPresent().size());
-      metrics.bytesToRestore.getValue().addAndGet(bytesToRestore);
-      metrics.filesRemaining.getValue().addAndGet(dirIndex.getFilesPresent().size());
-      metrics.bytesRemaining.getValue().addAndGet(bytesToRestore);
+      DirIndex.Stats stats = DirIndex.getStats(dirIndex);
+      metrics.filesToRestore.getValue().addAndGet(stats.filesPresent);
+      metrics.bytesToRestore.getValue().addAndGet(stats.bytesPresent);
+      metrics.filesRemaining.getValue().addAndGet(stats.filesPresent);
+      metrics.bytesRemaining.getValue().addAndGet(stats.bytesPresent);
 
       CheckpointId checkpointId = snapshotIndex.getSnapshotMetadata().getCheckpointId();
       File storeDir = storageManagerUtil.getTaskStoreDir(loggedBaseDir, storeName, taskName, TaskMode.Active);
@@ -234,10 +231,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       }
 
       boolean shouldRestore = shouldRestore(taskName.getTaskName(), storeName, dirIndex,
-          storeCheckpointDir, storageConfig, blobStoreUtil);
+          storeCheckpointDir, storageConfig, dirDiffUtil);
 
       if (shouldRestore) { // restore the store from the remote blob store
-        LOG.debug("Deleting local store checkpoint directory: {} before restore.", storeCheckpointDir);
         // delete all store checkpoint directories. if we only delete the store directory and don't
         // delete the checkpoint directories, the store size on disk will grow to 2x after restore
         // until the first commit is completed and older checkpoint dirs are deleted. This is
@@ -246,8 +242,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
         // own during the restore.
         deleteCheckpointDirs(taskName, storeName, loggedBaseDir, storageManagerUtil);
 
+        metrics.storePreRestoreNs.get(storeName).set(System.nanoTime() - storeRestoreStartTime);
         enqueueRestore(jobName, jobId, taskName.toString(), storeName, storeDir, dirIndex, storeRestoreStartTime,
-            restoreFutures, blobStoreUtil, metrics, executor);
+            restoreFutures, blobStoreUtil, dirDiffUtil, metrics, executor);
       } else {
         LOG.debug("Renaming store checkpoint directory: {} to store directory: {} since its contents are identical " +
             "to the remote snapshot.", storeCheckpointDir, storeDir);
@@ -271,7 +268,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    */
   @VisibleForTesting
   static boolean shouldRestore(String taskName, String storeName, DirIndex dirIndex,
-      Path storeCheckpointDir, StorageConfig storageConfig, BlobStoreUtil blobStoreUtil) {
+      Path storeCheckpointDir, StorageConfig storageConfig, DirDiffUtil dirDiffUtil) {
     // if a store checkpoint directory exists for the last successful task checkpoint, try to use it.
     boolean restoreStore;
     if (Files.exists(storeCheckpointDir)) {
@@ -279,7 +276,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
         LOG.debug("Restoring task: {} store: {} from remote snapshot since the store is configured to be " +
             "restored on each restart.", taskName, storeName);
         restoreStore = true;
-      } else if (blobStoreUtil.areSameDir(FILES_TO_IGNORE, true).test(storeCheckpointDir.toFile(), dirIndex)) {
+      } else if (dirDiffUtil.areSameDir(FILES_TO_IGNORE, false).test(storeCheckpointDir.toFile(), dirIndex)) {
         restoreStore = false; // no restore required for this store.
       } else {
         // we don't optimize for the case when the local host doesn't contain the most recent store checkpoint
@@ -291,7 +288,6 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
         LOG.error("Local store checkpoint directory: {} contents are not the same as the remote snapshot. " +
             "Queuing for restore from remote snapshot.", storeCheckpointDir);
-        // old checkpoint directory will be deleted later during commits
         restoreStore = true;
       }
     } else { // did not find last checkpoint dir, restore the store from the remote blob store
@@ -308,18 +304,17 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    */
   @VisibleForTesting
   static void enqueueRestore(String jobName, String jobId, String taskName, String storeName, File storeDir, DirIndex dirIndex,
-      long storeRestoreStartTime, List<CompletionStage<Void>> restoreFutures,
-      BlobStoreUtil blobStoreUtil, BlobStoreRestoreManagerMetrics metrics, ExecutorService executor) {
-    metrics.storePreRestoreNs.get(storeName).set(System.nanoTime() - storeRestoreStartTime);
+      long storeRestoreStartTime, List<CompletionStage<Void>> restoreFutures, BlobStoreUtil blobStoreUtil,
+      DirDiffUtil dirDiffUtil, BlobStoreRestoreManagerMetrics metrics, ExecutorService executor) {
 
     Metadata requestMetadata = new Metadata(storeDir.getAbsolutePath(), Optional.empty(), jobName, jobId, taskName, storeName);
     CompletableFuture<Void> restoreFuture =
-        FutureUtil.allOf(blobStoreUtil.restoreDir(storeDir, dirIndex, requestMetadata)).thenRunAsync(() -> {
+        blobStoreUtil.restoreDir(storeDir, dirIndex, requestMetadata).thenRunAsync(() -> {
           metrics.storeRestoreNs.get(storeName).set(System.nanoTime() - storeRestoreStartTime);
 
           long postRestoreStartTime = System.nanoTime();
           LOG.trace("Comparing restored store directory: {} and remote directory to verify restore.", storeDir);
-          if (!blobStoreUtil.areSameDir(FILES_TO_IGNORE, true).test(storeDir, dirIndex)) {
+          if (!dirDiffUtil.areSameDir(FILES_TO_IGNORE, true).test(storeDir, dirIndex)) {
             metrics.storePostRestoreNs.get(storeName).set(System.nanoTime() - postRestoreStartTime);
             throw new SamzaException(
                 String.format("Restored store directory: %s contents " + "are not the same as the remote snapshot.",
@@ -338,6 +333,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       List<File> checkpointDirs = storageManagerUtil.getTaskStoreCheckpointDirs(
           loggedBaseDir, storeName, taskName, TaskMode.Active);
       for (File checkpointDir: checkpointDirs) {
+        LOG.debug("Deleting local store checkpoint directory: {} before restore.", checkpointDir);
         FileUtils.deleteDirectory(checkpointDir);
       }
     } catch (Exception e) {

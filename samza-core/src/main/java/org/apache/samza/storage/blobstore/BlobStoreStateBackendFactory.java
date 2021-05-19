@@ -49,7 +49,7 @@ import org.apache.samza.util.ReflectionUtil;
 public class BlobStoreStateBackendFactory implements StateBackendFactory {
   @Override
   public TaskBackupManager getBackupManager(
-      JobModel jobModel,
+      JobContext jobContext,
       ContainerModel containerModel,
       TaskModel taskModel,
       ExecutorService backupExecutor,
@@ -65,7 +65,7 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
     BlobStoreManager blobStoreManager = factory.getBackupBlobStoreManager(config, backupExecutor);
     BlobStoreBackupManagerMetrics metrics = new BlobStoreBackupManagerMetrics(metricsRegistry);
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, backupExecutor, metrics, null);
-    return new BlobStoreBackupManager(jobModel, containerModel, taskModel, backupExecutor,
+    return new BlobStoreBackupManager(jobContext.getJobModel(), containerModel, taskModel, backupExecutor,
         metrics, config, clock, loggedStoreBaseDir, new StorageManagerUtil(), blobStoreUtil);
   }
 
@@ -88,12 +88,12 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
     BlobStoreManager blobStoreManager = factory.getRestoreBlobStoreManager(config, restoreExecutor);
     BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(metricsRegistry);
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, restoreExecutor, null, metrics);
-    return new BlobStoreRestoreManager(taskModel, restoreExecutor, metrics, config, new StorageManagerUtil(),
-        blobStoreUtil, loggedStoreBaseDir, nonLoggedStoreBaseDir);
+    return new BlobStoreRestoreManager(taskModel, restoreExecutor, metrics, config, loggedStoreBaseDir,
+        nonLoggedStoreBaseDir, new StorageManagerUtil(), blobStoreUtil);
   }
 
   @Override
-  public StateBackendAdmin getStateBackendAdmin(JobModel jobModel, Config config) {
+  public StateBackendAdmin getAdmin(JobModel jobModel, Config config) {
     StorageConfig storageConfig = new StorageConfig(config);
     String stateBackendAdminFactory = storageConfig.getBlobStoreBackendAdminFactory();
     BlobStoreAdminFactory factory = ReflectionUtil.getObj(stateBackendAdminFactory, BlobStoreAdminFactory.class);

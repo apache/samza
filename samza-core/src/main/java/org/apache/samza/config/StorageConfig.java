@@ -286,7 +286,7 @@ public class StorageConfig extends MapConfig {
   }
 
   // TODO BLOCKER dchen update when making restore managers per store
-  public List<String> getStoresWithStateBackendRestoreFactory(String backendFactoryName) {
+  public List<String> getStoresWithRestoreFactory(String backendFactoryName) {
     return getStoreNames().stream()
         .filter((storeName) -> getStateBackendRestoreFactory().equals(backendFactoryName))
         .collect(Collectors.toList());

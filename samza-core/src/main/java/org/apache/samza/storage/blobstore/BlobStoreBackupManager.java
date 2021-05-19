@@ -20,7 +20,6 @@
 package org.apache.samza.storage.blobstore;
 
 import com.google.common.collect.ImmutableMap;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,7 +48,6 @@ import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
-import org.apache.samza.storage.blobstore.util.BlobStoreStateBackendUtil;
 import org.apache.samza.storage.blobstore.util.BlobStoreUtil;
 import org.apache.samza.storage.blobstore.util.DirDiffUtil;
 import org.apache.samza.util.Clock;
@@ -87,9 +85,8 @@ public class BlobStoreBackupManager implements TaskBackupManager {
    * During regular processing, this map is updated after each successful {@link #upload} with the blob id of
    * {@link SnapshotIndex} and the corresponding {@link SnapshotIndex} of the upload.
    *
-   * The contents of this map are used to:
-   * 1. Delete any unused stores from the previous deployment in the remote store during {@link #init}.
-   * 2. Calculate the diff for local state between the last and the current checkpoint during {@link #upload}.
+   * The contents of this map are used to calculate the diff for local state between the last and the current checkpoint
+   * during {@link #upload}.
    *
    * Since the task commit process guarantees that the async stage of the previous commit is complete before another
    * commit can start, this future is guaranteed to be complete in the call to {@link #upload} during the next commit.
@@ -129,9 +126,9 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store backup manager for task: {}", taskName);
 
-    // Note: blocks the caller (main) thread.
+    // Note: blocks the caller thread.
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
-        BlobStoreStateBackendUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, blobStoreUtil);
+        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint);
     this.prevStoreSnapshotIndexesFuture =
         CompletableFuture.completedFuture(ImmutableMap.copyOf(prevStoreSnapshotIndexes));
     metrics.initNs.set(System.nanoTime() - startTime);
@@ -167,7 +164,6 @@ public class BlobStoreBackupManager implements TaskBackupManager {
         // metadata for the current store snapshot to upload
         SnapshotMetadata snapshotMetadata = new SnapshotMetadata(checkpointId, jobName, jobId, taskName, storeName);
 
-        // Only durable/persistent stores are passed here from commit manager
         // get the local store dir corresponding to the current checkpointId
         File storeDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, storeName,
             taskModel.getTaskName(), taskModel.getTaskMode());
@@ -177,12 +173,12 @@ public class BlobStoreBackupManager implements TaskBackupManager {
         LOG.debug("Got task: {} store: {} storeDir: {} and checkpointDir: {}",
             taskName, storeName, storeDir, checkpointDir);
 
-        // get the previous store directory contents
-        DirIndex prevDirIndex;
-
         // guaranteed to be available since a new task commit may not start until the previous one is complete
         Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
             prevStoreSnapshotIndexesFuture.get(0, TimeUnit.MILLISECONDS);
+
+        // get the previous store directory contents
+        DirIndex prevDirIndex;
 
         if (prevStoreSnapshotIndexes.containsKey(storeName)) {
           prevDirIndex = prevStoreSnapshotIndexes.get(storeName).getRight().getDirIndex();
@@ -194,13 +190,15 @@ public class BlobStoreBackupManager implements TaskBackupManager {
 
         long dirDiffStartTime = System.nanoTime();
         // get the diff between previous and current store directories
-        DirDiff dirDiff = DirDiffUtil.getDirDiff(checkpointDir, prevDirIndex, BlobStoreUtil.areSameFile(false));
+        DirDiff dirDiff = DirDiffUtil.getDirDiff(checkpointDir, prevDirIndex, DirDiffUtil.areSameFile(false));
         metrics.storeDirDiffNs.get(storeName).update(System.nanoTime() - dirDiffStartTime);
 
         DirDiff.Stats stats = DirDiff.getStats(dirDiff);
         updateStoreDiffMetrics(storeName, stats);
         metrics.filesToUpload.getValue().addAndGet(stats.filesAdded);
         metrics.bytesToUpload.getValue().addAndGet(stats.bytesAdded);
+        // Note: FilesRemaining metric is set to FilesAdded in the beginning of the current upload and then counted down
+        // for each upload.
         metrics.filesRemaining.getValue().addAndGet(stats.filesAdded);
         metrics.bytesRemaining.getValue().addAndGet(stats.bytesAdded);
         metrics.filesToRetain.getValue().addAndGet(stats.filesRetained);
@@ -213,8 +211,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
             dirIndexFuture.thenApplyAsync(dirIndex -> {
               LOG.trace("Dir upload complete. Returning new SnapshotIndex for task: {} store: {}.", taskName, storeName);
               Optional<String> prevSnapshotIndexBlobId =
-                  Optional.ofNullable(prevStoreSnapshotIndexes.get(storeName))
-                  .map(Pair::getLeft);
+                  Optional.ofNullable(prevStoreSnapshotIndexes.get(storeName)).map(Pair::getLeft);
               return new SnapshotIndex(clock.currentTimeMillis(), snapshotMetadata, dirIndex, prevSnapshotIndexBlobId);
             }, executor);
 
@@ -269,46 +266,52 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     List<CompletionStage<Void>> cleanupRemoteSnapshotFutures = new ArrayList<>();
     List<CompletionStage<Void>> removePrevRemoteSnapshotFutures = new ArrayList<>();
 
+    List<String> storesWithBlobStoreStateBackend =
+        new StorageConfig(config).getStoresWithStateBackendBackupFactory(BlobStoreStateBackendFactory.class.getName());
+
     // SCM, in case of blob store backup and restore, is just the blob id of SnapshotIndex representing the remote snapshot
     storeSCMs.forEach((storeName, snapshotIndexBlobId) -> {
-      Metadata requestMetadata =
-          new Metadata(Metadata.PAYLOAD_PATH_SNAPSHOT_INDEX, Optional.empty(), jobName, jobId, taskName, storeName);
-      CompletionStage<SnapshotIndex> snapshotIndexFuture =
-          blobStoreUtil.getSnapshotIndex(snapshotIndexBlobId, requestMetadata);
+      // Only perform cleanup for stores configured with BlobStore State Backend Factory
+      if (storesWithBlobStoreStateBackend.contains(storeName)) {
+        Metadata requestMetadata =
+            new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
+        CompletionStage<SnapshotIndex> snapshotIndexFuture =
+            blobStoreUtil.getSnapshotIndex(snapshotIndexBlobId, requestMetadata);
 
-      // 1. remove TTL of index blob and all of its files and sub-dirs marked for retention
-      CompletionStage<Void> removeTTLFuture =
-          snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
-            LOG.debug("Removing TTL for index blob: {} for task: {} store :{}",
-                snapshotIndexBlobId, taskName, storeName);
-            return blobStoreUtil.removeTTL(snapshotIndexBlobId, snapshotIndex, requestMetadata);
-          }, executor);
-      removeTTLFutures.add(removeTTLFuture);
+        // 1. remove TTL of index blob and all of its files and sub-dirs marked for retention
+        CompletionStage<Void> removeTTLFuture =
+            snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
+              LOG.debug("Removing TTL for index blob: {} and all of its files and sub-dirs for task: {} store :{}",
+                  snapshotIndexBlobId, taskName, storeName);
+              return blobStoreUtil.removeTTL(snapshotIndexBlobId, snapshotIndex, requestMetadata);
+            }, executor);
+        removeTTLFutures.add(removeTTLFuture);
 
-      // 2. delete the files/subdirs marked for deletion in the snapshot index.
-      CompletionStage<Void> cleanupRemoteSnapshotFuture =
-          snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
-            LOG.debug("Deleting files and dirs to remove for current index blob: {} for task: {} store: {}",
-                snapshotIndexBlobId, taskName, storeName);
-            return blobStoreUtil.cleanUpDir(snapshotIndex.getDirIndex(), requestMetadata);
-          }, executor);
+        // 2. delete the files/subdirs marked for deletion in the snapshot index.
+        CompletionStage<Void> cleanupRemoteSnapshotFuture =
+            snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
+              LOG.debug("Deleting files and dirs to remove for current index blob: {} for task: {} store: {}",
+                  snapshotIndexBlobId, taskName, storeName);
+              return blobStoreUtil.cleanUpDir(snapshotIndex.getDirIndex(), requestMetadata);
+            }, executor);
 
-      cleanupRemoteSnapshotFutures.add(cleanupRemoteSnapshotFuture);
+        cleanupRemoteSnapshotFutures.add(cleanupRemoteSnapshotFuture);
 
-      // 3. delete the remote {@link SnapshotIndex} blob for the previous checkpoint.
-      CompletionStage<Void> removePrevRemoteSnapshotFuture =
-          snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
-            if (snapshotIndex.getPrevSnapshotIndexBlobId().isPresent()) {
-              String blobId = snapshotIndex.getPrevSnapshotIndexBlobId().get();
-              LOG.debug("Removing previous snapshot index blob: {} from blob store for task: {} store: {}.",
-                  blobId, taskName, storeName);
-              return blobStoreUtil.deleteSnapshotIndexBlob(blobId, requestMetadata);
-            } else {
-              // complete future immediately. There are no previous snapshots index blobs to delete.
-              return CompletableFuture.completedFuture(null);
-            }
-          }, executor);
-      removePrevRemoteSnapshotFutures.add(removePrevRemoteSnapshotFuture);
+        // 3. delete the remote {@link SnapshotIndex} blob for the previous checkpoint.
+        CompletionStage<Void> removePrevRemoteSnapshotFuture =
+            snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
+              if (snapshotIndex.getPrevSnapshotIndexBlobId().isPresent()) {
+                String blobId = snapshotIndex.getPrevSnapshotIndexBlobId().get();
+                LOG.debug("Removing previous snapshot index blob: {} from blob store for task: {} store: {}.",
+                    blobId, taskName, storeName);
+                return blobStoreUtil.deleteSnapshotIndexBlob(blobId, requestMetadata);
+              } else {
+                // complete future immediately. There are no previous snapshots index blobs to delete.
+                return CompletableFuture.completedFuture(null);
+              }
+            }, executor);
+        removePrevRemoteSnapshotFutures.add(removePrevRemoteSnapshotFuture);
+      }
     });
 
     return FutureUtil.allOf(removeTTLFutures, cleanupRemoteSnapshotFutures, removePrevRemoteSnapshotFutures)

@@ -37,7 +37,7 @@ public class DirIndex {
   private final List<FileIndex> filesPresent;
   private final List<FileIndex> filesRemoved;
 
-  // Note: subDirsPresent can also have filesRemoved and subDirectoriesRemoved within them.
+  // Note: subDirsPresent can also have filesRemoved and subDirsRemoved within them.
   private final List<DirIndex> subDirsPresent;
   private final List<DirIndex> subDirsRemoved;
 
@@ -108,8 +108,8 @@ public class DirIndex {
   private static void updateStatsForSubDirsRemoved(DirIndex dirIndex, Stats stats) {
     stats.filesRemoved += dirIndex.getFilesPresent().size();
     stats.bytesRemoved += (dirIndex.getFilesPresent().stream().mapToLong(fi -> fi.getFileMetadata().getSize()).sum());
-    for (DirIndex subDirRemoved : dirIndex.getSubDirsRemoved()) {
-      updateStatsForSubDirsRemoved(subDirRemoved, stats);
+    for (DirIndex subDirToRemove : dirIndex.getSubDirsPresent()) {
+      updateStatsForSubDirsRemoved(subDirToRemove, stats);
     }
   }
 
@@ -142,8 +142,14 @@ public class DirIndex {
 
   @Override
   public String toString() {
-    return "DirIndex{" + "dirName='" + dirName + '\'' + ", filesPresent=" + filesPresent + ", filesRemoved="
-        + filesRemoved + ", subDirsPresent=" + subDirsPresent + ", subDirsRemoved=" + subDirsRemoved + '}';
+    return "DirIndex{" +
+        "dirName='" +
+        dirName + '\'' +
+        ", filesPresent=" + filesPresent +
+        ", filesRemoved=" + filesRemoved +
+        ", subDirsPresent=" + subDirsPresent +
+        ", subDirsRemoved=" + subDirsRemoved +
+        '}';
   }
 
   public static class Stats {
@@ -161,11 +167,11 @@ public class DirIndex {
       return "Stats{" +
           "filesAdded=" + filesPresent +
           ", filesRemoved=" + filesRemoved +
-          ", subDirsAdded=" + subDirsPresent
-          + ", subDirsRemoved=" + subDirsRemoved +
+          ", subDirsAdded=" + subDirsPresent +
+          ", subDirsRemoved=" + subDirsRemoved +
           ", bytesAdded=" + bytesPresent +
-          ", bytesRemoved=" + bytesRemoved
-          + '}';
+          ", bytesRemoved=" + bytesRemoved +
+          '}';
     }
   }
 }

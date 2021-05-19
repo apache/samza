@@ -20,6 +20,17 @@
 package org.apache.samza.storage.blobstore.util;
 
 import com.google.common.base.Preconditions;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.HashMap;
+import java.util.zip.CRC32;
+import java.util.zip.CheckedInputStream;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.SamzaException;
 import org.apache.samza.storage.blobstore.diff.DirDiff;
 import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.FileIndex;
@@ -36,6 +47,7 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.samza.storage.blobstore.index.FileMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +57,167 @@ import org.slf4j.LoggerFactory;
  */
 public class DirDiffUtil {
   private static final Logger LOG = LoggerFactory.getLogger(DirDiffUtil.class);
+
+  /**
+   * Checks if a local directory and a remote directory are identical. Local and remote directories are identical iff:
+   * 1. The local directory has exactly the same set of files as the remote directory, and the files are themselves
+   * identical, as determined by {@link #areSameFile(boolean)}, except for those allowed to differ according to
+   * {@param filesToIgnore}.
+   * 2. The local directory has exactly the same set of sub-directories as the remote directory.
+   *
+   * @param filesToIgnore a set of file names to ignore during the directory comparisons
+   *                      (does not exclude directory names)
+   * @param compareLargeFileChecksums whether to compare checksums for large files (> 1 MB).
+   * @return boolean indicating whether the local and remote directory are identical.
+   */
+  // TODO HIGH shesharm add unit tests
+  public BiPredicate<File, DirIndex> areSameDir(Set<String> filesToIgnore, boolean compareLargeFileChecksums) {
+    return (localDir, remoteDir) -> {
+      String remoteDirName = remoteDir.getDirName().equals(DirIndex.ROOT_DIR_NAME) ? "root" : remoteDir.getDirName();
+      LOG.debug("Creating diff between local dir: {} and remote dir: {} for comparison.",
+          localDir.getAbsolutePath(), remoteDirName);
+      DirDiff dirDiff = DirDiffUtil.getDirDiff(localDir, remoteDir, DirDiffUtil.areSameFile(compareLargeFileChecksums));
+
+      boolean areSameDir = true;
+      List<String> filesRemoved = dirDiff.getFilesRemoved().stream()
+          .map(FileIndex::getFileName)
+          .filter(name -> !filesToIgnore.contains(name))
+          .collect(Collectors.toList());
+
+      if (!filesRemoved.isEmpty()) {
+        areSameDir = false;
+        LOG.error("Local directory: {} is missing files that are present in remote snapshot: {}",
+            localDir.getAbsolutePath(), StringUtils.join(filesRemoved, ", "));
+      }
+
+      List<DirIndex> subDirsRemoved = dirDiff.getSubDirsRemoved();
+      if (!subDirsRemoved.isEmpty()) {
+        areSameDir = false;
+        List<String> missingSubDirs = subDirsRemoved.stream().map(DirIndex::getDirName).collect(Collectors.toList());
+        LOG.error("Local directory: {} is missing sub-dirs that are present in remote snapshot: {}",
+            localDir.getAbsolutePath(), StringUtils.join(missingSubDirs, ", "));
+      }
+
+      List<String> filesAdded = dirDiff.getFilesAdded().stream()
+          .map(File::getName)
+          .filter(name -> !filesToIgnore.contains(name))
+          .collect(Collectors.toList());
+      if (!filesAdded.isEmpty()) {
+        areSameDir = false;
+        LOG.error("Local directory: {} has additional files that are not present in remote snapshot: {}",
+            localDir.getAbsolutePath(), StringUtils.join(filesAdded, ", "));
+      }
+
+      List<DirDiff> subDirsAdded = dirDiff.getSubDirsAdded();
+      if (!subDirsAdded.isEmpty()) {
+        areSameDir = false;
+        List<String> addedDirs = subDirsAdded.stream().map(DirDiff::getDirName).collect(Collectors.toList());
+        LOG.error("Local directory: {} has additional sub-dirs that are not present in remote snapshot: {}",
+            localDir.getAbsolutePath(), StringUtils.join(addedDirs, ", "));
+      }
+
+      // dir diff calculation already ensures that all retained files are equal (by definition)
+      // recursively test that all retained sub-dirs are equal as well
+      Map<String, DirIndex> remoteSubDirs = new HashMap<>();
+      for (DirIndex subDir: remoteDir.getSubDirsPresent()) {
+        remoteSubDirs.put(subDir.getDirName(), subDir);
+      }
+      for (DirDiff subDirRetained: dirDiff.getSubDirsRetained()) {
+        String localSubDirName = subDirRetained.getDirName();
+        File localSubDirFile = Paths.get(localDir.getAbsolutePath(), localSubDirName).toFile();
+        DirIndex remoteSubDir = remoteSubDirs.get(localSubDirName);
+        boolean areSameSubDir = areSameDir(filesToIgnore, false).test(localSubDirFile, remoteSubDir);
+        if (!areSameSubDir) {
+          LOG.debug("Local sub-dir: {} and remote sub-dir: {} are not same.",
+              localSubDirFile.getAbsolutePath(), remoteSubDir.getDirName());
+          areSameDir = false;
+        }
+      }
+
+      LOG.debug("Local dir: {} and remote dir: {} are {}the same.",
+          localDir.getAbsolutePath(), remoteDirName, areSameDir ? "" : "not ");
+      return areSameDir;
+    };
+  }
+
+  /**
+   * Bipredicate to test a local file in the filesystem and a remote file {@link FileIndex} and find out if they represent
+   * the same file. Files with same attributes as well as content are same file. A SST file in a special case. They are
+   * immutable, so we only compare their attributes but not the content.
+   * @param compareLargeFileChecksums whether to compare checksums for large files (> 1 MB).
+   * @return BiPredicate to test similarity of local and remote files
+   */
+  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
+    return (localFile, remoteFile) -> {
+      if (localFile.getName().equals(remoteFile.getFileName())) {
+        FileMetadata remoteFileMetadata = remoteFile.getFileMetadata();
+
+        PosixFileAttributes localFileAttrs = null;
+        try {
+          localFileAttrs = Files.readAttributes(localFile.toPath(), PosixFileAttributes.class);
+        } catch (IOException e) {
+          LOG.error("Error reading attributes for file: {}", localFile.getAbsolutePath());
+          throw new RuntimeException(String.format("Error reading attributes for file: %s", localFile.getAbsolutePath()));
+        }
+
+        // Don't compare file timestamps. The ctime of a local file just restored will be different than the
+        // remote file, and will cause the file to be uploaded again during the first commit after restore.
+
+        boolean areSameFiles =
+            localFileAttrs.size() == remoteFileMetadata.getSize() &&
+                localFileAttrs.group().getName().equals(remoteFileMetadata.getGroup()) &&
+                localFileAttrs.owner().getName().equals(remoteFileMetadata.getOwner()) &&
+                PosixFilePermissions.toString(localFileAttrs.permissions()).equals(remoteFileMetadata.getPermissions());
+
+        if (!areSameFiles) {
+          LOG.debug("Local file: {} and remote file: {} are not same. " +
+                  "Local file attributes: {}. Remote file attributes: {}.",
+              localFile.getAbsolutePath(), remoteFile.getFileName(),
+              fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
+          return false;
+        } else {
+          LOG.trace("Local file: {}. Remote file: {}. " +
+                  "Local file attributes: {}. Remote file attributes: {}.",
+              localFile.getAbsolutePath(), remoteFile.getFileName(),
+              fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
+        }
+
+        boolean isLargeFile = localFileAttrs.size() > 1024 * 1024;
+        if (!compareLargeFileChecksums && isLargeFile) {
+          // Since RocksDB SST files are immutable after creation, we can skip the expensive checksum computations
+          // which requires reading the entire file.
+          LOG.debug("Local file: {} and remote file: {} are same. " +
+                  "Skipping checksum calculation for large file of size: {}.",
+              localFile.getAbsolutePath(), remoteFile.getFileName(), localFileAttrs.size());
+          return true;
+        } else {
+          try {
+            FileInputStream fis = new FileInputStream(localFile);
+            CheckedInputStream cis = new CheckedInputStream(fis, new CRC32());
+            byte[] buffer = new byte[8 * 1024]; // 8 KB
+            while (cis.read(buffer, 0, buffer.length) >= 0) {}
+            long localFileChecksum = cis.getChecksum().getValue();
+            cis.close();
+
+            boolean areSameChecksum = localFileChecksum == remoteFile.getChecksum();
+            if (!areSameChecksum) {
+              LOG.debug("Local file: {} and remote file: {} are not same. " +
+                      "Local checksum: {}. Remote checksum: {}",
+                  localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
+            } else {
+              LOG.debug("Local file: {} and remote file: {} are same. Local checksum: {}. Remote checksum: {}",
+                  localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
+            }
+            return areSameChecksum;
+          } catch (IOException e) {
+            throw new SamzaException("Error calculating checksum for local file: " + localFile.getAbsolutePath(), e);
+          }
+        }
+      }
+
+      return false;
+    };
+  }
 
   /**
    * Compare the local snapshot directory and the remote snapshot directory and return the recursive diff of the two as
@@ -216,5 +389,16 @@ public class DirDiffUtil {
     }
 
     return filesToRetain;
+  }
+
+  private static String fileAttributesToString(PosixFileAttributes fileAttributes) {
+    return "PosixFileAttributes{" +
+        "creationTimeMillis=" + fileAttributes.creationTime().toMillis() +
+        ", lastModifiedTimeMillis=" + fileAttributes.lastModifiedTime().toMillis() +
+        ", size=" + fileAttributes.size() +
+        ", owner='" + fileAttributes.owner() + '\'' +
+        ", group='" + fileAttributes.group() + '\'' +
+        ", permissions=" + PosixFilePermissions.toString(fileAttributes.permissions()) +
+        '}';
   }
 }

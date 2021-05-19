@@ -26,7 +26,7 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util
 import java.util.{Base64, Optional}
-import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
 import java.util.function.Consumer
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -345,6 +345,23 @@ object SamzaContainer extends Logging {
 
     info("Got change log system streams: %s" format storeChangelogs)
 
+    /*
+     * This keeps track of the changelog SSPs that are associated with the whole container. This is used so that we can
+     * prefetch the metadata about the all of the changelog SSPs associated with the container whenever we need the
+     * metadata about some of the changelog SSPs.
+     * An example use case is when Samza writes offset files for stores ({@link TaskStorageManager}). Each task is
+     * responsible for its own offset file, but if we can do prefetching, then most tasks will already have cached
+     * metadata by the time they need the offset metadata.
+     * Note: By using all changelog streams to build the sspsToPrefetch, any fetches done for persisted stores will
+     * include the ssps for non-persisted stores, so this is slightly suboptimal. However, this does not increase the
+     * actual number of calls to the {@link SystemAdmin}, and we can decouple this logic from the per-task objects (e.g.
+     * {@link TaskStorageManager}).
+     */
+    val changelogSSPMetadataCache = new SSPMetadataCache(systemAdmins,
+      Duration.ofSeconds(5),
+      SystemClock.instance,
+      getChangelogSSPsForContainer(containerModel, storeChangelogs).asJava)
+
     val intermediateStreams = streamConfig
       .getStreamIds()
       .asScala
@@ -453,6 +470,7 @@ object SamzaContainer extends Logging {
 
     val threadPoolSize = jobConfig.getThreadPoolSize
     info("Got thread pool size: " + threadPoolSize)
+    samzaContainerMetrics.containerThreadPoolSize.set(threadPoolSize)
 
     val taskThreadPool = if (threadPoolSize > 0) {
       Executors.newFixedThreadPool(threadPoolSize,
@@ -500,6 +518,7 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
+    // TODO dchen should we enforce restore factories to be subset of backup factories?
     val stateStorageBackendRestoreFactory = ReflectionUtil
       .getObj(storageConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
 
@@ -518,6 +537,7 @@ object SamzaContainer extends Logging {
       samzaContainerMetrics,
       jobContext,
       containerContext,
+      Optional.ofNullable(externalContextOption.orNull),
       stateStorageBackendRestoreFactory,
       taskCollectors.asJava,
       loggedStorageBaseDir,
@@ -559,7 +579,7 @@ object SamzaContainer extends Logging {
             if (taskInstanceMetrics.contains(taskName) &&
               taskInstanceMetrics.get(taskName).isDefined) taskInstanceMetrics.get(taskName).get.registry
             else new MetricsRegistryMap
-          val taskBackupManager = factory.getBackupManager(jobContext, containerContext,
+          val taskBackupManager = factory.getBackupManager(jobContext, containerModel,
             taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock,
             loggedStorageBaseDir, nonLoggedStorageBaseDir)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
@@ -616,8 +636,8 @@ object SamzaContainer extends Logging {
 
     val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
 
-    val hostStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
-    hostStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
+    val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
+    memoryStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
       override def onUpdate(sample: SystemMemoryStatistics): Unit = {
         val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
         val physicalMemoryMb : Float = physicalMemoryBytes / (1024.0F * 1024.0F)
@@ -625,16 +645,7 @@ object SamzaContainer extends Logging {
         logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
         logger.debug("Container physical memory utilization: " + memoryUtilization)
         samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
-        samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization)
-
-        var containerThreadPoolSize : Long = 0
-        var containerActiveThreads : Long = 0
-        if (taskThreadPool != null) {
-          containerThreadPoolSize = taskThreadPool.asInstanceOf[ThreadPoolExecutor].getPoolSize
-          containerActiveThreads = taskThreadPool.asInstanceOf[ThreadPoolExecutor].getActiveCount
-        }
-        samzaContainerMetrics.containerThreadPoolSize.set(containerThreadPoolSize)
-        samzaContainerMetrics.containerActiveThreads.set(containerActiveThreads)
+        samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization);
       }
     })
 
@@ -680,7 +691,7 @@ object SamzaContainer extends Logging {
       reporters = reporters,
       jvm = jvm,
       diskSpaceMonitor = diskSpaceMonitor,
-      hostStatisticsMonitor = hostStatisticsMonitor,
+      hostStatisticsMonitor = memoryStatisticsMonitor,
       taskThreadPool = taskThreadPool,
       commitThreadPool = commitThreadPool,
       timerExecutor = timerExecutor,
@@ -689,6 +700,19 @@ object SamzaContainer extends Logging {
       externalContextOption = externalContextOption,
       containerStorageManager = containerStorageManager,
       diagnosticsManager = diagnosticsManager)
+  }
+
+  /**
+    * Builds the set of SSPs for all changelogs on this container.
+    */
+  @VisibleForTesting
+  private[container] def getChangelogSSPsForContainer(containerModel: ContainerModel,
+    changeLogSystemStreams: util.Map[String, SystemStream]): Set[SystemStreamPartition] = {
+    containerModel.getTasks.values().asScala
+      .map(taskModel => taskModel.getChangelogPartition)
+      .flatMap(changelogPartition => changeLogSystemStreams.asScala.map { case (_, systemStream) =>
+        new SystemStreamPartition(systemStream, changelogPartition) })
+      .toSet
   }
 }
 
@@ -719,7 +743,11 @@ class SamzaContainer(
 
   private val jobConfig = new JobConfig(config)
   private val taskConfig = new TaskConfig(config)
-  val shutdownMs: Long = taskConfig.getShutdownMs
+
+  // Linkedin-specific shutdownMs due to SAMZA-2198; switch back to TaskConfig.getShutdownMs once that is fixed
+  val shutdownMs: Long = taskConfig.getLong(TaskConfig.TASK_SHUTDOWN_MS, 5000)
+
+  var shutdownHookThread: Thread = null
   var jmxServer: JmxServer = null
 
   @volatile private var status = SamzaContainerStatus.NOT_STARTED

@@ -45,6 +45,7 @@ import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
 import org.apache.samza.storage.blobstore.util.BlobStoreTestUtil;
 import org.apache.samza.storage.blobstore.util.BlobStoreUtil;
+import org.apache.samza.storage.blobstore.util.DirDiffUtil;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
@@ -77,7 +78,7 @@ public class TestBlobStoreRestoreManager {
 
     when(storageConfig.getStoresWithStateBackendBackupFactory(eq(BlobStoreStateBackendFactory.class.getName())))
         .thenReturn(ImmutableList.of("newStoreName"));
-    when(storageConfig.getStoresWithStateBackendRestoreFactory(eq(BlobStoreStateBackendFactory.class.getName())))
+    when(storageConfig.getStoresWithRestoreFactory(eq(BlobStoreStateBackendFactory.class.getName())))
         .thenReturn(ImmutableList.of("newStoreName"));
 
     DirIndex dirIndex = mock(DirIndex.class);
@@ -105,12 +106,12 @@ public class TestBlobStoreRestoreManager {
     Path storeCheckpointDir = Paths.get("/tmp/non-existent-checkpoint-dir");
     StorageConfig storageConfig = mock(StorageConfig.class);
     when(storageConfig.getCleanLoggedStoreDirsOnStart(anyString())).thenReturn(false);
-    BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
+    DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
     boolean shouldRestore = BlobStoreRestoreManager.shouldRestore(
-        taskName, storeName, dirIndex, storeCheckpointDir, storageConfig, blobStoreUtil);
+        taskName, storeName, dirIndex, storeCheckpointDir, storageConfig, dirDiffUtil);
 
-    verifyZeroInteractions(blobStoreUtil);
+    verifyZeroInteractions(dirDiffUtil);
     assertTrue(shouldRestore);
   }
 
@@ -122,12 +123,12 @@ public class TestBlobStoreRestoreManager {
     Path storeCheckpointDir = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX); // must exist
     StorageConfig storageConfig = mock(StorageConfig.class);
     when(storageConfig.getCleanLoggedStoreDirsOnStart(anyString())).thenReturn(true); // clean on restart
-    BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
+    DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
     boolean shouldRestore = BlobStoreRestoreManager.shouldRestore(
-        taskName, storeName, dirIndex, storeCheckpointDir, storageConfig, blobStoreUtil);
+        taskName, storeName, dirIndex, storeCheckpointDir, storageConfig, dirDiffUtil);
 
-    verifyZeroInteractions(blobStoreUtil);
+    verifyZeroInteractions(dirDiffUtil);
     assertTrue(shouldRestore); // should not restore, should retain checkpoint dir instead
   }
 
@@ -139,11 +140,11 @@ public class TestBlobStoreRestoreManager {
     Path storeCheckpointDir = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX); // must exist
     StorageConfig storageConfig = mock(StorageConfig.class);
     when(storageConfig.getCleanLoggedStoreDirsOnStart(anyString())).thenReturn(false);
-    BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
-    when(blobStoreUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> false);
+    DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
+    when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> false);
 
     boolean shouldRestore = BlobStoreRestoreManager.shouldRestore(
-        taskName, storeName, dirIndex, storeCheckpointDir, storageConfig, blobStoreUtil);
+        taskName, storeName, dirIndex, storeCheckpointDir, storageConfig, dirDiffUtil);
 
     assertTrue(shouldRestore);
   }
@@ -156,13 +157,13 @@ public class TestBlobStoreRestoreManager {
     Path storeCheckpointDir = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX); // must exist
     StorageConfig storageConfig = mock(StorageConfig.class);
     when(storageConfig.getCleanLoggedStoreDirsOnStart(anyString())).thenReturn(false);
-    BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
-    when(blobStoreUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true); // are same dir
+    DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
+    when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true); // are same dir
 
     boolean shouldRestore = BlobStoreRestoreManager.shouldRestore(
-        taskName, storeName, dirIndex, storeCheckpointDir, storageConfig, blobStoreUtil);
+        taskName, storeName, dirIndex, storeCheckpointDir, storageConfig, dirDiffUtil);
 
-    verify(blobStoreUtil, times(1)).areSameDir(anySet(), anyBoolean());
+    verify(dirDiffUtil, times(1)).areSameDir(anySet(), anyBoolean());
     assertFalse(shouldRestore); // should not restore, should retain checkpoint dir instead
   }
 
@@ -194,14 +195,16 @@ public class TestBlobStoreRestoreManager {
         eq(loggedBaseDir.toFile()), eq("storeName"), eq(taskName), eq(TaskMode.Active)))
           .thenReturn(storeDir.toFile());
     BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
+    DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
     // return immediately without restoring.
-    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class))).thenReturn(ImmutableList.of());
-    when(blobStoreUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
+    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
+    when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
     verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
@@ -244,14 +247,16 @@ public class TestBlobStoreRestoreManager {
     when(storageManagerUtil.getTaskStoreCheckpointDirs(any(File.class), anyString(), any(TaskName.class), any(TaskMode.class)))
         .thenReturn(ImmutableList.of(storeCheckpointDir1.toFile(), storeCheckpointDir2.toFile()));
     BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
+    DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
-    when(blobStoreUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
+    when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
     // return immediately without restoring.
-    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class))).thenReturn(ImmutableList.of());
+    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
     verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
@@ -297,15 +302,17 @@ public class TestBlobStoreRestoreManager {
     when(storageManagerUtil.getTaskStoreCheckpointDirs(any(File.class), anyString(), any(TaskName.class), any(TaskMode.class)))
         .thenReturn(ImmutableList.of(storeCheckpointDir.toFile()));
     BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
+    DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
     // ensures shouldRestore is not called
-    when(blobStoreUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
+    when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
     // return immediately without restoring.
-    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class))).thenReturn(ImmutableList.of());
+    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that the store directory restore was not called (should have restored from checkpoint dir)
     verify(blobStoreUtil, times(0)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
@@ -338,10 +345,11 @@ public class TestBlobStoreRestoreManager {
     StorageConfig storageConfig = mock(StorageConfig.class);
     StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
     BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
+    DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that we checked the previously checkpointed SCMs.
     verify(prevStoreSnapshotIndexes, times(1)).containsKey(eq("newStoreName"));

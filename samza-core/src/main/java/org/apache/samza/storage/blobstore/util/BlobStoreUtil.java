@@ -21,20 +21,7 @@ package org.apache.samza.storage.blobstore.util;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import java.util.Optional;
-import org.apache.samza.storage.blobstore.BlobStoreManager;
-import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
-import org.apache.samza.storage.blobstore.Metadata;
-import org.apache.samza.storage.blobstore.diff.DirDiff;
-import org.apache.samza.storage.blobstore.exceptions.RetriableException;
-import org.apache.samza.storage.blobstore.index.DirIndex;
-import org.apache.samza.storage.blobstore.index.FileBlob;
-import org.apache.samza.storage.blobstore.index.FileIndex;
-import org.apache.samza.storage.blobstore.index.FileMetadata;
-import org.apache.samza.storage.blobstore.index.SnapshotIndex;
-import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
-import org.apache.samza.storage.blobstore.index.serde.SnapshotIndexSerde;
-
+import com.google.common.collect.ImmutableMap;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -52,19 +39,35 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.Checkpoint;
+import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.storage.blobstore.BlobStoreManager;
+import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
+import org.apache.samza.storage.blobstore.Metadata;
+import org.apache.samza.storage.blobstore.diff.DirDiff;
+import org.apache.samza.storage.blobstore.exceptions.DeletedException;
+import org.apache.samza.storage.blobstore.exceptions.RetriableException;
+import org.apache.samza.storage.blobstore.index.DirIndex;
+import org.apache.samza.storage.blobstore.index.FileBlob;
+import org.apache.samza.storage.blobstore.index.FileIndex;
+import org.apache.samza.storage.blobstore.index.FileMetadata;
+import org.apache.samza.storage.blobstore.index.SnapshotIndex;
+import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
+import org.apache.samza.storage.blobstore.index.serde.SnapshotIndexSerde;
+import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
 import org.apache.samza.util.FutureUtil;
 import org.slf4j.Logger;
@@ -78,7 +81,6 @@ import org.slf4j.LoggerFactory;
 public class BlobStoreUtil {
   private static final Logger LOG = LoggerFactory.getLogger(BlobStoreUtil.class);
 
-  private final SnapshotIndexSerde snapshotIndexSerde = new SnapshotIndexSerde();
   private final BlobStoreManager blobStoreManager;
   private final ExecutorService executor;
   private final BlobStoreBackupManagerMetrics backupMetrics;
@@ -90,6 +92,166 @@ public class BlobStoreUtil {
     this.executor = executor;
     this.backupMetrics = backupMetrics;
     this.restoreMetrics = restoreMetrics;
+  }
+
+  /**
+   * Get the blob id of {@link SnapshotIndex} and {@link SnapshotIndex}es for the provided {@param task}
+   * in the provided {@param checkpoint}.
+   * @param jobName job name is used to build request metadata
+   * @param jobId job id is used to build request metadata
+   * @param taskName task name to get the store state checkpoint markers and snapshot indexes for
+   * @param checkpoint {@link Checkpoint} instance to get the store state checkpoint markers from. Only
+   *                   {@link CheckpointV2} and newer are supported for blob stores.
+   * @return Map of store name to its blob id of snapshot indices and their corresponding snapshot indices for the task.
+   */
+  public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(
+      String jobName, String jobId, String taskName, Checkpoint checkpoint) {
+    if (checkpoint == null) {
+      LOG.debug("No previous checkpoint found for taskName: {}", taskName);
+      return ImmutableMap.of();
+    }
+
+    if (checkpoint.getVersion() == 1) {
+      throw new SamzaException("Checkpoint version 1 is not supported for blob store backup and restore.");
+    }
+
+    Map<String, CompletableFuture<Pair<String, SnapshotIndex>>>
+        storeSnapshotIndexFutures = new HashMap<>();
+
+    CheckpointV2 checkpointV2 = (CheckpointV2) checkpoint;
+    Map<String, Map<String, String>> factoryToStoreSCMs = checkpointV2.getStateCheckpointMarkers();
+    Map<String, String> storeSnapshotIndexBlobIds = factoryToStoreSCMs.get(BlobStoreStateBackendFactory.class.getName());
+
+    if (storeSnapshotIndexBlobIds != null) {
+      storeSnapshotIndexBlobIds.forEach((storeName, snapshotIndexBlobId) -> {
+        try {
+          LOG.debug("Getting snapshot index for taskName: {} store: {} blobId: {}", taskName, storeName, snapshotIndexBlobId);
+          Metadata requestMetadata =
+              new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
+          CompletableFuture<SnapshotIndex> snapshotIndexFuture =
+              getSnapshotIndex(snapshotIndexBlobId, requestMetadata).toCompletableFuture();
+          Pair<CompletableFuture<String>, CompletableFuture<SnapshotIndex>> pairOfFutures =
+              Pair.of(CompletableFuture.completedFuture(snapshotIndexBlobId), snapshotIndexFuture);
+
+          // save the future and block once in the end instead of blocking for each request.
+          storeSnapshotIndexFutures.put(storeName, FutureUtil.toFutureOfPair(pairOfFutures));
+        } catch (Exception e) {
+          throw new SamzaException(
+              String.format("Error getting SnapshotIndex for blobId: %s for taskName: %s store: %s",
+                  snapshotIndexBlobId, taskName, storeName), e);
+        }
+      });
+    } else {
+      LOG.debug("No store SCMs found for blob store state backend in for taskName: {} in checkpoint {}",
+          taskName, checkpointV2.getCheckpointId());
+    }
+
+    try {
+      return FutureUtil.toFutureOfMap(t -> {
+        Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class, t);
+        if (unwrappedException instanceof DeletedException) {
+          LOG.warn("Ignoring already deleted snapshot index for taskName: {}", taskName, t);
+          return true;
+        } else {
+          return false;
+        }
+      }, storeSnapshotIndexFutures).join();
+    } catch (Exception e) {
+      throw new SamzaException(
+          String.format("Error while waiting to get store snapshot indexes for task %s", taskName), e);
+    }
+  }
+
+  /**
+   * GETs the {@link SnapshotIndex} from the blob store.
+   * @param blobId blob ID of the {@link SnapshotIndex} to get
+   * @return a Future containing the {@link SnapshotIndex}
+   */
+  public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata) {
+    Preconditions.checkState(StringUtils.isNotBlank(blobId));
+    String opName = "getSnapshotIndex: " + blobId;
+    return FutureUtil.executeAsyncWithRetries(opName, () -> {
+      ByteArrayOutputStream indexBlobStream = new ByteArrayOutputStream(); // no need to close ByteArrayOutputStream
+      return blobStoreManager.get(blobId, indexBlobStream, metadata).toCompletableFuture()
+          .thenApplyAsync(f -> new SnapshotIndexSerde().fromBytes(indexBlobStream.toByteArray()), executor);
+    }, isCauseNonRetriable(), executor);
+  }
+
+  /**
+   * PUTs the {@link SnapshotIndex} to the blob store.
+   * @param snapshotIndex SnapshotIndex to put.
+   * @return a Future containing the blob ID of the {@link SnapshotIndex}.
+   */
+  public CompletableFuture<String> putSnapshotIndex(SnapshotIndex snapshotIndex) {
+    byte[] bytes = new SnapshotIndexSerde().toBytes(snapshotIndex);
+    String opName = "putSnapshotIndex for checkpointId: " + snapshotIndex.getSnapshotMetadata().getCheckpointId();
+    return FutureUtil.executeAsyncWithRetries(opName, () -> {
+      InputStream inputStream = new ByteArrayInputStream(bytes); // no need to close ByteArrayInputStream
+      SnapshotMetadata snapshotMetadata = snapshotIndex.getSnapshotMetadata();
+      Metadata metadata = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.of((long) bytes.length),
+          snapshotMetadata.getJobName(), snapshotMetadata.getJobId(), snapshotMetadata.getTaskName(),
+          snapshotMetadata.getStoreName());
+      return blobStoreManager.put(inputStream, metadata).toCompletableFuture();
+    }, isCauseNonRetriable(), executor);
+  }
+
+  /**
+   * WARNING: This method deletes the **SnapshotIndex blob** from the snapshot. This should only be called to clean
+   * up an older snapshot **AFTER** all the files and sub-dirs to be deleted from this snapshot are already deleted
+   * using {@link #cleanUpDir(DirIndex, Metadata)}
+   *
+   * @param snapshotIndexBlobId blob ID of SnapshotIndex blob to delete
+   * @return a future that completes when the index blob is deleted from remote store.
+   */
+  public CompletionStage<Void> deleteSnapshotIndexBlob(String snapshotIndexBlobId, Metadata metadata) {
+    Preconditions.checkState(StringUtils.isNotBlank(snapshotIndexBlobId));
+    LOG.debug("Deleting SnapshotIndex blob: {} from blob store", snapshotIndexBlobId);
+    String opName = "deleteSnapshotIndexBlob: " + snapshotIndexBlobId;
+    return FutureUtil.executeAsyncWithRetries(opName, () ->
+        blobStoreManager.delete(snapshotIndexBlobId, metadata).toCompletableFuture(), isCauseNonRetriable(), executor);
+  }
+
+  /**
+   * Non-blocking restore of a {@link SnapshotIndex} to local store by downloading all the files and sub-dirs associated
+   * with this remote snapshot.
+   * @return A future that completes when all the async downloads completes
+   */
+  public CompletableFuture<Void> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata) {
+    LOG.debug("Restoring contents of directory: {} from remote snapshot.", baseDir);
+
+    List<CompletableFuture<Void>> downloadFutures = new ArrayList<>();
+
+    try {
+      // create parent directories if they don't exist
+      Files.createDirectories(baseDir.toPath());
+    } catch (IOException exception) {
+      LOG.error("Error creating directory: {} for restore", baseDir.getAbsolutePath(), exception);
+      throw new SamzaException(String.format("Error creating directory: %s for restore",
+          baseDir.getAbsolutePath()), exception);
+    }
+
+    // restore all files in the directory
+    for (FileIndex fileIndex : dirIndex.getFilesPresent()) {
+      File fileToRestore = Paths.get(baseDir.getAbsolutePath(), fileIndex.getFileName()).toFile();
+      Metadata requestMetadata =
+          new Metadata(fileToRestore.getAbsolutePath(), Optional.of(fileIndex.getFileMetadata().getSize()),
+              metadata.getJobName(), metadata.getJobId(), metadata.getTaskName(), metadata.getStoreName());
+      List<FileBlob> fileBlobs = fileIndex.getBlobs();
+
+      String opName = "restoreFile: " + fileToRestore.getAbsolutePath();
+      CompletableFuture<Void> fileRestoreFuture = FutureUtil.executeAsyncWithRetries(opName,
+          () -> getFile(fileBlobs, fileToRestore, requestMetadata), isCauseNonRetriable(), executor);
+      downloadFutures.add(fileRestoreFuture);
+    }
+
+    // restore any sub-directories
+    List<DirIndex> subDirs = dirIndex.getSubDirsPresent();
+    for (DirIndex subDir : subDirs) {
+      File subDirFile = Paths.get(baseDir.getAbsolutePath(), subDir.getDirName()).toFile();
+      downloadFutures.add(restoreDir(subDirFile, subDir, metadata));
+    }
+
+    return FutureUtil.allOf(downloadFutures);
   }
 
   /**
@@ -120,8 +282,6 @@ public class BlobStoreUtil {
     CompletableFuture<Void> allDirBlobsFuture =
         CompletableFuture.allOf(subDirFutures.toArray(new CompletableFuture[0]));
 
-    // TODO LOW shesharm can we cancel other uploads if any one of them fails?
-    //  Check with Ambry: if client closes, what happens to inflight uploads
     return CompletableFuture.allOf(allDirBlobsFuture, allFilesFuture)
         .thenApplyAsync(f -> {
           LOG.trace("All file and dir uploads complete for task: {} store: {}",
@@ -150,37 +310,31 @@ public class BlobStoreUtil {
   }
 
   /**
-   * PUTs the {@link SnapshotIndex} to the blob store.
-   * @param snapshotIndex SnapshotIndex to put.
-   * @return a Future containing the blob ID of the {@link SnapshotIndex}.
+   * WARNING: Recursively delete **ALL** the associated files and subdirs within the provided {@link DirIndex}.
+   * @param dirIndex {@link DirIndex} whose entire contents are to be deleted.
+   * @param metadata {@link Metadata} related to the request
+   * @return a future that completes when ALL the files and subdirs associated with the dirIndex have been
+   * marked for deleted in the remote blob store.
    */
-  public CompletableFuture<String> putSnapshotIndex(SnapshotIndex snapshotIndex) {
-    byte[] bytes = snapshotIndexSerde.toBytes(snapshotIndex);
-    String opName = "putSnapshotIndex for checkpointId " + snapshotIndex.getSnapshotMetadata().getCheckpointId();
-    return FutureUtil.executeAsyncWithRetries(opName, () -> {
-      InputStream inputStream = new ByteArrayInputStream(bytes); // no need to close ByteArrayInputStream
-      SnapshotMetadata snapshotMetadata = snapshotIndex.getSnapshotMetadata();
-      Metadata metadata = new Metadata(Metadata.PAYLOAD_PATH_SNAPSHOT_INDEX, Optional.of((long) bytes.length),
-          snapshotMetadata.getJobName(), snapshotMetadata.getJobId(), snapshotMetadata.getTaskName(),
-          snapshotMetadata.getStoreName());
-      return blobStoreManager.put(inputStream, metadata).toCompletableFuture();
-    }, isCauseNonRetriable(), executor);
+  public CompletionStage<Void> deleteDir(DirIndex dirIndex, Metadata metadata) {
+    LOG.debug("Completely deleting dir: {} in blob store", dirIndex.getDirName());
+    List<CompletionStage<Void>> deleteFutures = new ArrayList<>();
+    // Delete all files present in subDir
+    for (FileIndex file: dirIndex.getFilesPresent()) {
+      Metadata requestMetadata =
+          new Metadata(file.getFileName(), Optional.of(file.getFileMetadata().getSize()),
+              metadata.getJobName(), metadata.getJobId(), metadata.getTaskName(), metadata.getStoreName());
+      deleteFutures.add(deleteFile(file, requestMetadata));
+    }
+
+    // Delete all subDirs present recursively
+    for (DirIndex subDir: dirIndex.getSubDirsPresent()) {
+      deleteFutures.add(deleteDir(subDir, metadata));
+    }
+
+    return CompletableFuture.allOf(deleteFutures.toArray(new CompletableFuture[0]));
   }
 
-  /**
-   * GETs the {@link SnapshotIndex} from the blob store.
-   * @param blobId blob ID of the {@link SnapshotIndex} to get
-   * @return a Future containing the {@link SnapshotIndex}
-   */
-  public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata) {
-    Preconditions.checkState(StringUtils.isNotBlank(blobId));
-    String opName = "getSnapshotIndex: " + blobId;
-    return FutureUtil.executeAsyncWithRetries(opName, () -> {
-      ByteArrayOutputStream indexBlobStream = new ByteArrayOutputStream(); // no need to close ByteArrayOutputStream
-      return blobStoreManager.get(blobId, indexBlobStream, metadata).toCompletableFuture()
-          .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor);
-    }, isCauseNonRetriable(), executor);
-  }
 
   /**
    * Recursively issue delete requests for files and dirs marked to be removed in a previously created remote snapshot.
@@ -223,44 +377,79 @@ public class BlobStoreUtil {
   }
 
   /**
-   * WARNING: This method deletes the **SnapshotIndex blob** from the snapshot. This should only be called to clean
-   * up an older snapshot **AFTER** all the files and sub-dirs to be deleted from this snapshot are already deleted
-   * using {@link #cleanUpDir(DirIndex, Metadata)}
-   *
-   * @param snapshotIndexBlobId blob ID of SnapshotIndex blob to delete
-   * @return a future that completes when the index blob is deleted from remote store.
+   * Gets a file from the blob store.
+   * @param fileBlobs List of {@link FileBlob}s that constitute this file.
+   * @param fileToRestore File pointing to the local path where the file will be restored.
+   * @param requestMetadata {@link Metadata} associated with this request
+   * @return a future that completes when the file is downloaded and written or if an exception occurs.
    */
-  public CompletionStage<Void> deleteSnapshotIndexBlob(String snapshotIndexBlobId, Metadata metadata) {
-    Preconditions.checkState(StringUtils.isNotBlank(snapshotIndexBlobId));
-    LOG.debug("Deleting SnapshotIndex blob {} from blob store", snapshotIndexBlobId);
-    String opName = "deleteSnapshotIndexBlob: " + snapshotIndexBlobId;
-    return FutureUtil.executeAsyncWithRetries(opName, () ->
-        blobStoreManager.delete(snapshotIndexBlobId, metadata).toCompletableFuture(), isCauseNonRetriable(), executor);
-  }
+  @VisibleForTesting
+  CompletableFuture<Void> getFile(List<FileBlob> fileBlobs, File fileToRestore, Metadata requestMetadata) {
+    FileOutputStream outputStream = null;
+    try {
+      long restoreFileStartTime = System.nanoTime();
+      // TODO HIGH shesharm ensure that ambry + standby is handled correctly (i.e. no continuous restore for ambry
+      //  backed stores, but restore is done correctly on a failover).
+      if (fileToRestore.exists()) {
+        // delete the file if it already exists, e.g. from a previous retry.
+        Files.delete(fileToRestore.toPath());
+      }
 
-  /**
-   * Marks all the blobs associated with an {@link SnapshotIndex} to never expire.
-   * @param snapshotIndex {@link SnapshotIndex} of the remote snapshot
-   * @param metadata {@link Metadata} related to the request
-   * @return A future that completes when all the files and subdirs associated with this remote snapshot are marked to
-   * never expire.
-   */
-  public CompletionStage<Void> removeTTL(String indexBlobId, SnapshotIndex snapshotIndex, Metadata metadata) {
-    SnapshotMetadata snapshotMetadata = snapshotIndex.getSnapshotMetadata();
-    LOG.debug("Marking contents of SnapshotIndex: {} to never expire", snapshotMetadata.toString());
+      outputStream = new FileOutputStream(fileToRestore);
+      final FileOutputStream finalOutputStream = outputStream;
+      // TODO HIGH shesharm add integration tests to ensure empty files and directories are handled correctly E2E.
+      fileToRestore.createNewFile(); // create file for 0 byte files (fileIndex entry but no fileBlobs).
+      // create a copy to ensure list being sorted is mutable.
+      List<FileBlob> fileBlobsCopy = new ArrayList<>(fileBlobs);
+      fileBlobsCopy.sort(Comparator.comparingInt(FileBlob::getOffset)); // sort by offset.
 
-    String opName = "removeTTL for SnapshotIndex for checkpointId: " + snapshotMetadata.getCheckpointId();
-    Supplier<CompletionStage<Void>> removeDirIndexTTLAction =
-      () -> removeTTL(snapshotIndex.getDirIndex(), metadata).toCompletableFuture();
-    CompletableFuture<Void> dirIndexTTLRemovalFuture = FutureUtil.executeAsyncWithRetries(opName,
-        removeDirIndexTTLAction, isCauseNonRetriable(), executor);
+      // chain the futures such that write to file for blobs is sequential.
+      // can be optimized to write concurrently to the file later.
+      CompletableFuture<Void> resultFuture = CompletableFuture.completedFuture(null);
+      for (FileBlob fileBlob : fileBlobsCopy) {
+        resultFuture = resultFuture.thenComposeAsync(v -> {
+          LOG.debug("Starting restore for file: {} with blob id: {} at offset: {}", fileToRestore, fileBlob.getBlobId(),
+              fileBlob.getOffset());
+          return blobStoreManager.get(fileBlob.getBlobId(), finalOutputStream, requestMetadata);
+        }, executor);
+      }
 
-    return dirIndexTTLRemovalFuture.thenComposeAsync(aVoid -> {
-      String op2Name = "removeTTL for indexBlobId: " + indexBlobId;
-      Supplier<CompletionStage<Void>> removeIndexBlobTTLAction = () ->
-          blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
-      return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor);
-    }, executor);
+      resultFuture = resultFuture.thenRunAsync(() -> {
+        LOG.debug("Finished restore for file: {}. Closing output stream.", fileToRestore);
+        try {
+          // flush the file contents to disk
+          finalOutputStream.getFD().sync();
+          finalOutputStream.close();
+        } catch (Exception e) {
+          throw new SamzaException(String.format("Error closing output stream for file: %s", fileToRestore.getAbsolutePath()), e);
+        }
+      }, executor);
+
+      resultFuture.whenComplete((res, ex) -> {
+        if (restoreMetrics != null) {
+          restoreMetrics.avgFileRestoreNs.update(System.nanoTime() - restoreFileStartTime);
+
+          long fileSize = requestMetadata.getPayloadSize();
+          restoreMetrics.restoreRate.inc(fileSize);
+          restoreMetrics.filesRestored.getValue().addAndGet(1);
+          restoreMetrics.bytesRestored.getValue().addAndGet(fileSize);
+          restoreMetrics.filesRemaining.getValue().addAndGet(-1);
+          restoreMetrics.bytesRemaining.getValue().addAndGet(-1 * fileSize);
+        }
+      });
+      return resultFuture;
+    } catch (Exception exception) {
+      try {
+        if (outputStream != null) {
+          outputStream.close();
+        }
+      } catch (Exception err) {
+        LOG.error("Error closing output stream for file: {}", fileToRestore.getAbsolutePath(), err);
+      }
+
+      throw new SamzaException(String.format("Error restoring file: %s in path: %s",
+          fileToRestore.getName(), requestMetadata.getPayloadPath()), exception);
+    }
   }
 
   /**
@@ -282,7 +471,7 @@ public class BlobStoreUtil {
       CompletableFuture<FileIndex> fileBlobFuture;
       CheckedInputStream inputStream = null;
       try {
-        // TODO maybe use the more efficient CRC32C / PureJavaCRC32 impl
+        // TODO HIGH shesharm maybe use the more efficient CRC32C / PureJavaCRC32 impl
         inputStream = new CheckedInputStream(new FileInputStream(file), new CRC32());
         CheckedInputStream finalInputStream = inputStream;
         FileMetadata fileMetadata = FileMetadata.fromFile(file);
@@ -300,7 +489,7 @@ public class BlobStoreUtil {
               try {
                 finalInputStream.close();
               } catch (Exception e) {
-                throw new SamzaException(String.format("Error closing input stream for file %s",
+                throw new SamzaException(String.format("Error closing input stream for file: %s",
                     file.getAbsolutePath()), e);
               }
 
@@ -317,9 +506,9 @@ public class BlobStoreUtil {
             inputStream.close();
           }
         } catch (Exception err) {
-          LOG.error("Error closing input stream for file {}", file.getName(), err);
+          LOG.error("Error closing input stream for file: {}", file.getName(), err);
         }
-        LOG.error("Error putting file {}", file.getName(), e);
+        LOG.error("Error putting file: {}", file.getName(), e);
         throw new SamzaException(String.format("Error putting file %s", file.getAbsolutePath()), e);
       }
       return fileBlobFuture;
@@ -338,146 +527,6 @@ public class BlobStoreUtil {
             backupMetrics.bytesRemaining.getValue().addAndGet(-1 * fileSize);
           }
         });
-  }
-
-  /**
-   * Non-blocking restore of a {@link SnapshotIndex} to local store by downloading all the files and sub-dirs associated
-   * with this remote snapshot.
-   * @return A list of future for all the async downloads
-   */
-  @VisibleForTesting
-  public List<CompletableFuture<Void>> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata) {
-    LOG.debug("Restoring contents of directory: {} from remote snapshot.", baseDir);
-
-    List<CompletableFuture<Void>> downloadFutures = new ArrayList<>();
-
-    try {
-      // create parent directories if they don't exist
-      Files.createDirectories(baseDir.toPath());
-    } catch (IOException exception) {
-      LOG.error("Error creating directory: {} for restore", baseDir.getAbsolutePath(), exception);
-      throw new SamzaException(String.format("Error creating directory: %s for restore",
-          baseDir.getAbsolutePath()), exception);
-    }
-
-    // restore all files in the directory
-    for (FileIndex fileIndex : dirIndex.getFilesPresent()) {
-      File fileToRestore = Paths.get(baseDir.getAbsolutePath(), fileIndex.getFileName()).toFile();
-      Metadata requestMetadata =
-          new Metadata(fileToRestore.getAbsolutePath(), Optional.of(fileToRestore.length()),
-              metadata.getJobName(), metadata.getJobId(), metadata.getTaskName(), metadata.getStoreName());
-      List<FileBlob> fileBlobs = fileIndex.getBlobs();
-
-      String opName = "restoreFile: " + fileToRestore.getAbsolutePath();
-      CompletableFuture<Void> fileRestoreFuture = FutureUtil.executeAsyncWithRetries(opName, () -> {
-        long restoreFileStartTime = System.nanoTime();
-        FileOutputStream outputStream = null;
-        try {
-          // TODO HIGH shesharm ensure that ambry + standby is handled correctly (i.e. no continuous restore for ambry
-          //  backed stores, but restore is done correctly on a failover).
-          if (fileToRestore.exists()) {
-            // delete the file if it already exists, e.g. from a previous retry.
-            Files.delete(fileToRestore.toPath());
-          }
-
-          // TODO HIGH shesharm add integration tests to ensure empty files and directories are handled correctly E2E.
-          fileToRestore.createNewFile(); // create file for 0 byte files (fileIndex entry but no fileBlobs).
-
-          outputStream = new FileOutputStream(fileToRestore);
-          final FileOutputStream finalOutputStream = outputStream;
-          // create a copy to ensure list being sorted is mutable.
-          List<FileBlob> fileBlobsCopy = new ArrayList<>(fileBlobs);
-          fileBlobsCopy.sort(Comparator.comparingInt(FileBlob::getOffset)); // sort by offset.
-
-          // chain the futures such that write to file for blobs is sequential.
-          // can be optimized to write concurrently to the file later.
-          CompletableFuture<Void> resultFuture = CompletableFuture.completedFuture(null);
-          for (FileBlob fileBlob : fileBlobsCopy) {
-            resultFuture = resultFuture
-                .thenComposeAsync(v -> {
-                  LOG.debug("Starting restore for file: {} with blob id: {} at offset: {}",
-                      fileToRestore, fileBlob.getBlobId(), fileBlob.getOffset());
-                  return blobStoreManager.get(fileBlob.getBlobId(), finalOutputStream, requestMetadata);
-                }, executor);
-          }
-
-          resultFuture = resultFuture.thenRunAsync(() -> {
-            LOG.debug("Finished restore for file: {}. Closing output stream.", fileToRestore);
-            try {
-              // flush the file contents to disk
-              finalOutputStream.getFD().sync();
-              finalOutputStream.close();
-            } catch (Exception e) {
-              throw new SamzaException(String.format("Error closing output stream for file: %s",
-                  fileToRestore.getAbsolutePath()), e);
-            }
-          }, executor);
-
-          resultFuture.whenComplete((res, ex) -> {
-              if (restoreMetrics != null) {
-                restoreMetrics.avgFileRestoreNs.update(System.nanoTime() - restoreFileStartTime);
-
-                long fileSize = fileIndex.getFileMetadata().getSize();
-                restoreMetrics.restoreRate.inc(fileSize);
-                restoreMetrics.filesRestored.getValue().addAndGet(1);
-                restoreMetrics.bytesRestored.getValue().addAndGet(fileSize);
-                restoreMetrics.filesRemaining.getValue().addAndGet(-1);
-                restoreMetrics.bytesRemaining.getValue().addAndGet(-1 * fileSize);
-              }
-            });
-
-          return resultFuture;
-        } catch (Exception e) {
-          try {
-            if (outputStream != null) {
-              outputStream.close();
-            }
-          } catch (Exception err) {
-            LOG.error("Error closing output stream for file: {}", fileToRestore.getAbsolutePath(), err);
-          }
-
-          throw new SamzaException(String.format("Error restoring file: %s in directory: %s",
-              fileIndex.getFileName(), dirIndex.getDirName()), e);
-        }
-      }, isCauseNonRetriable(), executor);
-
-      downloadFutures.add(fileRestoreFuture);
-    }
-
-    // restore any sub-directories
-    List<DirIndex> subDirs = dirIndex.getSubDirsPresent();
-    for (DirIndex subDir : subDirs) {
-      File subDirFile = Paths.get(baseDir.getAbsolutePath(), subDir.getDirName()).toFile();
-      downloadFutures.addAll(restoreDir(subDirFile, subDir, metadata));
-    }
-
-    return downloadFutures;
-  }
-
-  /**
-   * WARNING: Recursively delete **ALL** the associated files and subdirs within the provided {@link DirIndex}.
-   * @param dirIndex {@link DirIndex} whose entire contents are to be deleted.
-   * @param metadata {@link Metadata} related to the request
-   * @return a future that completes when ALL the files and subdirs associated with the dirIndex have been
-   * marked for deleted in the remote blob store.
-   */
-  public CompletionStage<Void> deleteDir(DirIndex dirIndex, Metadata metadata) {
-    LOG.debug("Completely deleting dir: {} in blob store", dirIndex.getDirName());
-    List<CompletionStage<Void>> deleteFutures = new ArrayList<>();
-    // Delete all files present in subDir
-    for (FileIndex file: dirIndex.getFilesPresent()) {
-      Metadata requestMetadata =
-          new Metadata(file.getFileName(), Optional.of(file.getFileMetadata().getSize()),
-              metadata.getJobName(), metadata.getJobId(), metadata.getTaskName(), metadata.getStoreName());
-      deleteFutures.add(deleteFile(file, requestMetadata));
-    }
-
-    // Delete all subDirs present recursively
-    for (DirIndex subDir: dirIndex.getSubDirsPresent()) {
-      deleteFutures.add(deleteDir(subDir, metadata));
-    }
-
-    return CompletableFuture.allOf(deleteFutures.toArray(new CompletableFuture[0]));
   }
 
   /**
@@ -540,165 +589,30 @@ public class BlobStoreUtil {
     return CompletableFuture.allOf(updateTTLsFuture.toArray(new CompletableFuture[0]));
   }
 
-  /**
-   * Bipredicate to test a local file in the filesystem and a remote file {@link FileIndex} and find out if they represent
-   * the same file. Files with same attributes as well as content are same file. A SST file in a special case. They are
-   * immutable, so we only compare their attributes but not the content.
-   * @param compareLargeFileChecksums whether to compare checksums for large files (> 1 MB).
-   * @return BiPredicate to test similarity of local and remote files
-   */
-  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
-    return (localFile, remoteFile) -> {
-      if (localFile.getName().equals(remoteFile.getFileName())) {
-        FileMetadata remoteFileMetadata = remoteFile.getFileMetadata();
-
-        PosixFileAttributes localFileAttrs = null;
-        try {
-          localFileAttrs = Files.readAttributes(localFile.toPath(), PosixFileAttributes.class);
-        } catch (IOException e) {
-          LOG.error("Error reading attributes for file {}", localFile.getAbsolutePath());
-          throw new RuntimeException(String.format("Error reading attributes for file: %s", localFile.getAbsolutePath()));
-        }
-
-        // Don't compare file timestamps. The ctime of a local file just restored will be different than the
-        // remote file, and will cause the file to be uploaded again during the first commit after restore.
-
-        boolean areSameFiles =
-            localFileAttrs.size() == remoteFileMetadata.getSize() &&
-            localFileAttrs.group().getName().equals(remoteFileMetadata.getGroup()) &&
-            localFileAttrs.owner().getName().equals(remoteFileMetadata.getOwner()) &&
-            PosixFilePermissions.toString(localFileAttrs.permissions()).equals(remoteFileMetadata.getPermissions());
-
-        if (!areSameFiles) {
-          LOG.debug("Local file {} and remote file {} are not same. " +
-                  "Local file attributes: {}. Remote file attributes: {}.",
-              localFile.getAbsolutePath(), remoteFile.getFileName(),
-              fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
-          return false;
-        } else {
-          LOG.trace("Local file {}. Remote file {}. " +
-                  "Local file attributes: {}. Remote file attributes: {}.",
-              localFile.getAbsolutePath(), remoteFile.getFileName(),
-              fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
-        }
-
-        boolean isLargeFile = localFileAttrs.size() > 1024 * 1024;
-        if (!compareLargeFileChecksums && isLargeFile) {
-          // Since RocksDB SST files are immutable after creation, we can skip the expensive checksum computations
-          // which requires reading the entire file.
-          LOG.debug("Local file {} and remote file {} are same. " +
-                  "Skipping checksum calculation for large file of size: {}.",
-              localFile.getAbsolutePath(), remoteFile.getFileName(), localFileAttrs.size());
-          return true;
-        } else {
-          try {
-            FileInputStream fis = new FileInputStream(localFile);
-            CheckedInputStream cis = new CheckedInputStream(fis, new CRC32());
-            byte[] buffer = new byte[8 * 1024]; // 8 KB
-            while (cis.read(buffer, 0, buffer.length) >= 0) {}
-            long localFileChecksum = cis.getChecksum().getValue();
-            cis.close();
-
-            boolean areSameChecksum = localFileChecksum == remoteFile.getChecksum();
-            if (!areSameChecksum) {
-              LOG.debug("Local file {} and remote file {} are not same. " +
-                      "Local checksum: {}. Remote checksum: {}",
-                  localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
-            } else {
-              LOG.debug("Local file {} and remote file: {} are same. Local checksum: {}. Remote checksum: {}",
-                  localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
-            }
-            return areSameChecksum;
-          } catch (IOException e) {
-            throw new SamzaException("Error calculating checksum for local file: " + localFile.getAbsolutePath(), e);
-          }
-        }
-      }
-
-      return false;
-    };
-  }
 
   /**
-   * Checks if a local directory and a remote directory are identical. Local and remote directories are identical iff:
-   * 1. The local directory has exactly the same set of files as the remote directory, and the files are themselves
-   * identical, as determined by {@link #areSameFile(boolean)}, except for those allowed to differ according to
-   * {@param filesToIgnore}.
-   * 2. The local directory has exactly the same set of sub-directories as the remote directory.
-   *
-   * @param filesToIgnore a set of file names to ignore during the directory comparisons
-   *                      (does not exclude directory names)
-   * @param compareLargeFileChecksums whether to compare checksums for large files (> 1 MB).
-   * @return boolean indicating whether the local and remote directory are identical.
+   * Marks all the blobs associated with an {@link SnapshotIndex} to never expire.
+   * @param snapshotIndex {@link SnapshotIndex} of the remote snapshot
+   * @param metadata {@link Metadata} related to the request
+   * @return A future that completes when all the files and subdirs associated with this remote snapshot are marked to
+   * never expire.
    */
-  // TODO HIGH shesharm add unit tests
-  public BiPredicate<File, DirIndex> areSameDir(Set<String> filesToIgnore, boolean compareLargeFileChecksums) {
-    return (localDir, remoteDir) -> {
-      String remoteDirName = remoteDir.getDirName().equals(DirIndex.ROOT_DIR_NAME) ? "root" : remoteDir.getDirName();
-      LOG.debug("Creating diff between local dir: {} and remote dir: {} for comparison.",
-          localDir.getAbsolutePath(), remoteDirName);
-      DirDiff dirDiff = DirDiffUtil.getDirDiff(localDir, remoteDir, BlobStoreUtil.areSameFile(compareLargeFileChecksums));
+  public CompletionStage<Void> removeTTL(String indexBlobId, SnapshotIndex snapshotIndex, Metadata metadata) {
+    SnapshotMetadata snapshotMetadata = snapshotIndex.getSnapshotMetadata();
+    LOG.debug("Marking contents of SnapshotIndex: {} to never expire", snapshotMetadata.toString());
 
-      boolean areSameDir = true;
-      List<String> filesRemoved = dirDiff.getFilesRemoved().stream()
-          .map(FileIndex::getFileName)
-          .filter(name -> !filesToIgnore.contains(name))
-          .collect(Collectors.toList());
+    String opName = "removeTTL for SnapshotIndex for checkpointId: " + snapshotMetadata.getCheckpointId();
+    Supplier<CompletionStage<Void>> removeDirIndexTTLAction =
+        () -> removeTTL(snapshotIndex.getDirIndex(), metadata).toCompletableFuture();
+    CompletableFuture<Void> dirIndexTTLRemovalFuture = FutureUtil.executeAsyncWithRetries(opName,
+        removeDirIndexTTLAction, isCauseNonRetriable(), executor);
 
-      if (!filesRemoved.isEmpty()) {
-        areSameDir = false;
-        LOG.error("Local directory: {} is missing files that are present in remote snapshot: {}",
-            localDir.getAbsolutePath(), StringUtils.join(filesRemoved, ", "));
-      }
-
-      List<DirIndex> subDirsRemoved = dirDiff.getSubDirsRemoved();
-      if (!subDirsRemoved.isEmpty()) {
-        areSameDir = false;
-        List<String> missingSubDirs = subDirsRemoved.stream().map(DirIndex::getDirName).collect(Collectors.toList());
-        LOG.error("Local directory: {} is missing sub-dirs that are present in remote snapshot: {}",
-            localDir.getAbsolutePath(), StringUtils.join(missingSubDirs, ", "));
-      }
-
-      List<String> filesAdded = dirDiff.getFilesAdded().stream()
-          .map(File::getName)
-          .filter(name -> !filesToIgnore.contains(name))
-          .collect(Collectors.toList());
-      if (!filesAdded.isEmpty()) {
-        areSameDir = false;
-        LOG.error("Local directory: {} has additional files that are not present in remote snapshot: {}",
-            localDir.getAbsolutePath(), StringUtils.join(filesAdded, ", "));
-      }
-
-      List<DirDiff> subDirsAdded = dirDiff.getSubDirsAdded();
-      if (!subDirsAdded.isEmpty()) {
-        areSameDir = false;
-        List<String> addedDirs = subDirsAdded.stream().map(DirDiff::getDirName).collect(Collectors.toList());
-        LOG.error("Local directory: {} has additional sub-dirs that are not present in remote snapshot: {}",
-            localDir.getAbsolutePath(), StringUtils.join(addedDirs, ", "));
-      }
-
-      // dir diff calculation already ensures that all retained files are equal (by definition)
-      // recursively test that all retained sub-dirs are equal as well
-      Map<String, DirIndex> remoteSubDirs = new HashMap<>();
-      for (DirIndex subDir: remoteDir.getSubDirsPresent()) {
-        remoteSubDirs.put(subDir.getDirName(), subDir);
-      }
-      for (DirDiff subDirRetained: dirDiff.getSubDirsRetained()) {
-        String localSubDirName = subDirRetained.getDirName();
-        File localSubDirFile = Paths.get(localDir.getAbsolutePath(), localSubDirName).toFile();
-        DirIndex remoteSubDir = remoteSubDirs.get(localSubDirName);
-        boolean areSameSubDir = areSameDir(filesToIgnore, false).test(localSubDirFile, remoteSubDir);
-        if (!areSameSubDir) {
-          LOG.debug("Local sub-dir: {} and remote sub-dir: {} are not same.",
-              localSubDirFile.getAbsolutePath(), remoteSubDir.getDirName());
-          areSameDir = false;
-        }
-      }
-
-      LOG.debug("Local dir: {} and remote dir: {} are {}the same.",
-          localDir.getAbsolutePath(), remoteDirName, areSameDir ? "" : "not ");
-      return areSameDir;
-    };
+    return dirIndexTTLRemovalFuture.thenComposeAsync(aVoid -> {
+      String op2Name = "removeTTL for indexBlobId: " + indexBlobId;
+      Supplier<CompletionStage<Void>> removeIndexBlobTTLAction = () ->
+          blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
+      return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor);
+    }, executor);
   }
 
   private static String fileAttributesToString(PosixFileAttributes fileAttributes) {
