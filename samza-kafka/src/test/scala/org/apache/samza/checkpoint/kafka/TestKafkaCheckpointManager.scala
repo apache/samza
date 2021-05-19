@@ -127,6 +127,43 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   }
 
   @Test
+  def testReadCheckpointShouldIgnoreUnknownCheckpointKeys(): Unit = {
+    val checkpointTopic = "checkpoint-topic-1"
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+    kcm1.register(taskName)
+    kcm1.createResources
+    kcm1.start
+    kcm1.stop
+
+    // check that start actually creates the topic with log compaction enabled
+    val topicConfig = adminZkClient.getAllTopicConfigs().getOrElse(checkpointTopic, new Properties())
+
+    assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
+    assertEquals("compact", topicConfig.get("cleanup.policy"))
+    assertEquals("26214400", topicConfig.get("segment.bytes"))
+
+    // read before topic exists should result in a null checkpoint
+    val readCp = readCheckpoint(checkpointTopic, taskName)
+    assertNull(readCp)
+
+    // skips unknown checkpoints from checkpoint topic
+    writeCheckpoint(checkpointTopic, taskName, checkpoint1, "checkpoint-v2")
+    assertNull(readCheckpoint(checkpointTopic, taskName))
+
+    // reads latest v1 checkpoints
+    writeCheckpoint(checkpointTopic, taskName, checkpoint1)
+    assertEquals(checkpoint1, readCheckpoint(checkpointTopic, taskName))
+
+    // writing checkpoint v2 still returns the previous v1 checkpoint
+    writeCheckpoint(checkpointTopic, taskName, checkpoint2, "checkpoint-v2")
+    assertEquals(checkpoint1, readCheckpoint(checkpointTopic, taskName))
+
+    // writing checkpoint2 with the correct key returns the checkpoint2
+    writeCheckpoint(checkpointTopic, taskName, checkpoint2)
+    assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName))
+  }
+
+  @Test
   def testWriteCheckpointShouldRetryFiniteTimesOnFailure(): Unit = {
     val checkpointTopic = "checkpoint-topic-2"
     val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
@@ -251,7 +288,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       .build())
   }
 
-  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointSerde = new CheckpointSerde, failOnTopicValidation: Boolean = true) = {
+  private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointSerde = new CheckpointSerde,
+    failOnTopicValidation: Boolean = true, checkpointKey: String = KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE) = {
     val kafkaConfig = new org.apache.samza.config.KafkaConfig(config)
     val props = kafkaConfig.getCheckpointTopicProperties()
     val systemName = kafkaConfig.getCheckpointSystem.getOrElse(
@@ -264,7 +302,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemFactory = ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory])
 
     val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
-    new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config, new NoOpMetricsRegistry, serde)
+    new MockKafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, serde, checkpointKey)
   }
 
   private def readCheckpoint(checkpointTopic: String, taskName: TaskName) : Checkpoint = {
@@ -276,8 +314,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     checkpoint
   }
 
-  private def writeCheckpoint(checkpointTopic: String, taskName: TaskName, checkpoint: Checkpoint): Unit = {
-    val kcm = createKafkaCheckpointManager(checkpointTopic)
+  private def writeCheckpoint(checkpointTopic: String, taskName: TaskName, checkpoint: Checkpoint,
+    checkpointKey: String = KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE): Unit = {
+    val kcm = createKafkaCheckpointManager(checkpointTopic, checkpointKey = checkpointKey)
     kcm.register(taskName)
     kcm.start
     kcm.writeCheckpoint(taskName, checkpoint)
@@ -300,4 +339,25 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     }
   }
 
+  class MockKafkaCheckpointManager(spec: KafkaStreamSpec, systemFactory: SystemFactory, failOnTopicValidation: Boolean,
+    serde: CheckpointSerde = new CheckpointSerde, checkpointKey: String)
+    extends KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config,
+      new NoOpMetricsRegistry, serde) {
+    override def buildOutgoingMessageEnvelope(taskName: TaskName, checkpoint: Checkpoint): OutgoingMessageEnvelope = {
+      val key = new KafkaCheckpointLogKey(checkpointKey, taskName, expectedGrouperFactory)
+      val keySerde = new KafkaCheckpointLogKeySerde
+      val checkpointMsgSerde = new CheckpointSerde
+      val keyBytes = try {
+        keySerde.toBytes(key)
+      } catch {
+        case e: Exception => throw new SamzaException(s"Exception when writing checkpoint-key for $taskName: $checkpoint", e)
+      }
+      val msgBytes = try {
+        checkpointMsgSerde.toBytes(checkpoint)
+      } catch {
+        case e: Exception => throw new SamzaException(s"Exception when writing checkpoint for $taskName: $checkpoint", e)
+      }
+      new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
+    }
+  }
 }
