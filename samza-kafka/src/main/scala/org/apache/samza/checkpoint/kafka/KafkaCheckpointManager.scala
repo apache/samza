@@ -159,19 +159,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     * @inheritdoc
     */
   override def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
-    val key = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE, taskName, expectedGrouperFactory)
-    val keyBytes = try {
-      checkpointKeySerde.toBytes(key)
-    } catch {
-      case e: Exception => throw new SamzaException(s"Exception when writing checkpoint-key for $taskName: $checkpoint", e)
-    }
-    val msgBytes = try {
-      checkpointMsgSerde.toBytes(checkpoint)
-    } catch {
-      case e: Exception => throw new SamzaException(s"Exception when writing checkpoint for $taskName: $checkpoint", e)
-    }
-
-    val envelope = new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
+    val envelope = buildOutgoingMessageEnvelope(taskName, checkpoint)
 
     // Used for exponential backoff retries on failure in sending messages through producer.
     val startTimeInMillis: Long = System.currentTimeMillis()
@@ -188,7 +176,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       } catch {
         case exception: Exception => {
           producerException = exception
-          warn(s"Retrying failed checkpoint write to key: $key, checkpoint: $checkpoint for task: $taskName", exception)
+          warn(s"Retrying failed checkpoint write for checkpoint: $checkpoint for task: $taskName", exception)
           // TODO: Remove this producer recreation logic after SAMZA-1393.
           val newProducer: SystemProducer = getSystemProducer()
           producerCreationLock.synchronized {
@@ -332,5 +320,22 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     }
 
     partitionMetaData.getOldestOffset
+  }
+
+  @VisibleForTesting
+  def buildOutgoingMessageEnvelope(taskName: TaskName, checkpoint: Checkpoint): OutgoingMessageEnvelope = {
+    val key = new KafkaCheckpointLogKey(KafkaCheckpointLogKey.CHECKPOINT_KEY_TYPE, taskName, expectedGrouperFactory)
+    val keyBytes = try {
+      checkpointKeySerde.toBytes(key)
+    } catch {
+      case e: Exception => throw new SamzaException(s"Exception when writing checkpoint-key for $taskName: $checkpoint", e)
+    }
+    val msgBytes = try {
+      checkpointMsgSerde.toBytes(checkpoint)
+    } catch {
+      case e: Exception => throw new SamzaException(s"Exception when writing checkpoint for $taskName: $checkpoint", e)
+    }
+
+    new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
   }
 }
