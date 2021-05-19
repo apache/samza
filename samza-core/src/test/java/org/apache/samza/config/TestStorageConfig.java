@@ -258,18 +258,6 @@ public class TestStorageConfig {
   }
 
   @Test
-  public void testIsChangelogSystem() {
-    StorageConfig storageConfig = new StorageConfig(new MapConfig(ImmutableMap.of(
-        // store0 has a changelog stream
-        String.format(StorageConfig.FACTORY, STORE_NAME0), "factory.class",
-        String.format(CHANGELOG_STREAM, STORE_NAME0), "system0.changelog-stream",
-        // store1 does not have a changelog stream
-        String.format(StorageConfig.FACTORY, STORE_NAME1), "factory.class")));
-    assertTrue(storageConfig.isChangelogSystem("system0"));
-    assertFalse(storageConfig.isChangelogSystem("other-system"));
-  }
-
-  @Test
   public void testHasDurableStores() {
     // no changelog, which means no durable stores
     StorageConfig storageConfig = new StorageConfig(

@@ -29,7 +29,6 @@ import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
-import org.apache.samza.util.StreamUtil;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -238,17 +237,6 @@ public class StorageConfig extends MapConfig {
         "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
 
     return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
-  }
-
-  /**
-   * Helper method to check if a system has a changelog attached to it.
-   */
-  public boolean isChangelogSystem(String systemName) {
-    return getStoreNames().stream()
-        .map(this::getChangelogStream)
-        .filter(Optional::isPresent)
-        .map(systemStreamName -> StreamUtil.getSystemStreamFromNames(systemStreamName.get()).getSystem())
-        .anyMatch(system -> system.equals(systemName));
   }
 
   /**
