@@ -95,6 +95,13 @@ public class BlobStoreUtil {
   }
 
   /**
+   * Initialize {@link BlobStoreManager} client
+   */
+  public void initBlobStoreManager() {
+    blobStoreManager.init();
+  }
+
+  /**
    * Get the blob id of {@link SnapshotIndex} and {@link SnapshotIndex}es for the provided {@param task}
    * in the provided {@param checkpoint}.
    * @param jobName job name is used to build request metadata
@@ -613,6 +620,13 @@ public class BlobStoreUtil {
           blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
       return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor);
     }, executor);
+  }
+
+  /**
+   * Close {@link BlobStoreManager}
+   */
+  public void closeBlobStoreManager() {
+    blobStoreManager.close();
   }
 
   private static String fileAttributesToString(PosixFileAttributes fileAttributes) {

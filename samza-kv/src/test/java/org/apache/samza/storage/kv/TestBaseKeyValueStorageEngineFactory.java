@@ -23,6 +23,7 @@ import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
@@ -139,7 +140,7 @@ public class TestBaseKeyValueStorageEngineFactory {
   @Test
   public void testDurableKeyValueStore() {
     Config config = new MapConfig(BASE_CONFIG, DISABLE_CACHE,
-        ImmutableMap.of(String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME),
+        ImmutableMap.of(String.format(BlobStoreConfig.STORE_STATE_BACKEND_BACKUP_FACTORIES, STORE_NAME),
         "backendFactory,backendFactory2"));
     StorageEngine storageEngine = callGetStorageEngine(config, null);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);

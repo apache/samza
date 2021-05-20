@@ -24,6 +24,7 @@ import com.google.common.base.Preconditions;
 import java.io.File;
 import java.util.concurrent.ExecutorService;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.context.ContainerContext;
@@ -58,8 +59,8 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
       Clock clock,
       File loggedStoreBaseDir,
       File nonLoggedStoreBaseDir) {
-    StorageConfig storageConfig = new StorageConfig(config);
-    String blobStoreManagerFactory = storageConfig.getBlobStoreManagerFactory();
+    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
+    String blobStoreManagerFactory = blobStoreConfig.getBlobStoreManagerFactory();
     Preconditions.checkState(StringUtils.isNotBlank(blobStoreManagerFactory));
     BlobStoreManagerFactory factory = ReflectionUtil.getObj(blobStoreManagerFactory, BlobStoreManagerFactory.class);
     BlobStoreManager blobStoreManager = factory.getBackupBlobStoreManager(config, backupExecutor);
@@ -81,8 +82,8 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
       File loggedStoreBaseDir,
       File nonLoggedStoreBaseDir,
       KafkaChangelogRestoreParams kafkaChangelogRestoreParams) {
-    StorageConfig storageConfig = new StorageConfig(config);
-    String blobStoreManagerFactory = storageConfig.getBlobStoreManagerFactory();
+    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
+    String blobStoreManagerFactory = blobStoreConfig.getBlobStoreManagerFactory();
     Preconditions.checkState(StringUtils.isNotBlank(blobStoreManagerFactory));
     BlobStoreManagerFactory factory = ReflectionUtil.getObj(blobStoreManagerFactory, BlobStoreManagerFactory.class);
     BlobStoreManager blobStoreManager = factory.getRestoreBlobStoreManager(config, restoreExecutor);
@@ -94,8 +95,8 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
 
   @Override
   public StateBackendAdmin getAdmin(JobModel jobModel, Config config) {
-    StorageConfig storageConfig = new StorageConfig(config);
-    String stateBackendAdminFactory = storageConfig.getBlobStoreBackendAdminFactory();
+    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
+    String stateBackendAdminFactory = blobStoreConfig.getBlobStoreStateBackendAdminFactory();
     BlobStoreAdminFactory factory = ReflectionUtil.getObj(stateBackendAdminFactory, BlobStoreAdminFactory.class);
     return factory.getStateBackendAdmin(config, jobModel);
   }

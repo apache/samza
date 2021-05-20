@@ -66,14 +66,6 @@ public class StorageConfig extends MapConfig {
   public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
   public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
 
-  public static final String BLOB_STORE_BACKEND_ADMIN_FACTORY = "blob.store.backend.admin.factory";
-  public static final String BLOB_STORE_MANAGER_FACTORY = "blob.store.manager.factory";
-  public static final String BLOB_STORE_STATE_BACKEND_FACTORY = "org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory";
-  public static final String DEFAULT_STATE_BACKEND_FACTORY = "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
-  public static final String STORE_BACKEND_BACKUP_FACTORIES = STORE_PREFIX + "%s.state.backend.backup.factories";
-  public static final List<String> DEFAULT_STATE_BACKEND_BACKUP_FACTORIES = ImmutableList.of(
-      DEFAULT_STATE_BACKEND_FACTORY);
-  public static final String STATE_BACKEND_RESTORE_FACTORY = STORE_PREFIX + "state.restore.backend";
   public static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
       "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
 
@@ -139,15 +131,6 @@ public class StorageConfig extends MapConfig {
       systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, this);
     }
     return Optional.ofNullable(systemStreamRes);
-  }
-
-  public List<String> getStoreBackupManagerClassName(String storeName) {
-    List<String> storeBackupManagers = getList(String.format(STORE_BACKEND_BACKUP_FACTORIES, storeName), new ArrayList<>());
-    // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
-    if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
-      storeBackupManagers = DEFAULT_STATE_BACKEND_BACKUP_FACTORIES;
-    }
-    return storeBackupManagers;
   }
 
   public boolean getAccessLogEnabled(String storeName) {
@@ -266,39 +249,6 @@ public class StorageConfig extends MapConfig {
         "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
 
     return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
-  }
-
-  public Set<String> getStateBackendBackupFactories() {
-    return getStoreNames().stream()
-        .flatMap((storeName) -> getStoreBackupManagerClassName(storeName).stream())
-        .collect(Collectors.toSet());
-  }
-
-  public List<String> getStoresWithStateBackendBackupFactory(String backendFactoryName) {
-    return getStoreNames().stream()
-        .filter((storeName) -> getStoreBackupManagerClassName(storeName)
-            .contains(backendFactoryName))
-        .collect(Collectors.toList());
-  }
-
-  public String getStateBackendRestoreFactory() {
-    return get(STATE_BACKEND_RESTORE_FACTORY, DEFAULT_STATE_BACKEND_FACTORY);
-  }
-
-  // TODO BLOCKER dchen update when making restore managers per store
-  public List<String> getStoresWithRestoreFactory(String backendFactoryName) {
-    return getStoreNames().stream()
-        .filter((storeName) -> getStateBackendRestoreFactory().equals(backendFactoryName))
-        .collect(Collectors.toList());
-  }
-
-  public String getBlobStoreManagerFactory() {
-    // TODO BLOCKER dchen validate that if blob store state backend is configured for use this config is also set.
-    return get(BLOB_STORE_MANAGER_FACTORY);
-  }
-
-  public String getBlobStoreBackendAdminFactory() {
-    return get(BLOB_STORE_BACKEND_ADMIN_FACTORY);
   }
 
   /**

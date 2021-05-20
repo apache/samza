@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
@@ -71,14 +72,15 @@ public class TestBlobStoreRestoreManager {
     String jobId = "testJobId";
     String taskName = "taskName";
     StorageConfig storageConfig = mock(StorageConfig.class);
+    BlobStoreConfig blobStoreConfig = mock(BlobStoreConfig.class);
     SnapshotIndex mockSnapshotIndex = mock(SnapshotIndex.class);
     String blobId = "blobId";
     Map<String, Pair<String, SnapshotIndex>> initialStoreSnapshotIndexes =
         ImmutableMap.of("oldStoreName", Pair.of(blobId, mockSnapshotIndex));
 
-    when(storageConfig.getStoresWithStateBackendBackupFactory(eq(BlobStoreStateBackendFactory.class.getName())))
+    when(blobStoreConfig.getStoresWithStateBackendBackupFactory(any(List.class), eq(BlobStoreStateBackendFactory.class.getName())))
         .thenReturn(ImmutableList.of("newStoreName"));
-    when(storageConfig.getStoresWithRestoreFactory(eq(BlobStoreStateBackendFactory.class.getName())))
+    when(blobStoreConfig.getStoresWithRestoreFactory(any(List.class), eq(BlobStoreStateBackendFactory.class.getName())))
         .thenReturn(ImmutableList.of("newStoreName"));
 
     DirIndex dirIndex = mock(DirIndex.class);
@@ -90,7 +92,7 @@ public class TestBlobStoreRestoreManager {
     when(blobStoreUtil.deleteSnapshotIndexBlob(anyString(), any(Metadata.class))).thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.deleteUnusedStoresFromBlobStore(
-        jobName, jobId, taskName, storageConfig, initialStoreSnapshotIndexes, blobStoreUtil, EXECUTOR);
+        jobName, jobId, taskName, storageConfig, blobStoreConfig, initialStoreSnapshotIndexes, blobStoreUtil, EXECUTOR);
 
     verify(blobStoreUtil, times(1)).cleanUpDir(eq(dirIndex), any(Metadata.class));
     verify(blobStoreUtil, times(1)).deleteDir(eq(dirIndex), any(Metadata.class));

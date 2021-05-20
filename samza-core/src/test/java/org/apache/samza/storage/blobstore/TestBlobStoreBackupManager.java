@@ -47,6 +47,7 @@ import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
@@ -187,7 +188,7 @@ public class TestBlobStoreBackupManager {
     indexBlobIdAndLocalRemoteSnapshotsPair = setupRemoteAndLocalSnapshots(false);
     Checkpoint checkpoint =
         new CheckpointV2(checkpointId, new HashMap<>(),
-            ImmutableMap.of(StorageConfig.BLOB_STORE_STATE_BACKEND_FACTORY, new HashMap<>()));
+            ImmutableMap.of(BlobStoreConfig.DEFAULT_BLOB_STORE_STATE_BACKEND_FACTORY, new HashMap<>()));
     blobStoreBackupManager.init(checkpoint);
 
     // mock: set task store dir to return corresponding test local store and create checkpoint dir
@@ -293,7 +294,7 @@ public class TestBlobStoreBackupManager {
 
     Checkpoint checkpoint =
         new CheckpointV2(checkpointId, new HashMap<>(),
-            ImmutableMap.of(StorageConfig.BLOB_STORE_STATE_BACKEND_FACTORY, previousCheckpoints));
+            ImmutableMap.of(BlobStoreConfig.DEFAULT_BLOB_STORE_STATE_BACKEND_FACTORY, previousCheckpoints));
     when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class))).thenCallRealMethod();
     blobStoreBackupManager.init(checkpoint);
 

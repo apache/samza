@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.StorageConfig;
@@ -96,6 +97,7 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
       StoreMode storeMode) {
     Config storageConfigSubset = jobContext.getConfig().subset("stores." + storeName + ".", true);
     StorageConfig storageConfig = new StorageConfig(jobContext.getConfig());
+    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(jobContext.getConfig());
     Optional<String> storeFactory = storageConfig.getStorageFactoryClassName(storeName);
     StoreProperties.StorePropertiesBuilder storePropertiesBuilder = new StoreProperties.StorePropertiesBuilder();
     if (!storeFactory.isPresent() || StringUtils.isBlank(storeFactory.get())) {
@@ -106,7 +108,7 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
       storePropertiesBuilder.setPersistedToDisk(true);
     }
     // The store is durable iff it is backed by the task backup manager
-    List<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
+    List<String> storeBackupManager = blobStoreConfig.getStoreBackupManagerClassName(storeName);
     storePropertiesBuilder.setIsDurable(!storeBackupManager.isEmpty());
 
     int batchSize = storageConfigSubset.getInt(WRITE_BATCH_SIZE, DEFAULT_WRITE_BATCH_SIZE);
