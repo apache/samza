@@ -35,6 +35,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
@@ -111,9 +112,11 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     this.config = config;
     this.clock = clock;
     this.storageManagerUtil = storageManagerUtil;
+    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
     StorageConfig storageConfig = new StorageConfig(config);
     this.storesToBackup =
-        storageConfig.getStoresWithStateBackendBackupFactory(BlobStoreStateBackendFactory.class.getName());
+        blobStoreConfig.getStoresWithStateBackendBackupFactory(storageConfig.getStoreNames(),
+            BlobStoreStateBackendFactory.class.getName());
     this.loggedStoreBaseDir = loggedStoreBaseDir;
     this.blobStoreUtil = blobStoreUtil;
     this.prevStoreSnapshotIndexesFuture = CompletableFuture.completedFuture(ImmutableMap.of());
@@ -125,6 +128,8 @@ public class BlobStoreBackupManager implements TaskBackupManager {
   public void init(Checkpoint checkpoint) {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store backup manager for task: {}", taskName);
+
+    blobStoreUtil.initBlobStoreManager();
 
     // Note: blocks the caller thread.
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
@@ -154,8 +159,10 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     metrics.filesToRetain.getValue().set(0L);
     metrics.bytesToRetain.getValue().set(0L);
 
+    // This map is used to atomically replace the prevStoreSnapshotIndexesFuture map at the end of the task commit
     Map<String, CompletableFuture<Pair<String, SnapshotIndex>>>
         storeToSCMAndSnapshotIndexPairFutures = new HashMap<>();
+    // This map is used to return serialized State Checkpoint Markers to the caller
     Map<String, CompletableFuture<String>> storeToSerializedSCMFuture = new HashMap<>();
 
     storesToBackup.forEach((storeName) -> {
@@ -223,7 +230,8 @@ public class BlobStoreBackupManager implements TaskBackupManager {
                   return blobStoreUtil.putSnapshotIndex(si);
                 }, executor);
 
-        // update the temporary storeName to previous snapshot index map with the new mapping.
+        // update the map of storeName to previous snapshot index storeToSCMAndSnapshotIndexPairFutures which is temporary
+        // map used to atomically update prevStoreSnapshotIndexesFuture at the end of the commit with the new mapping.
         CompletableFuture<Pair<String, SnapshotIndex>> scmAndSnapshotIndexPairFuture =
             FutureUtil.toFutureOfPair(
                 Pair.of(snapshotIndexBlobIdFuture.toCompletableFuture(), snapshotIndexFuture.toCompletableFuture()));
@@ -266,8 +274,10 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     List<CompletionStage<Void>> cleanupRemoteSnapshotFutures = new ArrayList<>();
     List<CompletionStage<Void>> removePrevRemoteSnapshotFutures = new ArrayList<>();
 
+    List<String> storeNames = new StorageConfig(config).getStoreNames();
     List<String> storesWithBlobStoreStateBackend =
-        new StorageConfig(config).getStoresWithStateBackendBackupFactory(BlobStoreStateBackendFactory.class.getName());
+        new BlobStoreConfig(config)
+            .getStoresWithStateBackendBackupFactory(storeNames, BlobStoreStateBackendFactory.class.getName());
 
     // SCM, in case of blob store backup and restore, is just the blob id of SnapshotIndex representing the remote snapshot
     storeSCMs.forEach((storeName, snapshotIndexBlobId) -> {
@@ -320,7 +330,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
 
   @Override
   public void close() {
-    // TODO need to init and close blob store manager instances?
+    blobStoreUtil.closeBlobStoreManager();
   }
 
   private void updateStoreDiffMetrics(String storeName, DirDiff.Stats stats) {

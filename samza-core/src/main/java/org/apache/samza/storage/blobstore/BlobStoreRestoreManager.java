@@ -40,6 +40,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
@@ -76,6 +77,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   private final ExecutorService executor;
   private final Config config;
   private final StorageConfig storageConfig;
+  private final BlobStoreConfig blobStoreConfig;
   private final StorageManagerUtil storageManagerUtil;
   private final BlobStoreUtil blobStoreUtil;
   private final DirDiffUtil dirDiffUtil;
@@ -100,6 +102,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     this.executor = restoreExecutor; // TODO BLOCKER dchen1 dont block on restore executor
     this.config = config;
     this.storageConfig = new StorageConfig(config);
+    this.blobStoreConfig = new BlobStoreConfig(config);
     this.storageManagerUtil = storageManagerUtil;
     this.blobStoreUtil = blobStoreUtil;
     this.dirDiffUtil = new DirDiffUtil();
@@ -107,7 +110,10 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     this.loggedBaseDir = loggedBaseDir;
     this.nonLoggedBaseDir = nonLoggedBaseDir;
     this.taskName = taskModel.getTaskName().getTaskName();
-    this.storesToRestore = storageConfig.getStoresWithRestoreFactory(BlobStoreStateBackendFactory.class.getName());
+    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
+    StorageConfig storageConfig = new StorageConfig(config);
+    this.storesToRestore =
+        blobStoreConfig.getStoresWithRestoreFactory(storageConfig.getStoreNames(), BlobStoreStateBackendFactory.class.getName());
     this.metrics = metrics;
   }
 
@@ -115,6 +121,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   public void init(Checkpoint checkpoint) {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store restore manager for task: {}", taskName);
+
+    blobStoreUtil.initBlobStoreManager();
+
     // get previous SCMs from checkpoint
     prevStoreSnapshotIndexes = blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint);
     metrics.getSnapshotIndexNs.set(System.nanoTime() - startTime);
@@ -124,7 +133,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     metrics.initStoreMetrics(storesToRestore);
 
     // Note: blocks the caller thread.
-    deleteUnusedStoresFromBlobStore(jobName, jobId, taskName, storageConfig, prevStoreSnapshotIndexes, blobStoreUtil, executor);
+    deleteUnusedStoresFromBlobStore(jobName, jobId, taskName, storageConfig, blobStoreConfig, prevStoreSnapshotIndexes,
+        blobStoreUtil, executor);
     metrics.initNs.set(System.nanoTime() - startTime);
   }
 
@@ -140,6 +150,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @Override
   public void close() {
+    blobStoreUtil.closeBlobStoreManager();
   }
 
   /**
@@ -151,13 +162,15 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    */
   @VisibleForTesting
   static void deleteUnusedStoresFromBlobStore(String jobName, String jobId, String taskName, StorageConfig storageConfig,
-      Map<String, Pair<String, SnapshotIndex>> initialStoreSnapshotIndexes,
+      BlobStoreConfig blobStoreConfig, Map<String, Pair<String, SnapshotIndex>> initialStoreSnapshotIndexes,
       BlobStoreUtil blobStoreUtil, ExecutorService executor) {
 
     List<String> storesToBackup =
-        storageConfig.getStoresWithStateBackendBackupFactory(BlobStoreStateBackendFactory.class.getName());
+        blobStoreConfig.getStoresWithStateBackendBackupFactory(storageConfig.getStoreNames(),
+            BlobStoreStateBackendFactory.class.getName());
     List<String> storesToRestore =
-        storageConfig.getStoresWithRestoreFactory(BlobStoreStateBackendFactory.class.getName());
+        blobStoreConfig.getStoresWithRestoreFactory(storageConfig.getStoreNames(),
+            BlobStoreStateBackendFactory.class.getName());
 
     List<CompletionStage<Void>> storeDeletionFutures = new ArrayList<>();
     initialStoreSnapshotIndexes.forEach((storeName, scmAndSnapshotIndex) -> {

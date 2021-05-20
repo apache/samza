@@ -95,6 +95,13 @@ public class BlobStoreUtil {
   }
 
   /**
+   * Initialize {@link BlobStoreManager} client
+   */
+  public void initBlobStoreManager() {
+    blobStoreManager.init();
+  }
+
+  /**
    * Get the blob id of {@link SnapshotIndex} and {@link SnapshotIndex}es for the provided {@param task}
    * in the provided {@param checkpoint}.
    * @param jobName job name is used to build request metadata
@@ -388,8 +395,6 @@ public class BlobStoreUtil {
     FileOutputStream outputStream = null;
     try {
       long restoreFileStartTime = System.nanoTime();
-      // TODO HIGH shesharm ensure that ambry + standby is handled correctly (i.e. no continuous restore for ambry
-      //  backed stores, but restore is done correctly on a failover).
       if (fileToRestore.exists()) {
         // delete the file if it already exists, e.g. from a previous retry.
         Files.delete(fileToRestore.toPath());
@@ -613,6 +618,13 @@ public class BlobStoreUtil {
           blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
       return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor);
     }, executor);
+  }
+
+  /**
+   * Close {@link BlobStoreManager}
+   */
+  public void closeBlobStoreManager() {
+    blobStoreManager.close();
   }
 
   private static String fileAttributesToString(PosixFileAttributes fileAttributes) {

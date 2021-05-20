@@ -179,6 +179,7 @@ object SamzaContainer extends Logging {
       .toSet
 
     val storageConfig = new StorageConfig(config)
+    val blobStoreConfig = new BlobStoreConfig(config)
     val sideInputStoresToSystemStreams = storageConfig.getStoreNames.asScala
       .map { storeName => (storeName, storageConfig.getSideInputs(storeName).asScala) }
       .filter { case (storeName, sideInputs) => sideInputs.nonEmpty }
@@ -520,7 +521,7 @@ object SamzaContainer extends Logging {
 
     // TODO dchen should we enforce restore factories to be subset of backup factories?
     val stateStorageBackendRestoreFactory = ReflectionUtil
-      .getObj(storageConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
+      .getObj(blobStoreConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
 
     val containerStorageManager = new ContainerStorageManager(
       checkpointManager,
@@ -547,7 +548,8 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val stateStorageBackendBackupFactories = storageConfig.getStateBackendBackupFactories.asScala.map(
+    val storeNames: util.List[String] = storageConfig.getStoreNames
+    val stateStorageBackendBackupFactories = blobStoreConfig.getStateBackendBackupFactories(storeNames).asScala.map(
       ReflectionUtil.getObj(_, classOf[StateBackendFactory])
     )
 

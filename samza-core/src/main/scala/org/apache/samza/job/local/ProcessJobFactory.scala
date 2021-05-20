@@ -24,7 +24,7 @@ import java.util
 import org.apache.samza.SamzaException
 import org.apache.samza.application.ApplicationUtil
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil
-import org.apache.samza.config.{Config, JobConfig, StorageConfig, TaskConfig}
+import org.apache.samza.config.{BlobStoreConfig, Config, JobConfig, StorageConfig, TaskConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
@@ -91,7 +91,10 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, config)
     metadataResourceUtil.createResources()
 
-    new StorageConfig(config).getStateBackendBackupFactories.foreach(stateStorageBackendBackupFactory => {
+    val storageConfig = new StorageConfig(config)
+    val storeNames: util.List[String] = storageConfig.getStoreNames
+    val blobStoreConfig = new BlobStoreConfig(config)
+    blobStoreConfig.getStateBackendBackupFactories(storeNames).foreach(stateStorageBackendBackupFactory => {
       val stateBackendFactory : StateBackendFactory =
         ReflectionUtil.getObj(stateStorageBackendBackupFactory, classOf[StateBackendFactory])
       val stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config)
