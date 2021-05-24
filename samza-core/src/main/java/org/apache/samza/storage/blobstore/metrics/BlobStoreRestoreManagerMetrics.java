@@ -14,7 +14,7 @@ public class BlobStoreRestoreManagerMetrics {
   private static final String GROUP = BlobStoreRestoreManagerMetrics.class.getName();
   private final MetricsRegistry metricsRegistry;
 
-  // ToDo per-task throughput
+  // TODO LOW shesharma per-task throughput
   public final Gauge<Long> initNs;
   public final Gauge<Long> getSnapshotIndexNs;
 
@@ -35,7 +35,7 @@ public class BlobStoreRestoreManagerMetrics {
   public final Map<String, Gauge<Long>> storeRestoreNs;
   public final Map<String, Gauge<Long>> storePostRestoreNs;
 
-  // ToDO move to SamzaHistogram
+  // TODO LOW shesharma move to SamzaHistogram
   public final Timer avgFileRestoreNs; // avg time for each file restored
 
   public BlobStoreRestoreManagerMetrics(MetricsRegistry metricsRegistry) {

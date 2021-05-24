@@ -20,12 +20,11 @@
 package org.apache.samza.storage;
 
 import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableMap;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;

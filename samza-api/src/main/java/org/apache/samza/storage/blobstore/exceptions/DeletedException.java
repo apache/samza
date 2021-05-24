@@ -19,6 +19,12 @@
 
 package org.apache.samza.storage.blobstore.exceptions;
 
+/**
+ * An instance of this class should be thrown by Blob Store Manager implementation to indicate that the exception
+ * occurred due to DELETE request for an already deleted blob. This exception is caught and ignored by caller of the
+ * DELETE request during initial cleanup and snapshot index read.
+ *
+ */
 public class DeletedException extends RuntimeException {
 
   private static final long serialVersionUID = 1L;

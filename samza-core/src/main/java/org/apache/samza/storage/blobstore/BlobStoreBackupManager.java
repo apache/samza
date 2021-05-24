@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage.blobstore;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.util.ArrayList;
@@ -35,7 +36,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
-import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
@@ -72,8 +72,8 @@ public class BlobStoreBackupManager implements TaskBackupManager {
   private final StorageManagerUtil storageManagerUtil;
   private final List<String> storesToBackup;
   private final File loggedStoreBaseDir;
+  private final BlobStoreManager blobStoreManager;
   private final BlobStoreUtil blobStoreUtil;
-
   private final BlobStoreBackupManagerMetrics metrics;
 
   /**
@@ -101,7 +101,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
 
   public BlobStoreBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
       ExecutorService backupExecutor, BlobStoreBackupManagerMetrics blobStoreTaskBackupMetrics, Config config,
-      Clock clock, File loggedStoreBaseDir, StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil) {
+      Clock clock, File loggedStoreBaseDir, StorageManagerUtil storageManagerUtil, BlobStoreManager blobStoreManager) {
     this.jobModel = jobModel;
     this.jobName = new JobConfig(config).getName().get();
     this.jobId = new JobConfig(config).getJobId();
@@ -112,13 +112,12 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     this.config = config;
     this.clock = clock;
     this.storageManagerUtil = storageManagerUtil;
-    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
     StorageConfig storageConfig = new StorageConfig(config);
     this.storesToBackup =
-        blobStoreConfig.getStoresWithStateBackendBackupFactory(storageConfig.getStoreNames(),
-            BlobStoreStateBackendFactory.class.getName());
+        storageConfig.getStoresWithBackupFactory(BlobStoreStateBackendFactory.class.getName());
     this.loggedStoreBaseDir = loggedStoreBaseDir;
-    this.blobStoreUtil = blobStoreUtil;
+    this.blobStoreManager = blobStoreManager;
+    this.blobStoreUtil = createBlobStoreUtil(blobStoreManager, executor, blobStoreTaskBackupMetrics);
     this.prevStoreSnapshotIndexesFuture = CompletableFuture.completedFuture(ImmutableMap.of());
     this.metrics = blobStoreTaskBackupMetrics;
     metrics.initStoreMetrics(storesToBackup);
@@ -129,9 +128,10 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store backup manager for task: {}", taskName);
 
-    blobStoreUtil.initBlobStoreManager();
+    blobStoreManager.init();
 
     // Note: blocks the caller thread.
+    // TODO LOW shesharma exclude stores that are no longer configured during init
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
         blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint);
     this.prevStoreSnapshotIndexesFuture =
@@ -230,8 +230,8 @@ public class BlobStoreBackupManager implements TaskBackupManager {
                   return blobStoreUtil.putSnapshotIndex(si);
                 }, executor);
 
-        // update the map of storeName to previous snapshot index storeToSCMAndSnapshotIndexPairFutures which is temporary
-        // map used to atomically update prevStoreSnapshotIndexesFuture at the end of the commit with the new mapping.
+        // save store name and it's SnapshotIndex blob id and SnapshotIndex pair. At the end of the upload, atomically
+        // update previous snapshot index map with this.
         CompletableFuture<Pair<String, SnapshotIndex>> scmAndSnapshotIndexPairFuture =
             FutureUtil.toFutureOfPair(
                 Pair.of(snapshotIndexBlobIdFuture.toCompletableFuture(), snapshotIndexFuture.toCompletableFuture()));
@@ -274,15 +274,10 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     List<CompletionStage<Void>> cleanupRemoteSnapshotFutures = new ArrayList<>();
     List<CompletionStage<Void>> removePrevRemoteSnapshotFutures = new ArrayList<>();
 
-    List<String> storeNames = new StorageConfig(config).getStoreNames();
-    List<String> storesWithBlobStoreStateBackend =
-        new BlobStoreConfig(config)
-            .getStoresWithStateBackendBackupFactory(storeNames, BlobStoreStateBackendFactory.class.getName());
-
     // SCM, in case of blob store backup and restore, is just the blob id of SnapshotIndex representing the remote snapshot
     storeSCMs.forEach((storeName, snapshotIndexBlobId) -> {
       // Only perform cleanup for stores configured with BlobStore State Backend Factory
-      if (storesWithBlobStoreStateBackend.contains(storeName)) {
+      if (storesToBackup.contains(storeName)) {
         Metadata requestMetadata =
             new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
         CompletionStage<SnapshotIndex> snapshotIndexFuture =
@@ -330,7 +325,13 @@ public class BlobStoreBackupManager implements TaskBackupManager {
 
   @Override
   public void close() {
-    blobStoreUtil.closeBlobStoreManager();
+    blobStoreManager.close();
+  }
+
+  @VisibleForTesting
+  protected BlobStoreUtil createBlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
+      BlobStoreBackupManagerMetrics metrics) {
+    return new BlobStoreUtil(blobStoreManager, executor, metrics, null);
   }
 
   private void updateStoreDiffMetrics(String storeName, DirDiff.Stats stats) {

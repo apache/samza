@@ -20,7 +20,6 @@
 package org.apache.samza.storage.blobstore.index;
 
 import com.google.common.base.Preconditions;
-
 import java.util.List;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;

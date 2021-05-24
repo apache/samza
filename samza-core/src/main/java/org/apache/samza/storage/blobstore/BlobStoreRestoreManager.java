@@ -87,6 +87,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   private final List<String> storesToRestore;
   private final BlobStoreRestoreManagerMetrics metrics;
 
+  private BlobStoreManager blobStoreManager;
+
   /**
    * Map of store name and Pair of blob id of SnapshotIndex and the corresponding SnapshotIndex from last successful
    * task checkpoint
@@ -95,7 +97,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   public BlobStoreRestoreManager(TaskModel taskModel, ExecutorService restoreExecutor,
       BlobStoreRestoreManagerMetrics metrics, Config config, File loggedBaseDir, File nonLoggedBaseDir,
-      StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil) {
+      StorageManagerUtil storageManagerUtil, BlobStoreManager blobStoreManager) {
     this.taskModel = taskModel;
     this.jobName = new JobConfig(config).getName().get();
     this.jobId = new JobConfig(config).getJobId();
@@ -104,16 +106,16 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     this.storageConfig = new StorageConfig(config);
     this.blobStoreConfig = new BlobStoreConfig(config);
     this.storageManagerUtil = storageManagerUtil;
-    this.blobStoreUtil = blobStoreUtil;
+    this.blobStoreManager = blobStoreManager;
+    this.blobStoreUtil = createBlobStoreUtil(blobStoreManager, executor, metrics);
     this.dirDiffUtil = new DirDiffUtil();
     this.prevStoreSnapshotIndexes = new HashMap<>();
     this.loggedBaseDir = loggedBaseDir;
     this.nonLoggedBaseDir = nonLoggedBaseDir;
     this.taskName = taskModel.getTaskName().getTaskName();
-    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
     StorageConfig storageConfig = new StorageConfig(config);
     this.storesToRestore =
-        blobStoreConfig.getStoresWithRestoreFactory(storageConfig.getStoreNames(), BlobStoreStateBackendFactory.class.getName());
+        storageConfig.getStoresWithRestoreFactory(BlobStoreStateBackendFactory.class.getName());
     this.metrics = metrics;
   }
 
@@ -122,7 +124,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store restore manager for task: {}", taskName);
 
-    blobStoreUtil.initBlobStoreManager();
+    blobStoreManager.init();
 
     // get previous SCMs from checkpoint
     prevStoreSnapshotIndexes = blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint);
@@ -140,6 +142,11 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   /**
    * Restore state from checkpoints and state snapshots.
+   * State restore is performed by first retrieving the SnapshotIndex of the previous commit for every store from the
+   * prevStoreSnapshotIndexes map. Local store is deleted to perform a restore from local checkpoint directory or remote
+   * directory. If no local state checkpoint directory is found, or if the local checkpoint directory is different from
+   * the remote snapshot, local checkpoint directory is deleted and a restore from the remote store is done by
+   * downloading the state asynchronously and in parallel.
    *
    */
   @Override
@@ -150,7 +157,13 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @Override
   public void close() {
-    blobStoreUtil.closeBlobStoreManager();
+    blobStoreManager.close();
+  }
+
+  @VisibleForTesting
+  protected BlobStoreUtil createBlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
+      BlobStoreRestoreManagerMetrics metrics) {
+    return new BlobStoreUtil(blobStoreManager, executor, null, metrics);
   }
 
   /**
@@ -166,11 +179,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       BlobStoreUtil blobStoreUtil, ExecutorService executor) {
 
     List<String> storesToBackup =
-        blobStoreConfig.getStoresWithStateBackendBackupFactory(storageConfig.getStoreNames(),
-            BlobStoreStateBackendFactory.class.getName());
+        storageConfig.getStoresWithBackupFactory(BlobStoreStateBackendFactory.class.getName());
     List<String> storesToRestore =
-        blobStoreConfig.getStoresWithRestoreFactory(storageConfig.getStoreNames(),
-            BlobStoreStateBackendFactory.class.getName());
+        storageConfig.getStoresWithRestoreFactory(BlobStoreStateBackendFactory.class.getName());
 
     List<CompletionStage<Void>> storeDeletionFutures = new ArrayList<>();
     initialStoreSnapshotIndexes.forEach((storeName, scmAndSnapshotIndex) -> {
@@ -285,7 +296,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     // if a store checkpoint directory exists for the last successful task checkpoint, try to use it.
     boolean restoreStore;
     if (Files.exists(storeCheckpointDir)) {
-      if (storageConfig.getCleanLoggedStoreDirsOnStart(storeName)) {
+      if (storageConfig.isCleanLoggedStoreDirsOnStart(storeName)) {
         LOG.debug("Restoring task: {} store: {} from remote snapshot since the store is configured to be " +
             "restored on each restart.", taskName, storeName);
         restoreStore = true;

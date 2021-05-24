@@ -30,7 +30,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementMetadataStore;
 import org.apache.samza.clustermanager.container.placement.ContainerPlacementRequestAllocator;
 import org.apache.samza.config.ApplicationConfig;
-import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -274,9 +273,7 @@ public class ClusterBasedJobCoordinator {
 
       // create all the resources required for state backend factories
       StorageConfig storageConfig = new StorageConfig(config);
-      List<String> storeNames = storageConfig.getStoreNames();
-      BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
-      blobStoreConfig.getStateBackendBackupFactories(storeNames).forEach(stateStorageBackendBackupFactory -> {
+      storageConfig.getStateBackendBackupFactories().forEach(stateStorageBackendBackupFactory -> {
           StateBackendFactory stateBackendFactory =
               ReflectionUtil.getObj(stateStorageBackendBackupFactory, StateBackendFactory.class);
           StateBackendAdmin stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config);

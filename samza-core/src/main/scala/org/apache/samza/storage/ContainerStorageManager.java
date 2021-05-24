@@ -44,7 +44,6 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
-import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
@@ -433,7 +432,7 @@ public class ContainerStorageManager {
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors) {
     Map<TaskName, Map<String, StorageEngine>> taskStores = new HashMap<>();
-    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
+    StorageConfig storageConfig = new StorageConfig(config);
 
     // iterate over each task and each storeName
     for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
@@ -444,7 +443,7 @@ public class ContainerStorageManager {
       }
 
       for (String storeName : storesToCreate) {
-        List<String> storeBackupManager = blobStoreConfig.getStoreBackupManagerClassName(storeName);
+        List<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
         // A store is considered durable if it is backed by a changelog or another backupManager factory
         boolean isDurable = changelogSystemStreams.containsKey(storeName) || !storeBackupManager.isEmpty();
         boolean isSideInput = this.sideInputStoreNames.contains(storeName);

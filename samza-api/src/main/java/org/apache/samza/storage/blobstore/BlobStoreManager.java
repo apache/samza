@@ -35,6 +35,7 @@ public interface BlobStoreManager {
    *
    */
   void init();
+
   /**
    * Non-blocking PUT call to remote blob store with supplied metadata
    * @param inputStream InputStream to read the file

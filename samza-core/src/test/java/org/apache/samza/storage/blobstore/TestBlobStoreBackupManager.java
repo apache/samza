@@ -22,7 +22,6 @@ package org.apache.samza.storage.blobstore;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.linkedin.util.Pair;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -47,10 +46,8 @@ import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
-import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
@@ -78,15 +75,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Matchers.*;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 
 public class TestBlobStoreBackupManager {
@@ -97,6 +89,7 @@ public class TestBlobStoreBackupManager {
   private final TaskModel taskModel = mock(TaskModel.class, RETURNS_DEEP_STUBS);
   private final Clock clock = mock(Clock.class);
   private final BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
+  private final BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
   private final StorageManagerUtil storageManagerUtil = mock(StorageManagerUtil.class);
 
   //job and store definition
@@ -133,6 +126,7 @@ public class TestBlobStoreBackupManager {
     testStoreNameAndSCMMap.forEach((storeName, scm) -> storeStorageEngineMap.put(storeName, null));
 
     mapConfig.putAll(new MapConfig(ImmutableMap.of("job.name", jobName, "job.id", jobId)));
+
     Config config = new MapConfig(mapConfig);
 
     // Mock - return snapshot index for blob id from test blob store map
@@ -143,6 +137,7 @@ public class TestBlobStoreBackupManager {
           return CompletableFuture.completedFuture(testBlobStore.get(blobId));
         });
 
+//    doNothing().when(blobStoreManager).init();
     when(taskModel.getTaskName().getTaskName()).thenReturn(taskName);
     when(taskModel.getTaskMode()).thenReturn(TaskMode.Active);
 
@@ -154,9 +149,9 @@ public class TestBlobStoreBackupManager {
     blobStoreTaskBackupMetrics = new BlobStoreBackupManagerMetrics(metricsRegistry);
 
     blobStoreBackupManager =
-        new BlobStoreBackupManager(jobModel, containerModel, taskModel, mockExecutor,
-            blobStoreTaskBackupMetrics, config, clock,
-            Files.createTempDirectory("logged-store-").toFile(), storageManagerUtil, blobStoreUtil);
+        new MockBlobStoreBackupManager(jobModel, containerModel, taskModel, mockExecutor,
+            blobStoreTaskBackupMetrics, config,
+            Files.createTempDirectory("logged-store-").toFile(), storageManagerUtil, blobStoreManager);
   }
 
   @Test
@@ -188,7 +183,7 @@ public class TestBlobStoreBackupManager {
     indexBlobIdAndLocalRemoteSnapshotsPair = setupRemoteAndLocalSnapshots(false);
     Checkpoint checkpoint =
         new CheckpointV2(checkpointId, new HashMap<>(),
-            ImmutableMap.of(BlobStoreConfig.DEFAULT_BLOB_STORE_STATE_BACKEND_FACTORY, new HashMap<>()));
+            ImmutableMap.of(BlobStoreStateBackendFactory.class.getName(), new HashMap<>()));
     blobStoreBackupManager.init(checkpoint);
 
     // mock: set task store dir to return corresponding test local store and create checkpoint dir
@@ -294,7 +289,7 @@ public class TestBlobStoreBackupManager {
 
     Checkpoint checkpoint =
         new CheckpointV2(checkpointId, new HashMap<>(),
-            ImmutableMap.of(BlobStoreConfig.DEFAULT_BLOB_STORE_STATE_BACKEND_FACTORY, previousCheckpoints));
+            ImmutableMap.of(BlobStoreStateBackendFactory.class.getName(), previousCheckpoints));
     when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class))).thenCallRealMethod();
     blobStoreBackupManager.init(checkpoint);
 
@@ -484,7 +479,7 @@ public class TestBlobStoreBackupManager {
     indexBlobIdAndRemoteAndLocalSnapshotMap
         .forEach((blobId, localRemoteSnapshots) -> {
           mapConfig.put("stores."+localRemoteSnapshots.getFirst()+".factory", BlobStoreStateBackendFactory.class.getName());
-          mapConfig.put("stores."+localRemoteSnapshots.getFirst()+".state.backend.backup.factories", BlobStoreStateBackendFactory.class.getName());
+          mapConfig.put("stores."+localRemoteSnapshots.getFirst()+".backup.factories", BlobStoreStateBackendFactory.class.getName());
           storeNameSCMMap.put(localRemoteSnapshots.getFirst(), blobId);
         });
     return storeNameSCMMap;
@@ -524,5 +519,22 @@ public class TestBlobStoreBackupManager {
       testBlobStore.put("blobId-" + i, testRemoteSnapshot);
     }
     return indexBlobIdAndRemoteAndLocalSnapshotMap;
+  }
+
+  private class MockBlobStoreBackupManager extends BlobStoreBackupManager {
+
+    public MockBlobStoreBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
+        ExecutorService backupExecutor, BlobStoreBackupManagerMetrics blobStoreTaskBackupMetrics, Config config,
+        File loggedStoreBaseDir, StorageManagerUtil storageManagerUtil,
+        BlobStoreManager blobStoreManager) {
+      super(jobModel, containerModel, taskModel, backupExecutor, blobStoreTaskBackupMetrics, config, clock,
+          loggedStoreBaseDir, storageManagerUtil, blobStoreManager);
+    }
+
+    @Override
+    protected BlobStoreUtil createBlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
+        BlobStoreBackupManagerMetrics metrics) {
+      return blobStoreUtil;
+    }
   }
 }

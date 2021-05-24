@@ -19,22 +19,20 @@
 
 package org.apache.samza.storage.blobstore.index.serde;
 
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.serializers.JsonCheckpointIdMixin;
+import org.apache.samza.serializers.Serde;
 import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.FileBlob;
 import org.apache.samza.storage.blobstore.index.FileIndex;
 import org.apache.samza.storage.blobstore.index.FileMetadata;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
-
-import org.apache.samza.SamzaException;
-import org.apache.samza.checkpoint.CheckpointId;
-import org.apache.samza.serializers.JsonCheckpointIdMixin;
-import org.apache.samza.serializers.Serde;
 
 
 public class SnapshotIndexSerde implements Serde<SnapshotIndex> {

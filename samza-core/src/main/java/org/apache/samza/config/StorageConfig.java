@@ -68,6 +68,12 @@ public class StorageConfig extends MapConfig {
 
   public static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
       "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
+  public static final String KAFKA_STATE_BACKEND_FACTORY =
+      "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
+  public static final List<String> DEFAULT_BACKUP_FACTORIES = ImmutableList.of(
+      KAFKA_STATE_BACKEND_FACTORY);
+  public static final String STORE_BACKUP_FACTORIES = STORE_PREFIX + "%s.backup.factories";
+  public static final String STORE_RESTORE_FACTORY = STORE_PREFIX + "restore.factory";
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -281,11 +287,44 @@ public class StorageConfig extends MapConfig {
         .count();
   }
 
+  public List<String> getStoreBackupManagerClassName(String storeName) {
+    List<String> storeBackupManagers = getList(String.format(STORE_BACKUP_FACTORIES, storeName), new ArrayList<>());
+    // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
+    if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
+      storeBackupManagers = DEFAULT_BACKUP_FACTORIES;
+    }
+    return storeBackupManagers;
+  }
+
+  public Set<String> getStateBackendBackupFactories() {
+    return getStoreNames().stream()
+        .flatMap((storeName) -> getStoreBackupManagerClassName(storeName).stream())
+        .collect(Collectors.toSet());
+  }
+
+  public String getStateBackendRestoreFactory() {
+    return get(STORE_RESTORE_FACTORY, KAFKA_STATE_BACKEND_FACTORY);
+  }
+
+  public List<String> getStoresWithBackupFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter((storeName) -> getStoreBackupManagerClassName(storeName)
+            .contains(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
+  // TODO BLOCKER dchen update when making restore managers per store
+  public List<String> getStoresWithRestoreFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter((storeName) -> getStateBackendRestoreFactory().equals(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
   /**
    * Helper method to get if logged store dirs should be deleted regardless of their contents.
    * @return
    */
-  public boolean getCleanLoggedStoreDirsOnStart(String storeName) {
+  public boolean isCleanLoggedStoreDirsOnStart(String storeName) {
     return getBoolean(String.format(CLEAN_LOGGED_STOREDIRS_ON_START, storeName), false);
   }
 }

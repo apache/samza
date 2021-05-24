@@ -92,9 +92,7 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     metadataResourceUtil.createResources()
 
     val storageConfig = new StorageConfig(config)
-    val storeNames: util.List[String] = storageConfig.getStoreNames
-    val blobStoreConfig = new BlobStoreConfig(config)
-    blobStoreConfig.getStateBackendBackupFactories(storeNames).foreach(stateStorageBackendBackupFactory => {
+    storageConfig.getStateBackendBackupFactories.foreach(stateStorageBackendBackupFactory => {
       val stateBackendFactory : StateBackendFactory =
         ReflectionUtil.getObj(stateStorageBackendBackupFactory, classOf[StateBackendFactory])
       val stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config)

@@ -95,13 +95,6 @@ public class BlobStoreUtil {
   }
 
   /**
-   * Initialize {@link BlobStoreManager} client
-   */
-  public void initBlobStoreManager() {
-    blobStoreManager.init();
-  }
-
-  /**
    * Get the blob id of {@link SnapshotIndex} and {@link SnapshotIndex}es for the provided {@param task}
    * in the provided {@param checkpoint}.
    * @param jobName job name is used to build request metadata
@@ -113,6 +106,7 @@ public class BlobStoreUtil {
    */
   public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(
       String jobName, String jobId, String taskName, Checkpoint checkpoint) {
+    //TODO MED shesharma document error handling (checkpoint ver, blob not found, getBlob)
     if (checkpoint == null) {
       LOG.debug("No previous checkpoint found for taskName: {}", taskName);
       return ImmutableMap.of();
@@ -618,24 +612,6 @@ public class BlobStoreUtil {
           blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
       return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor);
     }, executor);
-  }
-
-  /**
-   * Close {@link BlobStoreManager}
-   */
-  public void closeBlobStoreManager() {
-    blobStoreManager.close();
-  }
-
-  private static String fileAttributesToString(PosixFileAttributes fileAttributes) {
-    return "PosixFileAttributes{" +
-        "creationTimeMillis=" + fileAttributes.creationTime().toMillis() +
-        ", lastModifiedTimeMillis=" + fileAttributes.lastModifiedTime().toMillis() +
-        ", size=" + fileAttributes.size() +
-        ", owner='" + fileAttributes.owner() + '\'' +
-        ", group='" + fileAttributes.group() + '\'' +
-        ", permissions=" + PosixFilePermissions.toString(fileAttributes.permissions()) +
-        '}';
   }
 
   private static Predicate<Throwable> isCauseNonRetriable() {

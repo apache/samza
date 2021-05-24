@@ -2,15 +2,14 @@ package org.apache.samza.storage.blobstore.diff;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
-import org.apache.samza.storage.blobstore.index.DirIndex;
-import org.apache.samza.storage.blobstore.index.FileIndex;
-
 import java.io.File;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+import org.apache.samza.storage.blobstore.index.DirIndex;
+import org.apache.samza.storage.blobstore.index.FileIndex;
 
 /**
  * Representation of the diff between a local directory and a remote directory contents.

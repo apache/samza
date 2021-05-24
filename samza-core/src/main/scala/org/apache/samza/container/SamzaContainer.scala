@@ -25,12 +25,15 @@ import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
 import java.time.Duration
 import java.util
-import java.util.{Base64, Optional}
-import java.util.concurrent.{CountDownLatch, ExecutorService, Executors, ScheduledExecutorService, TimeUnit}
+import java.util.concurrent._
 import java.util.function.Consumer
+import java.util.{Base64, Optional}
+
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
+import org.apache.samza.clustermanager.StandbyTaskUtil
 import org.apache.samza.config.{StreamConfig, _}
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
@@ -38,7 +41,7 @@ import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStati
 import org.apache.samza.context._
 import org.apache.samza.diagnostics.DiagnosticsManager
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskMode}
-import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistry, MetricsRegistryMap, MetricsReporter}
+import org.apache.samza.metrics.{JmxServer, JvmMetrics, MetricsRegistryMap, MetricsReporter}
 import org.apache.samza.serializers._
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.startpoint.StartpointManager
@@ -49,8 +52,6 @@ import org.apache.samza.table.TableManager
 import org.apache.samza.task._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
 import org.apache.samza.util.{Util, _}
-import org.apache.samza.SamzaException
-import org.apache.samza.clustermanager.StandbyTaskUtil
 
 import scala.collection.JavaConverters._
 
@@ -179,7 +180,6 @@ object SamzaContainer extends Logging {
       .toSet
 
     val storageConfig = new StorageConfig(config)
-    val blobStoreConfig = new BlobStoreConfig(config)
     val sideInputStoresToSystemStreams = storageConfig.getStoreNames.asScala
       .map { storeName => (storeName, storageConfig.getSideInputs(storeName).asScala) }
       .filter { case (storeName, sideInputs) => sideInputs.nonEmpty }
@@ -521,7 +521,7 @@ object SamzaContainer extends Logging {
 
     // TODO dchen should we enforce restore factories to be subset of backup factories?
     val stateStorageBackendRestoreFactory = ReflectionUtil
-      .getObj(blobStoreConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
+      .getObj(storageConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
 
     val containerStorageManager = new ContainerStorageManager(
       checkpointManager,
@@ -548,8 +548,7 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val storeNames: util.List[String] = storageConfig.getStoreNames
-    val stateStorageBackendBackupFactories = blobStoreConfig.getStateBackendBackupFactories(storeNames).asScala.map(
+    val stateStorageBackendBackupFactories = storageConfig.getStateBackendBackupFactories().asScala.map(
       ReflectionUtil.getObj(_, classOf[StateBackendFactory])
     )
 

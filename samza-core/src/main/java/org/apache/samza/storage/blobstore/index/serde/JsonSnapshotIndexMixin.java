@@ -22,10 +22,9 @@ package org.apache.samza.storage.blobstore.index.serde;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Optional;
 import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
-
-import java.util.Optional;
 
 
 /**
