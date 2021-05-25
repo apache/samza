@@ -61,12 +61,12 @@ public class DirDiffUtil {
    * Checks if a local directory and a remote directory are identical. Local and remote directories are identical iff:
    * 1. The local directory has exactly the same set of files as the remote directory, and the files are themselves
    * identical, as determined by {@link #areSameFile(boolean)}, except for those allowed to differ according to
-   * {@param filesToIgnore}.
+   * {@code filesToIgnore}.
    * 2. The local directory has exactly the same set of sub-directories as the remote directory.
    *
    * @param filesToIgnore a set of file names to ignore during the directory comparisons
    *                      (does not exclude directory names)
-   * @param compareLargeFileChecksums whether to compare checksums for large files (> 1 MB).
+   * @param compareLargeFileChecksums whether to compare checksums for large files (&gt; 1 MB).
    * @return boolean indicating whether the local and remote directory are identical.
    */
   // TODO HIGH shesharm add unit tests
@@ -143,7 +143,7 @@ public class DirDiffUtil {
    * Bipredicate to test a local file in the filesystem and a remote file {@link FileIndex} and find out if they represent
    * the same file. Files with same attributes as well as content are same file. A SST file in a special case. They are
    * immutable, so we only compare their attributes but not the content.
-   * @param compareLargeFileChecksums whether to compare checksums for large files (> 1 MB).
+   * @param compareLargeFileChecksums whether to compare checksums for large files (&gt; 1 MB).
    * @return BiPredicate to test similarity of local and remote files
    */
   public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {

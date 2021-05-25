@@ -95,8 +95,8 @@ public class BlobStoreUtil {
   }
 
   /**
-   * Get the blob id of {@link SnapshotIndex} and {@link SnapshotIndex}es for the provided {@param task}
-   * in the provided {@param checkpoint}.
+   * Get the blob id of {@link SnapshotIndex} and {@link SnapshotIndex}es for the provided {@code task}
+   * in the provided {@code checkpoint}.
    * @param jobName job name is used to build request metadata
    * @param jobId job id is used to build request metadata
    * @param taskName task name to get the store state checkpoint markers and snapshot indexes for
