@@ -160,18 +160,18 @@ public class TestStorageConfig {
             String.format(FACTORY, "noFactoryStore"), "noFactory.factory.class"
         )
     ));
-    Set<String> factories = storageConfig.getStateBackendBackupFactories();
+    Set<String> factories = storageConfig.getBackupFactories();
     assertTrue(factories.contains(factory1));
     assertTrue(factories.contains(factory2));
     assertTrue(factories.contains(factory3));
     assertTrue(factories.contains(KAFKA_STATE_BACKEND_FACTORY));
     assertEquals(4, factories.size());
-    assertEquals(ImmutableList.of(factory1, factory2), storageConfig.getStoreBackupManagerClassName(STORE_NAME0));
-    assertEquals(ImmutableList.of(factory1), storageConfig.getStoreBackupManagerClassName(STORE_NAME1));
-    assertEquals(ImmutableList.of(factory3), storageConfig.getStoreBackupManagerClassName(STORE_NAME2));
-    assertEquals(DEFAULT_BACKUP_FACTORIES, storageConfig.getStoreBackupManagerClassName(STORE_NAME3));
-    assertTrue(storageConfig.getStoreBackupManagerClassName("emptyStore").isEmpty());
-    assertTrue(storageConfig.getStoreBackupManagerClassName("noFactoryStore").isEmpty());
+    assertEquals(ImmutableList.of(factory1, factory2), storageConfig.getStoreBackupFactory(STORE_NAME0));
+    assertEquals(ImmutableList.of(factory1), storageConfig.getStoreBackupFactory(STORE_NAME1));
+    assertEquals(ImmutableList.of(factory3), storageConfig.getStoreBackupFactory(STORE_NAME2));
+    assertEquals(DEFAULT_BACKUP_FACTORIES, storageConfig.getStoreBackupFactory(STORE_NAME3));
+    assertTrue(storageConfig.getStoreBackupFactory("emptyStore").isEmpty());
+    assertTrue(storageConfig.getStoreBackupFactory("noFactoryStore").isEmpty());
   }
 
   @Test

@@ -443,7 +443,7 @@ public class ContainerStorageManager {
       }
 
       for (String storeName : storesToCreate) {
-        List<String> storeBackupManager = storageConfig.getStoreBackupManagerClassName(storeName);
+        List<String> storeBackupManager = storageConfig.getStoreBackupFactory(storeName);
         // A store is considered durable if it is backed by a changelog or another backupManager factory
         boolean isDurable = changelogSystemStreams.containsKey(storeName) || !storeBackupManager.isEmpty();
         boolean isSideInput = this.sideInputStoreNames.contains(storeName);

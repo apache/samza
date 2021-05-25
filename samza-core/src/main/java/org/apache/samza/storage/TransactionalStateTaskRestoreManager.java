@@ -286,7 +286,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
 
       // if the clean.store.start config is set, delete current and checkpoint dirs, restore from oldest offset to checkpointed
       if (storageEngine.getStoreProperties().isPersistedToDisk() && new StorageConfig(
-        config).isCleanLoggedStoreDirsOnStart(storeName)) {
+        config).cleanLoggedStoreDirsOnStart(storeName)) {
         File currentDir = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDirectory, storeName, taskName, taskMode);
         LOG.info("Marking current directory: {} for store: {} in task: {} for deletion due to clean.on.container.start config.",
             currentDir, storeName, taskName);

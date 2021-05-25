@@ -50,6 +50,8 @@ public interface BlobStoreManager {
    * @param outputStream OutputStream to write the downloaded blob
    * @param metadata User supplied {@link Metadata} of the request
    * @return A future that completes when all the chunks are downloaded and written successfully to the OutputStream
+   * @throws org.apache.samza.storage.blobstore.exceptions.DeletedException returned future should complete
+   *         exceptionally with DeletedException on failure with the blob already deleted error.
    */
   CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata);
 
@@ -58,6 +60,9 @@ public interface BlobStoreManager {
    * @param id Blob ID of the blob to delete
    * @param metadata User supplied {@link Metadata} of the request
    * @return A future that completes when the blob is successfully deleted from the blob store.
+   * @throws org.apache.samza.storage.blobstore.exceptions.DeletedException returned future should complete
+   *         exceptionally with DeletedException on failure with the blob already deleted error. This exception is
+   *         caught and ignored by the caller of the delete method during initial cleanup and SnapshotIndex read.
    */
   CompletionStage<Void> delete(String id, Metadata metadata);
 
@@ -66,6 +71,8 @@ public interface BlobStoreManager {
    * @param blobId Blob ID of blob to remove TTL for.
    * @param metadata User supplied {@link Metadata} of the request
    * @return a future that completes when the TTL for the blob is removed.
+   * @throws org.apache.samza.storage.blobstore.exceptions.DeletedException returned future should complete
+   *         exceptionally with DeletedException on failure with the blob already deleted error.
    */
   CompletionStage<Void> removeTTL(String blobId, Metadata metadata);
 

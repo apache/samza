@@ -24,6 +24,10 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 
+/**
+ * Metadata associated with every BlobStore request. This class is used to trace a request and to determine the
+ * bucket/container informationof the blob.
+ */
 public class Metadata {
   public static final String SNAPSHOT_INDEX_PAYLOAD_PATH = "snapshot-index";
 

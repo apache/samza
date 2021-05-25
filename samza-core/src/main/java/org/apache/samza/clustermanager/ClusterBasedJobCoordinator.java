@@ -20,7 +20,6 @@ package org.apache.samza.clustermanager;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -273,7 +272,7 @@ public class ClusterBasedJobCoordinator {
 
       // create all the resources required for state backend factories
       StorageConfig storageConfig = new StorageConfig(config);
-      storageConfig.getStateBackendBackupFactories().forEach(stateStorageBackendBackupFactory -> {
+      storageConfig.getBackupFactories().forEach(stateStorageBackendBackupFactory -> {
           StateBackendFactory stateBackendFactory =
               ReflectionUtil.getObj(stateStorageBackendBackupFactory, StateBackendFactory.class);
           StateBackendAdmin stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config);

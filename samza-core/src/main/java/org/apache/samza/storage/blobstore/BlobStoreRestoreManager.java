@@ -296,7 +296,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     // if a store checkpoint directory exists for the last successful task checkpoint, try to use it.
     boolean restoreStore;
     if (Files.exists(storeCheckpointDir)) {
-      if (storageConfig.isCleanLoggedStoreDirsOnStart(storeName)) {
+      if (storageConfig.cleanLoggedStoreDirsOnStart(storeName)) {
         LOG.debug("Restoring task: {} store: {} from remote snapshot since the store is configured to be " +
             "restored on each restart.", taskName, storeName);
         restoreStore = true;

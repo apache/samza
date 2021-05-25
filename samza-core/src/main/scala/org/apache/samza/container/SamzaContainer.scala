@@ -521,7 +521,7 @@ object SamzaContainer extends Logging {
 
     // TODO dchen should we enforce restore factories to be subset of backup factories?
     val stateStorageBackendRestoreFactory = ReflectionUtil
-      .getObj(storageConfig.getStateBackendRestoreFactory(), classOf[StateBackendFactory])
+      .getObj(storageConfig.getRestoreFactory(), classOf[StateBackendFactory])
 
     val containerStorageManager = new ContainerStorageManager(
       checkpointManager,
@@ -538,7 +538,6 @@ object SamzaContainer extends Logging {
       samzaContainerMetrics,
       jobContext,
       containerContext,
-      Optional.ofNullable(externalContextOption.orNull),
       stateStorageBackendRestoreFactory,
       taskCollectors.asJava,
       loggedStorageBaseDir,
@@ -548,7 +547,7 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val stateStorageBackendBackupFactories = storageConfig.getStateBackendBackupFactories().asScala.map(
+    val stateStorageBackendBackupFactories = storageConfig.getBackupFactories().asScala.map(
       ReflectionUtil.getObj(_, classOf[StateBackendFactory])
     )
 
@@ -745,7 +744,6 @@ class SamzaContainer(
   private val jobConfig = new JobConfig(config)
   private val taskConfig = new TaskConfig(config)
 
-  // Linkedin-specific shutdownMs due to SAMZA-2198; switch back to TaskConfig.getShutdownMs once that is fixed
   val shutdownMs: Long = taskConfig.getLong(TaskConfig.TASK_SHUTDOWN_MS, 5000)
 
   var shutdownHookThread: Thread = null

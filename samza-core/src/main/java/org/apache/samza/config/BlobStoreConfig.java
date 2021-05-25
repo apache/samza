@@ -32,7 +32,6 @@ public class BlobStoreConfig extends MapConfig {
 
 
   public String getBlobStoreManagerFactory() {
-    // TODO BLOCKER dchen validate that if blob store state backend is configured for use this config is also set.
     return get(BLOB_STORE_MANAGER_FACTORY);
   }
 

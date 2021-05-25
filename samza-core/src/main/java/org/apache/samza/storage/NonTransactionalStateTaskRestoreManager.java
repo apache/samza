@@ -156,7 +156,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
         LOG.info("Got logged storage partition directory as " + loggedStorePartitionDir.toPath().toString());
 
         // Delete the logged store if it is not valid.
-        if (!isLoggedStoreValid(storeName, loggedStorePartitionDir) || storageConfig.isCleanLoggedStoreDirsOnStart(storeName)) {
+        if (!isLoggedStoreValid(storeName, loggedStorePartitionDir) || storageConfig.cleanLoggedStoreDirsOnStart(storeName)) {
           LOG.info("Deleting logged storage partition directory " + loggedStorePartitionDir.toPath().toString());
           fileUtil.rm(loggedStorePartitionDir);
         } else {
