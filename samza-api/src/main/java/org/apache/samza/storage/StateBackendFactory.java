@@ -24,18 +24,20 @@ import java.util.concurrent.ExecutorService;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
+import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.util.Clock;
 
 
 /**
- * Factory to build the Samza {@link TaskBackupManager}, {@link TaskRestoreManager} and {@link TaskStorageAdmin}
+ * Factory to build the Samza {@link TaskBackupManager}, {@link TaskRestoreManager} and {@link StateBackendAdmin}
  * for a particular state storage backend, which are used to durably backup the Samza task state.
  */
 public interface StateBackendFactory {
   TaskBackupManager getBackupManager(JobContext jobContext,
-      ContainerContext containerContext,
+      ContainerModel containerModel,
       TaskModel taskModel,
       ExecutorService backupExecutor,
       MetricsRegistry taskInstanceMetricsRegistry,
@@ -55,5 +57,5 @@ public interface StateBackendFactory {
       File nonLoggedStoreBaseDir,
       KafkaChangelogRestoreParams kafkaChangelogRestoreParams);
 
-  TaskStorageAdmin getAdmin();
+  StateBackendAdmin getAdmin(JobModel jobModel, Config config);
 }

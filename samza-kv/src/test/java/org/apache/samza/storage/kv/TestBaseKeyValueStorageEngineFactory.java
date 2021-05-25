@@ -139,7 +139,7 @@ public class TestBaseKeyValueStorageEngineFactory {
   @Test
   public void testDurableKeyValueStore() {
     Config config = new MapConfig(BASE_CONFIG, DISABLE_CACHE,
-        ImmutableMap.of(String.format(StorageConfig.STORE_BACKEND_BACKUP_FACTORIES, STORE_NAME),
+        ImmutableMap.of(String.format(StorageConfig.STORE_BACKUP_FACTORIES, STORE_NAME),
         "backendFactory,backendFactory2"));
     StorageEngine storageEngine = callGetStorageEngine(config, null);
     KeyValueStorageEngine<?, ?> keyValueStorageEngine = baseStorageEngineValidation(storageEngine);

@@ -66,13 +66,15 @@ public class StorageConfig extends MapConfig {
   public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
   public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
 
-  public static final String DEFAULT_STATE_BACKEND_FACTORY = "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
-  public static final String STORE_BACKEND_BACKUP_FACTORIES = STORE_PREFIX + "%s.state.backend.backup.factories";
-  public static final List<String> DEFAULT_STATE_BACKEND_BACKUP_FACTORIES = ImmutableList.of(
-      DEFAULT_STATE_BACKEND_FACTORY);
-  public static final String STATE_BACKEND_RESTORE_FACTORY = STORE_PREFIX + "state.restore.backend";
   public static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
       "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
+  public static final String KAFKA_STATE_BACKEND_FACTORY =
+      "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
+  public static final List<String> DEFAULT_BACKUP_FACTORIES = ImmutableList.of(
+      KAFKA_STATE_BACKEND_FACTORY);
+  public static final String STORE_BACKUP_FACTORIES = STORE_PREFIX + "%s.backup.factories";
+  // TODO BLOCKER dchen make this per store
+  public static final String STORE_RESTORE_FACTORY = STORE_PREFIX + "restore.factory";
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -136,15 +138,6 @@ public class StorageConfig extends MapConfig {
       systemStreamRes = StreamManager.createUniqueNameForBatch(systemStreamRes, this);
     }
     return Optional.ofNullable(systemStreamRes);
-  }
-
-  public List<String> getStoreBackupManagerClassName(String storeName) {
-    List<String> storeBackupManagers = getList(String.format(STORE_BACKEND_BACKUP_FACTORIES, storeName), new ArrayList<>());
-    // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
-    if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
-      storeBackupManagers = DEFAULT_STATE_BACKEND_BACKUP_FACTORIES;
-    }
-    return storeBackupManagers;
   }
 
   public boolean getAccessLogEnabled(String storeName) {
@@ -265,24 +258,6 @@ public class StorageConfig extends MapConfig {
     return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
   }
 
-
-  public Set<String> getStateBackendBackupFactories() {
-    return getStoreNames().stream()
-        .flatMap((storeName) -> getStoreBackupManagerClassName(storeName).stream())
-        .collect(Collectors.toSet());
-  }
-
-  public List<String> getBackupStoreNamesForStateBackupFactory(String backendFactoryName) {
-    return getStoreNames().stream()
-        .filter((storeName) -> getStoreBackupManagerClassName(storeName)
-            .contains(backendFactoryName))
-        .collect(Collectors.toList());
-  }
-
-  public String getStateBackendRestoreFactory() {
-    return get(STATE_BACKEND_RESTORE_FACTORY, DEFAULT_STATE_BACKEND_FACTORY);
-  }
-
   /**
    * Helper method to check if a system has a changelog attached to it.
    */
@@ -313,11 +288,44 @@ public class StorageConfig extends MapConfig {
         .count();
   }
 
+  public List<String> getStoreBackupFactory(String storeName) {
+    List<String> storeBackupManagers = getList(String.format(STORE_BACKUP_FACTORIES, storeName), new ArrayList<>());
+    // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
+    if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
+      storeBackupManagers = DEFAULT_BACKUP_FACTORIES;
+    }
+    return storeBackupManagers;
+  }
+
+  public Set<String> getBackupFactories() {
+    return getStoreNames().stream()
+        .flatMap((storeName) -> getStoreBackupFactory(storeName).stream())
+        .collect(Collectors.toSet());
+  }
+
+  public String getRestoreFactory() {
+    return get(STORE_RESTORE_FACTORY, KAFKA_STATE_BACKEND_FACTORY);
+  }
+
+  public List<String> getStoresWithBackupFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter((storeName) -> getStoreBackupFactory(storeName)
+            .contains(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
+  // TODO BLOCKER dchen update when making restore managers per store
+  public List<String> getStoresWithRestoreFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter((storeName) -> getRestoreFactory().equals(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
   /**
    * Helper method to get if logged store dirs should be deleted regardless of their contents.
    * @return
    */
-  public boolean getCleanLoggedStoreDirsOnStart(String storeName) {
+  public boolean cleanLoggedStoreDirsOnStart(String storeName) {
     return getBoolean(String.format(CLEAN_LOGGED_STOREDIRS_ON_START, storeName), false);
   }
 }

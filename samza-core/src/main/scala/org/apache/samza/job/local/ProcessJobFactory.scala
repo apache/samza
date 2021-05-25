@@ -24,7 +24,7 @@ import java.util
 import org.apache.samza.SamzaException
 import org.apache.samza.application.ApplicationUtil
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil
-import org.apache.samza.config.{Config, JobConfig, TaskConfig}
+import org.apache.samza.config.{BlobStoreConfig, Config, JobConfig, StorageConfig, TaskConfig}
 import org.apache.samza.container.TaskName
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
@@ -34,7 +34,7 @@ import org.apache.samza.job.model.JobModelUtil
 import org.apache.samza.job.{CommandBuilder, ShellCommandBuilder, StreamJob, StreamJobFactory}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.startpoint.StartpointManager
-import org.apache.samza.storage.ChangelogStreamManager
+import org.apache.samza.storage.{ChangelogStreamManager, StateBackendFactory}
 import org.apache.samza.util.{ConfigUtil, CoordinatorStreamUtil, DiagnosticsUtil, Logging, ReflectionUtil}
 
 import scala.collection.JavaConversions._
@@ -90,6 +90,17 @@ class ProcessJobFactory extends StreamJobFactory with Logging {
     //create necessary checkpoint and changelog streams
     val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, config)
     metadataResourceUtil.createResources()
+
+    val storageConfig = new StorageConfig(config)
+    storageConfig.getBackupFactories.foreach(stateStorageBackendBackupFactory => {
+      val stateBackendFactory : StateBackendFactory =
+        ReflectionUtil.getObj(stateStorageBackendBackupFactory, classOf[StateBackendFactory])
+      val stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config)
+      // Create resources required for state backend admin
+      stateBackendAdmin.createResources()
+      // Validate resources required for state backend admin
+      stateBackendAdmin.validateResources()
+    })
 
     if (new JobConfig(config).getStartpointEnabled()) {
       // fan out the startpoints

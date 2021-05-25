@@ -443,9 +443,9 @@ public class ContainerStorageManager {
       }
 
       for (String storeName : storesToCreate) {
+        List<String> storeBackupManager = storageConfig.getStoreBackupFactory(storeName);
         // A store is considered durable if it is backed by a changelog or another backupManager factory
-        boolean isDurable = changelogSystemStreams.containsKey(storeName) ||
-            !storageConfig.getStoreBackupManagerClassName(storeName).isEmpty();
+        boolean isDurable = changelogSystemStreams.containsKey(storeName) || !storeBackupManager.isEmpty();
         boolean isSideInput = this.sideInputStoreNames.contains(storeName);
         // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
         // for non logged stores

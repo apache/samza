@@ -146,14 +146,14 @@ public class FutureUtil {
       Supplier<? extends CompletionStage<T>> action,
       Predicate<? extends Throwable> abortRetries,
       ExecutorService executor) {
-    Duration maxDuration = Duration.ofMinutes(1);
+    Duration maxDuration = Duration.ofMinutes(10);
 
     RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
-        .withBackoff(100, 10000, ChronoUnit.MILLIS)
+        .withBackoff(100, 312500, ChronoUnit.MILLIS, 5) // 100 ms, 500 ms, 2500 ms, 12.5 s, 1.05 min, 5.20 min, 5.20 min
         .withMaxDuration(maxDuration)
         .abortOn(abortRetries) // stop retrying if predicate returns true
-        .onRetry(e -> LOG.warn("Action: {} attempt: {} completed with error {} after start. Retrying up to {}.",
-            opName, e.getAttemptCount(), e.getElapsedTime(), maxDuration, e.getLastFailure()));
+        .onRetry(e -> LOG.warn("Action: {} attempt: {} completed with error {} ms after start. Retrying up to {} ms.",
+            opName, e.getAttemptCount(), e.getElapsedTime().toMillis(), maxDuration.toMillis(), e.getLastFailure()));
 
     return Failsafe.with(retryPolicy).with(executor).getStageAsync(action::get);
   }

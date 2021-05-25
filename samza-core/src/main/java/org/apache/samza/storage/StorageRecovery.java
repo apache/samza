@@ -215,7 +215,7 @@ public class StorageRecovery {
    */
   @SuppressWarnings("rawtypes")
   private void getContainerStorageManagers() {
-    String factoryClass = new StorageConfig(jobConfig).getStateBackendRestoreFactory();
+    String factoryClass = new StorageConfig(jobConfig).getRestoreFactory();
     Clock clock = SystemClock.instance();
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways

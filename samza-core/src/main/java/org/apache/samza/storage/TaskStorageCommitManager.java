@@ -116,8 +116,9 @@ public class TaskStorageCommitManager {
     LOG.debug("Flushed all storage engines for taskName: {}, checkpoint id: {}",
         taskName, checkpointId);
 
-    long checkpointStartNs = System.nanoTime();
+
     // Checkpoint all persisted and durable stores
+    long checkpointStartNs = System.nanoTime();
     storageEngines.forEach((storeName, storageEngine) -> {
       if (storageEngine.getStoreProperties().isPersistedToDisk() &&
           storageEngine.getStoreProperties().isDurableStore()) {
@@ -212,7 +213,7 @@ public class TaskStorageCommitManager {
             storageManagerUtil.writeCheckpointV2File(storeDir, checkpointV2);
 
             CheckpointId checkpointId = checkpointV2.getCheckpointId();
-            File checkpointDir = Paths.get(StorageManagerUtil.getCheckpointDirPath(storeDir, checkpointId)).toFile();
+            File checkpointDir = Paths.get(storageManagerUtil.getStoreCheckpointDir(storeDir, checkpointId)).toFile();
             storageManagerUtil.writeCheckpointV2File(checkpointDir, checkpointV2);
           } catch (Exception e) {
             throw new SamzaException(
@@ -334,7 +335,7 @@ public class TaskStorageCommitManager {
             writeChangelogOffsetFile(storeName, changelogSSP, newestOffset, currentStoreDir);
 
             // Write changelog SSP offset to the OFFSET files in the store checkpoint directory
-            File checkpointDir = Paths.get(StorageManagerUtil.getCheckpointDirPath(
+            File checkpointDir = Paths.get(storageManagerUtil.getStoreCheckpointDir(
                 currentStoreDir, kafkaChangelogSSPOffset.getCheckpointId())).toFile();
             writeChangelogOffsetFile(storeName, changelogSSP, newestOffset, checkpointDir);
           } else {

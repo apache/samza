@@ -50,7 +50,13 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
       () => RocksDbOptionsHelper.getBlockCacheSize(storageConfigSubset, numTasksForContainer))
 
     val rocksDbOptions = RocksDbOptionsHelper.options(storageConfigSubset, numTasksForContainer, storeDir, storeMode)
-    val rocksDbWriteOptions = new WriteOptions().setDisableWAL(true)
+    val rocksDbWriteOptions = new WriteOptions()
+
+    if (!storageConfigSubset.getBoolean(RocksDbOptionsHelper.ROCKSDB_WAL_ENABLED, false)) {
+      // if WAL not enabled, explicitly disable it
+      rocksDbWriteOptions.setDisableWAL(true)
+    }
+
     val rocksDbFlushOptions = new FlushOptions().setWaitForFlush(true)
     val rocksDb = new RocksDbKeyValueStore(
       storeDir,
