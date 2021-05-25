@@ -92,8 +92,8 @@ public class DirIndex {
     stats.subDirsPresent += dirIndex.getSubDirsPresent().size();
     stats.subDirsRemoved += dirIndex.getSubDirsRemoved().size();
 
-    stats.bytesPresent += (dirIndex.getFilesPresent().stream().mapToLong(fi -> fi.getFileMetadata().getSize()).sum());
-    stats.bytesRemoved += (dirIndex.getFilesRemoved().stream().mapToLong(fi -> fi.getFileMetadata().getSize()).sum());
+    stats.bytesPresent += dirIndex.getFilesPresent().stream().mapToLong(fi -> fi.getFileMetadata().getSize()).sum();
+    stats.bytesRemoved += dirIndex.getFilesRemoved().stream().mapToLong(fi -> fi.getFileMetadata().getSize()).sum();
 
     for (DirIndex subDirPresent : dirIndex.getSubDirsPresent()) {
       updateStats(subDirPresent, stats);
@@ -106,7 +106,7 @@ public class DirIndex {
 
   private static void updateStatsForSubDirsRemoved(DirIndex dirIndex, Stats stats) {
     stats.filesRemoved += dirIndex.getFilesPresent().size();
-    stats.bytesRemoved += (dirIndex.getFilesPresent().stream().mapToLong(fi -> fi.getFileMetadata().getSize()).sum());
+    stats.bytesRemoved += dirIndex.getFilesPresent().stream().mapToLong(fi -> fi.getFileMetadata().getSize()).sum();
     for (DirIndex subDirToRemove : dirIndex.getSubDirsPresent()) {
       updateStatsForSubDirsRemoved(subDirToRemove, stats);
     }

@@ -102,8 +102,8 @@ public class BlobStoreBackupManagerMetrics {
 
     this.cleanupNs = metricsRegistry.newTimer(GROUP, "cleanup-ns");
 
-    this.avgFileUploadNs = metricsRegistry.newTimer(GROUP,"avg-file-upload-ns");
-    this.avgFileSizeBytes = metricsRegistry.newTimer(GROUP,"avg-file-size-bytes");
+    this.avgFileUploadNs = metricsRegistry.newTimer(GROUP,  "avg-file-upload-ns");
+    this.avgFileSizeBytes = metricsRegistry.newTimer(GROUP, "avg-file-size-bytes");
   }
 
   public void initStoreMetrics(Collection<String> storeNames) {

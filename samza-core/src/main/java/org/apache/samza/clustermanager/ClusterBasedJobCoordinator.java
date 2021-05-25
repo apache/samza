@@ -273,14 +273,14 @@ public class ClusterBasedJobCoordinator {
       // create all the resources required for state backend factories
       StorageConfig storageConfig = new StorageConfig(config);
       storageConfig.getBackupFactories().forEach(stateStorageBackendBackupFactory -> {
-          StateBackendFactory stateBackendFactory =
-              ReflectionUtil.getObj(stateStorageBackendBackupFactory, StateBackendFactory.class);
-          StateBackendAdmin stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config);
-          // Create resources required for state backend admin
-          stateBackendAdmin.createResources();
-          // Validate resources required for state backend admin
-          stateBackendAdmin.validateResources();
-        });
+        StateBackendFactory stateBackendFactory =
+            ReflectionUtil.getObj(stateStorageBackendBackupFactory, StateBackendFactory.class);
+        StateBackendAdmin stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config);
+        // Create resources required for state backend admin
+        stateBackendAdmin.createResources();
+        // Validate resources required for state backend admin
+        stateBackendAdmin.validateResources();
+      });
 
       /*
        * We fanout startpoint if and only if

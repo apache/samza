@@ -31,8 +31,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.nio.file.attribute.PosixFileAttributes;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -240,8 +238,9 @@ public class BlobStoreUtil {
       List<FileBlob> fileBlobs = fileIndex.getBlobs();
 
       String opName = "restoreFile: " + fileToRestore.getAbsolutePath();
-      CompletableFuture<Void> fileRestoreFuture = FutureUtil.executeAsyncWithRetries(opName,
-          () -> getFile(fileBlobs, fileToRestore, requestMetadata), isCauseNonRetriable(), executor);
+      CompletableFuture<Void> fileRestoreFuture =
+          FutureUtil.executeAsyncWithRetries(opName, () -> getFile(fileBlobs, fileToRestore, requestMetadata),
+              isCauseNonRetriable(), executor);
       downloadFutures.add(fileRestoreFuture);
     }
 
@@ -602,14 +601,14 @@ public class BlobStoreUtil {
 
     String opName = "removeTTL for SnapshotIndex for checkpointId: " + snapshotMetadata.getCheckpointId();
     Supplier<CompletionStage<Void>> removeDirIndexTTLAction =
-        () -> removeTTL(snapshotIndex.getDirIndex(), metadata).toCompletableFuture();
-    CompletableFuture<Void> dirIndexTTLRemovalFuture = FutureUtil.executeAsyncWithRetries(opName,
-        removeDirIndexTTLAction, isCauseNonRetriable(), executor);
+      () -> removeTTL(snapshotIndex.getDirIndex(), metadata).toCompletableFuture();
+    CompletableFuture<Void> dirIndexTTLRemovalFuture =
+        FutureUtil.executeAsyncWithRetries(opName, removeDirIndexTTLAction, isCauseNonRetriable(), executor);
 
     return dirIndexTTLRemovalFuture.thenComposeAsync(aVoid -> {
       String op2Name = "removeTTL for indexBlobId: " + indexBlobId;
-      Supplier<CompletionStage<Void>> removeIndexBlobTTLAction = () ->
-          blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
+      Supplier<CompletionStage<Void>> removeIndexBlobTTLAction =
+        () -> blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
       return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor);
     }, executor);
   }

@@ -21,7 +21,6 @@ package org.apache.samza.storage.blobstore;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.linkedin.util.Pair;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -41,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
@@ -192,7 +192,7 @@ public class TestBlobStoreBackupManager {
         .then((Answer<File>) invocation -> {
           String storeName = invocation.getArgumentAt(1, String.class);
           String snapshotIndexBlobId = testStoreNameAndSCMMap.get(storeName);
-          String storeDir = indexBlobIdAndLocalRemoteSnapshotsPair.get(snapshotIndexBlobId).getFirst();
+          String storeDir = indexBlobIdAndLocalRemoteSnapshotsPair.get(snapshotIndexBlobId).getLeft();
           try {
             BlobStoreTestUtil.createTestCheckpointDirectory(storeDir, checkpointId.serialize()); // create test checkpoint dir
             checkpointDirsToClean.add(storeDir + "-" + checkpointId.serialize()); // track checkpoint dir to cleanup later
@@ -227,7 +227,7 @@ public class TestBlobStoreBackupManager {
         });
 
     SortedSet<SnapshotIndex> expectedSnapshotIndexesUploaded = indexBlobIdAndLocalRemoteSnapshotsPair.values().stream()
-        .map(Pair::getSecond)
+        .map(Pair::getRight)
         .collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(SnapshotIndex::getCreationTimeMillis))));
     String expectedPreviousSnapshotIndexBlobId = "empty";
     // mock: mock putSnapshotIndex and capture previous snapshot index
@@ -251,7 +251,7 @@ public class TestBlobStoreBackupManager {
     // setup expected dir diffs after execute: needs checkpoint dirs created in upload()
     TreeSet<DirDiff> expectedDirDiffs = indexBlobIdAndLocalRemoteSnapshotsPair.values().stream()
         .map(localRemoteSnapshotPair -> {
-          File localCheckpointDir = new File(localRemoteSnapshotPair.getFirst() + "-" + checkpointId.serialize());
+          File localCheckpointDir = new File(localRemoteSnapshotPair.getLeft() + "-" + checkpointId.serialize());
           DirIndex dirIndex = new DirIndex(localCheckpointDir.getName(), Collections.emptyList(), Collections.emptyList(),
               Collections.emptyList(), Collections.emptyList());
           return DirDiffUtil.getDirDiff(localCheckpointDir, dirIndex, DirDiffUtil.areSameFile(false));
@@ -284,8 +284,8 @@ public class TestBlobStoreBackupManager {
     Map<String, String> previousCheckpoints =
         // map store name, previous snapshot index blob id
         indexBlobIdAndLocalRemoteSnapshotsPair.entrySet().stream()
-            .collect(Collectors.toMap(e -> e.getValue().getFirst(),
-                e -> e.getValue().getSecond().getPrevSnapshotIndexBlobId().get()));
+            .collect(Collectors.toMap(e -> e.getValue().getLeft(),
+              e -> e.getValue().getRight().getPrevSnapshotIndexBlobId().get()));
 
     Checkpoint checkpoint =
         new CheckpointV2(checkpointId, new HashMap<>(),
@@ -299,7 +299,7 @@ public class TestBlobStoreBackupManager {
         .then((Answer<File>) invocation -> {
           String storeName = invocation.getArgumentAt(1, String.class);
           String snapshotIndexBlobId = testStoreNameAndSCMMap.get(storeName);
-          String storeDir = indexBlobIdAndLocalRemoteSnapshotsPair.get(snapshotIndexBlobId).getFirst();
+          String storeDir = indexBlobIdAndLocalRemoteSnapshotsPair.get(snapshotIndexBlobId).getLeft();
           try { // create test checkpoint dir
             BlobStoreTestUtil.createTestCheckpointDirectory(storeDir, checkpointId.serialize());
             checkpointDirsToClean.add(storeDir + "-" + checkpointId.serialize());
@@ -334,7 +334,7 @@ public class TestBlobStoreBackupManager {
 
     // mock: mock putSnapshotIndex and capture previous snapshot index
     SortedSet<SnapshotIndex> expectedSnapshotIndexesUploaded = indexBlobIdAndLocalRemoteSnapshotsPair.values().stream()
-        .map(Pair::getSecond)
+        .map(Pair::getRight)
         .collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(SnapshotIndex::getCreationTimeMillis))));
     SortedSet<SnapshotIndex> actualSnapshotIndexesUploaded = new TreeSet<>(Comparator.comparing(SnapshotIndex::getCreationTimeMillis));
     SortedSet<String> actualPreviousSnapshotIndexBlobIds = new TreeSet<>();
@@ -356,8 +356,8 @@ public class TestBlobStoreBackupManager {
     TreeSet<DirDiff> expectedDirDiffs = indexBlobIdAndLocalRemoteSnapshotsPair.values()
         .stream()
         .map(localRemoteSnapshotPair ->
-            DirDiffUtil.getDirDiff(new File(localRemoteSnapshotPair.getFirst() + "-" + checkpointId.serialize()),
-            localRemoteSnapshotPair.getSecond().getDirIndex(), DirDiffUtil.areSameFile(false)))
+            DirDiffUtil.getDirDiff(new File(localRemoteSnapshotPair.getLeft() + "-" + checkpointId.serialize()),
+            localRemoteSnapshotPair.getRight().getDirIndex(), DirDiffUtil.areSameFile(false)))
         .collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(DirDiff::getDirName))));
 
     // assert - asset all DirDiff are put to blob store
@@ -408,7 +408,7 @@ public class TestBlobStoreBackupManager {
   @Test
   public void testCleanupCleansUpRemoteSnapshot() throws Exception {
     SortedSet<DirIndex> actualCleanedupDirs = indexBlobIdAndLocalRemoteSnapshotsPair.values().stream()
-        .map(remoteLocalPair -> remoteLocalPair.getSecond().getDirIndex())
+        .map(remoteLocalPair -> remoteLocalPair.getRight().getDirIndex())
         .collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(DirIndex::getDirName))));
 
     SortedSet<DirIndex> expectedCleanupDirs = new TreeSet<>(Comparator.comparing(DirIndex::getDirName));
@@ -439,7 +439,7 @@ public class TestBlobStoreBackupManager {
   public void testCleanupRemovesOldSnapshots() throws Exception {
     TreeSet<String> expectedOldSnapshotsRemoved = indexBlobIdAndLocalRemoteSnapshotsPair.values().stream()
         .map(remoteLocalPair -> {
-          Optional<String> prevSnapshotIndexBlobId = remoteLocalPair.getSecond().getPrevSnapshotIndexBlobId();
+          Optional<String> prevSnapshotIndexBlobId = remoteLocalPair.getRight().getPrevSnapshotIndexBlobId();
           return prevSnapshotIndexBlobId.orElse(null);
         })
         .collect(Collectors.toCollection(TreeSet::new));
@@ -478,9 +478,11 @@ public class TestBlobStoreBackupManager {
     Map<String, String> storeNameSCMMap = new HashMap<>();
     indexBlobIdAndRemoteAndLocalSnapshotMap
         .forEach((blobId, localRemoteSnapshots) -> {
-          mapConfig.put("stores."+localRemoteSnapshots.getFirst()+".factory", BlobStoreStateBackendFactory.class.getName());
-          mapConfig.put("stores."+localRemoteSnapshots.getFirst()+".backup.factories", BlobStoreStateBackendFactory.class.getName());
-          storeNameSCMMap.put(localRemoteSnapshots.getFirst(), blobId);
+          mapConfig.put("stores." + localRemoteSnapshots.getLeft() + ".factory",
+              BlobStoreStateBackendFactory.class.getName());
+          mapConfig.put("stores." + localRemoteSnapshots.getLeft() + ".backup.factories",
+              BlobStoreStateBackendFactory.class.getName());
+          storeNameSCMMap.put(localRemoteSnapshots.getLeft(), blobId);
         });
     return storeNameSCMMap;
   }
@@ -501,7 +503,7 @@ public class TestBlobStoreBackupManager {
     previousRemoteSnapshots.add("[z/i/1, x/k/1]");
 
     // setup local and corresponding remote snapshots
-    for (int i=0; i<localSnapshots.size(); i++) {
+    for (int i = 0; i < localSnapshots.size(); i++) {
       Path localSnapshot = BlobStoreTestUtil.createLocalDir(localSnapshots.get(i));
       String testLocalSnapshot = localSnapshot.toAbsolutePath().toString();
       DirIndex dirIndex = BlobStoreTestUtil.createDirIndex(localSnapshots.get(i));

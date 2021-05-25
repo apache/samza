@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.time.Duration;
 import java.util.HashMap;
@@ -143,6 +144,14 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
     return new NoOpKafkaChangelogStateBackendAdmin();
   }
 
+  public Set<SystemStreamPartition> getChangelogSSPForContainer(Map<String, SystemStream> storeChangelogs,
+      ContainerContext containerContext) {
+    return storeChangelogs.values().stream()
+        .flatMap(ss -> containerContext.getContainerModel().getTasks().values().stream()
+            .map(tm -> new SystemStreamPartition(ss, tm.getChangelogPartition())))
+        .collect(Collectors.toSet());
+  }
+
   /**
    * Shared cache across all KafkaRestoreManagers for the Kafka topic
    *
@@ -150,7 +159,8 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
    * @param clock for cache invalidation
    * @return StreamMetadataCache containing the stream metadata
    */
-  private StreamMetadataCache getStreamCache(SystemAdmins admins, Clock clock) {
+  @VisibleForTesting
+  StreamMetadataCache getStreamCache(SystemAdmins admins, Clock clock) {
     if (streamCache == null) {
       streamCache = new StreamMetadataCache(admins, 5000, clock);
     }
@@ -172,7 +182,8 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
     return sspCache;
   }
 
-  private Map<String, SystemStream> filterStandbySystemStreams(Map<String, SystemStream> changelogSystemStreams,
+  @VisibleForTesting
+  Map<String, SystemStream> filterStandbySystemStreams(Map<String, SystemStream> changelogSystemStreams,
       ContainerModel containerModel) {
     Map<SystemStreamPartition, String> changelogSSPToStore = new HashMap<>();
     changelogSystemStreams.forEach((storeName, systemStream) ->

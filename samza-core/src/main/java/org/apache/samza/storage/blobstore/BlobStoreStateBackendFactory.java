@@ -40,7 +40,6 @@ import org.apache.samza.storage.TaskBackupManager;
 import org.apache.samza.storage.TaskRestoreManager;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
-import org.apache.samza.storage.blobstore.util.BlobStoreUtil;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.ReflectionUtil;
 

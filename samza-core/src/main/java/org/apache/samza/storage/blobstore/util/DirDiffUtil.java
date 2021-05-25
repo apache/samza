@@ -194,7 +194,7 @@ public class DirDiffUtil {
             FileInputStream fis = new FileInputStream(localFile);
             CheckedInputStream cis = new CheckedInputStream(fis, new CRC32());
             byte[] buffer = new byte[8 * 1024]; // 8 KB
-            while (cis.read(buffer, 0, buffer.length) >= 0) {}
+            while (cis.read(buffer, 0, buffer.length) >= 0) { }
             long localFileChecksum = cis.getChecksum().getValue();
             cis.close();
 

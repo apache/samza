@@ -51,7 +51,7 @@ public class TestDirDiffUtilMisc {
 
     // Execute
     DirDiff dirDiff = DirDiffUtil.getDirDiff(localSnapshotDir.toFile(), remoteSnapshotDir,
-        (localFile, remoteFile) -> false);
+      (localFile, remoteFile) -> false);
 
     SortedSet<String> allAdded = new TreeSet<>();
     SortedSet<String> allRemoved = new TreeSet<>();
