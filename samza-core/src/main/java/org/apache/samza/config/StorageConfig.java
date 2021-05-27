@@ -153,6 +153,10 @@ public class StorageConfig extends MapConfig {
   }
 
   public Optional<String> getStorageFactoryClassName(String storeName) {
+    //TODO HIGH dchen remove this after changing restore factory to factories.
+    if (String.format(FACTORY, storeName).equals(STORE_RESTORE_FACTORY)) {
+      return Optional.empty();
+    }
     return Optional.ofNullable(get(String.format(FACTORY, storeName)));
   }
 
