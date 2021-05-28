@@ -74,7 +74,8 @@ public class StorageConfig extends MapConfig {
       KAFKA_STATE_BACKEND_FACTORY);
   public static final String STORE_BACKUP_FACTORIES = STORE_PREFIX + "%s.backup.factories";
   // TODO BLOCKER dchen make this per store
-  public static final String STORE_RESTORE_FACTORY = STORE_PREFIX + "restore.factory";
+  public static final String RESTORE_FACTORY_SUFFIX = "restore.factory";
+  public static final String STORE_RESTORE_FACTORY = STORE_PREFIX + RESTORE_FACTORY_SUFFIX;
 
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
@@ -100,7 +101,8 @@ public class StorageConfig extends MapConfig {
     for (String key : subConfig.keySet()) {
       if (key.endsWith(SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX)) {
         storeNames.add(key.substring(0, key.length() - SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX.length()));
-      } else if (key.endsWith(FACTORY_SUFFIX)) {
+      } else if (key.endsWith(FACTORY_SUFFIX) && !key.equals(RESTORE_FACTORY_SUFFIX)) {
+        // TODO HIGH dchen STORE_RESTORE_FACTORY added here to be ignored. Update/remove after changing restore factory -> factories
         storeNames.add(key.substring(0, key.length() - FACTORY_SUFFIX.length()));
       }
     }
@@ -153,10 +155,6 @@ public class StorageConfig extends MapConfig {
   }
 
   public Optional<String> getStorageFactoryClassName(String storeName) {
-    //TODO HIGH dchen remove this after changing restore factory to factories.
-    if (String.format(FACTORY, storeName).equals(STORE_RESTORE_FACTORY)) {
-      return Optional.empty();
-    }
     return Optional.ofNullable(get(String.format(FACTORY, storeName)));
   }
 

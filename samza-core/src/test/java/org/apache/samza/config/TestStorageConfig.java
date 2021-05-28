@@ -70,6 +70,28 @@ public class TestStorageConfig {
     assertEquals(expectedStoreNames, ImmutableSet.copyOf(actual));
   }
 
+  /**
+   * Test verifies that the {@link StorageConfig#STORE_RESTORE_FACTORY} which matches pattern for store.%s.factory
+   * is not picked up as in store names list
+   */
+  @Test
+  public void testGetStoreNamesIgnoreStateRestoreFactory() {
+    // empty config, so no stores
+    assertEquals(Collections.emptyList(), new StorageConfig(new MapConfig()).getStoreNames());
+
+    Set<String> expectedStoreNames = ImmutableSet.of(STORE_NAME0, STORE_NAME1);
+    // has stores
+    StorageConfig storageConfig = new StorageConfig(new MapConfig(
+        ImmutableMap.of(String.format(StorageConfig.FACTORY, STORE_NAME0), "store0.factory.class",
+            String.format(StorageConfig.FACTORY, STORE_NAME1), "store1.factory.class",
+            STORE_RESTORE_FACTORY, "org.apache.class")));
+
+    List<String> actual = storageConfig.getStoreNames();
+    // ordering shouldn't matter
+    assertEquals(2, actual.size());
+    assertEquals(expectedStoreNames, ImmutableSet.copyOf(actual));
+  }
+
   @Test
   public void testGetChangelogStream() {
     // empty config, so no changelog stream
