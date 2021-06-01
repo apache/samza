@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.samza.SamzaException;
+import org.apache.samza.system.SystemStream;
 import org.junit.Test;
 
 import static org.apache.samza.config.StorageConfig.*;
@@ -101,57 +102,72 @@ public class TestStorageConfig {
     StorageConfig storageConfig = new StorageConfig(
         new MapConfig(ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "")));
     assertEquals(Optional.empty(), storageConfig.getChangelogStream(STORE_NAME0));
+    assertEquals(Collections.emptyMap(), storageConfig.getStoreChangelogs());
 
     // store has full changelog system-stream defined
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0),
-            "changelog-system.changelog-stream0")));
+            "changelog-system.changelog-stream0", String.format(FACTORY, STORE_NAME0), "store0.factory.class")));
     assertEquals(Optional.of("changelog-system.changelog-stream0"), storageConfig.getChangelogStream(STORE_NAME0));
+    assertEquals(ImmutableMap.of(STORE_NAME0, new SystemStream("changelog-system", "changelog-stream0")), storageConfig.getStoreChangelogs());
 
     // store has changelog stream defined, but system comes from job.changelog.system
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "changelog-stream0",
+            String.format(FACTORY, STORE_NAME0), "store0.factory.class" ,
             StorageConfig.CHANGELOG_SYSTEM, "changelog-system")));
     assertEquals(Optional.of("changelog-system.changelog-stream0"), storageConfig.getChangelogStream(STORE_NAME0));
+    assertEquals(ImmutableMap.of(STORE_NAME0,  new SystemStream("changelog-system", "changelog-stream0")), storageConfig.getStoreChangelogs());
 
     // batch mode: create unique stream name
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0),
-            "changelog-system.changelog-stream0", ApplicationConfig.APP_MODE,
+            "changelog-system.changelog-stream0", String.format(FACTORY, STORE_NAME0), "store0.factory.class",
+            ApplicationConfig.APP_MODE,
             ApplicationConfig.ApplicationMode.BATCH.name().toLowerCase(), ApplicationConfig.APP_RUN_ID, "run-id")));
     assertEquals(Optional.of("changelog-system.changelog-stream0-run-id"),
         storageConfig.getChangelogStream(STORE_NAME0));
+    assertEquals(ImmutableMap.of(STORE_NAME0,  new SystemStream("changelog-system", "changelog-stream0-run-id")), storageConfig.getStoreChangelogs());
 
     // job has no changelog stream defined
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "changelog-system", JobConfig.JOB_DEFAULT_SYSTEM,
-            "should-not-be-used")));
+            "should-not-be-used", String.format(FACTORY, STORE_NAME0), "store0.factory.class")));
     assertEquals(Optional.empty(), storageConfig.getChangelogStream(STORE_NAME0));
+    assertEquals(Collections.emptyMap(), storageConfig.getStoreChangelogs());
 
     // job.changelog.system takes precedence over job.default.system when changelog is specified as just streamName
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "changelog-system", JobConfig.JOB_DEFAULT_SYSTEM,
-            "should-not-be-used", String.format(CHANGELOG_STREAM, STORE_NAME0), "streamName")));
+            "should-not-be-used", String.format(CHANGELOG_STREAM, STORE_NAME0), "streamName",
+            String.format(FACTORY, STORE_NAME0), "store0.factory.class")));
     assertEquals("changelog-system.streamName", storageConfig.getChangelogStream(STORE_NAME0).get());
+    assertEquals(ImmutableMap.of(STORE_NAME0,  new SystemStream("changelog-system", "streamName")), storageConfig.getStoreChangelogs());
 
     // job.changelog.system takes precedence over job.default.system when changelog is specified as {systemName}.{streamName}
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "changelog-system", JobConfig.JOB_DEFAULT_SYSTEM,
-            "should-not-be-used", String.format(CHANGELOG_STREAM, STORE_NAME0), "changelog-system.streamName")));
+            "should-not-be-used", String.format(CHANGELOG_STREAM, STORE_NAME0), "changelog-system.streamName",
+            String.format(FACTORY, STORE_NAME0), "store0.factory.class")));
     assertEquals("changelog-system.streamName", storageConfig.getChangelogStream(STORE_NAME0).get());
+    assertEquals(ImmutableMap.of(STORE_NAME0,  new SystemStream("changelog-system", "streamName")), storageConfig.getStoreChangelogs());
 
     // systemName specified using stores.{storeName}.changelog = {systemName}.{streamName} should take precedence even
     // when job.changelog.system and job.default.system are specified
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(StorageConfig.CHANGELOG_SYSTEM, "default-changelog-system",
             JobConfig.JOB_DEFAULT_SYSTEM, "default-system",
-            String.format(CHANGELOG_STREAM, STORE_NAME0), "nondefault-changelog-system.streamName")));
+            String.format(CHANGELOG_STREAM, STORE_NAME0), "nondefault-changelog-system.streamName",
+            String.format(FACTORY, STORE_NAME0), "store0.factory.class")));
     assertEquals("nondefault-changelog-system.streamName", storageConfig.getChangelogStream(STORE_NAME0).get());
+    assertEquals(ImmutableMap.of(STORE_NAME0,  new SystemStream("nondefault-changelog-system", "streamName")), storageConfig.getStoreChangelogs());
 
     // fall back to job.default.system if job.changelog.system is not specified
     storageConfig = new StorageConfig(new MapConfig(
-        ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "default-system", String.format(CHANGELOG_STREAM, STORE_NAME0), "streamName")));
+        ImmutableMap.of(JobConfig.JOB_DEFAULT_SYSTEM, "default-system", String.format(CHANGELOG_STREAM, STORE_NAME0),
+            "streamName", String.format(FACTORY, STORE_NAME0), "store0.factory.class")));
     assertEquals("default-system.streamName", storageConfig.getChangelogStream(STORE_NAME0).get());
+    assertEquals(ImmutableMap.of(STORE_NAME0,  new SystemStream("default-system", "streamName")), storageConfig.getStoreChangelogs());
   }
 
   @Test(expected = SamzaException.class)

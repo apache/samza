@@ -168,7 +168,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   /**
    * Deletes blob store contents for stores that were present in the last checkpoint but are either no longer
-   * present in job configs (removed by user since last deploymetn) or are no longer configured to be backed
+   * present in job configs (removed by user since last deployment) or are no longer configured to be backed
    * up using blob stores.
    *
    * This method blocks until all the necessary store contents and snapshot index blobs have been marked for deletion.

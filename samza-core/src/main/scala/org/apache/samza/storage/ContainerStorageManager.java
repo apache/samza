@@ -467,7 +467,7 @@ public class ContainerStorageManager {
         // add created store to map
         taskStores.get(taskName).put(storeName, storageEngine);
 
-        LOG.info("Created non side input store store {} in read-write mode for task {}", storeName, taskName);
+        LOG.info("Created task store {} in read-write mode for task {} in path {}", storeName, taskName, storeDirectory.getAbsolutePath());
       }
     }
     return taskStores;

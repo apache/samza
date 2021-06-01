@@ -43,6 +43,9 @@ class FileSystemCheckpointManager(
   def getCheckpointFile(taskName: TaskName) = getFile(jobName, taskName, "checkpoints")
 
   def writeCheckpoint(taskName: TaskName, checkpoint: Checkpoint) {
+    if (!checkpoint.isInstanceOf[CheckpointV1]) {
+      throw new SamzaException("Unsupported checkpoint version: " + checkpoint.getVersion)
+    }
     val bytes = serde.toBytes(checkpoint.asInstanceOf[CheckpointV1])
     val fos = new FileOutputStream(getCheckpointFile(taskName))
 

@@ -684,19 +684,6 @@ object SamzaContainer extends Logging {
       containerStorageManager = containerStorageManager,
       diagnosticsManager = diagnosticsManager)
   }
-
-  /**
-    * Builds the set of SSPs for all changelogs on this container.
-    */
-  @VisibleForTesting
-  private[container] def getChangelogSSPsForContainer(containerModel: ContainerModel,
-    changeLogSystemStreams: util.Map[String, SystemStream]): Set[SystemStreamPartition] = {
-    containerModel.getTasks.values().asScala
-      .map(taskModel => taskModel.getChangelogPartition)
-      .flatMap(changelogPartition => changeLogSystemStreams.asScala.map { case (_, systemStream) =>
-        new SystemStreamPartition(systemStream, changelogPartition) })
-      .toSet
-  }
 }
 
 class SamzaContainer(
