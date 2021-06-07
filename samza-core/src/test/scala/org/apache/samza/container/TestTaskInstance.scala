@@ -728,10 +728,19 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     taskInstance.commit // async stage will be run by caller due to direct executor
 
+    val asyncCommitTimeCaptor = ArgumentCaptor.forClass(classOf[Long])
+    val uploadTimeCaptor = ArgumentCaptor.forClass(classOf[Long])
+    val cleanUpTimeCaptor = ArgumentCaptor.forClass(classOf[Long])
+
     verify(commitsCounter).inc()
     verify(snapshotTimer).update(anyLong())
     verify(uploadTimer).update(anyLong())
     verify(commitTimer).update(anyLong())
+    verify(commitAsyncTimer).update(asyncCommitTimeCaptor.capture())
+    verify(uploadTimer).update(uploadTimeCaptor.capture())
+    verify(cleanUpTimer).update(cleanUpTimeCaptor.capture())
+
+    assertTrue((cleanUpTimeCaptor.getValue + uploadTimeCaptor.getValue) < asyncCommitTimeCaptor.getValue)
 
     taskInstance.commit
 
