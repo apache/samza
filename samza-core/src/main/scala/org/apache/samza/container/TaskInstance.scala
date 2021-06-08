@@ -290,6 +290,7 @@ class TaskInstance(
 
         if (!commitInProgress.tryAcquire(commitTimeoutMs, TimeUnit.MILLISECONDS)) {
           val timeSinceLastCommit = System.currentTimeMillis() - lastCommitStartTimeMs
+          metrics.commitsTimedOut.set(metrics.commitsTimedOut.getValue + 1)
           throw new SamzaException("Timeout waiting for pending commit for taskName: %s to finish. " +
             "%s ms have elapsed since the pending commit started. Max allowed commit delay is %s ms " +
             "and commit timeout beyond that is %s ms" format (taskName, timeSinceLastCommit,
@@ -377,6 +378,7 @@ class TaskInstance(
       }
     })
 
+    metrics.lastCommitNs.set(System.nanoTime() - commitStartNs)
     metrics.commitSyncNs.update(System.nanoTime() - commitStartNs)
     debug("Finishing sync stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
   }

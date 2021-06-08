@@ -63,7 +63,7 @@ public class TaskConfig extends MapConfig {
   // COMMIT_MAX_DELAY_MS have passed since the pending commit start. if the pending commit
   // does not complete within this timeout, the container will shut down.
   public static final String COMMIT_TIMEOUT_MS = "task.commit.timeout.ms";
-  static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(1).toMillis();
+  static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(30).toMillis();
 
   // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
