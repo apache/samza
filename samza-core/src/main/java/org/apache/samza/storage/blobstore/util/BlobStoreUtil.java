@@ -456,7 +456,7 @@ public class BlobStoreUtil {
    * @return A future containing the {@link FileIndex} for the uploaded file.
    */
   @VisibleForTesting
-  CompletableFuture<FileIndex> putFile(File file, SnapshotMetadata snapshotMetadata) {
+  public CompletableFuture<FileIndex> putFile(File file, SnapshotMetadata snapshotMetadata) {
     if (file == null || !file.isFile()) {
       String message = file != null ? "Dir or Symbolic link" : "null";
       throw new SamzaException(String.format("Required a non-null parameter of type file, provided: %s", message));
@@ -483,7 +483,7 @@ public class BlobStoreUtil {
 
         fileBlobFuture = blobStoreManager.put(inputStream, metadata)
             .thenApplyAsync(id -> {
-              LOG.trace("Put complete. Closing input stream for file: {}.", file.getPath());
+              LOG.trace("Put complete. Received Blob ID {}. Closing input stream for file: {}.", id, file.getPath());
               try {
                 finalInputStream.close();
               } catch (Exception e) {
