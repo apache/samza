@@ -127,11 +127,6 @@ subprojects {
     toolVersion = "$checkstyleVersion"
   }
 
-  tasks.withType(ScalaCompile) {
-    // show compile errors in console output
-    logging.setLevel LogLevel.WARN
-  }
-
   tasks.withType(Test) {
     test {
       testLogging {
