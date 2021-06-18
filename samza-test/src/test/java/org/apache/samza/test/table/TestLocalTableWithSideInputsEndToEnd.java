@@ -123,7 +123,7 @@ public class TestLocalTableWithSideInputsEndToEnd {
         .addInputStream(pageViewStreamDesc, pageViews)
         .addInputStream(profileStreamDesc, profiles)
         .addOutputStream(outputStreamDesc, 1)
-        .run(Duration.ofSeconds(1000));
+        .run(Duration.ofSeconds(10));
 
     List<EnrichedPageView> expectedEnrichedPageViews = buildExpectedEnrichedPageViews(pageViews, profiles);
     StreamAssert.containsInAnyOrder(expectedEnrichedPageViews, outputStreamDesc, Duration.ofSeconds(1));
