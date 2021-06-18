@@ -107,6 +107,14 @@ public class TestRunner {
     this.configs = new HashMap<>();
     this.inMemoryScope = RandomStringUtils.random(10, true, true);
     configs.put(ApplicationConfig.APP_NAME, APP_NAME);
+    /*
+     * Use a unique app id to help make sure a test execution is isolated from others.
+     * A concrete example of where this helps is to avoid an issue with ControlMessageSender. It has a static cache
+     * keyed by stream id to save partition counts for intermediate streams. This means that different tests can
+     * collide in this cache if they use the same intermediate stream names. Having a unique app id makes the
+     * intermediate streams unique across tests.
+     */
+    configs.put(ApplicationConfig.APP_ID, this.inMemoryScope);
     configs.put(JobConfig.PROCESSOR_ID, "1");
     configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, PassthroughJobCoordinatorFactory.class.getName());
     configs.put(JobConfig.STARTPOINT_METADATA_STORE_FACTORY, InMemoryMetadataStoreFactory.class.getCanonicalName());

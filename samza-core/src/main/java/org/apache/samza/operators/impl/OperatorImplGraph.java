@@ -111,17 +111,13 @@ public class OperatorImplGraph {
       LOG.info("{} has {} producer tasks.", stream, count);
     });
 
-    // set states for end-of-stream
+    // set states for end-of-stream; don't include side inputs (see SAMZA-2303)
     internalTaskContext.registerObject(EndOfStreamStates.class.getName(),
-        new EndOfStreamStates(
-                internalTaskContext.getContext().getTaskContext().getTaskModel().getSystemStreamPartitions(),
-                producerTaskCounts));
-    // set states for watermark
+        new EndOfStreamStates(internalTaskContext.getSspsExcludingSideInputs(), producerTaskCounts));
+    // set states for watermark; don't include side inputs (see SAMZA-2303)
     internalTaskContext.registerObject(WatermarkStates.class.getName(),
-        new WatermarkStates(
-                internalTaskContext.getContext().getTaskContext().getTaskModel().getSystemStreamPartitions(),
-                producerTaskCounts,
-                context.getContainerContext().getContainerMetricsRegistry()));
+        new WatermarkStates(internalTaskContext.getSspsExcludingSideInputs(), producerTaskCounts,
+            context.getContainerContext().getContainerMetricsRegistry()));
 
     specGraph.getInputOperators().forEach((streamId, inputOpSpec) -> {
       SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);

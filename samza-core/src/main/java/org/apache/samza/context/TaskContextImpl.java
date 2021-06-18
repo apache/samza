@@ -29,9 +29,15 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.TableManager;
 
+import java.util.Set;
 import java.util.function.Function;
 
 
+/**
+ * This class provides the implementation for the public {@link TaskContext} interface.
+ * It also allows us to pass certain internal Samza components around so that the implementation of the high-level API
+ * can use them (see InternalTaskContext for some more details).
+ */
 public class TaskContextImpl implements TaskContext {
   private final TaskModel taskModel;
   private final MetricsRegistry taskMetricsRegistry;
@@ -39,8 +45,13 @@ public class TaskContextImpl implements TaskContext {
   private final TableManager tableManager;
   private final CallbackScheduler callbackScheduler;
   private final OffsetManager offsetManager;
+
+  // The instance variables below are not used for implementing any public API methods. They are here so that we can
+  // pass some internal components over to the implementation of the high-level API. See InternalTaskContext.
+
   private final JobModel jobModel;
   private final StreamMetadataCache streamMetadataCache;
+  private final Set<SystemStreamPartition> sspsExcludingSideInputs;
 
   public TaskContextImpl(TaskModel taskModel,
       MetricsRegistry taskMetricsRegistry,
@@ -49,7 +60,8 @@ public class TaskContextImpl implements TaskContext {
       CallbackScheduler callbackScheduler,
       OffsetManager offsetManager,
       JobModel jobModel,
-      StreamMetadataCache streamMetadataCache) {
+      StreamMetadataCache streamMetadataCache,
+      Set<SystemStreamPartition> sspsExcludingSideInputs) {
     this.taskModel = taskModel;
     this.taskMetricsRegistry = taskMetricsRegistry;
     this.keyValueStoreProvider = keyValueStoreProvider;
@@ -58,6 +70,7 @@ public class TaskContextImpl implements TaskContext {
     this.offsetManager = offsetManager;
     this.jobModel = jobModel;
     this.streamMetadataCache = streamMetadataCache;
+    this.sspsExcludingSideInputs = sspsExcludingSideInputs;
   }
 
   @Override
@@ -100,5 +113,15 @@ public class TaskContextImpl implements TaskContext {
 
   public StreamMetadataCache getStreamMetadataCache() {
     return this.streamMetadataCache;
+  }
+
+  /**
+   * Returns the {@link SystemStreamPartition}s excluding the side-input SSPs. For the high-level API, watermarks and
+   * end-of-stream messages are propagated based on their input SSPs. However, the Samza framework does not give side
+   * input messages to the high-level operator tasks. Therefore, the operators need to know the input SSPs excluding the
+   * side input SSPs. See SAMZA-2303 for more details.
+   */
+  public Set<SystemStreamPartition> getSspsExcludingSideInputs() {
+    return this.sspsExcludingSideInputs;
   }
 }

@@ -80,7 +80,7 @@ class TaskInstance(
       }
     })
   private val taskContext = new TaskContextImpl(taskModel, metrics.registry, kvStoreSupplier, tableManager,
-    new CallbackSchedulerImpl(epochTimeScheduler), offsetManager, jobModel, streamMetadataCache)
+    new CallbackSchedulerImpl(epochTimeScheduler), offsetManager, jobModel, streamMetadataCache, systemStreamPartitions)
   // need separate field for this instead of using it through Context, since Context throws an exception if it is null
   private val applicationTaskContextOption = applicationTaskContextFactoryOption
     .map(_.create(externalContextOption.orNull, jobContext, containerContext, taskContext,

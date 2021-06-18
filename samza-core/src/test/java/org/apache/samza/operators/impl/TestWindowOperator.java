@@ -36,6 +36,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
+import org.apache.samza.context.TaskContextImpl;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.system.descriptors.GenericSystemDescriptor;
 import org.apache.samza.job.model.TaskModel;
@@ -93,11 +94,13 @@ public class TestWindowOperator {
     Serde storeKeySerde = new TimeSeriesKeySerde(new IntegerSerde());
     Serde storeValSerde = KVSerde.of(new IntegerSerde(), new IntegerSerde());
 
+    SystemStreamPartition ssp = new SystemStreamPartition("kafka", "integers", new Partition(0));
     TaskModel taskModel = mock(TaskModel.class);
-    when(taskModel.getSystemStreamPartitions()).thenReturn(ImmutableSet
-        .of(new SystemStreamPartition("kafka", "integers", new Partition(0))));
+    when(taskModel.getSystemStreamPartitions()).thenReturn(ImmutableSet.of(ssp));
     when(taskModel.getTaskName()).thenReturn(new TaskName("task 1"));
     when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
+    when(((TaskContextImpl) this.context.getTaskContext()).getSspsExcludingSideInputs()).thenReturn(
+        ImmutableSet.of(ssp));
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(this.context.getTaskContext().getStore("jobName-jobId-window-w1"))
