@@ -139,7 +139,7 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
       tn1 -> Map(new SystemStreamPartition("test", "foo", p1) -> "43"),
       tn2 -> Map(new SystemStreamPartition("test", "foo", p2) -> "45"))
 
-    val checkpointV2Config = new MapConfig(config, Map(TaskConfig.CHECKPOINT_READ_VERSION -> "2").asJava)
+    val checkpointV2Config = new MapConfig(config, Map(TaskConfig.CHECKPOINT_READ_VERSIONS -> "2").asJava)
 
     val argument = ArgumentCaptor.forClass(classOf[CheckpointV2])
     val checkpointTool = CheckpointTool(checkpointV2Config, toOverwrite)

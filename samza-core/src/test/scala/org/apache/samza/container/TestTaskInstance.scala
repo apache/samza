@@ -227,6 +227,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
     val commitSyncTimer = mock[Timer]
     when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
     val commitAsyncTimer = mock[Timer]
@@ -320,6 +322,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
     val commitTimer = mock[Timer]
     when(this.metrics.commitNs).thenReturn(commitTimer)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
     val commitSyncTimer = mock[Timer]
     when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
     val commitAsyncTimer = mock[Timer]
@@ -389,6 +393,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
     val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
@@ -460,6 +466,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -510,6 +518,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -560,6 +570,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -611,6 +623,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -662,6 +676,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -714,6 +730,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -772,6 +790,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -803,7 +823,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     verify(commitsCounter, times(1)).inc() // should only have been incremented once on the initial commit
     verify(snapshotTimer).update(anyLong())
-    verify(uploadTimer).update(anyLong())
     verifyZeroInteractions(commitTimer)
 
     cleanUpFuture.complete(null) // just to unblock shared executor
@@ -827,6 +846,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -888,6 +909,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
     val skippedCounter = mock[Gauge[Int]]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")

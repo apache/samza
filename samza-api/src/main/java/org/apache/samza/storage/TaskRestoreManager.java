@@ -47,7 +47,7 @@ public interface TaskRestoreManager {
   void restore() throws InterruptedException;
 
   /**
-   * Closes all initiated ressources include storage engines
+   * Closes all initiated resources include storage engines
    */
   void close();
 }

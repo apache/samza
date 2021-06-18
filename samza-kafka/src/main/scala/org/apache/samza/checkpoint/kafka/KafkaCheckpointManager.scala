@@ -34,6 +34,7 @@ import org.apache.samza.system.kafka.KafkaStreamSpec
 import org.apache.samza.util.Logging
 import org.apache.samza.{Partition, SamzaException}
 
+import java.{lang, util}
 import scala.collection.mutable
 
 /**
@@ -80,7 +81,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   // for active containers, this will be set to true, while false for standby containers.
   val stopConsumerAfterFirstRead: Boolean = new TaskConfig(config).getCheckpointManagerConsumerStopAfterFirstRead
 
-  val checkpointReadVersion: Short = new TaskConfig(config).getCheckpointReadVersion
+  val checkpointReadVersions: util.List[lang.Short] = new TaskConfig(config).getCheckpointReadVersions
 
   /**
     * Create checkpoint stream prior to start.
@@ -287,16 +288,17 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
         val msgBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
         try {
           // if checkpoint key version does not match configured checkpoint version to read, skip the message.
-          if (checkpointReadVersion == CheckpointV1.CHECKPOINT_VERSION &&
-            KafkaCheckpointLogKey.CHECKPOINT_V1_KEY_TYPE.equals(checkpointKey.getType)) {
-            val msgBytes = checkpointEnvelope.getMessage.asInstanceOf[Array[Byte]]
-            val checkpoint = checkpointV1MsgSerde.fromBytes(msgBytes)
-            checkpoints.put(checkpointKey.getTaskName, checkpoint)
-          } else if (checkpointReadVersion == CheckpointV2.CHECKPOINT_VERSION &&
-            KafkaCheckpointLogKey.CHECKPOINT_V2_KEY_TYPE.equals(checkpointKey.getType)) {
-            val checkpoint = checkpointV2MsgSerde.fromBytes(msgBytes)
-            checkpoints.put(checkpointKey.getTaskName, checkpoint)
-          } // else ignore and skip the message
+          if (checkpointReadVersions.contains(
+            KafkaCheckpointLogKey.CHECKPOINT_KEY_VERSIONS.get(checkpointKey.getType))) {
+            if (!checkpoints.contains(checkpointKey.getTaskName) ||
+              shouldOverrideCheckpoint(checkpoints.get(checkpointKey.getTaskName), checkpointKey)) {
+              checkpoints.put(checkpointKey.getTaskName, deserializeCheckpoint(checkpointKey, msgBytes))
+            } // else ignore the de-prioritized checkpoint
+          } else {
+            // Ignore and skip the unknown checkpoint key type. We do not want to throw any exceptions for this case
+            // for forwards compatibility with new checkpoints versions in the checkpoint topic
+            warn(s"Ignoring unknown checkpoint key type for checkpoint key: $checkpointKey")
+          }
         } catch {
           case e: Exception =>
             if (validateCheckpoint) {
@@ -370,6 +372,31 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
         new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
       }
       case _ => throw new SamzaException("Unknown checkpoint version: " + checkpoint.getVersion)
+    }
+  }
+
+  private def shouldOverrideCheckpoint(currentCheckpoint: Option[Checkpoint],
+    newCheckpointKey: KafkaCheckpointLogKey): Boolean = {
+    val newCheckpointVersion = KafkaCheckpointLogKey.CHECKPOINT_KEY_VERSIONS.get(newCheckpointKey.getType)
+    if (newCheckpointVersion == null) {
+      // Unknown checkpoint version
+      throw new IllegalArgumentException("Unknown checkpoint key type: " + newCheckpointKey.getType +
+        " for checkpoint key: " + newCheckpointKey)
+    }
+    // Override checkpoint if the current checkpoint does not exist or if new checkpoint has a higher restore
+    // priority than the currently written checkpoint
+    currentCheckpoint.isEmpty ||
+      checkpointReadVersions.indexOf(newCheckpointVersion) <=
+        checkpointReadVersions.indexOf(currentCheckpoint.get.getVersion)
+  }
+
+  private def deserializeCheckpoint(checkpointKey: KafkaCheckpointLogKey, checkpointMsgBytes: Array[Byte]): Checkpoint = {
+    if (KafkaCheckpointLogKey.CHECKPOINT_V1_KEY_TYPE.equals(checkpointKey.getType)) {
+      checkpointV1MsgSerde.fromBytes(checkpointMsgBytes)
+    } else if (KafkaCheckpointLogKey.CHECKPOINT_V2_KEY_TYPE.equals(checkpointKey.getType)) {
+      checkpointV2MsgSerde.fromBytes(checkpointMsgBytes)
+    } else {
+      throw new IllegalArgumentException("Unknown checkpoint key type: " + checkpointKey.getType)
     }
   }
 }

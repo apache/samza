@@ -185,7 +185,8 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
       taskNames.foreach(checkpointManager.register)
       checkpointManager.start()
 
-      val checkpointReadVersion = taskConfig.getCheckpointReadVersion
+      // Get preferred read version for the checkpoint application
+      val checkpointReadVersion = taskConfig.getCheckpointReadVersions.get(0)
       val defaultCheckpoint = if (checkpointReadVersion == 1) {
         new CheckpointV1(new java.util.HashMap[SystemStreamPartition, String]())
       } else if (checkpointReadVersion == 2) {

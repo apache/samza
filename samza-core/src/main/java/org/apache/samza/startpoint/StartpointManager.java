@@ -244,7 +244,7 @@ public class StartpointManager {
    * The Startpoints that are written to with {@link #writeStartpoint(SystemStreamPartition, Startpoint)} and with
    * {@link #writeStartpoint(SystemStreamPartition, TaskName, Startpoint)} are moved from a "read-write" namespace
    * to a "fan out" namespace.
-   * This method is not atomic or thread-safe. The intent is for the Samza Processor's coordinator to use this
+   * This method is not atomic nor thread-safe. The intent is for the Samza Processor's coordinator to use this
    * method to assign the Startpoints to the appropriate tasks.
    * @param taskToSSPs Determines which {@link TaskName} each {@link SystemStreamPartition} maps to.
    * @return The set of active {@link TaskName}s that were fanned out to.

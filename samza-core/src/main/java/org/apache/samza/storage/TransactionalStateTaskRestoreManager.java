@@ -611,7 +611,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
     } else if (checkpoint instanceof CheckpointV1) {
       // If the checkpoint v1 is used, we need to fetch the changelog SSPs in the inputOffsets in order to get the
       // store offset.
-      Map<SystemStreamPartition, String> checkpointedOffsets = ((CheckpointV1) checkpoint).getOffsets();
+      Map<SystemStreamPartition, String> checkpointedOffsets = checkpoint.getOffsets();
       storeChangelogs.forEach((storeName, systemStream) -> {
         Partition changelogPartition = taskModel.getChangelogPartition();
         SystemStreamPartition storeChangelogSSP = new SystemStreamPartition(systemStream, changelogPartition);
