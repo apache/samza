@@ -40,6 +40,7 @@ public class AzureBlobConfig extends MapConfig {
   public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME_DEFAULT = "org.apache.samza.system.azureblob.avro.AzureBlobAvroWriterFactory";
 
   public static final String SYSTEM_USE_TOKEN_CREDENTIAL_AUTHENTICATION = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "useTokenCredentialAuthentication";
+  private static final boolean SYSTEM_USE_TOKEN_CREDENTIAL_AUTHENTICATION_DEFAULT = false;
 
   // ClientSecretCredential needs client id, client secret, tenant id, vault name, service principal
   public static final String SYSTEM_AZURE_CLIENT_ID = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "client.id";
