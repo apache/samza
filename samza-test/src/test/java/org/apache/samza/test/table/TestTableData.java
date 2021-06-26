@@ -20,6 +20,7 @@
 package org.apache.samza.test.table;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -27,15 +28,17 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
 
 
 public class TestTableData {
@@ -213,16 +216,32 @@ public class TestTableData {
   }
 
   /**
-   * Create page views and partition them randomly.
+   * Create page views and spread out page views with the same member id across different partitions.
+   * Member ids are spread out like this to make sure that partitionBy operators properly repartition the messages.
    * Member ids are assigned randomly from [0, 10).
+   *
+   * Example
+   * generatePartitionedPageViews(20, 4) will return:
+   * 0 -> page views with member ids [0, 5)
+   * 1 -> page views with member ids [6, 10)
+   * 2 -> page views with member ids [0, 5)
+   * 3 -> page views with member ids [6, 10)
    */
   public static Map<Integer, List<PageView>> generatePartitionedPageViews(int numPageViews, int partitionCount) {
+    Preconditions.checkArgument(numPageViews % partitionCount == 0, "partitionCount must divide numPageViews evenly");
+    int numPerPartition = numPageViews / partitionCount;
     Random random = new Random();
-    return IntStream.range(0, numPageViews).mapToObj(i -> {
+    ImmutableMap.Builder<Integer, List<PageView>> pageViewsBuilder = new ImmutableMap.Builder<>();
+    for (int i = 0; i < partitionCount; i++) {
+      pageViewsBuilder.put(i, new ArrayList<>());
+    }
+    Map<Integer, List<PageView>> pageViews = pageViewsBuilder.build();
+    for (int i = 0; i < numPageViews; i++) {
       String pagekey = PAGEKEYS[random.nextInt(PAGEKEYS.length - 1)];
-      int memberId = random.nextInt(10);
-      return new PageView(pagekey, memberId);
-    }).collect(Collectors.groupingBy(pageView -> random.nextInt(partitionCount)));
+      int memberId = i % 10;
+      pageViews.get(i / numPerPartition).add(new PageView(pagekey, memberId));
+    }
+    return pageViews;
   }
 
   static public PageView[] generatePageViewsWithDistinctKeys(int count) {
@@ -261,6 +280,6 @@ public class TestTableData {
           return new Profile(i, company);
         })
         .collect(Collectors.groupingBy(
-          profile -> Arrays.hashCode(INTEGER_SERDE.toBytes(profile.getMemberId())) % partitionCount));
+          profile -> Math.abs(Arrays.hashCode(INTEGER_SERDE.toBytes(profile.getMemberId()))) % partitionCount));
   }
 }

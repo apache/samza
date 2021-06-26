@@ -85,7 +85,7 @@ public class TestLocalTableWithSideInputsEndToEnd {
             .stream()
             .flatMap(List::stream)
             .collect(Collectors.groupingBy(
-              profile -> Arrays.hashCode(integerSerde.toBytes(profile.getMemberId())) % partitionCount));
+              pageView -> Math.abs(Arrays.hashCode(integerSerde.toBytes(pageView.getMemberId()))) % partitionCount));
     runTest(
         new LowLevelPageViewProfileJoin(),
         pageViewsPartitionedByMemberId,
