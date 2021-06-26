@@ -268,7 +268,7 @@ public class TestTableData {
 
   /**
    * Create profiles and partition them based on the bytes representation of the member id. This uses the bytes
-   * representation for partitioning because this needs to use the same partition function as the InMemoryManager
+   * representation for partitioning because this needs to use the same partition function as the InMemorySystemProducer
    * (which is used in the test framework) so that table joins can be tested.
    * One profile for each member id in [0, numProfiles) is created.
    */
