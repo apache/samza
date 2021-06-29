@@ -19,27 +19,16 @@
 
 package org.apache.samza.system.azureblob.producer;
 
-import com.azure.core.http.HttpClient;
 import com.azure.core.http.HttpResponse;
-import com.azure.core.http.ProxyOptions;
-import com.azure.core.http.netty.NettyAsyncHttpClientBuilder;
-import com.azure.core.http.policy.HttpLogDetailLevel;
-import com.azure.core.http.policy.HttpLogOptions;
 import com.azure.core.util.Configuration;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobErrorCode;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.SkuName;
-import com.azure.storage.common.StorageSharedKeyCredential;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.samza.system.azureblob.AzureBlobConfig;
-import org.apache.samza.system.azureblob.compression.CompressionFactory;
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -55,6 +44,9 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemProducerException;
+import org.apache.samza.system.azureblob.AzureBlobClientBuilder;
+import org.apache.samza.system.azureblob.AzureBlobConfig;
+import org.apache.samza.system.azureblob.compression.CompressionFactory;
 import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -196,11 +188,7 @@ public class AzureBlobSystemProducer implements SystemProducer {
       LOG.warn("Attempting to start an already started producer.");
       return;
     }
-
-    String accountName = config.getAzureAccountName(systemName);
-    String accountKey = config.getAzureAccountKey(systemName);
-
-    setupAzureContainer(accountName, accountKey);
+    setupAzureContainer();
 
     LOG.info("Starting producer.");
     isStarted = true;
@@ -354,47 +342,11 @@ public class AzureBlobSystemProducer implements SystemProducer {
   }
 
   @VisibleForTesting
-  void setupAzureContainer(String accountName, String accountKey) {
+  void setupAzureContainer() {
     try {
-      // Use your Azure Blob Storage account's name and key to create a credential object to access your account.
-      StorageSharedKeyCredential credential = new StorageSharedKeyCredential(accountName, accountKey);
-
-      HttpClient httpClient;
-      if (config.getUseProxy(systemName)) {
-        LOG.info("HTTP Proxy setup for AzureBlob pipeline");
-        httpClient = new NettyAsyncHttpClientBuilder()
-            .proxy(new ProxyOptions(ProxyOptions.Type.HTTP,
-            new InetSocketAddress(config.getAzureProxyHostname(systemName), config.getAzureProxyPort(systemName)))).build();
-      } else {
-        httpClient = HttpClient.createDefault();
-      }
-
-      // From the Azure portal, get your Storage account blob service AsyncClient endpoint.
-      String endpoint = String.format(Locale.ROOT, AZURE_URL, accountName);
-
-      HttpLogOptions httpLogOptions = new HttpLogOptions();
-      httpLogOptions.setLogLevel(HttpLogDetailLevel.BASIC);
-      BlobServiceAsyncClient storageClient =
-          new BlobServiceClientBuilder()
-          .httpLogOptions(httpLogOptions)
-          .endpoint(endpoint)
-          .credential(credential)
-          .httpClient(httpClient)
-          .buildAsyncClient();
-
-
-      SkuName accountType = storageClient.getAccountInfo().block().getSkuName();
-      long flushThresholdSize = config.getMaxFlushThresholdSize(systemName);
-      boolean isPremiumAccount = SkuName.PREMIUM_LRS == accountType;
-      if (isPremiumAccount && flushThresholdSize > PREMIUM_MAX_BLOCK_SIZE) { // 100 MB
-        throw new SystemProducerException("Azure storage account with name: " + accountName
-            + " is a premium account and can only handle upto " +  PREMIUM_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
-            + flushThresholdSize);
-      } else if (!isPremiumAccount && flushThresholdSize > STANDARD_MAX_BLOCK_SIZE) { // STANDARD account
-        throw new SystemProducerException("Azure storage account with name: " + accountName
-            + " is a standard account and can only handle upto " + STANDARD_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
-            + flushThresholdSize);
-      }
+      BlobServiceAsyncClient storageClient  = new AzureBlobClientBuilder(systemName, AZURE_URL, config)
+          .getBlobServiceAsyncClient();
+      validateFlushThresholdSizeSupported(storageClient);
 
       containerAsyncClient = storageClient.getBlobContainerAsyncClient(systemName);
 
@@ -403,6 +355,22 @@ public class AzureBlobSystemProducer implements SystemProducer {
     } catch (Exception e) {
       metrics.updateAzureContainerMetrics();
       throw new SystemProducerException("Failed to set up Azure container for SystemName: " + systemName, e);
+    }
+  }
+
+  void validateFlushThresholdSizeSupported(BlobServiceAsyncClient storageClient) {
+    SkuName accountType = storageClient.getAccountInfo().block().getSkuName();
+    String accountName = storageClient.getAccountName();
+    long flushThresholdSize = config.getMaxFlushThresholdSize(systemName);
+    boolean isPremiumAccount = SkuName.PREMIUM_LRS == accountType;
+    if (isPremiumAccount && flushThresholdSize > PREMIUM_MAX_BLOCK_SIZE) { // 100 MB
+      throw new SystemProducerException("Azure storage account with name: " + accountName
+          + " is a premium account and can only handle upto " +  PREMIUM_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
+          + flushThresholdSize);
+    } else if (!isPremiumAccount && flushThresholdSize > STANDARD_MAX_BLOCK_SIZE) { // STANDARD account
+      throw new SystemProducerException(
+          "Azure storage account with name: " + accountName + " is a standard account and can only handle upto " + STANDARD_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
+              + flushThresholdSize);
     }
   }
 
