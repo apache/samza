@@ -33,6 +33,12 @@ import com.azure.core.http.HttpClient;
 import java.util.Locale;
 
 
+/**
+ * This class provides a method to create {@link BlobServiceAsyncClient} to be used by the
+ * {@link org.apache.samza.system.azureblob.producer.AzureBlobSystemProducer}. It created the client based on the
+ * configs given to the SystemProducer - such as which authentication method to use, whether to use proxy to authenticate,
+ * and so on.
+ */
 public final class AzureBlobClientBuilder {
   private final String systemName;
   private final String azureUrlFormat;
@@ -42,6 +48,16 @@ public final class AzureBlobClientBuilder {
     this.azureUrlFormat = azureUrlFormat;
     this.azureBlobConfig = azureBlobConfig;
   }
+
+  /**
+   * method creates BlobServiceAsyncClient using the configs provided earlier.
+   * if the authentication method is set to {@link TokenCredential} then a {@link com.azure.identity.ClientSecretCredential}
+   * is created and used for the Blob client. Else authentication is done via account name and key using the
+   * {@link StorageSharedKeyCredential}.
+   * The config used to determine which authentication is systems.%s.azureblob.useTokenCredentialAuthentication = true
+   * for using TokenCredential.
+   * @return BlobServiceAsyncClient
+   */
   public BlobServiceAsyncClient getBlobServiceAsyncClient() {
     BlobServiceClientBuilder blobServiceClientBuilder = getBlobServiceClientBuilder();
 
@@ -56,6 +72,13 @@ public final class AzureBlobClientBuilder {
     return blobServiceClientBuilder.credential(storageSharedKeyCredential).buildAsyncClient();
   }
 
+  /**
+   * Method to get the builder {@link BlobServiceClientBuilder} for creating BlobServiceAsyncClient.
+   * This builder is not provided the credential for authentication here.
+   * this builder is given an endpoint for the Azure Storage account and a http client to be passed on to the
+   * BlobServiceAsyncClient for blob creation.
+   * @return BlobServiceClientBuilder
+   */
   private BlobServiceClientBuilder getBlobServiceClientBuilder() {
     // From the Azure portal, get your Storage account blob service AsyncClient endpoint.
     String endpoint = String.format(Locale.ROOT, azureUrlFormat, azureBlobConfig.getAzureAccountName(systemName));
@@ -71,6 +94,12 @@ public final class AzureBlobClientBuilder {
     return blobServiceClientBuilder;
   }
 
+  /**
+   * Method to create the {@link com.azure.identity.ClientSecretCredential} to be used for authenticating with
+   * Azure Storage. If the config systems.%s.azureblob.authProxy.use is set to true, then authentication happens
+   * via the proxy specified by systems.%s.azureblob.authProxy.hostname and systems.%s.azureblob.authProxy.port configs.
+   * @return ClientSecretCredential which extends from {@link TokenCredential}
+   */
   private TokenCredential getTokenCredential() {
     ClientSecretCredentialBuilder clientSecretCredentialBuilder = new ClientSecretCredentialBuilder()
         .clientId(azureBlobConfig.getAzureClientId(systemName))
@@ -88,11 +117,21 @@ public final class AzureBlobClientBuilder {
         .build();
   }
 
+  /**
+   * Method to create {@link StorageSharedKeyCredential} to used for authenticating with Azure Storage.
+   * @return StorageSharedKeyCredential
+   */
   private StorageSharedKeyCredential getStorageSharedKeyCredential() {
     return new StorageSharedKeyCredential(azureBlobConfig.getAzureAccountName(systemName),
         azureBlobConfig.getAzureAccountKey(systemName));
   }
 
+  /**
+   * Method to create {@link HttpClient} to be used by the {@link BlobServiceAsyncClient} while creating blobs
+   * in the Azure Storage. If the config systems.%s.azureblob.proxy.use is set to true then the http client
+   * uses the proxy provided by systems.%s.azureblob.proxy.hostname and systems.%s.azureblob.proxy.port configs.
+   * @return HttpClient
+   */
   private HttpClient getHttpClient() {
     HttpClient httpClient;
     if (azureBlobConfig.getUseBlobProxy(systemName)) {
