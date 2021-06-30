@@ -23,14 +23,12 @@ import java.io.File
 import java.lang.management.ManagementFactory
 import java.net.{URL, UnknownHostException}
 import java.nio.file.Path
-import java.time.Duration
 import java.util
 import java.util.concurrent._
 import java.util.function.Consumer
 import java.util.{Base64, Optional}
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import org.apache.commons.lang.builder.ReflectionToStringBuilder
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.clustermanager.StandbyTaskUtil
@@ -507,15 +505,17 @@ object SamzaContainer extends Logging {
 
     // Restore factories should be a subset of backup factories
     if (!backupFactoryNames.containsAll(restoreFactoryNames)) {
-      throw new SamzaException("Restore state backend factories is not a subset of backup state backend factories")
+      backupFactoryNames.removeAll(restoreFactoryNames)
+      throw new SamzaException("Restore state backend factories is not a subset of backup state backend factories, " +
+        "missing factories: " + backupFactoryNames.toString)
     }
 
     val stateStorageBackendBackupFactories = backupFactoryNames.asScala.map(
       ReflectionUtil.getObj(_, classOf[StateBackendFactory])
     )
     val stateStorageBackendRestoreFactories = restoreFactoryNames.asScala.map(
-      factoryName => factoryName -> ReflectionUtil.getObj(factoryName, classOf[StateBackendFactory])
-    ).toMap.asJava
+      factoryName => (factoryName , ReflectionUtil.getObj(factoryName, classOf[StateBackendFactory])))
+      .toMap.asJava
 
     val containerStorageManager = new ContainerStorageManager(
       checkpointManager,

@@ -36,7 +36,6 @@ public class KafkaChangelogRestoreParams {
   private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories;
   private final Map<String, Serde<Object>> serdes;
   private final MessageCollector collector;
-  private final Set<String> storeNames;
 
   public KafkaChangelogRestoreParams(
       Map<String, SystemConsumer> storeConsumers,
@@ -44,15 +43,13 @@ public class KafkaChangelogRestoreParams {
       Map<String, SystemAdmin> systemAdmins,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, Serde<Object>> serdes,
-      MessageCollector collector,
-      Set<String> storeNames) {
+      MessageCollector collector) {
     this.storeConsumers = storeConsumers;
     this.inMemoryStores = inMemoryStores;
     this.systemAdmins = systemAdmins;
     this.storageEngineFactories = storageEngineFactories;
     this.serdes = serdes;
     this.collector = collector;
-    this.storeNames = storeNames;
   }
 
   public Map<String, SystemConsumer> getStoreConsumers() {
@@ -77,9 +74,5 @@ public class KafkaChangelogRestoreParams {
 
   public MessageCollector getCollector() {
     return collector;
-  }
-
-  public Set<String> getStoreNames() {
-    return storeNames;
   }
 }

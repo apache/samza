@@ -132,7 +132,7 @@ public class ContainerStorageManager {
   private final Map<String, Serde<Object>> serdes; // Map of Serde objects indexed by serde name (specified in config)
   private final SystemAdmins systemAdmins;
   private final Clock clock;
-  private final Map<String, StateBackendFactory> stateBackendFactories;
+  private final Map<String, StateBackendFactory> restoreStateBackendFactories;
 
   private final StreamMetadataCache streamMetadataCache;
   private final SamzaContainerMetrics samzaContainerMetrics;
@@ -185,7 +185,7 @@ public class ContainerStorageManager {
       SamzaContainerMetrics samzaContainerMetrics,
       JobContext jobContext,
       ContainerContext containerContext,
-      Map<String, StateBackendFactory> stateBackendFactories,
+      Map<String, StateBackendFactory> restoreStateBackendFactories,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors,
       File loggedStoreBaseDirectory,
       File nonLoggedStoreBaseDirectory,
@@ -206,7 +206,7 @@ public class ContainerStorageManager {
     LOG.info("Starting with changelogSystemStreams = {} taskSideInputStoreSSPs = {}", this.changelogSystemStreams, this.taskSideInputStoreSSPs);
 
     this.clock = clock;
-    this.stateBackendFactories = stateBackendFactories;
+    this.restoreStateBackendFactories = restoreStateBackendFactories;
     this.storageEngineFactories = storageEngineFactories;
     this.serdes = serdes;
     this.loggedStoreBaseDirectory = loggedStoreBaseDirectory;
@@ -264,7 +264,7 @@ public class ContainerStorageManager {
     JobConfig jobConfig = new JobConfig(config);
     int restoreThreadPoolSize =
         Math.min(
-            Math.max(containerModel.getTasks().size() * stateBackendFactories.size() + 1,
+            Math.max(containerModel.getTasks().size() * restoreStateBackendFactories.size() * 2,
                 jobConfig.getRestoreThreadPoolSize()),
             jobConfig.getRestoreThreadPoolMaxSize()
         );
@@ -406,9 +406,9 @@ public class ContainerStorageManager {
       StateBackendFactory factory = factories.get(factoryName);
       KafkaChangelogRestoreParams kafkaChangelogRestoreParams = new KafkaChangelogRestoreParams(storeConsumers,
           inMemoryStores.get(taskName), systemAdmins.getSystemAdmins(), storageEngineFactories, serdes,
-          taskInstanceCollectors.get(taskName), storeNames);
+          taskInstanceCollectors.get(taskName));
       TaskRestoreManager restoreManager = factory.getRestoreManager(jobContext, containerContext, taskModel, restoreExecutor,
-          taskMetricsRegistry, config, clock, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory,
+          taskMetricsRegistry, storeNames, config, clock, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory,
           kafkaChangelogRestoreParams);
 
       backendFactoryRestoreManagers.put(factoryName, restoreManager);
@@ -420,13 +420,26 @@ public class ContainerStorageManager {
   /**
    * Return a map of backend factory names to set of stores that should be restored using it
    */
-  private Map<String, Set<String>> getBackendFactoryStoreNames(Checkpoint checkpoint, Set<String> storeNames,
+  @VisibleForTesting
+  Map<String, Set<String>> getBackendFactoryStoreNames(Checkpoint checkpoint, Set<String> storeNames,
       StorageConfig storageConfig) {
     Map<String, Set<String>> backendFactoryStoreNames = new HashMap<>(); // backendFactoryName -> set(storeNames)
 
     if (checkpoint != null && checkpoint.getVersion() == 1) {
+      // Only restore stores with changelog streams configured
+      Set<String> changelogStores = storeNames.stream()
+          .filter(storeName -> storageConfig.getChangelogStream(storeName).isPresent())
+          .collect(Collectors.toSet());
       // Default to changelog backend factory when using checkpoint v1 for backwards compatibility
-      backendFactoryStoreNames.put(StorageConfig.KAFKA_STATE_BACKEND_FACTORY, storeNames);
+      backendFactoryStoreNames.put(StorageConfig.KAFKA_STATE_BACKEND_FACTORY, changelogStores);
+      if (storeNames.size() > changelogStores.size()) {
+        Set<String> nonChangelogStores = storeNames.stream()
+            .filter(storeName -> !changelogStores.contains(storeName))
+            .collect(Collectors.toSet());
+        LOG.info("non-Side input stores: {}, do not have a configured store changelogs for checkpoint V1,"
+                + "restore for the store will be skipped",
+            nonChangelogStores);
+      }
     } else if (checkpoint == null ||  checkpoint.getVersion() == 2) {
       // Extract the state checkpoint markers if checkpoint exists
       Map<String, Map<String, String>> stateCheckpointMarkers = checkpoint == null ? Collections.emptyMap() :
@@ -435,31 +448,29 @@ public class ContainerStorageManager {
       // Find stores associated to each state backend factory
       storeNames.forEach(storeName -> {
         List<String> storeFactories = storageConfig.getStoreRestoreFactories(storeName);
-        boolean storeCheckpointFound = false;
-
-        // Search the ordered list for the first matched state backend factory in the checkpoint
-        // If the checkpoint does not exist or state checkpoint markers does not exist, we match the first configured
-        // restore manager
-        for (String factoryName : storeFactories) {
-          if (stateCheckpointMarkers.containsKey(factoryName) &&
-              stateCheckpointMarkers.get(factoryName).containsKey(storeName)) {
-            if (!backendFactoryStoreNames.containsKey(factoryName)) {
-              backendFactoryStoreNames.put(factoryName, new HashSet<>());
-            }
-            backendFactoryStoreNames.get(factoryName).add(storeName);
-            storeCheckpointFound = true;
-            break;
-          }
-        }
 
         if (storeFactories.isEmpty()) {
           // If the restore factory is not configured for the store and the store does not have a changelog topic
-          LOG.warn("non-Side input store: {}, does not have a configured restore factories nor store changelogs,"
+          LOG.info("non-Side input store: {}, does not have a configured restore factories nor store changelogs,"
                   + "restore for the store will be skipped",
               storeName);
-        } else if (!storeCheckpointFound) { // restore factories configured but no checkpoints found
-          // Use first configured restore factory
-          String factoryName = storeFactories.get(0);
+        } else {
+          // Search the ordered list for the first matched state backend factory in the checkpoint
+          // If the checkpoint does not exist or state checkpoint markers does not exist, we match the first configured
+          // restore manager
+          Optional<String> factoryNameOpt = storeFactories.stream()
+              .filter(factoryName -> stateCheckpointMarkers.containsKey(factoryName) &&
+                  stateCheckpointMarkers.get(factoryName).containsKey(storeName))
+              .findFirst();
+          String factoryName;
+          if (factoryNameOpt.isPresent()) {
+            factoryName = factoryNameOpt.get();
+          } else { // Restore factories configured but no checkpoints found
+            // Use first configured restore factory
+            factoryName = storeFactories.get(0);
+            LOG.warn("No matching checkpoints found for configured factories: {}, " +
+                "defaulting to using the first configured factory with no checkpoints", storeFactories);
+          }
           if (!backendFactoryStoreNames.containsKey(factoryName)) {
             backendFactoryStoreNames.put(factoryName, new HashSet<>());
           }
@@ -499,9 +510,9 @@ public class ContainerStorageManager {
       }
 
       for (String storeName : storesToCreate) {
-        List<String> storeBackupManager = storageConfig.getStoreBackupFactory(storeName);
+        List<String> storeBackupManagers = storageConfig.getStoreBackupFactories(storeName);
         // A store is considered durable if it is backed by a changelog or another backupManager factory
-        boolean isDurable = changelogSystemStreams.containsKey(storeName) || !storeBackupManager.isEmpty();
+        boolean isDurable = changelogSystemStreams.containsKey(storeName) || !storeBackupManagers.isEmpty();
         boolean isSideInput = this.sideInputStoreNames.contains(storeName);
         // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
         // for non logged stores
@@ -702,7 +713,7 @@ public class ContainerStorageManager {
   private void restoreStores() throws InterruptedException {
     LOG.info("Store Restore started");
     Set<TaskName> activeTasks = getTasks(containerModel, TaskMode.Active).keySet();
-    // TODO dchen verify davinci lifecycle
+    // TODO HIGH dchen verify davinci lifecycle
     // Find all non-side input stores
     Set<String> nonSideInputStoreNames = storageEngineFactories.keySet()
         .stream()
@@ -722,7 +733,7 @@ public class ContainerStorageManager {
       taskCheckpoints.put(taskName, taskCheckpoint);
       Map<String, Set<String>> backendFactoryStoreNames = getBackendFactoryStoreNames(taskCheckpoint, nonSideInputStoreNames,
           new StorageConfig(config));
-      Map<String, TaskRestoreManager> taskStoreRestoreManagers = createTaskRestoreManagers(stateBackendFactories,
+      Map<String, TaskRestoreManager> taskStoreRestoreManagers = createTaskRestoreManagers(restoreStateBackendFactories,
           backendFactoryStoreNames, clock, samzaContainerMetrics, taskName, taskModel);
       taskRestoreManagers.put(taskName, taskStoreRestoreManagers);
     });

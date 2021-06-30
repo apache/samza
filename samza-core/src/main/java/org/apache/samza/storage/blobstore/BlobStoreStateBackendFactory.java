@@ -21,6 +21,7 @@ package org.apache.samza.storage.blobstore;
 
 import com.google.common.base.Preconditions;
 import java.io.File;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.BlobStoreConfig;
@@ -73,6 +74,7 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
       TaskModel taskModel,
       ExecutorService restoreExecutor,
       MetricsRegistry metricsRegistry,
+      Set<String> storesToRestore,
       Config config,
       Clock clock,
       File loggedStoreBaseDir,
@@ -84,7 +86,7 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
     BlobStoreManagerFactory factory = ReflectionUtil.getObj(blobStoreManagerFactory, BlobStoreManagerFactory.class);
     BlobStoreManager blobStoreManager = factory.getRestoreBlobStoreManager(config, restoreExecutor);
     BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(metricsRegistry);
-    return new BlobStoreRestoreManager(taskModel, restoreExecutor, metrics, config, loggedStoreBaseDir,
+    return new BlobStoreRestoreManager(taskModel, restoreExecutor, storesToRestore, metrics, config, loggedStoreBaseDir,
         nonLoggedStoreBaseDir, new StorageManagerUtil(), blobStoreManager);
   }
 

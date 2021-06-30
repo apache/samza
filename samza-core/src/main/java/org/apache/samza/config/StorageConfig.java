@@ -72,9 +72,10 @@ public class StorageConfig extends MapConfig {
       "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
   public static final List<String> DEFAULT_BACKUP_FACTORIES = ImmutableList.of(
       KAFKA_STATE_BACKEND_FACTORY);
+  public static final String JOB_BACKUP_FACTORIES = STORE_PREFIX + "backup.factories";
   public static final String STORE_BACKUP_FACTORIES = STORE_PREFIX + "%s.backup.factories";
   public static final String RESTORE_FACTORIES_SUFFIX = "restore.factories";
-  public static final String STORE_RESTORE_FACTORY = STORE_PREFIX + "%s." + RESTORE_FACTORIES_SUFFIX;
+  public static final String STORE_RESTORE_FACTORIES = STORE_PREFIX + "%s." + RESTORE_FACTORIES_SUFFIX;
   public static final String JOB_RESTORE_FACTORIES = STORE_PREFIX + RESTORE_FACTORIES_SUFFIX;
   public static final List<String> DEFAULT_RESTORE_FACTORIES = ImmutableList.of(KAFKA_STATE_BACKEND_FACTORY);
 
@@ -290,48 +291,73 @@ public class StorageConfig extends MapConfig {
         .count();
   }
 
-  public List<String> getStoreBackupFactory(String storeName) {
-    List<String> storeBackupManagers = getList(String.format(STORE_BACKUP_FACTORIES, storeName), new ArrayList<>());
-    // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
-    if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
-      storeBackupManagers = DEFAULT_BACKUP_FACTORIES;
+  private List<String> getJobStoreBackupFactories() {
+    return getList(JOB_BACKUP_FACTORIES, new ArrayList<>());
+  }
+
+  /**
+   * Backup state backend factory follows the precedence:
+   *
+   * 1. If stores.store-name.backup.factories config key exists the store-name, that value is used
+   * 2. If stores.store-name.changelog is set for store-name, the default Kafka changelog state backend factory
+   * 3. If stores.backup.factories is set for the job, that value is used
+   * 4. Otherwise no backup factories will be configured for the store
+   *
+   * Note: that 2 takes precedence over 3 enables job based migration off of Changelog restores
+   * @return List of backup factories for the store in order of backup precedence
+   */
+  public List<String> getStoreBackupFactories(String storeName) {
+    List<String> storeBackupManagers;
+    if (containsKey(String.format(STORE_BACKUP_FACTORIES, storeName))) {
+      storeBackupManagers = getList(String.format(STORE_BACKUP_FACTORIES, storeName), new ArrayList<>());
+    } else {
+      storeBackupManagers = getJobStoreBackupFactories();
+      // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
+      if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
+        storeBackupManagers = DEFAULT_BACKUP_FACTORIES;
+      }
     }
     return storeBackupManagers;
   }
 
   public Set<String> getBackupFactories() {
     return getStoreNames().stream()
-        .flatMap((storeName) -> getStoreBackupFactory(storeName).stream())
+        .flatMap((storeName) -> getStoreBackupFactories(storeName).stream())
         .collect(Collectors.toSet());
   }
 
   public List<String> getStoresWithBackupFactory(String backendFactoryName) {
     return getStoreNames().stream()
-        .filter((storeName) -> getStoreBackupFactory(storeName)
+        .filter((storeName) -> getStoreBackupFactories(storeName)
             .contains(backendFactoryName))
         .collect(Collectors.toList());
   }
 
-  public List<String> getJobStoreRestoreFactory() {
+  private List<String> getJobStoreRestoreFactories() {
     return getList(JOB_RESTORE_FACTORIES, new ArrayList<>());
   }
 
   /**
    * Restore state backend factory follows the precedence:
    *
-   * 1. If stores.store-name.restore.factories is set for the store-name, that value is used
+   * 1. If stores.store-name.restore.factories config key exists for the store-name, that value is used
    * 2. If stores.restore.factories is set for the job, that value is used
    * 3. If stores.store-name.changelog is set for store-name, the default Kafka changelog state backend factory
    * 4. Otherwise no restore factories will be configured for the store
    *
+   * Note that 2 takes precedence over 3 enables job based migration off of Changelog restores
    * @return List of restore factories for the store in order of restoration precedence
    */
   public List<String> getStoreRestoreFactories(String storeName) {
-    List<String> storeRestoreManagers = getList(String.format(STORE_RESTORE_FACTORY, storeName),
-        getJobStoreRestoreFactory());
-    // for backwards compatibility if changelog is enabled, we use default Kafka backup factory
-    if (storeRestoreManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
-      storeRestoreManagers = DEFAULT_RESTORE_FACTORIES;
+    List<String> storeRestoreManagers;
+    if (containsKey(String.format(STORE_RESTORE_FACTORIES, storeName))) {
+      storeRestoreManagers = getList(String.format(STORE_RESTORE_FACTORIES, storeName), new ArrayList<>());
+    } else {
+      storeRestoreManagers = getJobStoreRestoreFactories();
+      // for backwards compatibility if changelog is enabled, we use default Kafka backup factory
+      if (storeRestoreManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
+        storeRestoreManagers = DEFAULT_RESTORE_FACTORIES;
+      }
     }
     return storeRestoreManagers;
   }

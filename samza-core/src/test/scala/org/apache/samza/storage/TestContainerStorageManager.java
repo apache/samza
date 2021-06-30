@@ -18,15 +18,21 @@
  */
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointV1;
+import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
@@ -225,7 +231,7 @@ public class TestContainerStorageManager {
 
     StateBackendFactory backendFactory = mock(StateBackendFactory.class);
     TaskRestoreManager restoreManager = mock(TaskRestoreManager.class);
-    when(backendFactory.getRestoreManager(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(backendFactory.getRestoreManager(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(restoreManager);
     doAnswer(invocation -> {
       storeRestoreCallCount++;
@@ -271,5 +277,142 @@ public class TestContainerStorageManager {
         this.systemConsumerCreationCount);
     Assert.assertEquals("systemConsumerStopCount count should be 1", 1, this.systemConsumerStopCount);
     Assert.assertEquals("systemConsumerStartCount count should be 1", 1, this.systemConsumerStartCount);
+  }
+
+  @Test
+  public void testCheckpointBasedRestoreFactoryCreation() {
+    Set<String> storeNames = ImmutableSet.of("storeName0", "storeName1", "storeName2");
+
+    StorageConfig mockConfig = mock(StorageConfig.class);
+    when(mockConfig.getStoreRestoreFactories("storeName0"))
+        .thenReturn(ImmutableList.of("factory0", "factory1", "factory2"));
+    when(mockConfig.getStoreRestoreFactories("storeName1"))
+        .thenReturn(ImmutableList.of("factory2", "factory1"));
+    when(mockConfig.getStoreRestoreFactories("storeName2"))
+        .thenReturn(Collections.emptyList());
+
+    when(mockConfig.getChangelogStream("storeName0"))
+        .thenReturn(Optional.empty());
+    when(mockConfig.getChangelogStream("storeName1"))
+        .thenReturn(Optional.of("changelog"));
+    when(mockConfig.getChangelogStream("storeName2"))
+        .thenReturn(Optional.of("changelog"));
+
+    CheckpointV1 checkpointV1 = mock(CheckpointV1.class);
+    when(checkpointV1.getVersion()).thenReturn((short) 1);
+    Map<String, Set<String>> factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(checkpointV1, storeNames, mockConfig);
+
+    Assert.assertEquals(1, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName1", "storeName2"),
+        factoriesToStores.get(StorageConfig.KAFKA_STATE_BACKEND_FACTORY));
+
+    factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(null, storeNames, mockConfig);
+
+    Assert.assertEquals(2, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName0"),
+        factoriesToStores.get("factory0"));
+    Assert.assertEquals(ImmutableSet.of("storeName1"),
+        factoriesToStores.get("factory2"));
+  }
+
+  @Test
+  public void testCheckpointV2BasedRestoreFactoryCreation() {
+    Set<String> storeNames = ImmutableSet.of("storeName0", "storeName1", "storeName2");
+
+    StorageConfig mockConfig = mock(StorageConfig.class);
+    when(mockConfig.getStoreRestoreFactories("storeName0"))
+        .thenReturn(ImmutableList.of("factory0", "factory1", "factory2"));
+    when(mockConfig.getStoreRestoreFactories("storeName1"))
+        .thenReturn(ImmutableList.of("factory2", "factory1"));
+    when(mockConfig.getStoreRestoreFactories("storeName2"))
+        .thenReturn(Collections.emptyList());
+
+    when(mockConfig.getChangelogStream("storeName0"))
+        .thenReturn(Optional.empty());
+    when(mockConfig.getChangelogStream("storeName1"))
+        .thenReturn(Optional.of("changelog"));
+    when(mockConfig.getChangelogStream("storeName2"))
+        .thenReturn(Optional.of("changelog"));
+
+    CheckpointV2 checkpointV2 = mock(CheckpointV2.class);
+    when(checkpointV2.getVersion()).thenReturn((short) 2);
+    when(checkpointV2.getStateCheckpointMarkers())
+        .thenReturn(ImmutableMap.of(
+            "factory0", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", ""),
+            "factory1", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", ""),
+            "factory2", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", "")));
+
+    Map<String, Set<String>> factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    Assert.assertEquals(2, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName0"),
+        factoriesToStores.get("factory0"));
+    Assert.assertEquals(ImmutableSet.of("storeName1"),
+        factoriesToStores.get("factory2"));
+
+    when(checkpointV2.getStateCheckpointMarkers())
+        .thenReturn(ImmutableMap.of(
+            "factory2", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", "")));
+    factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    Assert.assertEquals(1, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName1", "storeName0"),
+        factoriesToStores.get("factory2"));
+
+    when(checkpointV2.getStateCheckpointMarkers())
+        .thenReturn(ImmutableMap.of(
+            "factory1", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", ""),
+            "factory2", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", "")));
+    factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    Assert.assertEquals(2, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName0"),
+        factoriesToStores.get("factory1"));
+    Assert.assertEquals(ImmutableSet.of("storeName1"),
+        factoriesToStores.get("factory2"));
+
+    when(checkpointV2.getStateCheckpointMarkers())
+        .thenReturn(ImmutableMap.of(
+            "factory1", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", ""),
+            "factory2", ImmutableMap.of("storeName0", "", "storeName2", "")));
+    factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    Assert.assertEquals(1, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName0", "storeName1"),
+        factoriesToStores.get("factory1"));
+
+    when(checkpointV2.getStateCheckpointMarkers())
+        .thenReturn(ImmutableMap.of(
+            "factory1", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", "")));
+    factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    Assert.assertEquals(1, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName0", "storeName1"),
+        factoriesToStores.get("factory1"));
+
+    when(checkpointV2.getStateCheckpointMarkers())
+        .thenReturn(Collections.emptyMap());
+    factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    Assert.assertEquals(2, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName0"),
+        factoriesToStores.get("factory0"));
+    Assert.assertEquals(ImmutableSet.of("storeName1"),
+        factoriesToStores.get("factory2"));
+
+    when(checkpointV2.getStateCheckpointMarkers())
+        .thenReturn(ImmutableMap.of(
+            "factory0", ImmutableMap.of("storeName1", "", "storeName2", ""),
+            "factory1", ImmutableMap.of("storeName1", "", "storeName2", ""),
+            "factory2", ImmutableMap.of("storeName0", "", "storeName2", "")));
+    factoriesToStores = this.containerStorageManager
+        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    Assert.assertEquals(2, factoriesToStores.size());
+    Assert.assertEquals(ImmutableSet.of("storeName1"),
+        factoriesToStores.get("factory1"));
+    Assert.assertEquals(ImmutableSet.of("storeName0"),
+        factoriesToStores.get("factory2"));
   }
 }

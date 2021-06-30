@@ -84,7 +84,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   private final File loggedBaseDir;
   private final File nonLoggedBaseDir;
   private final String taskName;
-  private final List<String> storesToRestore;
+  private final Set<String> storesToRestore;
   private final BlobStoreRestoreManagerMetrics metrics;
 
   private BlobStoreManager blobStoreManager;
@@ -95,7 +95,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    */
   private Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes;
 
-  public BlobStoreRestoreManager(TaskModel taskModel, ExecutorService restoreExecutor,
+  public BlobStoreRestoreManager(TaskModel taskModel, ExecutorService restoreExecutor, Set<String> storesToRestore,
       BlobStoreRestoreManagerMetrics metrics, Config config, File loggedBaseDir, File nonLoggedBaseDir,
       StorageManagerUtil storageManagerUtil, BlobStoreManager blobStoreManager) {
     this.taskModel = taskModel;
@@ -113,9 +113,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     this.loggedBaseDir = loggedBaseDir;
     this.nonLoggedBaseDir = nonLoggedBaseDir;
     this.taskName = taskModel.getTaskName().getTaskName();
-    StorageConfig storageConfig = new StorageConfig(config);
-    this.storesToRestore =
-        storageConfig.getStoresWithRestoreFactory(BlobStoreStateBackendFactory.class.getName());
+    this.storesToRestore = storesToRestore;
     this.metrics = metrics;
   }
 
@@ -209,7 +207,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    * Restores all eligible stores in the task.
    */
   @VisibleForTesting
-  static void restoreStores(String jobName, String jobId, TaskName taskName, List<String> storesToRestore,
+  static void restoreStores(String jobName, String jobId, TaskName taskName, Set<String> storesToRestore,
       Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
       File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
       StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
