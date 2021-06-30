@@ -23,17 +23,23 @@ package org.apache.samza.storage;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.executors.KeyBasedExecutorService;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.storage.kv.KeyValueStore;
@@ -44,6 +50,8 @@ import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.TaskCallback;
+import org.apache.samza.task.TaskCallbackFactory;
 import org.apache.samza.util.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,14 +75,22 @@ public class TaskSideInputHandler {
   private final StreamMetadataCache streamMetadataCache;
   // indicates to ContainerStorageManager that all side input ssps in this task are caught up
   private final CountDownLatch taskCaughtUpLatch;
+  // used to coordinate updates of checkpoint offsets by ContainerStorageManager
+  private final Map<SystemStreamPartition, Object> sspLockObjects;
+  // indicates the latest checkpoint per SSP. updated by ContainerStorageManager background thread
+  private final Map<SystemStreamPartition, Optional<String>> checkpointedOffsets;
+  private final KeyBasedExecutorService checkpointedSSPExecutor;
+  private final KeyBasedExecutorService nonCheckpointedSSPExecutor;
 
   private Map<SystemStreamPartition, SystemStreamMetadata.SystemStreamPartitionMetadata> initialSideInputSSPMetadata;
   private Map<SystemStreamPartition, String> startingOffsets;
 
+
   public TaskSideInputHandler(TaskName taskName, TaskMode taskMode, File storeBaseDir,
       Map<String, StorageEngine> storeToStorageEngines, Map<String, Set<SystemStreamPartition>> storeToSSPs,
       Map<String, SideInputsProcessor> storeToProcessor, SystemAdmins systemAdmins,
-      StreamMetadataCache streamMetadataCache, CountDownLatch taskCaughtUpLatch, Clock clock) {
+      StreamMetadataCache streamMetadataCache, CountDownLatch taskCaughtUpLatch, Clock clock,
+      Map<SystemStreamPartition, Object> sspLockObjects, Map<SystemStreamPartition, Optional<String>> checkpointOffsets) {
     validateProcessorConfiguration(storeToSSPs.keySet(), storeToProcessor);
 
     this.taskName = taskName;
@@ -100,6 +116,22 @@ public class TaskSideInputHandler {
         storeToStorageEngines,
         storeToSSPs,
         clock);
+
+    this.sspLockObjects = Collections.unmodifiableMap(sspLockObjects);
+    this.checkpointedOffsets = Collections.unmodifiableMap(checkpointOffsets);
+
+    Set<String> checkpointedStores = this.sspToStores.entrySet().stream()
+        .filter(sspAndStores -> this.checkpointedOffsets.containsKey(sspAndStores.getKey()))
+        .flatMap(sspAndStores -> sspAndStores.getValue().stream())
+        .collect(Collectors.toSet());
+
+    Set<String> nonCheckpointedStores = this.sspToStores.entrySet().stream()
+        .filter(sspAndStores -> !this.checkpointedOffsets.containsKey(sspAndStores.getKey()))
+        .flatMap(sspAndStores -> sspAndStores.getValue().stream())
+        .collect(Collectors.toSet());
+
+    this.checkpointedSSPExecutor = new KeyBasedExecutorService(Math.max(1, checkpointedStores.size()));
+    this.nonCheckpointedSSPExecutor = new KeyBasedExecutorService(Math.max(1, nonCheckpointedStores.size()));
   }
 
   /**
@@ -156,31 +188,73 @@ public class TaskSideInputHandler {
    * Synchronized inorder to be exclusive with flush().
    *
    * @param envelope incoming envelope to be processed
+   * @param callbackFactory
    */
-  public synchronized void process(IncomingMessageEnvelope envelope) {
+  public synchronized void process(IncomingMessageEnvelope envelope, TaskCallbackFactory callbackFactory) {
+    TaskCallback callback = callbackFactory.createCallback();
     SystemStreamPartition envelopeSSP = envelope.getSystemStreamPartition();
     String envelopeOffset = envelope.getOffset();
+    boolean isSspCheckpointed = this.checkpointedOffsets.containsKey(envelopeSSP);
+    SystemAdmin systemAdmin = this.systemAdmins.getSystemAdmin(envelopeSSP.getSystem());
+    KeyBasedExecutorService executorToUse = isSspCheckpointed
+        ? this.checkpointedSSPExecutor
+        : this.nonCheckpointedSSPExecutor;
 
-    for (String store: this.sspToStores.get(envelopeSSP)) {
-      SideInputsProcessor storeProcessor = this.storeToProcessor.get(store);
-      KeyValueStore keyValueStore = (KeyValueStore) this.taskSideInputStorageManager.getStore(store);
-      Collection<Entry<?, ?>> entriesToBeWritten = storeProcessor.process(envelope, keyValueStore);
+    List<Future<?>> storeFutures = new LinkedList<>();
 
-      // TODO: SAMZA-2255: optimize writes to side input stores
-      for (Entry entry : entriesToBeWritten) {
-        // If the key is null we ignore, if the value is null, we issue a delete, else we issue a put
-        if (entry.getKey() != null) {
-          if (entry.getValue() != null) {
-            keyValueStore.put(entry.getKey(), entry.getValue());
-          } else {
-            keyValueStore.delete(entry.getKey());
+    sspToStores.get(envelopeSSP).forEach(store -> {
+      Future<?> storeFuture = executorToUse.submitOrdered(store, () -> {
+        // if the incoming envelope has an offset greater than the checkpoint, have this thread wait until
+        // the checkpoint updating thread in ContainerStorageManager wakes it back up
+        synchronized (this.sspLockObjects.get(envelopeSSP)) {
+          while (isSspCheckpointed && this.checkpointedOffsets.get(envelopeSSP).isPresent()
+              && systemAdmin.offsetComparator(envelopeOffset, this.checkpointedOffsets.get(envelopeSSP).get()) > 0) {
+            try {
+              this.sspLockObjects.get(envelopeSSP).wait();
+            } catch (InterruptedException e) {
+              LOG.error("Side input restore interrupted when waiting for new checkpoint. Task: " + this.taskName, e);
+              // fail, return and do not process the envelope
+              callback.failure(e);
+              return;
+            }
           }
         }
+
+        SideInputsProcessor storeProcessor = this.storeToProcessor.get(store);
+        KeyValueStore keyValueStore = (KeyValueStore) this.taskSideInputStorageManager.getStore(store);
+        Collection<Entry<?, ?>> entriesToBeWritten = storeProcessor.process(envelope, keyValueStore);
+
+        // TODO: SAMZA-2255: optimize writes to side input stores
+        for (Entry entry : entriesToBeWritten) {
+          // If the key is null we ignore, if the value is null, we issue a delete, else we issue a put
+          if (entry.getKey() != null) {
+            if (entry.getValue() != null) {
+              keyValueStore.put(entry.getKey(), entry.getValue());
+            } else {
+              keyValueStore.delete(entry.getKey());
+            }
+          }
+        }
+      });
+
+      // collect the futures, in order to wait on them to coordinate callback invocation
+      storeFutures.add(storeFuture);
+    });
+
+    // TODO this needs to be async to support task concurrency > 1
+    // wait on the work submitted for other stores
+    for (Future<?> future : storeFutures) {
+      try {
+        future.get();
+      } catch (InterruptedException | ExecutionException e) {
+        callback.failure(e);
+        // callback should only be invoked once; return now and stop waiting
+        return;
       }
     }
-
     this.lastProcessedOffsets.put(envelopeSSP, envelopeOffset);
     checkCaughtUp(envelopeSSP, envelopeOffset, SystemStreamMetadata.OffsetType.NEWEST);
+    callback.complete();
   }
 
   /**
@@ -220,6 +294,8 @@ public class TaskSideInputHandler {
    * of {@link #process} and {@link #flush} are assumed to have completed or ceased prior to calling this method.
    */
   public void stop() {
+    this.checkpointedSSPExecutor.shutdownNow();
+    this.nonCheckpointedSSPExecutor.shutdownNow();
     this.taskSideInputStorageManager.stop(this.lastProcessedOffsets);
   }
 
