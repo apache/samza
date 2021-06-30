@@ -28,9 +28,9 @@ import java.util
 import java.util.concurrent._
 import java.util.function.Consumer
 import java.util.{Base64, Optional}
-
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.apache.commons.lang.builder.ReflectionToStringBuilder
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.clustermanager.StandbyTaskUtil
@@ -502,9 +502,20 @@ object SamzaContainer extends Logging {
     val loggedStorageBaseDir = getLoggedStorageBaseDir(jobConfig, defaultStoreBaseDir)
     info("Got base directory for logged data stores: %s" format loggedStorageBaseDir)
 
-    // TODO dchen should we enforce restore factories to be subset of backup factories?
-    val stateStorageBackendRestoreFactory = ReflectionUtil
-      .getObj(storageConfig.getRestoreFactory(), classOf[StateBackendFactory])
+    val backupFactoryNames = storageConfig.getBackupFactories
+    val restoreFactoryNames = storageConfig.getRestoreFactories
+
+    // Restore factories should be a subset of backup factories
+    if (!backupFactoryNames.containsAll(restoreFactoryNames)) {
+      throw new SamzaException("Restore state backend factories is not a subset of backup state backend factories")
+    }
+
+    val stateStorageBackendBackupFactories = backupFactoryNames.asScala.map(
+      ReflectionUtil.getObj(_, classOf[StateBackendFactory])
+    )
+    val stateStorageBackendRestoreFactories = restoreFactoryNames.asScala.map(
+      factoryName => factoryName -> ReflectionUtil.getObj(factoryName, classOf[StateBackendFactory])
+    ).toMap.asJava
 
     val containerStorageManager = new ContainerStorageManager(
       checkpointManager,
@@ -521,7 +532,7 @@ object SamzaContainer extends Logging {
       samzaContainerMetrics,
       jobContext,
       containerContext,
-      stateStorageBackendRestoreFactory,
+      stateStorageBackendRestoreFactories,
       taskCollectors.asJava,
       loggedStorageBaseDir,
       nonLoggedStorageBaseDir,
@@ -530,9 +541,7 @@ object SamzaContainer extends Logging {
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
-    val stateStorageBackendBackupFactories = storageConfig.getBackupFactories().asScala.map(
-      ReflectionUtil.getObj(_, classOf[StateBackendFactory])
-    )
+
 
     // Create taskInstances
     val taskInstances: Map[TaskName, TaskInstance] = taskModels

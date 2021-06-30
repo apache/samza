@@ -431,4 +431,52 @@ public class TestStorageConfig {
     configMap.put(String.format(CHANGELOG_MIN_COMPACTION_LAG_MS, STORE_NAME0), String.valueOf(storeSpecificLagOverride));
     assertEquals(storeSpecificLagOverride, new StorageConfig(new MapConfig(configMap)).getChangelogMinCompactionLagMs(STORE_NAME0));
   }
+
+  @Test
+  public void testGetRestoreManagers() {
+    String storeName = "store1";
+    String storeName2 = "store2";
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(String.format(FACTORY, storeName), "store1.factory.class");
+    configMap.put(String.format(FACTORY, storeName2), "store2.factory.class");
+
+    // empty config, return no restore managers
+    assertEquals(Collections.emptySet(), new StorageConfig(new MapConfig(configMap)).getRestoreFactories());
+    assertEquals(Collections.emptyList(), new StorageConfig(new MapConfig(configMap)).getStoreRestoreFactories(storeName));
+    assertEquals(Collections.emptyList(), new StorageConfig(new MapConfig(configMap)).getStoreRestoreFactories(storeName2));
+
+    // changelog set, should default to kafka state backend restore
+    String changelogStreamOverride = "changelogStream";
+    configMap.put(String.format(CHANGELOG_STREAM, storeName), changelogStreamOverride);
+    configMap.put(String.format(CHANGELOG_STREAM, storeName2), changelogStreamOverride);
+    configMap.put(StorageConfig.CHANGELOG_SYSTEM, "changelog-system");
+    configMap.put(String.format(StorageConfig.CHANGELOG_STREAM, storeName), "changelog-stream0");
+    assertEquals(ImmutableSet.of(KAFKA_STATE_BACKEND_FACTORY), new StorageConfig(new MapConfig(configMap)).getRestoreFactories());
+    assertEquals(DEFAULT_RESTORE_FACTORIES, new StorageConfig(new MapConfig(configMap)).getStoreRestoreFactories(storeName));
+    assertEquals(DEFAULT_RESTORE_FACTORIES, new StorageConfig(new MapConfig(configMap)).getStoreRestoreFactories(storeName2));
+
+    // job restore manager config set should override to job backend factory
+    String jobRestoreFactory1 = "jobBackendRestoreFactory1";
+    String jobRestoreFactory2 = "jobBackendRestoreFactory2";
+    String jobRestoreFactoryOverride = jobRestoreFactory1 + "," + jobRestoreFactory2;
+    configMap.put(JOB_RESTORE_FACTORIES, jobRestoreFactoryOverride);
+    assertEquals(ImmutableSet.of(jobRestoreFactory1, jobRestoreFactory2),
+        new StorageConfig(new MapConfig(configMap)).getRestoreFactories());
+    assertEquals(ImmutableList.of(jobRestoreFactory1, jobRestoreFactory2),
+        new StorageConfig(new MapConfig(configMap)).getStoreRestoreFactories(storeName));
+    assertEquals(ImmutableList.of(jobRestoreFactory1, jobRestoreFactory2),
+        new StorageConfig(new MapConfig(configMap)).getStoreRestoreFactories(storeName2));
+
+    // store specific restore managers set
+    String storeRestoreFactory1 = "storeBackendRestoreFactory1";
+    String storeRestoreFactory2 = "storeBackendRestoreFactory2";
+    String storeRestoreFactoryOverride = storeRestoreFactory1 + "," + storeRestoreFactory2;
+    configMap.put(String.format(STORE_RESTORE_FACTORY, storeName), storeRestoreFactoryOverride);
+    assertEquals(ImmutableSet.of(jobRestoreFactory1, jobRestoreFactory2, storeRestoreFactory1, storeRestoreFactory2),
+        new StorageConfig(new MapConfig(configMap)).getRestoreFactories());
+    assertEquals(ImmutableList.of(storeRestoreFactory1, storeRestoreFactory2),
+        new StorageConfig(new MapConfig(configMap)).getStoreRestoreFactories(storeName));
+    assertEquals(ImmutableList.of(jobRestoreFactory1, jobRestoreFactory2),
+        new StorageConfig(new MapConfig(configMap)).getStoreRestoreFactories(storeName2));
+  }
 }
