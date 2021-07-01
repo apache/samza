@@ -127,7 +127,7 @@ public class TestInMemorySystem {
   }
 
   @Test
-  public void testEndOfStreamMessage() {
+  public void testEndOfStreamMessageWithTask() {
     EndOfStreamMessage eos = new EndOfStreamMessage("test-task");
 
     produceMessages(eos);
@@ -139,6 +139,24 @@ public class TestInMemorySystem {
     List<IncomingMessageEnvelope> results = consumeRawMessages(sspsToPoll);
 
     assertEquals(1, results.size());
+    assertEquals("test-task", ((EndOfStreamMessage) results.get(0).getMessage()).getTaskName());
+    assertFalse(results.get(0).isEndOfStream());
+  }
+
+  @Test
+  public void testEndOfStreamMessageWithoutTask() {
+    EndOfStreamMessage eos = new EndOfStreamMessage();
+
+    produceMessages(eos);
+
+    Set<SystemStreamPartition> sspsToPoll = IntStream.range(0, PARTITION_COUNT)
+        .mapToObj(partition -> new SystemStreamPartition(SYSTEM_STREAM, new Partition(partition)))
+        .collect(Collectors.toSet());
+
+    List<IncomingMessageEnvelope> results = consumeRawMessages(sspsToPoll);
+
+    assertEquals(1, results.size());
+    assertNull(((EndOfStreamMessage) results.get(0).getMessage()).getTaskName());
     assertTrue(results.get(0).isEndOfStream());
   }
 

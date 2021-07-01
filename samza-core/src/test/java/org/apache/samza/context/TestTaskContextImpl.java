@@ -62,7 +62,7 @@ public class TestTaskContextImpl {
     MockitoAnnotations.initMocks(this);
     taskContext =
         new TaskContextImpl(taskModel, taskMetricsRegistry, keyValueStoreProvider, tableManager, callbackScheduler,
-            offsetManager, null, null);
+            offsetManager, null, null, null);
     when(this.taskModel.getTaskName()).thenReturn(TASK_NAME);
   }
 
