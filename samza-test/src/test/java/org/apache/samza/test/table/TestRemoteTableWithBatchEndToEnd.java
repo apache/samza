@@ -33,10 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
@@ -48,7 +45,9 @@ import org.apache.samza.table.remote.BaseTableFunction;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-import org.apache.samza.test.harness.IntegrationTestHarness;
+import org.apache.samza.test.framework.TestRunner;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
 import org.junit.Assert;
@@ -58,11 +57,10 @@ import static org.apache.samza.test.table.TestTableData.*;
 import static org.mockito.Mockito.*;
 
 
-public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
-
-  static Map<String, List<EnrichedPageView>> writtenRecords = new HashMap<>();
-  static Map<String, AtomicInteger> batchWrites = new HashMap<>();
-  static Map<String, AtomicInteger> batchReads = new HashMap<>();
+public class TestRemoteTableWithBatchEndToEnd {
+  private static final Map<String, List<EnrichedPageView>> WRITTEN_RECORDS = new HashMap<>();
+  private static final Map<String, AtomicInteger> BATCH_WRITES = new HashMap<>();
+  private static final Map<String, AtomicInteger> BATCH_READS = new HashMap<>();
 
   static class InMemoryReadFunction extends BaseTableFunction
       implements TableReadFunction<Integer, Profile> {
@@ -80,7 +78,7 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
       in.defaultReadObject();
       Profile[] profiles = Base64Serializer.deserialize(this.serializedProfiles, Profile[].class);
       this.profileMap = Arrays.stream(profiles).collect(Collectors.toMap(p -> p.getMemberId(), Function.identity()));
-      batchReadCounter = batchReads.get(testName);
+      batchReadCounter = BATCH_READS.get(testName);
     }
 
     @Override
@@ -119,8 +117,8 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
       in.defaultReadObject();
 
       // Write to the global list for verification
-      records = writtenRecords.get(testName);
-      batchWritesCounter = batchWrites.get(testName);
+      records = WRITTEN_RECORDS.get(testName);
+      batchWritesCounter = BATCH_WRITES.get(testName);
     }
 
     @Override
@@ -147,7 +145,6 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
     }
   }
 
-
   static class MyReadFunction extends BaseTableFunction
       implements TableReadFunction {
     @Override
@@ -164,23 +161,13 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
   private void doTestStreamTableJoinRemoteTable(String testName, boolean batchRead, boolean batchWrite) throws Exception {
     final InMemoryWriteFunction writer = new InMemoryWriteFunction(testName);
 
-    batchReads.put(testName, new AtomicInteger());
-    batchWrites.put(testName, new AtomicInteger());
-    writtenRecords.put(testName, new CopyOnWriteArrayList<>());
+    BATCH_READS.put(testName, new AtomicInteger());
+    BATCH_WRITES.put(testName, new AtomicInteger());
+    WRITTEN_RECORDS.put(testName, new CopyOnWriteArrayList<>());
 
-    final int count = 16;
-    final int batchSize = 4;
-    PageView[] pageViews = generatePageViewsWithDistinctKeys(count);
+    int count = 16;
+    int batchSize = 4;
     String profiles = Base64Serializer.serialize(generateProfiles(count));
-
-    int partitionCount = 1;
-    Map<String, String> configs = TestLocalTableEndToEnd.getBaseJobConfig(bootstrapUrl(), zkConnect());
-
-    configs.put("streams.PageView.samza.system", "test");
-    configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
-    configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
-    configs.put("task.max.concurrency", String.valueOf(count));
-    configs.put("task.async.commit", String.valueOf(true));
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
     final RateLimiter writeRateLimiter = mock(RateLimiter.class, withSettings().serializable());
@@ -219,20 +206,23 @@ public class TestRemoteTableWithBatchEndToEnd extends IntegrationTestHarness {
           .sendTo(outputTable);
     };
 
-    Config config = new MapConfig(configs);
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
-    executeRun(runner, config);
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<PageView> inputDescriptor = isd
+        .getInputDescriptor("PageView", new NoOpSerde<>());
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, Arrays.asList(generatePageViewsWithDistinctKeys(count)))
+        .addConfig("task.max.concurrency", String.valueOf(count))
+        .addConfig("task.async.commit", String.valueOf(true))
+        .run(Duration.ofSeconds(10));
 
-    runner.waitForFinish();
-    int numExpected = count * partitionCount;
-    Assert.assertEquals(numExpected, writtenRecords.get(testName).size());
-    Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof EnrichedPageView);
+    Assert.assertEquals(count, WRITTEN_RECORDS.get(testName).size());
+    Assert.assertNotNull(WRITTEN_RECORDS.get(testName).get(0));
 
     if (batchRead) {
-      Assert.assertEquals(numExpected / batchSize, batchReads.get(testName).get());
+      Assert.assertEquals(count / batchSize, BATCH_READS.get(testName).get());
     }
     if (batchWrite) {
-      Assert.assertEquals(numExpected / batchSize, batchWrites.get(testName).get());
+      Assert.assertEquals(count / batchSize, BATCH_WRITES.get(testName).get());
     }
   }
 

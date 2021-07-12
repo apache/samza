@@ -19,14 +19,10 @@
 
 package org.apache.samza.test.table;
 
-import java.util.Map;
-
+import java.time.Duration;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -40,29 +36,24 @@ import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
 import org.apache.samza.task.StreamTaskFactory;
 import org.apache.samza.task.TaskCoordinator;
-import org.apache.samza.test.harness.IntegrationTestHarness;
-import org.apache.samza.test.util.Base64Serializer;
-
+import org.apache.samza.test.framework.TestRunner;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.test.table.TestLocalTableEndToEnd.getBaseJobConfig;
 
-
-public class TestLocalTableWithLowLevelApiEndToEnd extends IntegrationTestHarness {
-
+public class TestLocalTableWithLowLevelApiEndToEnd {
   @Test
-  public void testTableWithLowLevelApi() throws Exception {
-    Map<String, String> configs = getBaseJobConfig(bootstrapUrl(), zkConnect());
-    configs.put("streams.PageView.samza.system", "test");
-    configs.put("streams.PageView.source", Base64Serializer.serialize(TestTableData.generatePageViews(10)));
-    configs.put("streams.PageView.partitionCount", String.valueOf(4));
-    configs.put("task.inputs", "test.PageView");
-
-    Config config = new MapConfig(configs);
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MyTaskApplication(), config);
-    executeRun(runner, config);
-    runner.waitForFinish();
+  public void testTableWithLowLevelApi() {
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<TestTableData.PageView> inputDescriptor = isd
+        .getInputDescriptor("PageView", new NoOpSerde<>());
+    TestRunner.of(new TestLocalTableWithConfigRewriterEndToEnd.MyTaskApplication())
+        .addInputStream(inputDescriptor, TestTableData.generatePartitionedPageViews(40, 4))
+        .addConfig("job.config.rewriters", "my-rewriter")
+        .addConfig("job.config.rewriter.my-rewriter.class", TestLocalTableWithConfigRewriterEndToEnd.MyConfigRewriter.class.getName())
+        .run(Duration.ofSeconds(10));
   }
 
   static public class MyTaskApplication implements TaskApplication {
