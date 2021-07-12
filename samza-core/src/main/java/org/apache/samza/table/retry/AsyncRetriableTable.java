@@ -52,8 +52,8 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   private final String tableId;
   private final AsyncReadWriteTable<K, V> table;
-  private final RetryPolicy readRetryPolicy;
-  private final RetryPolicy writeRetryPolicy;
+  private final RetryPolicy<?> readRetryPolicy;
+  private final RetryPolicy<?> writeRetryPolicy;
   private final ScheduledExecutorService retryExecutor;
 
   @VisibleForTesting
@@ -156,13 +156,13 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
 
   private <T> CompletableFuture<T> doRead(Func1<T> func) {
     return readRetryPolicy != null
-        ? failsafe(readRetryPolicy, readRetryMetrics, retryExecutor).future(() -> func.apply())
+        ? failsafe(readRetryPolicy, readRetryMetrics, retryExecutor).getStageAsync(() -> func.apply())
         : func.apply();
   }
 
   private <T> CompletableFuture<T> doWrite(Func1<T> func) {
     return writeRetryPolicy != null
-        ? failsafe(writeRetryPolicy, writeRetryMetrics, retryExecutor).future(() -> func.apply())
+        ? failsafe(writeRetryPolicy, writeRetryMetrics, retryExecutor).getStageAsync(() -> func.apply())
         : func.apply();
   }
 }
