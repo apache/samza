@@ -18,69 +18,87 @@
  */
 package org.apache.samza.test.operator;
 
-import java.util.Collections;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.TaskConfig;
-import org.apache.samza.test.framework.StreamApplicationIntegrationTestHarness;
+import com.google.common.collect.ImmutableList;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
+import org.apache.samza.operators.KV;
+import org.apache.samza.operators.windows.Windows;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.KVSerde;
+import org.apache.samza.serializers.NoOpSerde;
+import org.apache.samza.serializers.StringSerde;
+import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
+import org.apache.samza.system.descriptors.GenericInputDescriptor;
+import org.apache.samza.system.descriptors.GenericOutputDescriptor;
+import org.apache.samza.test.framework.StreamAssert;
+import org.apache.samza.test.framework.TestRunner;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.test.operator.data.PageView;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.test.operator.RepartitionWindowApp.*;
 
 /**
  * Test driver for {@link RepartitionWindowApp}.
  */
-public class TestRepartitionWindowApp extends StreamApplicationIntegrationTestHarness {
-  private static final String APP_NAME = "PageViewCounterApp";
+public class TestRepartitionWindowApp {
+  private static final String SYSTEM = "test";
+  private static final String INPUT_TOPIC = "page-views";
+  private static final String OUTPUT_TOPIC = "Result";
 
   @Test
   public void testRepartitionedSessionWindowCounter() throws Exception {
-    // create topics
-    createTopic(INPUT_TOPIC, 3);
-    createTopic(OUTPUT_TOPIC, 1);
+    Map<Integer, List<KV<String, PageView>>> pageViews = new HashMap<>();
+    pageViews.put(0, ImmutableList.of(KV.of("userId1", new PageView("india", "5.com", "userId1")),
+        KV.of("userId1", new PageView("india", "2.com", "userId1"))));
+    pageViews.put(1, ImmutableList.of(KV.of("userId2", new PageView("china", "4.com", "userId2")),
+        KV.of("userId1", new PageView("india", "3.com", "userId1"))));
+    pageViews.put(2, ImmutableList.of(KV.of("userId1", new PageView("india", "1.com", "userId1"))));
 
-    // produce messages to different partitions.
-    ObjectMapper mapper = new ObjectMapper();
-    PageView pv = new PageView("india", "5.com", "userId1");
-    produceMessage(INPUT_TOPIC, 0, "userId1", mapper.writeValueAsString(pv));
-    pv = new PageView("china", "4.com", "userId2");
-    produceMessage(INPUT_TOPIC, 1, "userId2", mapper.writeValueAsString(pv));
-    pv = new PageView("india", "1.com", "userId1");
-    produceMessage(INPUT_TOPIC, 2, "userId1", mapper.writeValueAsString(pv));
-    pv = new PageView("india", "2.com", "userId1");
-    produceMessage(INPUT_TOPIC, 0, "userId1", mapper.writeValueAsString(pv));
-    pv = new PageView("india", "3.com", "userId1");
-    produceMessage(INPUT_TOPIC, 1, "userId1", mapper.writeValueAsString(pv));
+    InMemorySystemDescriptor sd = new InMemorySystemDescriptor(SYSTEM);
+    InMemoryInputDescriptor<KV<String, PageView>> inputDescriptor =
+        sd.getInputDescriptor(INPUT_TOPIC, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+    /*
+     * Technically, this should have a message type of KV, because a KV is passed to sendTo, but
+     * StreamAssert.containsInAnyOrder requires the type to match the output type of the actual messages. In
+     * high-level, sendTo splits up the KV, so the actual messages are just the "V" part of the KV.
+     * TestRunner only uses NoOpSerde anyways, so it doesn't matter if the typing isn't KV.
+     */
+    InMemoryOutputDescriptor<String> outputDescriptor = sd.getOutputDescriptor(OUTPUT_TOPIC, new NoOpSerde<>());
+    TestRunner.of(new RepartitionWindowApp())
+        .addInputStream(inputDescriptor, pageViews)
+        .addOutputStream(outputDescriptor, 1)
+        .addConfig("task.window.ms", "1000")
+        .run(Duration.ofSeconds(10));
 
-    Map<String, String> configs = new HashMap<>();
-    configs.put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
-    configs.put(JobConfig.PROCESSOR_ID, "0");
-    configs.put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+    StreamAssert.containsInAnyOrder(Arrays.asList("userId1 4", "userId2 1"), outputDescriptor,
+        Duration.ofSeconds(1));
+  }
 
-    // run the application
-    runApplication(new RepartitionWindowApp(), APP_NAME, configs);
+  /**
+   * A {@link StreamApplication} that demonstrates a repartition followed by a windowed count.
+   */
+  private static class RepartitionWindowApp implements StreamApplication {
+    @Override
+    public void describe(StreamApplicationDescriptor appDescriptor) {
+      DelegatingSystemDescriptor sd = new DelegatingSystemDescriptor(SYSTEM);
+      GenericInputDescriptor<KV<String, PageView>> inputDescriptor =
+          sd.getInputDescriptor(INPUT_TOPIC, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
+      GenericOutputDescriptor<KV<String, String>> outputDescriptor =
+          sd.getOutputDescriptor(OUTPUT_TOPIC, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()));
 
-    // consume and validate result
-    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(OUTPUT_TOPIC), 2);
-    Assert.assertEquals(messages.size(), 2);
-
-    for (ConsumerRecord<String, String> message : messages) {
-      String key = message.key();
-      String value = message.value();
-      // Assert that there are 4 messages for userId1 and 1 message for userId2.
-      Assert.assertTrue(key.equals("userId1") || key.equals("userId2"));
-      if ("userId1".equals(key)) {
-        Assert.assertEquals(value, "4");
-      } else {
-        Assert.assertEquals(value, "1");
-      }
+      appDescriptor.getInputStream(inputDescriptor)
+          .map(KV::getValue)
+          .partitionBy(PageView::getUserId, m -> m, KVSerde.of(new NoOpSerde<>(), new NoOpSerde<>()), "p1")
+          .window(Windows.keyedSessionWindow(KV::getKey, Duration.ofSeconds(3), () -> 0, (m, c) -> c + 1, new StringSerde("UTF-8"), new IntegerSerde()), "w1")
+          .map(wp -> KV.of(wp.getKey().getKey(), wp.getKey().getKey() + " " + wp.getMessage()))
+          .sendTo(appDescriptor.getOutputStream(outputDescriptor));
     }
   }
 }

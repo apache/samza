@@ -244,7 +244,7 @@ public class TestTableData {
     return pageViews;
   }
 
-  static public PageView[] generatePageViewsWithDistinctKeys(int count) {
+  public static PageView[] generatePageViewsWithDistinctKeys(int count) {
     Random random = new Random();
     PageView[] pageviews = new PageView[count];
     for (int i = 0; i < count; i++) {
@@ -256,7 +256,7 @@ public class TestTableData {
 
   private static final String[] COMPANIES = {"MSFT", "LKND", "GOOG", "FB", "AMZN", "CSCO"};
 
-  static public Profile[] generateProfiles(int count) {
+  public static Profile[] generateProfiles(int count) {
     Random random = new Random();
     Profile[] profiles = new Profile[count];
     for (int i = 0; i < count; i++) {

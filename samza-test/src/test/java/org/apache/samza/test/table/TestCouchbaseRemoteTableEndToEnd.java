@@ -29,16 +29,14 @@ import com.couchbase.client.java.env.DefaultCouchbaseEnvironment;
 import com.couchbase.mock.BucketConfiguration;
 import com.couchbase.mock.CouchbaseMock;
 
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.samza.application.StreamApplication;
-import org.apache.samza.config.Config;
-import org.apache.samza.config.MapConfig;
 import org.apache.samza.operators.KV;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
@@ -48,8 +46,9 @@ import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.NoOpTableReadFunction;
 import org.apache.samza.table.remote.couchbase.CouchbaseTableReadFunction;
 import org.apache.samza.table.remote.couchbase.CouchbaseTableWriteFunction;
-import org.apache.samza.test.harness.IntegrationTestHarness;
-import org.apache.samza.test.util.Base64Serializer;
+import org.apache.samza.test.framework.TestRunner;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -64,14 +63,14 @@ import org.junit.Test;
  * CouchbaseMock library, closing a mocked bucket would throw exceptions like: java.lang.ArithmeticException: / by zero.
  * Please ignore those exception.
  */
-public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
-  protected CouchbaseEnvironment couchbaseEnvironment;
-  protected CouchbaseMock couchbaseMock;
-  protected Cluster cluster;
-  protected String inputBucketName = "inputBucket";
-  protected String outputBucketName = "outputBucket";
+public class TestCouchbaseRemoteTableEndToEnd {
+  private CouchbaseEnvironment couchbaseEnvironment;
+  private CouchbaseMock couchbaseMock;
+  private Cluster cluster;
+  private String inputBucketName = "inputBucket";
+  private String outputBucketName = "outputBucket";
 
-  protected void createMockBuckets(List<String> bucketNames) throws Exception {
+  private void createMockBuckets(List<String> bucketNames) throws Exception {
     ArrayList<BucketConfiguration> configList = new ArrayList<>();
     bucketNames.forEach(name -> configList.add(configBucket(name)));
     couchbaseMock = new CouchbaseMock(0, configList);
@@ -79,7 +78,7 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
     couchbaseMock.waitForStartup();
   }
 
-  protected BucketConfiguration configBucket(String bucketName) {
+  private BucketConfiguration configBucket(String bucketName) {
     BucketConfiguration config = new BucketConfiguration();
     config.numNodes = 1;
     config.numReplicas = 1;
@@ -87,7 +86,7 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
     return config;
   }
 
-  protected void initClient() {
+  private void initClient() {
     couchbaseEnvironment = DefaultCouchbaseEnvironment.builder()
         .bootstrapCarrierDirectPort(couchbaseMock.getCarrierPort("inputBucket"))
         .bootstrapHttpDirectPort(couchbaseMock.getHttpPort())
@@ -110,8 +109,7 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
   }
 
   @Test
-  public void testEndToEnd() throws Exception {
-
+  public void testEndToEnd() {
     Bucket inputBucket = cluster.openBucket(inputBucketName);
     inputBucket.upsert(ByteArrayDocument.create("Alice", "20".getBytes()));
     inputBucket.upsert(ByteArrayDocument.create("Bob", "30".getBytes()));
@@ -119,15 +117,7 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
     inputBucket.upsert(ByteArrayDocument.create("David", "50".getBytes()));
     inputBucket.close();
 
-    String[] users = new String[]{"Alice", "Bob", "Chris", "David"};
-
-    int partitionCount = 1;
-    Map<String, String> configs = TestLocalTableEndToEnd.getBaseJobConfig(bootstrapUrl(), zkConnect());
-
-    configs.put("streams.User.samza.system", "test");
-    configs.put("streams.User.source", Base64Serializer.serialize(users));
-    configs.put("streams.User.partitionCount", String.valueOf(partitionCount));
-    Config config = new MapConfig(configs);
+    List<String> users = Arrays.asList("Alice", "Bob", "Chris", "David");
 
     final StreamApplication app = appDesc -> {
       DelegatingSystemDescriptor inputSystemDescriptor = new DelegatingSystemDescriptor("test");
@@ -162,9 +152,12 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
           .sendTo(outputTable);
     };
 
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
-    executeRun(runner, config);
-    runner.waitForFinish();
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<TestTableData.PageView> inputDescriptor = isd
+        .getInputDescriptor("User", new NoOpSerde<>());
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, users)
+        .run(Duration.ofSeconds(10));
 
     Bucket outputBucket = cluster.openBucket(outputBucketName);
     Assert.assertEquals("{\"name\":\"Alice\",\"age\":\"20\"}", outputBucket.get("Alice").content().toString());
@@ -192,5 +185,4 @@ public class TestCouchbaseRemoteTableEndToEnd extends IntegrationTestHarness {
       return record.getKey();
     }
   }
-
 }

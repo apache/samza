@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
-import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
@@ -53,7 +52,6 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.CachingTableDescriptor;
@@ -65,7 +63,9 @@ import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
-import org.apache.samza.test.harness.IntegrationTestHarness;
+import org.apache.samza.test.framework.TestRunner;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
 
@@ -75,7 +75,6 @@ import org.junit.Test;
 import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
 import static org.apache.samza.test.table.TestTableData.PageView;
 import static org.apache.samza.test.table.TestTableData.Profile;
-import static org.apache.samza.test.table.TestTableData.generatePageViews;
 import static org.apache.samza.test.table.TestTableData.generateProfiles;
 
 import static org.mockito.Matchers.any;
@@ -83,10 +82,9 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
 
 
-public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
-
-  static Map<String, AtomicInteger> counters = new HashMap<>();
-  static Map<String, List<EnrichedPageView>> writtenRecords = new HashMap<>();
+public class TestRemoteTableEndToEnd {
+  private static final Map<String, AtomicInteger> COUNTERS = new HashMap<>();
+  private static final Map<String, List<EnrichedPageView>> WRITTEN_RECORDS = new HashMap<>();
 
   static class InMemoryProfileReadFunction extends BaseTableFunction
       implements TableReadFunction<Integer, Profile> {
@@ -144,7 +142,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
       in.defaultReadObject();
 
       // Write to the global list for verification
-      records = writtenRecords.get(testName);
+      records = WRITTEN_RECORDS.get(testName);
     }
 
     @Override
@@ -189,7 +187,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     public CompletableFuture readAsync(int opId, Object... args) {
       if (1 == opId) {
         boolean shouldReturnValue = (boolean) args[0];
-        AtomicInteger counter = counters.get(testName);
+        AtomicInteger counter = COUNTERS.get(testName);
         Integer result = shouldReturnValue ? counter.get() : null;
         return CompletableFuture.completedFuture(result);
       } else {
@@ -230,7 +228,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     @Override
     public CompletableFuture writeAsync(int opId, Object... args) {
       Integer result;
-      AtomicInteger counter = counters.get(testName);
+      AtomicInteger counter = COUNTERS.get(testName);
       boolean shouldModify = (boolean) args[0];
       switch (opId) {
         case 1:
@@ -251,7 +249,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     }
   }
 
-  static private class TestReadWriteMapFunction implements MapFunction<PageView, PageView> {
+  private static class TestReadWriteMapFunction implements MapFunction<PageView, PageView> {
 
     private final String counterTableName;
     private ReadWriteTable counterTable;
@@ -323,20 +321,12 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
     return appDesc.getTable(cachingDesc);
   }
 
-  private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, boolean withArgs, String testName)
-      throws Exception {
+  private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, boolean withArgs,
+      String testName) throws Exception {
+    WRITTEN_RECORDS.put(testName, new ArrayList<>());
 
-    writtenRecords.put(testName, new ArrayList<>());
-
-    int count = 10;
-    final PageView[] pageViews = generatePageViews(count);
-    final String profiles = Base64Serializer.serialize(generateProfiles(count));
-
-    final int partitionCount = 4;
-    final Map<String, String> configs = TestLocalTableEndToEnd.getBaseJobConfig(bootstrapUrl(), zkConnect());
-    configs.put("streams.PageView.samza.system", "test");
-    configs.put("streams.PageView.source", Base64Serializer.serialize(pageViews));
-    configs.put("streams.PageView.partitionCount", String.valueOf(partitionCount));
+    // max member id for page views is 10
+    final String profiles = Base64Serializer.serialize(generateProfiles(10));
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
     final TableRateLimiter.CreditFunction creditFunction = (k, v, args) -> 1;
@@ -373,7 +363,7 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
             .sendTo(outputTable);
 
       } else {
-        counters.put(testName, new AtomicInteger());
+        COUNTERS.put(testName, new AtomicInteger());
 
         final RemoteTableDescriptor counterTableDesc =
             new RemoteTableDescriptor("counter-table-1")
@@ -395,19 +385,21 @@ public class TestRemoteTableEndToEnd extends IntegrationTestHarness {
       }
     };
 
-    final Config config = new MapConfig(configs);
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config);
-    executeRun(runner, config);
-    runner.waitForFinish();
+    int numPageViews = 40;
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<PageView> inputDescriptor = isd
+        .getInputDescriptor("PageView", new NoOpSerde<>());
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, TestTableData.generatePartitionedPageViews(numPageViews, 4))
+        .run(Duration.ofSeconds(10));
 
-    final int numExpected = count * partitionCount;
-    Assert.assertEquals(numExpected, writtenRecords.get(testName).size());
-    Assert.assertTrue(writtenRecords.get(testName).get(0) instanceof EnrichedPageView);
+    Assert.assertEquals(numPageViews, WRITTEN_RECORDS.get(testName).size());
+    Assert.assertNotNull(WRITTEN_RECORDS.get(testName).get(0));
     if (!withArgs) {
-      writtenRecords.get(testName).forEach(epv -> Assert.assertFalse(epv.company.contains("-")));
+      WRITTEN_RECORDS.get(testName).forEach(epv -> Assert.assertFalse(epv.company.contains("-")));
     } else {
-      writtenRecords.get(testName).forEach(epv -> Assert.assertTrue(epv.company.endsWith("-r-w")));
-      Assert.assertEquals(numExpected, counters.get(testName).get());
+      WRITTEN_RECORDS.get(testName).forEach(epv -> Assert.assertTrue(epv.company.endsWith("-r-w")));
+      Assert.assertEquals(numPageViews, COUNTERS.get(testName).get());
     }
   }
 

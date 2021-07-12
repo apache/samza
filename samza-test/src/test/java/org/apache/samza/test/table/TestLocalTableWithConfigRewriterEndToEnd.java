@@ -19,6 +19,7 @@
 
 package org.apache.samza.test.table;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +29,6 @@ import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigRewriter;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.runtime.LocalApplicationRunner;
 import org.apache.samza.serializers.IntegerSerde;
 import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
@@ -39,31 +39,30 @@ import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.table.TableConfigGenerator;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.task.StreamTaskFactory;
-import org.apache.samza.test.harness.IntegrationTestHarness;
-import org.apache.samza.test.util.Base64Serializer;
+import org.apache.samza.test.framework.TestRunner;
+import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
+import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 
 import org.junit.Test;
 
-import static org.apache.samza.test.table.TestLocalTableEndToEnd.getBaseJobConfig;
 import static org.apache.samza.test.table.TestLocalTableWithLowLevelApiEndToEnd.MyStreamTask;
 
 
-public class TestLocalTableWithConfigRewriterEndToEnd extends IntegrationTestHarness {
-
+public class TestLocalTableWithConfigRewriterEndToEnd {
+  /**
+   * MyTaskApplication does not include table descriptor, so if the rewriter does not add the table configs properly,
+   * then the application will fail to execute.
+   */
   @Test
-  public void testWithConfigRewriter() throws Exception {
-    Map<String, String> configs = getBaseJobConfig(bootstrapUrl(), zkConnect());
-    configs.put("streams.PageView.samza.system", "test");
-    configs.put("streams.PageView.source", Base64Serializer.serialize(TestTableData.generatePageViews(10)));
-    configs.put("streams.PageView.partitionCount", String.valueOf(4));
-    configs.put("task.inputs", "test.PageView");
-    configs.put("job.config.rewriter.my-rewriter.class", MyConfigRewriter.class.getName());
-    configs.put("job.config.rewriters", "my-rewriter");
-
-    Config config = new MapConfig(configs);
-    final LocalApplicationRunner runner = new LocalApplicationRunner(new MyTaskApplication(), config);
-    executeRun(runner, config);
-    runner.waitForFinish();
+  public void testWithConfigRewriter() {
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<TestTableData.PageView> inputDescriptor = isd
+        .getInputDescriptor("PageView", new NoOpSerde<>());
+    TestRunner.of(new MyTaskApplication())
+        .addInputStream(inputDescriptor, TestTableData.generatePartitionedPageViews(40, 4))
+        .addConfig("job.config.rewriters", "my-rewriter")
+        .addConfig("job.config.rewriter.my-rewriter.class", MyConfigRewriter.class.getName())
+        .run(Duration.ofSeconds(10));
   }
 
   static public class MyConfigRewriter implements ConfigRewriter {
