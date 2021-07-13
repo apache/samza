@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 
 /**
  * An implementation of {@link SystemStatisticsGetter} that relies on using Posix commands like ps.
@@ -45,7 +46,7 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
     String psOutput = null;
 
     try {
-      processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
+      processReader = new BufferedReader(new InputStreamReader(executable.getInputStream(), Charset.forName("UTF-8")));
       psOutput = processReader.readLine();
     } finally {
       if (processReader != null) {
