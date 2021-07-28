@@ -431,7 +431,9 @@ public class ContainerStorageManager {
           .filter(storeName -> storageConfig.getChangelogStream(storeName).isPresent())
           .collect(Collectors.toSet());
       // Default to changelog backend factory when using checkpoint v1 for backwards compatibility
-      backendFactoryStoreNames.put(StorageConfig.KAFKA_STATE_BACKEND_FACTORY, changelogStores);
+      if (!changelogStores.isEmpty()) {
+        backendFactoryStoreNames.put(StorageConfig.KAFKA_STATE_BACKEND_FACTORY, changelogStores);
+      }
       if (storeNames.size() > changelogStores.size()) {
         Set<String> nonChangelogStores = storeNames.stream()
             .filter(storeName -> !changelogStores.contains(storeName))

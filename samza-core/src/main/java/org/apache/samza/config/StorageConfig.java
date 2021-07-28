@@ -299,8 +299,8 @@ public class StorageConfig extends MapConfig {
    * Backup state backend factory follows the precedence:
    *
    * 1. If stores.store-name.backup.factories config key exists the store-name, that value is used
-   * 2. If stores.store-name.changelog is set for store-name, the default Kafka changelog state backend factory
-   * 3. If stores.backup.factories is set for the job, that value is used
+   * 2. If stores.backup.factories is set for the job, that value is used
+   * 3. If stores.store-name.changelog is set for store-name, the default Kafka changelog state backend factory
    * 4. Otherwise no backup factories will be configured for the store
    *
    * Note: that 2 takes precedence over 3 enables job based migration off of Changelog restores
