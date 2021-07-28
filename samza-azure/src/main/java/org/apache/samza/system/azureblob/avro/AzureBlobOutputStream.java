@@ -336,8 +336,8 @@ public class AzureBlobOutputStream extends OutputStream {
             stageBlock(blockIdEncoded, outputStream, blockSize);
             break;
           } catch (InterruptedException e) {
-            String msg = "Upload block for blob: " + blobAsyncClient.getBlobUrl().toString()
-                + " failed for blockid: " + blockId + " due to InterruptedException ";
+            String msg = String.format("Upload block for blob: %s failed for blockid: %s due to InterruptedException.",
+                blobAsyncClient.getBlobUrl().toString(), blockId);
             LOG.error(msg, e);
             throw new AzureException("InterruptedException encountered during block upload. Will not retry.", e);
           } catch (Exception e) {
