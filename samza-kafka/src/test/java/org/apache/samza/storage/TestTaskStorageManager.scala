@@ -767,8 +767,12 @@ class TaskStorageManagerBuilder extends MockitoSugar {
       "stores.loggedStore1.clean.on.container.start" -> cleanStoreDirsOnStart.toString,
       "stores.store1.key.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.store1.msg.serde" -> classOf[StringSerdeFactory].getCanonicalName,
+      "stores.store1.factory" -> mockStorageEngineFactory.getClass.getName,
+      "stores.store1.changelog" -> "system.stream",
+      "stores.loggedStore1.factory" -> mockStorageEngineFactory.getClass.getName,
       "stores.loggedStore1.key.serde" -> classOf[StringSerdeFactory].getCanonicalName,
       "stores.loggedStore1.msg.serde" -> classOf[StringSerdeFactory].getCanonicalName,
+      "stores.loggedStore1.changelog" -> "system.stream",
       TaskConfig.TRANSACTIONAL_STATE_RESTORE_ENABLED -> "false").asJava)
 
     var mockSerdes: Map[String, Serde[AnyRef]] = HashMap[String, Serde[AnyRef]]((classOf[StringSerdeFactory].getCanonicalName, Mockito.mock(classOf[Serde[AnyRef]])))

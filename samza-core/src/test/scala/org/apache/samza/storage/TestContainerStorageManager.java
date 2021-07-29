@@ -178,6 +178,8 @@ public class TestContainerStorageManager {
     Map<String, String> configMap = new HashMap<>();
     configMap.put("stores." + STORE_NAME + ".key.serde", "stringserde");
     configMap.put("stores." + STORE_NAME + ".msg.serde", "stringserde");
+    configMap.put("stores." + STORE_NAME + ".factory", mockStorageEngineFactory.getClass().getName());
+    configMap.put("stores." + STORE_NAME + ".changelog", SYSTEM_NAME + "." + STREAM_NAME);
     configMap.put("serializers.registry.stringserde.class", StringSerdeFactory.class.getName());
     configMap.put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
     Config config = new MapConfig(configMap);
@@ -223,7 +225,7 @@ public class TestContainerStorageManager {
     ContainerModel mockContainerModel = new ContainerModel("samza-container-test", tasks);
     when(mockContainerContext.getContainerModel()).thenReturn(mockContainerModel);
 
-    // Reset the  expected number of sysConsumer create, start and stop calls, and store.restore() calls
+    // Reset the expected number of sysConsumer create, start and stop calls, and store.restore() calls
     this.systemConsumerCreationCount = 0;
     this.systemConsumerStartCount = 0;
     this.systemConsumerStopCount = 0;
@@ -277,6 +279,89 @@ public class TestContainerStorageManager {
         this.systemConsumerCreationCount);
     Assert.assertEquals("systemConsumerStopCount count should be 1", 1, this.systemConsumerStopCount);
     Assert.assertEquals("systemConsumerStartCount count should be 1", 1, this.systemConsumerStartCount);
+  }
+
+  @Test
+  public void testNoConfiguredDurableStores() throws InterruptedException{
+    taskRestoreMetricGauges = new HashMap<>();
+    this.tasks = new HashMap<>();
+    this.taskInstanceMetrics = new HashMap<>();
+
+    // Add two mocked tasks
+    addMockedTask("task 0", 0);
+    addMockedTask("task 1", 1);
+
+    // Mock container metrics
+    samzaContainerMetrics = mock(SamzaContainerMetrics.class);
+    when(samzaContainerMetrics.taskStoreRestorationMetrics()).thenReturn(taskRestoreMetricGauges);
+
+    // Create mocked configs for specifying serdes
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put("serializers.registry.stringserde.class", StringSerdeFactory.class.getName());
+    configMap.put(TaskConfig.TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, "true");
+    Config config = new MapConfig(configMap);
+
+    Map<String, Serde<Object>> serdes = new HashMap<>();
+    serdes.put("stringserde", mock(Serde.class));
+
+    CheckpointManager checkpointManager = mock(CheckpointManager.class);
+    when(checkpointManager.readLastCheckpoint(any(TaskName.class))).thenReturn(new CheckpointV1(new HashMap<>()));
+
+    ContainerContext mockContainerContext = mock(ContainerContext.class);
+    ContainerModel mockContainerModel = new ContainerModel("samza-container-test", tasks);
+    when(mockContainerContext.getContainerModel()).thenReturn(mockContainerModel);
+
+    // Reset the expected number of sysConsumer create, start and stop calls, and store.restore() calls
+    this.systemConsumerCreationCount = 0;
+    this.systemConsumerStartCount = 0;
+    this.systemConsumerStopCount = 0;
+    this.storeRestoreCallCount = 0;
+
+    StateBackendFactory backendFactory = mock(StateBackendFactory.class);
+    TaskRestoreManager restoreManager = mock(TaskRestoreManager.class);
+    when(backendFactory.getRestoreManager(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(restoreManager);
+    doAnswer(invocation -> {
+      storeRestoreCallCount++;
+      return null;
+    }).when(restoreManager).restore();
+
+    // Create the container storage manager
+    ContainerStorageManager containerStorageManager = new ContainerStorageManager(
+        checkpointManager,
+        mockContainerModel,
+        mock(StreamMetadataCache.class),
+        mock(SystemAdmins.class),
+        new HashMap<>(),
+        new HashMap<>(),
+        new HashMap<>(),
+        new HashMap<>(),
+        serdes,
+        config,
+        taskInstanceMetrics,
+        samzaContainerMetrics,
+        mock(JobContext.class),
+        mockContainerContext,
+        new HashMap<>(),
+        mock(Map.class),
+        DEFAULT_LOGGED_STORE_BASE_DIR,
+        DEFAULT_STORE_BASE_DIR,
+        null,
+        new SystemClock());
+
+    containerStorageManager.start();
+    containerStorageManager.shutdown();
+
+    for (Gauge gauge : taskRestoreMetricGauges.values()) {
+      Assert.assertTrue("Restoration time gauge value should never be invoked",
+          mockingDetails(gauge).getInvocations().size() == 0);
+    }
+
+    Assert.assertEquals("Store restore count should be 2 because there are 0 stores", 0, this.storeRestoreCallCount);
+    Assert.assertEquals(0,
+        this.systemConsumerCreationCount);
+    Assert.assertEquals(0, this.systemConsumerStopCount);
+    Assert.assertEquals(0, this.systemConsumerStartCount);
   }
 
   @Test
