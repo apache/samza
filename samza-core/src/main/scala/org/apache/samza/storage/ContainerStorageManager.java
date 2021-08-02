@@ -747,7 +747,10 @@ public class ContainerStorageManager {
         )
     );
 
-    // Start each store consumer once
+    // Start each store consumer once.
+    // Note: These consumers are per system and only changelog system store consumers will be started.
+    // Some TaskRestoreManagers may not require the consumer to to be started, but due to the agnostic nature of
+    // ContainerStorageManager we always start the changelog consumer here in case it is required
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);
 
     List<Future> taskRestoreFutures = new ArrayList<>();

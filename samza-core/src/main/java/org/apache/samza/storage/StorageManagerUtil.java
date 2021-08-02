@@ -113,7 +113,6 @@ public class StorageManagerUtil {
    * @param isSideInput true if store is a side-input store, false if it is a regular store
    * @return true if the store is stale, false otherwise
    */
-  // TODO BLOCKER dchen do these methods need to be updated to also read the new checkpoint file?
   public boolean isStaleStore(File storeDir, long storeDeleteRetentionInMs, long currentTimeMs, boolean isSideInput) {
     long offsetFileLastModifiedTime;
     boolean isStaleStore = false;
@@ -127,8 +126,11 @@ public class StorageManagerUtil {
       File offsetFileRefNew = new File(storeDir, OFFSET_FILE_NAME_NEW);
       File offsetFileRefLegacy = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
       File sideInputOffsetFileRefLegacy = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
+      File checkpointV2File = new File(storeDir, CHECKPOINT_FILE_NAME);
 
-      if (offsetFileRefNew.exists()) {
+      if (checkpointV2File.exists()) {
+        offsetFileLastModifiedTime = checkpointV2File.lastModified();
+      } else if (offsetFileRefNew.exists()) {
         offsetFileLastModifiedTime = offsetFileRefNew.lastModified();
       } else if (!isSideInput && offsetFileRefLegacy.exists()) {
         offsetFileLastModifiedTime = offsetFileRefLegacy.lastModified();
@@ -184,7 +186,6 @@ public class StorageManagerUtil {
    * @param isSideInput true if store is a side-input store, false if it is a regular store
    * @return true if the offset file is valid. false otherwise.
    */
-  // TODO BLOCKER dchen do these methods need to be updated to also read the new checkpoint file?
   public boolean isOffsetFileValid(File storeDir, Set<SystemStreamPartition> storeSSPs, boolean isSideInput) {
     boolean hasValidOffsetFile = false;
     if (storeDir.exists()) {
@@ -305,11 +306,11 @@ public class StorageManagerUtil {
   /**
    * Read and return the {@link CheckpointV2} from the directory's {@link #CHECKPOINT_FILE_NAME} file.
    * If the file does not exist, returns null.
-   * // TODO HIGH dchen add tests at all call sites for handling null value.
    *
    * @param storagePartitionDir store directory to read the checkpoint file from
    * @return the {@link CheckpointV2} object retrieved from the checkpoint file if found, otherwise return null
    */
+  // TODO dchen use checkpoint v2 file before migrating off of dual checkpoints
   public CheckpointV2 readCheckpointV2File(File storagePartitionDir) {
     File checkpointFile = new File(storagePartitionDir, CHECKPOINT_FILE_NAME);
     if (checkpointFile.exists()) {

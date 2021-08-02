@@ -152,11 +152,8 @@ public class KafkaConsumerProxy<K, V> {
     }
 
     if (topicPartitionToSSP.size() == 0) {
-      String msg = String.format("Cannot start KafkaConsumerProxy without any registered TopicPartitions for %s", systemName);
-      LOG.error(msg);
-      // TODO HIGH dchen the consumer init for blob stores only goes through this path as well if it has changelogs for backup
-      // need to isolate the changes
-      //throw new SamzaException(msg);
+      String msg = String.format("Started KafkaConsumerProxy without any registered TopicPartitions for %s", systemName);
+      LOG.warn(msg);
     }
   }
 

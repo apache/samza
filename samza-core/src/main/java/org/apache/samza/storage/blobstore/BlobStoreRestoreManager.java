@@ -101,7 +101,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     this.taskModel = taskModel;
     this.jobName = new JobConfig(config).getName().get();
     this.jobId = new JobConfig(config).getJobId();
-    this.executor = restoreExecutor; // TODO BLOCKER dchen1 dont block on restore executor
+    this.executor = restoreExecutor;
     this.config = config;
     this.storageConfig = new StorageConfig(config);
     this.blobStoreConfig = new BlobStoreConfig(config);
@@ -282,7 +282,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     FutureUtil.allOf(restoreFutures).whenComplete((res, ex) -> {
       LOG.info("Restore completed for task: {} stores", taskName);
       metrics.restoreNs.set(System.nanoTime() - restoreStartTime);
-    }).join(); // TODO BLOCKER dchen1 make non-blocking.
+    }).join(); // TODO dchen make non-blocking for the restore executor
   }
 
   /**
