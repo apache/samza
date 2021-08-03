@@ -333,6 +333,18 @@ public class StorageConfig extends MapConfig {
         .collect(Collectors.toList());
   }
 
+  public List<String> getPersistentStoresWithBackupFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter(storeName -> {
+          Optional<String> storeFactory = getStorageFactoryClassName(storeName);
+          return storeFactory.isPresent() &&
+              !storeFactory.get().equals(StorageConfig.INMEMORY_KV_STORAGE_ENGINE_FACTORY);
+        })
+        .filter((storeName) -> getStoreBackupFactories(storeName)
+            .contains(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
   private List<String> getJobStoreRestoreFactories() {
     return getList(JOB_RESTORE_FACTORIES, new ArrayList<>());
   }
