@@ -220,7 +220,7 @@ public class StorageRecovery {
     Set<String> factoryClasses = new StorageConfig(jobConfig).getRestoreFactories();
     Map<String, StateBackendFactory> stateBackendFactories = factoryClasses.stream().collect(
         Collectors.toMap(factoryClass -> factoryClass,
-        factoryClass -> ReflectionUtil.getObj(factoryClass, StateBackendFactory.class)));
+          factoryClass -> ReflectionUtil.getObj(factoryClass, StateBackendFactory.class)));
     Clock clock = SystemClock.instance();
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways

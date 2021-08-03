@@ -282,7 +282,7 @@ public class TestContainerStorageManager {
   }
 
   @Test
-  public void testNoConfiguredDurableStores() throws InterruptedException{
+  public void testNoConfiguredDurableStores() throws InterruptedException {
     taskRestoreMetricGauges = new HashMap<>();
     this.tasks = new HashMap<>();
     this.taskInstanceMetrics = new HashMap<>();

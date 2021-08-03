@@ -364,7 +364,7 @@ public class StorageConfig extends MapConfig {
 
   public Set<String> getRestoreFactories() {
     return getStoreNames().stream()
-        .flatMap(((storesName) -> getStoreRestoreFactories(storesName).stream()))
+        .flatMap((storesName) -> getStoreRestoreFactories(storesName).stream())
         .collect(Collectors.toSet());
   }
 

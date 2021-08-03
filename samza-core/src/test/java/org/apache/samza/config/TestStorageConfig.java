@@ -113,7 +113,7 @@ public class TestStorageConfig {
     // store has changelog stream defined, but system comes from job.changelog.system
     storageConfig = new StorageConfig(new MapConfig(
         ImmutableMap.of(String.format(StorageConfig.CHANGELOG_STREAM, STORE_NAME0), "changelog-stream0",
-            String.format(FACTORY, STORE_NAME0), "store0.factory.class" ,
+            String.format(FACTORY, STORE_NAME0), "store0.factory.class",
             StorageConfig.CHANGELOG_SYSTEM, "changelog-system")));
     assertEquals(Optional.of("changelog-system.changelog-stream0"), storageConfig.getChangelogStream(STORE_NAME0));
     assertEquals(ImmutableMap.of(STORE_NAME0,  new SystemStream("changelog-system", "changelog-stream0")), storageConfig.getStoreChangelogs());
