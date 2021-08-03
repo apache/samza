@@ -20,7 +20,6 @@
 package org.apache.samza.storage;
 
 import java.util.Map;
-import java.util.Set;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemConsumer;
