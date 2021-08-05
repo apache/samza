@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.config.Config;
@@ -215,7 +217,10 @@ public class StorageRecovery {
    */
   @SuppressWarnings("rawtypes")
   private void getContainerStorageManagers() {
-    String factoryClass = new StorageConfig(jobConfig).getRestoreFactory();
+    Set<String> factoryClasses = new StorageConfig(jobConfig).getRestoreFactories();
+    Map<String, StateBackendFactory> stateBackendFactories = factoryClasses.stream().collect(
+        Collectors.toMap(factoryClass -> factoryClass,
+          factoryClass -> ReflectionUtil.getObj(factoryClass, StateBackendFactory.class)));
     Clock clock = SystemClock.instance();
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
@@ -242,7 +247,7 @@ public class StorageRecovery {
               new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap(), ""),
               JobContextImpl.fromConfigWithDefaults(jobConfig, jobModel),
               containerContext,
-              ReflectionUtil.getObj(factoryClass, StateBackendFactory.class),
+              stateBackendFactories,
               new HashMap<>(),
               storeBaseDir,
               storeBaseDir,

@@ -38,9 +38,10 @@ class TaskInstanceMetrics(
   val pendingMessages = newGauge("pending-messages", 0)
   val messagesInFlight = newGauge("messages-in-flight", 0)
   val asyncCallbackCompleted = newCounter("async-callback-complete-calls")
-
+  val commitsTimedOut = newGauge("commits-timed-out", 0)
   val commitsSkipped = newGauge("commits-skipped", 0)
   val commitNs = newTimer("commit-ns")
+  val lastCommitNs = newGauge("last-commit-ns", 0L)
   val commitSyncNs = newTimer("commit-sync-ns")
   val commitAsyncNs = newTimer("commit-async-ns")
   val snapshotNs = newTimer("snapshot-ns")

@@ -290,6 +290,7 @@ class TaskInstance(
 
         if (!commitInProgress.tryAcquire(commitTimeoutMs, TimeUnit.MILLISECONDS)) {
           val timeSinceLastCommit = System.currentTimeMillis() - lastCommitStartTimeMs
+          metrics.commitsTimedOut.set(metrics.commitsTimedOut.getValue + 1)
           throw new SamzaException("Timeout waiting for pending commit for taskName: %s to finish. " +
             "%s ms have elapsed since the pending commit started. Max allowed commit delay is %s ms " +
             "and commit timeout beyond that is %s ms" format (taskName, timeSinceLastCommit,
@@ -356,14 +357,11 @@ class TaskInstance(
           val checkpointWriteFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
             uploadSCMsFuture.thenApplyAsync(writeCheckpoint(checkpointId, inputOffsets), commitThreadPool)
 
-          val cleanupStartTimeNs = System.nanoTime()
           val cleanUpFuture: CompletableFuture[Void] =
             checkpointWriteFuture.thenComposeAsync(cleanUp(checkpointId), commitThreadPool)
           cleanUpFuture.whenComplete(new BiConsumer[Void, Throwable] {
             override def accept(v: Void, throwable: Throwable): Unit = {
-              if (throwable == null) {
-                metrics.asyncCleanupNs.update(System.nanoTime() - cleanupStartTimeNs)
-              } else {
+              if (throwable != null) {
                 warn("Commit cleanup did not complete successfully for taskName: %s checkpointId: %s with error msg: %s"
                   format (taskName, checkpointId, throwable.getMessage))
               }
@@ -380,6 +378,7 @@ class TaskInstance(
       }
     })
 
+    metrics.lastCommitNs.set(System.nanoTime() - commitStartNs)
     metrics.commitSyncNs.update(System.nanoTime() - commitStartNs)
     debug("Finishing sync stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
   }
@@ -428,6 +427,7 @@ class TaskInstance(
       override def apply(uploadSCMs: util.Map[String, util.Map[String, String]]): CompletableFuture[Void] = {
         // Perform cleanup on unused checkpoints
         debug("Cleaning up old checkpoint state for taskName: %s checkpointId: %s" format(taskName, checkpointId))
+        val cleanUpStartTime = System.nanoTime()
         try {
           commitManager.cleanUp(checkpointId, uploadSCMs)
         } catch {
@@ -438,6 +438,8 @@ class TaskInstance(
             throw new SamzaException(
               "Failed to remove old checkpoint state for taskName: %s checkpointId: %s."
                 format(taskName, checkpointId), e)
+        } finally {
+          metrics.asyncCleanupNs.update(System.nanoTime() - cleanUpStartTime)
         }
       }
     }

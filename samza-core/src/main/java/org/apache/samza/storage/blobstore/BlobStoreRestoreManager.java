@@ -84,7 +84,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   private final File loggedBaseDir;
   private final File nonLoggedBaseDir;
   private final String taskName;
-  private final List<String> storesToRestore;
+  private final Set<String> storesToRestore;
   private final BlobStoreRestoreManagerMetrics metrics;
 
   private BlobStoreManager blobStoreManager;
@@ -95,13 +95,13 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    */
   private Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes;
 
-  public BlobStoreRestoreManager(TaskModel taskModel, ExecutorService restoreExecutor,
+  public BlobStoreRestoreManager(TaskModel taskModel, ExecutorService restoreExecutor, Set<String> storesToRestore,
       BlobStoreRestoreManagerMetrics metrics, Config config, File loggedBaseDir, File nonLoggedBaseDir,
       StorageManagerUtil storageManagerUtil, BlobStoreManager blobStoreManager) {
     this.taskModel = taskModel;
     this.jobName = new JobConfig(config).getName().get();
     this.jobId = new JobConfig(config).getJobId();
-    this.executor = restoreExecutor; // TODO BLOCKER dchen1 dont block on restore executor
+    this.executor = restoreExecutor;
     this.config = config;
     this.storageConfig = new StorageConfig(config);
     this.blobStoreConfig = new BlobStoreConfig(config);
@@ -113,9 +113,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     this.loggedBaseDir = loggedBaseDir;
     this.nonLoggedBaseDir = nonLoggedBaseDir;
     this.taskName = taskModel.getTaskName().getTaskName();
-    StorageConfig storageConfig = new StorageConfig(config);
-    this.storesToRestore =
-        storageConfig.getStoresWithRestoreFactory(BlobStoreStateBackendFactory.class.getName());
+    this.storesToRestore = storesToRestore;
     this.metrics = metrics;
   }
 
@@ -168,7 +166,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   /**
    * Deletes blob store contents for stores that were present in the last checkpoint but are either no longer
-   * present in job configs (removed by user since last deploymetn) or are no longer configured to be backed
+   * present in job configs (removed by user since last deployment) or are no longer configured to be backed
    * up using blob stores.
    *
    * This method blocks until all the necessary store contents and snapshot index blobs have been marked for deletion.
@@ -209,7 +207,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    * Restores all eligible stores in the task.
    */
   @VisibleForTesting
-  static void restoreStores(String jobName, String jobId, TaskName taskName, List<String> storesToRestore,
+  static void restoreStores(String jobName, String jobId, TaskName taskName, Set<String> storesToRestore,
       Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
       File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
       StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
@@ -284,7 +282,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     FutureUtil.allOf(restoreFutures).whenComplete((res, ex) -> {
       LOG.info("Restore completed for task: {} stores", taskName);
       metrics.restoreNs.set(System.nanoTime() - restoreStartTime);
-    }).join(); // TODO BLOCKER dchen1 make non-blocking.
+    }).join(); // TODO dchen make non-blocking for the restore executor
   }
 
   /**

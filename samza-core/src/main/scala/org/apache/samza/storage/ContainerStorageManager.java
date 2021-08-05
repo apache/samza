@@ -44,6 +44,7 @@ import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
+import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
@@ -120,7 +121,6 @@ public class ContainerStorageManager {
   private static final int RESTORE_THREAD_POOL_SHUTDOWN_TIMEOUT_SECONDS = 60;
 
   /** Maps containing relevant per-task objects */
-  private final Map<TaskName, TaskRestoreManager> taskRestoreManagers;
   private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
   private final Map<TaskName, TaskInstanceCollector> taskInstanceCollectors;
   private final Map<TaskName, Map<String, StorageEngine>> inMemoryStores; // subset of taskStores after #start()
@@ -131,6 +131,8 @@ public class ContainerStorageManager {
   private final Map<String, SystemStream> changelogSystemStreams; // Map of changelog system-streams indexed by store name
   private final Map<String, Serde<Object>> serdes; // Map of Serde objects indexed by serde name (specified in config)
   private final SystemAdmins systemAdmins;
+  private final Clock clock;
+  private final Map<String, StateBackendFactory> restoreStateBackendFactories;
 
   private final StreamMetadataCache streamMetadataCache;
   private final SamzaContainerMetrics samzaContainerMetrics;
@@ -153,7 +155,7 @@ public class ContainerStorageManager {
   private final Set<String> sideInputStoreNames;
   private final Map<SystemStreamPartition, TaskSideInputHandler> sspSideInputHandlers;
   private SystemConsumers sideInputSystemConsumers;
-  private volatile Map<TaskName, CountDownLatch> sideInputTaskLatches; // Used by the sideInput-read thread to signal to the main thread
+  private final Map<TaskName, CountDownLatch> sideInputTaskLatches; // Used by the sideInput-read thread to signal to the main thread
   private volatile boolean shouldShutdown = false;
   private RunLoop sideInputRunLoop;
 
@@ -183,7 +185,7 @@ public class ContainerStorageManager {
       SamzaContainerMetrics samzaContainerMetrics,
       JobContext jobContext,
       ContainerContext containerContext,
-      StateBackendFactory stateBackendFactory,
+      Map<String, StateBackendFactory> restoreStateBackendFactories,
       Map<TaskName, TaskInstanceCollector> taskInstanceCollectors,
       File loggedStoreBaseDirectory,
       File nonLoggedStoreBaseDirectory,
@@ -203,6 +205,8 @@ public class ContainerStorageManager {
 
     LOG.info("Starting with changelogSystemStreams = {} taskSideInputStoreSSPs = {}", this.changelogSystemStreams, this.taskSideInputStoreSSPs);
 
+    this.clock = clock;
+    this.restoreStateBackendFactories = restoreStateBackendFactories;
     this.storageEngineFactories = storageEngineFactories;
     this.serdes = serdes;
     this.loggedStoreBaseDirectory = loggedStoreBaseDirectory;
@@ -260,15 +264,12 @@ public class ContainerStorageManager {
     JobConfig jobConfig = new JobConfig(config);
     int restoreThreadPoolSize =
         Math.min(
-            Math.max(containerModel.getTasks().size() * 2, jobConfig.getRestoreThreadPoolSize()),
+            Math.max(containerModel.getTasks().size() * restoreStateBackendFactories.size() * 2,
+                jobConfig.getRestoreThreadPoolSize()),
             jobConfig.getRestoreThreadPoolMaxSize()
         );
     this.restoreExecutor = Executors.newFixedThreadPool(restoreThreadPoolSize,
         new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
-
-    // creating task restore managers
-    this.taskRestoreManagers = createTaskRestoreManagers(stateBackendFactory, clock,
-        this.samzaContainerMetrics);
 
     this.sspSideInputHandlers = createSideInputHandlers(clock);
 
@@ -393,27 +394,95 @@ public class ContainerStorageManager {
     return storeConsumers;
   }
 
-  private Map<TaskName, TaskRestoreManager> createTaskRestoreManagers(StateBackendFactory factory, Clock clock,
-      SamzaContainerMetrics samzaContainerMetrics) {
-    Map<TaskName, TaskRestoreManager> taskRestoreManagers = new HashMap<>();
+  private Map<String, TaskRestoreManager> createTaskRestoreManagers(Map<String, StateBackendFactory> factories,
+      Map<String, Set<String>> backendFactoryStoreNames, Clock clock, SamzaContainerMetrics samzaContainerMetrics, TaskName taskName,
+      TaskModel taskModel) {
+    // Get the factories for the task based on the stores of the tasks to be restored from the factory
+    Map<String, TaskRestoreManager> backendFactoryRestoreManagers = new HashMap<>(); // backendFactoryName -> restoreManager
+    MetricsRegistry taskMetricsRegistry =
+        taskInstanceMetrics.get(taskName) != null ? taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
 
-    containerModel.getTasks().forEach((taskName, taskModel) -> {
-      MetricsRegistry taskMetricsRegistry =
-          taskInstanceMetrics.get(taskName) != null ? taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
-      Set<String> nonSideInputStoreNames = storageEngineFactories.keySet().stream()
-          .filter(storeName -> !sideInputStoreNames.contains(storeName))
-          .collect(Collectors.toSet());
+    backendFactoryStoreNames.forEach((factoryName, storeNames) -> {
+      StateBackendFactory factory = factories.get(factoryName);
       KafkaChangelogRestoreParams kafkaChangelogRestoreParams = new KafkaChangelogRestoreParams(storeConsumers,
           inMemoryStores.get(taskName), systemAdmins.getSystemAdmins(), storageEngineFactories, serdes,
-          taskInstanceCollectors.get(taskName), nonSideInputStoreNames);
+          taskInstanceCollectors.get(taskName));
+      TaskRestoreManager restoreManager = factory.getRestoreManager(jobContext, containerContext, taskModel, restoreExecutor,
+          taskMetricsRegistry, storeNames, config, clock, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory,
+          kafkaChangelogRestoreParams);
 
-      taskRestoreManagers.put(taskName,
-          factory.getRestoreManager(jobContext, containerContext, taskModel, restoreExecutor,
-              taskMetricsRegistry, config, clock, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory,
-              kafkaChangelogRestoreParams));
-      samzaContainerMetrics.addStoresRestorationGauge(taskName);
+      backendFactoryRestoreManagers.put(factoryName, restoreManager);
     });
-    return taskRestoreManagers;
+    samzaContainerMetrics.addStoresRestorationGauge(taskName);
+    return backendFactoryRestoreManagers;
+  }
+
+  /**
+   * Return a map of backend factory names to set of stores that should be restored using it
+   */
+  @VisibleForTesting
+  Map<String, Set<String>> getBackendFactoryStoreNames(Checkpoint checkpoint, Set<String> storeNames,
+      StorageConfig storageConfig) {
+    Map<String, Set<String>> backendFactoryStoreNames = new HashMap<>(); // backendFactoryName -> set(storeNames)
+
+    if (checkpoint != null && checkpoint.getVersion() == 1) {
+      // Only restore stores with changelog streams configured
+      Set<String> changelogStores = storeNames.stream()
+          .filter(storeName -> storageConfig.getChangelogStream(storeName).isPresent())
+          .collect(Collectors.toSet());
+      // Default to changelog backend factory when using checkpoint v1 for backwards compatibility
+      if (!changelogStores.isEmpty()) {
+        backendFactoryStoreNames.put(StorageConfig.KAFKA_STATE_BACKEND_FACTORY, changelogStores);
+      }
+      if (storeNames.size() > changelogStores.size()) {
+        Set<String> nonChangelogStores = storeNames.stream()
+            .filter(storeName -> !changelogStores.contains(storeName))
+            .collect(Collectors.toSet());
+        LOG.info("non-Side input stores: {}, do not have a configured store changelogs for checkpoint V1,"
+                + "restore for the store will be skipped",
+            nonChangelogStores);
+      }
+    } else if (checkpoint == null ||  checkpoint.getVersion() == 2) {
+      // Extract the state checkpoint markers if checkpoint exists
+      Map<String, Map<String, String>> stateCheckpointMarkers = checkpoint == null ? Collections.emptyMap() :
+          ((CheckpointV2) checkpoint).getStateCheckpointMarkers();
+
+      // Find stores associated to each state backend factory
+      storeNames.forEach(storeName -> {
+        List<String> storeFactories = storageConfig.getStoreRestoreFactories(storeName);
+
+        if (storeFactories.isEmpty()) {
+          // If the restore factory is not configured for the store and the store does not have a changelog topic
+          LOG.info("non-Side input store: {}, does not have a configured restore factories nor store changelogs,"
+                  + "restore for the store will be skipped",
+              storeName);
+        } else {
+          // Search the ordered list for the first matched state backend factory in the checkpoint
+          // If the checkpoint does not exist or state checkpoint markers does not exist, we match the first configured
+          // restore manager
+          Optional<String> factoryNameOpt = storeFactories.stream()
+              .filter(factoryName -> stateCheckpointMarkers.containsKey(factoryName) &&
+                  stateCheckpointMarkers.get(factoryName).containsKey(storeName))
+              .findFirst();
+          String factoryName;
+          if (factoryNameOpt.isPresent()) {
+            factoryName = factoryNameOpt.get();
+          } else { // Restore factories configured but no checkpoints found
+            // Use first configured restore factory
+            factoryName = storeFactories.get(0);
+            LOG.warn("No matching checkpoints found for configured factories: {}, " +
+                "defaulting to using the first configured factory with no checkpoints", storeFactories);
+          }
+          if (!backendFactoryStoreNames.containsKey(factoryName)) {
+            backendFactoryStoreNames.put(factoryName, new HashSet<>());
+          }
+          backendFactoryStoreNames.get(factoryName).add(storeName);
+        }
+      });
+    } else {
+      throw new SamzaException(String.format("Unsupported checkpoint version %s", checkpoint.getVersion()));
+    }
+    return backendFactoryStoreNames;
   }
 
   // Helper method to filter active Tasks from the container model
@@ -443,9 +512,9 @@ public class ContainerStorageManager {
       }
 
       for (String storeName : storesToCreate) {
-        List<String> storeBackupManager = storageConfig.getStoreBackupFactory(storeName);
+        List<String> storeBackupManagers = storageConfig.getStoreBackupFactories(storeName);
         // A store is considered durable if it is backed by a changelog or another backupManager factory
-        boolean isDurable = changelogSystemStreams.containsKey(storeName) || !storeBackupManager.isEmpty();
+        boolean isDurable = changelogSystemStreams.containsKey(storeName) || !storeBackupManagers.isEmpty();
         boolean isSideInput = this.sideInputStoreNames.contains(storeName);
         // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
         // for non logged stores
@@ -467,7 +536,7 @@ public class ContainerStorageManager {
         // add created store to map
         taskStores.get(taskName).put(storeName, storageEngine);
 
-        LOG.info("Created non side input store store {} in read-write mode for task {}", storeName, taskName);
+        LOG.info("Created task store {} in read-write mode for task {} in path {}", storeName, taskName, storeDirectory.getAbsolutePath());
       }
     }
     return taskStores;
@@ -646,30 +715,53 @@ public class ContainerStorageManager {
   private void restoreStores() throws InterruptedException {
     LOG.info("Store Restore started");
     Set<TaskName> activeTasks = getTasks(containerModel, TaskMode.Active).keySet();
+    // TODO HIGH dchen verify davinci lifecycle
+    // Find all non-side input stores
+    Set<String> nonSideInputStoreNames = storageEngineFactories.keySet()
+        .stream()
+        .filter(storeName -> !sideInputStoreNames.contains(storeName))
+        .collect(Collectors.toSet());
 
-    // initialize each TaskStorageManager
-    this.taskRestoreManagers.forEach((taskName, taskRestoreManager) -> {
+    // Obtain the checkpoints for each task
+    Map<TaskName, Map<String, TaskRestoreManager>> taskRestoreManagers = new HashMap<>();
+    Map<TaskName, Checkpoint> taskCheckpoints = new HashMap<>();
+    containerModel.getTasks().forEach((taskName, taskModel) -> {
       Checkpoint taskCheckpoint = null;
       if (checkpointManager != null && activeTasks.contains(taskName)) {
         // only pass in checkpoints for active tasks
         taskCheckpoint = checkpointManager.readLastCheckpoint(taskName);
         LOG.info("Obtained checkpoint: {} for state restore for taskName: {}", taskCheckpoint, taskName);
       }
-      taskRestoreManager.init(taskCheckpoint);
+      taskCheckpoints.put(taskName, taskCheckpoint);
+      Map<String, Set<String>> backendFactoryStoreNames = getBackendFactoryStoreNames(taskCheckpoint, nonSideInputStoreNames,
+          new StorageConfig(config));
+      Map<String, TaskRestoreManager> taskStoreRestoreManagers = createTaskRestoreManagers(restoreStateBackendFactories,
+          backendFactoryStoreNames, clock, samzaContainerMetrics, taskName, taskModel);
+      taskRestoreManagers.put(taskName, taskStoreRestoreManagers);
     });
 
-    // Start each store consumer once
+    // Initialize each TaskStorageManager
+    taskRestoreManagers.forEach((taskName, restoreManagers) ->
+        restoreManagers.forEach((factoryName, taskRestoreManager) ->
+            taskRestoreManager.init(taskCheckpoints.get(taskName))
+        )
+    );
+
+    // Start each store consumer once.
+    // Note: These consumers are per system and only changelog system store consumers will be started.
+    // Some TaskRestoreManagers may not require the consumer to to be started, but due to the agnostic nature of
+    // ContainerStorageManager we always start the changelog consumer here in case it is required
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);
 
-    List<Future> taskRestoreFutures = new ArrayList<>(this.taskRestoreManagers.entrySet().size());
+    List<Future> taskRestoreFutures = new ArrayList<>();
 
     // Submit restore callable for each taskInstance
-    this.taskRestoreManagers.forEach((taskInstance, taskRestoreManager) -> {
-      taskRestoreFutures.add(restoreExecutor.submit(
-          new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskRestoreManager)));
-    });
+    taskRestoreManagers.forEach((taskInstance, restoreManagersMap) ->
+        // Submit for each restore factory
+        restoreManagersMap.forEach((factoryName, taskRestoreManager) -> taskRestoreFutures.add(restoreExecutor.submit(
+        new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskRestoreManager)))));
 
-    // loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
+    // Loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
     // as samza exceptions
     for (Future future : taskRestoreFutures) {
       try {
@@ -689,9 +781,6 @@ public class ContainerStorageManager {
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::stop);
 
     // Now create persistent non side input stores in read-write mode, leave non-persistent stores as-is
-    Set<String> nonSideInputStoreNames = storageEngineFactories.keySet().stream()
-        .filter(storeName -> !sideInputStoreNames.contains(storeName))
-        .collect(Collectors.toSet());
     this.taskStores = createTaskStores(nonSideInputStoreNames, this.containerModel, jobContext, containerContext,
         storageEngineFactories, serdes, taskInstanceMetrics, taskInstanceCollectors);
     // Add in memory stores

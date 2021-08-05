@@ -24,9 +24,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import org.apache.samza.SamzaException;
-import org.apache.samza.checkpoint.CheckpointId;
-import org.apache.samza.serializers.JsonCheckpointIdMixin;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.FileBlob;
 import org.apache.samza.storage.blobstore.index.FileIndex;
@@ -37,7 +36,7 @@ import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
 
 public class SnapshotIndexSerde implements Serde<SnapshotIndex> {
 
-  private final static ObjectMapper MAPPER = new ObjectMapper();
+  private final static ObjectMapper MAPPER = SamzaObjectMapper.getObjectMapper();
   private TypeReference<SnapshotIndex> typeReference;
   private final ObjectWriter objectWriter;
 
@@ -48,8 +47,7 @@ public class SnapshotIndexSerde implements Serde<SnapshotIndex> {
         .addMixIn(DirIndex.class, JsonDirIndexMixin.class)
         .addMixIn(FileIndex.class, JsonFileIndexMixin.class)
         .addMixIn(FileMetadata.class, JsonFileMetadataMixin.class)
-        .addMixIn(FileBlob.class, JsonFileBlobMixin.class)
-        .addMixIn(CheckpointId.class, JsonCheckpointIdMixin.class);
+        .addMixIn(FileBlob.class, JsonFileBlobMixin.class);
 
     this.typeReference = new TypeReference<SnapshotIndex>() { };
     this.objectWriter = MAPPER.writerFor(typeReference);

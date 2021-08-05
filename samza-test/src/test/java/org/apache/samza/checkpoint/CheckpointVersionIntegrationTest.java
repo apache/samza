@@ -84,7 +84,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
         Arrays.asList(null, null, "98", "99", "4", "5", "5");
     List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
     Map<String, String> configOverrides = new HashMap<>(CONFIGS);
-    configOverrides.put(TaskConfig.CHECKPOINT_READ_VERSION, "2");
+    configOverrides.put(TaskConfig.CHECKPOINT_READ_VERSIONS, "2");
     secondRun(CHANGELOG_TOPIC,
         expectedChangelogMessagesAfterSecondRun, expectedInitialStoreContentsOnSecondRun, configOverrides);
   }

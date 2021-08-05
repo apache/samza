@@ -63,7 +63,7 @@ public class TaskConfig extends MapConfig {
   // COMMIT_MAX_DELAY_MS have passed since the pending commit start. if the pending commit
   // does not complete within this timeout, the container will shut down.
   public static final String COMMIT_TIMEOUT_MS = "task.commit.timeout.ms";
-  static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(1).toMillis();
+  static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(30).toMillis();
 
   // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
@@ -125,8 +125,8 @@ public class TaskConfig extends MapConfig {
   public static final List<String> DEFAULT_CHECKPOINT_WRITE_VERSIONS = ImmutableList.of("1", "2");
 
   // checkpoint version to read during container startup
-  public static final String CHECKPOINT_READ_VERSION = "task.checkpoint.read.version";
-  public static final short DEFAULT_CHECKPOINT_READ_VERSION = 1;
+  public static final String CHECKPOINT_READ_VERSIONS = "task.checkpoint.read.versions";
+  public static final List<String> DEFAULT_CHECKPOINT_READ_VERSIONS = ImmutableList.of("1");
 
   public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
@@ -348,8 +348,16 @@ public class TaskConfig extends MapConfig {
         .stream().map(Short::valueOf).collect(Collectors.toList());
   }
 
-  public short getCheckpointReadVersion() {
-    return getShort(CHECKPOINT_READ_VERSION, DEFAULT_CHECKPOINT_READ_VERSION);
+  public List<Short> getCheckpointReadVersions() {
+    List<Short> checkpointReadPriorityList = getList(CHECKPOINT_READ_VERSIONS, DEFAULT_CHECKPOINT_READ_VERSIONS)
+        .stream().map(Short::valueOf).collect(Collectors.toList());
+    if (checkpointReadPriorityList.isEmpty()) {
+      // if the user explicitly defines the checkpoint read list to be empty
+      throw new IllegalArgumentException("No checkpoint read versions defined for job. "
+          + "Please remove the task.checkpoint.read.versions or define valid checkpoint versions");
+    } else {
+      return checkpointReadPriorityList;
+    }
   }
 
   public boolean getTransactionalStateCheckpointEnabled() {

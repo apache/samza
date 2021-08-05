@@ -194,7 +194,7 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
       .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokerList)
       .put(s"systems.$checkpointSystemName.consumer.zookeeper.connect", zkConnect)
       .put("task.checkpoint.system", checkpointSystemName)
-      .put(TaskConfig.CHECKPOINT_READ_VERSION, "2")
+      .put(TaskConfig.CHECKPOINT_READ_VERSIONS, "2")
       .build())
 
     // Skips reading any v1 checkpoints
@@ -208,6 +208,59 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     // writing v1 checkpoint is still skipped
     writeCheckpoint(checkpointTopic, taskName, checkpointV1)
     assertEquals(checkpointV2, readCheckpoint(checkpointTopic, taskName, overrideConfig))
+  }
+
+  @Test
+  def testCheckpointV1AndV2WriteAndReadV1V2PrecedenceList(): Unit = {
+    val checkpointTopic = "checkpoint-topic-1"
+    val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+    kcm1.register(taskName)
+    kcm1.createResources
+    kcm1.start
+    kcm1.stop
+
+    // check that start actually creates the topic with log compaction enabled
+    val topicConfig = adminZkClient.getAllTopicConfigs().getOrElse(checkpointTopic, new Properties())
+
+    assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
+    assertEquals("compact", topicConfig.get("cleanup.policy"))
+    assertEquals("26214400", topicConfig.get("segment.bytes"))
+
+    // read before topic exists should result in a null checkpoint
+    val readCp = readCheckpoint(checkpointTopic, taskName)
+    assertNull(readCp)
+
+    val checkpointV1 = new CheckpointV1(ImmutableMap.of(ssp, "offset-1"))
+    val checkpointV2 = new CheckpointV2(CheckpointId.create(), ImmutableMap.of(ssp, "offset-2"),
+      ImmutableMap.of("factory1", ImmutableMap.of("store1", "changelogOffset")))
+
+    val overrideConfig = new MapConfig(new ImmutableMap.Builder[String, String]()
+      .put(JobConfig.JOB_NAME, "some-job-name")
+      .put(JobConfig.JOB_ID, "i001")
+      .put(s"systems.$checkpointSystemName.samza.factory", classOf[KafkaSystemFactory].getCanonicalName)
+      .put(s"systems.$checkpointSystemName.producer.bootstrap.servers", brokerList)
+      .put(s"systems.$checkpointSystemName.consumer.zookeeper.connect", zkConnect)
+      .put("task.checkpoint.system", checkpointSystemName)
+      .put(TaskConfig.CHECKPOINT_READ_VERSIONS, "2,1")
+      .build())
+
+    // Still reads any v1 checkpoints due to precedence list
+    writeCheckpoint(checkpointTopic, taskName, checkpointV1)
+    assertEquals(checkpointV1, readCheckpoint(checkpointTopic, taskName, overrideConfig))
+
+    // writing a v2 checkpoint would allow reading it back
+    writeCheckpoint(checkpointTopic, taskName, checkpointV2)
+    assertEquals(checkpointV2, readCheckpoint(checkpointTopic, taskName, overrideConfig))
+
+    // writing v1 checkpoint is still skipped
+    writeCheckpoint(checkpointTopic, taskName, checkpointV1)
+    assertEquals(checkpointV2, readCheckpoint(checkpointTopic, taskName, overrideConfig))
+
+    val newCheckpointV2 = new CheckpointV2(CheckpointId.create(), ImmutableMap.of(ssp, "offset-3"),
+      ImmutableMap.of("factory1", ImmutableMap.of("store1", "changelogOffset")))
+    // writing v2 returns a new checkpoint v2
+    writeCheckpoint(checkpointTopic, taskName, newCheckpointV2)
+    assertEquals(newCheckpointV2, readCheckpoint(checkpointTopic, taskName, overrideConfig))
   }
 
   @Test

@@ -21,6 +21,7 @@ package org.apache.samza.storage.blobstore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 
 import java.io.File;
@@ -28,8 +29,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.commons.lang3.tuple.Pair;
@@ -176,7 +177,7 @@ public class TestBlobStoreRestoreManager {
     TaskName taskName = mock(TaskName.class);
     BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
     metrics.initStoreMetrics(ImmutableList.of("storeName"));
-    List<String> storesToRestore = ImmutableList.of("storeName");
+    Set<String> storesToRestore = ImmutableSet.of("storeName");
     SnapshotIndex snapshotIndex = mock(SnapshotIndex.class);
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
         ImmutableMap.of("storeName", Pair.of("blobId", snapshotIndex));
@@ -222,7 +223,7 @@ public class TestBlobStoreRestoreManager {
     TaskName taskName = mock(TaskName.class);
     BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
     metrics.initStoreMetrics(ImmutableList.of("storeName"));
-    List<String> storesToRestore = ImmutableList.of("storeName");
+    Set<String> storesToRestore = ImmutableSet.of("storeName");
     SnapshotIndex snapshotIndex = mock(SnapshotIndex.class);
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
         ImmutableMap.of("storeName", Pair.of("blobId", snapshotIndex));
@@ -274,7 +275,7 @@ public class TestBlobStoreRestoreManager {
     TaskName taskName = mock(TaskName.class);
     BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
     metrics.initStoreMetrics(ImmutableList.of("storeName"));
-    List<String> storesToRestore = ImmutableList.of("storeName");
+    Set<String> storesToRestore = ImmutableSet.of("storeName");
     SnapshotIndex snapshotIndex = mock(SnapshotIndex.class);
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
         ImmutableMap.of("storeName", Pair.of("blobId", snapshotIndex));
@@ -332,7 +333,7 @@ public class TestBlobStoreRestoreManager {
     TaskName taskName = mock(TaskName.class);
     BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
     metrics.initStoreMetrics(ImmutableList.of("newStoreName"));
-    List<String> storesToRestore = ImmutableList.of("newStoreName"); // new store in config
+    Set<String> storesToRestore = ImmutableSet.of("newStoreName"); // new store in config
     SnapshotIndex snapshotIndex = mock(SnapshotIndex.class);
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes = mock(Map.class);
     when(prevStoreSnapshotIndexes.containsKey("newStoreName")).thenReturn(false);

@@ -326,7 +326,6 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
     return storageManagerUtil.getStartingOffset(systemStreamPartition, systemAdmin, fileOffset, oldestOffset);
   }
 
-  // TODO dchen put this in common code path for transactional and non-transactional
   private Map<String, StorageEngine> createStoreEngines(Set<String> storeNames, JobContext jobContext,
       ContainerContext containerContext, Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, Serde<Object>> serdes, MetricsRegistry metricsRegistry,

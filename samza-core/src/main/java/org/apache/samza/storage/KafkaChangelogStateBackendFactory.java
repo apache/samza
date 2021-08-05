@@ -91,6 +91,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
       TaskModel taskModel,
       ExecutorService restoreExecutor,
       MetricsRegistry metricsRegistry,
+      Set<String> storesToRestore,
       Config config,
       Clock clock,
       File loggedStoreBaseDir,
@@ -108,7 +109,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
 
     if (new TaskConfig(config).getTransactionalStateRestoreEnabled()) {
       return new TransactionalStateTaskRestoreManager(
-          kafkaChangelogRestoreParams.getStoreNames(),
+          storesToRestore,
           jobContext,
           containerContext,
           taskModel,
@@ -128,7 +129,7 @@ public class KafkaChangelogStateBackendFactory implements StateBackendFactory {
       );
     } else {
       return new NonTransactionalStateTaskRestoreManager(
-          kafkaChangelogRestoreParams.getStoreNames(),
+          storesToRestore,
           jobContext,
           containerContext,
           taskModel,

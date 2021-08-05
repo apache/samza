@@ -152,9 +152,8 @@ public class KafkaConsumerProxy<K, V> {
     }
 
     if (topicPartitionToSSP.size() == 0) {
-      String msg = String.format("Cannot start KafkaConsumerProxy without any registered TopicPartitions for %s", systemName);
-      LOG.error(msg);
-      throw new SamzaException(msg);
+      String msg = String.format("Started KafkaConsumerProxy without any registered TopicPartitions for %s", systemName);
+      LOG.warn(msg);
     }
   }
 

@@ -20,6 +20,7 @@
 package org.apache.samza.storage;
 
 import java.io.File;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import org.apache.samza.config.Config;
 import org.apache.samza.context.ContainerContext;
@@ -51,6 +52,7 @@ public interface StateBackendFactory {
       TaskModel taskModel,
       ExecutorService restoreExecutor,
       MetricsRegistry metricsRegistry,
+      Set<String> storesToRestore,
       Config config,
       Clock clock,
       File loggedStoreBaseDir,

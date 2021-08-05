@@ -114,7 +114,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     this.storageManagerUtil = storageManagerUtil;
     StorageConfig storageConfig = new StorageConfig(config);
     this.storesToBackup =
-        storageConfig.getStoresWithBackupFactory(BlobStoreStateBackendFactory.class.getName());
+        storageConfig.getPersistentStoresWithBackupFactory(BlobStoreStateBackendFactory.class.getName());
     this.loggedStoreBaseDir = loggedStoreBaseDir;
     this.blobStoreManager = blobStoreManager;
     this.blobStoreUtil = createBlobStoreUtil(blobStoreManager, executor, blobStoreTaskBackupMetrics);

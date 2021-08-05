@@ -106,8 +106,8 @@ public abstract class BaseKeyValueStorageEngineFactory<K, V> implements StorageE
       storePropertiesBuilder.setPersistedToDisk(true);
     }
     // The store is durable iff it is backed by the task backup manager
-    List<String> storeBackupManager = storageConfig.getStoreBackupFactory(storeName);
-    storePropertiesBuilder.setIsDurable(!storeBackupManager.isEmpty());
+    List<String> storeBackupManagers = storageConfig.getStoreBackupFactories(storeName);
+    storePropertiesBuilder.setIsDurable(!storeBackupManagers.isEmpty());
 
     int batchSize = storageConfigSubset.getInt(WRITE_BATCH_SIZE, DEFAULT_WRITE_BATCH_SIZE);
     int cacheSize = storageConfigSubset.getInt(OBJECT_CACHE_SIZE, Math.max(batchSize, DEFAULT_OBJECT_CACHE_SIZE));
