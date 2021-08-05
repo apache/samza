@@ -18,7 +18,6 @@
  */
 package org.apache.samza.test.operator;
 
-import com.google.common.collect.ImmutableList;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;
@@ -31,12 +30,12 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import com.google.common.collect.ImmutableList;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.config.StreamConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.operators.OutputStream;
 import org.apache.samza.serializers.NoOpSerde;
@@ -46,14 +45,15 @@ import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
-import org.apache.samza.test.harness.IntegrationTestHarness;
 import org.apache.samza.test.operator.data.PageView;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 
-public class TestAsyncFlatMap extends IntegrationTestHarness {
+public class TestAsyncFlatMap {
   private static final String TEST_SYSTEM = "test";
   private static final String PAGE_VIEW_STREAM = "test-async-page-view-stream";
   private static final String NON_GUEST_PAGE_VIEW_STREAM = "test-async-non-guest-page-view-stream";
@@ -68,66 +68,97 @@ public class TestAsyncFlatMap extends IntegrationTestHarness {
       new PageView("3", "profile-page", "0"),
       new PageView("4", LOGIN_PAGE, "0"));
 
-
   @Test
   public void testProcessingFutureCompletesSuccessfully() {
     List<PageView> expectedPageViews = PAGE_VIEWS.stream()
-        .filter(pageView -> !pageView.getPageId().equals(LOGIN_PAGE) && Long.valueOf(pageView.getUserId()) > 0)
+        .filter(pageView -> !pageView.getPageId().equals(LOGIN_PAGE) && Long.parseLong(pageView.getUserId()) > 0)
         .collect(Collectors.toList());
 
-    List<PageView> actualPageViews = runTest(PAGE_VIEWS, new HashMap<>());
+    List<PageView> actualPageViews = runTest(new HashMap<>());
     assertEquals("Mismatch between expected vs actual page views", expectedPageViews, actualPageViews);
   }
 
-  @Test(expected = SamzaException.class)
+  @Test
   public void testProcessingFutureCompletesAfterTaskTimeout() {
     Map<String, String> configs = new HashMap<>();
     configs.put(TaskConfig.CALLBACK_TIMEOUT_MS, "100");
     configs.put(PROCESS_JITTER, "200");
 
-    runTest(PAGE_VIEWS, configs);
+    try {
+      runTest(configs);
+      fail("App execution should have failed due to a task callback timeout");
+    } catch (SamzaException e) {
+      /*
+       * TestRunner throws SamzaException on failures in general, so check the actual cause. The timeout message is
+       * nested within a bunch of other exceptions.
+       */
+      Throwable rootCause = findRootCause(e);
+      assertTrue(rootCause instanceof SamzaException);
+      // the "{}" is intentional, since the exception message actually includes it (probably a logging bug)
+      assertEquals("Callback for task {} Partition 0 timed out after 100 ms.", rootCause.getMessage());
+    }
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testProcessingExceptionIsBubbledUp() {
     Map<String, String> configs = new HashMap<>();
     configs.put(FAIL_PROCESS, "true");
 
-    runTest(PAGE_VIEWS, configs);
+    try {
+      runTest(configs);
+      fail("App execution should have failed due to a ProcessFailureException");
+    } catch (SamzaException e) {
+      /*
+       * TestRunner throws SamzaException on failures in general, so check the actual cause. The actual exception is
+       * nested within a bunch of other exceptions.
+       */
+      assertTrue(findRootCause(e) instanceof ProcessFailureException);
+    }
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testDownstreamOperatorExceptionIsBubbledUp() {
     Map<String, String> configs = new HashMap<>();
     configs.put(FAIL_DOWNSTREAM_OPERATOR, "true");
 
-    runTest(PAGE_VIEWS, configs);
+    try {
+      runTest(configs);
+      fail("App execution should have failed due to a FilterFailureException");
+    } catch (SamzaException e) {
+      /*
+       * TestRunner throws SamzaException on failures in general, so check the actual cause. The actual exception is
+       * nested within a bunch of other exceptions.
+       */
+      assertTrue(findRootCause(e) instanceof FilterFailureException);
+    }
   }
 
-  private List<PageView> runTest(List<PageView> pageViews, Map<String, String> configs) {
-    configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID, PAGE_VIEW_STREAM), TEST_SYSTEM);
-
+  private List<PageView> runTest(Map<String, String> configs) {
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor(TEST_SYSTEM);
     InMemoryInputDescriptor<PageView> pageViewStreamDesc = isd
         .getInputDescriptor(PAGE_VIEW_STREAM, new NoOpSerde<>());
-
-
     InMemoryOutputDescriptor<PageView> outputStreamDesc = isd
         .getOutputDescriptor(NON_GUEST_PAGE_VIEW_STREAM, new NoOpSerde<>());
 
     TestRunner
         .of(new AsyncFlatMapExample())
-        .addInputStream(pageViewStreamDesc, pageViews)
+        .addInputStream(pageViewStreamDesc, PAGE_VIEWS)
         .addOutputStream(outputStreamDesc, 1)
         .addConfig(new MapConfig(configs))
-        .run(Duration.ofMillis(50000));
+        .run(Duration.ofSeconds(10));
 
     Map<Integer, List<PageView>> result = TestRunner.consumeStream(outputStreamDesc, Duration.ofMillis(1000));
-    List<PageView> results = result.values().stream()
+    return result.values().stream()
         .flatMap(List::stream)
         .collect(Collectors.toList());
+  }
 
-    return results;
+  private static Throwable findRootCause(Throwable e) {
+    Throwable currentException = e;
+    while (currentException.getCause() != null) {
+      currentException = currentException.getCause();
+    }
+    return currentException;
   }
 
   static class AsyncFlatMapExample implements StreamApplication {
@@ -158,11 +189,11 @@ public class TestAsyncFlatMap extends IntegrationTestHarness {
           System.out.println("Interrupted during sleep.");
         }
 
-        return Long.valueOf(pageView.getUserId()) < 1 ? Collections.emptyList() : Collections.singleton(pageView);
+        return Long.parseLong(pageView.getUserId()) < 1 ? Collections.emptyList() : Collections.singleton(pageView);
       });
 
       if (shouldFailProcess.test(pageView)) {
-        filteredPageViews.completeExceptionally(new RuntimeException("Remote service threw an exception"));
+        filteredPageViews.completeExceptionally(new ProcessFailureException("Remote service threw an exception"));
       }
 
       return filteredPageViews;
@@ -170,11 +201,22 @@ public class TestAsyncFlatMap extends IntegrationTestHarness {
 
     private static boolean filterLoginPageViews(PageView pageView, Predicate<PageView> shouldFailProcess) {
       if (shouldFailProcess.test(pageView)) {
-        throw new RuntimeException("Filtering login page views ran into an exception");
+        throw new FilterFailureException("Filtering login page views ran into an exception");
       }
 
       return !LOGIN_PAGE.equals(pageView.getPageId());
     }
+  }
 
+  private static class ProcessFailureException extends RuntimeException {
+    public ProcessFailureException(String s) {
+      super(s);
+    }
+  }
+
+  private static class FilterFailureException extends RuntimeException {
+    public FilterFailureException(String s) {
+      super(s);
+    }
   }
 }
