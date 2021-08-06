@@ -32,14 +32,6 @@ import scala.collection.JavaConverters._
 import org.apache.samza.util._
 
 object KafkaSystemFactory extends Logging {
-  @VisibleForTesting
-  def getInjectedProducerProperties(systemName: String, config: Config) = if (new StorageConfig(config).isChangelogSystem(systemName)) {
-    warn("System name '%s' is being used as a changelog. Disabling compression since Kafka does not support compression for log compacted topics." format systemName)
-    Map[String, String]("compression.type" -> "none")
-  } else {
-    Map[String, String]()
-  }
-
   val CLIENTID_PRODUCER_PREFIX = "kafka-producer"
   val CLIENTID_CONSUMER_PREFIX = "kafka-consumer"
   val CLIENTID_ADMIN_PREFIX = "kafka-admin-consumer"
@@ -67,9 +59,8 @@ class KafkaSystemFactory extends SystemFactory with Logging {
   }
 
   def getProducer(systemName: String, config: Config, registry: MetricsRegistry): SystemProducer = {
-    val injectedProps = KafkaSystemFactory.getInjectedProducerProperties(systemName, config)
     val clientId = KafkaConsumerConfig.createClientId(KafkaSystemFactory.CLIENTID_PRODUCER_PREFIX, config);
-    val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId, injectedProps)
+    val producerConfig = config.getKafkaSystemProducerConfig(systemName, clientId)
     val getProducer = () => {
       new KafkaProducer[Array[Byte], Array[Byte]](producerConfig.getProducerProperties)
     }

@@ -188,6 +188,7 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
     configMap.put("systems.kafka.samza.key.serde", "string");
     configMap.put("systems.kafka.samza.msg.serde", "string");
     configMap.put("systems.kafka.samza.offset.default", "oldest");
+    configMap.put("systems.kafka.producer.compression.type", "snappy");
     configMap.put("job.coordinator.system", "kafka");
     configMap.put("job.default.system", "kafka");
     configMap.put("job.coordinator.replication.factor", "1");

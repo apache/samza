@@ -21,12 +21,24 @@ package org.apache.samza.context;
 
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.system.StreamMetadataCache;
+import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
+
+/**
+ * This class is used for passing objects around for the implementation of the high-level API.
+ * 1) Container for objects that need to be passed between different components in the implementation of the high-level
+ * API.
+ * 2) The implementation of the high-level API is built on top of the low-level API. The low-level API only exposes
+ * {@link TaskContext}, but the implementation of the high-level API needs some other internal Samza components (e.g.
+ * {@link StreamMetadataCache}. We internally make these components available through {@link TaskContextImpl} so that we
+ * can do a cast to access the components. This class hides some of the messiness of casting. It's still not ideal to
+ * need to do any casting, even in this class.
+ */
 public class InternalTaskContext {
-
   private final Context context;
   private final Map<String, Object> objectRegistry = new HashMap<>();
 
@@ -46,11 +58,22 @@ public class InternalTaskContext {
     return context;
   }
 
+  /**
+   * TODO: The public {@link JobContext} exposes {@link JobModel} now, so can this internal method be replaced by the
+   * public API?
+   */
   public JobModel getJobModel() {
     return ((TaskContextImpl) this.context.getTaskContext()).getJobModel();
   }
 
   public StreamMetadataCache getStreamMetadataCache() {
     return ((TaskContextImpl) this.context.getTaskContext()).getStreamMetadataCache();
+  }
+
+  /**
+   * See {@link TaskContextImpl#getSspsExcludingSideInputs()}.
+   */
+  public Set<SystemStreamPartition> getSspsExcludingSideInputs() {
+    return ((TaskContextImpl) this.context.getTaskContext()).getSspsExcludingSideInputs();
   }
 }

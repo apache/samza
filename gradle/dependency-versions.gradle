@@ -25,7 +25,6 @@
   commonsHttpClientVersion = "3.1"
   commonsIoVersion = "2.8.0"
   commonsLang3Version = "3.11"
-  cytodynamicsVersion = "0.2.0"
   elasticsearchVersion = "2.2.0"
   gsonVersion = "2.8.6"
   guavaVersion = "30.1-jre"

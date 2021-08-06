@@ -127,11 +127,6 @@ subprojects {
     toolVersion = "$checkstyleVersion"
   }
 
-  tasks.withType(ScalaCompile) {
-    // show compile errors in console output
-    logging.setLevel LogLevel.WARN
-  }
-
   tasks.withType(Test) {
     test {
       testLogging {
@@ -196,7 +191,6 @@ project(":samza-core_$scalaSuffix") {
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "net.jodah:failsafe:$failsafeVersion"
-    compile "com.linkedin.cytodynamics:cytodynamics-nucleus:$cytodynamicsVersion"
     testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
@@ -221,6 +215,7 @@ project(":samza-azure_$scalaSuffix") {
 
   dependencies {
     compile "com.azure:azure-storage-blob:12.0.1"
+    compile "com.azure:azure-identity:1.0.0"
     compile "com.microsoft.azure:azure-storage:5.3.1"
     compile "com.microsoft.azure:azure-eventhubs:1.0.1"
     compile "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"

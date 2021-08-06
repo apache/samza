@@ -36,7 +36,6 @@ import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMes
 import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metadatastore.MetadataStore;
-import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
@@ -284,44 +283,44 @@ public class JobCoordinatorMetadataManager {
     private static final String METADATA_WRITE_FAILED_COUNT = "metadata-write-failed-count";
     private static final String NEW_DEPLOYMENT = "new-deployment";
 
-    private final Counter applicationAttemptCount;
-    private final Counter metadataGenerationFailedCount;
-    private final Counter metadataReadFailedCount;
-    private final Counter metadataWriteFailedCount;
+    private final Gauge<Integer> applicationAttemptCount;
+    private final Gauge<Integer> metadataGenerationFailedCount;
+    private final Gauge<Integer> metadataReadFailedCount;
+    private final Gauge<Integer> metadataWriteFailedCount;
     private final Gauge<Integer> jobModelChangedAcrossApplicationAttempt;
     private final Gauge<Integer> configChangedAcrossApplicationAttempt;
     private final Gauge<Integer> newDeployment;
 
     public JobCoordinatorMetadataManagerMetrics(MetricsRegistry registry) {
-      applicationAttemptCount = registry.newCounter(GROUP, APPLICATION_ATTEMPT_COUNT);
+      applicationAttemptCount = registry.newGauge(GROUP, APPLICATION_ATTEMPT_COUNT, 0);
       configChangedAcrossApplicationAttempt =
           registry.newGauge(GROUP, CONFIG_CHANGED, 0);
       jobModelChangedAcrossApplicationAttempt =
           registry.newGauge(GROUP, JOB_MODEL_CHANGED, 0);
-      metadataGenerationFailedCount = registry.newCounter(GROUP,
-          METADATA_GENERATION_FAILED_COUNT);
-      metadataReadFailedCount = registry.newCounter(GROUP, METADATA_READ_FAILED_COUNT);
-      metadataWriteFailedCount = registry.newCounter(GROUP, METADATA_WRITE_FAILED_COUNT);
+      metadataGenerationFailedCount = registry.newGauge(GROUP,
+          METADATA_GENERATION_FAILED_COUNT, 0);
+      metadataReadFailedCount = registry.newGauge(GROUP, METADATA_READ_FAILED_COUNT, 0);
+      metadataWriteFailedCount = registry.newGauge(GROUP, METADATA_WRITE_FAILED_COUNT, 0);
       newDeployment = registry.newGauge(GROUP, NEW_DEPLOYMENT, 0);
     }
 
     @VisibleForTesting
-    Counter getApplicationAttemptCount() {
+    Gauge<Integer> getApplicationAttemptCount() {
       return applicationAttemptCount;
     }
 
     @VisibleForTesting
-    Counter getMetadataGenerationFailedCount() {
+    Gauge<Integer> getMetadataGenerationFailedCount() {
       return metadataGenerationFailedCount;
     }
 
     @VisibleForTesting
-    Counter getMetadataReadFailedCount() {
+    Gauge<Integer> getMetadataReadFailedCount() {
       return metadataReadFailedCount;
     }
 
     @VisibleForTesting
-    Counter getMetadataWriteFailedCount() {
+    Gauge<Integer> getMetadataWriteFailedCount() {
       return metadataWriteFailedCount;
     }
 
@@ -341,19 +340,19 @@ public class JobCoordinatorMetadataManager {
     }
 
     void incrementApplicationAttemptCount() {
-      applicationAttemptCount.inc();
+      applicationAttemptCount.set(applicationAttemptCount.getValue() + 1);
     }
 
     void incrementMetadataGenerationFailedCount() {
-      metadataGenerationFailedCount.inc();
+      metadataGenerationFailedCount.set(metadataGenerationFailedCount.getValue() + 1);
     }
 
     void incrementMetadataReadFailedCount() {
-      metadataReadFailedCount.inc();
+      metadataReadFailedCount.set(metadataReadFailedCount.getValue() + 1);
     }
 
     void incrementMetadataWriteFailedCount() {
-      metadataWriteFailedCount.inc();
+      metadataWriteFailedCount.set(metadataWriteFailedCount.getValue() + 1);
     }
 
     void setConfigChangedAcrossApplicationAttempt(int value) {

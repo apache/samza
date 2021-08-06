@@ -55,10 +55,6 @@ public class KafkaCheckpointLogKey {
     Preconditions.checkNotNull(type);
     Preconditions.checkState(!grouperFactoryClassName.isEmpty(), "Empty grouper factory class provided");
 
-    Preconditions.checkState(CHECKPOINT_V1_KEY_TYPE.equals(type) || CHECKPOINT_V2_KEY_TYPE.equals(type),
-        String.format("Invalid type provided for checkpoint key. Expected: (%s or %s) Actual: (%s)",
-            CHECKPOINT_V1_KEY_TYPE, CHECKPOINT_V2_KEY_TYPE, type));
-
     this.grouperFactoryClassName = grouperFactoryClassName;
     this.taskName = taskName;
     this.type = type;

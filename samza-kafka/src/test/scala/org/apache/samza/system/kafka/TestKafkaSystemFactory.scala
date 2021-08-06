@@ -82,16 +82,4 @@ class TestKafkaSystemFactory {
     assertNotNull(producer)
     assertTrue(producer.isInstanceOf[KafkaSystemProducer])
   }
-
-  @Test
-  def testInjectedProducerProps {
-    val configMap = Map[String, String](
-      StorageConfig.FACTORY.format("system1") -> "some.factory.Class",
-      StorageConfig.CHANGELOG_STREAM.format("system1") -> "system1.stream1",
-      StorageConfig.FACTORY.format("system2") -> "some.factory.Class")
-    val config = new MapConfig(configMap.asJava)
-    assertEquals(Map[String, String](), KafkaSystemFactory.getInjectedProducerProperties("system3", config))
-    assertEquals(Map[String, String](), KafkaSystemFactory.getInjectedProducerProperties("system2", config))
-    assertEquals(Map[String, String]("compression.type" -> "none"), KafkaSystemFactory.getInjectedProducerProperties("system1", config))
-  }
 }

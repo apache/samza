@@ -335,7 +335,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     partitionMetaData.getOldestOffset
   }
 
-  private def buildOutgoingMessageEnvelope[T <: Checkpoint](taskName: TaskName, checkpoint: T): OutgoingMessageEnvelope = {
+  def buildOutgoingMessageEnvelope[T <: Checkpoint](taskName: TaskName, checkpoint: T): OutgoingMessageEnvelope = {
     checkpoint match {
       case checkpointV1: CheckpointV1 => {
         val key = new KafkaCheckpointLogKey(

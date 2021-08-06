@@ -73,10 +73,12 @@ public class TestRocksDbTableDescriptor {
         .withTtl(7)
         .withWriteBatchSize(8)
         .withWriteBufferSize(9)
+        .withMaxOpenFiles(10)
+        .withMaxFileOpeningThreads(11)
         .withConfig("abc", "xyz")
         .toConfig(createJobConfig());
 
-    Assert.assertEquals(14, tableConfig.size());
+    Assert.assertEquals(16, tableConfig.size());
     assertEquals("1", RocksDbTableDescriptor.ROCKSDB_BLOCK_SIZE_BYTES, tableConfig);
     assertEquals("2", RocksDbTableDescriptor.CONTAINER_CACHE_SIZE_BYTES, tableConfig);
     assertEquals("3", RocksDbTableDescriptor.ROCKSDB_MAX_LOG_FILE_SIZE_BYTES, tableConfig);
@@ -86,6 +88,8 @@ public class TestRocksDbTableDescriptor {
     assertEquals("7", RocksDbTableDescriptor.ROCKSDB_TTL_MS, tableConfig);
     assertEquals("8", RocksDbTableDescriptor.WRITE_BATCH_SIZE, tableConfig);
     assertEquals("9", RocksDbTableDescriptor.CONTAINER_WRITE_BUFFER_SIZE_BYTES, tableConfig);
+    assertEquals("10", RocksDbTableDescriptor.ROCKSDB_MAX_OPEN_FILES, tableConfig);
+    assertEquals("11", RocksDbTableDescriptor.ROCKSDB_MAX_FILE_OPENING_THREADS, tableConfig);
     assertEquals("snappy", RocksDbTableDescriptor.ROCKSDB_COMPRESSION, tableConfig);
     assertEquals("fifo", RocksDbTableDescriptor.ROCKSDB_COMPACTION_STYLE, tableConfig);
     Assert.assertFalse(tableConfig.containsKey(String.format(StorageConfig.CHANGELOG_STREAM, TABLE_ID)));

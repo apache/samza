@@ -546,17 +546,6 @@ public class TestJobConfig {
   }
 
   @Test
-  public void testGetClusterBasedJobCoordinatorDependencyIsolationEnabled() {
-    Config config = new MapConfig(ImmutableMap.of(JobConfig.JOB_SPLIT_DEPLOYMENT_ENABLED, "true"));
-    assertTrue(new JobConfig(config).isSplitDeploymentEnabled());
-
-    config = new MapConfig(ImmutableMap.of(JobConfig.JOB_SPLIT_DEPLOYMENT_ENABLED, "false"));
-    assertFalse(new JobConfig(config).isSplitDeploymentEnabled());
-
-    assertFalse(new JobConfig(new MapConfig()).isSplitDeploymentEnabled());
-  }
-
-  @Test
   public void testGetMetadataFile() {
     String execEnvContainerId = "container-id";
     String containerMetadataDirectory = "/tmp/samza/log/dir";

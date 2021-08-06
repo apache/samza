@@ -262,17 +262,6 @@ public class StorageConfig extends MapConfig {
   }
 
   /**
-   * Helper method to check if a system has a changelog attached to it.
-   */
-  public boolean isChangelogSystem(String systemName) {
-    return getStoreNames().stream()
-        .map(this::getChangelogStream)
-        .filter(Optional::isPresent)
-        .map(systemStreamName -> StreamUtil.getSystemStreamFromNames(systemStreamName.get()).getSystem())
-        .anyMatch(system -> system.equals(systemName));
-  }
-
-  /**
    * Helper method to check if there is any stores configured w/ a changelog
    */
   public boolean hasDurableStores() {

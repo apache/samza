@@ -41,12 +41,12 @@ class SamzaAppMasterMetrics(val config: Config,
   val registry: ReadableMetricsRegistry) extends MetricsHelper with Logging {
 
   private val metricsConfig = new MetricsConfig(config)
-  val containersFromPreviousAttempts = newCounter("container-from-previous-attempt")
+  val containersFromPreviousAttempts = newGauge("container-from-previous-attempt", 0L)
   val reporters = MetricsReporterLoader.getMetricsReporters(metricsConfig, SamzaAppMasterMetrics.sourceName).asScala
   reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
   def setContainersFromPreviousAttempts(containerCount: Int) {
-    containersFromPreviousAttempts.inc(containerCount)
+    containersFromPreviousAttempts.set(containerCount)
   }
 
   def start() {
