@@ -33,11 +33,27 @@ public class AzureBlobConfig extends MapConfig {
   public static final String AZURE_BLOB_LOG_SLOW_REQUESTS_MS = "samza.azureblob.log.slowRequestMs";
   private static final long AZURE_BLOB_LOG_SLOW_REQUESTS_MS_DEFAULT = Duration.ofSeconds(30).toMillis();
 
+  // Azure authentication - via a/c name+key or ClientSecretCredential
   // system Level Properties.
   // fully qualified class name of the AzureBlobWriter impl for the producer system
   public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME = SYSTEM_AZUREBLOB_PREFIX + "writer.factory.class";
   public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME_DEFAULT = "org.apache.samza.system.azureblob.avro.AzureBlobAvroWriterFactory";
 
+  public static final String SYSTEM_USE_TOKEN_CREDENTIAL_AUTHENTICATION = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "useTokenCredentialAuthentication";
+  private static final boolean SYSTEM_USE_TOKEN_CREDENTIAL_AUTHENTICATION_DEFAULT = false;
+
+  // ClientSecretCredential needs client id, client secret, tenant id, vault name, service principal
+  public static final String SYSTEM_AZURE_CLIENT_ID = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "client.id";
+  public static final String SYSTEM_AZURE_CLIENT_SECRET = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "client.secret";
+  public static final String SYSTEM_AZURE_TENANT_ID = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "tenant.id";
+  // Whether to use proxy while authenticating with Azure
+  public static final String SYSTEM_AZURE_USE_AUTH_PROXY  = SYSTEM_AZUREBLOB_PREFIX + "authProxy.use";
+  public static final boolean SYSTEM_AZURE_USE_AUTH_PROXY_DEFAULT = false;
+
+  // name of the host to be used as auth proxy
+  public static final String SYSTEM_AZURE_AUTH_PROXY_HOSTNAME = SYSTEM_AZUREBLOB_PREFIX + "authProxy.hostname";
+  // port in the auth proxy host to be used
+  public static final String SYSTEM_AZURE_AUTH_PROXY_PORT = SYSTEM_AZUREBLOB_PREFIX + "authProxy.port";
   // Azure Storage Account name under which the Azure container representing this system is.
   // System name = Azure container name
   // (https://docs.microsoft.com/en-us/rest/api/storageservices/naming-and-referencing-containers--blobs--and-metadata#container-names)
@@ -101,7 +117,6 @@ public class AzureBlobConfig extends MapConfig {
   public static final String SYSTEM_BLOB_METADATA_PROPERTIES_GENERATOR_FACTORY = SYSTEM_AZUREBLOB_PREFIX + "metadataPropertiesGeneratorFactory";
   private static final String SYSTEM_BLOB_METADATA_PROPERTIES_GENERATOR_FACTORY_DEFAULT =
       "org.apache.samza.system.azureblob.utils.NullBlobMetadataGeneratorFactory";
-
   // Additional configs for the metadata generator should be prefixed with this string which is passed to the generator.
   // for example, to pass a "key":"value" pair to the metadata generator, add config like
   // systems.<system-name>.azureblob.metadataGeneratorConfig.<key> with value <value>
@@ -127,11 +142,11 @@ public class AzureBlobConfig extends MapConfig {
     return accountName;
   }
 
-  public boolean getUseProxy(String systemName) {
+  public boolean getUseBlobProxy(String systemName) {
     return getBoolean(String.format(SYSTEM_AZURE_USE_PROXY, systemName), SYSTEM_AZURE_USE_PROXY_DEFAULT);
   }
 
-  public String getAzureProxyHostname(String systemName) {
+  public String getAzureBlobProxyHostname(String systemName) {
     String hostname = get(String.format(SYSTEM_AZURE_PROXY_HOSTNAME, systemName));
     if (hostname == null) {
       throw new ConfigException("Azure proxy host name is required.");
@@ -139,7 +154,7 @@ public class AzureBlobConfig extends MapConfig {
     return hostname;
   }
 
-  public int getAzureProxyPort(String systemName) {
+  public int getAzureBlobProxyPort(String systemName) {
     return getInt(String.format(SYSTEM_AZURE_PROXY_PORT, systemName));
   }
 
@@ -206,5 +221,51 @@ public class AzureBlobConfig extends MapConfig {
 
   public Config getSystemBlobMetadataGeneratorConfigs(String systemName) {
     return subset(String.format(SYSTEM_BLOB_METADATA_GENERATOR_CONFIG_PREFIX, systemName));
+  }
+
+  public boolean getUseTokenCredentialAuthentication(String systemName) {
+    return getBoolean(String.format(SYSTEM_USE_TOKEN_CREDENTIAL_AUTHENTICATION, systemName),
+        SYSTEM_USE_TOKEN_CREDENTIAL_AUTHENTICATION_DEFAULT);
+  }
+
+  public boolean getUseAuthProxy(String systemName) {
+    return getBoolean(String.format(SYSTEM_AZURE_USE_AUTH_PROXY, systemName), SYSTEM_AZURE_USE_AUTH_PROXY_DEFAULT);
+  }
+
+  public String getAuthProxyHostName(String systemName) {
+    String hostname = get(String.format(SYSTEM_AZURE_AUTH_PROXY_HOSTNAME, systemName));
+    if (hostname == null) {
+      throw new ConfigException("Azure proxy host name is required.");
+    }
+    return hostname;
+  }
+
+  public int getAuthProxyPort(String systemName) {
+    return getInt(String.format(SYSTEM_AZURE_AUTH_PROXY_PORT, systemName));
+  }
+
+  public String getAzureClientId(String systemName) {
+    String clientId = get(String.format(SYSTEM_AZURE_CLIENT_ID, systemName));
+    if (clientId == null) {
+      throw new ConfigException("Azure Client id is required.");
+    }
+    return clientId;
+  }
+
+  public String getAzureClientSecret(String systemName) {
+    String clientSecret = get(String.format(SYSTEM_AZURE_CLIENT_SECRET, systemName));
+    if (clientSecret == null) {
+      throw new ConfigException("Azure Client secret is required.");
+    }
+    return clientSecret;
+  }
+
+
+  public String getAzureTenantId(String systemName) {
+    String tenantId = get(String.format(SYSTEM_AZURE_TENANT_ID, systemName));
+    if (tenantId == null) {
+      throw new ConfigException("Azure tenant id is required.");
+    }
+    return tenantId;
   }
 }

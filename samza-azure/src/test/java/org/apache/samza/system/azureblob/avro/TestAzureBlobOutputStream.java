@@ -127,7 +127,7 @@ public class TestAzureBlobOutputStream {
   }
 
   @Test
-  public void testWrite() {
+  public void testWrite() throws  InterruptedException {
     byte[] b = new byte[THRESHOLD - 10];
     azureBlobOutputStream.write(b, 0, THRESHOLD - 10);
     verify(azureBlobOutputStream, never()).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
@@ -136,7 +136,7 @@ public class TestAzureBlobOutputStream {
   }
 
   @Test
-  public void testWriteLargerThanThreshold() {
+  public void testWriteLargerThanThreshold() throws  InterruptedException {
     byte[] largeRecord = RANDOM_STRING.substring(0, 2 * THRESHOLD).getBytes();
     byte[] largeRecordFirstHalf = RANDOM_STRING.substring(0, THRESHOLD).getBytes();
     byte[] largeRecordSecondHalf = RANDOM_STRING.substring(THRESHOLD, 2 * THRESHOLD).getBytes();
@@ -165,7 +165,7 @@ public class TestAzureBlobOutputStream {
   }
 
   @Test
-  public void testWriteLargeRecordWithSmallRecordInBuffer() {
+  public void testWriteLargeRecordWithSmallRecordInBuffer() throws InterruptedException {
     byte[] halfBlock = new byte[THRESHOLD / 2];
     byte[] fullBlock = new byte[THRESHOLD];
     byte[] largeRecord = new byte[2 * THRESHOLD];
@@ -229,6 +229,36 @@ public class TestAzureBlobOutputStream {
     azureBlobOutputStream.close();
   }
 
+  @Test(expected = AzureException.class)
+  public void testWriteFailedInterruptedException() throws InterruptedException {
+
+    doThrow(new InterruptedException("Lets interrupt the thread"))
+        .when(azureBlobOutputStream).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
+    byte[] b = new byte[100];
+    doReturn(COMPRESSED_BYTES).when(mockCompression).compress(b);
+
+    try {
+      azureBlobOutputStream.write(b, 0, THRESHOLD); // threshold crossed so stageBlock is scheduled.
+      // azureBlobOutputStream.close waits on the CompletableFuture which does the actual stageBlock in uploadBlockAsync
+      azureBlobOutputStream.close();
+    } catch (AzureException exception) {
+      // get root cause of the exception - to confirm its an InterruptedException
+      Throwable dupException = exception;
+      while (dupException.getCause() != null && dupException.getCause() != dupException) {
+        dupException = dupException.getCause();
+      }
+
+      Assert.assertTrue(dupException.getClass().getName().equals(InterruptedException.class.getCanonicalName()));
+      Assert.assertEquals("Lets interrupt the thread", dupException.getMessage());
+
+      // verify stageBlock was called exactly once - aka no retries happen when interrupted exception is thrown
+      verify(azureBlobOutputStream).stageBlock(anyString(), any(ByteBuffer.class), anyInt());
+
+      // rethrow the exception so that the test will fail if no exception was thrown in the try block
+      throw exception;
+    }
+  }
+
   @Test
   public void testClose() {
     azureBlobOutputStream.write(BYTES, 0, THRESHOLD);
@@ -278,7 +308,7 @@ public class TestAzureBlobOutputStream {
   }
 
   @Test(expected = AzureException.class)
-  public void testCloseFailed() {
+  public void testCloseFailed() throws InterruptedException {
 
     azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
         blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
@@ -320,7 +350,7 @@ public class TestAzureBlobOutputStream {
   }
 
   @Test (expected = AzureException.class)
-  public void testFlushFailed() throws IOException {
+  public void testFlushFailed() throws IOException, InterruptedException {
     azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
         blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
         60000, THRESHOLD, mockByteArrayOutputStream, mockCompression));

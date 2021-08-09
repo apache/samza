@@ -20,19 +20,29 @@
 package org.apache.samza.test.table;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
-import org.apache.samza.SamzaException;
-import org.apache.samza.config.Config;
-import org.apache.samza.serializers.Serde;
-import org.apache.samza.serializers.SerdeFactory;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
+import org.apache.samza.serializers.IntegerSerde;
+import org.apache.samza.serializers.Serde;
+import org.apache.samza.serializers.SerdeFactory;
 
 
 public class TestTableData {
+  private static final IntegerSerde INTEGER_SERDE = new IntegerSerde();
 
   public static class PageView implements Serializable {
     @JsonProperty("pageKey")
@@ -205,6 +215,35 @@ public class TestTableData {
     return pageviews;
   }
 
+  /**
+   * Create page views and spread out page views with the same member id across different partitions.
+   * Member ids are spread out like this to make sure that partitionBy operators properly repartition the messages.
+   * Member ids are assigned randomly from [0, 10).
+   *
+   * Example
+   * generatePartitionedPageViews(20, 4) will return:
+   * 0 -> page views with member ids [0, 5)
+   * 1 -> page views with member ids [6, 10)
+   * 2 -> page views with member ids [0, 5)
+   * 3 -> page views with member ids [6, 10)
+   */
+  public static Map<Integer, List<PageView>> generatePartitionedPageViews(int numPageViews, int partitionCount) {
+    Preconditions.checkArgument(numPageViews % partitionCount == 0, "partitionCount must divide numPageViews evenly");
+    int numPerPartition = numPageViews / partitionCount;
+    Random random = new Random();
+    ImmutableMap.Builder<Integer, List<PageView>> pageViewsBuilder = new ImmutableMap.Builder<>();
+    for (int i = 0; i < partitionCount; i++) {
+      pageViewsBuilder.put(i, new ArrayList<>());
+    }
+    Map<Integer, List<PageView>> pageViews = pageViewsBuilder.build();
+    for (int i = 0; i < numPageViews; i++) {
+      String pagekey = PAGEKEYS[random.nextInt(PAGEKEYS.length - 1)];
+      int memberId = i % 10;
+      pageViews.get(i / numPerPartition).add(new PageView(pagekey, memberId));
+    }
+    return pageViews;
+  }
+
   static public PageView[] generatePageViewsWithDistinctKeys(int count) {
     Random random = new Random();
     PageView[] pageviews = new PageView[count];
@@ -227,4 +266,20 @@ public class TestTableData {
     return profiles;
   }
 
+  /**
+   * Create profiles and partition them based on the bytes representation of the member id. This uses the bytes
+   * representation for partitioning because this needs to use the same partition function as the InMemorySystemProducer
+   * (which is used in the test framework) so that table joins can be tested.
+   * One profile for each member id in [0, numProfiles) is created.
+   */
+  public static Map<Integer, List<Profile>> generatePartitionedProfiles(int numProfiles, int partitionCount) {
+    Random random = new Random();
+    return IntStream.range(0, numProfiles)
+        .mapToObj(i -> {
+          String company = COMPANIES[random.nextInt(COMPANIES.length - 1)];
+          return new Profile(i, company);
+        })
+        .collect(Collectors.groupingBy(
+          profile -> Math.abs(Arrays.hashCode(INTEGER_SERDE.toBytes(profile.getMemberId()))) % partitionCount));
+  }
 }

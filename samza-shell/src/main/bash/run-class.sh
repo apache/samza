@@ -53,13 +53,13 @@ export APPLICATION_LIB_DIR=$APPLICATION_LIB_DIR
 echo APPLICATION_LIB_DIR=$APPLICATION_LIB_DIR
 echo BASE_LIB_DIR=$BASE_LIB_DIR
 
-BASE_LIB_CLASSPATH=""
+CLASSPATH=""
 # all the jars need to be appended on newlines to ensure line argument length of 72 bytes is not violated
 for file in $BASE_LIB_DIR/*.[jw]ar;
 do
-  BASE_LIB_CLASSPATH=$BASE_LIB_CLASSPATH" $file \n"
+  CLASSPATH=$CLASSPATH" $file \n"
 done
-echo generated from BASE_LIB_DIR BASE_LIB_CLASSPATH=$BASE_LIB_CLASSPATH
+echo generated from BASE_LIB_DIR CLASSPATH=$CLASSPATH
 
 # In some cases (AWS) $JAVA_HOME/bin doesn't contain jar.
 if [ -z "$JAVA_HOME" ] || [ ! -e "$JAVA_HOME/bin/jar" ]; then
@@ -68,23 +68,21 @@ else
   JAR="$JAVA_HOME/bin/jar"
 fi
 
-# Create a pathing JAR for the JARs in the BASE_LIB_DIR
-# Newlines and spaces are intended to ensure proper parsing of manifest in pathing jar
-printf "Class-Path: \n $BASE_LIB_CLASSPATH \n" > base-lib-manifest.txt
-# Creates a new archive and adds custom manifest information to base-lib-pathing.jar
-eval "$JAR -cvmf base-lib-manifest.txt base-lib-pathing.jar"
+# Create a separate directory for writing files related to classpath management. It is easier to manage
+# permissions for the classpath-related files when they are in their own directory. An example of where
+# this is helpful is when using container images which might have predefined permissions for certain
+# directories.
+CLASSPATH_WORKSPACE_DIR=$base_dir/classpath_workspace
+mkdir -p $CLASSPATH_WORKSPACE_DIR
+# file containing the classpath string; used to avoid passing long classpaths directly to the jar command
+PATHING_MANIFEST_FILE=$CLASSPATH_WORKSPACE_DIR/manifest.txt
+# jar file to include on the classpath for running the main class
+PATHING_JAR_FILE=$CLASSPATH_WORKSPACE_DIR/pathing.jar
 
-# Create a pathing JAR for the runtime framework resources. It is useful to separate this from the base-lib-pathing.jar
-# because the split deployment framework may only need the resources from this runtime pathing JAR.
-if ! [[ $HADOOP_CONF_DIR =~ .*/$ ]]; then
-  # manifest requires a directory to have a trailing slash
-  HADOOP_CONF_DIR="$HADOOP_CONF_DIR/"
-fi
-# HADOOP_CONF_DIR should be supplied to classpath explicitly for Yarn to parse configs
-RUNTIME_FRAMEWORK_RESOURCES_CLASSPATH="$HADOOP_CONF_DIR \n"
-# TODO add JARs from ADDITIONAL_CLASSPATH_DIR to runtime-framework-resources-pathing.jar as well
-printf "Class-Path: \n $RUNTIME_FRAMEWORK_RESOURCES_CLASSPATH \n" > runtime-framework-resources-manifest.txt
-eval "$JAR -cvmf runtime-framework-resources-manifest.txt runtime-framework-resources-pathing.jar"
+# Newlines and spaces are intended to ensure proper parsing of manifest in pathing jar
+printf "Class-Path: \n $CLASSPATH \n" > $PATHING_MANIFEST_FILE
+# Creates a new archive and adds custom manifest information to pathing.jar
+eval "$JAR -cvmf $PATHING_MANIFEST_FILE $PATHING_JAR_FILE"
 
 if [ -z "$JAVA_HOME" ]; then
   JAVA="java"
@@ -163,11 +161,12 @@ fi
 # Check if 64 bit is set. If not - try and set it if it's supported
 [[ $JAVA_OPTS != *-d64* ]] && check_and_enable_64_bit_mode
 
-echo $JAVA $JAVA_OPTS -cp base-lib-pathing.jar:runtime-framework-resources-pathing.jar "$@"
+# HADOOP_CONF_DIR should be supplied to classpath explicitly for Yarn to parse configs
+echo $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:$PATHING_JAR_FILE "$@"
 
 ## If localized resource lib directory is defined, then include it in the classpath.
 if [[ -z "${ADDITIONAL_CLASSPATH_DIR}" ]]; then
-  exec $JAVA $JAVA_OPTS -cp base-lib-pathing.jar:runtime-framework-resources-pathing.jar "$@"
+  exec $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:$PATHING_JAR_FILE "$@"
 else
-  exec $JAVA $JAVA_OPTS -cp base-lib-pathing.jar:runtime-framework-resources-pathing.jar:$ADDITIONAL_CLASSPATH_DIR "$@"
+  exec $JAVA $JAVA_OPTS -cp $HADOOP_CONF_DIR:$PATHING_JAR_FILE:$ADDITIONAL_CLASSPATH_DIR "$@"
 fi

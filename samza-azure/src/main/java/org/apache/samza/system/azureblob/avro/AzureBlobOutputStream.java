@@ -273,7 +273,7 @@ public class AzureBlobOutputStream extends OutputStream {
 
   // SAMZA-2476 stubbing BlockBlobAsyncClient.stageBlock was causing flaky tests.
   @VisibleForTesting
-  void stageBlock(String blockIdEncoded, ByteBuffer outputStream, int blockSize) {
+  void stageBlock(String blockIdEncoded, ByteBuffer outputStream, int blockSize) throws InterruptedException {
     blobAsyncClient.stageBlock(blockIdEncoded, Flux.just(outputStream), blockSize).block();
   }
 
@@ -335,6 +335,11 @@ public class AzureBlobOutputStream extends OutputStream {
             // StageBlock generates exception on Failure.
             stageBlock(blockIdEncoded, outputStream, blockSize);
             break;
+          } catch (InterruptedException e) {
+            String msg = String.format("Upload block for blob: %s failed for blockid: %s due to InterruptedException.",
+                blobAsyncClient.getBlobUrl().toString(), blockId);
+            LOG.error(msg, e);
+            throw new AzureException("InterruptedException encountered during block upload. Will not retry.", e);
           } catch (Exception e) {
             attemptCount += 1;
             String msg = "Upload block for blob: " + blobAsyncClient.getBlobUrl().toString()

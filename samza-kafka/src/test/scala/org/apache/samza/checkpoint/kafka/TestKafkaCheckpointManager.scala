@@ -20,7 +20,6 @@
 package org.apache.samza.checkpoint.kafka
 
 import java.util.Properties
-
 import kafka.integration.KafkaServerTestHarness
 import kafka.utils.{CoreUtils, TestUtils}
 import com.google.common.collect.ImmutableMap
@@ -29,7 +28,7 @@ import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory
 import org.apache.samza.metrics.MetricsRegistry
-import org.apache.samza.serializers.CheckpointV1Serde
+import org.apache.samza.serializers.{CheckpointV1Serde, CheckpointV2Serde}
 import org.apache.samza.system._
 import org.apache.samza.system.kafka.{KafkaStreamSpec, KafkaSystemFactory}
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals
@@ -276,6 +275,42 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   }
 
   @Test
+  def testReadCheckpointShouldIgnoreUnknownCheckpointKeys(): Unit = {
+      val checkpointTopic = "checkpoint-topic-1"
+      val kcm1 = createKafkaCheckpointManager(checkpointTopic)
+      kcm1.register(taskName)
+      kcm1.createResources
+      kcm1.start
+      kcm1.stop
+
+      // check that start actually creates the topic with log compaction enabled
+      val topicConfig = adminZkClient.getAllTopicConfigs().getOrElse(checkpointTopic, new Properties())
+
+      assertEquals(topicConfig, new KafkaConfig(config).getCheckpointTopicProperties())
+      assertEquals("compact", topicConfig.get("cleanup.policy"))
+      assertEquals("26214400", topicConfig.get("segment.bytes"))
+
+      // read before topic exists should result in a null checkpoint
+      val readCp = readCheckpoint(checkpointTopic, taskName)
+      assertNull(readCp)
+    // skips unknown checkpoints from checkpoint topic
+    writeCheckpoint(checkpointTopic, taskName, checkpoint1, "checkpoint-v2", useMock = true)
+    assertNull(readCheckpoint(checkpointTopic, taskName, useMock = true))
+
+    // reads latest v1 checkpoints
+    writeCheckpoint(checkpointTopic, taskName, checkpoint1, useMock = true)
+    assertEquals(checkpoint1, readCheckpoint(checkpointTopic, taskName, useMock = true))
+
+    // writing checkpoint v2 still returns the previous v1 checkpoint
+    writeCheckpoint(checkpointTopic, taskName, checkpoint2, "checkpoint-v2", useMock = true)
+    assertEquals(checkpoint1, readCheckpoint(checkpointTopic, taskName, useMock = true))
+
+    // writing checkpoint2 with the correct key returns the checkpoint2
+    writeCheckpoint(checkpointTopic, taskName, checkpoint2, useMock = true)
+    assertEquals(checkpoint2, readCheckpoint(checkpointTopic, taskName, useMock = true))
+  }
+
+  @Test
   def testWriteCheckpointShouldRetryFiniteTimesOnFailure(): Unit = {
     val checkpointTopic = "checkpoint-topic-2"
     val mockKafkaProducer: SystemProducer = Mockito.mock(classOf[SystemProducer])
@@ -401,7 +436,8 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
   }
 
   private def createKafkaCheckpointManager(cpTopic: String, serde: CheckpointV1Serde = new CheckpointV1Serde,
-    failOnTopicValidation: Boolean = true, overrideConfig: Config = config) = {
+    failOnTopicValidation: Boolean = true, useMock: Boolean = false, checkpointKey: String = KafkaCheckpointLogKey.CHECKPOINT_V1_KEY_TYPE,
+    overrideConfig: Config = config) = {
     val kafkaConfig = new org.apache.samza.config.KafkaConfig(overrideConfig)
     val props = kafkaConfig.getCheckpointTopicProperties()
     val systemName = kafkaConfig.getCheckpointSystem.getOrElse(
@@ -414,11 +450,17 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     val systemFactory = ReflectionUtil.getObj(systemFactoryClassName, classOf[SystemFactory])
 
     val spec = new KafkaStreamSpec("id", cpTopic, checkpointSystemName, 1, 1, props)
-    new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, overrideConfig, new NoOpMetricsRegistry, serde)
+
+    if (useMock) {
+      new MockKafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, serde, checkpointKey)
+    } else {
+      new KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, overrideConfig, new NoOpMetricsRegistry, serde)
+    }
   }
 
-  private def readCheckpoint(checkpointTopic: String, taskName: TaskName, config: Config = config) : Checkpoint = {
-    val kcm = createKafkaCheckpointManager(checkpointTopic, overrideConfig = config)
+  private def readCheckpoint(checkpointTopic: String, taskName: TaskName, config: Config = config,
+    useMock: Boolean = false) : Checkpoint = {
+    val kcm = createKafkaCheckpointManager(checkpointTopic, overrideConfig = config, useMock = useMock)
     kcm.register(taskName)
     kcm.start
     val checkpoint = kcm.readLastCheckpoint(taskName)
@@ -426,8 +468,9 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     checkpoint
   }
 
-  private def writeCheckpoint(checkpointTopic: String, taskName: TaskName, checkpoint: Checkpoint): Unit = {
-    val kcm = createKafkaCheckpointManager(checkpointTopic)
+  private def writeCheckpoint(checkpointTopic: String, taskName: TaskName, checkpoint: Checkpoint,
+    checkpointKey: String = KafkaCheckpointLogKey.CHECKPOINT_V1_KEY_TYPE, useMock: Boolean = false): Unit = {
+    val kcm = createKafkaCheckpointManager(checkpointTopic, checkpointKey = checkpointKey, useMock = useMock)
     kcm.register(taskName)
     kcm.start
     kcm.writeCheckpoint(taskName, checkpoint)
@@ -456,4 +499,35 @@ class TestKafkaCheckpointManager extends KafkaServerTestHarness {
     }
   }
 
+
+  class MockKafkaCheckpointManager(spec: KafkaStreamSpec, systemFactory: SystemFactory, failOnTopicValidation: Boolean,
+    serde: CheckpointV1Serde = new CheckpointV1Serde, checkpointKey: String)
+    extends KafkaCheckpointManager(spec, systemFactory, failOnTopicValidation, config,
+      new NoOpMetricsRegistry, serde) {
+
+    override def buildOutgoingMessageEnvelope[T <: Checkpoint](taskName: TaskName, checkpoint: T): OutgoingMessageEnvelope = {
+      val key = new KafkaCheckpointLogKey(checkpointKey, taskName, expectedGrouperFactory)
+      val keySerde = new KafkaCheckpointLogKeySerde
+      val checkpointMsgSerde = new CheckpointV1Serde
+      val checkpointV2MsgSerde = new CheckpointV2Serde
+      val keyBytes = try {
+        keySerde.toBytes(key)
+      } catch {
+        case e: Exception => throw new SamzaException(s"Exception when writing checkpoint-key for $taskName: $checkpoint", e)
+      }
+      val msgBytes = try {
+        checkpoint match {
+          case v1: CheckpointV1 =>
+            checkpointMsgSerde.toBytes(v1)
+          case v2: CheckpointV2 =>
+            checkpointV2MsgSerde.toBytes(v2)
+          case _ =>
+            throw new IllegalArgumentException("Unknown checkpoint key type for test, please use Checkpoint v1 or v2")
+        }
+      } catch {
+        case e: Exception => throw new SamzaException(s"Exception when writing checkpoint for $taskName: $checkpoint", e)
+      }
+      new OutgoingMessageEnvelope(checkpointSsp, keyBytes, msgBytes)
+    }
+  }
 }

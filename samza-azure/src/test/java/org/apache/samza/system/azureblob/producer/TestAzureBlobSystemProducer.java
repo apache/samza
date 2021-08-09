@@ -98,14 +98,14 @@ public class TestAzureBlobSystemProducer {
     // use mock writer impl
     setupWriterForProducer(systemProducer, mockAzureWriter, STREAM);
     // bypass Azure connection setup
-    doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
+    doNothing().when(systemProducer).setupAzureContainer();
   }
 
   @Test
   public void testStart() {
 
     systemProducer.start();
-    verify(systemProducer).setupAzureContainer(ACCOUNT_NAME, ACCOUNT_KEY);
+    verify(systemProducer).setupAzureContainer();
   }
 
   public void testMultipleStart() {
@@ -264,7 +264,7 @@ public class TestAzureBlobSystemProducer {
         mockMetricsRegistry));
     PowerMockito.whenNew(AzureBlobAvroWriter.class).withAnyArguments().thenThrow(new SystemProducerException("Failed"));
     // bypass Azure connection setup
-    doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
+    doNothing().when(systemProducer).setupAzureContainer();
 
     systemProducer.register(SOURCE);
     systemProducer.start();
@@ -315,7 +315,7 @@ public class TestAzureBlobSystemProducer {
 
     AzureBlobSystemProducer systemProducer = spy(new AzureBlobSystemProducer(SYSTEM_NAME, azureBlobConfig, mockMetricsRegistry));
     // bypass Azure connection setup
-    doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
+    doNothing().when(systemProducer).setupAzureContainer();
 
     doReturn(mockAzureWriter1).when(systemProducer).getOrCreateWriter(source1, ome1);
     doReturn(mockAzureWriter2).when(systemProducer).getOrCreateWriter(source2, ome2);
@@ -359,7 +359,7 @@ public class TestAzureBlobSystemProducer {
 
     AzureBlobSystemProducer systemProducer = spy(new AzureBlobSystemProducer(SYSTEM_NAME, azureBlobConfig, mockMetricsRegistry));
     // bypass Azure connection setup
-    doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
+    doNothing().when(systemProducer).setupAzureContainer();
 
     doReturn(mockAzureWriter1).when(systemProducer).getOrCreateWriter(source1, ome1);
     doReturn(mockAzureWriter2).when(systemProducer).getOrCreateWriter(source2, ome2);
@@ -411,7 +411,7 @@ public class TestAzureBlobSystemProducer {
 
     AzureBlobSystemProducer systemProducer = spy(new AzureBlobSystemProducer(SYSTEM_NAME, azureBlobConfig, mockMetricsRegistry));
     // bypass Azure connection setup
-    doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
+    doNothing().when(systemProducer).setupAzureContainer();
 
     systemProducer.register(source1);
     systemProducer.start();
@@ -450,7 +450,7 @@ public class TestAzureBlobSystemProducer {
 
     AzureBlobSystemProducer systemProducer = spy(new AzureBlobSystemProducer(SYSTEM_NAME, azureBlobConfig, mockMetricsRegistry));
     // bypass Azure connection setup
-    doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
+    doNothing().when(systemProducer).setupAzureContainer();
 
     setupWriterForProducer(systemProducer, mockAzureWriter1, stream1);
 
@@ -492,7 +492,7 @@ public class TestAzureBlobSystemProducer {
 
     AzureBlobSystemProducer systemProducer = spy(new AzureBlobSystemProducer(SYSTEM_NAME, azureBlobConfig, mockMetricsRegistry));
     // bypass Azure connection setup
-    doNothing().when(systemProducer).setupAzureContainer(anyString(), anyString());
+    doNothing().when(systemProducer).setupAzureContainer();
 
     setupWriterForProducer(systemProducer, mockAzureWriter1, STREAM);
 

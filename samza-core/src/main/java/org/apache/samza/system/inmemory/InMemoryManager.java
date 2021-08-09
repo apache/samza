@@ -68,7 +68,7 @@ class InMemoryManager {
     List<IncomingMessageEnvelope> messages = bufferedMessages.get(ssp);
     String offset = String.valueOf(messages.size());
 
-    if (message instanceof EndOfStreamMessage) {
+    if (shouldUseEndOfStreamOffset(message)) {
       offset = IncomingMessageEnvelope.END_OF_STREAM_OFFSET;
     }
 
@@ -223,5 +223,23 @@ class InMemoryManager {
     }
 
     return ImmutableList.copyOf(messageEnvelopesForSSP.subList(startingOffset, messageEnvelopesForSSP.size()));
+  }
+
+  /**
+   * We don't always want to use {@link IncomingMessageEnvelope#END_OF_STREAM_OFFSET} for all
+   * {@link EndOfStreamMessage}s. Certain control message flows (e.g. end-of-stream) have an aggregation partition,
+   * which needs to listen for messages from all other partitions. These aggregation messages are marked by the task
+   * name being non-null. If we use {@link IncomingMessageEnvelope#END_OF_STREAM_OFFSET} for the aggregation messages,
+   * then the aggregation partition would stop listening once it got the message from one of the tasks, but that means
+   * it would miss the aggregation messages from all other tasks. See SAMZA-2300 for more details.
+   * One other note: If there is a serializer set for the stream, then by the time the message gets to this check, it
+   * will be a byte array, so this check will not return true, even if the deserialized message was an
+   * {@link EndOfStreamMessage}. So far this isn't a problem, because we only really need this to return true for
+   * input streams (not intermediate streams), and in-memory input stream data doesn't get serialized. For intermediate
+   * streams, we don't need END_OF_STREAM_OFFSET to be used since the high-level operators take care of end-of-stream
+   * messages based on MessageType.
+   */
+  private static boolean shouldUseEndOfStreamOffset(Object message) {
+    return (message instanceof EndOfStreamMessage) && ((EndOfStreamMessage) message).getTaskName() == null;
   }
 }
