@@ -19,8 +19,7 @@
 
 package org.apache.samza.checkpoint
 
-import java.util.Properties
-
+import java.util.{Collections, Properties}
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.CheckpointTool.{CheckpointToolCommandLine, TaskNameToCheckpointMap}
 import org.apache.samza.checkpoint.TestCheckpointTool.{MockCheckpointManagerFactory, MockSystemFactory}
@@ -32,9 +31,10 @@ import org.apache.samza.execution.JobPlanner
 import org.apache.samza.metrics.MetricsRegistry
 import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
+import org.junit.Assert.{assertEquals, assertNotNull}
 import org.junit.{Before, Test}
 import org.mockito.Matchers._
-import org.mockito.Mockito
+import org.mockito.{ArgumentCaptor, Matchers, Mockito}
 import org.mockito.Mockito._
 import org.scalatest.junit.AssertionsForJUnit
 import org.scalatest.mockito.MockitoSugar
@@ -67,8 +67,10 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
 
   val tn0 = new TaskName("Partition 0")
   val tn1 = new TaskName("Partition 1")
+  val tn2 = new TaskName("Partition 2")
   val p0 = new Partition(0)
   val p1 = new Partition(1)
+  val p2 = new Partition(2)
 
   @Before
   def setup() {
@@ -83,17 +85,23 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     ).asJava)
     config = JobPlanner.generateSingleJobConfig(userDefinedConfig)
     val metadata = new SystemStreamMetadata("foo", Map[Partition, SystemStreamPartitionMetadata](
-      new Partition(0) -> new SystemStreamPartitionMetadata("0", "100", "101"),
-      new Partition(1) -> new SystemStreamPartitionMetadata("0", "200", "201")
+      p0 -> new SystemStreamPartitionMetadata("0", "100", "101"),
+      p1 -> new SystemStreamPartitionMetadata("0", "200", "201"),
+      p2 -> new SystemStreamPartitionMetadata("0", "300", "301")
     ).asJava)
     TestCheckpointTool.checkpointManager = mock[CheckpointManager]
     TestCheckpointTool.systemAdmin = mock[SystemAdmin]
     when(TestCheckpointTool.systemAdmin.getSystemStreamPartitionCounts(Set("foo").asJava, 0))
       .thenReturn(Map("foo" -> metadata).asJava)
     when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn0))
-      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "1234").asJava))
+      .thenReturn(new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p0) -> "1234").asJava))
     when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn1))
-      .thenReturn(new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "4321").asJava))
+      .thenReturn(new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p1) -> "4321").asJava))
+    when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn2))
+      .thenReturn(new CheckpointV2(null,
+        Map(new SystemStreamPartition("test", "foo", p2) -> "5678").asJava,
+        Map("BackupFactory"-> Map("StoreName"-> "offset").asJava).asJava
+      ))
   }
 
   @Test
@@ -113,9 +121,45 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     val checkpointTool = CheckpointTool(config, toOverwrite)
     checkpointTool.run()
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
+      .writeCheckpoint(tn0, new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
+      .writeCheckpoint(tn1, new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
+  }
+
+  @Test
+  def testOverwriteCheckpointV2() {
+    // Skips the v1 checkpoints for the task
+    when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn0))
+      .thenReturn(null)
+    when(TestCheckpointTool.checkpointManager.readLastCheckpoint(tn1))
+      .thenReturn(null)
+
+    val toOverwrite = Map(
+      tn0 -> Map(new SystemStreamPartition("test", "foo", p0) -> "42"),
+      tn1 -> Map(new SystemStreamPartition("test", "foo", p1) -> "43"),
+      tn2 -> Map(new SystemStreamPartition("test", "foo", p2) -> "45"))
+
+    val checkpointV2Config = new MapConfig(config, Map(TaskConfig.CHECKPOINT_READ_VERSIONS -> "2").asJava)
+
+    val argument = ArgumentCaptor.forClass(classOf[CheckpointV2])
+    val checkpointTool = CheckpointTool(checkpointV2Config, toOverwrite)
+
+    checkpointTool.run()
+    verify(TestCheckpointTool.checkpointManager)
+      .writeCheckpoint(Matchers.same(tn0), argument.capture())
+    assertNotNull(argument.getValue.getCheckpointId)
+    assertEquals(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava, argument.getValue.getOffsets)
+    assertEquals(Collections.emptyMap(), argument.getValue.getStateCheckpointMarkers)
+    verify(TestCheckpointTool.checkpointManager)
+      .writeCheckpoint(Matchers.same(tn1), argument.capture())
+    assertNotNull(argument.getValue.getCheckpointId)
+    assertEquals(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava, argument.getValue.getOffsets)
+    assertEquals(Collections.emptyMap(), argument.getValue.getStateCheckpointMarkers)
+    verify(TestCheckpointTool.checkpointManager)
+      .writeCheckpoint(Matchers.same(tn2), argument.capture())
+    assertNotNull(argument.getValue.getCheckpointId)
+    assertEquals(Map(new SystemStreamPartition("test", "foo", p2) -> "45").asJava, argument.getValue.getOffsets)
+    assertEquals(Map("BackupFactory"-> Map("StoreName"-> "offset").asJava).asJava, argument.getValue.getStateCheckpointMarkers)
   }
 
   @Test
@@ -157,9 +201,9 @@ class TestCheckpointTool extends AssertionsForJUnit with MockitoSugar {
     checkpointTool.run()
 
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn0, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
+      .writeCheckpoint(tn0, new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p0) -> "42").asJava))
     verify(TestCheckpointTool.checkpointManager)
-      .writeCheckpoint(tn1, new Checkpoint(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
+      .writeCheckpoint(tn1, new CheckpointV1(Map(new SystemStreamPartition("test", "foo", p1) -> "43").asJava))
 
     // Two configurations job.id, job.name are populated in the coordinator config by SamzaRuntime and it is not present in generated config.
     assert(generatedConfigs.entrySet().containsAll(TestCheckpointTool.coordinatorConfig.entrySet()))

@@ -17,21 +17,25 @@
  * under the License.
  */
 
-package org.apache.samza.storage
+package org.apache.samza.storage.blobstore.index.serde;
 
-import org.apache.samza.checkpoint.CheckpointId
-import org.apache.samza.system.SystemStreamPartition
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-trait TaskStorageManager {
 
-  def getStore(storeName: String): Option[StorageEngine]
+/**
+ * A mix-in Jackson class to convert FileBlob to/from JSON.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+public abstract class JsonFileBlobMixin {
+  @JsonCreator
+  public JsonFileBlobMixin(@JsonProperty("blob-id") String blobId, @JsonProperty("offset") int offset) {
+  }
 
-  def flush(): Map[SystemStreamPartition, Option[String]]
+  @JsonProperty("blob-id")
+  abstract String getBlobId();
 
-  def checkpoint(checkpointId: CheckpointId, newestChangelogOffsets: Map[SystemStreamPartition, Option[String]]): Unit
-
-  def removeOldCheckpoints(checkpointId: CheckpointId): Unit
-
-  def stop(): Unit
-
+  @JsonProperty("offset")
+  abstract int getOffset();
 }

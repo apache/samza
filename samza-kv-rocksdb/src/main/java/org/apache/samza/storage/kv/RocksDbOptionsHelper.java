@@ -20,13 +20,17 @@
 package org.apache.samza.storage.kv;
 
 import java.io.File;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.storage.StorageEngineFactory;
 import org.apache.samza.storage.StorageManagerUtil;
 import org.rocksdb.BlockBasedTableConfig;
+import org.rocksdb.CompactionOptionsUniversal;
+import org.rocksdb.CompactionStopStyle;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
 import org.rocksdb.Options;
+import org.rocksdb.WALRecoveryMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,9 +40,30 @@ import org.slf4j.LoggerFactory;
 public class RocksDbOptionsHelper {
   private static final Logger log = LoggerFactory.getLogger(RocksDbOptionsHelper.class);
 
+  // TODO HIGH pmaheshw Add these to RockdDBTableDescriptor
+  public static final String ROCKSDB_WAL_ENABLED = "rocksdb.wal.enabled";
   private static final String ROCKSDB_COMPRESSION = "rocksdb.compression";
   private static final String ROCKSDB_BLOCK_SIZE_BYTES = "rocksdb.block.size.bytes";
+
+  private static final String ROCKSDB_COMPACTION_NUM_LEVELS = "rocksdb.compaction.num.levels";
+  private static final String ROCKSDB_COMPACTION_LEVEL0_FILE_NUM_COMPACTION_TRIGGER =
+      "rocksdb.compaction.level0.file.num.compaction.trigger";
+  private static final String ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS = "rocksdb.compaction.max.background.compactions";
+  private static final String ROCKSDB_COMPACTION_TARGET_FILE_SIZE_BASE = "rocksdb.compaction.target.file.size.base";
+  private static final String ROCKSDB_COMPACTION_TARGET_FILE_SIZE_MULTIPLIER = "rocksdb.compaction.target.file.size.multiplier";
+
   private static final String ROCKSDB_COMPACTION_STYLE = "rocksdb.compaction.style";
+  private static final String ROCKSDB_COMPACTION_UNIVERSAL_MAX_SIZE_AMPLIFICATION_PERCENT =
+      "rocksdb.compaction.universal.max.size.amplification.percent";
+  private static final String ROCKSDB_COMPACTION_UNIVERSAL_SIZE_RATIO =
+      "rocksdb.compaction.universal.size.ratio";
+  private static final String ROCKSDB_COMPACTION_UNIVERSAL_MIN_MERGE_WIDTH =
+      "rocksdb.compaction.universal.min.merge.width";
+  private static final String ROCKSDB_COMPACTION_UNIVERSAL_MAX_MERGE_WIDTH =
+      "rocksdb.compaction.universal.max.merge.width";
+  private static final String ROCKSDB_COMPACTION_UNIVERSAL_COMPACTION_STOP_STYLE =
+      "rocksdb.compaction.universal.compaction.stop.style";
+
   private static final String ROCKSDB_NUM_WRITE_BUFFERS = "rocksdb.num.write.buffers";
   private static final String ROCKSDB_MAX_LOG_FILE_SIZE_BYTES = "rocksdb.max.log.file.size.bytes";
   private static final String ROCKSDB_KEEP_LOG_FILE_NUM = "rocksdb.keep.log.file.num";
@@ -49,6 +74,12 @@ public class RocksDbOptionsHelper {
 
   public static Options options(Config storeConfig, int numTasksForContainer, File storeDir, StorageEngineFactory.StoreMode storeMode) {
     Options options = new Options();
+
+    if (storeConfig.getBoolean(ROCKSDB_WAL_ENABLED, false)) {
+      options.setManualWalFlush(true); // store.flush() will flushWAL(sync = true) instead
+      options.setWalRecoveryMode(WALRecoveryMode.AbsoluteConsistency);
+    }
+
     Long writeBufSize = storeConfig.getLong("container.write.buffer.size.bytes", 32 * 1024 * 1024);
     // Cache size and write buffer size are specified on a per-container basis.
     options.setWriteBufferSize((int) (writeBufSize / numTasksForContainer));
@@ -86,23 +117,7 @@ public class RocksDbOptionsHelper {
     tableOptions.setBlockCacheSize(blockCacheSize).setBlockSize(blockSize);
     options.setTableFormatConfig(tableOptions);
 
-    CompactionStyle compactionStyle = CompactionStyle.UNIVERSAL;
-    String compactionStyleInConfig = storeConfig.get(ROCKSDB_COMPACTION_STYLE, "universal");
-    switch (compactionStyleInConfig) {
-      case "universal":
-        compactionStyle = CompactionStyle.UNIVERSAL;
-        break;
-      case "fifo":
-        compactionStyle = CompactionStyle.FIFO;
-        break;
-      case "level":
-        compactionStyle = CompactionStyle.LEVEL;
-        break;
-      default:
-        log.warn("Unknown rocksdb.compaction.style " + compactionStyleInConfig +
-            ", overwriting to " + compactionStyle.name());
-    }
-    options.setCompactionStyle(compactionStyle);
+    setCompactionOptions(storeConfig, options);
 
     options.setMaxWriteBufferNumber(storeConfig.getInt(ROCKSDB_NUM_WRITE_BUFFERS, 3));
     options.setCreateIfMissing(true);
@@ -127,6 +142,81 @@ public class RocksDbOptionsHelper {
     }
 
     return options;
+  }
+
+  private static void setCompactionOptions(Config storeConfig, Options options) {
+    if (storeConfig.containsKey(ROCKSDB_COMPACTION_NUM_LEVELS)) {
+      options.setNumLevels(storeConfig.getInt(ROCKSDB_COMPACTION_NUM_LEVELS));
+    }
+
+    if (storeConfig.containsKey(ROCKSDB_COMPACTION_LEVEL0_FILE_NUM_COMPACTION_TRIGGER)) {
+      int level0FileNumCompactionTrigger = storeConfig.getInt(ROCKSDB_COMPACTION_LEVEL0_FILE_NUM_COMPACTION_TRIGGER);
+      options.setLevel0FileNumCompactionTrigger(level0FileNumCompactionTrigger);
+    }
+
+    if (storeConfig.containsKey(ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS)) {
+      options.setMaxBackgroundCompactions(storeConfig.getInt(ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS));
+    }
+
+    if (storeConfig.containsKey(ROCKSDB_COMPACTION_TARGET_FILE_SIZE_BASE)) {
+      options.setTargetFileSizeBase(storeConfig.getLong(ROCKSDB_COMPACTION_TARGET_FILE_SIZE_BASE));
+    }
+
+    if (storeConfig.containsKey(ROCKSDB_COMPACTION_TARGET_FILE_SIZE_MULTIPLIER)) {
+      options.setTargetFileSizeBase(storeConfig.getLong(ROCKSDB_COMPACTION_TARGET_FILE_SIZE_MULTIPLIER));
+    }
+
+    CompactionStyle compactionStyle = CompactionStyle.UNIVERSAL;
+    String compactionStyleInConfig = storeConfig.get(ROCKSDB_COMPACTION_STYLE, "universal");
+    switch (compactionStyleInConfig) {
+      case "universal":
+        compactionStyle = CompactionStyle.UNIVERSAL;
+        break;
+      case "fifo":
+        compactionStyle = CompactionStyle.FIFO;
+        break;
+      case "level":
+        compactionStyle = CompactionStyle.LEVEL;
+        break;
+      default:
+        log.warn("Unknown rocksdb.compaction.style " + compactionStyleInConfig +
+            ", overwriting to " + compactionStyle.name());
+    }
+    options.setCompactionStyle(compactionStyle);
+
+    // Universal compaction options
+    if (compactionStyle.equals(CompactionStyle.UNIVERSAL)) {
+      CompactionOptionsUniversal compactionOptions = new CompactionOptionsUniversal();
+
+      if (storeConfig.containsKey(ROCKSDB_COMPACTION_UNIVERSAL_MAX_SIZE_AMPLIFICATION_PERCENT)) {
+        int val = storeConfig.getInt(ROCKSDB_COMPACTION_UNIVERSAL_MAX_SIZE_AMPLIFICATION_PERCENT);
+        compactionOptions.setMaxSizeAmplificationPercent(val);
+      }
+
+      if (storeConfig.containsKey(ROCKSDB_COMPACTION_UNIVERSAL_SIZE_RATIO)) {
+        int val = storeConfig.getInt(ROCKSDB_COMPACTION_UNIVERSAL_SIZE_RATIO);
+        compactionOptions.setSizeRatio(val);
+      }
+
+      if (storeConfig.containsKey(ROCKSDB_COMPACTION_UNIVERSAL_MIN_MERGE_WIDTH)) {
+        int val = storeConfig.getInt(ROCKSDB_COMPACTION_UNIVERSAL_MIN_MERGE_WIDTH);
+        compactionOptions.setMinMergeWidth(val);
+      }
+
+      if (storeConfig.containsKey(ROCKSDB_COMPACTION_UNIVERSAL_MAX_MERGE_WIDTH)) {
+        int val = storeConfig.getInt(ROCKSDB_COMPACTION_UNIVERSAL_MAX_MERGE_WIDTH);
+        compactionOptions.setMaxMergeWidth(val);
+      }
+
+      if (storeConfig.containsKey(ROCKSDB_COMPACTION_UNIVERSAL_COMPACTION_STOP_STYLE)) {
+        String stopStyle = storeConfig.get(ROCKSDB_COMPACTION_UNIVERSAL_COMPACTION_STOP_STYLE);
+        if (StringUtils.isNotBlank(stopStyle)) {
+          compactionOptions.setStopStyle(CompactionStopStyle.valueOf(stopStyle));
+        }
+      }
+
+      options.setCompactionOptionsUniversal(compactionOptions);
+    }
   }
 
   public static Long getBlockCacheSize(Config storeConfig, int numTasksForContainer) {

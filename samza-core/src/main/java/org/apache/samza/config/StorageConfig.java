@@ -19,16 +19,22 @@
 
 package org.apache.samza.config;
 
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.execution.StreamManager;
+import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.StreamUtil;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -60,6 +66,19 @@ public class StorageConfig extends MapConfig {
   public static final String CHANGELOG_MIN_COMPACTION_LAG_MS = STORE_PREFIX + "%s.changelog." + MIN_COMPACTION_LAG_MS;
   public static final long DEFAULT_CHANGELOG_MIN_COMPACTION_LAG_MS = TimeUnit.HOURS.toMillis(4);
 
+  public static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
+      "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
+  public static final String KAFKA_STATE_BACKEND_FACTORY =
+      "org.apache.samza.storage.KafkaChangelogStateBackendFactory";
+  public static final List<String> DEFAULT_BACKUP_FACTORIES = ImmutableList.of(
+      KAFKA_STATE_BACKEND_FACTORY);
+  public static final String JOB_BACKUP_FACTORIES = STORE_PREFIX + "backup.factories";
+  public static final String STORE_BACKUP_FACTORIES = STORE_PREFIX + "%s.backup.factories";
+  public static final String RESTORE_FACTORIES_SUFFIX = "restore.factories";
+  public static final String STORE_RESTORE_FACTORIES = STORE_PREFIX + "%s." + RESTORE_FACTORIES_SUFFIX;
+  public static final String JOB_RESTORE_FACTORIES = STORE_PREFIX + RESTORE_FACTORIES_SUFFIX;
+  public static final List<String> DEFAULT_RESTORE_FACTORIES = ImmutableList.of(KAFKA_STATE_BACKEND_FACTORY);
+
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
   static final long DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1);
@@ -70,8 +89,6 @@ public class StorageConfig extends MapConfig {
   static final String SIDE_INPUTS_PROCESSOR_FACTORY = STORE_PREFIX + "%s" + SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX;
   static final String SIDE_INPUTS_PROCESSOR_SERIALIZED_INSTANCE =
       STORE_PREFIX + "%s.side.inputs.processor.serialized.instance";
-  static final String INMEMORY_KV_STORAGE_ENGINE_FACTORY =
-      "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory";
 
   // Internal config to clean storeDirs of a store on container start. This is used to benchmark bootstrap performance.
   static final String CLEAN_LOGGED_STOREDIRS_ON_START = STORE_PREFIX + "%s.clean.on.container.start";
@@ -91,6 +108,11 @@ public class StorageConfig extends MapConfig {
       }
     }
     return storeNames;
+  }
+
+  public Map<String, SystemStream> getStoreChangelogs() {
+    return getStoreNames().stream().filter(store -> getChangelogStream(store).isPresent())
+        .collect(Collectors.toMap(Function.identity(), n -> StreamUtil.getSystemStreamFromNames(getChangelogStream(n).get())));
   }
 
   /**
@@ -258,11 +280,105 @@ public class StorageConfig extends MapConfig {
         .count();
   }
 
+  private List<String> getJobStoreBackupFactories() {
+    return getList(JOB_BACKUP_FACTORIES, new ArrayList<>());
+  }
+
+  /**
+   * Backup state backend factory follows the precedence:
+   *
+   * 1. If stores.store-name.backup.factories config key exists the store-name, that value is used
+   * 2. If stores.backup.factories is set for the job, that value is used
+   * 3. If stores.store-name.changelog is set for store-name, the default Kafka changelog state backend factory
+   * 4. Otherwise no backup factories will be configured for the store
+   *
+   * Note: that 2 takes precedence over 3 enables job based migration off of Changelog restores
+   * @return List of backup factories for the store in order of backup precedence
+   */
+  public List<String> getStoreBackupFactories(String storeName) {
+    List<String> storeBackupManagers;
+    if (containsKey(String.format(STORE_BACKUP_FACTORIES, storeName))) {
+      storeBackupManagers = getList(String.format(STORE_BACKUP_FACTORIES, storeName), new ArrayList<>());
+    } else {
+      storeBackupManagers = getJobStoreBackupFactories();
+      // For backwards compatibility if the changelog is enabled, we use default kafka backup factory
+      if (storeBackupManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
+        storeBackupManagers = DEFAULT_BACKUP_FACTORIES;
+      }
+    }
+    return storeBackupManagers;
+  }
+
+  public Set<String> getBackupFactories() {
+    return getStoreNames().stream()
+        .flatMap((storeName) -> getStoreBackupFactories(storeName).stream())
+        .collect(Collectors.toSet());
+  }
+
+  public List<String> getStoresWithBackupFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter((storeName) -> getStoreBackupFactories(storeName)
+            .contains(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
+  public List<String> getPersistentStoresWithBackupFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter(storeName -> {
+          Optional<String> storeFactory = getStorageFactoryClassName(storeName);
+          return storeFactory.isPresent() &&
+              !storeFactory.get().equals(StorageConfig.INMEMORY_KV_STORAGE_ENGINE_FACTORY);
+        })
+        .filter((storeName) -> getStoreBackupFactories(storeName)
+            .contains(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
+  private List<String> getJobStoreRestoreFactories() {
+    return getList(JOB_RESTORE_FACTORIES, new ArrayList<>());
+  }
+
+  /**
+   * Restore state backend factory follows the precedence:
+   *
+   * 1. If stores.store-name.restore.factories config key exists for the store-name, that value is used
+   * 2. If stores.restore.factories is set for the job, that value is used
+   * 3. If stores.store-name.changelog is set for store-name, the default Kafka changelog state backend factory
+   * 4. Otherwise no restore factories will be configured for the store
+   *
+   * Note that 2 takes precedence over 3 enables job based migration off of Changelog restores
+   * @return List of restore factories for the store in order of restoration precedence
+   */
+  public List<String> getStoreRestoreFactories(String storeName) {
+    List<String> storeRestoreManagers;
+    if (containsKey(String.format(STORE_RESTORE_FACTORIES, storeName))) {
+      storeRestoreManagers = getList(String.format(STORE_RESTORE_FACTORIES, storeName), new ArrayList<>());
+    } else {
+      storeRestoreManagers = getJobStoreRestoreFactories();
+      // for backwards compatibility if changelog is enabled, we use default Kafka backup factory
+      if (storeRestoreManagers.isEmpty() && getChangelogStream(storeName).isPresent()) {
+        storeRestoreManagers = DEFAULT_RESTORE_FACTORIES;
+      }
+    }
+    return storeRestoreManagers;
+  }
+
+  public Set<String> getRestoreFactories() {
+    return getStoreNames().stream()
+        .flatMap((storesName) -> getStoreRestoreFactories(storesName).stream())
+        .collect(Collectors.toSet());
+  }
+
+  public List<String> getStoresWithRestoreFactory(String backendFactoryName) {
+    return getStoreNames().stream()
+        .filter((storeName) -> getStoreRestoreFactories(storeName).contains(backendFactoryName))
+        .collect(Collectors.toList());
+  }
+
   /**
    * Helper method to get if logged store dirs should be deleted regardless of their contents.
-   * @return
    */
-  public boolean getCleanLoggedStoreDirsOnStart(String storeName) {
+  public boolean cleanLoggedStoreDirsOnStart(String storeName) {
     return getBoolean(String.format(CLEAN_LOGGED_STOREDIRS_ON_START, storeName), false);
   }
 }

@@ -16,54 +16,64 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package org.apache.samza.checkpoint;
 
 import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.annotation.InterfaceStability;
 
+
 /**
  * Checkpoint ID has the format: [currentTimeMillis, last 6 digits of nanotime], separated by a dash.
  * This is to avoid conflicts, e.g when requesting frequent manual commits.
  *
- * It is expected that persistent stores use the {@link #toString()} representation of the checkpoint id
+ * It is expected that persistent stores use the {@link #serialize()} representation of the checkpoint id
  * as the store checkpoint directory name.
  */
 @InterfaceStability.Unstable
-public class CheckpointId {
+public class CheckpointId implements Comparable<CheckpointId> {
   public static final String SEPARATOR = "-";
 
   private final long millis;
-  private final long nanos;
+  private final long nanoId;
 
-  public CheckpointId(long millis, long nanos) {
+  private CheckpointId(long millis, long nanoId) {
     this.millis = millis;
-    this.nanos = nanos;
+    this.nanoId = nanoId;
   }
 
   public static CheckpointId create() {
     return new CheckpointId(System.currentTimeMillis(), System.nanoTime() % 1000000);
   }
 
-  public static CheckpointId fromString(String checkpointId) {
+  public static CheckpointId deserialize(String checkpointId) {
     if (StringUtils.isBlank(checkpointId)) {
       throw new IllegalArgumentException("Invalid checkpoint id: " + checkpointId);
     }
-    String[] parts = checkpointId.split(SEPARATOR);
-    return new CheckpointId(Long.parseLong(parts[0]), Long.parseLong(parts[1]));
+    try {
+      String[] parts = checkpointId.split(SEPARATOR);
+      return new CheckpointId(Long.parseLong(parts[0]), Long.parseLong(parts[1]));
+    } catch (NumberFormatException ex) {
+      throw new IllegalArgumentException(String.format(
+          "Could not deserialize CheckpointId: %s", checkpointId), ex);
+    }
   }
 
   public long getMillis() {
     return millis;
   }
 
-  public long getNanos() {
-    return nanos;
+  public long getNanoId() {
+    return nanoId;
   }
 
-  @Override
-  public String toString() {
-    return String.format("%s%s%s", millis, SEPARATOR, nanos);
+  /**
+   * Serialization of {@link CheckpointId} as part of task checkpoints, in conjunction with {@link #deserialize(String)}.
+   * @return the String representation of this {@link CheckpointId}.
+   */
+  public String serialize() {
+    return String.format("%s%s%s", getMillis(), SEPARATOR, getNanoId());
   }
 
   @Override
@@ -72,11 +82,22 @@ public class CheckpointId {
     if (o == null || getClass() != o.getClass()) return false;
     CheckpointId that = (CheckpointId) o;
     return millis == that.millis &&
-        nanos == that.nanos;
+        nanoId == that.nanoId;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(millis, nanos);
+    return Objects.hash(millis, nanoId);
+  }
+
+  @Override
+  public int compareTo(CheckpointId that) {
+    if (this.millis != that.millis) return Long.compare(this.millis, that.millis);
+    else return Long.compare(this.nanoId, that.nanoId);
+  }
+
+  @Override
+  public String toString() {
+    return String.format("%s%s%s", millis, SEPARATOR, nanoId);
   }
 }

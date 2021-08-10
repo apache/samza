@@ -19,16 +19,18 @@
 
 package org.apache.samza.storage.kv
 
+import com.google.common.annotations.VisibleForTesting
+
 import java.io.File
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import java.util.{Comparator, Optional}
-
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.config.Config
-import org.apache.samza.util.Logging
+import org.apache.samza.storage.StorageManagerUtil
+import org.apache.samza.util.{FileUtil, Logging}
 import org.rocksdb.{TtlDB, _}
 
 object RocksDbKeyValueStore extends Logging {
@@ -67,6 +69,9 @@ object RocksDbKeyValueStore extends Logging {
     }
 
     try {
+      // Create the path if it doesn't exist
+      new FileUtil().createDirectories(dir.toPath)
+
       val rocksDb =
         if (useTTL) {
           info("Opening RocksDB store: %s in path: %s with TTL value: %s" format (storeName, dir.toString, ttl))
@@ -122,7 +127,7 @@ class RocksDbKeyValueStore(
 
   // lazy val here is important because the store directories do not exist yet, it can only be opened
   // after the directories are created, which happens much later from now.
-  private lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName, metrics)
+  @VisibleForTesting lazy val db = RocksDbKeyValueStore.openDB(dir, options, storeConfig, isLoggedStore, storeName, metrics)
   private val lexicographic = new LexicographicComparator()
 
   /**
@@ -233,13 +238,17 @@ class RocksDbKeyValueStore(
   def flush(): Unit = ifOpen {
     metrics.flushes.inc
     trace("Flushing store: %s" format storeName)
-    db.flush(flushOptions)
+    if (storeConfig.getBoolean(RocksDbOptionsHelper.ROCKSDB_WAL_ENABLED, false)) {
+      db.flushWal(true)
+    } else {
+      db.flush(flushOptions)
+    }
     trace("Flushed store: %s" format storeName)
   }
 
   override def checkpoint(id: CheckpointId): Optional[Path] = {
     val checkpoint = Checkpoint.create(db)
-    val checkpointPath = dir.getPath + "-" + id.toString
+    val checkpointPath = new StorageManagerUtil().getStoreCheckpointDir(dir, id)
     checkpoint.createCheckpoint(checkpointPath)
     Optional.of(Paths.get(checkpointPath))
   }

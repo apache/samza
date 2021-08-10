@@ -19,25 +19,27 @@
 package org.apache.samza.standalone;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.Collections;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.job.model.JobModel;
-import org.apache.samza.coordinator.JobCoordinatorListener;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.runtime.LocationId;
 import org.apache.samza.runtime.LocationIdProvider;
 import org.apache.samza.runtime.LocationIdProviderFactory;
-import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.util.*;
+import org.apache.samza.util.ReflectionUtil;
+import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.Collections;
+
 
 /**
  * Standalone Job Coordinator does not implement any leader elector module or cluster manager
@@ -125,7 +127,9 @@ public class PassthroughJobCoordinator implements JobCoordinator {
     systemAdmins.start();
     try {
       String containerId = Integer.toString(config.getInt(JobConfig.PROCESSOR_ID));
-      GrouperMetadata grouperMetadata = new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+      GrouperMetadata grouperMetadata =
+          new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(),
+              Collections.emptyMap(), Collections.emptyMap());
       return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
     } finally {
       systemAdmins.stop();

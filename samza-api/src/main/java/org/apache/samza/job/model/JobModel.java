@@ -57,6 +57,10 @@ public class JobModel {
     }
   }
 
+  public int getMaxChangeLogStreamPartitions() {
+    return maxChangeLogStreamPartitions;
+  }
+
   public Config getConfig() {
     return config;
   }

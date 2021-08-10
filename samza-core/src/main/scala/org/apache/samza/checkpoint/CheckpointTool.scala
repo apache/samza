@@ -185,21 +185,38 @@ class CheckpointTool(newOffsets: TaskNameToCheckpointMap, coordinatorStreamStore
       taskNames.foreach(checkpointManager.register)
       checkpointManager.start()
 
+      // Get preferred read version for the checkpoint application
+      val checkpointReadVersion = taskConfig.getCheckpointReadVersions.get(0)
+      val defaultCheckpoint = if (checkpointReadVersion == 1) {
+        new CheckpointV1(new java.util.HashMap[SystemStreamPartition, String]())
+      } else if (checkpointReadVersion == 2) {
+        new CheckpointV2(CheckpointId.create(), new java.util.HashMap[SystemStreamPartition, String](),
+          new java.util.HashMap[String, util.Map[String, String]]())
+      } else {
+        throw new SamzaException("Unrecognized checkpoint read version: " + checkpointReadVersion)
+      }
+
       val lastCheckpoints = taskNames.map(taskName => {
         taskName -> Option(checkpointManager.readLastCheckpoint(taskName))
-          .getOrElse(new Checkpoint(new java.util.HashMap[SystemStreamPartition, String]()))
-          .getOffsets
-          .asScala
-          .toMap
+          .getOrElse(defaultCheckpoint)
       }).toMap
 
-      lastCheckpoints.foreach(lcp => logCheckpoint(lcp._1, lcp._2, "Current checkpoint for task: "+ lcp._1))
+      lastCheckpoints.foreach(lcp => logCheckpoint(lcp._1, lcp._2.getOffsets.asScala.toMap,
+        "Current checkpoint for task: " + lcp._1))
 
       if (newOffsets != null) {
         newOffsets.foreach {
           case (taskName: TaskName, offsets: Map[SystemStreamPartition, String]) =>
             logCheckpoint(taskName, offsets, "New offset to be written for task: " + taskName)
-            val checkpoint = new Checkpoint(offsets.asJava)
+            val checkpoint = if (checkpointReadVersion == 1) {
+              new CheckpointV1(offsets.asJava)
+            } else if (checkpointReadVersion == 2) {
+              val lastSCMs = lastCheckpoints.getOrElse(taskName, defaultCheckpoint)
+                .asInstanceOf[CheckpointV2].getStateCheckpointMarkers
+              new CheckpointV2(CheckpointId.create(), offsets.asJava, lastSCMs)
+            } else {
+              throw new SamzaException("Unrecognized checkpoint read version: " + checkpointReadVersion)
+            }
             checkpointManager.writeCheckpoint(taskName, checkpoint)
             info(s"Updated the checkpoint of the task: $taskName to: $offsets")
         }

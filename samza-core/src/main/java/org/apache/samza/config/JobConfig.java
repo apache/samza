@@ -63,6 +63,18 @@ public class JobConfig extends MapConfig {
   public static final String JOB_CONTAINER_COUNT = "job.container.count";
   static final int DEFAULT_JOB_CONTAINER_COUNT = 1;
   public static final String JOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size";
+  // num commit threads == min(max(2 * num tasks in container, thread pool size), max thread pool size)
+  public static final String COMMIT_THREAD_POOL_SIZE = "job.container.commit.thread.pool.size";
+  static final int DEFAULT_COMMIT_THREAD_POOL_SIZE = 2;
+  public static final String COMMIT_THREAD_POOL_MAX_SIZE = "job.container.commit.thread.pool.max.size";
+  static final int DEFAULT_COMMIT_THREAD_POOL_MAX_SIZE = 64;
+
+  // num commit threads == min(max(2 * num tasks in container, thread pool size), max thread pool size)
+  public static final String RESTORE_THREAD_POOL_SIZE = "job.container.restore.thread.pool.size";
+  static final int DEFAULT_RESTORE_THREAD_POOL_SIZE = 2;
+  public static final String RESTORE_THREAD_POOL_MAX_SIZE = "job.container.restore.thread.pool.max.size";
+  static final int DEFAULT_RESTORE_THREAD_POOL_MAX_SIZE = 64;
+
   public static final String JOB_INTERMEDIATE_STREAM_PARTITIONS = "job.intermediate.stream.partitions";
 
   public static final String JOB_DEBOUNCE_TIME_MS = "job.debounce.time.ms";
@@ -332,6 +344,22 @@ public class JobConfig extends MapConfig {
     } else {
       return getInt(JOB_CONTAINER_THREAD_POOL_SIZE, 0);
     }
+  }
+
+  public int getCommitThreadPoolSize() {
+    return getInt(COMMIT_THREAD_POOL_SIZE, DEFAULT_COMMIT_THREAD_POOL_SIZE);
+  }
+
+  public int getCommitThreadPoolMaxSize() {
+    return getInt(COMMIT_THREAD_POOL_MAX_SIZE, DEFAULT_COMMIT_THREAD_POOL_MAX_SIZE);
+  }
+
+  public int getRestoreThreadPoolSize() {
+    return getInt(RESTORE_THREAD_POOL_SIZE, DEFAULT_RESTORE_THREAD_POOL_SIZE);
+  }
+
+  public int getRestoreThreadPoolMaxSize() {
+    return getInt(RESTORE_THREAD_POOL_MAX_SIZE, DEFAULT_RESTORE_THREAD_POOL_MAX_SIZE);
   }
 
   public int getDebounceTimeMs() {

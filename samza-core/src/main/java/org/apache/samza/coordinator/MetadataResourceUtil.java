@@ -61,7 +61,7 @@ public class MetadataResourceUtil {
 
   @VisibleForTesting
   void createChangelogStreams() {
-    ChangelogStreamManager.createChangelogStreams(config, jobModel.maxChangeLogStreamPartitions);
+    ChangelogStreamManager.createChangelogStreams(config, jobModel.getMaxChangeLogStreamPartitions());
   }
 
   @VisibleForTesting

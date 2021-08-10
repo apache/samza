@@ -59,10 +59,13 @@ import org.apache.samza.metrics.JmxServer;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
+import org.apache.samza.storage.StateBackendAdmin;
+import org.apache.samza.storage.StateBackendFactory;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.util.DiagnosticsUtil;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -266,6 +269,18 @@ public class ClusterBasedJobCoordinator {
       JobModel jobModel = jobModelManager.jobModel();
       MetadataResourceUtil metadataResourceUtil = new MetadataResourceUtil(jobModel, this.metrics, config);
       metadataResourceUtil.createResources();
+
+      // create all the resources required for state backend factories
+      StorageConfig storageConfig = new StorageConfig(config);
+      storageConfig.getBackupFactories().forEach(stateStorageBackendBackupFactory -> {
+        StateBackendFactory stateBackendFactory =
+            ReflectionUtil.getObj(stateStorageBackendBackupFactory, StateBackendFactory.class);
+        StateBackendAdmin stateBackendAdmin = stateBackendFactory.getAdmin(jobModel, config);
+        // Create resources required for state backend admin
+        stateBackendAdmin.createResources();
+        // Validate resources required for state backend admin
+        stateBackendAdmin.validateResources();
+      });
 
       /*
        * We fanout startpoint if and only if

@@ -45,6 +45,6 @@ public class TestJobModel {
     ContainerModel containerModel2 = new ContainerModel("1", tasksForContainer2);
     Map<String, ContainerModel> containers = ImmutableMap.of("0", containerModel1, "1", containerModel2);
     JobModel jobModel = new JobModel(config, containers);
-    assertEquals(jobModel.maxChangeLogStreamPartitions, 5);
+    assertEquals(jobModel.getMaxChangeLogStreamPartitions(), 5);
   }
 }

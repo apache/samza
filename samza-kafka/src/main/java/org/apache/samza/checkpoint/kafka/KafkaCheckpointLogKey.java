@@ -19,6 +19,8 @@
 package org.apache.samza.checkpoint.kafka;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 import org.apache.samza.container.TaskName;
 
 /**
@@ -26,7 +28,12 @@ import org.apache.samza.container.TaskName;
  */
 public class KafkaCheckpointLogKey {
 
-  public static final String CHECKPOINT_KEY_TYPE = "checkpoint";
+  public static final String CHECKPOINT_V1_KEY_TYPE = "checkpoint";
+  public static final String CHECKPOINT_V2_KEY_TYPE = "checkpoint-v2";
+  public static final Map<String, Short> CHECKPOINT_KEY_VERSIONS = ImmutableMap.of(
+      CHECKPOINT_V1_KEY_TYPE, (short) 1,
+      CHECKPOINT_V2_KEY_TYPE, (short) 2
+  );
   /**
    * The SystemStreamPartitionGrouperFactory configured for this job run. Since, checkpoints of different
    * groupers are not compatible, we persist and validate them across job runs.

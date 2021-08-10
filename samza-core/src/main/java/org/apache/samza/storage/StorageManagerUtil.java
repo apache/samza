@@ -20,12 +20,11 @@
 package org.apache.samza.storage;
 
 import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableMap;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,12 +37,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.clustermanager.StandbyTaskUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.serializers.CheckpointV2Serde;
 import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemStream;
@@ -56,14 +58,16 @@ import org.slf4j.LoggerFactory;
 
 public class StorageManagerUtil {
   private static final Logger LOG = LoggerFactory.getLogger(StorageManagerUtil.class);
+  public static final String CHECKPOINT_FILE_NAME = "CHECKPOINT-V2";
   public static final String OFFSET_FILE_NAME_NEW = "OFFSET-v2";
   public static final String OFFSET_FILE_NAME_LEGACY = "OFFSET";
   public static final String SIDE_INPUT_OFFSET_FILE_NAME_LEGACY = "SIDE-INPUT-OFFSETS";
   private static final ObjectMapper OBJECT_MAPPER = SamzaObjectMapper.getObjectMapper();
   private static final TypeReference<Map<SystemStreamPartition, String>> OFFSETS_TYPE_REFERENCE =
             new TypeReference<Map<SystemStreamPartition, String>>() { };
-  private static final ObjectWriter OBJECT_WRITER = OBJECT_MAPPER.writerWithType(OFFSETS_TYPE_REFERENCE);
+  private static final ObjectWriter SSP_OFFSET_OBJECT_WRITER = OBJECT_MAPPER.writerFor(OFFSETS_TYPE_REFERENCE);
   private static final String SST_FILE_SUFFIX = ".sst";
+  private static final CheckpointV2Serde CHECKPOINT_V2_SERDE = new CheckpointV2Serde();
 
   /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
@@ -118,12 +122,15 @@ public class StorageManagerUtil {
 
       // We check if the new offset-file exists, if so we use its last-modified time, if it doesn't we use the legacy file
       // depending on if it is a side-input or not,
-      // if neither exists, we use 0L (the defauilt return value of lastModified() when file does not exist
+      // if neither exists, we use 0L (the default return value of lastModified() when file does not exist
       File offsetFileRefNew = new File(storeDir, OFFSET_FILE_NAME_NEW);
       File offsetFileRefLegacy = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
       File sideInputOffsetFileRefLegacy = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
+      File checkpointV2File = new File(storeDir, CHECKPOINT_FILE_NAME);
 
-      if (offsetFileRefNew.exists()) {
+      if (checkpointV2File.exists()) {
+        offsetFileLastModifiedTime = checkpointV2File.lastModified();
+      } else if (offsetFileRefNew.exists()) {
         offsetFileLastModifiedTime = offsetFileRefNew.lastModified();
       } else if (!isSideInput && offsetFileRefLegacy.exists()) {
         offsetFileLastModifiedTime = offsetFileRefLegacy.lastModified();
@@ -210,19 +217,32 @@ public class StorageManagerUtil {
 
     // First, we write the new-format offset file
     File offsetFile = new File(storeDir, OFFSET_FILE_NAME_NEW);
-    String fileContents = OBJECT_WRITER.writeValueAsString(offsets);
+    String fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
     FileUtil fileUtil = new FileUtil();
     fileUtil.writeWithChecksum(offsetFile, fileContents);
 
     // Now we write the old format offset file, which are different for store-offset and side-inputs
     if (isSideInput) {
       offsetFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
-      fileContents = OBJECT_WRITER.writeValueAsString(offsets);
+      fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
       fileUtil.writeWithChecksum(offsetFile, fileContents);
     } else {
       offsetFile = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
       fileUtil.writeWithChecksum(offsetFile, offsets.entrySet().iterator().next().getValue());
     }
+  }
+
+  /**
+   * Writes the checkpoint to the store checkpoint directory based on the checkpointId.
+   *
+   * @param storeDir store or store checkpoint directory to write the checkpoint to
+   * @param checkpoint checkpoint v2 containing the checkpoint Id
+   */
+  public void writeCheckpointV2File(File storeDir, CheckpointV2 checkpoint) {
+    File offsetFile = new File(storeDir, CHECKPOINT_FILE_NAME);
+    byte[] fileContents = CHECKPOINT_V2_SERDE.toBytes(checkpoint);
+    FileUtil fileUtil = new FileUtil();
+    fileUtil.writeWithChecksum(offsetFile, new String(fileContents));
   }
 
   /**
@@ -280,6 +300,24 @@ public class StorageManagerUtil {
       return readOffsetFile(storagePartitionDir, sideInputOffsetFileRefLegacy.getName(), storeSSPs);
     } else {
       return new HashMap<>();
+    }
+  }
+
+  /**
+   * Read and return the {@link CheckpointV2} from the directory's {@link #CHECKPOINT_FILE_NAME} file.
+   * If the file does not exist, returns null.
+   *
+   * @param storagePartitionDir store directory to read the checkpoint file from
+   * @return the {@link CheckpointV2} object retrieved from the checkpoint file if found, otherwise return null
+   */
+  // TODO dchen use checkpoint v2 file before migrating off of dual checkpoints
+  public CheckpointV2 readCheckpointV2File(File storagePartitionDir) {
+    File checkpointFile = new File(storagePartitionDir, CHECKPOINT_FILE_NAME);
+    if (checkpointFile.exists()) {
+      String serializedCheckpointV2 = new FileUtil().readWithChecksum(checkpointFile);
+      return new CheckpointV2Serde().fromBytes(serializedCheckpointV2.getBytes());
+    } else {
+      return null;
     }
   }
 
@@ -354,6 +392,17 @@ public class StorageManagerUtil {
           String.format("Error finding checkpoint dirs for task: %s mode: %s store: %s in dir: %s",
               taskName, taskMode, storeName, storeBaseDir), e);
     }
+  }
+
+  /**
+   * Returns the path for a storage engine to create its checkpoint based on the current checkpoint id.
+   *
+   * @param taskStoreDir directory of the store as returned by {@link #getTaskStoreDir}
+   * @param checkpointId current checkpoint id
+   * @return String denoting the file path of the store with the given checkpoint id
+   */
+  public String getStoreCheckpointDir(File taskStoreDir, CheckpointId checkpointId) {
+    return taskStoreDir.getPath() + "-" + checkpointId.serialize();
   }
 
   public void restoreCheckpointFiles(File checkpointDir, File storeDir) {

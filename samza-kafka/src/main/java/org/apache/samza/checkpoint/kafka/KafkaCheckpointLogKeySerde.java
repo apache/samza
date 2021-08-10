@@ -24,7 +24,6 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.serializers.Serde;
 
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 
 /**
@@ -59,11 +58,11 @@ public class KafkaCheckpointLogKeySerde implements Serde<KafkaCheckpointLogKey> 
     try {
       LinkedHashMap<String, String> deserializedKey = MAPPER.readValue(bytes, LinkedHashMap.class);
 
-      return new KafkaCheckpointLogKey(deserializedKey.get(TYPE_FIELD), new TaskName(deserializedKey.get(TASK_NAME_FIELD)), deserializedKey.get(SSP_GROUPER_FACTORY_FIELD)
-      );
+      return new KafkaCheckpointLogKey(deserializedKey.get(TYPE_FIELD), new TaskName(deserializedKey.get(TASK_NAME_FIELD)),
+          deserializedKey.get(SSP_GROUPER_FACTORY_FIELD));
     } catch (Exception e) {
       throw new SamzaException(String.format("Exception in de-serializing checkpoint bytes: %s",
-          Arrays.toString(bytes)), e);
+          new String(bytes)), e);
     }
   }
 }

@@ -22,11 +22,10 @@ package org.apache.samza.storage.kv
 
 import java.io.File
 import java.util
-
 import org.apache.samza.SamzaException
 import org.apache.samza.config.MapConfig
 import org.apache.samza.metrics.{Counter, Gauge, MetricsRegistryMap, MetricsVisitor, Timer}
-import org.apache.samza.util.ExponentialSleepStrategy
+import org.apache.samza.util.{ExponentialSleepStrategy, FileUtil}
 import org.junit.{Assert, Test}
 import org.rocksdb.{FlushOptions, Options, RocksDB, RocksIterator}
 
@@ -121,6 +120,23 @@ class TestRocksDbKeyValueStore
 
     val key = "key".getBytes("UTF-8")
     rocksDB.get(key)
+  }
+
+  @Test
+  def testRocksDbCreatePathIfNotExist(): Unit = {
+    val map = new util.HashMap[String, String]()
+    val config = new MapConfig(map)
+    val options = new Options()
+    options.setCreateIfMissing(true)
+
+    val dbDir = new File(System.getProperty("java.io.tmpdir") + File.separator + "samza-test2", "rocksDbFiles")
+    val rocksDB = new RocksDbKeyValueStore(dbDir, options, config, false, "dbStore")
+    val key = "key".getBytes("UTF-8")
+    rocksDB.put(key, "val".getBytes("UTF-8"))
+
+    rocksDB.close()
+
+    new FileUtil().rm(dbDir)
   }
 
   @Test

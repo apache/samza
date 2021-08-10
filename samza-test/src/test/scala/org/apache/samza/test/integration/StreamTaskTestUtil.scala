@@ -34,7 +34,7 @@ import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
 import org.apache.kafka.clients.producer.{KafkaProducer, Producer, ProducerConfig, ProducerRecord}
 import org.apache.kafka.common.security.auth.SecurityProtocol
 import org.apache.samza.Partition
-import org.apache.samza.checkpoint.Checkpoint
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointV1}
 import org.apache.samza.config._
 import org.apache.samza.container.TaskName
 import org.apache.samza.context.Context
@@ -73,8 +73,8 @@ object StreamTaskTestUtil {
 
   var producer: Producer[Array[Byte], Array[Byte]] = null
   var adminClient: AdminClient = null
-  val cp1 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123").asJava)
-  val cp2 = new Checkpoint(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345").asJava)
+  val cp1 = new CheckpointV1(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "123").asJava)
+  val cp2 = new CheckpointV1(Map(new SystemStreamPartition("kafka", "topic", new Partition(0)) -> "12345").asJava)
 
   // use a random store directory for each run. prevents test failures due to left over state from
   // previously aborted test runs
@@ -291,7 +291,7 @@ class StreamTaskTestUtil {
       case _ => throw new ConfigException("No checkpoint manager factory configured")
     }
 
-    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.maxChangeLogStreamPartitions)
+    ChangelogStreamManager.createChangelogStreams(jobModel.getConfig, jobModel.getMaxChangeLogStreamPartitions)
   }
 }
 

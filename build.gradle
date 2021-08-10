@@ -186,6 +186,7 @@ project(":samza-core_$scalaSuffix") {
     compile "org.apache.commons:commons-lang3:$commonsLang3Version"
     compile "commons-io:commons-io:$commonsIoVersion"
     compile "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
+    compile "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion"
     compile "org.eclipse.jetty:jetty-webapp:$jettyVersion"
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"

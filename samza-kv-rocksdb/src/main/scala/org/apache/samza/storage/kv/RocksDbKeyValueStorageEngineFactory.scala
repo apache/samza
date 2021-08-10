@@ -34,14 +34,12 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
    * @param storeName Name of the store
    * @param storeDir The directory of the store
    * @param registry MetricsRegistry to which to publish store specific metrics.
-   * @param changeLogSystemStreamPartition Samza stream partition from which to receive the changelog.
    * @param containerContext Information about the container in which the task is executing.
    * @return A valid KeyValueStore instance
    */
   override def getKVStore(storeName: String,
     storeDir: File,
     registry: MetricsRegistry,
-    changeLogSystemStreamPartition: SystemStreamPartition,
     jobContext: JobContext,
     containerContext: ContainerContext, storeMode: StoreMode): KeyValueStore[Array[Byte], Array[Byte]] = {
     val storageConfigSubset = jobContext.getConfig.subset("stores." + storeName + ".", true)
@@ -52,7 +50,13 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
       () => RocksDbOptionsHelper.getBlockCacheSize(storageConfigSubset, numTasksForContainer))
 
     val rocksDbOptions = RocksDbOptionsHelper.options(storageConfigSubset, numTasksForContainer, storeDir, storeMode)
-    val rocksDbWriteOptions = new WriteOptions().setDisableWAL(true)
+    val rocksDbWriteOptions = new WriteOptions()
+
+    if (!storageConfigSubset.getBoolean(RocksDbOptionsHelper.ROCKSDB_WAL_ENABLED, false)) {
+      // if WAL not enabled, explicitly disable it
+      rocksDbWriteOptions.setDisableWAL(true)
+    }
+
     val rocksDbFlushOptions = new FlushOptions().setWaitForFlush(true)
     val rocksDb = new RocksDbKeyValueStore(
       storeDir,

@@ -20,7 +20,6 @@
 package org.apache.samza.storage;
 
 import java.io.File;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,12 +45,10 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
-import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.ReflectionUtil;
@@ -220,6 +217,10 @@ public class StorageRecovery {
    */
   @SuppressWarnings("rawtypes")
   private void getContainerStorageManagers() {
+    Set<String> factoryClasses = new StorageConfig(jobConfig).getRestoreFactories();
+    Map<String, StateBackendFactory> stateBackendFactories = factoryClasses.stream().collect(
+        Collectors.toMap(factoryClass -> factoryClass,
+          factoryClass -> ReflectionUtil.getObj(factoryClass, StateBackendFactory.class)));
     Clock clock = SystemClock.instance();
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 5000, clock);
     // don't worry about prefetching for this; looks like the tool doesn't flush to offset files anyways
@@ -230,18 +231,11 @@ public class StorageRecovery {
     for (ContainerModel containerModel : containers.values()) {
       ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
 
-      Set<SystemStreamPartition> changelogSSPs = changeLogSystemStreams.values().stream()
-          .flatMap(ss -> containerModel.getTasks().values().stream()
-              .map(tm -> new SystemStreamPartition(ss, tm.getChangelogPartition())))
-          .collect(Collectors.toSet());
-      SSPMetadataCache sspMetadataCache = new SSPMetadataCache(systemAdmins, Duration.ofMillis(5000), clock, changelogSSPs);
-
       ContainerStorageManager containerStorageManager =
           new ContainerStorageManager(
               checkpointManager,
               containerModel,
               streamMetadataCache,
-              sspMetadataCache,
               systemAdmins,
               changeLogSystemStreams,
               new HashMap<>(),
@@ -253,10 +247,10 @@ public class StorageRecovery {
               new SamzaContainerMetrics(containerModel.getId(), new MetricsRegistryMap(), ""),
               JobContextImpl.fromConfigWithDefaults(jobConfig, jobModel),
               containerContext,
+              stateBackendFactories,
               new HashMap<>(),
               storeBaseDir,
               storeBaseDir,
-              maxPartitionNumber,
               null,
               new SystemClock());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
