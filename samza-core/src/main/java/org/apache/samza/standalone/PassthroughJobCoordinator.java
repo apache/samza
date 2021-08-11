@@ -26,7 +26,7 @@ import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
-import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.JobModelCalculator;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -130,7 +130,8 @@ public class PassthroughJobCoordinator implements JobCoordinator {
       GrouperMetadata grouperMetadata =
           new GrouperMetadataImpl(ImmutableMap.of(String.valueOf(containerId), locationId), Collections.emptyMap(),
               Collections.emptyMap(), Collections.emptyMap());
-      return JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
+      return JobModelCalculator.INSTANCE.calculateJobModel(this.config, Collections.emptyMap(), streamMetadataCache,
+          grouperMetadata);
     } finally {
       systemAdmins.stop();
     }
