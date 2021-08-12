@@ -359,18 +359,26 @@ public class AzureBlobSystemProducer implements SystemProducer {
   }
 
   void validateFlushThresholdSizeSupported(BlobServiceAsyncClient storageClient) {
-    SkuName accountType = storageClient.getAccountInfo().block().getSkuName();
-    String accountName = storageClient.getAccountName();
     long flushThresholdSize = config.getMaxFlushThresholdSize(systemName);
-    boolean isPremiumAccount = SkuName.PREMIUM_LRS == accountType;
-    if (isPremiumAccount && flushThresholdSize > PREMIUM_MAX_BLOCK_SIZE) { // 100 MB
-      throw new SystemProducerException("Azure storage account with name: " + accountName
-          + " is a premium account and can only handle upto " +  PREMIUM_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
-          + flushThresholdSize);
-    } else if (!isPremiumAccount && flushThresholdSize > STANDARD_MAX_BLOCK_SIZE) { // STANDARD account
-      throw new SystemProducerException(
-          "Azure storage account with name: " + accountName + " is a standard account and can only handle upto " + STANDARD_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
-              + flushThresholdSize);
+    try {
+      SkuName accountType = storageClient.getAccountInfo().block().getSkuName();
+      String accountName = storageClient.getAccountName();
+      boolean isPremiumAccount = SkuName.PREMIUM_LRS == accountType;
+      if (isPremiumAccount && flushThresholdSize > PREMIUM_MAX_BLOCK_SIZE) { // 100 MB
+        throw new SystemProducerException("Azure storage account with name: " + accountName + " is a premium account and can only handle upto "
+            + PREMIUM_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is " + flushThresholdSize);
+      } else if (!isPremiumAccount && flushThresholdSize > STANDARD_MAX_BLOCK_SIZE) { // STANDARD account
+        throw new SystemProducerException(
+            "Azure storage account with name: " + accountName + " is a standard account and can only handle upto " + STANDARD_MAX_BLOCK_SIZE + " threshold size. Given flush threshold size is "
+                + flushThresholdSize);
+      }
+    } catch (Exception e) {
+      LOG.warn("Exception encountered while trying to ensure that the given flush threshold size is "
+              + "supported by the desired azure blob storage account. "
+              + "{} is the given account name and {} is the flush threshold size.",
+          config.getAzureAccountName(systemName), flushThresholdSize);
+      LOG.warn("SystemProducer will continue and send messages to Azure Blob Storage but they might fail "
+          + "if the given threshold size is not supported by the account");
     }
   }
 
