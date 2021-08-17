@@ -38,7 +38,7 @@ import org.apache.samza.container.ExecutionContainerIdManager;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.InputStreamsDiscoveredException;
-import org.apache.samza.coordinator.JobCoordinatorMetadataManager;
+import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
 import org.apache.samza.coordinator.JobModelManager;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.PartitionChangeException;
@@ -368,8 +368,8 @@ public class ClusterBasedJobCoordinator {
     JobCoordinatorMetadataManager jobCoordinatorMetadataManager = createJobCoordinatorMetadataManager();
 
     JobCoordinatorMetadata previousMetadata = jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
-    JobCoordinatorMetadata newMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel, config);
-    if (jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)) {
+    JobCoordinatorMetadata newMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel);
+    if (!jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata).isEmpty()) {
       jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(newMetadata);
       metadataChangedAcrossAttempts = true;
     }
