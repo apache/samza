@@ -124,6 +124,7 @@ object SamzaContainer extends Logging {
     containerId: String,
     jobModel: JobModel,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
+    // TODO SAMZA-2671: there is further room for improvement for metrics wiring in general
     registry: MetricsRegistryMap,
     taskFactory: TaskFactory[_],
     jobContext: JobContext,
