@@ -229,7 +229,7 @@ public class TestJobCoordinatorMetadataManager {
         .when(jobCoordinatorMetadataManager).fetchEpochIdForJobCoordinator();
 
     try {
-      jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(new JobModel(OLD_CONFIG, containerModelMap));
+      jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(new JobModel(OLD_CONFIG, containerModelMap), OLD_CONFIG);
       fail("Expected generate job coordinator metadata to throw exception");
     } catch (Exception e) {
       assertTrue("Expecting SamzaException to be thrown", e instanceof SamzaException);
@@ -243,12 +243,12 @@ public class TestJobCoordinatorMetadataManager {
     when(jobCoordinatorMetadataManager.getEnvProperty(CONTAINER_ID_PROPERTY))
         .thenReturn(OLD_CONTAINER_ID);
     JobCoordinatorMetadata expectedMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(
-        new JobModel(OLD_CONFIG, containerModelMap));
+        new JobModel(OLD_CONFIG, containerModelMap), OLD_CONFIG);
 
     assertEquals("Mismatch in epoch identifier.", OLD_EPOCH_ID, expectedMetadata.getEpochId());
 
     JobCoordinatorMetadata actualMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(
-        new JobModel(OLD_CONFIG, containerModelMap));
+        new JobModel(OLD_CONFIG, containerModelMap), OLD_CONFIG);
     assertEquals("Expected repeatable job coordinator metadata", expectedMetadata, actualMetadata);
   }
 
@@ -257,7 +257,7 @@ public class TestJobCoordinatorMetadataManager {
     when(jobCoordinatorMetadataManager.getEnvProperty(CONTAINER_ID_PROPERTY))
         .thenReturn(OLD_CONTAINER_ID);
     JobCoordinatorMetadata expectedMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(
-        new JobModel(OLD_CONFIG, containerModelMap));
+        new JobModel(OLD_CONFIG, containerModelMap), OLD_CONFIG);
 
     Map<String, String> additionalConfig = new HashMap<>();
     additionalConfig.put("yarn.am.high-availability.enabled", "true");
@@ -265,7 +265,7 @@ public class TestJobCoordinatorMetadataManager {
     additionalConfig.putAll(OLD_CONFIG);
     Config modifiedConfig = new MapConfig(additionalConfig);
     JobCoordinatorMetadata actualMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(
-        new JobModel(modifiedConfig, containerModelMap));
+        new JobModel(modifiedConfig, containerModelMap), modifiedConfig);
     assertEquals("Job coordinator metadata should remain the same", expectedMetadata, actualMetadata);
   }
 

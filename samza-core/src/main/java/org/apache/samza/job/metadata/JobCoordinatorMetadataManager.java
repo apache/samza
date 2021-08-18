@@ -32,6 +32,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import org.apache.samza.SamzaException;
+import org.apache.samza.environment.EnvironmentVariables;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMessage;
@@ -101,7 +102,7 @@ public class JobCoordinatorMetadataManager {
    *
    * @return the metadata for the job coordinator
    */
-  public JobCoordinatorMetadata generateJobCoordinatorMetadata(JobModel jobModel) {
+  public JobCoordinatorMetadata generateJobCoordinatorMetadata(JobModel jobModel, Config config) {
     try {
       int jobModelId = Hashing
           .crc32c()
@@ -109,7 +110,7 @@ public class JobCoordinatorMetadataManager {
           .asInt();
       int configId = Hashing
           .crc32()
-          .hashObject(jobModel.getConfig(), new ConfigHashFunnel())
+          .hashObject(config, new ConfigHashFunnel())
           .asInt();
 
       LOG.info("Generated job model id {} and config id {}", jobModelId, configId);
@@ -238,7 +239,7 @@ public class JobCoordinatorMetadataManager {
       String[] containerIdParts = getEnvProperty(CONTAINER_ID_PROPERTY).split(CONTAINER_ID_DELIMITER);
       return containerIdParts[1] + CONTAINER_ID_DELIMITER + containerIdParts[2];
     } else {
-      return getEnvProperty("SAMZA_EPOCH_ID");
+      return getEnvProperty(EnvironmentVariables.SAMZA_EPOCH_ID);
     }
   }
 

@@ -368,7 +368,7 @@ public class ClusterBasedJobCoordinator {
     JobCoordinatorMetadataManager jobCoordinatorMetadataManager = createJobCoordinatorMetadataManager();
 
     JobCoordinatorMetadata previousMetadata = jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
-    JobCoordinatorMetadata newMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel);
+    JobCoordinatorMetadata newMetadata = jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel, config);
     if (!jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata).isEmpty()) {
       jobCoordinatorMetadataManager.writeJobCoordinatorMetadata(newMetadata);
       metadataChangedAcrossAttempts = true;

@@ -250,7 +250,7 @@ public class TestClusterBasedJobCoordinator {
     JobModel mockJobModel = mock(JobModel.class);
 
     when(jobCoordinatorMetadataManager.readJobCoordinatorMetadata()).thenReturn(previousMetadata);
-    when(jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(any())).thenReturn(newMetadata);
+    when(jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(any(), any())).thenReturn(newMetadata);
     when(jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata)).thenReturn(
         ImmutableSet.of());
     when(clusterBasedJobCoordinator.createJobCoordinatorMetadataManager()).thenReturn(jobCoordinatorMetadataManager);
