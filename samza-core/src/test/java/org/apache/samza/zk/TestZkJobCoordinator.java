@@ -285,7 +285,7 @@ public class TestZkJobCoordinator {
     StreamPartitionCountMonitor monitor = Mockito.mock(StreamPartitionCountMonitor.class);
     zkJobCoordinator.debounceTimer = mockDebounceTimer;
     zkJobCoordinator.streamPartitionCountMonitor = monitor;
-    when(zkJobCoordinator.getPartitionCountMonitor()).thenReturn(monitor);
+    doReturn(monitor).when(zkJobCoordinator).getPartitionCountMonitor();
 
     ZkJobCoordinator.LeaderElectorListenerImpl listener = zkJobCoordinator.new LeaderElectorListenerImpl();
 
