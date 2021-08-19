@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.Optional;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.context.Context;
 import org.apache.samza.system.ChangelogSSPIterator;
 
 /**
@@ -37,6 +38,13 @@ import org.apache.samza.system.ChangelogSSPIterator;
  * </p>
  */
 public interface StorageEngine {
+
+  /**
+   * Use for lifecycle management for StorageEngine, ContainerStorageManager after restoring each store issues
+   * init on each configured storage engine
+   * @param context holder for all application and framework defined objects
+   */
+  void init(Context context);
 
   /**
    * Restore the content of this StorageEngine from the changelog. Messages are

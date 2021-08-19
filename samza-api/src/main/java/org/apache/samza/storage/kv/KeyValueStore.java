@@ -26,6 +26,9 @@ import java.util.Map;
 import java.util.Optional;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.context.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -35,6 +38,16 @@ import org.apache.samza.checkpoint.CheckpointId;
  * @param <V> the type of values maintained by this key-value store.
  */
 public interface KeyValueStore<K, V> {
+
+  static final Logger LOG = LoggerFactory.getLogger(KeyValueStore.class);
+
+  /**
+   * Optional lifecycle management method for each KV store, storage engine invokes this initialization during
+   * {@code org.apache.samza.storage.StorageEngine#init}
+   * @param context holder for application and samza framework objects
+   */
+  default void init(Context context) {
+  }
 
   /**
    * Gets the value associated with the specified {@code key}.

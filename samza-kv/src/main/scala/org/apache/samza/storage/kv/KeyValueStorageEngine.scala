@@ -31,6 +31,7 @@ import java.util.Optional
 
 import com.google.common.annotations.VisibleForTesting
 import org.apache.samza.checkpoint.CheckpointId
+import org.apache.samza.context.Context
 
 /**
  * A key value store.
@@ -51,6 +52,11 @@ class KeyValueStorageEngine[K, V](
   metrics: KeyValueStorageEngineMetrics = new KeyValueStorageEngineMetrics,
   batchSize: Int = 500,
   val clock: () => Long = { System.nanoTime }) extends StorageEngine with KeyValueStore[K, V] with TimerUtil with Logging {
+
+  override def init(context: Context): Unit = {
+    info("Calling init for wrapped store: " + storeName)
+    wrapperStore.init(context);
+  }
 
   /* delegate to underlying store */
   def get(key: K): V = {
