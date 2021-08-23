@@ -34,7 +34,7 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
-import org.apache.samza.job.metadata.JobMetadataChange;
+import org.apache.samza.job.JobMetadataChange;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamSystemProducer;
