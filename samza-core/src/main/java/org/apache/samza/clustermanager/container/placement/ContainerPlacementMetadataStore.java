@@ -164,7 +164,7 @@ public class ContainerPlacementMetadataStore {
         return Optional.of(requestMessage);
       } catch (IOException e) {
         throw new SamzaException(
-            String.format("Error reading the ContainerPlacementResponseMessage for uuid {}", uuid), e);
+            String.format("Error reading the ContainerPlacementResponseMessage for uuid: %s", uuid), e);
       }
     }
     return Optional.empty();
@@ -188,7 +188,7 @@ public class ContainerPlacementMetadataStore {
         return Optional.of(requestMessage);
       } catch (IOException e) {
         throw new SamzaException(
-            String.format("Error reading the ContainerPlacementResponseMessage for uuid {}", uuid), e);
+            String.format("Error reading the ContainerPlacementResponseMessage for uuid: %s", uuid), e);
       }
     }
     return Optional.empty();
