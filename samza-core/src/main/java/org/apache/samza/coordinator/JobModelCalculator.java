@@ -79,24 +79,25 @@ public class JobModelCalculator {
   public JobModel calculateJobModel(Config originalConfig, Map<TaskName, Integer> changeLogPartitionMapping,
       StreamMetadataCache streamMetadataCache, GrouperMetadata grouperMetadata) {
     // refresh config if enabled regex topic rewriter
-    Config config = refreshConfigByRegexTopicRewriter(originalConfig);
+    Config refreshedConfig = refreshConfigByRegexTopicRewriter(originalConfig);
 
-    TaskConfig taskConfig = new TaskConfig(config);
+    TaskConfig taskConfig = new TaskConfig(refreshedConfig);
     // Do grouping to fetch TaskName to SSP mapping
-    Set<SystemStreamPartition> allSystemStreamPartitions = getMatchedInputStreamPartitions(config, streamMetadataCache);
+    Set<SystemStreamPartition> allSystemStreamPartitions =
+        getMatchedInputStreamPartitions(refreshedConfig, streamMetadataCache);
 
     // processor list is required by some of the groupers. So, let's pass them as part of the config.
     // Copy the config and add the processor list to the config copy.
     // TODO: It is non-ideal to have config as a medium to transmit the locality information; especially, if the locality information evolves. Evaluate options on using context objects to pass dependent components.
-    Map<String, String> configMap = new HashMap<>(config);
+    Map<String, String> configMap = new HashMap<>(refreshedConfig);
     configMap.put(JobConfig.PROCESSOR_LIST, String.join(",", grouperMetadata.getProcessorLocality().keySet()));
     SystemStreamPartitionGrouper grouper = getSystemStreamPartitionGrouper(new MapConfig(configMap));
 
-    JobConfig jobConfig = new JobConfig(config);
+    JobConfig jobConfig = new JobConfig(refreshedConfig);
 
     Map<TaskName, Set<SystemStreamPartition>> groups;
     if (jobConfig.isSSPGrouperProxyEnabled()) {
-      SSPGrouperProxy sspGrouperProxy = new SSPGrouperProxy(config, grouper);
+      SSPGrouperProxy sspGrouperProxy = new SSPGrouperProxy(refreshedConfig, grouper);
       groups = sspGrouperProxy.group(allSystemStreamPartitions, grouperMetadata);
     } else {
       LOG.warn(String.format(
@@ -137,10 +138,10 @@ public class JobModelCalculator {
     boolean standbyTasksEnabled = jobConfig.getStandbyTasksEnabled();
     int standbyTaskReplicationFactor = jobConfig.getStandbyTaskReplicationFactor();
     TaskNameGrouperProxy taskNameGrouperProxy =
-        new TaskNameGrouperProxy(containerGrouperFactory.build(config), standbyTasksEnabled,
+        new TaskNameGrouperProxy(containerGrouperFactory.build(refreshedConfig), standbyTasksEnabled,
             standbyTaskReplicationFactor);
     Set<ContainerModel> containerModels;
-    boolean isHostAffinityEnabled = new ClusterManagerConfig(config).getHostAffinityEnabled();
+    boolean isHostAffinityEnabled = new ClusterManagerConfig(refreshedConfig).getHostAffinityEnabled();
     if (isHostAffinityEnabled) {
       containerModels = taskNameGrouperProxy.group(taskModels, grouperMetadata);
     } else {
@@ -150,18 +151,18 @@ public class JobModelCalculator {
 
     Map<String, ContainerModel> containerMap =
         containerModels.stream().collect(Collectors.toMap(ContainerModel::getId, Function.identity()));
-    return new JobModel(config, containerMap);
+    return new JobModel(refreshedConfig, containerMap);
   }
 
   /**
    * Refresh Kafka topic list used as input streams if enabled {@link org.apache.samza.config.RegExTopicGenerator}
-   * @param config Samza job config
+   * @param originalConfig Samza job config
    * @return refreshed config
    */
-  private static Config refreshConfigByRegexTopicRewriter(Config config) {
-    JobConfig jobConfig = new JobConfig(config);
+  private static Config refreshConfigByRegexTopicRewriter(Config originalConfig) {
+    JobConfig jobConfig = new JobConfig(originalConfig);
     Optional<String> configRewriters = jobConfig.getConfigRewriters();
-    Config resultConfig = config;
+    Config resultConfig = originalConfig;
     if (configRewriters.isPresent()) {
       for (String rewriterName : configRewriters.get().split(",")) {
         String rewriterClass = jobConfig.getConfigRewriterClass(rewriterName)
