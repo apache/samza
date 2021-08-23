@@ -367,7 +367,8 @@ public class AzureJobCoordinator implements JobCoordinator {
     // Generate the new JobModel
     GrouperMetadata grouperMetadata = new GrouperMetadataImpl(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
     JobModel newJobModel =
-        JobModelManager.readJobModel(this.config, Collections.emptyMap(), streamMetadataCache, grouperMetadata);
+        JobModelCalculator.INSTANCE.calculateJobModel(this.config, Collections.emptyMap(), streamMetadataCache,
+            grouperMetadata);
     LOG.info("pid=" + processorId + "Generated new Job Model. Version = " + nextJMVersion);
 
     // Publish the new job model
