@@ -16,12 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+package org.apache.samza.job.metadata;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
@@ -32,6 +33,7 @@ import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStrea
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
 import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMessage;
 import org.apache.samza.job.JobCoordinatorMetadata;
+import org.apache.samza.job.JobMetadataChange;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -41,11 +43,10 @@ import org.apache.samza.serializers.Serde;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.samza.coordinator.JobCoordinatorMetadataManager.ClusterType;
-import static org.apache.samza.coordinator.JobCoordinatorMetadataManager.CONTAINER_ID_DELIMITER;
-import static org.apache.samza.coordinator.JobCoordinatorMetadataManager.CONTAINER_ID_PROPERTY;
+import static org.apache.samza.job.metadata.JobCoordinatorMetadataManager.CONTAINER_ID_DELIMITER;
+import static org.apache.samza.job.metadata.JobCoordinatorMetadataManager.CONTAINER_ID_PROPERTY;
+import static org.apache.samza.job.metadata.JobCoordinatorMetadataManager.ClusterType;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -108,46 +109,119 @@ public class TestJobCoordinatorMetadataManager {
   }
 
   @Test
-  public void testCheckForMetadataChanges() {
-    JobCoordinatorMetadata previousMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
-    JobCoordinatorMetadata newMetadataWithDifferentEpochId =
-        new JobCoordinatorMetadata(NEW_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
-
-    JobCoordinatorMetadataManager.JobCoordinatorMetadataManagerMetrics metrics =
-        jobCoordinatorMetadataManager.getMetrics();
-
-    boolean metadataChanged =
-        jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithDifferentEpochId);
-    assertTrue("Metadata check should return true", metadataChanged);
+  public void testCheckForMetadataChangesNoPreviousMetadata() {
+    JobCoordinatorMetadata newMetadata = new JobCoordinatorMetadata(NEW_EPOCH_ID, NEW_CONFIG_ID, NEW_JOB_MODEL_ID);
+    Set<JobMetadataChange> metadataChanges =
+        this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, null);
+    assertEquals("Metadata check should indicate all changes",
+        ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL, JobMetadataChange.CONFIG),
+        metadataChanges);
     assertEquals("New deployment should be 1 since Epoch ID changed", 1,
-        metrics.getNewDeployment().getValue().intValue());
+        this.jobCoordinatorMetadataManager.getMetrics().getNewDeployment().getValue().intValue());
+    assertEquals("Job model changed across application attempts should be 0", 0,
+        this.jobCoordinatorMetadataManager.getMetrics()
+            .getJobModelChangedAcrossApplicationAttempt()
+            .getValue()
+            .intValue());
+    assertEquals("Config changed across application attempts should be 0", 0,
+        this.jobCoordinatorMetadataManager.getMetrics()
+            .getConfigChangedAcrossApplicationAttempt()
+            .getValue()
+            .intValue());
+  }
 
-    JobCoordinatorMetadata newMetadataWithDifferentConfigId =
-        new JobCoordinatorMetadata(OLD_EPOCH_ID, NEW_CONFIG_ID, OLD_JOB_MODEL_ID);
-    metadataChanged =
-        jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithDifferentConfigId);
-    assertTrue("Metadata check should return true", metadataChanged);
-    assertEquals("Config across application attempts should be 1", 1,
-        metrics.getConfigChangedAcrossApplicationAttempt().getValue().intValue());
-
-    JobCoordinatorMetadata newMetadataWithDifferentJobModelId =
-        new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, NEW_JOB_MODEL_ID);
-    metadataChanged =
-        jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithDifferentJobModelId);
-    assertTrue("Metadata check should return true", metadataChanged);
-    assertEquals("Job model changed across application attempts should be 1", 1,
-        metrics.getJobModelChangedAcrossApplicationAttempt().getValue().intValue());
-
-    JobCoordinatorMetadata newMetadataWithNoChange =
-        new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
+  @Test
+  public void testCheckForMetadataChangesNewDeployment() {
+    JobCoordinatorMetadata previousMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
+    JobCoordinatorMetadata newMetadata = new JobCoordinatorMetadata(NEW_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
+    Set<JobMetadataChange> metadataChanges =
+        this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata);
+    assertEquals("Metadata check should indicate new deployment", ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT),
+        metadataChanges);
+    assertEquals("New deployment should be 1 since Epoch ID changed", 1,
+        this.jobCoordinatorMetadataManager.getMetrics().getNewDeployment().getValue().intValue());
     assertEquals("Application attempt count should be 0", 0,
-        metrics.getApplicationAttemptCount().getValue().intValue());
+        this.jobCoordinatorMetadataManager.getMetrics().getApplicationAttemptCount().getValue().intValue());
+  }
 
-    metadataChanged =
-        jobCoordinatorMetadataManager.checkForMetadataChanges(previousMetadata, newMetadataWithNoChange);
-    assertFalse("Metadata check should return false", metadataChanged);
+  @Test
+  public void testCheckForMetadataChangesJobModelChange() {
+    JobCoordinatorMetadata previousMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
+    JobCoordinatorMetadata newMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, NEW_JOB_MODEL_ID);
+    Set<JobMetadataChange> metadataChanges =
+        this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata);
+    assertEquals("Metadata check should indicate new job model", ImmutableSet.of(JobMetadataChange.JOB_MODEL),
+        metadataChanges);
+    assertEquals("Job model changed across application attempts should be 1", 1,
+        this.jobCoordinatorMetadataManager.getMetrics()
+            .getJobModelChangedAcrossApplicationAttempt()
+            .getValue()
+            .intValue());
+    assertEquals("Application attempt count should be 0", 0,
+        this.jobCoordinatorMetadataManager.getMetrics().getApplicationAttemptCount().getValue().intValue());
+  }
+
+  @Test
+  public void testCheckForMetadataChangesConfigChange() {
+    JobCoordinatorMetadata previousMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
+    JobCoordinatorMetadata newMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, NEW_CONFIG_ID, OLD_JOB_MODEL_ID);
+    Set<JobMetadataChange> metadataChanges =
+        this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata);
+    assertEquals("Metadata check should indicate new config", ImmutableSet.of(JobMetadataChange.CONFIG),
+        metadataChanges);
+    assertEquals("Config changed across application attempts should be 1", 1,
+        this.jobCoordinatorMetadataManager.getMetrics()
+            .getConfigChangedAcrossApplicationAttempt()
+            .getValue()
+            .intValue());
+    assertEquals("Application attempt count should be 0", 0,
+        this.jobCoordinatorMetadataManager.getMetrics().getApplicationAttemptCount().getValue().intValue());
+  }
+
+  @Test
+  public void testCheckForMetadataChangesMultipleChanges() {
+    JobCoordinatorMetadata previousMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
+    JobCoordinatorMetadata newMetadata = new JobCoordinatorMetadata(NEW_EPOCH_ID, NEW_CONFIG_ID, NEW_JOB_MODEL_ID);
+    Set<JobMetadataChange> metadataChanges =
+        this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata);
+    assertEquals("Metadata check should indicate all changes",
+        ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL, JobMetadataChange.CONFIG),
+        metadataChanges);
+    assertEquals("New deployment should be 1 since Epoch ID changed", 1,
+        this.jobCoordinatorMetadataManager.getMetrics().getNewDeployment().getValue().intValue());
+    assertEquals("Job model changed across application attempts should be 0", 0,
+        this.jobCoordinatorMetadataManager.getMetrics()
+            .getJobModelChangedAcrossApplicationAttempt()
+            .getValue()
+            .intValue());
+    assertEquals("Config changed across application attempts should be 0", 0,
+        this.jobCoordinatorMetadataManager.getMetrics()
+            .getConfigChangedAcrossApplicationAttempt()
+            .getValue()
+            .intValue());
+  }
+
+  @Test
+  public void testCheckForMetadataChangesNoChanges() {
+    JobCoordinatorMetadata previousMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
+    JobCoordinatorMetadata newMetadata = new JobCoordinatorMetadata(OLD_EPOCH_ID, OLD_CONFIG_ID, OLD_JOB_MODEL_ID);
+    Set<JobMetadataChange> metadataChanges =
+        this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata);
+    assertEquals("Metadata check should indicate no changes", ImmutableSet.of(), metadataChanges);
+    assertEquals("New deployment should be 0 since Epoch ID did not change", 0,
+        this.jobCoordinatorMetadataManager.getMetrics().getNewDeployment().getValue().intValue());
+    assertEquals("Job model changed across application attempts should be 0", 0,
+        this.jobCoordinatorMetadataManager.getMetrics()
+            .getJobModelChangedAcrossApplicationAttempt()
+            .getValue()
+            .intValue());
+    assertEquals("Config changed across application attempts should be 0", 0,
+        this.jobCoordinatorMetadataManager.getMetrics()
+            .getConfigChangedAcrossApplicationAttempt()
+            .getValue()
+            .intValue());
     assertEquals("Application attempt count should be 1", 1,
-        metrics.getApplicationAttemptCount().getValue().intValue());
+        this.jobCoordinatorMetadataManager.getMetrics().getApplicationAttemptCount().getValue().intValue());
   }
 
   @Test
