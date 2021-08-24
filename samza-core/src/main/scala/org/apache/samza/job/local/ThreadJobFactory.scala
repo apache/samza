@@ -69,7 +69,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     }
 
     val metricsRegistry = new MetricsRegistryMap()
-    val coordinatorStreamStore: CoordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap())
+    val coordinatorStreamStore: CoordinatorStreamStore = new CoordinatorStreamStore(config, metricsRegistry)
     coordinatorStreamStore.init()
 
     val changelogStreamManager = new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetChangelogMapping.TYPE))
@@ -148,6 +148,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         containerId,
         jobModel,
         Map[String, MetricsReporter](),
+        metricsRegistry,
         taskFactory,
         JobContextImpl.fromConfigWithDefaults(config, jobModel),
         Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
