@@ -42,7 +42,7 @@ import org.apache.samza.container.grouper.task.GrouperMetadata;
 import org.apache.samza.container.grouper.task.GrouperMetadataImpl;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
-import org.apache.samza.coordinator.JobModelManager;
+import org.apache.samza.coordinator.JobModelCalculator;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
@@ -396,7 +396,8 @@ public class ZkJobCoordinator implements JobCoordinator {
     }
 
     GrouperMetadata grouperMetadata = getGrouperMetadata(zkJobModelVersion, processorNodes);
-    JobModel model = JobModelManager.readJobModel(config, changeLogPartitionMap, streamMetadataCache, grouperMetadata);
+    JobModel model = JobModelCalculator.INSTANCE.calculateJobModel(config, changeLogPartitionMap, streamMetadataCache,
+        grouperMetadata);
     return new JobModel(new MapConfig(), model.getContainers());
   }
 

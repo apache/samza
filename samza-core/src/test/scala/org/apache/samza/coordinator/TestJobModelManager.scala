@@ -19,8 +19,6 @@
 
 package org.apache.samza.coordinator
 
-import java.util
-
 import org.apache.samza.Partition
 import org.apache.samza.checkpoint.TestCheckpointTool.MockCheckpointManagerFactory
 import org.apache.samza.config._
@@ -28,25 +26,25 @@ import org.apache.samza.container.{SamzaContainer, TaskName}
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, CoordinatorStreamStoreTestUtil, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
 import org.apache.samza.coordinator.stream.{MockCoordinatorStreamSystemFactory, MockCoordinatorStreamWrappedConsumer}
-import org.apache.samza.job.MockJobFactory
 import org.apache.samza.job.local.{ProcessJobFactory, ThreadJobFactory}
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.metrics.MetricsRegistryMap
 import org.apache.samza.serializers.model.SamzaObjectMapper
 import org.apache.samza.storage.ChangelogStreamManager
-import org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata
 import org.apache.samza.system._
 import org.apache.samza.util.HttpUtil
 import org.junit.Assert._
 import org.junit.{After, Before, Test}
-import org.mockito.Mockito.{mock, when}
 import org.scalatest.{FlatSpec, PrivateMethodTester}
 
+import java.util
 import scala.collection.JavaConverters._
-import scala.collection.immutable
 
-
-class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
+/**
+ * This used to be called TestJobCoordinator, but JobCoordinator is currently an interface, so that old name seemed
+ * incorrect. The object-under-test seems to actually be JobModelManager.
+ */
+class TestJobModelManager extends FlatSpec with PrivateMethodTester {
   /**
    * Builds a coordinator from config, and then compares it with what was
    * expected. We simulate having a checkpoint manager that has 2 task
@@ -229,29 +227,6 @@ class TestJobCoordinator extends FlatSpec with PrivateMethodTester {
     val jobModel = new JobModel(config, containers.asJava)
     assertEquals(config, coordinator.jobModel.getConfig)
     assertEquals(jobModel, coordinator.jobModel)
-  }
-
-  /**
-    * Test with a JobFactory other than ProcessJobFactory or ThreadJobFactory so that
-    * JobConfing.SSP_MATCHER_CONFIG_JOB_FACTORY_REGEX does not match.
-    */
-  @Test
-  def testWithPartitionAssignmentWithMockJobFactory {
-    val config = getTestConfig(classOf[MockJobFactory])
-    val systemStream = new SystemStream("test", "stream1")
-    val streamMetadataCache = mock(classOf[StreamMetadataCache])
-    when(streamMetadataCache.getStreamMetadata(Set(systemStream), true)).thenReturn(
-      Map(systemStream -> new SystemStreamMetadata(systemStream.getStream,
-        Map(new Partition(0) -> new SystemStreamPartitionMetadata("", "", ""),
-          new Partition(1) -> new SystemStreamPartitionMetadata("", "", ""),
-          new Partition(2) -> new SystemStreamPartitionMetadata("", "", "")
-        ).asJava)))
-    val getInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getInputStreamPartitions)
-    val getMatchedInputStreamPartitions = PrivateMethod[immutable.Set[Any]]('getMatchedInputStreamPartitions)
-
-    val allSSP = JobModelManager invokePrivate getInputStreamPartitions(config, streamMetadataCache)
-    val matchedSSP = JobModelManager invokePrivate getMatchedInputStreamPartitions(config, streamMetadataCache)
-    assertEquals(matchedSSP, allSSP)
   }
 
   def getTestConfig(clazz : Class[_]) = {
