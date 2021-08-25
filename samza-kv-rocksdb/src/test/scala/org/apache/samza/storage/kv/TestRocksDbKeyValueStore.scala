@@ -199,7 +199,7 @@ class TestRocksDbKeyValueStore
 
   @Test
   def testMetricsConfig(): Unit = {
-    val registry = new MetricsRegistryMap("registrymap")
+    val registry = new MetricsRegistryMap()
     val metrics = new KeyValueStoreMetrics("dbstore", registry)
 
     val map = new util.HashMap[String, String]()
@@ -229,7 +229,7 @@ class TestRocksDbKeyValueStore
 
   @Test
   def testRocksDBMetricsWithBulkLoadRWRecreate(): Unit = {
-    val registry = new MetricsRegistryMap("registrymap")
+    val registry = new MetricsRegistryMap()
     val metrics = new KeyValueStoreMetrics("dbstore", registry)
 
     // Sample metric values for estimate-num-keys metrics

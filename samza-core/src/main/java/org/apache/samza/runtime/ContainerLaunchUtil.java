@@ -126,10 +126,12 @@ public class ContainerLaunchUtil {
         diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
         metricsReporters.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS, diagnosticsManagerReporterPair.get().getValue());
       }
+      MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
           containerId, jobModel,
           ScalaJavaUtil.toScalaMap(metricsReporters),
+          metricsRegistryMap,
           taskFactory,
           JobContextImpl.fromConfigWithDefaults(config, jobModel),
           Option.apply(appDesc.getApplicationContainerContextFactory().orElse(null)),

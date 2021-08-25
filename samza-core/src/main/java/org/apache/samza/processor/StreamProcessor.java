@@ -404,12 +404,18 @@ public class StreamProcessor {
       LOGGER.warn("StartpointManager cannot be instantiated because no metadata store defined for this stream processor");
     }
 
+    /*
+     * StreamProcessor has a metricsRegistry instance variable, but StreamProcessor registers its metrics on its own
+     * with the reporters. Therefore, don't reuse the StreamProcessor.metricsRegistry, because SamzaContainer also
+     * registers the registry, and that will result in unnecessary duplicate metrics.
+     */
+    MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
+
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
-        this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config, jobModel),
+        metricsRegistryMap, this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config, jobModel),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
-        Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager,
-        diagnosticsManager);
+        Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager, diagnosticsManager);
   }
 
   private static JobCoordinator createJobCoordinator(Config config, String processorId, MetricsRegistry metricsRegistry, MetadataStore metadataStore) {

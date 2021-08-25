@@ -67,7 +67,7 @@ public class MockSystemConsumer extends BlockingEnvelopeMap {
    *          How long each thread should sleep between batch writes.
    */
   public MockSystemConsumer(int messagesPerBatch, int threadCount, int brokerSleepMs) {
-    super(new MetricsRegistryMap("test-container-performance"), new Clock() {
+    super(new MetricsRegistryMap(), new Clock() {
       @Override
       public long currentTimeMillis() {
         return System.currentTimeMillis();

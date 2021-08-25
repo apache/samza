@@ -124,6 +124,8 @@ object SamzaContainer extends Logging {
     containerId: String,
     jobModel: JobModel,
     customReporters: Map[String, MetricsReporter] = Map[String, MetricsReporter](),
+    // TODO SAMZA-2671: there is further room for improvement for metrics wiring in general
+    registry: MetricsRegistryMap,
     taskFactory: TaskFactory[_],
     jobContext: JobContext,
     applicationContainerContextFactoryOption: Option[ApplicationContainerContextFactory[ApplicationContainerContext]],
@@ -154,7 +156,6 @@ object SamzaContainer extends Logging {
     startupLog("Using configuration: %s" format config)
     startupLog("Using container model: %s" format containerModel)
 
-    val registry = new MetricsRegistryMap(containerName)
     val samzaContainerMetrics = new SamzaContainerMetrics(containerName, registry)
     val systemProducersMetrics = new SystemProducersMetrics(registry)
     val systemConsumersMetrics = new SystemConsumersMetrics(registry)
