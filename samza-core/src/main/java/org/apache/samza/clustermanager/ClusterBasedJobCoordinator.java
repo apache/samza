@@ -415,16 +415,16 @@ public class ClusterBasedJobCoordinator {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     return new StreamPartitionCountMonitorFactory(streamMetadataCache,
         this.metrics).buildInputStreamPartitionCountMonitor(config, streamsChanged -> {
-      // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
-      if (hasDurableStores) {
-        LOG.error(
-            "Input topic partition count changed in a job with durable state. Failing the job. Changed topics: {}",
-            streamsChanged.toString());
-        state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-      }
-      coordinatorException = new PartitionChangeException(
-          "Input topic partition count changes detected for topics: " + streamsChanged.toString());
-    });
+          // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
+          if (hasDurableStores) {
+            LOG.error(
+                "Input topic partition count changed in a job with durable state. Failing the job. Changed topics: {}",
+                streamsChanged.toString());
+            state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+          }
+          coordinatorException = new PartitionChangeException(
+              "Input topic partition count changes detected for topics: " + streamsChanged.toString());
+        });
   }
 
   private Optional<StreamRegexMonitor> getInputRegexMonitor(JobModel jobModel, SystemAdmins systemAdmins) {
