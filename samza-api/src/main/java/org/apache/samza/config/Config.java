@@ -231,23 +231,23 @@ public abstract class Config implements Map<String, String>, Serializable {
 
   public abstract Config sanitize();
 
-  public void clear() {
+  @Override public void clear() {
     throw new ConfigException("Config is immutable.");
   }
 
-  public String put(String key, String value) {
+  @Override public String put(String key, String value) {
     throw new ConfigException("Config is immutable.");
   }
 
-  public void putAll(Map<? extends String, ? extends String> m) {
+  @Override public void putAll(Map<? extends String, ? extends String> m) {
     throw new ConfigException("Config is immutable.");
   }
 
-  public String remove(Object s) {
+  @Override public String remove(Object s) {
     throw new ConfigException("Config is immutable.");
   }
 
-  public void replaceAll(BiFunction<? super String, ? super String, ? extends String> function) {
+  @Override public void replaceAll(BiFunction<? super String, ? super String, ? extends String> function) {
     throw new ConfigException("Config is immutable.");
   }
 }

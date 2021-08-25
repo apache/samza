@@ -71,7 +71,7 @@ public class SamzaHistogram {
       this.percentile = percentile;
     }
 
-    public void visit(MetricsVisitor visitor) {
+    @Override public void visit(MetricsVisitor visitor) {
       visitor.gauge(this);
     }
 
@@ -80,7 +80,7 @@ public class SamzaHistogram {
      * This is needed for reporters which do not implement MetricsReporter
      * and do not have MetricsReporter to update the values.
      */
-    public Double getValue() {
+    @Override public Double getValue() {
       /*
        * We cannot updateGaugeValues if the histogram gauges are being instantiated
        * and getValue is called in this context.

@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 
 public class LongSerdeFactory implements SerdeFactory<Long> {
 
-  public LongSerde getSerde(String name, Config config) {
+  @Override public LongSerde getSerde(String name, Config config) {
     return new LongSerde();
   }
 }

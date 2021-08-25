@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 
 public class ByteBufferSerdeFactory implements SerdeFactory<ByteBuffer> {
 
-  public Serde<ByteBuffer> getSerde(String name, Config config) {
+  @Override public Serde<ByteBuffer> getSerde(String name, Config config) {
     return new ByteBufferSerde();
   }
 }

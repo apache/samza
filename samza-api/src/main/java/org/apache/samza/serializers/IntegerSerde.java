@@ -26,7 +26,7 @@ import java.nio.ByteBuffer;
  */
 public class IntegerSerde implements Serde<Integer> {
 
-  public byte[] toBytes(Integer obj) {
+  @Override public byte[] toBytes(Integer obj) {
     if (obj != null) {
       return ByteBuffer.allocate(4).putInt(obj).array();
     } else {
@@ -35,7 +35,7 @@ public class IntegerSerde implements Serde<Integer> {
   }
 
   // big-endian by default
-  public Integer fromBytes(byte[] bytes) {
+  @Override public Integer fromBytes(byte[] bytes) {
     if (bytes != null) {
       return ByteBuffer.wrap(bytes).getInt();
     } else {

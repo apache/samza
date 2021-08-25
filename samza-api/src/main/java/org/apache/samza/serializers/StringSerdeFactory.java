@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 
 public class StringSerdeFactory implements SerdeFactory<String> {
 
-  public Serde<String> getSerde(String name, Config config) {
+  @Override public Serde<String> getSerde(String name, Config config) {
     return new StringSerde(config.get("encoding", "UTF-8"));
   }
 }

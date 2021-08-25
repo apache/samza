@@ -44,7 +44,7 @@ public class CheckpointV1 implements Checkpoint {
     this.offsets = offsets;
   }
 
-  public short getVersion() {
+  @Override public short getVersion() {
     return CHECKPOINT_VERSION;
   }
 

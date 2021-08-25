@@ -53,13 +53,13 @@ public class BoundedSSPIterator implements Iterator<IncomingMessageEnvelope> {
     this.peeks = new ArrayDeque<>();
   }
 
-  public boolean hasNext() {
+  @Override public boolean hasNext() {
     refresh();
 
     return peeks.size() > 0 && (endOffset == null || admin.offsetComparator(peeks.peek().getOffset(), endOffset) <= 0);
   }
 
-  public IncomingMessageEnvelope next() {
+  @Override public IncomingMessageEnvelope next() {
     refresh();
 
     if (peeks.size() == 0 || (endOffset != null && admin.offsetComparator(peeks.peek().getOffset(), endOffset) > 0)) {

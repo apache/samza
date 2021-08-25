@@ -23,7 +23,7 @@ import org.apache.samza.config.Config;
 
 public class IntegerSerdeFactory implements SerdeFactory<Integer> {
 
-  public Serde<Integer> getSerde(String name, Config config) {
+  @Override public Serde<Integer> getSerde(String name, Config config) {
     return new IntegerSerde();
   }
 }

@@ -78,7 +78,7 @@ public class SlidingTimeWindowReservoir implements Reservoir {
    */
   public SlidingTimeWindowReservoir() {
     this(DEFAULT_WINDOW_SIZE_MS, new Clock() {
-      public long currentTimeMillis() {
+      @Override public long currentTimeMillis() {
         return System.currentTimeMillis();
       }
     });
@@ -91,7 +91,7 @@ public class SlidingTimeWindowReservoir implements Reservoir {
    */
   public SlidingTimeWindowReservoir(long windowMs) {
     this(windowMs, new Clock() {
-      public long currentTimeMillis() {
+      @Override public long currentTimeMillis() {
         return System.currentTimeMillis();
       }
     });

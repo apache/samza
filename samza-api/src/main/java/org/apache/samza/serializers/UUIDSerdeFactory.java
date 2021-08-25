@@ -25,7 +25,7 @@ import java.util.UUID;
 
 public class UUIDSerdeFactory implements SerdeFactory<UUID> {
 
-  public Serde<UUID> getSerde(String name, Config config) {
+  @Override public Serde<UUID> getSerde(String name, Config config) {
     return new UUIDSerde();
   }
 }

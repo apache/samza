@@ -49,7 +49,7 @@ public class KVSerde<K, V> implements Serde<KV<K, V>> {
     return new KVSerde<>(keySerde, valueSerde);
   }
 
-  public KV<K, V> fromBytes(byte[] bytes) {
+  @Override public KV<K, V> fromBytes(byte[] bytes) {
     if (bytes != null) {
       ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
       int keyLength = byteBuffer.getInt();
@@ -66,7 +66,7 @@ public class KVSerde<K, V> implements Serde<KV<K, V>> {
     }
   }
 
-  public byte[] toBytes(KV<K, V> obj) {
+  @Override public byte[] toBytes(KV<K, V> obj) {
     if (obj != null) {
       byte[] keyBytes = keySerde.toBytes(obj.key);
       byte[] valueBytes = valueSerde.toBytes(obj.value);

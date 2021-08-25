@@ -66,11 +66,11 @@ public class Counter implements Metric {
     return name;
   }
 
-  public void visit(MetricsVisitor visitor) {
+  @Override public void visit(MetricsVisitor visitor) {
     visitor.counter(this);
   }
 
-  public String toString() {
+  @Override public String toString() {
     return count.toString();
   }
 }

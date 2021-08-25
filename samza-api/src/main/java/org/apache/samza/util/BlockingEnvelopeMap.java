@@ -77,7 +77,7 @@ public abstract class BlockingEnvelopeMap implements SystemConsumer {
 
   public BlockingEnvelopeMap(MetricsRegistry metricsRegistry) {
     this(metricsRegistry, new Clock() {
-      public long currentTimeMillis() {
+      @Override public long currentTimeMillis() {
         return System.currentTimeMillis();
       }
     });

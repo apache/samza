@@ -71,7 +71,7 @@ public class JsonSerdeV2<T> implements Serde<T> {
     return new JsonSerdeV2<>(clazz);
   }
 
-  public byte[] toBytes(T obj) {
+  @Override public byte[] toBytes(T obj) {
     if (obj != null) {
       try {
         String str = mapper.writeValueAsString(obj);
@@ -84,7 +84,7 @@ public class JsonSerdeV2<T> implements Serde<T> {
     }
   }
 
-  public T fromBytes(byte[] bytes) {
+  @Override public T fromBytes(byte[] bytes) {
     if (bytes != null) {
       String str;
       try {

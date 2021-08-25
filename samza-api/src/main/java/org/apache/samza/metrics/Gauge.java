@@ -53,11 +53,11 @@ public class Gauge<T> implements Metric {
     return name;
   }
 
-  public void visit(MetricsVisitor visitor) {
+  @Override public void visit(MetricsVisitor visitor) {
     visitor.gauge(this);
   }
 
-  public String toString() {
+  @Override public String toString() {
     T value = ref.get();
     return (value == null) ? null : value.toString();
   }

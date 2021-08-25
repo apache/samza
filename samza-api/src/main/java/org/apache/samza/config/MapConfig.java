@@ -55,35 +55,35 @@ public class MapConfig extends Config {
     this(Arrays.asList(maps));
   }
 
-  public String get(Object k) {
+  @Override public String get(Object k) {
     return map.get(k);
   }
 
-  public boolean containsKey(Object k) {
+  @Override public boolean containsKey(Object k) {
     return map.containsKey(k);
   }
 
-  public Set<Map.Entry<String, String>> entrySet() {
+  @Override public Set<Map.Entry<String, String>> entrySet() {
     return map.entrySet();
   }
 
-  public boolean isEmpty() {
+  @Override public boolean isEmpty() {
     return map.isEmpty();
   }
 
-  public Set<String> keySet() {
+  @Override public Set<String> keySet() {
     return map.keySet();
   }
 
-  public int size() {
+  @Override public int size() {
     return map.size();
   }
 
-  public Collection<String> values() {
+  @Override public Collection<String> values() {
     return map.values();
   }
 
-  public boolean containsValue(Object v) {
+  @Override public boolean containsValue(Object v) {
     return map.containsValue(v);
   }
 

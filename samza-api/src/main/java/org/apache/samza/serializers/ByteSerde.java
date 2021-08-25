@@ -24,11 +24,11 @@ package org.apache.samza.serializers;
  */
 public class ByteSerde implements Serde<byte[]> {
 
-  public byte[] toBytes(byte[] bytes) {
+  @Override public byte[] toBytes(byte[] bytes) {
     return bytes;
   }
 
-  public byte[] fromBytes(byte[] bytes) {
+  @Override public byte[] fromBytes(byte[] bytes) {
     return bytes;
   }
 }

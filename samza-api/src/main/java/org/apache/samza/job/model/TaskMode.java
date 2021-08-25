@@ -32,7 +32,7 @@ public enum TaskMode {
     this.mode = mode;
   }
 
-  public String toString() {
+  @Override public String toString() {
     return this.mode;
   }
 }
