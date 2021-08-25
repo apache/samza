@@ -28,6 +28,9 @@ import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStream;
 
 
+/**
+ * Common place for reading configs and wiring {@link StreamPartitionCountMonitor}.
+ */
 public class StreamPartitionCountMonitorFactory {
   private final StreamMetadataCache streamMetadataCache;
   private final MetricsRegistry metrics;
@@ -37,7 +40,11 @@ public class StreamPartitionCountMonitorFactory {
     this.metrics = metrics;
   }
 
-  public StreamPartitionCountMonitor build(Config config, StreamPartitionCountMonitor.Callback callback) {
+  /**
+   * Build {@link StreamPartitionCountMonitor} for input streams.
+   */
+  public StreamPartitionCountMonitor buildInputStreamPartitionCountMonitor(Config config,
+      StreamPartitionCountMonitor.Callback callback) {
     Set<SystemStream> inputStreamsToMonitor = new TaskConfig(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");

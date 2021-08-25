@@ -413,7 +413,8 @@ public class ClusterBasedJobCoordinator {
 
   private StreamPartitionCountMonitor getPartitionCountMonitor(Config config, SystemAdmins systemAdmins) {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    return new StreamPartitionCountMonitorFactory(streamMetadataCache, this.metrics).build(config, streamsChanged -> {
+    return new StreamPartitionCountMonitorFactory(streamMetadataCache,
+        this.metrics).buildInputStreamPartitionCountMonitor(config, streamsChanged -> {
       // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
       if (hasDurableStores) {
         LOG.error(
@@ -428,7 +429,7 @@ public class ClusterBasedJobCoordinator {
 
   private Optional<StreamRegexMonitor> getInputRegexMonitor(JobModel jobModel, SystemAdmins systemAdmins) {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    return new StreamRegexMonitorFactory(streamMetadataCache, this.metrics).build(jobModel,
+    return new StreamRegexMonitorFactory(streamMetadataCache, this.metrics).buildInputStreamRegexMonitor(jobModel,
       (initialInputSet, newInputStreams, regexesMonitored) -> {
         if (hasDurableStores) {
           LOG.error("New input system-streams discovered. Failing the job. New input streams: {}"

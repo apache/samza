@@ -402,12 +402,12 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   StreamPartitionCountMonitor getPartitionCountMonitor() {
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    return new StreamPartitionCountMonitorFactory(streamMetadata, metrics.getMetricsRegistry()).build(config,
-      streamsChanged -> {
-        if (leaderElector.amILeader()) {
-          debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this::doOnProcessorChange);
-        }
-      });
+    return new StreamPartitionCountMonitorFactory(streamMetadata,
+        metrics.getMetricsRegistry()).buildInputStreamPartitionCountMonitor(config, streamsChanged -> {
+      if (leaderElector.amILeader()) {
+        debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this::doOnProcessorChange);
+      }
+    });
   }
 
   @VisibleForTesting

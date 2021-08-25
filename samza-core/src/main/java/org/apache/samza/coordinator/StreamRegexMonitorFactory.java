@@ -33,6 +33,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
+/**
+ * Common place for reading configs and wiring {@link StreamRegexMonitor}.
+ */
 public class StreamRegexMonitorFactory {
   private static final Logger LOG = LoggerFactory.getLogger(StreamRegexMonitorFactory.class);
 
@@ -44,7 +47,11 @@ public class StreamRegexMonitorFactory {
     this.metrics = metrics;
   }
 
-  public Optional<StreamRegexMonitor> build(JobModel jobModel, StreamRegexMonitor.Callback callback) {
+  /**
+   * Build a {@link StreamRegexMonitor} for input streams for the job model.
+   */
+  public Optional<StreamRegexMonitor> buildInputStreamRegexMonitor(JobModel jobModel,
+      StreamRegexMonitor.Callback callback) {
     JobConfig jobConfig = new JobConfig(jobModel.getConfig());
 
     // if input regex monitor is not enabled return empty
