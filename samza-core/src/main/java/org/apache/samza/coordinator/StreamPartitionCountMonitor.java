@@ -52,6 +52,10 @@ public class StreamPartitionCountMonitor {
   private final StreamMetadataCache metadataCache;
   private final int monitorPeriodMs;
   private final Map<SystemStream, Gauge<Integer>> gauges;
+  /**
+   * TODO get the initial metadata from the job model instead of querying it, so that there isn't a chance that the
+   * initial metadata has a mismatch with the job model
+   */
   private final Map<SystemStream, SystemStreamMetadata> initialMetadata;
   private final Callback callbackMethod;
 

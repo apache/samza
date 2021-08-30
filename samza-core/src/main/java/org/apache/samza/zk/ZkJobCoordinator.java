@@ -35,7 +35,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.StorageConfig;
-import org.apache.samza.config.TaskConfig;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.container.grouper.task.GrouperMetadata;
@@ -46,6 +45,7 @@ import org.apache.samza.coordinator.JobModelCalculator;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.StreamPartitionCountMonitor;
+import org.apache.samza.coordinator.StreamPartitionCountMonitorFactory;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.CoordinatorStreamValueSerde;
@@ -62,7 +62,6 @@ import org.apache.samza.runtime.LocationIdProviderFactory;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
@@ -404,13 +403,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   StreamPartitionCountMonitor getPartitionCountMonitor() {
     StreamMetadataCache streamMetadata = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    Set<SystemStream> inputStreamsToMonitor = new TaskConfig(config).getAllInputStreams();
-
-    return new StreamPartitionCountMonitor(
-        inputStreamsToMonitor,
-        streamMetadata,
-        metrics.getMetricsRegistry(),
-        new JobConfig(config).getMonitorPartitionChangeFrequency(),
+    return new StreamPartitionCountMonitorFactory(streamMetadata, metrics.getMetricsRegistry()).build(config,
       streamsChanged -> {
         if (leaderElector.amILeader()) {
           debounceTimer.scheduleAfterDebounceTime(ON_PROCESSOR_CHANGE, 0, this::doOnProcessorChange);
