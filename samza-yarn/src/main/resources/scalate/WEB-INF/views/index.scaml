@@ -125,7 +125,7 @@
             %th Up Time
             %th JMX access
         %tbody
-          - for((processorId, container) <- state.runningProcessors)
+          - for((processorId, container) <- state.runningProcessors.asScala)
             %tr
               %td #{processorId.toString}
               %td
@@ -147,7 +147,7 @@
             %th Exit code
             %th Message
         %tbody
-          - for((containerId, containerStatus) <- state.failedContainersStatus)
+          - for((containerId, containerStatus) <- state.failedContainersStatus.asScala)
             %tr
               %td
                 #{containerId}
@@ -176,13 +176,13 @@
             %th SystemStreamPartitions
             %th Container
         %tbody
-          - for((processorId, container) <- state.runningProcessors)
+          - for((processorId, container) <- state.runningProcessors.asScala)
             - val containerModel = samzaAppState.jobModelManager.jobModel.getContainers.get(processorId)
-            - for((taskName, taskModel) <- containerModel.getTasks)
+            - for((taskName, taskModel) <- containerModel.getTasks.asScala)
               %tr
                 %td= processorId
                 %td= taskName
-                %td= taskModel.getSystemStreamPartitions.map(_.toString).toList.sorted.mkString(", ")
+                %td= taskModel.getSystemStreamPartitions.asScala.map(_.toString).toList.sorted.mkString(", ")
                 %td
                   %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
 
@@ -197,7 +197,7 @@
               %th Key
               %th Value
           %tbody.searchable
-            - for(entrySet <- new java.util.TreeMap[String, String](config.asInstanceOf[Map[String, String]]).entrySet)
+            - for(entrySet <- config.asInstanceOf[Map[String, String]])
               %tr
                 %td.key= entrySet.getKey
                 %td= entrySet.getValue
