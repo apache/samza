@@ -19,6 +19,7 @@
 package org.apache.samza.coordinator;
 
 import java.util.Set;
+import com.google.common.base.Preconditions;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -36,15 +37,14 @@ public class StreamPartitionCountMonitorFactory {
   private final MetricsRegistry metrics;
 
   public StreamPartitionCountMonitorFactory(StreamMetadataCache streamMetadataCache, MetricsRegistry metrics) {
-    this.streamMetadataCache = streamMetadataCache;
-    this.metrics = metrics;
+    this.streamMetadataCache = Preconditions.checkNotNull(streamMetadataCache);
+    this.metrics = Preconditions.checkNotNull(metrics);
   }
 
   /**
    * Build {@link StreamPartitionCountMonitor} for input streams.
    */
-  public StreamPartitionCountMonitor buildInputStreamPartitionCountMonitor(Config config,
-      StreamPartitionCountMonitor.Callback callback) {
+  public StreamPartitionCountMonitor build(Config config, StreamPartitionCountMonitor.Callback callback) {
     Set<SystemStream> inputStreamsToMonitor = new TaskConfig(config).getAllInputStreams();
     if (inputStreamsToMonitor.isEmpty()) {
       throw new SamzaException("Input streams to a job can not be empty.");

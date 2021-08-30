@@ -22,7 +22,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import com.google.common.base.Preconditions;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.JobModelUtil;
@@ -43,16 +45,15 @@ public class StreamRegexMonitorFactory {
   private final MetricsRegistry metrics;
 
   public StreamRegexMonitorFactory(StreamMetadataCache streamMetadataCache, MetricsRegistry metrics) {
-    this.streamMetadataCache = streamMetadataCache;
-    this.metrics = metrics;
+    this.streamMetadataCache = Preconditions.checkNotNull(streamMetadataCache);
+    this.metrics = Preconditions.checkNotNull(metrics);
   }
 
   /**
    * Build a {@link StreamRegexMonitor} for input streams for the job model.
    */
-  public Optional<StreamRegexMonitor> buildInputStreamRegexMonitor(JobModel jobModel,
-      StreamRegexMonitor.Callback callback) {
-    JobConfig jobConfig = new JobConfig(jobModel.getConfig());
+  public Optional<StreamRegexMonitor> build(JobModel jobModel, Config config, StreamRegexMonitor.Callback callback) {
+    JobConfig jobConfig = new JobConfig(config);
 
     // if input regex monitor is not enabled return empty
     if (jobConfig.getMonitorRegexDisabled()) {

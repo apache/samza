@@ -205,8 +205,9 @@ public class ClusterBasedJobCoordinator {
     this.state = new SamzaApplicationState(jobModelManager);
     // The systemAdmins should be started before partitionMonitor can be used. And it should be stopped when this coordinator is stopped.
     this.systemAdmins = new SystemAdmins(config, this.getClass().getSimpleName());
+    // SAMZA-2684: should these monitors be using the config from the job model calculation?
     this.partitionMonitor = getPartitionCountMonitor(config, systemAdmins);
-    this.inputStreamRegexMonitor = getInputRegexMonitor(jobModelManager.jobModel(), systemAdmins);
+    this.inputStreamRegexMonitor = getInputRegexMonitor(jobModelManager.jobModel(), config, systemAdmins);
 
     ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
     this.isJmxEnabled = clusterManagerConfig.getJmxEnabledOnJobCoordinator();
@@ -413,23 +414,22 @@ public class ClusterBasedJobCoordinator {
 
   private StreamPartitionCountMonitor getPartitionCountMonitor(Config config, SystemAdmins systemAdmins) {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    return new StreamPartitionCountMonitorFactory(streamMetadataCache,
-        this.metrics).buildInputStreamPartitionCountMonitor(config, streamsChanged -> {
-          // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
-          if (hasDurableStores) {
-            LOG.error(
-                "Input topic partition count changed in a job with durable state. Failing the job. Changed topics: {}",
-                streamsChanged.toString());
-            state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
-          }
-          coordinatorException = new PartitionChangeException(
-              "Input topic partition count changes detected for topics: " + streamsChanged.toString());
-        });
+    return new StreamPartitionCountMonitorFactory(streamMetadataCache, this.metrics).build(config, streamsChanged -> {
+      // Fail the jobs with durable state store. Otherwise, application state.status remains UNDEFINED s.t. YARN job will be restarted
+      if (hasDurableStores) {
+        LOG.error(
+            "Input topic partition count changed in a job with durable state. Failing the job. Changed topics: {}",
+            streamsChanged.toString());
+        state.status = SamzaApplicationState.SamzaAppStatus.FAILED;
+      }
+      coordinatorException = new PartitionChangeException(
+          "Input topic partition count changes detected for topics: " + streamsChanged.toString());
+    });
   }
 
-  private Optional<StreamRegexMonitor> getInputRegexMonitor(JobModel jobModel, SystemAdmins systemAdmins) {
+  private Optional<StreamRegexMonitor> getInputRegexMonitor(JobModel jobModel, Config config, SystemAdmins systemAdmins) {
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    return new StreamRegexMonitorFactory(streamMetadataCache, this.metrics).buildInputStreamRegexMonitor(jobModel,
+    return new StreamRegexMonitorFactory(streamMetadataCache, this.metrics).build(jobModel, config,
       (initialInputSet, newInputStreams, regexesMonitored) -> {
         if (hasDurableStores) {
           LOG.error("New input system-streams discovered. Failing the job. New input streams: {}"
