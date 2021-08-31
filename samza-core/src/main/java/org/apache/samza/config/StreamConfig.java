@@ -278,7 +278,7 @@ public class StreamConfig extends MapConfig {
    * Returns a list of all SystemStreams that have a serde defined from the config file.
    */
   public Set<SystemStream> getSerdeStreams(String systemName) {
-    Config subConf = subset(String.format("systems.%s.streams.", systemName, true));
+    Config subConf = subset(String.format("systems.%s.streams.", systemName), true);
     Set<SystemStream> legacySystemStreams = subConf.keySet().stream()
       .filter(k -> k.endsWith(MSG_SERDE) || k.endsWith(KEY_SERDE))
       .map(k -> {
