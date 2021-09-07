@@ -54,7 +54,9 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
@@ -66,6 +68,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
@@ -113,6 +116,58 @@ public class TestZkJobCoordinator {
   }
 
   @Test
+  public void testCheckAndExpireWithMultipleRebalances() {
+    final TaskName taskName = new TaskName("task1");
+    final ContainerModel mockContainerModel = mock(ContainerModel.class);
+    final JobCoordinatorListener mockListener = mock(JobCoordinatorListener.class);
+    final JobModel jobModelVersion1 = mock(JobModel.class);
+    final JobModel jobModelVersion2 = mock(JobModel.class);
+    final JobModel jobModelVersion3 = jobModelVersion1;
+
+    when(mockContainerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, mock(TaskModel.class)));
+    when(jobModelVersion3.getContainers()).thenReturn(ImmutableMap.of(PROCESSOR_ID, mockContainerModel));
+
+    ZkJobCoordinator zkJobCoordinator = new ZkJobCoordinator(PROCESSOR_ID, new MapConfig(), new NoOpMetricsRegistry(),
+        zkUtils, zkMetadataStore, coordinatorStreamStore);
+    zkJobCoordinator.setListener(mockListener);
+    zkJobCoordinator.setActiveJobModel(jobModelVersion1);
+
+    /*
+     * The following mimics the scenario where new work assignment(V2) is proposed by the leader and the work assignment
+     * differs from the active work assignment(V1) and hence results in job model expiration
+     */
+    zkJobCoordinator.checkAndExpireJobModel(jobModelVersion2);
+
+    verify(mockListener, times(1)).onJobModelExpired();
+    assertTrue("JobModelExpired should be true for work assignment changes", zkJobCoordinator.getJobModelExpired());
+    assertEquals("Active job model shouldn't be updated", jobModelVersion1, zkJobCoordinator.getActiveJobModel());
+
+    /*
+     * The following mimics the scenario where leader kicked off another rebalance where the new work assignment(V3)
+     * is same as the old work assignment(V1) and doesn't trigger job model expiration. We check the interactions w/
+     * the listener to ensure job model expiration isn't invoked. However, the previous rebalance should have already
+     * triggered job model expiration and set the job model expired flag to true
+     */
+    zkJobCoordinator.checkAndExpireJobModel(jobModelVersion1);
+    verifyNoMoreInteractions(mockListener);
+    assertTrue("JobModelExpired should remain unchanged", zkJobCoordinator.getJobModelExpired());
+    assertEquals("Active job model shouldn't be updated", jobModelVersion1, zkJobCoordinator.getActiveJobModel());
+
+
+    /*
+     * The following mimics the scenario where the new work assignment(V3) proposed by the leader is accepted and
+     * on new job model is invoked. Even though the work assignment remains the same w/ the active job model version,
+     * onNewJobModel is invoked on the listener as an intermediate rebalance expired the old work assignment(V1)
+     */
+    zkJobCoordinator.onNewJobModel(jobModelVersion3);
+    verify(mockListener, times(1)).onNewJobModel(PROCESSOR_ID, jobModelVersion3);
+    verify(zkUtils, times(1)).writeTaskLocality(any(), any());
+
+    assertEquals("Active job model should be updated to new job model", zkJobCoordinator.getActiveJobModel(), jobModelVersion3);
+    assertFalse("JobModelExpired should be set to false after onNewJobModel", zkJobCoordinator.getJobModelExpired());
+  }
+
+  @Test
   public void testCheckAndExpireWithNoChangeInWorkAssignment() {
     BiConsumer<ZkUtils, JobCoordinatorListener> verificationMethod =
       (ignored, coordinatorListener) -> verifyZeroInteractions(coordinatorListener);
@@ -155,6 +210,7 @@ public class TestZkJobCoordinator {
     ZkJobCoordinator zkJobCoordinator = new ZkJobCoordinator(PROCESSOR_ID, new MapConfig(),
         new NoOpMetricsRegistry(), zkUtils, zkMetadataStore, coordinatorStreamStore);
     zkJobCoordinator.setListener(mockListener);
+    zkJobCoordinator.setJobModelExpired(true);
     zkJobCoordinator.onNewJobModel(mockJobModel);
 
     verify(zkUtils, times(1)).writeTaskLocality(eq(taskName), any());
