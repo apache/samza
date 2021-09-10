@@ -22,6 +22,7 @@ package org.apache.samza.config;
 import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
+import org.apache.samza.coordinator.lifecycle.NoOpJobRestartSignalFactory;
 import org.apache.samza.standalone.PassthroughCoordinationUtilsFactory;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.util.ReflectionUtil;
@@ -33,6 +34,10 @@ public class JobCoordinatorConfig extends MapConfig {
   public final static String DEFAULT_COORDINATOR_FACTORY = ZkJobCoordinatorFactory.class.getName();
   private static final String AZURE_COORDINATION_UTILS_FACTORY = "org.apache.samza.coordinator.AzureCoordinationUtilsFactory";
   private static final String AZURE_COORDINATOR_FACTORY = "org.apache.samza.coordinator.AzureJobCoordinatorFactory";
+  public static final String USE_STATIC_RESOURCE_JOB_COORDINATOR =
+      "job.coordinator.use.static.resource.job.coordinator";
+  public static final String JOB_RESTART_SIGNAL_FACTORY = "job.coordinator.restart.signal.factory";
+  private static final String DEFAULT_JOB_RESTART_SIGNAL_FACTORY = NoOpJobRestartSignalFactory.class.getName();
 
   public JobCoordinatorConfig(Config config) {
     super(config);
@@ -76,5 +81,13 @@ public class JobCoordinatorConfig extends MapConfig {
     } else {
       return jobCoordinatorFactoryClassName;
     }
+  }
+
+  public boolean getUseStaticResourceJobCoordinator() {
+    return getBoolean(USE_STATIC_RESOURCE_JOB_COORDINATOR, false);
+  }
+
+  public String getJobRestartSignalFactory() {
+    return get(JOB_RESTART_SIGNAL_FACTORY, DEFAULT_JOB_RESTART_SIGNAL_FACTORY);
   }
 }

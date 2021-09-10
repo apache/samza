@@ -19,6 +19,8 @@
 package org.apache.samza.clustermanager;
 
 import java.util.List;
+import java.util.Map;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
@@ -26,13 +28,18 @@ import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.descriptors.ApplicationDescriptorUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.coordinator.StaticResourceJobCoordinator;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
+import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.DiagnosticsUtil;
+import org.apache.samza.util.MetricsReporterLoader;
 
 
 /**
@@ -40,6 +47,8 @@ import org.apache.samza.util.DiagnosticsUtil;
  * This util is being used by both high/low and beam API Samza jobs.
  */
 public class JobCoordinatorLaunchUtil {
+  private static final String JOB_COORDINATOR_CONTAINER_NAME = "JobCoordinator";
+
   /**
    * Run {@link ClusterBasedJobCoordinator} with full job config.
    *
@@ -76,11 +85,37 @@ public class JobCoordinatorLaunchUtil {
     CoordinatorStreamUtil.writeConfigToCoordinatorStream(finalConfig, true);
     DiagnosticsUtil.createDiagnosticsStream(finalConfig);
 
-    ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(
-        metrics,
-        metadataStore,
-        finalConfig);
-    jc.run();
+    if (new JobCoordinatorConfig(finalConfig).getUseStaticResourceJobCoordinator()) {
+      runStaticResourceJobCoordinator(metrics, metadataStore, finalConfig);
+    } else {
+      ClusterBasedJobCoordinator jc = new ClusterBasedJobCoordinator(metrics, metadataStore, finalConfig);
+      jc.run();
+    }
+  }
+
+  private static void runStaticResourceJobCoordinator(MetricsRegistryMap metrics, MetadataStore metadataStore,
+      Config finalConfig) {
+    StaticResourceJobCoordinator staticResourceJobCoordinator =
+        StaticResourceJobCoordinator.build(metrics, metadataStore, finalConfig);
+    addShutdownHook(staticResourceJobCoordinator);
+    Map<String, MetricsReporter> metricsReporters =
+        MetricsReporterLoader.getMetricsReporters(new MetricsConfig(finalConfig), JOB_COORDINATOR_CONTAINER_NAME);
+    metricsReporters.values()
+        .forEach(metricsReporter -> metricsReporter.register(JOB_COORDINATOR_CONTAINER_NAME, metrics));
+    metricsReporters.values().forEach(MetricsReporter::start);
+    staticResourceJobCoordinator.run();
+    metricsReporters.values().forEach(MetricsReporter::stop);
+  }
+
+  /**
+   * This is a separate method so it can be stubbed in tests, since adding a real shutdown hook will cause the hook to
+   * added to the test suite JVM.
+   */
+  @VisibleForTesting
+  static void addShutdownHook(StaticResourceJobCoordinator staticResourceJobCoordinator) {
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(staticResourceJobCoordinator::signalShutdown, "Samza Job Coordinator Shutdown Hook Thread"));
   }
 
   private JobCoordinatorLaunchUtil() {}
