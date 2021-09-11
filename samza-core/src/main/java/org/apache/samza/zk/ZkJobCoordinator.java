@@ -110,6 +110,10 @@ public class ZkJobCoordinator implements JobCoordinator {
   private final MetadataStore jobModelMetadataStore;
   private final CoordinatorStreamStore coordinatorStreamStore;
 
+  // It is sufficient for the field to be volatile as the flows that read/update execute on debounce timer which is single threaded
+  // Choice of atomic boolean is purely for convenience for operations like compareAndSet to enforce invariant checks.
+  private final AtomicBoolean jobModelExpired = new AtomicBoolean(false);
+
   private JobCoordinatorListener coordinatorListener = null;
   // denotes the most recent job model agreed by the quorum
   private JobModel activeJobModel;
@@ -441,6 +445,7 @@ public class ZkJobCoordinator implements JobCoordinator {
     } else {
       LOG.info("Work assignment changed for the processor {}. Notifying job model expiration to coordinator listener", processorId);
       coordinatorListener.onJobModelExpired();
+      jobModelExpired.set(true);
     }
   }
 
@@ -455,7 +460,7 @@ public class ZkJobCoordinator implements JobCoordinator {
   void onNewJobModel(JobModel newJobModel) {
     Preconditions.checkNotNull(newJobModel, "JobModel cannot be null. Failing onNewJobModel");
     // start the container with the new model
-    if (!JobModelUtil.compareContainerModelForProcessor(processorId, activeJobModel, newJobModel)) {
+    if (jobModelExpired.compareAndSet(true, false)) {
       LOG.info("Work assignment changed for the processor {}. Updating task locality and notifying coordinator listener", processorId);
       if (newJobModel.getContainers().containsKey(processorId)) {
         for (TaskName taskName : JobModelUtil.getTaskNamesForProcessor(processorId, newJobModel)) {
@@ -468,6 +473,7 @@ public class ZkJobCoordinator implements JobCoordinator {
       }
     } else {
       /*
+       * We don't expire the job model if the proposed work assignment is same as the current work assignment.
        * The implication of work assignment remaining the same can be categorized into
        *   1. Processor part of the job model
        *   2. Processor not part of the job model.
@@ -496,6 +502,16 @@ public class ZkJobCoordinator implements JobCoordinator {
   @VisibleForTesting
   void setActiveJobModel(JobModel jobModel) {
     activeJobModel = jobModel;
+  }
+
+  @VisibleForTesting
+  boolean getJobModelExpired() {
+    return jobModelExpired.get();
+  }
+
+  @VisibleForTesting
+  void setJobModelExpired(boolean value) {
+    jobModelExpired.set(value);
   }
 
   @VisibleForTesting
