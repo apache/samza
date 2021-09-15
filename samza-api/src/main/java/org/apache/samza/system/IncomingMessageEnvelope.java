@@ -41,6 +41,9 @@ public class IncomingMessageEnvelope {
   private long eventTime = 0L;
   // the timestamp when this event is pickedup by samza, 0 means unassgined
   private long arrivalTime = 0L;
+  // SystemStreamPartitionKeyHash for Elasticity needs KeyHash which is computed from the key or offset if key is null.
+  // since both key and offset are final, pre-computing the hashcode needed for computing KeyHash.
+  private final int hashCodeForKeyHashComputation;
 
   /**
    * Constructs a new IncomingMessageEnvelope from specified components.
@@ -71,6 +74,7 @@ public class IncomingMessageEnvelope {
     this.message = message;
     this.size = size;
     this.arrivalTime = Instant.now().toEpochMilli();
+    this.hashCodeForKeyHashComputation = key != null ? key.hashCode() : offset != null ? offset.hashCode() : hashCode();
   }
 
   /**
@@ -109,6 +113,15 @@ public class IncomingMessageEnvelope {
 
   public SystemStreamPartition getSystemStreamPartition() {
     return systemStreamPartition;
+  }
+
+  // Returns the portion of SSP represented by SystemStreamPartitionKeyHash that this envelope should belong to
+  // when each SSP is divved into "numberOfKeyHashes" portions.
+  public SystemStreamPartitionKeyHash getSystemStreamPartitionKeyHash(int numberOfKeyHashes) {
+    int keyHash = Math.abs(hashCodeForKeyHashComputation % numberOfKeyHashes);
+    SystemStreamPartitionKeyHash systemStreamPartitionKeyHash =
+        new SystemStreamPartitionKeyHash(systemStreamPartition, keyHash);
+    return systemStreamPartitionKeyHash;
   }
 
   /**

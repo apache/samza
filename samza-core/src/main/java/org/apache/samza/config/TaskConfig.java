@@ -136,6 +136,11 @@ public class TaskConfig extends MapConfig {
       "task.transactional.state.retain.existing.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
 
+  // Job Elasticity related configs
+  // Take effect only when job.elasticity.factor is > 1. otherwise there is no elasticity
+  private static final String TASK_ELASTICITY_FACTOR = "task.elasticity.factor";
+  private static final int TASK_ELASTICITY_FACTOR_DEFAULT = 1;
+
   public TaskConfig(Config config) {
     super(config);
   }
@@ -378,5 +383,9 @@ public class TaskConfig extends MapConfig {
 
   public boolean getTransactionalStateRetainExistingState() {
     return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
+  }
+
+  public int getElasticityFactor() {
+    return getInt(TASK_ELASTICITY_FACTOR, TASK_ELASTICITY_FACTOR_DEFAULT);
   }
 }
