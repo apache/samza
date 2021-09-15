@@ -22,11 +22,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
@@ -34,7 +32,6 @@ import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
 import org.apache.samza.coordinator.communication.JobModelServingContext;
-import org.apache.samza.coordinator.lifecycle.JobRestartSignal;
 import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.JobMetadataChange;
 import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
@@ -49,7 +46,6 @@ import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -92,15 +88,9 @@ public class TestStaticResourceJobCoordinator {
   @Mock
   private JobCoordinatorMetadataManager jobCoordinatorMetadataManager;
   @Mock
-  private StreamPartitionCountMonitorFactory streamPartitionCountMonitorFactory;
-  @Mock
-  private StreamRegexMonitorFactory streamRegexMonitorFactory;
-  @Mock
   private StartpointManager startpointManager;
   @Mock
   private ChangelogStreamManager changelogStreamManager;
-  @Mock
-  private JobRestartSignal jobRestartSignal;
   @Mock
   private Map<TaskName, Integer> changelogPartitionMapping;
   @Mock
@@ -118,24 +108,20 @@ public class TestStaticResourceJobCoordinator {
     when(this.changelogStreamManager.readPartitionMapping()).thenReturn(this.changelogPartitionMapping);
     this.staticResourceJobCoordinator =
         spy(new StaticResourceJobCoordinator(this.jobModelHelper, this.jobModelServingContext,
-            this.coordinatorCommunication, this.jobCoordinatorMetadataManager, this.streamPartitionCountMonitorFactory,
-            this.streamRegexMonitorFactory, this.startpointManager, this.changelogStreamManager, this.jobRestartSignal,
-            this.metrics, this.systemAdmins, this.config));
+            this.coordinatorCommunication, this.jobCoordinatorMetadataManager, this.startpointManager,
+            this.changelogStreamManager, this.metrics, this.systemAdmins, this.config));
   }
 
   @Test
   public void testNoExistingJobModel() throws InterruptedException, IOException {
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.copyOf(Arrays.asList(JobMetadataChange.values())), false);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForMonitor(streamRegexMonitor);
+    Thread jobCoordinatorThread = startCoordinatorAndWaitForShutdown();
     verifyStartLifecycle();
-    verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
-        streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
+    verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, SINGLE_SSP_FANOUT);
     shutdownJobCoordinator(jobCoordinatorThread);
     verifyStopLifecycle();
   }
@@ -144,213 +130,57 @@ public class TestStaticResourceJobCoordinator {
   public void testSameJobModelAsPrevious() throws IOException, InterruptedException {
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     setupJobCoordinatorMetadata(jobModel, jobModelConfig, ImmutableSet.of(), true);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForMonitor(streamRegexMonitor);
+    Thread jobCoordinatorThread = startCoordinatorAndWaitForShutdown();
     verifyStartLifecycle();
-    verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
-        streamRegexMonitor, null, null);
+    verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, null, null);
     shutdownJobCoordinator(jobCoordinatorThread);
     verifyStopLifecycle();
-  }
-
-  @Test
-  public void testSameDeploymentWithNewJobModel() throws InterruptedException, IOException {
-    Config jobModelConfig = mock(Config.class);
-    JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
-    setupJobCoordinatorMetadata(jobModel, jobModelConfig, ImmutableSet.of(JobMetadataChange.JOB_MODEL), true);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForRestart();
-    verifyStartLifecycle();
-    verify(this.jobRestartSignal).restartJob();
-    shutdownJobCoordinator(jobCoordinatorThread);
-    verifyStopLifecycle();
-    verifyNoSideEffects(streamPartitionCountMonitor, streamRegexMonitor);
   }
 
   @Test
   public void testNewDeploymentNewJobModel() throws InterruptedException, IOException {
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForMonitor(streamRegexMonitor);
+    Thread jobCoordinatorThread = startCoordinatorAndWaitForShutdown();
     verifyStartLifecycle();
-    verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
-        streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
+    verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, SINGLE_SSP_FANOUT);
     shutdownJobCoordinator(jobCoordinatorThread);
     verifyStopLifecycle();
   }
 
   @Test
-  public void testPartitionCountChange() throws IOException, InterruptedException {
+  public void testShutdownBeforeStartWaitingForShutdown() throws InterruptedException, IOException {
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = mock(StreamPartitionCountMonitor.class);
-    ArgumentCaptor<StreamPartitionCountMonitor.Callback> callbackArgumentCaptor =
-        ArgumentCaptor.forClass(StreamPartitionCountMonitor.Callback.class);
-    when(
-        this.streamPartitionCountMonitorFactory.build(eq(jobModelConfig), callbackArgumentCaptor.capture())).thenReturn(
-        streamPartitionCountMonitor);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForMonitor(streamRegexMonitor);
-    verifyStartLifecycle();
-    verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
-        streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
-    // call the callback from the monitor
-    callbackArgumentCaptor.getValue().onSystemStreamPartitionChange(ImmutableSet.of(SYSTEM_STREAM));
-    verify(this.jobRestartSignal).restartJob();
-    shutdownJobCoordinator(jobCoordinatorThread);
-    verifyStopLifecycle();
-  }
-
-  @Test
-  public void testStreamRegexChange() throws IOException, InterruptedException {
-    Config jobModelConfig = mock(Config.class);
-    JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = mock(StreamRegexMonitor.class);
-    ArgumentCaptor<StreamRegexMonitor.Callback> callbackArgumentCaptor =
-        ArgumentCaptor.forClass(StreamRegexMonitor.Callback.class);
-    when(this.streamRegexMonitorFactory.build(eq(jobModel), eq(jobModelConfig),
-        callbackArgumentCaptor.capture())).thenReturn(Optional.of(streamRegexMonitor));
-    JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
-        ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
-    MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForMonitor(streamRegexMonitor);
-    verifyStartLifecycle();
-    verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
-        streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
-    // call the callback from the monitor
-    callbackArgumentCaptor.getValue()
-        .onInputStreamsChanged(ImmutableSet.of(SYSTEM_STREAM),
-            ImmutableSet.of(SYSTEM_STREAM, new SystemStream("system", "stream1")),
-            ImmutableMap.of("system", Pattern.compile("stream.*")));
-    verify(this.jobRestartSignal).restartJob();
-    shutdownJobCoordinator(jobCoordinatorThread);
-    verifyStopLifecycle();
-  }
-
-  @Test
-  public void testInterruptedAfterTriggeringRestart() throws InterruptedException, IOException {
-    Config jobModelConfig = mock(Config.class);
-    JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
-    setupJobCoordinatorMetadata(jobModel, jobModelConfig, ImmutableSet.of(JobMetadataChange.JOB_MODEL), true);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForRestart();
-    verifyStartLifecycle();
-    verify(this.jobRestartSignal).restartJob();
-    jobCoordinatorThread.interrupt();
-    // coordinator thread should exit on its own
-    assertThreadExited(jobCoordinatorThread);
-    verifyStopLifecycle();
-    verifyNoSideEffects(streamPartitionCountMonitor, streamRegexMonitor);
-  }
-
-  @Test
-  public void testInterruptedWhileMonitoring() throws InterruptedException, IOException {
-    Config jobModelConfig = mock(Config.class);
-    JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
-    JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
-        ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
-    MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForMonitor(streamRegexMonitor);
-    verifyStartLifecycle();
-    verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
-        streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
-    jobCoordinatorThread.interrupt();
-    // coordinator thread should exit on its own
-    assertThreadExited(jobCoordinatorThread);
-    verifyStopLifecycle();
-  }
-
-  @Test
-  public void testShutdownBeforeTriggerRestartComplete() throws InterruptedException, IOException {
-    Config jobModelConfig = mock(Config.class);
-    JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
-    setupJobCoordinatorMetadata(jobModel, jobModelConfig, ImmutableSet.of(JobMetadataChange.CONFIG), true);
-    CountDownLatch restartSignalCompleteLatch = new CountDownLatch(1);
-    // block restart signal completion so that test can trigger a shutdown first
+    CountDownLatch coordinatorCommunicationStartLatch = new CountDownLatch(1);
+    // do not move forward on triggering wait for shutdown so that test can trigger a shutdown first
     doAnswer(invocation -> {
-      restartSignalCompleteLatch.await();
+      coordinatorCommunicationStartLatch.await();
       return null;
-    }).when(jobRestartSignal).restartJob();
+    }).when(this.coordinatorCommunication).start();
     Thread jobCoordinatorThread = new Thread(() -> this.staticResourceJobCoordinator.run());
     jobCoordinatorThread.start();
-    // signal shutdown before restart signal completes
+    // signal shutdown before coordinator communication start completes
     this.staticResourceJobCoordinator.signalShutdown();
     // allow restart signal to complete
-    restartSignalCompleteLatch.countDown();
+    coordinatorCommunicationStartLatch.countDown();
     // job coordinator should exit on its own
     assertThreadExited(jobCoordinatorThread);
-    verifyStopLifecycle();
-    verifyNoSideEffects(streamPartitionCountMonitor, streamRegexMonitor);
-  }
-
-  @Test
-  public void testShutdownBeforeStartMonitoring() throws InterruptedException, IOException {
-    Config jobModelConfig = mock(Config.class);
-    JobModel jobModel = setupJobModel(jobModelConfig);
-    StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
-    StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
-    JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
-        ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
-    MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    CountDownLatch streamRegexMonitorStartLatch = new CountDownLatch(1);
-    // block restart signal completion so that test can trigger a shutdown first
-    doAnswer(invocation -> {
-      streamRegexMonitorStartLatch.await();
-      return null;
-    }).when(streamRegexMonitor).start();
-    Thread jobCoordinatorThread = new Thread(() -> this.staticResourceJobCoordinator.run());
-    jobCoordinatorThread.start();
-    // signal shutdown before monitor start completes
-    this.staticResourceJobCoordinator.signalShutdown();
-    // allow restart signal to complete
-    streamRegexMonitorStartLatch.countDown();
-    // job coordinator should exit on its own
-    assertThreadExited(jobCoordinatorThread);
-    verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
-        streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
+    verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, SINGLE_SSP_FANOUT);
     verifyStopLifecycle();
   }
 
   private static void assertThreadExited(Thread thread) throws InterruptedException {
     thread.join(Duration.ofSeconds(10).toMillis());
     assertFalse(thread.isAlive());
-  }
-
-  /**
-   * Set up {@link StreamPartitionCountMonitorFactory} to return a mock {@link StreamPartitionCountMonitor}.
-   */
-  private StreamPartitionCountMonitor setupStreamPartitionCountMonitor(Config config) {
-    StreamPartitionCountMonitor streamPartitionCountMonitor = mock(StreamPartitionCountMonitor.class);
-    when(this.streamPartitionCountMonitorFactory.build(eq(config), any())).thenReturn(streamPartitionCountMonitor);
-    return streamPartitionCountMonitor;
-  }
-
-  /**
-   * Set up {@link StreamRegexMonitorFactory} to return a mock {@link StreamRegexMonitor}.
-   */
-  private StreamRegexMonitor setupStreamRegexMonitor(JobModel jobModel, Config jobModelConfig) {
-    StreamRegexMonitor streamRegexMonitor = mock(StreamRegexMonitor.class);
-    when(this.streamRegexMonitorFactory.build(eq(jobModel), eq(jobModelConfig), any())).thenReturn(
-        Optional.of(streamRegexMonitor));
-    return streamRegexMonitor;
   }
 
   /**
@@ -392,30 +222,16 @@ public class TestStaticResourceJobCoordinator {
   }
 
   /**
-   * Attaches a {@link CountDownLatch} to {@link StreamRegexMonitor} so that the tests know when the job coordinator is
-   * has started monitoring. {@link StreamRegexMonitor} is used because it is one of the last things that gets called
-   * before the job coordinator transitions to waiting for shutdown.
+   * Attaches a {@link CountDownLatch} to {@link CoordinatorCommunication} so that the tests know when the job
+   * coordinator is waiting for shutdown. {@link CoordinatorCommunication} is used because it is one of the last things
+   * that gets called before the job coordinator transitions to waiting for shutdown.
    */
-  private CountDownLatch waitingForShutdownLatch(StreamRegexMonitor streamRegexMonitor) {
+  private CountDownLatch waitingForShutdownLatch() {
     CountDownLatch waitingForShutdown = new CountDownLatch(1);
     doAnswer(invocation -> {
       waitingForShutdown.countDown();
       return null;
-    }).when(streamRegexMonitor).start();
-    return waitingForShutdown;
-  }
-
-  /**
-   * Attaches a {@link CountDownLatch} to {@link JobRestartSignal} so that the tests know when the job coordinator is
-   * has started monitoring. {@link JobRestartSignal} is used because it is one of the last things that gets called
-   * before the job coordinator transitions to waiting for shutdown.
-   */
-  private CountDownLatch waitingForShutdownLatch(JobRestartSignal jobRestartSignal) {
-    CountDownLatch waitingForShutdown = new CountDownLatch(1);
-    doAnswer(invocation -> {
-      waitingForShutdown.countDown();
-      return null;
-    }).when(jobRestartSignal).restartJob();
+    }).when(coordinatorCommunication).start();
     return waitingForShutdown;
   }
 
@@ -443,16 +259,13 @@ public class TestStaticResourceJobCoordinator {
    * Common steps to verify when preparing workers for processing.
    * @param jobModel job model to be served for workers
    * @param metadataResourceUtil expected to be used for creating resources
-   * @param streamPartitionCountMonitor expected to be started
-   * @param streamRegexMonitor expected to be started
    * @param newMetadata if not null, expected to be written to {@link JobCoordinatorMetadataManager}
    * @param expectedFanOut if not null, expected to be passed to {@link StartpointManager} for fan out
    */
-  private void verifyPrepareWorkerExecutionAndMonitor(JobModel jobModel, MetadataResourceUtil metadataResourceUtil,
-      StreamPartitionCountMonitor streamPartitionCountMonitor, StreamRegexMonitor streamRegexMonitor,
+  private void verifyPrepareWorkerExecution(JobModel jobModel, MetadataResourceUtil metadataResourceUtil,
       JobCoordinatorMetadata newMetadata, Map<TaskName, Set<SystemStreamPartition>> expectedFanOut) throws IOException {
     InOrder inOrder = inOrder(this.jobCoordinatorMetadataManager, this.jobModelServingContext, metadataResourceUtil,
-        this.startpointManager, this.coordinatorCommunication, streamPartitionCountMonitor, streamRegexMonitor);
+        this.startpointManager, this.coordinatorCommunication);
     if (newMetadata != null) {
       inOrder.verify(this.jobCoordinatorMetadataManager).writeJobCoordinatorMetadata(newMetadata);
     } else {
@@ -466,26 +279,15 @@ public class TestStaticResourceJobCoordinator {
       verify(this.startpointManager, never()).fanOut(any());
     }
     inOrder.verify(this.coordinatorCommunication).start();
-    inOrder.verify(streamPartitionCountMonitor).start();
-    inOrder.verify(streamRegexMonitor).start();
   }
 
   /**
-   * Start the job coordinator in a separate thread and wait until the job coordinator starts its monitors.
-   * Also verifies that coordinator thread stays alive for some time after monitors are started.
+   * Start the job coordinator in a separate thread and wait until the job coordinator is waiting for shutdown.
+   * Also verifies that coordinator thread stays alive for some time while waiting for shutdown.
    * Returns the thread running the job coordinator.
    */
-  private Thread startCoordinatorAndWaitForMonitor(StreamRegexMonitor streamRegexMonitor) throws InterruptedException {
-    return startCoordinatorAndWaitForLatch(waitingForShutdownLatch(streamRegexMonitor));
-  }
-
-  /**
-   * Start the job coordinator in a separate thread and wait until the job coordinator signals a restart.
-   * Also verifies that coordinator thread stays alive for some time after restart is signalled.
-   * Returns the thread running the job coordinator.
-   */
-  private Thread startCoordinatorAndWaitForRestart() throws InterruptedException {
-    return startCoordinatorAndWaitForLatch(waitingForShutdownLatch(this.jobRestartSignal));
+  private Thread startCoordinatorAndWaitForShutdown() throws InterruptedException {
+    return startCoordinatorAndWaitForLatch(waitingForShutdownLatch());
   }
 
   private Thread startCoordinatorAndWaitForLatch(CountDownLatch countDownLatch) throws InterruptedException {
@@ -496,16 +298,5 @@ public class TestStaticResourceJobCoordinator {
     Thread.sleep(Duration.ofMillis(500).toMillis());
     assertTrue(jobCoordinatorThread.isAlive());
     return jobCoordinatorThread;
-  }
-
-  private void verifyNoSideEffects(StreamPartitionCountMonitor streamPartitionCountMonitor,
-      StreamRegexMonitor streamRegexMonitor) throws IOException {
-    verify(this.jobCoordinatorMetadataManager, never()).writeJobCoordinatorMetadata(any());
-    verify(this.jobModelServingContext, never()).setJobModel(any());
-    verify(this.staticResourceJobCoordinator, never()).metadataResourceUtil(any());
-    verify(this.startpointManager, never()).fanOut(any());
-    verify(this.coordinatorCommunication, never()).start();
-    verify(streamPartitionCountMonitor, never()).start();
-    verify(streamRegexMonitor, never()).start();
   }
 }

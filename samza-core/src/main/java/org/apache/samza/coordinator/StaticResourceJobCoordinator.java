@@ -19,7 +19,6 @@
 package org.apache.samza.coordinator;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -28,7 +27,6 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
-import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
@@ -36,9 +34,6 @@ import org.apache.samza.coordinator.communication.CoordinatorCommunication;
 import org.apache.samza.coordinator.communication.CoordinatorCommunicationContext;
 import org.apache.samza.coordinator.communication.HttpCoordinatorToWorkerCommunicationFactory;
 import org.apache.samza.coordinator.communication.JobModelServingContext;
-import org.apache.samza.coordinator.lifecycle.JobRestartSignal;
-import org.apache.samza.coordinator.lifecycle.JobRestartSignalFactory;
-import org.apache.samza.coordinator.lifecycle.JobRestartSignalFactoryContext;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
@@ -57,7 +52,6 @@ import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,14 +71,11 @@ public class StaticResourceJobCoordinator {
   private final JobModelServingContext jobModelServingContext;
   private final CoordinatorCommunication coordinatorCommunication;
   private final JobCoordinatorMetadataManager jobCoordinatorMetadataManager;
-  private final StreamPartitionCountMonitorFactory streamPartitionCountMonitorFactory;
-  private final StreamRegexMonitorFactory streamRegexMonitorFactory;
   /**
    * This can be null if startpoints are not enabled.
    */
   private final StartpointManager startpointManager;
   private final ChangelogStreamManager changelogStreamManager;
-  private final JobRestartSignal jobRestartSignal;
   private final MetricsRegistry metrics;
   private final SystemAdmins systemAdmins;
   private final Config config;
@@ -106,38 +97,26 @@ public class StaticResourceJobCoordinator {
         JobCoordinatorMetadataManager.ClusterType.NON_YARN, metrics);
     ChangelogStreamManager changelogStreamManager =
         new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetChangelogMapping.TYPE));
-    JobRestartSignal jobRestartSignal =
-        ReflectionUtil.getObj(new JobCoordinatorConfig(config).getJobRestartSignalFactory(),
-            JobRestartSignalFactory.class).build(new JobRestartSignalFactoryContext(config));
     StartpointManager startpointManager =
         jobConfig.getStartpointEnabled() ? new StartpointManager(metadataStore) : null;
     SystemAdmins systemAdmins = new SystemAdmins(config, StaticResourceJobCoordinator.class.getSimpleName());
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     JobModelHelper jobModelHelper = buildJobModelHelper(metadataStore, streamMetadataCache);
-    StreamPartitionCountMonitorFactory streamPartitionCountMonitorFactory =
-        new StreamPartitionCountMonitorFactory(streamMetadataCache, metrics);
-    StreamRegexMonitorFactory streamRegexMonitorFactory = new StreamRegexMonitorFactory(streamMetadataCache, metrics);
     return new StaticResourceJobCoordinator(jobModelHelper, jobModelServingContext, coordinatorCommunication,
-        jobCoordinatorMetadataManager, streamPartitionCountMonitorFactory, streamRegexMonitorFactory, startpointManager,
-        changelogStreamManager, jobRestartSignal, metrics, systemAdmins, config);
+        jobCoordinatorMetadataManager, startpointManager, changelogStreamManager, metrics, systemAdmins, config);
   }
 
   @VisibleForTesting
   StaticResourceJobCoordinator(JobModelHelper jobModelHelper, JobModelServingContext jobModelServingContext,
       CoordinatorCommunication coordinatorCommunication, JobCoordinatorMetadataManager jobCoordinatorMetadataManager,
-      StreamPartitionCountMonitorFactory streamPartitionCountMonitorFactory,
-      StreamRegexMonitorFactory streamRegexMonitorFactory, StartpointManager startpointManager,
-      ChangelogStreamManager changelogStreamManager, JobRestartSignal jobRestartSignal, MetricsRegistry metrics,
+      StartpointManager startpointManager, ChangelogStreamManager changelogStreamManager, MetricsRegistry metrics,
       SystemAdmins systemAdmins, Config config) {
     this.jobModelHelper = jobModelHelper;
     this.jobModelServingContext = jobModelServingContext;
     this.coordinatorCommunication = coordinatorCommunication;
     this.jobCoordinatorMetadataManager = jobCoordinatorMetadataManager;
-    this.streamPartitionCountMonitorFactory = streamPartitionCountMonitorFactory;
-    this.streamRegexMonitorFactory = streamRegexMonitorFactory;
     this.startpointManager = startpointManager;
     this.changelogStreamManager = changelogStreamManager;
-    this.jobRestartSignal = jobRestartSignal;
     this.metrics = metrics;
     this.systemAdmins = systemAdmins;
     this.config = config;
@@ -156,26 +135,12 @@ public class StaticResourceJobCoordinator {
     this.startpointManager.start();
     try {
       JobModel jobModel = newJobModel();
-      // monitors should be created right after job model is calculated (see jobModelMonitors() for more details)
-      JobModelMonitors jobModelMonitors = jobModelMonitors(jobModel);
       JobCoordinatorMetadata newMetadata =
           this.jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel, jobModel.getConfig());
       Set<JobMetadataChange> jobMetadataChanges = checkForMetadataChanges(newMetadata);
-      if (!jobMetadataChanges.isEmpty() && !jobMetadataChanges.contains(JobMetadataChange.NEW_DEPLOYMENT)) {
-        /*
-         * If the job coordinator comes up, but not due to a new deployment, and the metadata changed, then trigger a
-         * restart. This case applies if the job coordinator died and the job model needed to change while it was down.
-         * If there were no metadata changes, then just let the current workers continue to run.
-         * If there was a new deployment (which includes the case where the coordinator requested a restart), then we
-         * rely on the external resource manager to make sure the previous workers restarted, so we don't need to
-         * restart again.
-         */
-        triggerRestartAndWait();
-      } else {
-        prepareWorkerExecution(jobModel, newMetadata, jobMetadataChanges);
-        this.coordinatorCommunication.start();
-        monitorAndWait(jobModelMonitors);
-      }
+      prepareWorkerExecution(jobModel, newMetadata, jobMetadataChanges);
+      this.coordinatorCommunication.start();
+      waitForShutdownQuietly();
     } catch (Exception e) {
       LOG.error("Error while running job coordinator; exiting", e);
       throw new SamzaException("Error while running job coordinator", e);
@@ -211,24 +176,6 @@ public class StaticResourceJobCoordinator {
 
   private JobModel newJobModel() {
     return this.jobModelHelper.newJobModel(this.config, this.changelogStreamManager.readPartitionMapping());
-  }
-
-  /*
-   * Possible race condition: The partition count monitor queries for stream metadata when it is created, so if the
-   * partition counts changed between the job model calculation and the creation of the partition count monitor, then
-   * the monitor will not trigger an update to the job model. This method should be called right after calculating the
-   * job model, in order to reduce the possible time in which a partition count change is missed. This issue also
-   * exists in the older ClusterBasedJobCoordinator.
-   * TODO This wouldn't be a problem if the partition count monitor used the job model to calculate initial metadata
-   */
-  private JobModelMonitors jobModelMonitors(JobModel jobModel) {
-    StreamPartitionCountMonitor streamPartitionCountMonitor =
-        this.streamPartitionCountMonitorFactory.build(jobModel.getConfig(),
-          streamsChanged -> this.jobRestartSignal.restartJob());
-    Optional<StreamRegexMonitor> streamRegexMonitor =
-        this.streamRegexMonitorFactory.build(jobModel, jobModel.getConfig(),
-          (initialInputSet, newInputStreams, regexesMonitored) -> this.jobRestartSignal.restartJob());
-    return new JobModelMonitors(streamPartitionCountMonitor, streamRegexMonitor.orElse(null));
   }
 
   /**
@@ -275,25 +222,11 @@ public class StaticResourceJobCoordinator {
     return this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata);
   }
 
-  private void triggerRestartAndWait() {
-    this.jobRestartSignal.restartJob();
-    LOG.info("Triggered job restart");
-    try {
-      waitForShutdown();
-    } catch (InterruptedException e) {
-      LOG.warn("Interrupted while waiting to shut down after triggering job restart", e);
-    }
-  }
-
-  private void monitorAndWait(JobModelMonitors jobModelMonitors) {
-    jobModelMonitors.start();
-    LOG.info("Started monitors for job model changes");
+  private void waitForShutdownQuietly() {
     try {
       waitForShutdown();
     } catch (InterruptedException e) {
       LOG.warn("Interrupted while waiting to shutdown", e);
-    } finally {
-      jobModelMonitors.stop();
     }
   }
 }

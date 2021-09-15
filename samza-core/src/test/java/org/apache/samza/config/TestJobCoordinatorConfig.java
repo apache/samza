@@ -19,26 +19,13 @@
 package org.apache.samza.config;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.samza.coordinator.lifecycle.NoOpJobRestartSignalFactory;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 
 public class TestJobCoordinatorConfig {
-  @Test
-  public void testGetJobRestartSignalFactory() {
-    assertEquals(NoOpJobRestartSignalFactory.class.getName(),
-        new JobCoordinatorConfig(new MapConfig()).getJobRestartSignalFactory());
-
-    JobCoordinatorConfig jobCoordinatorConfig = new JobCoordinatorConfig(new MapConfig(
-        ImmutableMap.of(JobCoordinatorConfig.JOB_RESTART_SIGNAL_FACTORY,
-            "org.apache.samza.MyJobRestartSignalFactory")));
-    assertEquals("org.apache.samza.MyJobRestartSignalFactory", jobCoordinatorConfig.getJobRestartSignalFactory());
-  }
-
   @Test
   public void testGetUseStaticResourceJobCoordinator() {
     assertFalse(new JobCoordinatorConfig(new MapConfig()).getUseStaticResourceJobCoordinator());
