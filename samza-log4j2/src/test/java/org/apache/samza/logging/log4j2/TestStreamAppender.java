@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Appender;
@@ -42,90 +43,91 @@ import org.apache.logging.log4j.core.config.builder.api.RootLoggerComponentBuild
 import org.apache.logging.log4j.core.config.builder.impl.BuiltConfiguration;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
 import org.apache.logging.log4j.core.layout.PatternLayout;
+import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.logging.LoggingContextHolder;
 import org.apache.samza.logging.log4j2.serializers.LoggingEventJsonSerde;
 import org.apache.samza.logging.log4j2.serializers.LoggingEventStringSerde;
 import org.apache.samza.logging.log4j2.serializers.LoggingEventStringSerdeFactory;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.when;
+
 
 public class TestStreamAppender {
+  private static final Logger LOG = (Logger) LogManager.getLogger(TestStreamAppender.class);
 
-  static Logger log = (Logger) LogManager.getLogger(TestStreamAppender.class);
+  @Mock
+  private LoggingContextHolder loggingContextHolder;
+
+  @Before
+  public void setup() {
+    MockitoAnnotations.initMocks(this);
+    when(this.loggingContextHolder.getConfig()).thenReturn(baseConfig());
+  }
 
   @After
   public void tearDown() {
     removeAllAppenders();
     MockSystemProducer.listeners.clear();
     MockSystemProducer.messagesReceived.clear();
-    MockSystemAdmin.createdStreamName = "";
+    MockSystemAdmin.createdStreamSpec = null;
   }
 
   @Test
   public void testDefaultSerde() {
     System.setProperty("samza.container.name", "samza-container-1");
-    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, layout, false, false, null, null);
-    systemProducerAppender.start();
-    assertNotNull(systemProducerAppender.getSerde());
-    assertEquals(LoggingEventJsonSerde.class, systemProducerAppender.getSerde().getClass());
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    // trigger system set up by sending a log
+    LOG.info("log message");
+    assertNotNull(streamAppender.getSerde());
+    assertEquals(LoggingEventJsonSerde.class, streamAppender.getSerde().getClass());
   }
 
   @Test
   public void testNonDefaultSerde() {
     System.setProperty("samza.container.name", "samza-container-1");
-    Map<String, String> map = new HashMap<String, String>();
-    map.put("job.name", "log4jTest");
-    map.put("job.id", "1");
-    map.put("serializers.registry.log4j-string.class", LoggingEventStringSerdeFactory.class.getCanonicalName());
-    map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
-    map.put("systems.mock.streams.__samza_log4jTest_1_logs.samza.msg.serde", "log4j-string");
-    map.put("task.log4j.system", "mock");
-    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, false, new MapConfig(map), null);
-    systemProducerAppender.start();
-    assertNotNull(systemProducerAppender.getSerde());
-    assertEquals(LoggingEventStringSerde.class, systemProducerAppender.getSerde().getClass());
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put("job.name", "log4jTest");
+    configMap.put("job.id", "1");
+    configMap.put("serializers.registry.log4j-string.class", LoggingEventStringSerdeFactory.class.getCanonicalName());
+    configMap.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
+    configMap.put("systems.mock.streams.__samza_log4jTest_1_logs.samza.msg.serde", "log4j-string");
+    configMap.put("task.log4j.system", "mock");
+    when(this.loggingContextHolder.getConfig()).thenReturn(new MapConfig(configMap));
+
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    // trigger system set up by sending a log
+    LOG.info("log message");
+    assertNotNull(streamAppender.getSerde());
+    assertEquals(LoggingEventStringSerde.class, streamAppender.getSerde().getClass());
   }
 
   @Test
-  public void testDefaultStreamName() {
-    System.setProperty("samza.container.name", "samza-container-1");
-    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, false, null, null);
-    systemProducerAppender.start();
-    log.addAppender(systemProducerAppender);
-    Assert.assertEquals("__samza_log4jTest_1_logs", systemProducerAppender.getStreamName());
-  }
-
-  @Test
-  public void testCustomStreamName() {
-    System.setProperty("samza.container.name", "samza-container-1");
-    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender = MockSystemProducerAppender.createAppender("testName", null, layout, false, false, null, "test-stream-name");
-    systemProducerAppender.start();
-    log.addAppender(systemProducerAppender);
-    Assert.assertEquals("test-stream-name", systemProducerAppender.getStreamName());
-  }
-
-  @Test
-  public void testSystemProducerAppenderInContainer() throws InterruptedException {
+  public void testSystemProducerAppenderAppend() throws InterruptedException {
     System.setProperty("samza.container.name", "samza-container-1");
 
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, layout, false, false, null, null);
-    systemProducerAppender.start();
-
-    log.addAppender(systemProducerAppender);
-    log.setLevel(Level.INFO);
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, layout, false, false, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    LOG.setLevel(Level.INFO);
     List<String> messages = Lists.newArrayList("testing1", "testing2");
     logAndVerifyMessages(messages);
-    systemProducerAppender.stop();
+    streamAppender.stop();
   }
 
   @Test
@@ -135,18 +137,15 @@ public class TestStreamAppender {
     ConfigurationFactory.setConfigurationFactory(new AsyncLoggerConfigurationFactory());
 
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, layout, false, true, null, null);
-    systemProducerAppender.setupSystem();
-    systemProducerAppender.systemInitialized = true;
-    systemProducerAppender.start();
-    log.addAppender(systemProducerAppender);
-    log.setLevel(Level.INFO);
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    LOG.setLevel(Level.INFO);
     List<String> messages = Lists.newArrayList("testing1", "testing2");
     logAndVerifyMessages(messages);
-    systemProducerAppender.stop();
+    streamAppender.stop();
   }
-
 
   @Plugin(name = "AsyncLoggerConfigurationFactory", category = ConfigurationFactory.CATEGORY)
   @Order(50)
@@ -177,41 +176,48 @@ public class TestStreamAppender {
   }
 
   @Test
-  public void testSystemProducerAppenderInAM() throws InterruptedException {
+  public void testSystemProducerAppenderNotInitialized() throws InterruptedException {
     System.setProperty("samza.container.name", "samza-job-coordinator");
 
+    when(this.loggingContextHolder.getConfig()).thenReturn(null);
+    // add a counter to make sure that the initial message doesn't get produced
+    AtomicInteger numMessagesProduced = new AtomicInteger(0);
+    MockSystemProducer.listeners.add((source, envelope) -> numMessagesProduced.incrementAndGet());
+
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, layout, false, false, null, null);
-    systemProducerAppender.start();
-    log.addAppender(systemProducerAppender);
-    log.setLevel(Level.INFO);
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, layout, false, false, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    LOG.setLevel(Level.INFO);
 
-    log.info("no-received"); // System isn't initialized yet, so this message should be dropped
+    LOG.info("no-received"); // System isn't initialized yet, so this message should be dropped
 
-    systemProducerAppender.setupSystem();
-    MockSystemProducerAppender.systemInitialized = true;
+    // make config available so messages now get sent to the stream
+    when(this.loggingContextHolder.getConfig()).thenReturn(baseConfig());
 
     List<String> messages = Lists.newArrayList("testing3", "testing4");
     logAndVerifyMessages(messages);
-    systemProducerAppender.stop();
+    streamAppender.stop();
+    assertEquals(messages.size(), numMessagesProduced.get());
   }
 
   @Test
   public void testNoStreamCreationUponSetupByDefault() {
     System.setProperty("samza.container.name", "samza-container-1");
 
-    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, layout, false, false, null, null);
-    systemProducerAppender.start();
-    log.addAppender(systemProducerAppender);
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    // trigger system set up by sending a log
+    LOG.info("log message");
 
-    Assert.assertEquals("", MockSystemAdmin.createdStreamName);
+    Assert.assertNull(MockSystemAdmin.createdStreamSpec);
   }
 
   @Test
-  public void testStreamCreationUponSetupWhenEnabled() {
+  public void testStreamCreationDefaultStreamName() {
     System.setProperty("samza.container.name", "samza-container-1");
 
     MapConfig mapConfig = new MapConfig(ImmutableMap.of(
@@ -220,49 +226,79 @@ public class TestStreamAppender {
         "job.id", "1",
         "systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName(),
         "task.log4j.system", "mock"));
+    when(this.loggingContextHolder.getConfig()).thenReturn(mapConfig);
 
-    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, layout, false, false, mapConfig, null);
-    systemProducerAppender.start();
-    log.addAppender(systemProducerAppender);
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    // trigger system set up by sending a log
+    LOG.info("log message");
 
-    Assert.assertEquals("__samza_log4jTest_1_logs", MockSystemAdmin.createdStreamName);
+    Assert.assertEquals("__samza_log4jTest_1_logs", MockSystemAdmin.createdStreamSpec.getPhysicalName());
+    // job.container.count defaults to 1
+    Assert.assertEquals(1, MockSystemAdmin.createdStreamSpec.getPartitionCount());
   }
 
   @Test
-  public void testDefaultPartitionCount() {
+  public void testStreamCreationCustomStreamName() {
     System.setProperty("samza.container.name", "samza-container-1");
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, null, false, false, null, null);
-    Assert.assertEquals(1, systemProducerAppender.getPartitionCount()); // job.container.count defaults to 1
 
-    Map<String, String> map = new HashMap<>();
-    map.put("job.name", "log4jTest");
-    map.put("job.id", "1");
-    map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
-    map.put("task.log4j.system", "mock");
-    map.put("job.container.count", "4");
-    systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, null, false, false, new MapConfig(map), null);
-    Assert.assertEquals(4, systemProducerAppender.getPartitionCount());
+    MapConfig mapConfig = new MapConfig(ImmutableMap.of(
+        "task.log4j.create.stream.enabled", "true", // Enable explicit stream creation
+        "job.name", "log4jTest",
+        "job.id", "1",
+        "systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName(),
+        "task.log4j.system", "mock"));
+    when(this.loggingContextHolder.getConfig()).thenReturn(mapConfig);
 
-    systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, null, false, false, null, null);
-    systemProducerAppender.setPartitionCount(8);
-    Assert.assertEquals(8, systemProducerAppender.getPartitionCount());
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, null, false, false, "test-stream-name", this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    // trigger system set up by sending a log
+    LOG.info("log message");
+
+    Assert.assertEquals("test-stream-name", MockSystemAdmin.createdStreamSpec.getPhysicalName());
+    // job.container.count defaults to 1
+    Assert.assertEquals(1, MockSystemAdmin.createdStreamSpec.getPartitionCount());
+
+  }
+
+  @Test
+  public void testStreamCreationUpSetupWithJobContainerCountConfigured() {
+    System.setProperty("samza.container.name", "samza-container-1");
+
+    MapConfig mapConfig = new MapConfig(new ImmutableMap.Builder<String, String>()
+        .put("task.log4j.create.stream.enabled", "true") // Enable explicit stream creation
+        .put("job.name", "log4jTest")
+        .put("job.id", "1")
+        .put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName())
+        .put("task.log4j.system", "mock")
+        .put("job.container.count", "4")
+        .build());
+    when(this.loggingContextHolder.getConfig()).thenReturn(mapConfig);
+
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    // trigger system set up by sending a log
+    LOG.info("log message");
+
+    Assert.assertEquals("__samza_log4jTest_1_logs", MockSystemAdmin.createdStreamSpec.getPhysicalName());
+    Assert.assertEquals(4, MockSystemAdmin.createdStreamSpec.getPartitionCount());
   }
 
   @Test
   public void testExceptionsDoNotKillTransferThread() throws InterruptedException {
     System.setProperty("samza.container.name", "samza-container-1");
 
-    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, layout, false, false, null, null);
-    systemProducerAppender.start();
-    log.addAppender(systemProducerAppender);
-    log.setLevel(Level.INFO);
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    LOG.setLevel(Level.INFO);
 
     List<String> messages = Lists.newArrayList("testing5", "testing6", "testing7");
 
@@ -276,25 +312,24 @@ public class TestStreamAppender {
     });
 
     // Log the messages
-    messages.forEach((message) -> log.info(message));
+    messages.forEach(LOG::info);
 
     // Wait for messages
     assertTrue("Thread did not send all messages. Count: " + allMessagesSent.getCount(),
         allMessagesSent.await(60, TimeUnit.SECONDS));
-    systemProducerAppender.stop();
+    streamAppender.stop();
   }
 
   @Test
   public void testQueueTimeout() throws InterruptedException {
     System.setProperty("samza.container.name", "samza-container-1");
 
-    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
-    MockSystemProducerAppender systemProducerAppender =
-        MockSystemProducerAppender.createAppender("testName", null, layout, false, false, null, null);
-    systemProducerAppender.queueTimeoutS = 1;
-    systemProducerAppender.start();
-    log.addAppender(systemProducerAppender);
-    log.setLevel(Level.INFO);
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
+    streamAppender.queueTimeoutS = 1;
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    LOG.setLevel(Level.INFO);
 
     int extraMessageCount = 5;
     int expectedMessagesSent = extraMessageCount - 1; // -1 because when the queue is drained there is one additional message that couldn't be added
@@ -316,9 +351,9 @@ public class TestStreamAppender {
     });
 
     // Log the messages. This is where the timeout will happen!
-    messages.forEach((message) -> log.info(message));
+    messages.forEach(LOG::info);
 
-    assertEquals(messages.size() - expectedMessagesSent, systemProducerAppender.metrics.logMessagesDropped.getCount());
+    assertEquals(messages.size() - expectedMessagesSent, streamAppender.metrics.logMessagesDropped.getCount());
 
     // Allow all the rest of the messages to send.
     waitForTimeout.countDown();
@@ -327,7 +362,7 @@ public class TestStreamAppender {
     assertTrue("Thread did not send all messages. Count: " + allMessagesSent.getCount(),
         allMessagesSent.await(60, TimeUnit.SECONDS));
     assertEquals(expectedMessagesSent, MockSystemProducer.messagesReceived.size());
-    systemProducerAppender.stop();
+    streamAppender.stop();
   }
 
   private void logAndVerifyMessages(List<String> messages) throws InterruptedException {
@@ -336,7 +371,7 @@ public class TestStreamAppender {
     MockSystemProducer.listeners.add((source, envelope) -> allMessagesSent.countDown());
 
     // Log the messages
-    messages.forEach((message) -> log.info(message));
+    messages.forEach(LOG::info);
 
     // Wait for messages
     assertTrue("Timeout while waiting for StreamAppender to send all messages. Count: " + allMessagesSent.getCount(),
@@ -345,10 +380,17 @@ public class TestStreamAppender {
     // Verify
     assertEquals(messages.size(), MockSystemProducer.messagesReceived.size());
     for (int i = 0; i < messages.size(); i++) {
-      HashMap<String, String> messageMap = new HashMap<String, String>();
       assertTrue("Message mismatch at index " + i,
           new String((byte[]) MockSystemProducer.messagesReceived.get(i)).contains(asJsonMessageSegment(messages.get(i))));
     }
+  }
+
+  private static Config baseConfig() {
+    Map<String, String> map = new HashMap<>();
+    map.put("job.name", "log4jTest");
+    map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
+    map.put("task.log4j.system", "mock");
+    return new MapConfig(map);
   }
 
   private String asJsonMessageSegment(String message) {
@@ -356,9 +398,9 @@ public class TestStreamAppender {
   }
 
   private void removeAllAppenders() {
-    Map<String, Appender> allAppenders = log.getAppenders();
+    Map<String, Appender> allAppenders = LOG.getAppenders();
     for (String name: allAppenders.keySet()) {
-      log.removeAppender(allAppenders.get(name));
+      LOG.removeAppender(allAppenders.get(name));
     }
   }
 }

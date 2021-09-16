@@ -19,15 +19,14 @@
 
 package org.apache.samza.logging.log4j;
 
-import com.google.common.collect.ImmutableMap;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
@@ -37,24 +36,19 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.Log4jSystemConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.SerializerConfig;
-import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.config.TaskConfig;
-import org.apache.samza.coordinator.JobModelManager;
-import org.apache.samza.job.model.JobModel;
+import org.apache.samza.logging.LoggingContextHolder;
 import org.apache.samza.logging.log4j.serializers.LoggingEventJsonSerdeFactory;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeFactory;
-import org.apache.samza.serializers.model.SamzaObjectMapper;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamSpec;
 import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.ExponentialSleepStrategy;
-import org.apache.samza.util.HttpUtil;
 import org.apache.samza.util.ReflectionUtil;
 
 /**
@@ -65,7 +59,6 @@ import org.apache.samza.util.ReflectionUtil;
 public class StreamAppender extends AppenderSkeleton {
 
   private static final String JAVA_OPTS_CONTAINER_NAME = "samza.container.name";
-  private static final String JOB_COORDINATOR_TAG = "samza-job-coordinator";
   private static final String SOURCE = "log4j-log";
 
   // Hidden config for now. Will move to appropriate Config class when ready to.
@@ -74,7 +67,7 @@ public class StreamAppender extends AppenderSkeleton {
   protected static final int DEFAULT_QUEUE_SIZE = 100;
   private static final long DEFAULT_QUEUE_TIMEOUT_S = 2; // Abitrary choice
 
-  protected static volatile boolean systemInitialized = false;
+  protected volatile boolean systemInitialized = false;
 
   private Config config = null;
   private SystemStream systemStream = null;
@@ -82,7 +75,6 @@ public class StreamAppender extends AppenderSkeleton {
   private String key = null;
   private String streamName = null;
   private int partitionCount = 0;
-  private boolean isApplicationMaster = false;
   private Serde<LoggingEvent> serde = null;
   private Logger log = Logger.getLogger(StreamAppender.class);
   protected StreamAppenderMetrics metrics;
@@ -118,13 +110,10 @@ public class StreamAppender extends AppenderSkeleton {
   /**
    * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #activateOptions()} for when this is called.
    * Example: {@literal <param name="PartitionCount" value="4"/>}
-   * @return The configured partition count of the StreamAppender stream. If not set, returns {@link JobConfig#getContainerCount()}.
+   * @return The configured partition count of the StreamAppender stream
    */
   public int getPartitionCount() {
-    if (partitionCount > 0) {
-      return partitionCount;
-    }
-    return new JobConfig(getConfig()).getContainerCount();
+    return this.partitionCount;
   }
 
   /**
@@ -142,21 +131,11 @@ public class StreamAppender extends AppenderSkeleton {
   @Override
   public void activateOptions() {
     String containerName = System.getProperty(JAVA_OPTS_CONTAINER_NAME);
-    if (containerName != null) {
-      isApplicationMaster = containerName.contains(JOB_COORDINATOR_TAG);
-    } else {
+    if (containerName == null) {
       throw new SamzaException("Got null container name from system property: " + JAVA_OPTS_CONTAINER_NAME +
           ". This is used as the key for the log appender, so can't proceed.");
     }
     key = containerName; // use the container name as the key for the logs
-
-    // StreamAppender has to wait until the JobCoordinator is up when the log is in the AM
-    if (isApplicationMaster) {
-      systemInitialized = false;
-    } else {
-      setupSystem();
-      systemInitialized = true;
-    }
   }
 
   @Override
@@ -165,40 +144,21 @@ public class StreamAppender extends AppenderSkeleton {
       try {
         recursiveCall.set(true);
         if (!systemInitialized) {
-          if (JobModelManager.currentJobModelManager() != null) {
-            // JobCoordinator has been instantiated
-            setupSystem();
-            systemInitialized = true;
+          // configs are needed to set up producer system, so check that before actually initializing
+          if (readyToInitialize()) {
+            synchronized (this) {
+              if (!systemInitialized) {
+                setupSystem();
+                systemInitialized = true;
+              }
+            }
+            handleEvent(event);
           } else {
-            log.trace("Waiting for the JobCoordinator to be instantiated...");
+            // skip sending the log to the stream if initialization can't happen yet
+            log.trace("Waiting for config to become available before log can be handled");
           }
         } else {
-          // Serialize the event before adding to the queue to leverage the caller thread
-          // and ensure that the transferThread can keep up.
-          if (!logQueue.offer(serde.toBytes(subLog(event)), queueTimeoutS, TimeUnit.SECONDS)) {
-            // Do NOT retry adding to the queue. Dropping the event allows us to alleviate the unlikely
-            // possibility of a deadlock, which can arise due to a circular dependency between the SystemProducer
-            // which is used for StreamAppender and the log, which uses StreamAppender. Any locks held in the callstack
-            // of those two code paths can cause a deadlock. Dropping the event allows us to proceed.
-
-            // Scenario:
-            // T1: holds L1 and is waiting for L2
-            // T2: holds L2 and is waiting to produce to BQ1 which is drained by T3 (SystemProducer) which is waiting for L1
-
-            // This has happened due to locks in Kafka and log4j (see SAMZA-1537), which are both out of our control,
-            // so dropping events in the StreamAppender is our best recourse.
-
-            // Drain the queue instead of dropping one message just to reduce the frequency of warn logs above.
-            int messagesDropped = logQueue.drainTo(new ArrayList<>()) + 1; // +1 because of the current log event
-            log.warn(String.format("Exceeded timeout %ss while trying to log to %s. Dropping %d log messages.",
-                queueTimeoutS,
-                systemStream.toString(),
-                messagesDropped));
-
-            // Emit a metric which can be monitored to ensure it doesn't happen often.
-            metrics.logMessagesDropped.inc(messagesDropped);
-          }
-          metrics.bufferFillPct.set(Math.round(100f * logQueue.size() / DEFAULT_QUEUE_SIZE));
+          handleEvent(event);
         }
       } catch (Exception e) {
         System.err.println("[StreamAppender] Error sending log message:");
@@ -209,6 +169,35 @@ public class StreamAppender extends AppenderSkeleton {
     } else if (metrics != null) { // setupSystem() may not have been invoked yet so metrics can be null here.
       metrics.recursiveCalls.inc();
     }
+  }
+
+  private void handleEvent(LoggingEvent event) throws InterruptedException {
+    // Serialize the event before adding to the queue to leverage the caller thread
+    // and ensure that the transferThread can keep up.
+    if (!logQueue.offer(serde.toBytes(subLog(event)), queueTimeoutS, TimeUnit.SECONDS)) {
+      // Do NOT retry adding to the queue. Dropping the event allows us to alleviate the unlikely
+      // possibility of a deadlock, which can arise due to a circular dependency between the SystemProducer
+      // which is used for StreamAppender and the log, which uses StreamAppender. Any locks held in the callstack
+      // of those two code paths can cause a deadlock. Dropping the event allows us to proceed.
+
+      // Scenario:
+      // T1: holds L1 and is waiting for L2
+      // T2: holds L2 and is waiting to produce to BQ1 which is drained by T3 (SystemProducer) which is waiting for L1
+
+      // This has happened due to locks in Kafka and log4j (see SAMZA-1537), which are both out of our control,
+      // so dropping events in the StreamAppender is our best recourse.
+
+      // Drain the queue instead of dropping one message just to reduce the frequency of warn logs above.
+      int messagesDropped = logQueue.drainTo(new ArrayList<>()) + 1; // +1 because of the current log event
+      log.warn(String.format("Exceeded timeout %ss while trying to log to %s. Dropping %d log messages.",
+          queueTimeoutS,
+          systemStream.toString(),
+          messagesDropped));
+
+      // Emit a metric which can be monitored to ensure it doesn't happen often.
+      metrics.logMessagesDropped.inc(messagesDropped);
+    }
+    metrics.bufferFillPct.set(Math.round(100f * logQueue.size() / DEFAULT_QUEUE_SIZE));
   }
 
   private String subAppend(LoggingEvent event) {
@@ -259,31 +248,23 @@ public class StreamAppender extends AppenderSkeleton {
     }
   }
 
-  /**
-   * get the config for the AM or containers based on the containers' names.
-   *
-   * @return Config the config of this container
-   */
-  protected Config getConfig() {
-    Config config;
-
-    try {
-      if (isApplicationMaster) {
-        config = JobModelManager.currentJobModelManager().jobModel().getConfig();
-      } else {
-        String url = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
-        String response = HttpUtil.read(new URL(url), 30000, new ExponentialSleepStrategy());
-        config = SamzaObjectMapper.getObjectMapper().readValue(response, JobModel.class).getConfig();
-      }
-    } catch (IOException e) {
-      throw new SamzaException("can not read the config", e);
-    }
-    // Make system producer drop producer errors for StreamAppender
-    config = new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS, "true"));
-
-    return config;
+  @VisibleForTesting
+  boolean readyToInitialize() {
+    return LoggingContextHolder.INSTANCE.getConfig() != null;
   }
 
+  /**
+   * This should only be called after verifying that the {@link LoggingContextHolder} has the config.
+   */
+  protected Config getConfig() {
+    Config config = LoggingContextHolder.INSTANCE.getConfig();
+    // Make system producer drop producer errors for StreamAppender
+    return new MapConfig(config, ImmutableMap.of(TaskConfig.DROP_PRODUCER_ERRORS, "true"));
+  }
+
+  /**
+   * This should only be called after verifying that the {@link LoggingContextHolder} has the config.
+   */
   protected void setupSystem() {
     config = getConfig();
     Log4jSystemConfig log4jSystemConfig = new Log4jSystemConfig(config);
@@ -305,9 +286,10 @@ public class StreamAppender extends AppenderSkeleton {
     setSerde(log4jSystemConfig, systemName, streamName);
 
     if (config.getBoolean(CREATE_STREAM_ENABLED, false)) {
-      // Explicitly create stream appender stream with the partition count the same as the number of containers.
-      System.out.println("[StreamAppender] creating stream " + streamName + " with partition count " + getPartitionCount());
-      StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, getPartitionCount());
+      int streamPartitionCount = calculateStreamPartitionCount(config);
+      System.out.println(
+          "[StreamAppender] creating stream " + streamName + " with partition count " + streamPartitionCount);
+      StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, streamPartitionCount);
 
       // SystemAdmin only needed for stream creation here.
       SystemAdmin systemAdmin = systemFactory.getAdmin(systemName, config);
@@ -328,7 +310,6 @@ public class StreamAppender extends AppenderSkeleton {
   }
 
   private void startTransferThread() {
-
     try {
       // Serialize the key once, since we will use it for every event.
       final byte[] keyBytes = key.getBytes("UTF-8");
@@ -407,5 +388,16 @@ public class StreamAppender extends AppenderSkeleton {
    */
   public Serde<LoggingEvent> getSerde() {
     return serde;
+  }
+
+  /**
+   * If the partition count was explicitly specified, then use that. Otherwise, use the container count as the partition
+   * count.
+   */
+  private int calculateStreamPartitionCount(Config config) {
+    if (partitionCount > 0) {
+      return partitionCount;
+    }
+    return new JobConfig(config).getContainerCount();
   }
 }
