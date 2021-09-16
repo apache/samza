@@ -19,8 +19,6 @@
 
 package org.apache.samza.logging.log4j2;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,6 +27,8 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Appender;
@@ -56,7 +56,9 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
 
@@ -85,12 +87,11 @@ public class TestStreamAppender {
     System.setProperty("samza.container.name", "samza-container-1");
     StreamAppender streamAppender =
         new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
+    startAndAttachAppender(streamAppender);
     // trigger system set up by sending a log
     LOG.info("log message");
-    assertNotNull(streamAppender.getSerde());
     assertEquals(LoggingEventJsonSerde.class, streamAppender.getSerde().getClass());
+    streamAppender.stop();
   }
 
   @Test
@@ -107,12 +108,11 @@ public class TestStreamAppender {
 
     StreamAppender streamAppender =
         new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
+    startAndAttachAppender(streamAppender);
     // trigger system set up by sending a log
     LOG.info("log message");
-    assertNotNull(streamAppender.getSerde());
     assertEquals(LoggingEventStringSerde.class, streamAppender.getSerde().getClass());
+    streamAppender.stop();
   }
 
   @Test
@@ -122,9 +122,7 @@ public class TestStreamAppender {
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
     StreamAppender streamAppender =
         new StreamAppender("testName", null, layout, false, false, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
-    LOG.setLevel(Level.INFO);
+    startAndAttachAppender(streamAppender);
     List<String> messages = Lists.newArrayList("testing1", "testing2");
     logAndVerifyMessages(messages);
     streamAppender.stop();
@@ -139,9 +137,7 @@ public class TestStreamAppender {
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
     StreamAppender streamAppender =
         new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
-    LOG.setLevel(Level.INFO);
+    startAndAttachAppender(streamAppender);
     List<String> messages = Lists.newArrayList("testing1", "testing2");
     logAndVerifyMessages(messages);
     streamAppender.stop();
@@ -187,9 +183,7 @@ public class TestStreamAppender {
     PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
     StreamAppender streamAppender =
         new StreamAppender("testName", null, layout, false, false, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
-    LOG.setLevel(Level.INFO);
+    startAndAttachAppender(streamAppender);
 
     LOG.info("no-received"); // System isn't initialized yet, so this message should be dropped
 
@@ -208,10 +202,10 @@ public class TestStreamAppender {
 
     StreamAppender streamAppender =
         new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
+    startAndAttachAppender(streamAppender);
     // trigger system set up by sending a log
     LOG.info("log message");
+    streamAppender.stop();
 
     Assert.assertNull(MockSystemAdmin.createdStreamSpec);
   }
@@ -230,10 +224,10 @@ public class TestStreamAppender {
 
     StreamAppender streamAppender =
         new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
+    startAndAttachAppender(streamAppender);
     // trigger system set up by sending a log
     LOG.info("log message");
+    streamAppender.stop();
 
     Assert.assertEquals("__samza_log4jTest_1_logs", MockSystemAdmin.createdStreamSpec.getPhysicalName());
     // job.container.count defaults to 1
@@ -254,10 +248,10 @@ public class TestStreamAppender {
 
     StreamAppender streamAppender =
         new StreamAppender("testName", null, null, false, false, "test-stream-name", this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
+    startAndAttachAppender(streamAppender);
     // trigger system set up by sending a log
     LOG.info("log message");
+    streamAppender.stop();
 
     Assert.assertEquals("test-stream-name", MockSystemAdmin.createdStreamSpec.getPhysicalName());
     // job.container.count defaults to 1
@@ -266,7 +260,7 @@ public class TestStreamAppender {
   }
 
   @Test
-  public void testStreamCreationUpSetupWithJobContainerCountConfigured() {
+  public void testStreamCreationUpSetupWithJobContainerCountConfigured() throws InterruptedException {
     System.setProperty("samza.container.name", "samza-container-1");
 
     MapConfig mapConfig = new MapConfig(new ImmutableMap.Builder<String, String>()
@@ -281,10 +275,10 @@ public class TestStreamAppender {
 
     StreamAppender streamAppender =
         new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
+    startAndAttachAppender(streamAppender);
     // trigger system set up by sending a log
     LOG.info("log message");
+    streamAppender.stop();
 
     Assert.assertEquals("__samza_log4jTest_1_logs", MockSystemAdmin.createdStreamSpec.getPhysicalName());
     Assert.assertEquals(4, MockSystemAdmin.createdStreamSpec.getPartitionCount());
@@ -296,9 +290,7 @@ public class TestStreamAppender {
 
     StreamAppender streamAppender =
         new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
-    LOG.setLevel(Level.INFO);
+    startAndAttachAppender(streamAppender);
 
     List<String> messages = Lists.newArrayList("testing5", "testing6", "testing7");
 
@@ -327,9 +319,7 @@ public class TestStreamAppender {
     StreamAppender streamAppender =
         new StreamAppender("testName", null, null, false, false, null, this.loggingContextHolder);
     streamAppender.queueTimeoutS = 1;
-    streamAppender.start();
-    LOG.addAppender(streamAppender);
-    LOG.setLevel(Level.INFO);
+    startAndAttachAppender(streamAppender);
 
     int extraMessageCount = 5;
     int expectedMessagesSent = extraMessageCount - 1; // -1 because when the queue is drained there is one additional message that couldn't be added
@@ -391,6 +381,12 @@ public class TestStreamAppender {
     map.put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName());
     map.put("task.log4j.system", "mock");
     return new MapConfig(map);
+  }
+
+  private static void startAndAttachAppender(StreamAppender streamAppender) {
+    streamAppender.start();
+    LOG.addAppender(streamAppender);
+    LOG.setLevel(Level.INFO);
   }
 
   private String asJsonMessageSegment(String message) {

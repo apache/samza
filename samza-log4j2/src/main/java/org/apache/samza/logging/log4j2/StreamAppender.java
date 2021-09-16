@@ -80,7 +80,7 @@ public class StreamAppender extends AbstractAppender {
   private int partitionCount = 0;
   private Serde<LogEvent> serde = null;
 
-  private Thread transferThread;
+  private volatile Thread transferThread;
   private Config config = null;
   private String streamName = null;
   private final boolean usingAsyncLogger;
@@ -288,16 +288,18 @@ public class StreamAppender extends AbstractAppender {
   @Override
   public void stop() {
     System.out.println(String.format("Shutting down the %s...", getName()));
-    transferThread.interrupt();
-    try {
-      transferThread.join();
-    } catch (InterruptedException e) {
-      System.err.println("Interrupted while waiting for transfer thread to finish." + e);
-      Thread.currentThread().interrupt();
+    if (transferThread != null) {
+      transferThread.interrupt();
+      try {
+        transferThread.join();
+      } catch (InterruptedException e) {
+        System.err.println("Interrupted while waiting for transfer thread to finish." + e);
+        Thread.currentThread().interrupt();
+      }
     }
 
     flushSystemProducer();
-    if (systemProducer !=  null) {
+    if (systemProducer != null) {
       systemProducer.stop();
     }
   }
