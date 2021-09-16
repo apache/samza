@@ -20,8 +20,9 @@ package org.apache.samza.logging;
 
 import java.util.concurrent.atomic.AtomicReference;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -29,6 +30,7 @@ import org.apache.samza.config.Config;
  * configs for initialization, so this allows the configs to be passed to those appenders.
  */
 public class LoggingContextHolder {
+  private static final Logger LOG = LoggerFactory.getLogger(LoggingContextHolder.class);
   public static final LoggingContextHolder INSTANCE = new LoggingContextHolder();
 
   private final AtomicReference<Config> config = new AtomicReference<>();
@@ -38,11 +40,12 @@ public class LoggingContextHolder {
   }
 
   /**
-   * Set the config. If this is called multiple times, then a {@link SamzaException} will be thrown.
+   * Set the config. Only the config used in the first call to this method will be used. After the first call, this
+   * method will do nothing.
    */
   public void setConfig(Config config) {
     if (!this.config.compareAndSet(null, config)) {
-      throw new SamzaException("Attempted to set config, but it was already set");
+      LOG.warn("Attempted to set config, but it was already set");
     }
   }
 

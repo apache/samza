@@ -18,14 +18,15 @@
  */
 package org.apache.samza.logging;
 
-import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.mockito.Mockito.mock;
 
 
 public class TestLoggingContextHolder {
@@ -51,12 +52,9 @@ public class TestLoggingContextHolder {
   @Test
   public void testSetMultiple() {
     this.loggingContextHolder.setConfig(this.config);
-
-    try {
-      this.loggingContextHolder.setConfig(this.config);
-      fail("setConfig call should fail");
-    } catch (SamzaException e) {
-      // expected to reach here
-    }
+    Config config0 = mock(Config.class);
+    this.loggingContextHolder.setConfig(config0);
+    // should still have first config
+    assertEquals(this.config, this.loggingContextHolder.getConfig());
   }
 }

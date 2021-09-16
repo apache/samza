@@ -26,6 +26,7 @@ import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStrea
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet, LocalityServlet}
 import org.apache.samza.coordinator.stream.messages.{SetContainerHostMapping, SetTaskContainerMapping, SetTaskModeMapping, SetTaskPartitionMapping}
 import org.apache.samza.job.model.JobModel
+import org.apache.samza.logging.LoggingContextHolder
 import org.apache.samza.metadatastore.MetadataStore
 import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -77,6 +78,7 @@ object JobModelManager extends Logging {
       server.addServlet("/", new JobServlet(new AtomicReference[Array[Byte]](serializedJobModelToServe)))
       server.addServlet("/locality", new LocalityServlet(localityManager))
 
+      LoggingContextHolder.INSTANCE.setConfig(jobModel.getConfig)
       new JobModelManager(jobModelToServe, server)
     } finally {
       systemAdmins.stop()
