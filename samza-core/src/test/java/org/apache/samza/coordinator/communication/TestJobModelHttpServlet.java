@@ -55,7 +55,7 @@ public class TestJobModelHttpServlet {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   @Mock
-  private JobModelProvider jobModelProvider;
+  private JobInfoProvider jobInfoProvider;
   @Mock
   private HttpServletResponse httpServletResponse;
   @Mock
@@ -68,13 +68,13 @@ public class TestJobModelHttpServlet {
   public void setup() {
     MockitoAnnotations.initMocks(this);
     this.metrics = new JobModelHttpServlet.Metrics(new MetricsRegistryMap());
-    this.jobModelHttpServlet = new JobModelHttpServlet(this.jobModelProvider, this.metrics);
+    this.jobModelHttpServlet = new JobModelHttpServlet(this.jobInfoProvider, this.metrics);
   }
 
   @Test
   public void testDoGet() throws IOException {
     JobModel jobModel = jobModel();
-    when(this.jobModelProvider.getSerializedJobModel()).thenReturn(
+    when(this.jobInfoProvider.getSerializedJobModel()).thenReturn(
         Optional.of(OBJECT_MAPPER.writeValueAsBytes(jobModel)));
     when(this.httpServletResponse.getOutputStream()).thenReturn(this.servletOutputStream);
 
@@ -90,7 +90,7 @@ public class TestJobModelHttpServlet {
 
   @Test
   public void testDoGetMissingJobModel() throws IOException {
-    when(this.jobModelProvider.getSerializedJobModel()).thenReturn(Optional.empty());
+    when(this.jobInfoProvider.getSerializedJobModel()).thenReturn(Optional.empty());
 
     this.jobModelHttpServlet.doGet(mock(HttpServletRequest.class), this.httpServletResponse);
 
@@ -104,7 +104,7 @@ public class TestJobModelHttpServlet {
 
   @Test
   public void testDoGetFailureToWriteResponse() throws IOException {
-    when(this.jobModelProvider.getSerializedJobModel()).thenReturn(
+    when(this.jobInfoProvider.getSerializedJobModel()).thenReturn(
         Optional.of(OBJECT_MAPPER.writeValueAsBytes(jobModel())));
     when(this.httpServletResponse.getOutputStream()).thenReturn(this.servletOutputStream);
     doThrow(new IOException("failure to write to output stream")).when(this.servletOutputStream).write(any());

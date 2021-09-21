@@ -18,9 +18,11 @@
  */
 package org.apache.samza.clustermanager;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.application.MockStreamApplication;
 import org.apache.samza.config.Config;
@@ -28,23 +30,30 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
-import org.apache.samza.coordinator.StaticResourceJobCoordinator;
+import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.coordinator.NoProcessorJobCoordinatorListener;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStore;
 import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.util.CoordinatorStreamUtil;
 import org.apache.samza.util.MetricsReporterLoader;
+import org.apache.samza.util.ReflectionUtil;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,8 +67,9 @@ import static org.powermock.api.mockito.PowerMockito.verifyStatic;
     JobCoordinatorLaunchUtil.class,
     CoordinatorStreamStore.class,
     RemoteJobPlanner.class,
-    StaticResourceJobCoordinator.class,
-    MetricsReporterLoader.class})
+    ReflectionUtil.class,
+    MetricsReporterLoader.class,
+    NoProcessorJobCoordinatorListener.class})
 public class TestJobCoordinatorLaunchUtil {
   @Test
   public void testRunClusterBasedJobCoordinator() throws Exception {
@@ -93,9 +103,10 @@ public class TestJobCoordinatorLaunchUtil {
   }
 
   @Test
-  public void testRunStaticResourceJobCoordinator() throws Exception {
+  public void testRunJobCoordinator() throws Exception {
+    String jobCoordinatorFactoryClass = "org.apache.samza.custom.MyJobCoordinatorFactory";
     Config originalConfig =
-        buildOriginalConfig(ImmutableMap.of(JobCoordinatorConfig.USE_STATIC_RESOURCE_JOB_COORDINATOR, "true"));
+        buildOriginalConfig(ImmutableMap.of(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, jobCoordinatorFactoryClass));
     JobConfig fullConfig =
         new JobConfig(new MapConfig(originalConfig, Collections.singletonMap("isAfterPlanning", "true")));
     Config autoSizingConfig = new MapConfig(Collections.singletonMap(JobConfig.JOB_AUTOSIZING_CONTAINER_COUNT, "10"));
@@ -103,7 +114,14 @@ public class TestJobCoordinatorLaunchUtil {
 
     RemoteJobPlanner remoteJobPlanner = mock(RemoteJobPlanner.class);
     CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
-    StaticResourceJobCoordinator staticResourceJobCoordinator = mock(StaticResourceJobCoordinator.class);
+    JobCoordinatorFactory jobCoordinatorFactory = mock(JobCoordinatorFactory.class);
+    JobCoordinator jobCoordinator = mock(JobCoordinator.class);
+    // use a latch to keep track of when start has been called
+    CountDownLatch jobCoordinatorStartedLatch = new CountDownLatch(1);
+    doAnswer(invocation -> {
+      jobCoordinatorStartedLatch.countDown();
+      return null;
+    }).when(jobCoordinator).start();
 
     PowerMockito.mockStatic(CoordinatorStreamUtil.class);
     PowerMockito.doNothing().when(CoordinatorStreamUtil.class, "createCoordinatorStream", any());
@@ -113,9 +131,11 @@ public class TestJobCoordinatorLaunchUtil {
     PowerMockito.whenNew(CoordinatorStreamStore.class).withAnyArguments().thenReturn(coordinatorStreamStore);
     PowerMockito.whenNew(RemoteJobPlanner.class).withAnyArguments().thenReturn(remoteJobPlanner);
     when(remoteJobPlanner.prepareJobs()).thenReturn(Collections.singletonList(fullConfig));
-    PowerMockito.mockStatic(StaticResourceJobCoordinator.class);
-    PowerMockito.doReturn(staticResourceJobCoordinator)
-        .when(StaticResourceJobCoordinator.class, "build", any(), eq(coordinatorStreamStore), eq(finalConfig));
+    PowerMockito.mockStatic(ReflectionUtil.class);
+    PowerMockito.doReturn(jobCoordinatorFactory)
+        .when(ReflectionUtil.class, "getObj", jobCoordinatorFactoryClass, JobCoordinatorFactory.class);
+    when(jobCoordinatorFactory.getJobCoordinator(eq("samza-job-coordinator"), eq(finalConfig), any(),
+        eq(coordinatorStreamStore))).thenReturn(jobCoordinator);
     PowerMockito.spy(JobCoordinatorLaunchUtil.class);
     PowerMockito.doNothing().when(JobCoordinatorLaunchUtil.class, "addShutdownHook", any());
     MetricsReporter metricsReporter = mock(MetricsReporter.class);
@@ -123,20 +143,38 @@ public class TestJobCoordinatorLaunchUtil {
     PowerMockito.mockStatic(MetricsReporterLoader.class);
     PowerMockito.doReturn(metricsReporterMap)
         .when(MetricsReporterLoader.class, "getMetricsReporters", new MetricsConfig(finalConfig), "JobCoordinator");
+    NoProcessorJobCoordinatorListener jobCoordinatorListener = mock(NoProcessorJobCoordinatorListener.class);
+    PowerMockito.whenNew(NoProcessorJobCoordinatorListener.class).withAnyArguments().thenReturn(jobCoordinatorListener);
 
-    JobCoordinatorLaunchUtil.run(new MockStreamApplication(), originalConfig);
+    Thread runThread = new Thread(() -> JobCoordinatorLaunchUtil.run(new MockStreamApplication(), originalConfig));
+    runThread.start();
+    // wait for job coordinator to be started before doing verifications
+    jobCoordinatorStartedLatch.await();
 
     verifyStatic();
     CoordinatorStreamUtil.createCoordinatorStream(fullConfig);
     verifyStatic();
     CoordinatorStreamUtil.writeConfigToCoordinatorStream(finalConfig, true);
     verifyStatic();
-    JobCoordinatorLaunchUtil.addShutdownHook(staticResourceJobCoordinator);
-    InOrder inOrder = Mockito.inOrder(metricsReporter, staticResourceJobCoordinator);
+    JobCoordinatorLaunchUtil.addShutdownHook(jobCoordinator);
+    InOrder inOrder = Mockito.inOrder(metricsReporter, jobCoordinator);
     inOrder.verify(metricsReporter).register(eq("JobCoordinator"), any());
     inOrder.verify(metricsReporter).start();
-    inOrder.verify(staticResourceJobCoordinator).run();
-    inOrder.verify(metricsReporter).stop();
+    ArgumentCaptor<CountDownLatch> countDownLatchArgumentCaptor = ArgumentCaptor.forClass(CountDownLatch.class);
+    verifyNew(NoProcessorJobCoordinatorListener.class).withArguments(countDownLatchArgumentCaptor.capture());
+    inOrder.verify(jobCoordinator).setListener(jobCoordinatorListener);
+    inOrder.verify(jobCoordinator).start();
+
+    // wait some time and then make sure the run thread is still alive
+    Thread.sleep(Duration.ofMillis(500).toMillis());
+    assertTrue(runThread.isAlive());
+
+    // trigger the count down latch so that the run thread can exit
+    countDownLatchArgumentCaptor.getValue().countDown();
+    runThread.join(Duration.ofSeconds(10).toMillis());
+    assertFalse(runThread.isAlive());
+
+    verify(metricsReporter).stop();
   }
 
   private static Config buildOriginalConfig(Map<String, String> additionalConfig) {

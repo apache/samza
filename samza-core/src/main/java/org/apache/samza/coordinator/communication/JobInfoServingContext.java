@@ -27,10 +27,10 @@ import org.apache.samza.serializers.model.SamzaObjectMapper;
 
 /**
  * Provides a way to access and set the job model.
- * The {@link JobModelProvider} part of this class is used by a {@link CoordinatorCommunication} implementation, and the
+ * The {@link JobInfoProvider} part of this class is used by a {@link CoordinatorCommunication} implementation, and the
  * "set job model" part is called by the job coordinator when there is a new job model.
  */
-public class JobModelServingContext implements JobModelProvider {
+public class JobInfoServingContext implements JobInfoProvider {
   private volatile byte[] serializedJobModel = null;
 
   @Override

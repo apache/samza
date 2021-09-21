@@ -19,19 +19,35 @@
 package org.apache.samza.config;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.samza.zk.ZkJobCoordinatorFactory;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 
 public class TestJobCoordinatorConfig {
   @Test
-  public void testGetUseStaticResourceJobCoordinator() {
-    assertFalse(new JobCoordinatorConfig(new MapConfig()).getUseStaticResourceJobCoordinator());
+  public void getJobCoordinatorFactoryClassName() {
+    assertEquals(ZkJobCoordinatorFactory.class.getName(),
+        new JobCoordinatorConfig(new MapConfig()).getJobCoordinatorFactoryClassName());
 
-    JobCoordinatorConfig jobCoordinatorConfig = new JobCoordinatorConfig(
-        new MapConfig(ImmutableMap.of(JobCoordinatorConfig.USE_STATIC_RESOURCE_JOB_COORDINATOR, "true")));
-    assertTrue(jobCoordinatorConfig.getUseStaticResourceJobCoordinator());
+    JobCoordinatorConfig jobCoordinatorConfig =
+        new JobCoordinatorConfig(new MapConfig(ImmutableMap.of(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "")));
+    assertEquals(ZkJobCoordinatorFactory.class.getName(), jobCoordinatorConfig.getJobCoordinatorFactoryClassName());
+
+    jobCoordinatorConfig = new JobCoordinatorConfig(new MapConfig(
+        ImmutableMap.of(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.custom.MyJobCoordinatorFactory")));
+    assertEquals("org.custom.MyJobCoordinatorFactory", jobCoordinatorConfig.getJobCoordinatorFactoryClassName());
+  }
+
+  @Test
+  public void getOptionalJobCoordinatorFactoryClassName() {
+    assertFalse(new JobCoordinatorConfig(new MapConfig()).getOptionalJobCoordinatorFactoryClassName().isPresent());
+
+    JobCoordinatorConfig jobCoordinatorConfig = new JobCoordinatorConfig(new MapConfig(
+        ImmutableMap.of(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.custom.MyJobCoordinatorFactory")));
+    assertTrue(jobCoordinatorConfig.getOptionalJobCoordinatorFactoryClassName().isPresent());
   }
 }

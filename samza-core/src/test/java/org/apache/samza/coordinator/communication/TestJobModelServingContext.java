@@ -41,11 +41,11 @@ import static org.junit.Assert.assertTrue;
 
 
 public class TestJobModelServingContext {
-  private JobModelServingContext jobModelServingContext;
+  private JobInfoServingContext jobModelServingContext;
 
   @Before
   public void setup() {
-    this.jobModelServingContext = new JobModelServingContext();
+    this.jobModelServingContext = new JobInfoServingContext();
   }
 
   @Test

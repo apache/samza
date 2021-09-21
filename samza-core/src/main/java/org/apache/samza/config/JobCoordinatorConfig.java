@@ -19,6 +19,7 @@
 
 package org.apache.samza.config;
 
+import java.util.Optional;
 import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
@@ -33,8 +34,6 @@ public class JobCoordinatorConfig extends MapConfig {
   public final static String DEFAULT_COORDINATOR_FACTORY = ZkJobCoordinatorFactory.class.getName();
   private static final String AZURE_COORDINATION_UTILS_FACTORY = "org.apache.samza.coordinator.AzureCoordinationUtilsFactory";
   private static final String AZURE_COORDINATOR_FACTORY = "org.apache.samza.coordinator.AzureJobCoordinatorFactory";
-  public static final String USE_STATIC_RESOURCE_JOB_COORDINATOR =
-      "job.coordinator.use.static.resource.job.coordinator";
 
   public JobCoordinatorConfig(Config config) {
     super(config);
@@ -72,15 +71,12 @@ public class JobCoordinatorConfig extends MapConfig {
   }
 
   public String getJobCoordinatorFactoryClassName() {
-    String jobCoordinatorFactoryClassName = get(JOB_COORDINATOR_FACTORY);
-    if (Strings.isNullOrEmpty(jobCoordinatorFactoryClassName)) {
-      return ZkJobCoordinatorFactory.class.getName();
-    } else {
-      return jobCoordinatorFactoryClassName;
-    }
+    return getOptionalJobCoordinatorFactoryClassName()
+        .filter(className -> !Strings.isNullOrEmpty(className))
+        .orElse(ZkJobCoordinatorFactory.class.getName());
   }
 
-  public boolean getUseStaticResourceJobCoordinator() {
-    return getBoolean(USE_STATIC_RESOURCE_JOB_COORDINATOR, false);
+  public Optional<String> getOptionalJobCoordinatorFactoryClassName() {
+    return Optional.ofNullable(get(JOB_COORDINATOR_FACTORY));
   }
 }

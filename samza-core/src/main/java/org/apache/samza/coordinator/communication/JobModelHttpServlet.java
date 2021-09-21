@@ -36,17 +36,17 @@ public class JobModelHttpServlet extends HttpServlet {
   private static final Logger LOG = LoggerFactory.getLogger(JobModelHttpServlet.class);
   private static final String CONTENT_TYPE = "application/json;charset=UTF-8";
 
-  private final JobModelProvider jobModelProvider;
+  private final JobInfoProvider jobInfoProvider;
   private final Metrics metrics;
 
-  public JobModelHttpServlet(JobModelProvider jobModelProvider, Metrics metrics) {
-    this.jobModelProvider = jobModelProvider;
+  public JobModelHttpServlet(JobInfoProvider jobInfoProvider, Metrics metrics) {
+    this.jobInfoProvider = jobInfoProvider;
     this.metrics = metrics;
   }
 
   protected void doGet(HttpServletRequest request, HttpServletResponse response) {
     this.metrics.incomingRequests.inc();
-    Optional<byte[]> serializedJobModel = this.jobModelProvider.getSerializedJobModel();
+    Optional<byte[]> serializedJobModel = this.jobInfoProvider.getSerializedJobModel();
     if (serializedJobModel.isPresent()) {
       try {
         response.getOutputStream().write(serializedJobModel.get());

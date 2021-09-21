@@ -30,8 +30,8 @@ import org.eclipse.jetty.servlet.ServletHolder;
 public class HttpCoordinatorToWorkerCommunicationFactory implements CoordinatorToWorkerCommunicationFactory {
   @Override
   public CoordinatorCommunication coordinatorCommunication(CoordinatorCommunicationContext context) {
-    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(context.getConfig());
-    JobModelHttpServlet jobModelHttpServlet = new JobModelHttpServlet(context.getJobModelProvider(),
+    ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(context.getConfigForFactory());
+    JobModelHttpServlet jobModelHttpServlet = new JobModelHttpServlet(context.getJobInfoProvider(),
         new JobModelHttpServlet.Metrics(context.getMetricsRegistry()));
     HttpServer httpServer = new HttpServer("/", clusterManagerConfig.getCoordinatorUrlPort(), null,
         new ServletHolder(DefaultServlet.class));

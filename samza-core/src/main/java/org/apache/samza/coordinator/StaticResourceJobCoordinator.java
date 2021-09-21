@@ -19,40 +19,22 @@
 package org.apache.samza.coordinator;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
-import org.apache.samza.container.LocalityManager;
-import org.apache.samza.container.grouper.task.TaskAssignmentManager;
-import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
-import org.apache.samza.coordinator.communication.CoordinatorCommunicationContext;
-import org.apache.samza.coordinator.communication.HttpCoordinatorToWorkerCommunicationFactory;
-import org.apache.samza.coordinator.communication.JobModelServingContext;
-import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
-import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
-import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
-import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMessage;
-import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
-import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping;
-import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
+import org.apache.samza.coordinator.communication.JobInfoServingContext;
 import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.JobMetadataChange;
 import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.JobModelUtil;
-import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
-import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
-import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,50 +46,24 @@ import org.slf4j.LoggerFactory;
  * coordinator does no management of execution resources. It relies on an external component to manage those resources
  * for a Samza job.
  */
-public class StaticResourceJobCoordinator {
+public class StaticResourceJobCoordinator implements JobCoordinator {
   private static final Logger LOG = LoggerFactory.getLogger(StaticResourceJobCoordinator.class);
 
   private final JobModelHelper jobModelHelper;
-  private final JobModelServingContext jobModelServingContext;
+  private final JobInfoServingContext jobModelServingContext;
   private final CoordinatorCommunication coordinatorCommunication;
   private final JobCoordinatorMetadataManager jobCoordinatorMetadataManager;
-  /**
-   * This can be null if startpoints are not enabled.
-   */
-  private final StartpointManager startpointManager;
+  private final Optional<StartpointManager> startpointManager;
   private final ChangelogStreamManager changelogStreamManager;
   private final MetricsRegistry metrics;
   private final SystemAdmins systemAdmins;
+  private final String processorId;
   private final Config config;
 
-  private final AtomicBoolean isStarted = new AtomicBoolean(false);
-  private final AtomicBoolean shouldShutdown = new AtomicBoolean(false);
-  private final CountDownLatch shutdownLatch = new CountDownLatch(1);
+  private Optional<JobModel> currentJobModel = Optional.empty();
+  private Optional<JobCoordinatorListener> jobCoordinatorListener = Optional.empty();
 
-  public static StaticResourceJobCoordinator build(MetricsRegistry metrics, MetadataStore metadataStore,
-      Config config) {
-    JobModelServingContext jobModelServingContext = new JobModelServingContext();
-    JobConfig jobConfig = new JobConfig(config);
-    CoordinatorCommunicationContext context =
-        new CoordinatorCommunicationContext(jobModelServingContext, config, metrics);
-    CoordinatorCommunication coordinatorCommunication =
-        new HttpCoordinatorToWorkerCommunicationFactory().coordinatorCommunication(context);
-    JobCoordinatorMetadataManager jobCoordinatorMetadataManager = new JobCoordinatorMetadataManager(
-        new NamespaceAwareCoordinatorStreamStore(metadataStore, SetJobCoordinatorMetadataMessage.TYPE),
-        JobCoordinatorMetadataManager.ClusterType.NON_YARN, metrics);
-    ChangelogStreamManager changelogStreamManager =
-        new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetChangelogMapping.TYPE));
-    StartpointManager startpointManager =
-        jobConfig.getStartpointEnabled() ? new StartpointManager(metadataStore) : null;
-    SystemAdmins systemAdmins = new SystemAdmins(config, StaticResourceJobCoordinator.class.getSimpleName());
-    StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
-    JobModelHelper jobModelHelper = buildJobModelHelper(metadataStore, streamMetadataCache);
-    return new StaticResourceJobCoordinator(jobModelHelper, jobModelServingContext, coordinatorCommunication,
-        jobCoordinatorMetadataManager, startpointManager, changelogStreamManager, metrics, systemAdmins, config);
-  }
-
-  @VisibleForTesting
-  StaticResourceJobCoordinator(JobModelHelper jobModelHelper, JobModelServingContext jobModelServingContext,
+  StaticResourceJobCoordinator(String processorId, JobModelHelper jobModelHelper, JobInfoServingContext jobModelServingContext,
       CoordinatorCommunication coordinatorCommunication, JobCoordinatorMetadataManager jobCoordinatorMetadataManager,
       StartpointManager startpointManager, ChangelogStreamManager changelogStreamManager, MetricsRegistry metrics,
       SystemAdmins systemAdmins, Config config) {
@@ -115,24 +71,19 @@ public class StaticResourceJobCoordinator {
     this.jobModelServingContext = jobModelServingContext;
     this.coordinatorCommunication = coordinatorCommunication;
     this.jobCoordinatorMetadataManager = jobCoordinatorMetadataManager;
-    this.startpointManager = startpointManager;
+    this.startpointManager = Optional.ofNullable(startpointManager);
     this.changelogStreamManager = changelogStreamManager;
     this.metrics = metrics;
     this.systemAdmins = systemAdmins;
+    this.processorId = processorId;
     this.config = config;
   }
 
-  /**
-   * Run the coordinator.
-   */
-  public void run() {
-    if (!isStarted.compareAndSet(false, true)) {
-      LOG.warn("Already running; not to going execute run() again");
-      return;
-    }
+  @Override
+  public void start() {
     LOG.info("Starting job coordinator");
     this.systemAdmins.start();
-    this.startpointManager.start();
+    this.startpointManager.ifPresent(StartpointManager::start);
     try {
       JobModel jobModel = newJobModel();
       JobCoordinatorMetadata newMetadata =
@@ -140,38 +91,39 @@ public class StaticResourceJobCoordinator {
       Set<JobMetadataChange> jobMetadataChanges = checkForMetadataChanges(newMetadata);
       prepareWorkerExecution(jobModel, newMetadata, jobMetadataChanges);
       this.coordinatorCommunication.start();
-      waitForShutdownQuietly();
+      this.currentJobModel = Optional.of(jobModel);
+      this.jobCoordinatorListener.ifPresent(listener -> listener.onNewJobModel(this.processorId, jobModel));
     } catch (Exception e) {
       LOG.error("Error while running job coordinator; exiting", e);
       throw new SamzaException("Error while running job coordinator", e);
-    } finally {
+    }
+  }
+
+  @Override
+  public void stop() {
+    try {
+      this.jobCoordinatorListener.ifPresent(JobCoordinatorListener::onJobModelExpired);
       this.coordinatorCommunication.stop();
-      this.startpointManager.stop();
+      this.startpointManager.ifPresent(StartpointManager::stop);
       this.systemAdmins.stop();
+    } finally {
+      this.jobCoordinatorListener.ifPresent(JobCoordinatorListener::onCoordinatorStop);
     }
   }
 
-  /**
-   * Set shutdown flag for coordinator and release any threads waiting for the shutdown.
-   */
-  public void signalShutdown() {
-    if (this.shouldShutdown.compareAndSet(false, true)) {
-      LOG.info("Shutdown signalled");
-      this.shutdownLatch.countDown();
-    }
+  @Override
+  public String getProcessorId() {
+    return this.processorId;
   }
 
-  private static JobModelHelper buildJobModelHelper(MetadataStore metadataStore,
-      StreamMetadataCache streamMetadataCache) {
-    LocalityManager localityManager =
-        new LocalityManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetContainerHostMapping.TYPE));
-    TaskAssignmentManager taskAssignmentManager =
-        new TaskAssignmentManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskContainerMapping.TYPE),
-            new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskModeMapping.TYPE));
-    TaskPartitionAssignmentManager taskPartitionAssignmentManager = new TaskPartitionAssignmentManager(
-        new NamespaceAwareCoordinatorStreamStore(metadataStore, SetTaskPartitionMapping.TYPE));
-    return new JobModelHelper(localityManager, taskAssignmentManager, taskPartitionAssignmentManager,
-        streamMetadataCache, JobModelCalculator.INSTANCE);
+  @Override
+  public void setListener(JobCoordinatorListener jobCoordinatorListener) {
+    this.jobCoordinatorListener = Optional.ofNullable(jobCoordinatorListener);
+  }
+
+  @Override
+  public JobModel getJobModel() {
+    return this.currentJobModel.orElse(null);
   }
 
   private JobModel newJobModel() {
@@ -195,8 +147,8 @@ public class StaticResourceJobCoordinator {
     metadataResourceUtil(jobModel).createResources();
 
     // the fan out trigger logic comes from ClusterBasedJobCoordinator, in which a new job model can trigger a fan out
-    if (this.startpointManager != null && !jobMetadataChanges.isEmpty()) {
-      startpointManager.fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
+    if (this.startpointManager.isPresent() && !jobMetadataChanges.isEmpty()) {
+      this.startpointManager.get().fanOut(JobModelUtil.getTaskToSystemStreamPartitions(jobModel));
     }
   }
 
@@ -205,28 +157,8 @@ public class StaticResourceJobCoordinator {
     return new MetadataResourceUtil(jobModel, this.metrics, this.config);
   }
 
-  private void waitForShutdown() throws InterruptedException {
-    LOG.info("Waiting for coordinator to be signalled for shutdown");
-    boolean latchReleased = false;
-    while (!latchReleased && !this.shouldShutdown.get()) {
-      /*
-       * Using a timeout as a defensive measure in case we are waiting for a shutdown but the latch is not triggered
-       * for some reason.
-       */
-      latchReleased = this.shutdownLatch.await(15, TimeUnit.SECONDS);
-    }
-  }
-
   private Set<JobMetadataChange> checkForMetadataChanges(JobCoordinatorMetadata newMetadata) {
     JobCoordinatorMetadata previousMetadata = this.jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
     return this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata);
-  }
-
-  private void waitForShutdownQuietly() {
-    try {
-      waitForShutdown();
-    } catch (InterruptedException e) {
-      LOG.warn("Interrupted while waiting to shutdown", e);
-    }
   }
 }

@@ -19,19 +19,16 @@
 package org.apache.samza.coordinator;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
-import org.apache.samza.coordinator.communication.JobModelServingContext;
+import org.apache.samza.coordinator.communication.JobInfoServingContext;
 import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.JobMetadataChange;
 import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
@@ -50,12 +47,10 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isNull;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -70,6 +65,7 @@ import static org.mockito.Mockito.when;
  * actions (trigger callbacks which will change the job model, trigger shutdown) to check the coordination flow.
  */
 public class TestStaticResourceJobCoordinator {
+  private static final String PROCESSOR_ID = "samza-job-coordinator";
   private static final SystemStream SYSTEM_STREAM = new SystemStream("system", "stream");
   private static final TaskName TASK_NAME = new TaskName("Partition " + 0);
   private static final Map<String, ContainerModel> CONTAINERS = ImmutableMap.of("0", new ContainerModel("0",
@@ -82,7 +78,7 @@ public class TestStaticResourceJobCoordinator {
   @Mock
   private JobModelHelper jobModelHelper;
   @Mock
-  private JobModelServingContext jobModelServingContext;
+  private JobInfoServingContext jobModelServingContext;
   @Mock
   private CoordinatorCommunication coordinatorCommunication;
   @Mock
@@ -99,6 +95,8 @@ public class TestStaticResourceJobCoordinator {
   private SystemAdmins systemAdmins;
   @Mock
   private Config config;
+  @Mock
+  private JobCoordinatorListener jobCoordinatorListener;
 
   private StaticResourceJobCoordinator staticResourceJobCoordinator;
 
@@ -107,80 +105,100 @@ public class TestStaticResourceJobCoordinator {
     MockitoAnnotations.initMocks(this);
     when(this.changelogStreamManager.readPartitionMapping()).thenReturn(this.changelogPartitionMapping);
     this.staticResourceJobCoordinator =
-        spy(new StaticResourceJobCoordinator(this.jobModelHelper, this.jobModelServingContext,
+        spy(new StaticResourceJobCoordinator(PROCESSOR_ID, this.jobModelHelper, this.jobModelServingContext,
             this.coordinatorCommunication, this.jobCoordinatorMetadataManager, this.startpointManager,
             this.changelogStreamManager, this.metrics, this.systemAdmins, this.config));
+    this.staticResourceJobCoordinator.setListener(this.jobCoordinatorListener);
   }
 
   @Test
-  public void testNoExistingJobModel() throws InterruptedException, IOException {
+  public void testNoExistingJobModel() throws IOException {
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.copyOf(Arrays.asList(JobMetadataChange.values())), false);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForShutdown();
+
+    this.staticResourceJobCoordinator.start();
+    assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
     verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, SINGLE_SSP_FANOUT);
-    shutdownJobCoordinator(jobCoordinatorThread);
-    verifyStopLifecycle();
+    verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
   }
 
   @Test
-  public void testSameJobModelAsPrevious() throws IOException, InterruptedException {
+  public void testSameJobModelAsPrevious() throws IOException {
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
     setupJobCoordinatorMetadata(jobModel, jobModelConfig, ImmutableSet.of(), true);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForShutdown();
+
+    this.staticResourceJobCoordinator.start();
+    assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
     verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, null, null);
-    shutdownJobCoordinator(jobCoordinatorThread);
-    verifyStopLifecycle();
+    verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
   }
 
   @Test
-  public void testNewDeploymentNewJobModel() throws InterruptedException, IOException {
+  public void testNewDeploymentNewJobModel() throws IOException {
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    Thread jobCoordinatorThread = startCoordinatorAndWaitForShutdown();
+
+    this.staticResourceJobCoordinator.start();
+    assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
     verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, SINGLE_SSP_FANOUT);
-    shutdownJobCoordinator(jobCoordinatorThread);
-    verifyStopLifecycle();
+    verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
   }
 
   @Test
-  public void testShutdownBeforeStartWaitingForShutdown() throws InterruptedException, IOException {
+  public void testStop() {
+    this.staticResourceJobCoordinator.stop();
+
+    verify(this.jobCoordinatorListener).onJobModelExpired();
+    verify(this.coordinatorCommunication).stop();
+    verify(this.startpointManager).stop();
+    verify(this.systemAdmins).stop();
+    verify(this.jobCoordinatorListener).onCoordinatorStop();
+  }
+
+  /**
+   * Missing {@link StartpointManager} and {@link JobCoordinatorListener}.
+   */
+  @Test
+  public void testStartMissingOptionalComponents() throws IOException {
+    this.staticResourceJobCoordinator =
+        spy(new StaticResourceJobCoordinator(PROCESSOR_ID, this.jobModelHelper, this.jobModelServingContext,
+            this.coordinatorCommunication, this.jobCoordinatorMetadataManager, null, this.changelogStreamManager,
+            this.metrics, this.systemAdmins, this.config));
+
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
-        ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
+        ImmutableSet.copyOf(Arrays.asList(JobMetadataChange.values())), false);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
-    CountDownLatch coordinatorCommunicationStartLatch = new CountDownLatch(1);
-    // do not move forward on triggering wait for shutdown so that test can trigger a shutdown first
-    doAnswer(invocation -> {
-      coordinatorCommunicationStartLatch.await();
-      return null;
-    }).when(this.coordinatorCommunication).start();
-    Thread jobCoordinatorThread = new Thread(() -> this.staticResourceJobCoordinator.run());
-    jobCoordinatorThread.start();
-    // signal shutdown before coordinator communication start completes
-    this.staticResourceJobCoordinator.signalShutdown();
-    // allow restart signal to complete
-    coordinatorCommunicationStartLatch.countDown();
-    // job coordinator should exit on its own
-    assertThreadExited(jobCoordinatorThread);
-    verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, SINGLE_SSP_FANOUT);
-    verifyStopLifecycle();
+
+    this.staticResourceJobCoordinator.start();
+    assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
+    verify(this.systemAdmins).start();
+    verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, null);
   }
 
-  private static void assertThreadExited(Thread thread) throws InterruptedException {
-    thread.join(Duration.ofSeconds(10).toMillis());
-    assertFalse(thread.isAlive());
+  @Test
+  public void testStopMissingOptionalComponents() {
+    this.staticResourceJobCoordinator =
+        spy(new StaticResourceJobCoordinator(PROCESSOR_ID, this.jobModelHelper, this.jobModelServingContext,
+            this.coordinatorCommunication, this.jobCoordinatorMetadataManager, null, this.changelogStreamManager,
+            this.metrics, this.systemAdmins, this.config));
+
+    this.staticResourceJobCoordinator.stop();
+
+    verify(this.coordinatorCommunication).stop();
+    verify(this.systemAdmins).stop();
   }
 
   /**
@@ -221,38 +239,9 @@ public class TestStaticResourceJobCoordinator {
     return metadataResourceUtil;
   }
 
-  /**
-   * Attaches a {@link CountDownLatch} to {@link CoordinatorCommunication} so that the tests know when the job
-   * coordinator is waiting for shutdown. {@link CoordinatorCommunication} is used because it is one of the last things
-   * that gets called before the job coordinator transitions to waiting for shutdown.
-   */
-  private CountDownLatch waitingForShutdownLatch() {
-    CountDownLatch waitingForShutdown = new CountDownLatch(1);
-    doAnswer(invocation -> {
-      waitingForShutdown.countDown();
-      return null;
-    }).when(coordinatorCommunication).start();
-    return waitingForShutdown;
-  }
-
   private void verifyStartLifecycle() {
     verify(this.systemAdmins).start();
     verify(this.startpointManager).start();
-  }
-
-  private void verifyStopLifecycle() {
-    verify(this.coordinatorCommunication).stop();
-    verify(this.startpointManager).stop();
-    verify(this.systemAdmins).stop();
-  }
-
-  /**
-   * Signal a shutdown to the job coordinator and then wait for the thread to exit.
-   */
-  private void shutdownJobCoordinator(Thread jobCoordinatorThread) throws InterruptedException {
-    this.staticResourceJobCoordinator.signalShutdown();
-    jobCoordinatorThread.join(Duration.ofSeconds(10).toMillis());
-    assertFalse(jobCoordinatorThread.isAlive());
   }
 
   /**
@@ -279,24 +268,5 @@ public class TestStaticResourceJobCoordinator {
       verify(this.startpointManager, never()).fanOut(any());
     }
     inOrder.verify(this.coordinatorCommunication).start();
-  }
-
-  /**
-   * Start the job coordinator in a separate thread and wait until the job coordinator is waiting for shutdown.
-   * Also verifies that coordinator thread stays alive for some time while waiting for shutdown.
-   * Returns the thread running the job coordinator.
-   */
-  private Thread startCoordinatorAndWaitForShutdown() throws InterruptedException {
-    return startCoordinatorAndWaitForLatch(waitingForShutdownLatch());
-  }
-
-  private Thread startCoordinatorAndWaitForLatch(CountDownLatch countDownLatch) throws InterruptedException {
-    Thread jobCoordinatorThread = new Thread(() -> this.staticResourceJobCoordinator.run());
-    jobCoordinatorThread.start();
-    assertTrue(countDownLatch.await(10, TimeUnit.SECONDS));
-    // sleep for a little time and then make sure thread is still alive, since coordinator should be waiting
-    Thread.sleep(Duration.ofMillis(500).toMillis());
-    assertTrue(jobCoordinatorThread.isAlive());
-    return jobCoordinatorThread;
   }
 }

@@ -22,9 +22,9 @@ import java.util.Optional;
 
 
 /**
- * Used by implementors of {@link CoordinatorCommunication} to access job model information for coordinator-to-worker
+ * Used by implementors of {@link CoordinatorCommunication} to access job information for coordinator-to-worker
  * communication.
  */
-public interface JobModelProvider {
+public interface JobInfoProvider {
   Optional<byte[]> getSerializedJobModel();
 }

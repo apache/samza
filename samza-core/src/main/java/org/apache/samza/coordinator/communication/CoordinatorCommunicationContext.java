@@ -27,26 +27,35 @@ import org.apache.samza.metrics.MetricsRegistry;
  * For example, provides access to job model and handling for worker states.
  */
 public class CoordinatorCommunicationContext {
-  private final JobModelProvider jobModelProvider;
-  private final Config config;
+  private final JobInfoProvider jobInfoProvider;
+  private final Config configForFactory;
   private final MetricsRegistry metricsRegistry;
 
-  public CoordinatorCommunicationContext(JobModelProvider jobModelProvider, Config config,
+  /**
+   * @param jobInfoProvider provides dynamic access to job info to pass along to workers (e.g. job model, configs)
+   * @param configForFactory config to use to build the {@link CoordinatorCommunication}
+   */
+  public CoordinatorCommunicationContext(JobInfoProvider jobInfoProvider, Config configForFactory,
       MetricsRegistry metricsRegistry) {
-    this.config = config;
-    this.jobModelProvider = jobModelProvider;
+    this.configForFactory = configForFactory;
+    this.jobInfoProvider = jobInfoProvider;
     this.metricsRegistry = metricsRegistry;
   }
 
   /**
    * Use this to access job model.
    */
-  public JobModelProvider getJobModelProvider() {
-    return jobModelProvider;
+  public JobInfoProvider getJobInfoProvider() {
+    return jobInfoProvider;
   }
 
-  public Config getConfig() {
-    return config;
+  /**
+   * Use this to access the {@link Config} for building the {@link CoordinatorCommunication}.
+   * Do not use this as the {@link Config} to pass along to the workers. Use {@link #getJobInfoProvider()} for accessing
+   * the job model and config to pass along to workers.
+   */
+  public Config getConfigForFactory() {
+    return configForFactory;
   }
 
   public MetricsRegistry getMetricsRegistry() {
