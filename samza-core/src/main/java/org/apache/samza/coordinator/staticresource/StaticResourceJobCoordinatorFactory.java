@@ -16,13 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+package org.apache.samza.coordinator.staticresource;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
+import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorFactory;
+import org.apache.samza.coordinator.JobModelCalculator;
+import org.apache.samza.coordinator.JobModelHelper;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
 import org.apache.samza.coordinator.communication.CoordinatorCommunicationContext;
 import org.apache.samza.coordinator.communication.HttpCoordinatorToWorkerCommunicationFactory;

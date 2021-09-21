@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+package org.apache.samza.coordinator.staticresource;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -24,6 +24,10 @@ import java.util.Set;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.coordinator.JobCoordinator;
+import org.apache.samza.coordinator.JobCoordinatorListener;
+import org.apache.samza.coordinator.JobModelHelper;
+import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
 import org.apache.samza.coordinator.communication.JobInfoServingContext;
 import org.apache.samza.job.JobCoordinatorMetadata;

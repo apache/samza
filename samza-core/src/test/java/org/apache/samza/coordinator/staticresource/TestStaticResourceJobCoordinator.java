@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator;
+package org.apache.samza.coordinator.staticresource;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -27,6 +27,9 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.JobCoordinatorListener;
+import org.apache.samza.coordinator.JobModelHelper;
+import org.apache.samza.coordinator.MetadataResourceUtil;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
 import org.apache.samza.coordinator.communication.JobInfoServingContext;
 import org.apache.samza.job.JobCoordinatorMetadata;
