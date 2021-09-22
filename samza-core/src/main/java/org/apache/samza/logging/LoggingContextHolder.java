@@ -40,8 +40,9 @@ public class LoggingContextHolder {
   }
 
   /**
-   * Set the config. Only the config used in the first call to this method will be used. After the first call, this
-   * method will do nothing.
+   * Set the config to be used by Samza loggers.
+   * Only the config used in the first call to this method will be used. After the first call, this method will do
+   * nothing.
    */
   public void setConfig(Config config) {
     if (!this.config.compareAndSet(null, config)) {

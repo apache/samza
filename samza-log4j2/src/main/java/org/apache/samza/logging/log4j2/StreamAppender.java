@@ -100,6 +100,15 @@ public class StreamAppender extends AbstractAppender {
    * Constructor is protected so that this class can be extended.
    */
   protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions,
+      boolean usingAsyncLogger, String streamName) {
+    this(name, filter, layout, ignoreExceptions, usingAsyncLogger, streamName, LoggingContextHolder.INSTANCE);
+  }
+
+  /**
+   * Constructor is protected so that this class can be extended.
+   * @param loggingContextHolder included so that this can be injected for testing purposes in child classes
+   */
+  protected StreamAppender(String name, Filter filter, Layout<? extends Serializable> layout, boolean ignoreExceptions,
       boolean usingAsyncLogger, String streamName, LoggingContextHolder loggingContextHolder) {
     super(name, filter, layout, ignoreExceptions);
     this.streamName = streamName;
@@ -147,10 +156,14 @@ public class StreamAppender extends AbstractAppender {
   /**
    * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #createAppender(String, Filter, Layout, boolean, boolean, String)} for when this is called.
    * Example: {@literal <param name="PartitionCount" value="4"/>}
+   * This needs to be called after the appender is initialized with the full Samza job config in {@link #setupSystem()}.
    * @return The configured partition count of the StreamAppender stream. If not set, returns {@link JobConfig#getContainerCount()}.
    */
   public int getPartitionCount() {
-    return this.partitionCount;
+    if (partitionCount > 0) {
+      return partitionCount;
+    }
+    return new JobConfig(getConfig()).getContainerCount();
   }
 
   /**
@@ -171,8 +184,7 @@ public class StreamAppender extends AbstractAppender {
       @PluginAttribute(value = "ignoreExceptions", defaultBoolean = true) final boolean ignoreExceptions,
       @PluginAttribute(value = "usingAsyncLogger", defaultBoolean = false) final boolean usingAsyncLogger,
       @PluginAttribute("streamName") String streamName) {
-    return new StreamAppender(name, filter, layout, ignoreExceptions, usingAsyncLogger, streamName,
-        LoggingContextHolder.INSTANCE);
+    return new StreamAppender(name, filter, layout, ignoreExceptions, usingAsyncLogger, streamName);
   }
 
   @Override
@@ -323,7 +335,7 @@ public class StreamAppender extends AbstractAppender {
 
   protected void setupStream(SystemFactory systemFactory, String systemName) {
     if (config.getBoolean(CREATE_STREAM_ENABLED, false)) {
-      int streamPartitionCount = calculateStreamPartitionCount(this.config);
+      int streamPartitionCount = getPartitionCount();
       System.out.println(String.format("[%s] creating stream ", getName()) + streamName + " with partition count " + streamPartitionCount);
       StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, streamPartitionCount);
 
@@ -453,17 +465,6 @@ public class StreamAppender extends AbstractAppender {
       throw new SamzaException("Can not find serializers class for key '" + serdeName + "'. Please specify " +
           serdeKey + " property");
     }
-  }
-
-  /**
-   * If the partition count was explicitly specified, then use that. Otherwise, use the container count as the partition
-   * count.
-   */
-  private int calculateStreamPartitionCount(Config config) {
-    if (partitionCount > 0) {
-      return partitionCount;
-    }
-    return new JobConfig(config).getContainerCount();
   }
 
   /**

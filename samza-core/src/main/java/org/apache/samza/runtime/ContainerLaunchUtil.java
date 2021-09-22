@@ -88,7 +88,7 @@ public class ContainerLaunchUtil {
     MDC.put("containerName", "samza-container-" + containerId);
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
-    LoggingContextHolder.INSTANCE.setConfig(config);
+    LoggingContextHolder.INSTANCE.setConfig(jobModel.getConfig());
 
     DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
     run(appDesc, jobName, jobId, containerId, execEnvContainerId, jobModel, config, buildExternalContext(config));

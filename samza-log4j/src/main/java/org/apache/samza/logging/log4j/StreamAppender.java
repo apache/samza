@@ -110,10 +110,14 @@ public class StreamAppender extends AppenderSkeleton {
   /**
    * Getter for the number of partitions to create on a new StreamAppender stream. See also {@link #activateOptions()} for when this is called.
    * Example: {@literal <param name="PartitionCount" value="4"/>}
-   * @return The configured partition count of the StreamAppender stream
+   * This needs to be called after the full Samza job config is available in {@link LoggingContextHolder}.
+   * @return The configured partition count of the StreamAppender stream. If not set, returns {@link JobConfig#getContainerCount()}.
    */
   public int getPartitionCount() {
-    return this.partitionCount;
+    if (partitionCount > 0) {
+      return partitionCount;
+    }
+    return new JobConfig(getConfig()).getContainerCount();
   }
 
   /**
@@ -286,7 +290,7 @@ public class StreamAppender extends AppenderSkeleton {
     setSerde(log4jSystemConfig, systemName, streamName);
 
     if (config.getBoolean(CREATE_STREAM_ENABLED, false)) {
-      int streamPartitionCount = calculateStreamPartitionCount(config);
+      int streamPartitionCount = getPartitionCount();
       System.out.println(
           "[StreamAppender] creating stream " + streamName + " with partition count " + streamPartitionCount);
       StreamSpec streamSpec = StreamSpec.createStreamAppenderStreamSpec(streamName, systemName, streamPartitionCount);
