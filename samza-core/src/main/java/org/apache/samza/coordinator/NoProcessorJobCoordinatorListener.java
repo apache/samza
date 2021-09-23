@@ -20,12 +20,15 @@ package org.apache.samza.coordinator;
 
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.job.model.JobModel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * {@link JobCoordinatorListener} for a {@link JobCoordinator} which does not run alongside a processor.
  */
 public class NoProcessorJobCoordinatorListener implements JobCoordinatorListener {
+  private static final Logger LOG = LoggerFactory.getLogger(NoProcessorJobCoordinatorListener.class);
   private final CountDownLatch waitForShutdownLatch;
 
   public NoProcessorJobCoordinatorListener(CountDownLatch waitForShutdownLatch) {
@@ -34,12 +37,12 @@ public class NoProcessorJobCoordinatorListener implements JobCoordinatorListener
 
   @Override
   public void onJobModelExpired() {
-    // nothing to do
+    // nothing to notify so far about job model expiration
   }
 
   @Override
   public void onNewJobModel(String processorId, JobModel jobModel) {
-    // nothing to do
+    // nothing to notify so far about new job model
   }
 
   @Override
@@ -47,8 +50,13 @@ public class NoProcessorJobCoordinatorListener implements JobCoordinatorListener
     this.waitForShutdownLatch.countDown();
   }
 
+  /**
+   * There is currently no use case for bubbling up this exception, so just log the error and allow shutdown for now. If
+   * we get a future use case where it is useful to bubble up the exception, then we can update this class.
+   */
   @Override
   public void onCoordinatorFailure(Throwable t) {
+    LOG.error("Failure in coordinator, allowing shutdown to begin", t);
     this.waitForShutdownLatch.countDown();
   }
 }
