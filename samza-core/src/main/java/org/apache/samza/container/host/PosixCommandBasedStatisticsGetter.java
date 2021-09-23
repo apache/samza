@@ -18,9 +18,6 @@
  */
 package org.apache.samza.container.host;
 
-import java.util.List;
-import java.util.stream.Collectors;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,44 +55,10 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
     return psOutput;
   }
 
-  /**
-   * A convenience method to execute shell commands and return all lines of their output.
-   *
-   * @param cmdArray the command to run
-   * @return all lines of the output.
-   * @throws IOException
-   */
-  private List<String> getAllCommandOutput(String[] cmdArray) throws IOException {
-    Process executable = Runtime.getRuntime().exec(cmdArray);
-    BufferedReader processReader = null;
-    List<String> psOutput;
+  private long getPhysicalMemory() throws IOException {
 
-    try {
-      processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
-      psOutput = processReader.lines().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
-    } finally {
-      if (processReader != null) {
-        processReader.close();
-      }
-    }
-    return psOutput;
-  }
-
-  private long getTotalPhysicalMemory() throws IOException {
-    // collect all child process ids of the main process that runs the application
-    List<String> processIds = getAllCommandOutput(new String[]{"sh", "-c", "pgrep -P $PPID"});
-    // add the parent process which is the main process that runs the application
-    processIds.add("$PPID");
-    long totalPhysicalMemory = 0;
-    for (String processId : processIds) {
-      totalPhysicalMemory += getPhysicalMemory(processId);
-    }
-    return totalPhysicalMemory;
-  }
-
-  private long getPhysicalMemory(String processId) throws IOException {
     // returns a single long value that represents the rss memory of the process.
-    String commandOutput = getCommandOutput(new String[]{"sh", "-c", String.format("ps -o rss= -p %s", processId)});
+    String commandOutput = getCommandOutput(new String[]{"sh", "-c", "ps -o rss= -p $PPID"});
 
     // this should never happen.
     if (commandOutput == null) {
@@ -111,7 +74,7 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
   @Override
   public SystemMemoryStatistics getSystemMemoryStatistics() {
     try {
-      long memory = getTotalPhysicalMemory();
+      long memory = getPhysicalMemory();
       return new SystemMemoryStatistics(memory);
     } catch (Exception e) {
       log.warn("Error when running ps: ", e);
