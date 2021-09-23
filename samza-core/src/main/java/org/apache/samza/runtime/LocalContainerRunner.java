@@ -62,7 +62,7 @@ public class LocalContainerRunner {
     JobModel jobModel = SamzaContainer.readJobModel(coordinatorUrl, delay);
     Config config = jobModel.getConfig();
 
-    // this call is also in LocalContainerRunner, but adding this here allows more logs to get handled by Samza loggers
+    // this call is also in ContainerLaunchUtil, but adding this here allows more logs to get handled by Samza loggers
     LoggingContextHolder.INSTANCE.setConfig(config);
     log.info(String.format("Got container ID: %s", containerId));
     log.info(String.format("Got coordinator URL: %s", coordinatorUrl));

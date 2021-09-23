@@ -393,15 +393,4 @@ public class StreamAppender extends AppenderSkeleton {
   public Serde<LoggingEvent> getSerde() {
     return serde;
   }
-
-  /**
-   * If the partition count was explicitly specified, then use that. Otherwise, use the container count as the partition
-   * count.
-   */
-  private int calculateStreamPartitionCount(Config config) {
-    if (partitionCount > 0) {
-      return partitionCount;
-    }
-    return new JobConfig(config).getContainerCount();
-  }
 }
