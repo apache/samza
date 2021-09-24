@@ -31,10 +31,10 @@ public class TestStatisticsMonitorImpl {
 
   @Test
   public void testPhysicalMemoryReporting() throws Exception {
-    final int numSamplesToCollect = 1;
+    final int numSamplesToCollect = 5;
     final CountDownLatch latch = new CountDownLatch(numSamplesToCollect);
 
-    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(1000, new PosixCommandBasedStatisticsGetter());
+    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10000, new PosixCommandBasedStatisticsGetter());
     monitor.start();
 
     boolean result = monitor.registerListener(new SystemStatisticsMonitor.Listener() {
@@ -47,7 +47,7 @@ public class TestStatisticsMonitorImpl {
       }
     });
 
-    if (!latch.await(30, TimeUnit.SECONDS)) {
+    if (!latch.await(60, TimeUnit.SECONDS)) {
       fail(String.format("Timed out waiting for listener to be give %d updates", numSamplesToCollect));
     }
     // assert that the registration for the listener was successful
