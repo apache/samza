@@ -18,6 +18,7 @@
  */
 package org.apache.samza.container.host;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
@@ -68,11 +69,11 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
   private List<String> getAllCommandOutput(String[] cmdArray) throws IOException {
     Process executable = Runtime.getRuntime().exec(cmdArray);
     BufferedReader processReader = null;
-    List<String> psOutput;
+    List<String> psOutput = new ArrayList<>();
 
     try {
       processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
-      psOutput = processReader.lines().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
+      //psOutput = processReader.lines().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
     } finally {
       if (processReader != null) {
         processReader.close();
