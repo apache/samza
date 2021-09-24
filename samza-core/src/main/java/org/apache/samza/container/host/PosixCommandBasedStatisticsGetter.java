@@ -71,6 +71,11 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
 
     try {
       processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
+      String line = processReader.readLine();
+      while(line != null) {
+        psOutput.add(line);
+        line = processReader.readLine();
+      }
       //psOutput = processReader.lines().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
     } finally {
       if (processReader != null) {
