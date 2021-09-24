@@ -57,6 +57,7 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
     return psOutput;
   }
 
+
   private long getTotalPhysicalMemory() throws IOException {
     // collect all child process ids of the main process that runs the application
     List<String> processIds = getAllCommandOutput(new String[]{"sh", "-c", "pgrep -P $PPID"});
