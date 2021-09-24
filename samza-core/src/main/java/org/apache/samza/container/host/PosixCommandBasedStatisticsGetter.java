@@ -90,25 +90,15 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
     List<String> processIds = getAllCommandOutput(new String[]{"sh", "-c", "pgrep -P $PPID"});
     // add the parent process which is the main process that runs the application
     processIds.add("$PPID");
+    String processIdsJoined = String.join(" ", processIds);
+    // returns a list of long values that represent the rss memory of each process.
+    List<String> processMemoryArray = getAllCommandOutput(new String[]{"sh", "-c", String.format("ps -o rss= -p %s", processIdsJoined)});
     long totalPhysicalMemory = 0;
-    for (String processId : processIds) {
-      totalPhysicalMemory += getPhysicalMemory(processId);
+    for (String processMemory : processMemoryArray) {
+      totalPhysicalMemory += Long.parseLong(processMemory.trim());
     }
-    return totalPhysicalMemory;
-  }
-
-  private long getPhysicalMemory(String processId) throws IOException {
-    // returns a single long value that represents the rss memory of the process.
-    String commandOutput = getCommandOutput(new String[]{"sh", "-c", String.format("ps -o rss= -p %s", processId)});
-
-    // this should never happen.
-    if (commandOutput == null) {
-      throw new IOException("ps returned unexpected output: " + commandOutput);
-    }
-
-    long rssMemoryKb = Long.parseLong(commandOutput.trim());
     //convert to bytes
-    return rssMemoryKb * 1024;
+    return totalPhysicalMemory * 1024;
   }
 
   @Override
