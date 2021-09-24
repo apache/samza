@@ -31,10 +31,10 @@ public class TestStatisticsMonitorImpl {
 
   @Test
   public void testPhysicalMemoryReporting() throws Exception {
-    final int numSamplesToCollect = 3;
+    final int numSamplesToCollect = 5;
     final CountDownLatch latch = new CountDownLatch(numSamplesToCollect);
 
-    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10000, new PosixCommandBasedStatisticsGetter());
+    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10, new PosixCommandBasedStatisticsGetter());
     monitor.start();
 
     boolean result = monitor.registerListener(new SystemStatisticsMonitor.Listener() {
@@ -47,7 +47,7 @@ public class TestStatisticsMonitorImpl {
       }
     });
 
-    if (!latch.await(60, TimeUnit.SECONDS)) {
+    if (!latch.await(5, TimeUnit.SECONDS)) {
       fail(String.format("Timed out waiting for listener to be give %d updates", numSamplesToCollect));
     }
     // assert that the registration for the listener was successful
@@ -67,11 +67,11 @@ public class TestStatisticsMonitorImpl {
   @Test
   public void testStopBehavior() throws Exception {
 
-    final int numSamplesToCollect = 3;
+    final int numSamplesToCollect = 5;
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicInteger numCallbacks = new AtomicInteger(0);
 
-    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10000, new PosixCommandBasedStatisticsGetter());
+    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10, new PosixCommandBasedStatisticsGetter());
 
     monitor.start();
     monitor.registerListener(new SystemStatisticsMonitor.Listener() {
@@ -88,7 +88,7 @@ public class TestStatisticsMonitorImpl {
       }
     });
 
-    if (!latch.await(60, TimeUnit.SECONDS)) {
+    if (!latch.await(5, TimeUnit.SECONDS)) {
       fail(String.format("Timed out waiting for listener to be give %d updates", numSamplesToCollect));
     }
     // Ensure that we only receive as many callbacks
