@@ -18,9 +18,8 @@
  */
 package org.apache.samza.container.host;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,29 +35,6 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
   private static final Logger log = LoggerFactory.getLogger(PosixCommandBasedStatisticsGetter.class);
 
   /**
-   * A convenience method to execute shell commands and return the first line of their output.
-   *
-   * @param cmdArray the command to run
-   * @return the first line of the output.
-   * @throws IOException
-   */
-  private String getCommandOutput(String[] cmdArray) throws IOException {
-    Process executable = Runtime.getRuntime().exec(cmdArray);
-    BufferedReader processReader = null;
-    String psOutput = null;
-
-    try {
-      processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
-      psOutput = processReader.readLine();
-    } finally {
-      if (processReader != null) {
-        processReader.close();
-      }
-    }
-    return psOutput;
-  }
-
-  /**
    * A convenience method to execute shell commands and return all lines of their output.
    *
    * @param cmdArray the command to run
@@ -67,17 +43,17 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
    */
   private List<String> getAllCommandOutput(String[] cmdArray) throws IOException {
     Process executable = Runtime.getRuntime().exec(cmdArray);
-    BufferedReader processReader = null;
-    List<String> psOutput;
+    BufferedReader processReader;
+    List<String> psOutput = new ArrayList<>();
 
-    try {
-      processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
-      psOutput = processReader.lines().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
-    } finally {
-      if (processReader != null) {
-        processReader.close();
+    processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
+    String line;
+    while ((line = processReader.readLine()) != null) {
+      if (!line.isEmpty()) {
+        psOutput.add(line);
       }
     }
+    processReader.close();
     return psOutput;
   }
 
