@@ -18,8 +18,9 @@
  */
 package org.apache.samza.container.host;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,16 +68,11 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
   private List<String> getAllCommandOutput(String[] cmdArray) throws IOException {
     Process executable = Runtime.getRuntime().exec(cmdArray);
     BufferedReader processReader = null;
-    List<String> psOutput = new ArrayList<>();
+    List<String> psOutput;
 
     try {
       processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
-      String line = processReader.readLine();
-      while (line != null) {
-        psOutput.add(line);
-        line = processReader.readLine();
-      }
-      //psOutput = processReader.lines().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
+      psOutput = processReader.lines().filter(StringUtils::isNotEmpty).collect(Collectors.toList());
     } finally {
       if (processReader != null) {
         processReader.close();
@@ -88,6 +84,7 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
   private long getTotalPhysicalMemory() throws IOException {
     // collect all child process ids of the main process that runs the application
     List<String> processIds = getAllCommandOutput(new String[]{"sh", "-c", "pgrep -P $PPID"});
+    processIds.subList(0, 2);
     // add the parent process which is the main process that runs the application
     processIds.add("$PPID");
     long totalPhysicalMemory = 0;
