@@ -47,7 +47,7 @@ public class TestStatisticsMonitorImpl {
       }
     });
 
-    if (!latch.await(5, TimeUnit.SECONDS)) {
+    if (!latch.await(20, TimeUnit.SECONDS)) {
       fail(String.format("Timed out waiting for listener to be give %d updates", numSamplesToCollect));
     }
     // assert that the registration for the listener was successful
