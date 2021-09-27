@@ -37,6 +37,7 @@ apply from: file("gradle/dependency-versions-scala-" + scalaSuffix + ".gradle")
 apply from: file("gradle/release.gradle")
 apply from: file("gradle/rat.gradle")
 apply from: file('gradle/customize.gradle')
+apply from: file('gradle/stacktrace.gradle')
 
 
 rat {
