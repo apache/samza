@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
  */
 public class DoubleSerde implements Serde<Double> {
 
+  @Override
   public byte[] toBytes(Double obj) {
     if (obj != null) {
       return ByteBuffer.allocate(8).putDouble(obj).array();
@@ -35,6 +36,7 @@ public class DoubleSerde implements Serde<Double> {
   }
 
   // big-endian by default
+  @Override
   public Double fromBytes(byte[] bytes) {
     if (bytes != null) {
       return ByteBuffer.wrap(bytes).getDouble();

@@ -26,12 +26,15 @@ import org.apache.samza.system.SystemStreamPartition;
  * that don't use them.
  */
 abstract public class BaseMessageChooser implements MessageChooser {
+  @Override
   public void start() {
   }
 
+  @Override
   public void stop() {
   }
 
+  @Override
   public void register(SystemStreamPartition systemStreamPartition, String offset) {
   }
 }

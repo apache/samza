@@ -23,6 +23,7 @@ import org.apache.samza.config.Config;
 
 public class DoubleSerdeFactory implements SerdeFactory<Double> {
 
+  @Override
   public Serde<Double> getSerde(String name, Config config) {
     return new DoubleSerde();
   }

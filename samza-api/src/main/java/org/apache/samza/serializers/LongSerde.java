@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
  */
 public class LongSerde implements Serde<Long> {
 
+  @Override
   public byte[] toBytes(Long obj) {
     if (obj != null) {
       return ByteBuffer.allocate(8).putLong(obj).array();
@@ -35,6 +36,7 @@ public class LongSerde implements Serde<Long> {
   }
 
   // big-endian by default
+  @Override
   public Long fromBytes(byte[] bytes) {
     if (bytes != null) {
       return ByteBuffer.wrap(bytes).getLong();

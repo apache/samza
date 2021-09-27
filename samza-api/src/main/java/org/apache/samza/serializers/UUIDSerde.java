@@ -27,6 +27,7 @@ import java.util.UUID;
  */
 public class UUIDSerde implements Serde<UUID> {
 
+  @Override
   public byte[] toBytes(UUID obj) {
     if (obj != null) {
       return ByteBuffer.allocate(16)
@@ -38,6 +39,7 @@ public class UUIDSerde implements Serde<UUID> {
     }
   }
 
+  @Override
   public UUID fromBytes(byte[] bytes) {
     if (bytes != null) {
       ByteBuffer buffer = ByteBuffer.wrap(bytes);

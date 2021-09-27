@@ -71,6 +71,7 @@ public class JsonSerdeV2<T> implements Serde<T> {
     return new JsonSerdeV2<>(clazz);
   }
 
+  @Override
   public byte[] toBytes(T obj) {
     if (obj != null) {
       try {
@@ -84,6 +85,7 @@ public class JsonSerdeV2<T> implements Serde<T> {
     }
   }
 
+  @Override
   public T fromBytes(byte[] bytes) {
     if (bytes != null) {
       String str;
