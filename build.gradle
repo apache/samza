@@ -206,7 +206,7 @@ project(":samza-core_$scalaSuffix") {
 
   test {
     // some unit tests use embedded zookeeper, so adding some extra memory for those
-    maxHeapSize = "1560m"
+    maxHeapSize = "2385m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 }
