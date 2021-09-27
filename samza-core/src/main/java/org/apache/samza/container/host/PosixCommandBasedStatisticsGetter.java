@@ -19,6 +19,7 @@
 package org.apache.samza.container.host;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +43,7 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
    * @throws IOException
    */
   private List<String> getAllCommandOutput(String[] cmdArray) throws IOException {
+    log.info("Executing commands {}", Arrays.toString(cmdArray));
     Process executable = Runtime.getRuntime().exec(cmdArray);
     BufferedReader processReader;
     List<String> psOutput = new ArrayList<>();
@@ -57,26 +59,26 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
     return psOutput;
   }
 
-  private long getTotalPhysicalMemory() throws IOException {
+  private long getTotalPhysicalMemoryUsageBytes() throws IOException {
     // collect all child process ids of the main process that runs the application
     List<String> processIds = getAllCommandOutput(new String[]{"sh", "-c", "pgrep -P $PPID"});
     // add the parent process which is the main process that runs the application
     processIds.add("$PPID");
     String processIdsJoined = String.join(" ", processIds);
     // returns a list of long values that represent the rss memory of each process.
-    List<String> processMemoryArray = getAllCommandOutput(new String[]{"sh", "-c", String.format("ps -o rss= -p %s", processIdsJoined)});
-    long totalPhysicalMemory = 0;
-    for (String processMemory : processMemoryArray) {
-      totalPhysicalMemory += Long.parseLong(processMemory.trim());
+    List<String> processMemoryMBArray = getAllCommandOutput(new String[]{"sh", "-c", String.format("ps -o rss= -p %s", processIdsJoined)});
+    long totalPhysicalMemoryMB = 0;
+    for (String processMemory : processMemoryMBArray) {
+      totalPhysicalMemoryMB += Long.parseLong(processMemory.trim());
     }
     //convert to bytes
-    return totalPhysicalMemory * 1024;
+    return totalPhysicalMemoryMB * 1024;
   }
 
   @Override
   public SystemMemoryStatistics getSystemMemoryStatistics() {
     try {
-      long memory = getTotalPhysicalMemory();
+      long memory = getTotalPhysicalMemoryUsageBytes();
       return new SystemMemoryStatistics(memory);
     } catch (Exception e) {
       log.warn("Error when running ps: ", e);
