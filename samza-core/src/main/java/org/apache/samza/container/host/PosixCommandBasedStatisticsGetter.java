@@ -70,6 +70,7 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
     return rssMemoryKb * 1024;
   }
 
+
   @Override
   public SystemMemoryStatistics getSystemMemoryStatistics() {
     try {
