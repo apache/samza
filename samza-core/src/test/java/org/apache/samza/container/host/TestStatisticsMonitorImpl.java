@@ -63,6 +63,7 @@ public class TestStatisticsMonitorImpl {
     Assert.assertFalse(registrationFailsAfterStop);
   }
 
+
   @Test
   public void testStopBehavior() throws Exception {
 

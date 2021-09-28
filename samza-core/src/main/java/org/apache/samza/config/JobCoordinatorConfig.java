@@ -19,6 +19,7 @@
 
 package org.apache.samza.config;
 
+import java.util.Optional;
 import com.google.common.base.Strings;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.CoordinationUtilsFactory;
@@ -70,11 +71,12 @@ public class JobCoordinatorConfig extends MapConfig {
   }
 
   public String getJobCoordinatorFactoryClassName() {
-    String jobCoordinatorFactoryClassName = get(JOB_COORDINATOR_FACTORY);
-    if (Strings.isNullOrEmpty(jobCoordinatorFactoryClassName)) {
-      return ZkJobCoordinatorFactory.class.getName();
-    } else {
-      return jobCoordinatorFactoryClassName;
-    }
+    return getOptionalJobCoordinatorFactoryClassName()
+        .filter(className -> !Strings.isNullOrEmpty(className))
+        .orElse(ZkJobCoordinatorFactory.class.getName());
+  }
+
+  public Optional<String> getOptionalJobCoordinatorFactoryClassName() {
+    return Optional.ofNullable(get(JOB_COORDINATOR_FACTORY));
   }
 }
