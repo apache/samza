@@ -66,13 +66,13 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
     processIds.add("$PPID");
     String processIdsJoined = String.join(" ", processIds);
     // returns a list of long values that represent the rss memory of each process.
-    List<String> processMemoryMBArray = getAllCommandOutput(new String[]{"sh", "-c", String.format("ps -o rss= -p %s", processIdsJoined)});
-    long totalPhysicalMemoryMB = 0;
-    for (String processMemory : processMemoryMBArray) {
-      totalPhysicalMemoryMB += Long.parseLong(processMemory.trim());
+    List<String> processMemoryKBArray = getAllCommandOutput(new String[]{"sh", "-c", String.format("ps -o rss= -p %s", processIdsJoined)});
+    long totalPhysicalMemoryKB = 0;
+    for (String processMemory : processMemoryKBArray) {
+      totalPhysicalMemoryKB += Long.parseLong(processMemory.trim());
     }
     //convert to bytes
-    return totalPhysicalMemoryMB * 1024;
+    return totalPhysicalMemoryKB * 1024;
   }
 
   @Override
