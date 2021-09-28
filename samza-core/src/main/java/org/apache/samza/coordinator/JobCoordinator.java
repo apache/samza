@@ -22,14 +22,10 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.job.model.JobModel;
 
 /**
- *  A JobCoordinator is a pluggable module in each process that provides the JobModel and the ID to the StreamProcessor.
+ * A JobCoordinator is a pluggable module in each process that coordinates with workers to do processing.
  *
- *  It is the responsibility of the JobCoordinator to assign a unique identifier to the StreamProcessor
- *  based on the underlying environment. In some cases, ID assignment is completely config driven, while in other
- *  cases, ID assignment may require coordination with JobCoordinators of other StreamProcessors.
- *
- *  StreamProcessor registers a {@link JobCoordinatorListener} in order to get notified about JobModel changes and
- *  Coordinator state change.
+ * The process running a {@link JobCoordinator} can register a {@link JobCoordinatorListener} in order to get notified
+ * about JobModel changes and coordinator state change.
  *
  * <pre>
  *   {@code
@@ -38,9 +34,9 @@ import org.apache.samza.job.model.JobModel;
  *  *                 *         onNewJobModel    ************                  *
  *  *                 *<<------------------------* Job      *                  *
  *  *                 *     onJobModelExpired    * Co-      *                  *
- *  *                 *<<------------------------* ordinator*                  *
- *  * StreamProcessor *     onCoordinatorStop    * Listener *  JobCoordinator  *
- *  *                 *<<------------------------*          *                  *
+ *  * StreamProcessor *<<------------------------* ordinator*                  *
+ *  *        or       *     onCoordinatorStop    * Listener *  JobCoordinator  *
+ *  * other JC process*<<------------------------*          *                  *
  *  *                 *  onCoordinatorFailure    *          *                  *
  *  *                 *<<------------------------************                  *
  *  *                 *  stop()                             *                  *
