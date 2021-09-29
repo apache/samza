@@ -26,6 +26,7 @@ import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStrea
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet, LocalityServlet}
 import org.apache.samza.coordinator.stream.messages.{SetContainerHostMapping, SetTaskContainerMapping, SetTaskModeMapping, SetTaskPartitionMapping}
 import org.apache.samza.job.model.JobModel
+import org.apache.samza.logging.LoggingContextHolder
 import org.apache.samza.metadatastore.MetadataStore
 import org.apache.samza.metrics.{MetricsRegistry, MetricsRegistryMap}
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -40,14 +41,7 @@ import java.util.concurrent.atomic.AtomicReference
  * given a Config object.
  */
 object JobModelManager extends Logging {
-
   val SOURCE = "JobModelManager"
-
-  /**
-   * a volatile value to store the current instantiated <code>JobModelManager</code>
-   */
-  @volatile var currentJobModelManager: JobModelManager = _
-  val serializedJobModelRef = new AtomicReference[Array[Byte]]
 
   /**
    * Currently used only in the ApplicationMaster for yarn deployment model.
@@ -78,15 +72,14 @@ object JobModelManager extends Logging {
       val jobModel = jobModelHelper.newJobModel(config, changelogPartitionMapping)
       val jobModelToServe = new JobModel(jobModel.getConfig, jobModel.getContainers)
       val serializedJobModelToServe = SamzaObjectMapper.getObjectMapper().writeValueAsBytes(jobModelToServe)
-      serializedJobModelRef.set(serializedJobModelToServe)
 
       val clusterManagerConfig = new ClusterManagerConfig(config)
       val server = new HttpServer(port = clusterManagerConfig.getCoordinatorUrlPort)
-      server.addServlet("/", new JobServlet(serializedJobModelRef))
+      server.addServlet("/", new JobServlet(new AtomicReference[Array[Byte]](serializedJobModelToServe)))
       server.addServlet("/locality", new LocalityServlet(localityManager))
 
-      currentJobModelManager = new JobModelManager(jobModelToServe, server)
-      currentJobModelManager
+      LoggingContextHolder.INSTANCE.setConfig(jobModel.getConfig)
+      new JobModelManager(jobModelToServe, server)
     } finally {
       systemAdmins.stop()
       // Not closing coordinatorStreamStore, since {@code ClusterBasedJobCoordinator} uses it to read container locality through {@code JobModel}.

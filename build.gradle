@@ -449,6 +449,7 @@ project(":samza-log4j2_$scalaSuffix") {
     compile project(":samza-core_$scalaSuffix")
     compile "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
   }
 }
 

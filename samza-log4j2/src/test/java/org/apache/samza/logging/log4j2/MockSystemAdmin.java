@@ -29,7 +29,7 @@ import org.apache.samza.system.SystemStreamPartition;
 
 
 public class MockSystemAdmin implements SystemAdmin {
-  public static String createdStreamName = "";
+  public static StreamSpec createdStreamSpec = null;
 
   @Override
   public void start() {
@@ -58,7 +58,7 @@ public class MockSystemAdmin implements SystemAdmin {
 
   @Override
   public boolean createStream(StreamSpec streamSpec) {
-    createdStreamName = streamSpec.getPhysicalName();
+    createdStreamSpec = streamSpec;
     return true;
   }
 
