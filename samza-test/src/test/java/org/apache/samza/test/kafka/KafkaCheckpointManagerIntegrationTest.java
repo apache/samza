@@ -89,13 +89,21 @@ public class KafkaCheckpointManagerIntegrationTest extends StreamApplicationInte
 
   private void produceMessages(int partitionId) {
     String key = "key" + partitionId;
+    // commit first message
     produceMessage(INPUT_STREAM, partitionId, key, commitMessage(partitionId, 0));
+    // don't commit second message
     produceMessage(INPUT_STREAM, partitionId, key, noCommitMessage(partitionId, 1));
+    // do an initial shutdown so that the test can check that the second message gets re-processed
     produceMessage(INPUT_STREAM, partitionId, key, INTERMEDIATE_SHUTDOWN);
+    // do a commit on the third message
     produceMessage(INPUT_STREAM, partitionId, key, commitMessage(partitionId, 2));
+    // this will make the task shut down for the second run
     produceMessage(INPUT_STREAM, partitionId, key, END_OF_STREAM);
   }
 
+  /**
+   * Each partition should have seen two messages before shutting down.
+   */
   private static void verifyProcessedMessagesFirstRun() {
     assertEquals(4, PROCESSED.size());
     assertEquals(1, PROCESSED.get(commitMessage(0, 0)).get());
@@ -104,6 +112,9 @@ public class KafkaCheckpointManagerIntegrationTest extends StreamApplicationInte
     assertEquals(1, PROCESSED.get(noCommitMessage(0, 1)).get());
   }
 
+  /**
+   * For each partition: re-process the second message (for 2 total of the second message), receive the third message.
+   */
   private static void verifyProcessedMessagesSecondRun() {
     assertEquals(6, PROCESSED.size());
     assertEquals(1, PROCESSED.get(commitMessage(0, 0)).get());
@@ -139,7 +150,17 @@ public class KafkaCheckpointManagerIntegrationTest extends StreamApplicationInte
   }
 
   private static class CheckpointTask implements StreamTask {
+    /**
+     * Determine if task should respond to {@link #INTERMEDIATE_SHUTDOWN}.
+     * Helps with testing that any uncommitted messages get reprocessed if the job starts again.
+     */
     private final boolean handleIntermediateShutdown;
+    /**
+     * When requesting shutdown, there is no guarantee of an immediate shutdown, since there are multiple tasks in the
+     * container. Use this flag to make sure we don't process more messages past the shutdown request in order to have
+     * deterministic counting of the messages for the test.
+     */
+    private boolean stopProcessing = false;
 
     private CheckpointTask(boolean handleIntermediateShutdown) {
       this.handleIntermediateShutdown = handleIntermediateShutdown;
@@ -147,22 +168,29 @@ public class KafkaCheckpointManagerIntegrationTest extends StreamApplicationInte
 
     @Override
     public void process(IncomingMessageEnvelope envelope, MessageCollector collector, TaskCoordinator coordinator) {
-      String value = (String) envelope.getMessage();
-      if (INTERMEDIATE_SHUTDOWN.equals(value)) {
-        if (this.handleIntermediateShutdown) {
-          coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-        }
-      } else if (END_OF_STREAM.equals(value)) {
-        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
-      } else {
-        synchronized (this) {
-          PROCESSED.putIfAbsent(value, new AtomicInteger(0));
-          PROCESSED.get(value).incrementAndGet();
-        }
-        if (value.startsWith("commit")) {
-          coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+      if (!this.stopProcessing) {
+        String value = (String) envelope.getMessage();
+        if (INTERMEDIATE_SHUTDOWN.equals(value)) {
+          if (this.handleIntermediateShutdown) {
+            setShutdown(coordinator);
+          }
+        } else if (END_OF_STREAM.equals(value)) {
+          setShutdown(coordinator);
+        } else {
+          synchronized (this) {
+            PROCESSED.putIfAbsent(value, new AtomicInteger(0));
+            PROCESSED.get(value).incrementAndGet();
+          }
+          if (value.startsWith("commit")) {
+            coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+          }
         }
       }
+    }
+
+    private void setShutdown(TaskCoordinator coordinator) {
+      this.stopProcessing = true;
+      coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
     }
   }
 }

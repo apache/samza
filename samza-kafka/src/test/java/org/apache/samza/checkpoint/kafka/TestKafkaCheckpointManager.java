@@ -74,7 +74,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 
-public class TestKafkaCheckpointManagerJava {
+public class TestKafkaCheckpointManager {
   private static final TaskName TASK0 = new TaskName("Partition 0");
   private static final TaskName TASK1 = new TaskName("Partition 1");
   private static final String CHECKPOINT_TOPIC = "checkpointTopic";
