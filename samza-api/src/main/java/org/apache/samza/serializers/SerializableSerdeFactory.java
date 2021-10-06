@@ -25,6 +25,7 @@ import java.io.Serializable;
 
 public class SerializableSerdeFactory<T extends Serializable> implements SerdeFactory<T> {
 
+  @Override
   public Serde<T> getSerde(String name, Config config) {
     return new SerializableSerde<>();
   }

@@ -34,6 +34,7 @@ import java.io.Serializable;
  */
 public class SerializableSerde<T extends Serializable> implements Serde<T> {
 
+  @Override
   public byte[] toBytes(T obj) {
     if (obj != null) {
       ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -59,6 +60,7 @@ public class SerializableSerde<T extends Serializable> implements Serde<T> {
     }
   }
 
+  @Override
   public T fromBytes(byte[] bytes) {
     if (bytes != null) {
       ByteArrayInputStream bis = new ByteArrayInputStream(bytes);

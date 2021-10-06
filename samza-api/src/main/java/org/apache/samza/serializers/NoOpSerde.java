@@ -29,11 +29,13 @@ import org.apache.samza.SamzaException;
  */
 public class NoOpSerde<T> implements Serde<T> {
 
+  @Override
   public T fromBytes(byte[] bytes) {
     throw new SamzaException("NoOpSerde fromBytes should not be invoked by the framework.");
   }
 
 
+  @Override
   public byte[] toBytes(T obj) {
     throw new SamzaException("NoOpSerde toBytes should not be invoked by the framework.");
   }

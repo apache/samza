@@ -22,6 +22,7 @@ package org.apache.samza.serializers;
 import org.apache.samza.config.Config;
 
 public class JsonSerdeV2Factory implements SerdeFactory<Object> {
+  @Override
   public JsonSerdeV2<Object> getSerde(String name, Config config) {
     return new JsonSerdeV2<>();
   }
