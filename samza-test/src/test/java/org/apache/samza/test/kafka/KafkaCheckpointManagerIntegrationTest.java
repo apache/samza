@@ -64,7 +64,17 @@ public class KafkaCheckpointManagerIntegrationTest extends StreamApplicationInte
    */
   private static final Map<String, AtomicInteger> PROCESSED = new HashMap<>();
 
+  /**
+   * If message has this prefix, then request a commit after processing it.
+   */
+  private static final String COMMIT_PREFIX = "commit";
+  /**
+   * If message equals this string, then shut down the task if the task is configured to handle intermediate shutdown.
+   */
   private static final String INTERMEDIATE_SHUTDOWN = "intermediateShutdown";
+  /**
+   * If message equals this string, then shut down the task.
+   */
   private static final String END_OF_STREAM = "endOfStream";
 
   @Before
@@ -126,11 +136,11 @@ public class KafkaCheckpointManagerIntegrationTest extends StreamApplicationInte
   }
 
   private static String commitMessage(int partitionId, int messageId) {
-    return "commit_partition" + partitionId + "_" + messageId;
+    return String.join("_", COMMIT_PREFIX, "partition", Integer.toString(partitionId), Integer.toString(messageId));
   }
 
   private static String noCommitMessage(int partitionId, int messageId) {
-    return "partition" + partitionId + "_" + messageId;
+    return String.join("_", "partition", Integer.toString(partitionId), Integer.toString(messageId));
   }
 
   private static class CheckpointApplication implements TaskApplication {
@@ -181,7 +191,7 @@ public class KafkaCheckpointManagerIntegrationTest extends StreamApplicationInte
             PROCESSED.putIfAbsent(value, new AtomicInteger(0));
             PROCESSED.get(value).incrementAndGet();
           }
-          if (value.startsWith("commit")) {
+          if (value.startsWith(COMMIT_PREFIX)) {
             coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
           }
         }
