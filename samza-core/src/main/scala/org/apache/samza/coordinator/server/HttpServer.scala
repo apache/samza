@@ -131,7 +131,7 @@ class HttpServer(
     if (running) {
       val runningPort = server.getConnectors()(0).asInstanceOf[NetworkConnector].getLocalPort()
 
-      new URL("https://" + Util.getLocalHost.getHostName + ":" + runningPort + rootPath)
+      new URL("http://" + Util.getLocalHost.getHostName + ":" + runningPort + rootPath)
     } else {
       throw new SamzaException("HttpServer is not currently running, so URLs are not available for it.")
     }
