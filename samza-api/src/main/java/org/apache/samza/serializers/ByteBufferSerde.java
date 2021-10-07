@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
  */
 public class ByteBufferSerde implements Serde<ByteBuffer> {
 
+  @Override
   public byte[] toBytes(ByteBuffer byteBuffer) {
     if (byteBuffer != null) {
       byte[] bytes = new byte[byteBuffer.remaining()];
@@ -36,6 +37,7 @@ public class ByteBufferSerde implements Serde<ByteBuffer> {
     }
   }
 
+  @Override
   public ByteBuffer fromBytes(byte[] bytes) {
     if (bytes != null) {
       return ByteBuffer.wrap(bytes);

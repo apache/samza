@@ -133,6 +133,7 @@ public class TaskModel implements Comparable<TaskModel> {
         + ", changeLogPartition=" + changelogPartition + ", taskMode=" + this.taskMode + "]";
   }
 
+  @Override
   public int compareTo(TaskModel other) {
     return taskName.compareTo(other.getTaskName());
   }

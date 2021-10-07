@@ -59,6 +59,7 @@ public class CheckpointV2 implements Checkpoint {
     this.stateCheckpointMarkers = ImmutableMap.copyOf(stateCheckpoints);
   }
 
+  @Override
   public short getVersion() {
     return CHECKPOINT_VERSION;
   }

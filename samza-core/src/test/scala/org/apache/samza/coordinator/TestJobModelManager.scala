@@ -101,28 +101,26 @@ class TestJobModelManager extends FlatSpec with PrivateMethodTester {
     // We want the mocksystemconsumer to use the same instance across runs
     MockCoordinatorStreamSystemFactory.enableMockConsumerCache()
 
-    val coordinator = getTestJobModelManager(new MapConfig((config ++ otherConfigs).asJava))
+    val jobModelManager = getTestJobModelManager(new MapConfig((config ++ otherConfigs).asJava))
     val expectedJobModel = new JobModel(new MapConfig(config.asJava), containers.asJava)
 
-    // Verify that the atomicReference is initialized
-    assertNotNull(JobModelManager.serializedJobModelRef.get())
     val expectedContainerModels = new util.TreeMap[String, ContainerModel](expectedJobModel.getContainers)
-    val jobModel = SamzaObjectMapper.getObjectMapper.readValue(JobModelManager.serializedJobModelRef.get(), classOf[JobModel])
+    val jobModel = jobModelManager.jobModel
     val actualContainerModels = new util.TreeMap[String, ContainerModel](jobModel.getContainers)
     assertEquals(expectedContainerModels, actualContainerModels)
 
-    coordinator.start
-    val expectedConfig: Config = coordinator.jobModel.getConfig
+    jobModelManager.start
+    val expectedConfig: Config = jobModelManager.jobModel.getConfig
     val actualConfig: Config = new MapConfig(config.asJava)
     assertTrue(expectedConfig.entrySet().containsAll(actualConfig.entrySet()))
-    assertEquals(expectedJobModel.getContainers, coordinator.jobModel.getContainers)
+    assertEquals(expectedJobModel.getContainers, jobModelManager.jobModel.getContainers)
 
-    val response = HttpUtil.read(coordinator.server.getUrl)
+    val response = HttpUtil.read(jobModelManager.server.getUrl)
     // Verify that the JobServlet is serving the correct jobModel
     val jobModelFromCoordinatorUrl = SamzaObjectMapper.getObjectMapper.readValue(response, classOf[JobModel])
     assertEquals(expectedJobModel.getContainers, jobModelFromCoordinatorUrl.getContainers)
 
-    coordinator.stop
+    jobModelManager.stop
   }
 
   @Test

@@ -23,6 +23,7 @@ import org.apache.samza.config.Config;
 
 public class ByteSerdeFactory implements SerdeFactory<byte[]> {
 
+  @Override
   public Serde<byte[]> getSerde(String name, Config config) {
     return new ByteSerde();
   }

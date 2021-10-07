@@ -38,6 +38,7 @@ public class StringSerde implements Serde<String> {
     this("UTF-8");
   }
 
+  @Override
   public byte[] toBytes(String obj) {
     if (obj != null) {
       try {
@@ -50,6 +51,7 @@ public class StringSerde implements Serde<String> {
     }
   }
 
+  @Override
   public String fromBytes(byte[] bytes) {
     if (bytes != null) {
       try {

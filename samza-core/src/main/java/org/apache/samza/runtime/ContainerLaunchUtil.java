@@ -44,6 +44,7 @@ import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.logging.LoggingContextHolder;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
@@ -81,14 +82,14 @@ public class ContainerLaunchUtil {
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
       String jobName, String jobId, String containerId, Optional<String> execEnvContainerId,
       JobModel jobModel) {
+    Config config = jobModel.getConfig();
 
-    // populate MDC for logging
+    // logging setup: MDC, logging context
     MDC.put("containerName", "samza-container-" + containerId);
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
+    LoggingContextHolder.INSTANCE.setConfig(jobModel.getConfig());
 
-
-    Config config = jobModel.getConfig();
     DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
     run(appDesc, jobName, jobId, containerId, execEnvContainerId, jobModel, config, buildExternalContext(config));
 
