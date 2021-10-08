@@ -109,6 +109,7 @@ public class IntegrationTestHarness extends AbstractKafkaServerTestHarness {
     * it shouldn't impact the tests nor have any side effects.
     */
     adminClient.close(ADMIN_OPERATION_WAIT_DURATION_MS, TimeUnit.MILLISECONDS);
+    consumer.unsubscribe();
     consumer.close();
     producer.close();
     super.tearDown();
