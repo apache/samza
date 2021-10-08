@@ -38,10 +38,14 @@ class ApplicationMasterWebServlet(samzaConfig: Config, samzaAppState: SamzaAppli
 
   // Due to AMHA, the uptime and start time of containers (within state) from previous attempt is reset to the time the new AM becomes alive.
   get("/") {
-    layoutTemplate("/WEB-INF/views/index.scaml",
-      "config" -> TreeMap(samzaConfig.sanitize.asScala.toMap.toArray: _*),
-      "state" -> state,
-      "samzaAppState" -> samzaAppState,
-      "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
+    try {
+      layoutTemplate("/WEB-INF/views/index.scaml",
+        "config" -> TreeMap(samzaConfig.sanitize.asScala.toMap.toArray: _*),
+        "state" -> state,
+        "samzaAppState" -> samzaAppState,
+        "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
+    } catch {
+      case e : Exception => println(e)
+    }
   }
 }
