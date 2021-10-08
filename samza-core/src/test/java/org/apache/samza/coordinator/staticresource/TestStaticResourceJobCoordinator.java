@@ -54,6 +54,7 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isNull;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -112,6 +113,7 @@ public class TestStaticResourceJobCoordinator {
             this.coordinatorCommunication, this.jobCoordinatorMetadataManager, this.startpointManager,
             this.changelogStreamManager, this.metrics, this.systemAdmins, this.config));
     this.staticResourceJobCoordinator.setListener(this.jobCoordinatorListener);
+    doNothing().when(this.staticResourceJobCoordinator).doSetLoggingContextConfig(any());
   }
 
   @Test
@@ -125,6 +127,7 @@ public class TestStaticResourceJobCoordinator {
     this.staticResourceJobCoordinator.start();
     assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
+    verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
     verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, SINGLE_SSP_FANOUT);
     verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
   }
@@ -139,6 +142,7 @@ public class TestStaticResourceJobCoordinator {
     this.staticResourceJobCoordinator.start();
     assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
+    verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
     verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, null, null);
     verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
   }
@@ -154,6 +158,7 @@ public class TestStaticResourceJobCoordinator {
     this.staticResourceJobCoordinator.start();
     assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
+    verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
     verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, SINGLE_SSP_FANOUT);
     verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
   }
@@ -188,6 +193,7 @@ public class TestStaticResourceJobCoordinator {
     this.staticResourceJobCoordinator.start();
     assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verify(this.systemAdmins).start();
+    verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
     verifyPrepareWorkerExecution(jobModel, metadataResourceUtil, newMetadata, null);
   }
 
