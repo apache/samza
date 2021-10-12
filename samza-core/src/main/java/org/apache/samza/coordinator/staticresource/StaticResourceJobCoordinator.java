@@ -35,6 +35,7 @@ import org.apache.samza.job.JobMetadataChange;
 import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.JobModelUtil;
+import org.apache.samza.logging.LoggingContextHolder;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
@@ -90,6 +91,7 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
     this.startpointManager.ifPresent(StartpointManager::start);
     try {
       JobModel jobModel = newJobModel();
+      doSetLoggingContextConfig(jobModel.getConfig());
       JobCoordinatorMetadata newMetadata =
           this.jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel, jobModel.getConfig());
       Set<JobMetadataChange> jobMetadataChanges = checkForMetadataChanges(newMetadata);
@@ -132,6 +134,14 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
 
   private JobModel newJobModel() {
     return this.jobModelHelper.newJobModel(this.config, this.changelogStreamManager.readPartitionMapping());
+  }
+
+  /**
+   * This is a helper method so that we can verify it is called in testing.
+   */
+  @VisibleForTesting
+  void doSetLoggingContextConfig(Config config) {
+    LoggingContextHolder.INSTANCE.setConfig(config);
   }
 
   /**
