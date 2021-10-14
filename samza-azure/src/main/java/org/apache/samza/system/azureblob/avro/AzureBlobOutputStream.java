@@ -69,7 +69,6 @@ import reactor.core.publisher.Flux;
 public class AzureBlobOutputStream extends OutputStream {
 
   private static final Logger LOG = LoggerFactory.getLogger(AzureBlobOutputStream.class);
-  private static final int MAX_ATTEMPT = 3;
   private static final int MAX_BLOCKS_IN_AZURE_BLOB = 50000;
   private final long flushTimeoutMs;
   private final BlockBlobAsyncClient blobAsyncClient;
@@ -322,33 +321,20 @@ public class AzureBlobOutputStream extends OutputStream {
       // call async stageblock and add to future
       @Override
       public void run() {
-        int attemptCount = 0;
         byte[] compressedLocalByte = compression.compress(localByte);
         int blockSize = compressedLocalByte.length;
 
-        while (attemptCount < MAX_ATTEMPT) {
-          try {
-            ByteBuffer outputStream = ByteBuffer.wrap(compressedLocalByte, 0, blockSize);
-            metrics.updateCompressByteMetrics(blockSize);
-            LOG.info("{} Upload block start for blob: {} for block size:{}.", blobAsyncClient.getBlobUrl().toString(), blockId, blockSize);
-            metrics.updateAzureUploadMetrics();
-            // StageBlock generates exception on Failure.
-            stageBlock(blockIdEncoded, outputStream, blockSize);
-            break;
-          } catch (InterruptedException e) {
-            String msg = String.format("Upload block for blob: %s failed for blockid: %s due to InterruptedException.",
-                blobAsyncClient.getBlobUrl().toString(), blockId);
-            LOG.error(msg, e);
-            throw new AzureException("InterruptedException encountered during block upload. Will not retry.", e);
-          } catch (Exception e) {
-            attemptCount += 1;
-            String msg = "Upload block for blob: " + blobAsyncClient.getBlobUrl().toString()
-                + " failed for blockid: " + blockId + " due to exception. AttemptCount: " + attemptCount;
-            LOG.error(msg, e);
-            if (attemptCount == MAX_ATTEMPT) {
-              throw new AzureException("Exceeded number of attempts. Max attempts is: " + MAX_ATTEMPT, e);
-            }
-          }
+        try {
+          ByteBuffer outputStream = ByteBuffer.wrap(compressedLocalByte, 0, blockSize);
+          metrics.updateCompressByteMetrics(blockSize);
+          LOG.info("{} Upload block start for blob: {} for block size:{}.", blobAsyncClient.getBlobUrl().toString(), blockId, blockSize);
+          metrics.updateAzureUploadMetrics();
+          // StageBlock generates exception on Failure.
+          stageBlock(blockIdEncoded, outputStream, blockSize);
+        } catch (Exception e) {
+          String msg = String.format("Upload block for blob: %s failed for blockid: %s.", blobAsyncClient.getBlobUrl().toString(), blockId);
+          LOG.error(msg, e);
+          throw new AzureException(msg, e);
         }
       }
     }, blobThreadPool);
