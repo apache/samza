@@ -84,7 +84,7 @@ public final class AzureBlobClientBuilder {
     String endpoint = String.format(Locale.ROOT, azureUrlFormat, azureBlobConfig.getAzureAccountName(systemName));
 
     HttpLogOptions httpLogOptions = new HttpLogOptions();
-    httpLogOptions.setLogLevel(HttpLogDetailLevel.BASIC);
+    httpLogOptions.setLogLevel(HttpLogDetailLevel.HEADERS);
 
     BlobServiceClientBuilder blobServiceClientBuilder = new BlobServiceClientBuilder()
         .httpLogOptions(httpLogOptions)

@@ -215,8 +215,8 @@ project(":samza-azure_$scalaSuffix") {
   apply plugin: 'java'
 
   dependencies {
-    compile "com.azure:azure-storage-blob:12.10.0"
-    compile "com.azure:azure-identity:1.0.0"
+    compile "com.azure:azure-storage-blob:12.14.0"
+    compile "com.azure:azure-identity:1.3.6"
     compile "com.microsoft.azure:azure-storage:5.3.1"
     compile "com.microsoft.azure:azure-eventhubs:1.0.1"
     compile "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"
