@@ -16,23 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator.communication;
+package org.apache.samza.coordinator.lifecycle;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
- * Interface for setting up communication components on the job coordinator side for coordinator-to-worker
- * communication. For example, this could be implemented by an HTTP server.
- *
- * See {@link CoordinatorCommunicationContext} for the communication paths that need to be handled by this
- * {@link CoordinatorCommunication} component.
+ * Placeholder implementation for {@link JobRestartSignal}.
+ * If a use case requires job restarts, then a real implementation should be used.
  */
-public interface CoordinatorCommunication {
-  /**
-   * Start the communication components.
-   */
-  void start();
+public class NoOpJobRestartSignal implements JobRestartSignal {
+  private static final Logger LOG = LoggerFactory.getLogger(NoOpJobRestartSignal.class);
 
-  /**
-   * Stop the communication components.
-   */
-  void stop();
+  @Override
+  public void restartJob() {
+    LOG.info("Job restart signalled, but job restart is no-op for this class");
+  }
 }

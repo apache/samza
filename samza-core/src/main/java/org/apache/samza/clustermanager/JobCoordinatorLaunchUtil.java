@@ -114,7 +114,6 @@ public class JobCoordinatorLaunchUtil {
     JobCoordinator jobCoordinator =
         jobCoordinatorFactory.getJobCoordinator(JOB_COORDINATOR_PROCESSOR_ID_PLACEHOLDER, finalConfig, metrics,
             metadataStore);
-    addShutdownHook(jobCoordinator);
     Map<String, MetricsReporter> metricsReporters =
         MetricsReporterLoader.getMetricsReporters(new MetricsConfig(finalConfig), JOB_COORDINATOR_SOURCE_NAME);
     metricsReporters.values()
@@ -123,6 +122,7 @@ public class JobCoordinatorLaunchUtil {
     CountDownLatch waitForShutdownLatch = new CountDownLatch(1);
     jobCoordinator.setListener(new NoProcessorJobCoordinatorListener(waitForShutdownLatch));
     jobCoordinator.start();
+    addShutdownHook(jobCoordinator);
     try {
       waitForShutdownLatch.await();
     } catch (InterruptedException e) {

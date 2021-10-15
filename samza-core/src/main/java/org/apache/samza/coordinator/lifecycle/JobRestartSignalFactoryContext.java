@@ -16,23 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.coordinator.communication;
+package org.apache.samza.coordinator.lifecycle;
 
-/**
- * Interface for setting up communication components on the job coordinator side for coordinator-to-worker
- * communication. For example, this could be implemented by an HTTP server.
- *
- * See {@link CoordinatorCommunicationContext} for the communication paths that need to be handled by this
- * {@link CoordinatorCommunication} component.
- */
-public interface CoordinatorCommunication {
-  /**
-   * Start the communication components.
-   */
-  void start();
+import org.apache.samza.config.Config;
 
-  /**
-   * Stop the communication components.
-   */
-  void stop();
+
+public class JobRestartSignalFactoryContext {
+  private final Config config;
+
+  public JobRestartSignalFactoryContext(Config config) {
+    this.config = config;
+  }
+
+  public Config getConfig() {
+    return config;
+  }
 }
