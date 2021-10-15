@@ -197,10 +197,10 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
   private JobModelMonitors jobModelMonitors(JobModel jobModel) {
     StreamPartitionCountMonitor streamPartitionCountMonitor =
         this.streamPartitionCountMonitorFactory.build(jobModel.getConfig(),
-            streamsChanged -> this.jobRestartSignal.restartJob());
+          streamsChanged -> this.jobRestartSignal.restartJob());
     Optional<StreamRegexMonitor> streamRegexMonitor =
         this.streamRegexMonitorFactory.build(jobModel, jobModel.getConfig(),
-            (initialInputSet, newInputStreams, regexesMonitored) -> this.jobRestartSignal.restartJob());
+          (initialInputSet, newInputStreams, regexesMonitored) -> this.jobRestartSignal.restartJob());
     return new JobModelMonitors(streamPartitionCountMonitor, streamRegexMonitor.orElse(null));
   }
 
