@@ -25,6 +25,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
@@ -73,8 +74,8 @@ public class SqlFileParser {
   public static List<String> parseSqlFile(String fileName) {
     Validate.notEmpty(fileName, "fileName cannot be empty.");
     List<String> sqlLines;
-    try {
-      sqlLines = Files.lines(Paths.get(fileName)).collect(Collectors.toList());
+    try (Stream<String> stream = Files.lines(Paths.get(fileName))) {
+      sqlLines = stream.collect(Collectors.toList());
     } catch (IOException e) {
       String msg = String.format("Unable to parse the sql file %s", fileName);
       LOG.error(msg, e);
