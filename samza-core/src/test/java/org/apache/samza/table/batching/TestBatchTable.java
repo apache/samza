@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.ReadWriteTable;
 import org.junit.After;
@@ -42,8 +43,8 @@ public class TestBatchTable {
   private static final int BATCH_SIZE = 5;
   private static final Duration BATCH_DELAY = Duration.ofMillis(Integer.MAX_VALUE);
 
-  private AsyncBatchingTable<Integer, Integer> asyncBatchingTable;
-  private ReadWriteTable<Integer, Integer> table;
+  private AsyncBatchingTable<Integer, Integer, Integer> asyncBatchingTable;
+  private ReadWriteTable<Integer, Integer, Integer> table;
   private Map<Integer, Integer> tableDb;
 
   @Before
@@ -115,6 +116,10 @@ public class TestBatchTable {
     doAnswer(putAsyncAnswer).when(table).putAsync(anyInt(), anyInt());
     doAnswer(putAllAsyncAnswer).when(table).putAllAsync(anyList());
 
+    doAnswer(i -> null).when(table).update(anyInt(), anyInt(), anyInt());
+    doAnswer(i -> CompletableFuture.completedFuture(null)).when(table).updateAsync(anyInt(), anyInt(), anyInt());
+    doAnswer(i -> CompletableFuture.completedFuture(null)).when(table).updateAllAsync(anyList(), anyList());
+
     doAnswer(deleteAnswer).when(table).delete(anyInt());
     doAnswer(deleteAsyncAnswer).when(table).deleteAsync(anyInt());
     doAnswer(deleteAllAsyncAnswer).when(table).deleteAllAsync(anyList());
@@ -178,6 +183,86 @@ public class TestBatchTable {
     asyncBatchingTable.putAsync(BATCH_SIZE, BATCH_SIZE);
 
     Assert.assertEquals(1, batchProcessor.size());
+  }
+
+  @Test
+  public void testUpdateAsyncWithCompactBatch() {
+    // the setup method by default uses CompactBatch for batching
+    // CompactBatch doesn't support batching for updates and instead table's updateAsync is used
+    final List<CompletableFuture<Void>> futures = new LinkedList<>();
+    for (int i = 0; i < BATCH_SIZE; i++) {
+      futures.add(asyncBatchingTable.updateAsync(i, i, i));
+    }
+    futures.forEach(future -> Assert.assertTrue(future.isDone()));
+    verify(table, times(5)).updateAsync(anyInt(), anyInt(), anyInt());
+  }
+
+  @Test
+  public void testUpdateAsync() {
+    // Use CompleteBatch instead of CompactBatch as CompactBatch doesn't support updates
+    asyncBatchingTable = new AsyncBatchingTable("id", table, new CompleteBatchProvider()
+        .withMaxBatchSize(BATCH_SIZE)
+        .withMaxBatchDelay(BATCH_DELAY), Executors.newSingleThreadScheduledExecutor());
+    asyncBatchingTable.createBatchProcessor(() -> 0, mock(BatchMetrics.class));
+
+    // mocking of updateAsync and updateAllAsync of AsyncReadWriteTable table done in setup method
+    final List<CompletableFuture<Void>> futures = new LinkedList<>();
+    for (int i = 0; i < BATCH_SIZE; i++) {
+      futures.add(asyncBatchingTable.updateAsync(i, i, i));
+    }
+    sleep();
+
+    final BatchProcessor<Integer, UpdatePair<Integer, Integer>> updateBatchProcessor =
+        asyncBatchingTable.getUpdateBatchProcessor();
+
+    // Verify that all async updates are finished.
+    futures.forEach(future -> Assert.assertTrue(future.isDone()));
+    verify(table, times(1)).updateAllAsync(anyList(), anyList());
+
+    // There should be no operations in the batch processor.
+    Assert.assertEquals(0, updateBatchProcessor.size());
+
+    asyncBatchingTable.updateAsync(BATCH_SIZE, BATCH_SIZE, BATCH_SIZE);
+
+    // Now batch size should be 1.
+    Assert.assertEquals(1, updateBatchProcessor.size());
+  }
+
+  @Test
+  public void testUpdateAllAsync() {
+    // Use CompleteBatch instead of CompactBatch as CompactBatch doesn't support updates
+    asyncBatchingTable = new AsyncBatchingTable("id", table, new CompleteBatchProvider()
+        .withMaxBatchSize(BATCH_SIZE)
+        .withMaxBatchDelay(BATCH_DELAY), Executors.newSingleThreadScheduledExecutor());
+    asyncBatchingTable.createBatchProcessor(() -> 0, mock(BatchMetrics.class));
+
+    // mocking of updateAsync and updateAllAsync of AsyncReadWriteTable table done in setup method
+    final List<Entry<Integer, Integer>> updates = new LinkedList<>();
+    final List<Entry<Integer, Integer>> defaults = new LinkedList<>();
+
+    for (int i = 0; i < BATCH_SIZE; i++) {
+      updates.add(new Entry<>(i, i));
+      defaults.add(new Entry<>(i, i));
+    }
+
+    CompletableFuture<Void> future = asyncBatchingTable.updateAllAsync(updates, defaults);
+    final BatchProcessor<Integer, UpdatePair<Integer, Integer>> updateBatchProcessor =
+        asyncBatchingTable.getUpdateBatchProcessor();
+
+    sleep();
+
+    // Verify that updateAllAsync is finished.
+    Assert.assertTrue(future.isDone());
+
+    Assert.assertEquals(0, updateBatchProcessor.size());
+
+    // The addBatchUpdates batch operations propagates to the table.
+    verify(table, times(1)).updateAllAsync(anyList(), anyList());
+
+    // This new addBatchUpdates will make the batch size to be 1.
+    asyncBatchingTable.updateAsync(BATCH_SIZE, BATCH_SIZE, BATCH_SIZE);
+
+    Assert.assertEquals(1, updateBatchProcessor.size());
   }
 
   @Test

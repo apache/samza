@@ -20,6 +20,7 @@ package org.apache.samza.table.remote;
 
 import java.util.Arrays;
 
+import java.util.List;
 import org.apache.samza.storage.kv.Entry;
 
 import org.junit.Before;
@@ -38,9 +39,9 @@ import static org.mockito.Mockito.verify;
 public class TestAsyncRemoteTable {
 
   private TableReadFunction<Integer, Integer> readFn;
-  private TableWriteFunction<Integer, Integer> writeFn;
-  private AsyncRemoteTable<Integer, Integer> roTable;
-  private AsyncRemoteTable<Integer, Integer> rwTable;
+  private TableWriteFunction<Integer, Integer, Integer> writeFn;
+  private AsyncRemoteTable<Integer, Integer, Integer> roTable;
+  private AsyncRemoteTable<Integer, Integer, Integer> rwTable;
 
   @Before
   public void prepare() {
@@ -121,6 +122,39 @@ public class TestAsyncRemoteTable {
     verifyFailure(() -> roTable.putAllAsync(Arrays.asList(new Entry(1, 2)), Arrays.asList(0, 0)));
     rwTable.putAllAsync(Arrays.asList(new Entry(1, 2)), Arrays.asList(0, 0));
     verify(writeFn, times(1)).putAllAsync(any(), any());
+  }
+
+  @Test
+  public void testUpdateAsync() {
+    verifyFailure(() -> roTable.updateAsync(1, 2, 2));
+    rwTable.updateAsync(1, 2, 2);
+    verify(writeFn, times(1)).updateAsync(any(), any(), any());
+  }
+
+  @Test
+  public void testUpdateAsyncWithArgs() {
+    verifyFailure(() -> roTable.updateAsync(1, 2, 3, Arrays.asList(0, 0)));
+    rwTable.updateAsync(1, 2, 3, Arrays.asList(0, 0));
+    verify(writeFn, times(1)).updateAsync(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testUpdateAllAsync() {
+    List<Entry<Integer, Integer>> updates = Arrays.asList(new Entry<>(1, 100), new Entry<>(2, 200));
+    List<Entry<Integer, Integer>> defaults = Arrays.asList(new Entry<>(1, 100), new Entry<>(2, 200));
+    verifyFailure(() -> roTable.updateAllAsync(updates, defaults));
+    rwTable.updateAllAsync(updates, defaults);
+    verify(writeFn, times(1)).updateAllAsync(any(), any());
+  }
+
+  @Test
+  public void testUpdateAllAsyncWithArgs() {
+    List<Entry<Integer, Integer>> updates = Arrays.asList(new Entry<>(1, 100), new Entry<>(2, 200));
+    List<Entry<Integer, Integer>> defaults = Arrays.asList(new Entry<>(1, 100), new Entry<>(2, 200));
+    List<Integer> args = Arrays.asList(0, 0);
+    verifyFailure(() -> roTable.updateAllAsync(updates, defaults, args));
+    rwTable.updateAllAsync(updates, defaults, args);
+    verify(writeFn, times(1)).updateAllAsync(any(), any(), any());
   }
 
   @Test

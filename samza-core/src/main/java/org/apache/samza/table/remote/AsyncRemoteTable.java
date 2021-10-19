@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import javax.annotation.Nullable;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
@@ -35,13 +36,14 @@ import org.apache.samza.table.AsyncReadWriteTable;
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <U> the type of the update applied to this table
  */
-public class AsyncRemoteTable<K, V> implements AsyncReadWriteTable<K, V> {
+public class AsyncRemoteTable<K, V, U> implements AsyncReadWriteTable<K, V, U> {
 
   private final TableReadFunction<K, V> readFn;
-  private final TableWriteFunction<K, V> writeFn;
+  private final TableWriteFunction<K, V, U> writeFn;
 
-  public AsyncRemoteTable(TableReadFunction<K, V> readFn, TableWriteFunction<K, V> writeFn) {
+  public AsyncRemoteTable(TableReadFunction<K, V> readFn, TableWriteFunction<K, V, U> writeFn) {
     Preconditions.checkArgument(writeFn != null || readFn != null,
         "Must have one of TableReadFunction or TableWriteFunction");
     this.readFn = readFn;
@@ -84,6 +86,23 @@ public class AsyncRemoteTable<K, V> implements AsyncReadWriteTable<K, V> {
     return args.length > 0
         ? writeFn.putAllAsync(entries, args)
         : writeFn.putAllAsync(entries);
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
+    Preconditions.checkNotNull(writeFn, "null writeFn");
+    return args.length > 0
+        ? writeFn.updateAsync(key, update, defaultValue, args)
+        : writeFn.updateAsync(key, update, defaultValue);
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
+      Object... args) {
+    Preconditions.checkNotNull(writeFn, "null writeFn");
+    return args.length > 0
+        ? writeFn.updateAllAsync(updates, defaults, args)
+        : writeFn.updateAllAsync(updates, defaults);
   }
 
   @Override

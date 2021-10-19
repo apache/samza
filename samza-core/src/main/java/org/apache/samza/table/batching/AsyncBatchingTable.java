@@ -25,8 +25,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import javax.annotation.Nullable;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
+import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
@@ -43,7 +45,7 @@ import org.apache.samza.util.HighResolutionClock;
  * be grouped to micro batch B1; U1 and U2 will be grouped to micro batch B2, the implementation class
  * can decide the order of the micro batches.
  *
- * Synchronized table operations (get/put/delete) should be used with caution for the batching feature.
+ * Synchronized table operations (get/put/update/delete) should be used with caution for the batching feature.
  * If the table is used by a single thread, there will be at most one operation in the batch, and the
  * batch will be performed when the TTL of the batch window expires. Batching does not make sense in this scenario.
  *
@@ -53,13 +55,15 @@ import org.apache.samza.util.HighResolutionClock;
  *
  * @param <K> The type of the key.
  * @param <V> The type of the value.
+ * @param <U> the type of the update applied to this table
  */
-public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
-  private final AsyncReadWriteTable<K, V> table;
+public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U> {
+  private final AsyncReadWriteTable<K, V, U> table;
   private final String tableId;
   private final BatchProvider<K, V> batchProvider;
   private final ScheduledExecutorService batchTimerExecutorService;
   private BatchProcessor<K, V> batchProcessor;
+  private BatchProcessor<K, UpdatePair<U, V>> updateBatchProcessor;
 
   /**
    * @param tableId The id of the table.
@@ -67,7 +71,7 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
    * @param batchProvider Batch provider to create a batch instance.
    * @param batchTimerExecutorService Executor service for batch timer.
    */
-  public AsyncBatchingTable(String tableId, AsyncReadWriteTable table, BatchProvider<K, V> batchProvider,
+  public AsyncBatchingTable(String tableId, AsyncReadWriteTable table, BatchProvider batchProvider,
       ScheduledExecutorService batchTimerExecutorService) {
     Preconditions.checkNotNull(tableId);
     Preconditions.checkNotNull(table);
@@ -104,7 +108,7 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
   @Override
   public CompletableFuture<Void> putAsync(K key, V value, Object... args) {
     try {
-      return batchProcessor.processUpdateOperation(new PutOperation<>(key, value, args));
+      return batchProcessor.processPutDeleteOrUpdateOperations(new PutOperation<>(key, value, args));
     } catch (BatchingNotSupportedException e) {
       return table.putAsync(key, value, args);
     } catch (Exception e) {
@@ -118,9 +122,27 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
+  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
+    try {
+      return updateBatchProcessor.processPutDeleteOrUpdateOperations(new UpdateOperation<>(key,
+          UpdatePair.of(update, defaultValue), args));
+    } catch (BatchingNotSupportedException e) {
+      return table.updateAsync(key, update, defaultValue, args);
+    } catch (Exception e) {
+      throw new SamzaException(e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
+      Object... args) {
+    return table.updateAllAsync(updates, defaults);
+  }
+
+  @Override
   public CompletableFuture<Void> deleteAsync(K key, Object... args) {
     try {
-      return batchProcessor.processUpdateOperation(new DeleteOperation<>(key, args));
+      return batchProcessor.processPutDeleteOrUpdateOperations(new DeleteOperation<>(key, args));
     } catch (BatchingNotSupportedException e) {
       return table.deleteAsync(key, args);
     } catch (Exception e) {
@@ -158,14 +180,24 @@ public class AsyncBatchingTable<K, V> implements AsyncReadWriteTable<K, V> {
     table.close();
   }
 
+  @SuppressWarnings("unchecked")
   @VisibleForTesting
   void createBatchProcessor(HighResolutionClock clock, BatchMetrics batchMetrics) {
     batchProcessor = new BatchProcessor<>(batchMetrics, new TableBatchHandler<>(table),
         batchProvider, clock, batchTimerExecutorService);
+    // BatchProvider will create new instance of Batch in the batch processor
+    // Therefore, batches will not be shared between updates and puts/deletes
+    updateBatchProcessor = (BatchProcessor<K, UpdatePair<U, V>>) new BatchProcessor<>(batchMetrics,
+        new TableBatchHandler<>(table), batchProvider, clock, batchTimerExecutorService);
   }
 
   @VisibleForTesting
   BatchProcessor<K, V> getBatchProcessor() {
     return batchProcessor;
+  }
+
+  @VisibleForTesting
+  BatchProcessor<K, UpdatePair<U, V>> getUpdateBatchProcessor() {
+    return updateBatchProcessor;
   }
 }

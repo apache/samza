@@ -258,7 +258,7 @@ public class StreamTaskIntegrationTest {
   }
 
   static public class StatefulStreamTask implements StreamTask, InitableTask {
-    private ReadWriteTable<Integer, Profile> profileViewTable;
+    private ReadWriteTable<Integer, Profile, ?> profileViewTable;
 
     @Override
     public void init(Context context) throws Exception {

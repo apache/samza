@@ -93,7 +93,7 @@ public class TaskContextImpl implements TaskContext {
   }
 
   @Override
-  public <K, V> ReadWriteTable<K, V> getTable(String tableId) {
+  public <K, V, U> ReadWriteTable<K, V, U> getTable(String tableId) {
     return this.tableManager.getTable(tableId);
   }
 

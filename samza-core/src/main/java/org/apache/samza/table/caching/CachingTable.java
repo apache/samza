@@ -62,18 +62,18 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
  * @param <K> type of the table key
  * @param <V> type of the table value
  */
-public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
-    implements ReadWriteTable<K, V> {
+public class CachingTable<K, V, U> extends BaseReadWriteTable<K, V, U>
+    implements ReadWriteTable<K, V, U> {
 
-  private final ReadWriteTable<K, V> table;
-  private final ReadWriteTable<K, V> cache;
+  private final ReadWriteTable<K, V, U> table;
+  private final ReadWriteTable<K, V, U> cache;
   private final boolean isWriteAround;
 
   // Common caching stats
   private AtomicLong hitCount = new AtomicLong();
   private AtomicLong missCount = new AtomicLong();
 
-  public CachingTable(String tableId, ReadWriteTable<K, V> table, ReadWriteTable<K, V> cache, boolean isWriteAround) {
+  public CachingTable(String tableId, ReadWriteTable<K, V, U> table, ReadWriteTable<K, V, U> cache, boolean isWriteAround) {
     super(tableId);
     this.table = table;
     this.cache = cache;
@@ -231,6 +231,26 @@ public class CachingTable<K, V> extends BaseReadWriteTable<K, V>
       updateTimer(metrics.putAllNs, clock.nanoTime() - startNs);
       return result;
     });
+  }
+
+  @Override
+  public void update(K key, U update, V defaultValue, Object... args) {
+    throw new SamzaException("Caching not supported with updates");
+  }
+
+  @Override
+  public void updateAll(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object... args) {
+    throw new SamzaException("Caching not supported with updates");
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAsync(K key, U update, V defaultValue, Object... args) {
+    throw new SamzaException("Caching not supported with updates");
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object... args) {
+    throw new SamzaException("Caching not supported with updates");
   }
 
   @Override

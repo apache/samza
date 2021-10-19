@@ -19,12 +19,14 @@
 
 package org.apache.samza.table.remote;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nullable;
 import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
@@ -42,9 +44,10 @@ import com.google.common.collect.Iterables;
  * <p> Implementations are expected to be thread-safe.
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <U> the type of the update
  */
 @InterfaceStability.Unstable
-public interface TableWriteFunction<K, V> extends TableFunction {
+public interface TableWriteFunction<K, V, U> extends TableFunction {
   /**
    * Store single table {@code record} with specified {@code key}. This method must be thread-safe.
    * The default implementation calls putAsync and blocks on the completion afterwards.
@@ -113,6 +116,66 @@ public interface TableWriteFunction<K, V> extends TableFunction {
    * @return CompletableFuture for the put request
    */
   default CompletableFuture<Void> putAllAsync(Collection<Entry<K, V>> records, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
+
+  /**
+   * Asynchronously update the record with specified {@code key} and additional arguments.
+   * This method must be thread-safe.
+   *
+   * @param key key for the table record
+   * @param update update record for the given key
+   * @param record default record to be written if the update is applied to a non-existent record
+   * @return CompletableFuture for the update request
+   */
+  CompletableFuture<Void> updateAsync(K key, U update, @Nullable V record);
+
+  /**
+   * Asynchronously update the record with specified {@code key} and additional arguments.
+   * This method must be thread-safe.
+   *
+   * @param key key for the table record
+   * @param update update record for the given key
+   * @param record default record to be written if the update is applied to a non-existent record
+   * @param args additional arguments
+   * @return CompletableFuture for the update request
+   */
+  default CompletableFuture<Void> updateAsync(K key, U update, @Nullable V record, Object ... args) {
+    throw new SamzaException("Not supported");
+  }
+
+  /**
+   * Asynchronously updates the table with {@code records} with specified {@code keys}. This method must be thread-safe.
+   * The default implementation calls updateAsync for each entry and return a combined future.
+   * @param records updates for the table
+   * @param defaults default records to be written for keys if the update is applied to a non-existent record
+   * @return CompletableFuture for the update request
+   */
+  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> records,
+      @Nullable Collection<Entry<K, V>> defaults) {
+    final ImmutableMap<K, V> defaultMap = defaults == null
+        ? ImmutableMap.of()
+        : defaults.stream().collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
+    final List<CompletableFuture<Void>> updateFutures =
+        records.stream().map(e -> {
+          if (!defaultMap.isEmpty() && defaultMap.containsKey(e.getKey())) {
+            return updateAsync(e.getKey(), e.getValue(), defaultMap.get(e.getKey()));
+          } else {
+            return updateAsync(e.getKey(), e.getValue(), null);
+          }
+        }).collect(Collectors.toList());
+    return CompletableFuture.allOf(Iterables.toArray(updateFutures, CompletableFuture.class));
+  }
+
+  /**
+   * Asynchronously updates the table with {@code records} with specified {@code keys}. This method must be thread-safe.
+   * @param records updates for the table
+   * @param defaults default records to be written for keys if the update is applied to a non-existent record
+   * @param args additional arguments
+   * @return CompletableFuture for the update request
+   */
+  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> records,
+      @Nullable Collection<Entry<K, V>> defaults, Object ... args) {
     throw new SamzaException("Not supported");
   }
 

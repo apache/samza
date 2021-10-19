@@ -26,13 +26,14 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
 
 /**
- * A table that supports synchronous and asynchronousget, put and delete by one or more keys
+ * A table that supports synchronous and asynchronous get, put and delete by one or more keys
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <U> the type of the update applied to records in this table
  */
 @InterfaceStability.Unstable
-public interface ReadWriteTable<K, V> extends AsyncReadWriteTable<K, V> {
+public interface ReadWriteTable<K, V, U> extends AsyncReadWriteTable<K, V, U> {
 
   /**
    * Gets the value associated with the specified {@code key}.
@@ -66,6 +67,29 @@ public interface ReadWriteTable<K, V> extends AsyncReadWriteTable<K, V> {
   default <T> T read(int opId, Object ... args) {
     throw new SamzaException("Not supported");
   }
+
+  /**
+   * Updates the record associated with a given {@code key} with the specified {@code update}.
+   * Default record {@code defaultValue} is inserted if there is no existing record for the given key.
+   *
+   * @param key the key with which the specified {@code value} is to be associated.
+   * @param update the update to be applied to the record specified by {@code key}.
+   * @param defaultValue the default value to be inserted if no record exists for the given key.
+   * @param args additional arguments
+   * @throws NullPointerException if the specified {@code key} is {@code null}.
+   */
+  void update(K key, U update, V defaultValue, Object ... args);
+
+  /**
+   * Updates the mappings of the specified keys with the updates or inserts the defaults.
+   *
+   * @param updates the updates for the given keys
+   * @param defaults the defaults to be inserted if the updates are applied on non-existant records
+   * @param args additional arguments
+   * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
+   */
+  void updateAll(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object ... args);
+
 
   /**
    * Updates the mapping of the specified key-value pair;

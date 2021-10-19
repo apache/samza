@@ -45,7 +45,7 @@ import java.util.Collections;
 class StreamTableJoinOperatorImpl<K, M, R extends KV, JM> extends OperatorImpl<M, JM> {
 
   private final StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec;
-  private final ReadWriteTable<K, ?> table;
+  private final ReadWriteTable<K, ?, ?> table;
 
   StreamTableJoinOperatorImpl(StreamTableJoinOperatorSpec<K, M, R, JM> joinOpSpec, Context context) {
     this.joinOpSpec = joinOpSpec;

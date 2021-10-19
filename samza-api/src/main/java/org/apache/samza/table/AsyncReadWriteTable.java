@@ -22,18 +22,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import javax.annotation.Nullable;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 
 
 /**
- * A table that supports asynchronous get, put and delete by one or more keys
+ * A table that supports asynchronous get, put, update and delete by one or more keys
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <U> the type of the update applied to this table
  */
-public interface AsyncReadWriteTable<K, V> extends Table {
+public interface AsyncReadWriteTable<K, V, U> extends Table {
   /**
    * Asynchronously gets the value associated with the specified {@code key}.
    *
@@ -89,6 +91,33 @@ public interface AsyncReadWriteTable<K, V> extends Table {
    * @return CompletableFuture for the operation
    */
   CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args);
+
+  /**
+   * Asynchronously updates the record associated with the specified update for a given key.
+   * If the update is attempted on a non-existent record, a default value can be inserted in the table depending
+   * on the table's implementation.
+   *
+   * @param key the key with which the specified {@code value} is to be associated.
+   * @param update the update applied to the record associated with a given {@code key}.
+   * @param defaultValue the default value that is inserted in the table if the update is applied to a non-existent record.
+   * @param args additional arguments
+   * @throws NullPointerException if the specified {@code key} is {@code null}.
+   * @return CompletableFuture for the operation
+   */
+  CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object ... args);
+
+  /**
+   * Asynchronously updates the records associated with the specified keys with the specified updates.
+   * If the update is applied to a non-existent record, a default value can be inserted in the table depending
+   * on the table's implementation.
+   *
+   * @param updates the key and update mappings.
+   * @param updates the key and default value mappings.
+   * @param args additional arguments
+   * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
+   * @return CompletableFuture for the operation
+   */
+  CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults, Object ... args);
 
   /**
    * Asynchronously deletes the mapping for the specified {@code key} from this table (if such mapping exists).

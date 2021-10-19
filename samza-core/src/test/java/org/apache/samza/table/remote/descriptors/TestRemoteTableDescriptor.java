@@ -313,7 +313,7 @@ public class TestRemoteTableDescriptor {
 
   private void doTestDeserializeReadFunctionAndLimiter(boolean rateOnly, boolean rlGets, boolean rlPuts) {
     int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0);
-    RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1")
+    RemoteTableDescriptor<String, String, String> desc = new RemoteTableDescriptor("1")
         .withReadFunction(createMockTableReadFunction())
         .withReadRetryPolicy(new TableRetryPolicy().withRetryPredicate((ex) -> false))
         .withWriteFunction(createMockTableWriteFunction())

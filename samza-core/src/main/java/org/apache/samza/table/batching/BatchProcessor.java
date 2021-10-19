@@ -57,7 +57,7 @@ public class BatchProcessor<K, V> {
    * @param clock A clock used to get the timestamp.
    * @param scheduledExecutorService A scheduled executor service to set timers for the managed batches.
    */
-  public BatchProcessor(BatchMetrics batchMetrics, BatchHandler<K, V> batchHandler, BatchProvider batchProvider,
+  public BatchProcessor(BatchMetrics batchMetrics, BatchHandler<K, V> batchHandler, BatchProvider<K, V> batchProvider,
       HighResolutionClock clock, ScheduledExecutorService scheduledExecutorService) {
     Preconditions.checkNotNull(batchHandler);
     Preconditions.checkNotNull(batchProvider);
@@ -101,12 +101,14 @@ public class BatchProcessor<K, V> {
   }
 
   /**
-   * @param operation The update operation to be added to the batch.
+   * @param operation The Put/Delete/Update operation to be added to the batch.
    * @return A {@link CompletableFuture} to indicate whether the operation is finished.
    */
-  CompletableFuture<Void> processUpdateOperation(Operation<K, V> operation) {
+  CompletableFuture<Void> processPutDeleteOrUpdateOperations(Operation<K, V> operation) {
     Preconditions.checkNotNull(operation);
-    Preconditions.checkArgument(operation instanceof PutOperation || operation instanceof DeleteOperation);
+    Preconditions.checkArgument(operation instanceof PutOperation
+        || operation instanceof DeleteOperation
+        || operation instanceof UpdateOperation);
 
     lock.lock();
     try {

@@ -299,6 +299,25 @@ public interface MessageStream<M> {
   <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object ... args);
 
   /**
+   * Allows sending messages in this {@link MessageStream} to a {@link Table} and then propagates this
+   * {@link MessageStream} to the next chained operator. The type of input message is expected to be {@link KV},
+   * otherwise a {@link ClassCastException} will be thrown. The value is an update pair- update and an option default.
+   * <p>
+   * Note: The update will be written but may not be flushed to the underlying table before its propagated to the
+   * chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
+   * it was flushed and whether the Table offers read after write consistency. Messages retain the original partitioning
+   * scheme when propagated to next operator.
+   *
+   * @param table the table to write messages to
+   * @param args additional arguments passed to the table
+   * @param <K> the type of key in the table
+   * @param <V> the type of record value in the table
+   * @param <U> the type of update value for the table
+   * @return this {@link MessageStream}
+   */
+  <K, V, U> MessageStream<KV<K, UpdatePair<U, V>>> sendUpdateTo(Table<KV<K, UpdatePair<U, V>>> table, Object ... args);
+
+  /**
    * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..
    * @param serde the {@link Serde} to use for (de)serializing the message.
    * @param id id the unique id of this operator in this application

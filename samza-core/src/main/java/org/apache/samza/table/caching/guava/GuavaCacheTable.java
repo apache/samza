@@ -20,6 +20,7 @@
 package org.apache.samza.table.caching.guava;
 
 import com.google.common.cache.Cache;
+import javax.annotation.Nullable;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
@@ -40,8 +41,8 @@ import java.util.concurrent.CompletableFuture;
  * @param <K> type of the key in the cache
  * @param <V> type of the value in the cache
  */
-public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
-    implements ReadWriteTable<K, V> {
+public class GuavaCacheTable<K, V, U> extends BaseReadWriteTable<K, V, U>
+    implements ReadWriteTable<K, V, U> {
 
   private final Cache<K, V> cache;
 
@@ -154,6 +155,27 @@ public class GuavaCacheTable<K, V> extends BaseReadWriteTable<K, V>
       future.completeExceptionally(e);
     }
     return future;
+  }
+
+  @Override
+  public void update(K key, U update, V defaultValue, Object... args) {
+    throw new SamzaException("Cache tables do not support update operations");
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
+    throw new SamzaException("Cache tables do not support update operations");
+  }
+
+  @Override
+  public void updateAll(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object... args) {
+    throw new SamzaException("Cache tables do not support update operations");
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
+      Object... args) {
+    throw new SamzaException("Cache tables do not support update operations");
   }
 
   @Override

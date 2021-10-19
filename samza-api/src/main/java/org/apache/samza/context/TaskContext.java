@@ -66,10 +66,11 @@ public interface TaskContext {
    * @param tableId id of the {@link ReadWriteTable} to get
    * @param <K> the type of the key in this table
    * @param <V> the type of the value in this table
+   * @param <U> the type of the update applied to records in this table
    * @return the {@link ReadWriteTable} associated with {@code tableId} for this task
    * @throws IllegalArgumentException if there is no table associated with {@code tableId}
    */
-  <K, V> ReadWriteTable<K, V> getTable(String tableId);
+  <K, V, U> ReadWriteTable<K, V, U> getTable(String tableId);
 
   /**
    * Gets the {@link CallbackScheduler} for this task, which can be used to schedule a callback to be executed

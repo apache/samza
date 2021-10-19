@@ -170,7 +170,7 @@ public class TestLocalTableWithSideInputsEndToEnd {
   }
 
   static class PageViewProfileJoinStreamTask implements InitableTask, StreamTask {
-    private ReadWriteTable<Integer, Profile> profileTable;
+    private ReadWriteTable<Integer, Profile, ?> profileTable;
 
     @Override
     public void init(Context context) {

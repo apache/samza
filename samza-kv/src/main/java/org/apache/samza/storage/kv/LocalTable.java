@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
+import org.apache.samza.SamzaException;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.BaseReadWriteTable;
@@ -39,7 +41,7 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
+public final class LocalTable<K, V, U> extends BaseReadWriteTable<K, V, U> {
 
   protected final KeyValueStore<K, V> kvStore;
 
@@ -144,6 +146,27 @@ public final class LocalTable<K, V> extends BaseReadWriteTable<K, V> {
       future.completeExceptionally(e);
     }
     return future;
+  }
+
+  @Override
+  public void update(K key, U update, V defaultValue, Object... args) {
+    throw new SamzaException("Local tables do not support update operations");
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
+    throw new SamzaException("Local tables do not support update operations");
+  }
+
+  @Override
+  public void updateAll(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object... args) {
+    throw new SamzaException("Local tables do not support update operations");
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
+      Object... args) {
+    throw new SamzaException("Local tables do not support update operations");
   }
 
   @Override

@@ -30,14 +30,14 @@ import java.util.stream.Stream;
 
 
 /**
- * A newer update operation will override the value of an earlier one.
+ * A newer put/delete operation will override the value of an earlier one.
  * Consecutive query operations with the same key will be combined as a single query.
  *
  * @param <K> The type of the key associated with the {@link Operation}
  * @param <V> The type of the value associated with the {@link Operation}
  */
 class CompactBatch<K, V> extends AbstractBatch<K, V> {
-  private final Map<K, Operation<K, V>> updates = new LinkedHashMap<>();
+  private final Map<K, Operation<K, V>> putsDeletes = new LinkedHashMap<>();
   private final Map<K, Operation<K, V>> queries = new LinkedHashMap<>();
 
   public CompactBatch(int maxBatchSize, Duration maxBatchDelay) {
@@ -49,13 +49,13 @@ class CompactBatch<K, V> extends AbstractBatch<K, V> {
    */
   @Override
   public int size() {
-    return updates.size() + queries.size();
+    return putsDeletes.size() + queries.size();
   }
 
   /**
    * When adding a GetOperation to the batch, mark the GetOperation completed immediately if there is
-   * an UpdateOperation for the key, otherwise, adding the operation to a list.
-   * When adding a Put or DeleteOperation, if there is an update operation for the same key, the existing
+   * an PutOperation/DeleteOperation for the key, otherwise, adding the operation to a list.
+   * When adding a Put/DeleteOperation, if there is a put/delete operation for the same key, the existing
    * operation will be replaced by the new one.
    */
   @Override
@@ -68,8 +68,10 @@ class CompactBatch<K, V> extends AbstractBatch<K, V> {
 
     if (operation instanceof GetOperation) {
       queries.putIfAbsent(operation.getKey(), operation);
+    } else if (operation instanceof UpdateOperation) {
+      throw new BatchingNotSupportedException("Batching not supported for Updates with CompactBatches");
     } else {
-      updates.put(operation.getKey(), operation);
+      putsDeletes.put(operation.getKey(), operation);
     }
     if (size() >= maxBatchSize) {
       close();
@@ -79,6 +81,6 @@ class CompactBatch<K, V> extends AbstractBatch<K, V> {
 
   @Override
   public Collection<Operation<K, V>> getOperations() {
-    return Stream.of(queries.values(), updates.values()).flatMap(Collection::stream).collect(Collectors.toList());
+    return Stream.of(queries.values(), putsDeletes.values()).flatMap(Collection::stream).collect(Collectors.toList());
   }
 }

@@ -37,6 +37,7 @@ import org.apache.samza.table.remote.TestRemoteTable;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
+import static org.mockito.Matchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 
@@ -275,6 +276,10 @@ public class TestAsyncRetriableTable {
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any(), any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(any(), any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(any());
@@ -301,6 +306,26 @@ public class TestAsyncRetriableTable {
     table.putAllAsync(Arrays.asList(1), Arrays.asList(1)).join();
     verify(writeFn, times(1)).putAllAsync(anyCollection());
     verify(writeFn, times(1)).putAllAsync(anyCollection(), any());
+
+    // UpdateAsync
+    verify(writeFn, times(0)).updateAsync(any(), any(), any());
+    verify(writeFn, times(0)).updateAsync(any(), any(), any(), any());
+    table.updateAsync(1, 2, 2).join();
+    verify(writeFn, times(1)).updateAsync(any(), any(), any());
+    verify(writeFn, times(0)).updateAsync(any(), any(), any(), any());
+    table.updateAsync(1, 2, 2, Arrays.asList(0, 0)).join();
+    verify(writeFn, times(1)).updateAsync(any(), any(), any());
+    verify(writeFn, times(1)).updateAsync(any(), any(), any(), any());
+    // UpdateAllAsync
+    verify(writeFn, times(0)).updateAllAsync(anyCollection(), anyCollection());
+    verify(writeFn, times(0)).updateAllAsync(anyCollection(), anyCollection(), any());
+    table.updateAllAsync(Arrays.asList(new Entry<>(1, 2)), Arrays.asList(new Entry<>(1, 2))).join();
+    verify(writeFn, times(1)).updateAllAsync(anyCollection(), anyCollection());
+    verify(writeFn, times(0)).updateAllAsync(anyCollection(), anyCollection(), any());
+    table.updateAllAsync(Arrays.asList(new Entry<>(1, 2)), Arrays.asList(new Entry<>(1, 2)), Arrays.asList(1)).join();
+    verify(writeFn, times(1)).updateAllAsync(anyCollection(), anyCollection());
+    verify(writeFn, times(1)).updateAllAsync(anyCollection(), anyCollection(), any());
+
     // DeleteAsync
     verify(writeFn, times(0)).deleteAsync(any());
     verify(writeFn, times(0)).deleteAsync(any(), any());
@@ -367,7 +392,7 @@ public class TestAsyncRetriableTable {
     policy.withFixedBackoff(Duration.ofMillis(10));
     policy.withStopAfterDelay(Duration.ofMillis(100));
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
-    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
     doReturn(false).when(writeFn).isRetriable(any());
     CompletableFuture<String> future = new CompletableFuture();
     future.completeExceptionally(new RuntimeException("test exception"));
@@ -394,7 +419,7 @@ public class TestAsyncRetriableTable {
     TableRetryPolicy policy = new TableRetryPolicy();
     policy.withFixedBackoff(Duration.ofMillis(10));
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
-    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
     doReturn(true).when(writeFn).isRetriable(any());
 
     AtomicInteger times = new AtomicInteger();
@@ -427,7 +452,7 @@ public class TestAsyncRetriableTable {
     policy.withFixedBackoff(Duration.ofMillis(5));
     policy.withStopAfterDelay(Duration.ofMillis(100));
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
-    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
     doReturn(true).when(writeFn).isRetriable(any());
     CompletableFuture<String> future = new CompletableFuture();
     future.completeExceptionally(new RuntimeException("test exception"));
@@ -455,7 +480,7 @@ public class TestAsyncRetriableTable {
     policy.withFixedBackoff(Duration.ofMillis(5));
     policy.withStopAfterAttempts(10);
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
-    TableWriteFunction<String, String> writeFn = mock(TableWriteFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
     doReturn(true).when(writeFn).isRetriable(any());
     CompletableFuture<String> future = new CompletableFuture();
     future.completeExceptionally(new RuntimeException("test exception"));
@@ -472,6 +497,154 @@ public class TestAsyncRetriableTable {
 
     verify(writeFn, atLeast(11)).putAllAsync(any());
     assertEquals(10, table.writeRetryMetrics.retryCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.successCount.getCount());
+    assertEquals(1, table.writeRetryMetrics.permFailureCount.getCount());
+    assertTrue(table.writeRetryMetrics.retryTimer.getSnapshot().getMax() > 0);
+  }
+
+  @Test
+  public void testUpdateWithoutRetry() {
+    TableRetryPolicy policy = new TableRetryPolicy();
+    policy.withFixedBackoff(Duration.ofMillis(100));
+    TableReadFunction readFn = mock(TableReadFunction.class);
+    TableWriteFunction writeFn = mock(TableWriteFunction.class);
+    doReturn(true).when(writeFn).isRetriable(any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(any(), any());
+    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
+    AsyncRetriableTable table = new AsyncRetriableTable("t1", delegate, null, policy, schedExec, readFn, writeFn);
+
+    int times = 0;
+    table.init(TestRemoteTable.getMockContext());
+    verify(readFn, times(0)).init(any(), any());
+    verify(writeFn, times(0)).init(any(), any());
+    table.updateAsync("foo", "bar", "bar").join();
+    verify(writeFn, times(1)).updateAsync(any(), any(), any());
+    assertEquals(++times, table.writeRetryMetrics.successCount.getCount());
+    table.updateAllAsync(Arrays.asList(new Entry<>("1", "2")), Arrays.asList(new Entry<>("1", "2"))).join();
+    verify(writeFn, times(1)).updateAllAsync(any(), any());
+    assertEquals(++times, table.writeRetryMetrics.successCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.retryCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.retryTimer.getSnapshot().getMax());
+    assertEquals(0, table.writeRetryMetrics.permFailureCount.getCount());
+    assertNull(table.readRetryMetrics);
+  }
+
+  @Test
+  public void testUpdateWithRetryDisabled() {
+    TableRetryPolicy policy = new TableRetryPolicy();
+    policy.withFixedBackoff(Duration.ofMillis(10));
+    policy.withStopAfterDelay(Duration.ofMillis(100));
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
+    doReturn(false).when(writeFn).isRetriable(any());
+    CompletableFuture<String> future = new CompletableFuture();
+    future.completeExceptionally(new RuntimeException("test exception"));
+    doReturn(future).when(writeFn).updateAsync(any(), any(), any());
+    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
+    AsyncRetriableTable table = new AsyncRetriableTable("t1", delegate, null, policy, schedExec, readFn, writeFn);
+    table.init(TestRemoteTable.getMockContext());
+
+    try {
+      table.updateAsync("foo", "bar", "bar").join();
+      fail();
+    } catch (Throwable t) {
+    }
+
+    verify(writeFn, times(1)).updateAsync(any(), any(), any());
+    assertEquals(0, table.writeRetryMetrics.retryCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.successCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.permFailureCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.retryTimer.getSnapshot().getMax());
+  }
+
+  @Test
+  public void testUpdateWithOneRetry() {
+    TableRetryPolicy policy = new TableRetryPolicy();
+    policy.withFixedBackoff(Duration.ofMillis(10));
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
+    doReturn(true).when(writeFn).isRetriable(any());
+
+    AtomicInteger times = new AtomicInteger();
+    doAnswer(invocation -> {
+      CompletableFuture<Map<String, String>> future = new CompletableFuture();
+      if (times.get() > 0) {
+        future.complete(null);
+      } else {
+        times.incrementAndGet();
+        future.completeExceptionally(new RuntimeException("test exception"));
+      }
+      return future;
+    }).when(writeFn).updateAsync(any(), any(), any());
+
+    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
+    AsyncRetriableTable table = new AsyncRetriableTable("t1", delegate, null, policy, schedExec, readFn, writeFn);
+    table.init(TestRemoteTable.getMockContext());
+
+    table.updateAsync(1, 2, 2).join();
+    verify(writeFn, times(2)).updateAsync(any(), any(), any());
+    assertEquals(1, table.writeRetryMetrics.retryCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.successCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.permFailureCount.getCount());
+    assertTrue(table.writeRetryMetrics.retryTimer.getSnapshot().getMax() > 0);
+  }
+
+  @Test
+  public void testUpdateAllWithOneRetry() {
+    TableRetryPolicy policy = new TableRetryPolicy();
+    policy.withFixedBackoff(Duration.ofMillis(10));
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
+    doReturn(true).when(writeFn).isRetriable(any());
+
+    AtomicInteger times = new AtomicInteger();
+    doAnswer(invocation -> {
+      CompletableFuture<Map<String, String>> future = new CompletableFuture();
+      if (times.get() > 0) {
+        future.complete(null);
+      } else {
+        times.incrementAndGet();
+        future.completeExceptionally(new RuntimeException("test exception"));
+      }
+      return future;
+    }).when(writeFn).updateAllAsync(any(), any());
+
+    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
+    AsyncRetriableTable table = new AsyncRetriableTable("t1", delegate, null, policy, schedExec, readFn, writeFn);
+    table.init(TestRemoteTable.getMockContext());
+
+    table.updateAllAsync(Arrays.asList(new Entry(1, 2)), Arrays.asList(new Entry(1, 2))).join();
+    verify(writeFn, times(2)).updateAllAsync(any(), any());
+    assertEquals(1, table.writeRetryMetrics.retryCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.successCount.getCount());
+    assertEquals(0, table.writeRetryMetrics.permFailureCount.getCount());
+    assertTrue(table.writeRetryMetrics.retryTimer.getSnapshot().getMax() > 0);
+  }
+
+  @Test
+  public void testUpdateWithPermFailureOnMaxCount() {
+    TableRetryPolicy policy = new TableRetryPolicy();
+    policy.withFixedBackoff(Duration.ofMillis(5));
+    policy.withStopAfterAttempts(5);
+    TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
+    doReturn(true).when(writeFn).isRetriable(any());
+    CompletableFuture<String> future = new CompletableFuture();
+    future.completeExceptionally(new RuntimeException("test exception"));
+    doReturn(future).when(writeFn).updateAsync(any(), any(), any());
+    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
+    AsyncRetriableTable table = new AsyncRetriableTable("t1", delegate, null, policy, schedExec, readFn, writeFn);
+    table.init(TestRemoteTable.getMockContext());
+
+    try {
+      table.updateAsync(1, 2, 2).join();
+      fail();
+    } catch (Throwable t) {
+    }
+
+    verify(writeFn, atLeast(6)).updateAsync(any(), any(), any());
+    assertEquals(5, table.writeRetryMetrics.retryCount.getCount());
     assertEquals(0, table.writeRetryMetrics.successCount.getCount());
     assertEquals(1, table.writeRetryMetrics.permFailureCount.getCount());
     assertTrue(table.writeRetryMetrics.retryTimer.getSnapshot().getMax() > 0);

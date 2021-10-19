@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import com.google.common.base.Preconditions;
 import java.util.stream.Collectors;
+import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 
@@ -37,10 +38,10 @@ import org.apache.samza.table.AsyncReadWriteTable;
  * @param <K> The key type of the operation.
  * @param <V> The value type of the operation.
  */
-public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
-  private final AsyncReadWriteTable<K, V> table;
+public class TableBatchHandler<K, V, U> implements BatchHandler<K, V> {
+  private final AsyncReadWriteTable<K, V, U> table;
 
-  public TableBatchHandler(AsyncReadWriteTable<K, V> table) {
+  public TableBatchHandler(AsyncReadWriteTable<K, V, U> table) {
     Preconditions.checkNotNull(table);
 
     this.table = table;
@@ -97,6 +98,34 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
   }
 
   /**
+   * Defines how batch update should be done.
+   *
+   * @param operations The batch update operations.
+   * @return A CompletableFuture to represent the status of the batch update operation.
+   */
+  private CompletableFuture<?> handleBatchUpdate(Collection<Operation<K, UpdatePair<U, V>>> operations) {
+    Preconditions.checkNotNull(operations);
+
+    final List<Entry<K, UpdatePair<U, V>>> updatePairs = operations.stream()
+        .map(op -> new Entry<>(op.getKey(), op.getValue()))
+        .collect(Collectors.toList());
+    if (updatePairs.isEmpty()) {
+      return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
+    }
+
+    final List<Entry<K, U>> updates = updatePairs.stream()
+        .map(entry -> new Entry<>(entry.getKey(), entry.getValue().getUpdate()))
+        .collect(Collectors.toList());
+
+    final List<Entry<K, V>> defaults = updatePairs.stream()
+        .map(entry -> new Entry<>(entry.getKey(), entry.getValue().getDefault()))
+        .collect(Collectors.toList());
+
+    final Object[] args = getOperationArgsForUpdates(operations);
+    return args == null ? table.updateAllAsync(updates, defaults) : table.updateAllAsync(updates, defaults, args);
+  }
+
+  /**
    * Define how batch delete should be done.
    *
    * @param operations The batch get operations.
@@ -126,6 +155,15 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
     return argsList.toArray();
   }
 
+  private Object[] getOperationArgsForUpdates(Collection<Operation<K, UpdatePair<U, V>>> operations) {
+    if (!operations.stream().anyMatch(operation -> operation.getArgs() != null && operation.getArgs().length > 0)) {
+      return null;
+    }
+    final List<Object[]> argsList = new ArrayList<>(operations.size());
+    operations.forEach(operation -> argsList.add(operation.getArgs()));
+    return argsList.toArray();
+  }
+
   private List<Operation<K, V>> getQueryOperations(Batch<K, V> batch) {
     return batch.getOperations().stream().filter(op -> op instanceof GetOperation)
         .collect(Collectors.toList());
@@ -133,6 +171,11 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
 
   private List<Operation<K, V>> getPutOperations(Batch<K, V> batch) {
     return batch.getOperations().stream().filter(op -> op instanceof PutOperation)
+        .collect(Collectors.toList());
+  }
+
+  private List<Operation<K, UpdatePair<U, V>>> getUpdateOperations(Batch<K, UpdatePair<U, V>> batch) {
+    return batch.getOperations().stream().filter(op -> op instanceof UpdateOperation)
         .collect(Collectors.toList());
   }
 
@@ -144,10 +187,12 @@ public class TableBatchHandler<K, V> implements BatchHandler<K, V> {
   /**
    * Perform batch operations.
    */
+  @SuppressWarnings("unchecked")
   @Override
   public CompletableFuture<Void> handle(Batch<K, V> batch) {
     return CompletableFuture.allOf(
         handleBatchPut(getPutOperations(batch)),
+        handleBatchUpdate(getUpdateOperations((Batch<K, UpdatePair<U, V>>) batch)),
         handleBatchDelete(getDeleteOperations(batch)),
         handleBatchGet(getQueryOperations(batch)))
         .whenComplete((val, throwable) -> {

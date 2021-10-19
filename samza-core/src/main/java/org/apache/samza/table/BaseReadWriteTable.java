@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-abstract public class BaseReadWriteTable<K, V> implements ReadWriteTable<K, V> {
+abstract public class BaseReadWriteTable<K, V, U> implements ReadWriteTable<K, V, U> {
 
   protected final Logger logger;
 

@@ -69,7 +69,7 @@ public class TestLocalTableWithLowLevelApiEndToEnd {
   }
 
   static public class MyStreamTask implements StreamTask, InitableTask {
-    private ReadWriteTable<Integer, TestTableData.PageView> pageViewTable;
+    private ReadWriteTable<Integer, TestTableData.PageView, ?> pageViewTable;
     @Override
     public void init(Context context) {
       pageViewTable = context.getTaskContext().getTable("t1");

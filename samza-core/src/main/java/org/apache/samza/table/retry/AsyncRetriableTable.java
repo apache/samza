@@ -20,6 +20,7 @@ package org.apache.samza.table.retry;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import javax.annotation.Nullable;
 import net.jodah.failsafe.RetryPolicy;
 
 import java.util.List;
@@ -44,12 +45,14 @@ import static org.apache.samza.table.retry.FailsafeAdapter.failsafe;
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <U> the type of the update applied to records in this table
  */
-public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
+public class AsyncRetriableTable<K, V, U> implements AsyncReadWriteTable<K, V, U> {
 
   private final String tableId;
-  private final AsyncReadWriteTable<K, V> table;
+  private final AsyncReadWriteTable<K, V, U> table;
   private final RetryPolicy readRetryPolicy;
+  // write retry policy will apply for updates as well
   private final RetryPolicy writeRetryPolicy;
   private final ScheduledExecutorService retryExecutor;
 
@@ -58,7 +61,7 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
   @VisibleForTesting
   RetryMetrics writeRetryMetrics;
 
-  public AsyncRetriableTable(String tableId, AsyncReadWriteTable<K, V> table,
+  public AsyncRetriableTable(String tableId, AsyncReadWriteTable<K, V, U> table,
       TableRetryPolicy readRetryPolicy, TableRetryPolicy writeRetryPolicy, ScheduledExecutorService retryExecutor,
       TableReadFunction readFn, TableWriteFunction writeFn) {
 
@@ -112,6 +115,17 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
     return doWrite(() -> table.putAllAsync(entries, args));
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
+    return doWrite(() -> table.updateAsync(key, update, defaultValue, args));
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
+      Object... args) {
+    return doWrite(() -> table.updateAllAsync(updates, defaults, args));
   }
 
   @Override

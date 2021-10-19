@@ -42,6 +42,7 @@ import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.OutputStreamImpl;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
+import org.apache.samza.operators.spec.SendUpdateToTableOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
@@ -193,6 +194,16 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_TO);
     SendToTableOperatorSpec<K, V> op =
         OperatorSpecs.createSendToTableOperatorSpec(((TableImpl) table).getTableId(), opId, args);
+    this.operatorSpec.registerNextOperatorSpec(op);
+    return new MessageStreamImpl<>(this.streamAppDesc, op);
+  }
+
+  @Override
+  public <K, V, U> MessageStream<KV<K, UpdatePair<U, V>>> sendUpdateTo(Table<KV<K, UpdatePair<U, V>>> table,
+      Object... args) {
+    String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_UPDATE_TO);
+    SendUpdateToTableOperatorSpec<K, V, U> op =
+        OperatorSpecs.createSendUpdateToTableOperatorSpec(((TableImpl) table).getTableId(), opId, args);
     this.operatorSpec.registerNextOperatorSpec(op);
     return new MessageStreamImpl<>(this.streamAppDesc, op);
   }

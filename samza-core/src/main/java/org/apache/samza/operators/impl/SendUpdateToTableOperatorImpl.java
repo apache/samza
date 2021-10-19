@@ -18,33 +18,33 @@
  */
 package org.apache.samza.operators.impl;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.SendToTableOperatorSpec;
+import org.apache.samza.operators.spec.SendUpdateToTableOperatorSpec;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
-import java.util.Collection;
-
 
 /**
- * Implementation of a send-stream-to-table operator that stores the record
- * in the table.
+ * Implementation of a send-update-stream-to-table operator that applies updates to existing records
+ * in the table. If there is no pre-existing record, based on Table's implementation it attempts to write a a new record.
  *
  * @param <K> the type of the record key
  * @param <V> the type of the record value
+ * @param <U> the type of the update applied to this table
  */
-public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, V>> {
+public class SendUpdateToTableOperatorImpl<K, V, U> extends OperatorImpl<KV<K, UpdatePair<U, V>>, KV<K, UpdatePair<U, V>>> {
+  private final SendUpdateToTableOperatorSpec<K, V, U> sendUpdateToTableOpSpec;
+  private final ReadWriteTable<K, V, U> table;
 
-  private final SendToTableOperatorSpec<K, V> sendToTableOpSpec;
-  private final ReadWriteTable<K, V, ?> table;
-
-  SendToTableOperatorImpl(SendToTableOperatorSpec<K, V> sendToTableOpSpec, Context context) {
-    this.sendToTableOpSpec = sendToTableOpSpec;
-    this.table = context.getTaskContext().getTable(sendToTableOpSpec.getTableId());
+  public SendUpdateToTableOperatorImpl(SendUpdateToTableOperatorSpec<K, V, U>  sendUpdateToTableOpSpec, Context context) {
+    this.sendUpdateToTableOpSpec = sendUpdateToTableOpSpec;
+    this.table = context.getTaskContext().getTable(sendUpdateToTableOpSpec.getTableId());
   }
 
   @Override
@@ -52,9 +52,10 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, 
   }
 
   @Override
-  protected CompletionStage<Collection<KV<K, V>>> handleMessageAsync(KV<K, V> message, MessageCollector collector,
-      TaskCoordinator coordinator) {
-    return table.putAsync(message.getKey(), message.getValue(), sendToTableOpSpec.getArgs())
+  protected CompletionStage<Collection<KV<K, UpdatePair<U, V>>>> handleMessageAsync(KV<K, UpdatePair<U, V>> message,
+      MessageCollector collector, TaskCoordinator coordinator) {
+    return table.updateAsync(message.getKey(), message.getValue().getUpdate(), message.getValue().getDefault(),
+        sendUpdateToTableOpSpec.getArgs())
         .thenApply(result -> Collections.singleton(message));
   }
 
@@ -64,7 +65,7 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, 
   }
 
   @Override
-  protected OperatorSpec<KV<K, V>, KV<K, V>> getOperatorSpec() {
-    return sendToTableOpSpec;
+  protected OperatorSpec<KV<K, UpdatePair<U, V>>, KV<K, UpdatePair<U, V>>> getOperatorSpec() {
+    return sendUpdateToTableOpSpec;
   }
 }
