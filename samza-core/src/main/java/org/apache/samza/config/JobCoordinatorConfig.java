@@ -32,9 +32,10 @@ import org.apache.samza.zk.ZkJobCoordinatorFactory;
 public class JobCoordinatorConfig extends MapConfig {
   public static final String JOB_COORDINATOR_FACTORY = "job.coordinator.factory";
   public final static String DEFAULT_COORDINATOR_FACTORY = ZkJobCoordinatorFactory.class.getName();
+  public static final String JOB_RESTART_SIGNAL_FACTORY = "job.coordinator.restart.signal.factory";
+
   private static final String AZURE_COORDINATION_UTILS_FACTORY = "org.apache.samza.coordinator.AzureCoordinationUtilsFactory";
   private static final String AZURE_COORDINATOR_FACTORY = "org.apache.samza.coordinator.AzureJobCoordinatorFactory";
-  public static final String JOB_RESTART_SIGNAL_FACTORY = "job.coordinator.restart.signal.factory";
   private static final String DEFAULT_JOB_RESTART_SIGNAL_FACTORY = NoOpJobRestartSignalFactory.class.getName();
 
   public JobCoordinatorConfig(Config config) {

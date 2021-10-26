@@ -18,6 +18,9 @@
  */
 package org.apache.samza.coordinator.lifecycle;
 
-public interface JobRestartSignal {
-  void restartJob();
+/**
+ * See {@link JobRestartSignal}.
+ */
+public interface JobRestartSignalFactory {
+  JobRestartSignal build(JobRestartSignalFactoryContext context);
 }

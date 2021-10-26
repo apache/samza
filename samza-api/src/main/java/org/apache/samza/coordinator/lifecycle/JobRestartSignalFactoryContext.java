@@ -21,6 +21,11 @@ package org.apache.samza.coordinator.lifecycle;
 import org.apache.samza.config.Config;
 
 
+/**
+ * Contains objects that are needed to build a {@link JobRestartSignal}.
+ * Having this class allows {@link JobRestartSignalFactory#build} to remain unchanged if additional components
+ * are needed in the future. Update this class if additional components are needed building {@link JobRestartSignal}.
+ */
 public class JobRestartSignalFactoryContext {
   private final Config config;
 
@@ -28,6 +33,9 @@ public class JobRestartSignalFactoryContext {
     this.config = config;
   }
 
+  /**
+   * {@link Config} used to build a {@link JobRestartSignal}.
+   */
   public Config getConfig() {
     return config;
   }
