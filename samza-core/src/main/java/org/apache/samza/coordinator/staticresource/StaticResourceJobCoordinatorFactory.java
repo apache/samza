@@ -20,6 +20,7 @@ package org.apache.samza.coordinator.staticresource;
 
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
@@ -27,10 +28,15 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.JobModelCalculator;
 import org.apache.samza.coordinator.JobModelHelper;
+import org.apache.samza.coordinator.StreamPartitionCountMonitorFactory;
+import org.apache.samza.coordinator.StreamRegexMonitorFactory;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
 import org.apache.samza.coordinator.communication.CoordinatorCommunicationContext;
 import org.apache.samza.coordinator.communication.HttpCoordinatorToWorkerCommunicationFactory;
 import org.apache.samza.coordinator.communication.JobInfoServingContext;
+import org.apache.samza.coordinator.lifecycle.JobRestartSignal;
+import org.apache.samza.coordinator.lifecycle.JobRestartSignalFactory;
+import org.apache.samza.coordinator.lifecycle.JobRestartSignalFactoryContext;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
@@ -45,6 +51,7 @@ import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
 
 
@@ -63,14 +70,22 @@ public class StaticResourceJobCoordinatorFactory implements JobCoordinatorFactor
         JobCoordinatorMetadataManager.ClusterType.NON_YARN, metricsRegistry);
     ChangelogStreamManager changelogStreamManager =
         new ChangelogStreamManager(new NamespaceAwareCoordinatorStreamStore(metadataStore, SetChangelogMapping.TYPE));
+    JobRestartSignal jobRestartSignal =
+        ReflectionUtil.getObj(new JobCoordinatorConfig(config).getJobRestartSignalFactory(),
+            JobRestartSignalFactory.class).build(new JobRestartSignalFactoryContext(config));
     StartpointManager startpointManager =
         jobConfig.getStartpointEnabled() ? new StartpointManager(metadataStore) : null;
     SystemAdmins systemAdmins = new SystemAdmins(config, StaticResourceJobCoordinator.class.getSimpleName());
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     JobModelHelper jobModelHelper = buildJobModelHelper(metadataStore, streamMetadataCache);
+    StreamPartitionCountMonitorFactory streamPartitionCountMonitorFactory =
+        new StreamPartitionCountMonitorFactory(streamMetadataCache, metricsRegistry);
+    StreamRegexMonitorFactory streamRegexMonitorFactory =
+        new StreamRegexMonitorFactory(streamMetadataCache, metricsRegistry);
     return new StaticResourceJobCoordinator(processorId, jobModelHelper, jobModelServingContext,
-        coordinatorCommunication, jobCoordinatorMetadataManager, startpointManager, changelogStreamManager,
-        metricsRegistry, systemAdmins, config);
+        coordinatorCommunication, jobCoordinatorMetadataManager, streamPartitionCountMonitorFactory,
+        streamRegexMonitorFactory, startpointManager, changelogStreamManager, jobRestartSignal, metricsRegistry,
+        systemAdmins, config);
   }
 
   private static JobModelHelper buildJobModelHelper(MetadataStore metadataStore,
