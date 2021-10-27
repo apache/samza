@@ -118,8 +118,8 @@ public class KafkaCheckpointManagerIntegrationTest extends StreamApplicationInte
     assertEquals(4, PROCESSED.size());
     assertEquals(1, PROCESSED.get(commitMessage(0, 0)).get());
     assertEquals(1, PROCESSED.get(noCommitMessage(0, 1)).get());
-    assertEquals(1, PROCESSED.get(commitMessage(0, 0)).get());
-    assertEquals(1, PROCESSED.get(noCommitMessage(0, 1)).get());
+    assertEquals(1, PROCESSED.get(commitMessage(1, 0)).get());
+    assertEquals(1, PROCESSED.get(noCommitMessage(1, 1)).get());
   }
 
   /**
