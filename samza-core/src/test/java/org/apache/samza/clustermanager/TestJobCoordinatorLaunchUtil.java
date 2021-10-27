@@ -53,7 +53,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -116,12 +115,6 @@ public class TestJobCoordinatorLaunchUtil {
     CoordinatorStreamStore coordinatorStreamStore = mock(CoordinatorStreamStore.class);
     JobCoordinatorFactory jobCoordinatorFactory = mock(JobCoordinatorFactory.class);
     JobCoordinator jobCoordinator = mock(JobCoordinator.class);
-    // use a latch to keep track of when start has been called
-    CountDownLatch jobCoordinatorStartedLatch = new CountDownLatch(1);
-    doAnswer(invocation -> {
-      jobCoordinatorStartedLatch.countDown();
-      return null;
-    }).when(jobCoordinator).start();
 
     PowerMockito.mockStatic(CoordinatorStreamUtil.class);
     PowerMockito.doNothing().when(CoordinatorStreamUtil.class, "createCoordinatorStream", any());
@@ -136,8 +129,13 @@ public class TestJobCoordinatorLaunchUtil {
         .when(ReflectionUtil.class, "getObj", jobCoordinatorFactoryClass, JobCoordinatorFactory.class);
     when(jobCoordinatorFactory.getJobCoordinator(eq("samza-job-coordinator"), eq(finalConfig), any(),
         eq(coordinatorStreamStore))).thenReturn(jobCoordinator);
+    // use a latch to keep track of when shutdown hook was added to know when we should start verifications
+    CountDownLatch addShutdownHookLatch = new CountDownLatch(1);
     PowerMockito.spy(JobCoordinatorLaunchUtil.class);
-    PowerMockito.doNothing().when(JobCoordinatorLaunchUtil.class, "addShutdownHook", any());
+    PowerMockito.doAnswer(invocation -> {
+      addShutdownHookLatch.countDown();
+      return null;
+    }).when(JobCoordinatorLaunchUtil.class, "addShutdownHook", any());
     MetricsReporter metricsReporter = mock(MetricsReporter.class);
     Map<String, MetricsReporter> metricsReporterMap = ImmutableMap.of("reporter", metricsReporter);
     PowerMockito.mockStatic(MetricsReporterLoader.class);
@@ -148,8 +146,8 @@ public class TestJobCoordinatorLaunchUtil {
 
     Thread runThread = new Thread(() -> JobCoordinatorLaunchUtil.run(new MockStreamApplication(), originalConfig));
     runThread.start();
-    // wait for job coordinator to be started before doing verifications
-    jobCoordinatorStartedLatch.await();
+    // last thing before waiting for shutdown is to add shutdown hook, so do verifications once hook is added
+    addShutdownHookLatch.await();
 
     verifyStatic();
     CoordinatorStreamUtil.createCoordinatorStream(fullConfig);
