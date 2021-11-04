@@ -21,7 +21,6 @@ package org.apache.samza.util;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.metrics.MetricsReporter;
@@ -38,16 +37,7 @@ public class MetricsReporterLoader {
 
   public static Map<String, MetricsReporter> getMetricsReporters(MetricsConfig metricsConfig, String containerName) {
     Map<String, MetricsReporter> metricsReporters = new HashMap<>();
-
-    String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS;
-
-    // Exclude creation of diagnostics-reporter, because it is created manually in SamzaContainer (to allow sharing of
-    // sysProducer between reporter and diagnosticsManager
-    List<String> metricsReporterNames = metricsConfig.getMetricReporterNames()
-        .stream()
-        .filter(reporterName -> !reporterName.equals(diagnosticsReporterName))
-        .collect(Collectors.toList());
-
+    List<String> metricsReporterNames = metricsConfig.getMetricReporterNames();
     for (String metricsReporterName : metricsReporterNames) {
       String metricsFactoryClassName = metricsConfig.getMetricsFactoryClass(metricsReporterName)
           .orElseThrow(() -> new SamzaException(

@@ -31,12 +31,10 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
-import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.SamzaContainer;
 import org.apache.samza.container.SamzaContainerListener;
@@ -55,7 +53,6 @@ import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.metrics.MetricsReporter;
-import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.runtime.ProcessorLifecycleListener;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.task.TaskFactory;
@@ -381,17 +378,11 @@ public class StreamProcessor {
 
   @VisibleForTesting
   SamzaContainer createSamzaContainer(String processorId, JobModel jobModel) {
-
-    // Creating diagnostics manager and reporter, and wiring it respectively
+    // Creating diagnostics manager and wiring it respectively
     String jobName = new JobConfig(config).getName().get();
     String jobId = new JobConfig(config).getJobId();
-    Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair =
+    Optional<DiagnosticsManager> diagnosticsManager =
         DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, processorId, Optional.empty(), config);
-    Option<DiagnosticsManager> diagnosticsManager = Option.empty();
-    if (diagnosticsManagerReporterPair.isPresent()) {
-      diagnosticsManager = Option.apply(diagnosticsManagerReporterPair.get().getKey());
-      this.customMetricsReporter.put(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS, diagnosticsManagerReporterPair.get().getValue());
-    }
 
     // Metadata store lifecycle managed outside of the SamzaContainer.
     // All manager lifecycles are managed in the SamzaContainer including startpointManager
@@ -415,7 +406,8 @@ public class StreamProcessor {
         metricsRegistryMap, this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config, jobModel),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
-        Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager, diagnosticsManager);
+        Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager,
+        Option.apply(diagnosticsManager.orElse(null)));
   }
 
   private static JobCoordinator createJobCoordinator(Config config, String processorId, MetricsRegistry metricsRegistry, MetadataStore metadataStore) {

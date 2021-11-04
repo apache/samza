@@ -22,7 +22,6 @@ package org.apache.samza.util;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
@@ -31,8 +30,6 @@ import org.apache.samza.config.SystemConfig;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistry;
-import org.apache.samza.metrics.MetricsReporterFactory;
-import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemProducer;
 import org.junit.Assert;
@@ -48,7 +45,6 @@ import static org.mockito.Mockito.*;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ReflectionUtil.class})
 public class TestDiagnosticsUtil {
-
   private static final String STREAM_NAME = "someStreamName";
   private static final String JOB_NAME = "someJob";
   private static final String JOB_ID = "someId";
@@ -58,27 +54,20 @@ public class TestDiagnosticsUtil {
   public static final String SYSTEM_FACTORY = "com.foo.system.SomeSystemFactory";
 
   @Test
-  public void testBuildDiagnosticsManagerReturnsConfiguredReporter() {
+  public void testBuildDiagnosticsManager() {
     Config config = new MapConfig(buildTestConfigs());
     JobModel mockJobModel = mock(JobModel.class);
     SystemFactory systemFactory = mock(SystemFactory.class);
     SystemProducer mockProducer = mock(SystemProducer.class);
-    MetricsReporterFactory metricsReporterFactory = mock(MetricsReporterFactory.class);
-    MetricsSnapshotReporter mockReporter = mock(MetricsSnapshotReporter.class);
-
     when(systemFactory.getProducer(anyString(), any(Config.class), any(MetricsRegistry.class), anyString())).thenReturn(mockProducer);
-    when(metricsReporterFactory.getMetricsReporter(anyString(), anyString(), any(Config.class))).thenReturn(
-        mockReporter);
     PowerMockito.mockStatic(ReflectionUtil.class);
-    when(ReflectionUtil.getObj(REPORTER_FACTORY, MetricsReporterFactory.class)).thenReturn(metricsReporterFactory);
     when(ReflectionUtil.getObj(SYSTEM_FACTORY, SystemFactory.class)).thenReturn(systemFactory);
 
-    Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> managerReporterPair =
+    Optional<DiagnosticsManager> diagnosticsManager =
         DiagnosticsUtil.buildDiagnosticsManager(JOB_NAME, JOB_ID, mockJobModel, CONTAINER_ID, Optional.of(ENV_ID),
             config);
 
-    Assert.assertTrue(managerReporterPair.isPresent());
-    Assert.assertEquals(mockReporter, managerReporterPair.get().getValue());
+    Assert.assertTrue(diagnosticsManager.isPresent());
   }
 
   private Map<String, String> buildTestConfigs() {
