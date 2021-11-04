@@ -33,6 +33,7 @@ import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.MetricsConfig;
+import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.NoProcessorJobCoordinatorListener;
@@ -55,7 +56,6 @@ import org.slf4j.LoggerFactory;
  */
 public class JobCoordinatorLaunchUtil {
   private static final Logger LOG = LoggerFactory.getLogger(JobCoordinatorLaunchUtil.class);
-  private static final String JOB_COORDINATOR_SOURCE_NAME = "JobCoordinator";
   /**
    * There is no processor associated with this job coordinator, so adding a placeholder value.
    */
@@ -115,9 +115,11 @@ public class JobCoordinatorLaunchUtil {
         jobCoordinatorFactory.getJobCoordinator(JOB_COORDINATOR_PROCESSOR_ID_PLACEHOLDER, finalConfig, metrics,
             metadataStore);
     Map<String, MetricsReporter> metricsReporters =
-        MetricsReporterLoader.getMetricsReporters(new MetricsConfig(finalConfig), JOB_COORDINATOR_SOURCE_NAME);
+        MetricsReporterLoader.getMetricsReporters(new MetricsConfig(finalConfig),
+            CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME);
     metricsReporters.values()
-        .forEach(metricsReporter -> metricsReporter.register(JOB_COORDINATOR_SOURCE_NAME, metrics));
+        .forEach(
+          metricsReporter -> metricsReporter.register(CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, metrics));
     metricsReporters.values().forEach(MetricsReporter::start);
     CountDownLatch waitForShutdownLatch = new CountDownLatch(1);
     jobCoordinator.setListener(new NoProcessorJobCoordinatorListener(waitForShutdownLatch));

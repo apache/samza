@@ -36,4 +36,9 @@ public final class CoordinationConstants {
   private static final String YARN_CONTAINER_EXECUTION_ID_PARAM_FORMAT = YARN_EXECUTION_ENVIRONMENT_CONTAINER_ID + "=" + "%s";
   public static final String YARN_CONTAINER_HEARTBEAT_ENDPOINT_FORMAT = YARN_CONTAINER_HEARTBEAT_SERVLET_FORMAT + "?" +
       YARN_CONTAINER_EXECUTION_ID_PARAM_FORMAT;
+
+  /**
+   * Container name to use for job coordinator in components like metrics and diagnostics.
+   */
+  public static final String JOB_COORDINATOR_CONTAINER_NAME = "JobCoordinator";
 }
