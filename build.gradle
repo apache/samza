@@ -206,7 +206,7 @@ project(":samza-core_$scalaSuffix") {
 
   test {
     // some unit tests use embedded zookeeper, so adding some extra memory for those
-    maxHeapSize = "2385m"
+    maxHeapSize = "2048m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 }
@@ -810,8 +810,7 @@ project(":samza-test_$scalaSuffix") {
 
   test {
     // Bump up the heap so we can run KV store tests.
-    minHeapSize = "1560m"
-    maxHeapSize = "1560m"
+    maxHeapSize = "2048m"
     jvmArgs = ["-XX:+UseConcMarkSweepGC", "-server"]
   }
 
