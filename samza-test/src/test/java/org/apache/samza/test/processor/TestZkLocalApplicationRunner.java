@@ -89,7 +89,6 @@ import org.apache.samza.zk.ZkMetadataStore;
 import org.apache.samza.zk.ZkStringSerializer;
 import org.apache.samza.zk.ZkUtils;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
