@@ -93,7 +93,8 @@ public class TestAsyncFlatMap {
        * nested within a bunch of other exceptions.
        */
       Throwable rootCause = findRootCause(e);
-      assertTrue(rootCause instanceof SamzaException);
+      assertTrue(String.format("Got exception %s with message %s", rootCause.getClass(), rootCause.getMessage()),
+          rootCause instanceof SamzaException);
       // the "{}" is intentional, since the exception message actually includes it (probably a logging bug)
       assertEquals("Callback for task {} Partition 0 timed out after 100 ms.", rootCause.getMessage());
     }
@@ -112,7 +113,9 @@ public class TestAsyncFlatMap {
        * TestRunner throws SamzaException on failures in general, so check the actual cause. The actual exception is
        * nested within a bunch of other exceptions.
        */
-      assertTrue(findRootCause(e) instanceof ProcessFailureException);
+      Throwable rootCause = findRootCause(e);
+      assertTrue(String.format("Got exception %s with message %s", rootCause.getClass(), rootCause.getMessage()),
+          rootCause instanceof ProcessFailureException);
     }
   }
 
@@ -129,7 +132,9 @@ public class TestAsyncFlatMap {
        * TestRunner throws SamzaException on failures in general, so check the actual cause. The actual exception is
        * nested within a bunch of other exceptions.
        */
-      assertTrue(findRootCause(e) instanceof FilterFailureException);
+      Throwable rootCause = findRootCause(e);
+      assertTrue(String.format("Got exception %s with message %s", rootCause.getClass(), rootCause.getMessage()),
+          rootCause instanceof FilterFailureException);
     }
   }
 
