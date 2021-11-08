@@ -21,8 +21,6 @@ package org.apache.samza.util;
 import java.io.File;
 import java.time.Duration;
 import java.util.Optional;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
@@ -36,11 +34,9 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metrics.MetricsRegistryMap;
-import org.apache.samza.metrics.MetricsReporterFactory;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
-import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
 import org.apache.samza.runtime.LocalContainerRunner;
 import org.apache.samza.serializers.JsonSerde;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
@@ -95,27 +91,14 @@ public class DiagnosticsUtil {
    * if diagnostics is enabled.
    * execEnvContainerId is the ID assigned to the container by the cluster manager (e.g., YARN).
    */
-  public static Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> buildDiagnosticsManager(String jobName,
+  public static Optional<DiagnosticsManager> buildDiagnosticsManager(String jobName,
       String jobId, JobModel jobModel, String containerId, Optional<String> execEnvContainerId, Config config) {
 
     JobConfig jobConfig = new JobConfig(config);
     MetricsConfig metricsConfig = new MetricsConfig(config);
-    Optional<Pair<DiagnosticsManager, MetricsSnapshotReporter>> diagnosticsManagerReporterPair = Optional.empty();
+    Optional<DiagnosticsManager> diagnosticsManagerOptional = Optional.empty();
 
     if (jobConfig.getDiagnosticsEnabled()) {
-
-      // Diagnostics MetricReporter init
-      String diagnosticsReporterName = MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS;
-      String diagnosticsFactoryClassName = metricsConfig.getMetricsFactoryClass(diagnosticsReporterName)
-          .orElseThrow(() -> new SamzaException(
-              String.format("Diagnostics reporter %s missing .class config", diagnosticsReporterName)));
-      MetricsReporterFactory metricsReporterFactory =
-          ReflectionUtil.getObj(diagnosticsFactoryClassName, MetricsReporterFactory.class);
-      MetricsSnapshotReporter diagnosticsReporter =
-          (MetricsSnapshotReporter) metricsReporterFactory.getMetricsReporter(diagnosticsReporterName,
-              "samza-container-" + containerId, config);
-
-      // DiagnosticsManager init
       ClusterManagerConfig clusterManagerConfig = new ClusterManagerConfig(config);
       int containerMemoryMb = clusterManagerConfig.getContainerMemoryMb();
       int containerNumCores = clusterManagerConfig.getNumCores();
@@ -125,12 +108,12 @@ public class DiagnosticsUtil {
       String samzaVersion = Util.getSamzaVersion();
       String hostName = Util.getLocalHost().getHostName();
       Optional<String> diagnosticsReporterStreamName =
-          metricsConfig.getMetricsSnapshotReporterStream(diagnosticsReporterName);
+          metricsConfig.getMetricsSnapshotReporterStream(MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS);
 
       if (!diagnosticsReporterStreamName.isPresent()) {
         throw new ConfigException(
             "Missing required config: " + String.format(MetricsConfig.METRICS_SNAPSHOT_REPORTER_STREAM,
-                diagnosticsReporterName));
+                MetricsConfig.METRICS_SNAPSHOT_REPORTER_NAME_FOR_DIAGNOSTICS));
       }
       SystemStream diagnosticsSystemStream = StreamUtil.getSystemStreamFromNames(diagnosticsReporterStreamName.get());
 
@@ -153,10 +136,10 @@ public class DiagnosticsUtil {
               diagnosticsSystemStream, systemProducer,
               Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled(), config);
 
-      diagnosticsManagerReporterPair = Optional.of(new ImmutablePair<>(diagnosticsManager, diagnosticsReporter));
+      diagnosticsManagerOptional = Optional.of(diagnosticsManager);
     }
 
-    return diagnosticsManagerReporterPair;
+    return diagnosticsManagerOptional;
   }
 
   public static void createDiagnosticsStream(Config config) {
