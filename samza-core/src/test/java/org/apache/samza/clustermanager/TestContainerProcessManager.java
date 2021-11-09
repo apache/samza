@@ -394,6 +394,7 @@ public class TestContainerProcessManager {
     cpm.onResourceCompleted(new SamzaResourceStatus("id0", "diagnostics", SamzaResourceStatus.SUCCESS));
     verify(cpm, never()).onResourceCompletedWithUnknownStatus(any(SamzaResourceStatus.class), anyString(), anyString(), anyInt());
     assertTrue(cpm.shouldShutdown());
+    cpm.stop();
   }
 
 
@@ -748,6 +749,7 @@ public class TestContainerProcessManager {
     assertFalse(cpm.shouldShutdown());
     assertTrue(state.jobHealthy.get());
     assertEquals(state.redundantNotifications.get(), 1);
+    cpm.stop();
   }
 
   @Test
@@ -781,6 +783,7 @@ public class TestContainerProcessManager {
     manager.onStreamProcessorLaunchFailure(resource, new Exception("cannot launch container!"));
     Assert.assertEquals(clusterResourceManager.resourceRequests.size(), 2);
     Assert.assertEquals(clusterResourceManager.resourceRequests.get(1).getHost(), ResourceRequestState.ANY_HOST);
+    manager.stop();
   }
 
   @Test
@@ -852,6 +855,7 @@ public class TestContainerProcessManager {
     cpm.onStreamProcessorLaunchSuccess(resource3);
 
     assertTrue(state.jobHealthy.get());
+    cpm.stop();
   }
 
   @Test
@@ -923,6 +927,7 @@ public class TestContainerProcessManager {
     assertEquals(2, clusterResourceManager.resourceRequests.size());
     assertEquals(0, clusterResourceManager.releasedResources.size());
     assertTrue(state.jobHealthy.get());
+    cpm.stop();
   }
 
   /**
