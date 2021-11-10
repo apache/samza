@@ -54,13 +54,15 @@ class TestSamzaYarnAppMasterLifecycle {
       new RegisterApplicationMasterResponse {
         override def setApplicationACLs(map: java.util.Map[ApplicationAccessType, String]): Unit = ()
         override def getApplicationACLs = null
+        override def setResourceTypes(types: java.util.List[org.apache.hadoop.yarn.api.records.ResourceTypeInfo]): Unit = ()
+        override def getResourceTypes = null
         override def setMaximumResourceCapability(r: Resource): Unit = ()
         override def getMaximumResourceCapability = new Resource {
           def getMemory = 512
           def getVirtualCores = 2
           def setMemory(memory: Int) {}
           def setVirtualCores(vCores: Int) {}
-          def compareTo(o: Resource) = 0
+          override def compareTo(o: Resource) = 0
         }
         override def getClientToAMTokenMasterKey = null
         override def setClientToAMTokenMasterKey(buffer: ByteBuffer) {}

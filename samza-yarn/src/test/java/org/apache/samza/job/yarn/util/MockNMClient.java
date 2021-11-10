@@ -47,4 +47,22 @@ public class MockNMClient extends NMClient {
 
   @Override
   public void cleanupRunningContainersOnStop(boolean enabled) { }
+
+  @Override
+  public void commitLastReInitialization(ContainerId containerId) { }
+
+  @Override
+  public void rollbackLastReInitialization(ContainerId containerId) { }
+
+  @Override
+  public void restartContainer(ContainerId containerId) { }
+
+  @Override
+  public void increaseContainerResource(Container container) { }
+
+  @Override
+  public void updateContainerResource(Container container) { }
+
+  @Override
+  public void reInitializeContainer(ContainerId containerId, ContainerLaunchContext containerLaunchContext, boolean shouldAutoCommit) { }
 }
