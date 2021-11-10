@@ -95,7 +95,7 @@ public class TestContainerAllocatorWithoutHostAffinity {
   @After
   public void teardown() throws Exception {
     jobModelManager.stop();
-    validateMockitoUsage();
+    containerAllocator.stop();
   }
 
   private static Config getConfig() {

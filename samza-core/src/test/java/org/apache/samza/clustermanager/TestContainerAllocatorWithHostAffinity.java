@@ -410,7 +410,7 @@ public class TestContainerAllocatorWithHostAffinity {
     // State check when host affinity is enabled
     assertTrue(state.matchedResourceRequests.get() == 2);
     assertTrue(state.preferredHostRequests.get() == 2);
-    containerAllocator.stop();
+    spyAllocator.stop();
   }
 
   @Test
@@ -433,7 +433,7 @@ public class TestContainerAllocatorWithHostAffinity {
     spyAllocatorThread.start();
 
     // Let the request expire, expiration timeout is 3 ms
-    Thread.sleep(100);
+    Thread.sleep(1000);
 
     // Verify that all the request that were created as preferred host requests expired
     assertTrue(state.preferredHostRequests.get() == 2);
@@ -453,7 +453,7 @@ public class TestContainerAllocatorWithHostAffinity {
     // Check that atleast 2 ANY_HOST requests were made
     assertTrue(state.matchedResourceRequests.get() == 0);
     assertTrue(state.anyHostRequests.get() > 2);
-    containerAllocator.stop();
+    spyAllocator.stop();
   }
 
   @Test
@@ -481,7 +481,7 @@ public class TestContainerAllocatorWithHostAffinity {
     spyAllocatorThread.start();
 
     // Let the request expire, expiration timeout is 3 ms
-    Thread.sleep(100);
+    Thread.sleep(1000);
 
     // Verify that all the request that were created as preferred host requests expired
     assertEquals(state.expiredPreferredHostRequests.get(), 2);
@@ -506,7 +506,7 @@ public class TestContainerAllocatorWithHostAffinity {
     assertTrue(state.matchedResourceRequests.get() == 0);
     assertTrue(state.preferredHostRequests.get() == 2);
     assertTrue(state.anyHostRequests.get() == 0);
-    containerAllocator.stop();
+    spyAllocator.stop();
   }
 
   @Test(timeout = 5000)
@@ -551,7 +551,7 @@ public class TestContainerAllocatorWithHostAffinity {
         .forEach(resource -> assertEquals(resource.getHost(), "host-0"));
     // Verify resources were released
     assertTrue(mockClusterResourceManager.containsReleasedResource(expiredAllocatedResource));
-    containerAllocator.stop();
+    spyAllocator.stop();
   }
 
   //@Test
@@ -643,7 +643,7 @@ public class TestContainerAllocatorWithHostAffinity {
         put("cluster-manager.container.count", "1");
         put("cluster-manager.container.retry.count", "1");
         put("cluster-manager.container.retry.window.ms", "1999999999");
-        put("cluster-manager.container.request.timeout.ms", "3");
+        put("cluster-manager.container.request.timeout.ms", "500");
         put("cluster-manager.allocator.sleep.ms", "1");
         put("cluster-manager.container.memory.mb", "512");
         put("yarn.package.path", "/foo");
