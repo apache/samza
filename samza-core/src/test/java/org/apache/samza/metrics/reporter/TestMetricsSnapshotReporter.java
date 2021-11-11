@@ -17,23 +17,22 @@
  * under the License.
  */
 
-package org.apache.samza.metrics;
+package org.apache.samza.metrics.reporter;
 
 import java.util.List;
 import java.util.Map;
-import org.apache.samza.metrics.reporter.MetricsSnapshot;
-import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
+import java.util.Optional;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.serializers.Serializer;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.SystemClock;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import scala.Some;
-import scala.runtime.AbstractFunction0;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -178,15 +177,6 @@ public class TestMetricsSnapshotReporter {
 
   private MetricsSnapshotReporter getMetricsSnapshotReporter(String blacklist) {
     return new MetricsSnapshotReporter(producer, SYSTEM_STREAM, REPORTING_INTERVAL, JOB_NAME, JOB_ID, CONTAINER_NAME,
-        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, new Some<>(blacklist), getClock());
-  }
-
-  private AbstractFunction0<Object> getClock() {
-    return new AbstractFunction0<Object>() {
-      @Override
-      public Object apply() {
-        return System.currentTimeMillis();
-      }
-    };
+        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, Optional.of(blacklist), SystemClock.instance());
   }
 }
