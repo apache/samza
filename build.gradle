@@ -509,7 +509,7 @@ project(":samza-yarn_$scalaSuffix") {
 
   repositories {
     maven {
-      url "http://repo.typesafe.com/typesafe/releases"
+      url "https://repo.typesafe.com/typesafe/releases"
     }
   }
 

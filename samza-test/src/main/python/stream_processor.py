@@ -43,7 +43,7 @@ class StreamProcessor:
         logger.info('Running processor start command: {0}'.format(self.processor_start_command))
         self.deployment_config = {
             'install_path': os.path.join(runtime.get_active_config('remote_install_path'), 'deploy/{0}'.format(self.processor_id)),
-            'executable': 'samza-test_2.11-1.6.0-SNAPSHOT.tgz',
+            'executable': 'samza-test_2.11-1.7.0-SNAPSHOT.tgz',
             'post_install_cmds': [],
             'start_command': self.processor_start_command,
             'stop_command': '',
