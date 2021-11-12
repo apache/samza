@@ -102,9 +102,9 @@ rat {
 }
 
 allprojects {
-    tasks.withType(JavaCompile).configureEach {
-        options.fork = true
-    }
+  tasks.withType(JavaCompile).configureEach {
+      options.fork = true
+  }
 
   apply plugin: 'idea'
 
