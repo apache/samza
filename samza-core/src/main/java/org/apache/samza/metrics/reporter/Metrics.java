@@ -32,11 +32,8 @@ public class Metrics {
   }
 
   public Metrics(Map<String, Map<String, Object>> metrics) {
-    metrics.forEach((groupKey, groupValue) -> {
-      Map<String, Object> immutableMetricGroup = new HashMap<>();
-      groupValue.forEach(immutableMetricGroup::put);
-      this.immutableMetrics.put(groupKey, Collections.unmodifiableMap(immutableMetricGroup));
-    });
+    metrics.forEach((groupKey, groupValue) -> this.immutableMetrics.put(groupKey,
+        Collections.unmodifiableMap(new HashMap<>(groupValue))));
   }
 
   public <T> T get(String group, String metricName) {
