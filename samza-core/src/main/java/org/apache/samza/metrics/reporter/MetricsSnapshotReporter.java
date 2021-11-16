@@ -36,7 +36,7 @@ import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.MetricsVisitor;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
-import org.apache.samza.metrics.RegistryWithSource;
+import org.apache.samza.metrics.MetricsRegistryWithSource;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.serializers.Serializer;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -76,7 +76,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
   private final String execEnvironmentContainerId;
   private final ScheduledExecutorService executor;
   private final long resetTime;
-  private final List<RegistryWithSource> registries = new ArrayList<>();
+  private final List<MetricsRegistryWithSource> registries = new ArrayList<>();
   private final Set<String> blacklistedMetrics = new HashSet<>();
 
   public MetricsSnapshotReporter(SystemProducer producer, SystemStream out, int reportingInterval, String jobName,
@@ -115,7 +115,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
 
   @Override
   public void register(String source, ReadableMetricsRegistry registry) {
-    this.registries.add(new RegistryWithSource(source, registry));
+    this.registries.add(new MetricsRegistryWithSource(source, registry));
     LOG.info("Registering {} with producer.", source);
     this.producer.register(source);
   }
@@ -152,9 +152,9 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
 
   public void innerRun() {
     LOG.debug("Begin flushing metrics.");
-    for (RegistryWithSource registryWithSource : this.registries) {
-      String source = registryWithSource.getSource();
-      ReadableMetricsRegistry registry = registryWithSource.getRegistry();
+    for (MetricsRegistryWithSource metricsRegistryWithSource : this.registries) {
+      String source = metricsRegistryWithSource.getSource();
+      ReadableMetricsRegistry registry = metricsRegistryWithSource.getRegistry();
       LOG.debug("Flushing metrics for {}.", source);
       Map<String, Map<String, Object>> metricsMsg = new HashMap<>();
 

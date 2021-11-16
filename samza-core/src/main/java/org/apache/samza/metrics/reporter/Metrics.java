@@ -25,15 +25,16 @@ import java.util.Objects;
 
 
 public class Metrics {
-  private final Map<String, Map<String, Object>> immutableMetrics = new HashMap<>();
+  private final Map<String, Map<String, Object>> immutableMetrics;
 
   public Metrics() {
     this(Collections.emptyMap());
   }
 
   public Metrics(Map<String, Map<String, Object>> metrics) {
-    metrics.forEach((groupKey, groupValue) -> this.immutableMetrics.put(groupKey,
-        Collections.unmodifiableMap(new HashMap<>(groupValue))));
+    Map<String, Map<String, Object>> metricsMapCopy = new HashMap<>();
+    metrics.forEach((key, value) -> metricsMapCopy.put(key, Collections.unmodifiableMap(new HashMap<>(value))));
+    this.immutableMetrics = metricsMapCopy;
   }
 
   public <T> T get(String group, String metricName) {

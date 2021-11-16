@@ -22,11 +22,11 @@ package org.apache.samza.metrics;
  * Simple holder for {@link ReadableMetricsRegistry} and its source, used for implementations of
  * {@link MetricsReporter}.
  */
-public class RegistryWithSource {
+public class MetricsRegistryWithSource {
   private final String source;
   private final ReadableMetricsRegistry registry;
 
-  public RegistryWithSource(String source, ReadableMetricsRegistry registry) {
+  public MetricsRegistryWithSource(String source, ReadableMetricsRegistry registry) {
     this.source = source;
     this.registry = registry;
   }
