@@ -20,6 +20,7 @@ package org.apache.samza.coordinator.staticresource;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -28,7 +29,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelHelper;
 import org.apache.samza.coordinator.MetadataResourceUtil;
@@ -39,6 +43,7 @@ import org.apache.samza.coordinator.StreamRegexMonitorFactory;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
 import org.apache.samza.coordinator.communication.JobInfoServingContext;
 import org.apache.samza.coordinator.lifecycle.JobRestartSignal;
+import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.JobMetadataChange;
 import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
@@ -79,6 +84,8 @@ import static org.mockito.Mockito.when;
  * actions (trigger callbacks which will change the job model, trigger shutdown) to check the coordination flow.
  */
 public class TestStaticResourceJobCoordinator {
+  private static final String JOB_NAME = "my-samza-job";
+  private static final String JOB_ID = "123";
   private static final String PROCESSOR_ID = "samza-job-coordinator";
   private static final SystemStream SYSTEM_STREAM = new SystemStream("system", "stream");
   private static final TaskName TASK_NAME = new TaskName("Partition " + 0);
@@ -114,16 +121,18 @@ public class TestStaticResourceJobCoordinator {
   @Mock
   private SystemAdmins systemAdmins;
   @Mock
-  private Config config;
-  @Mock
   private JobCoordinatorListener jobCoordinatorListener;
+  @Mock
+  private DiagnosticsManager diagnosticsManager;
 
+  private Config config;
   private StaticResourceJobCoordinator staticResourceJobCoordinator;
 
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
     when(this.changelogStreamManager.readPartitionMapping()).thenReturn(this.changelogPartitionMapping);
+    this.config = config();
     this.staticResourceJobCoordinator =
         spy(new StaticResourceJobCoordinator(PROCESSOR_ID, this.jobModelHelper, this.jobModelServingContext,
             this.coordinatorCommunication, this.jobCoordinatorMetadataManager, this.streamPartitionCountMonitorFactory,
@@ -141,11 +150,13 @@ public class TestStaticResourceJobCoordinator {
     StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.copyOf(Arrays.asList(JobMetadataChange.values())), false);
+    setUpDiagnosticsManager(jobModel);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
     this.staticResourceJobCoordinator.start();
     assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
     verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
+    verify(this.diagnosticsManager).start();
     verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
         streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
     verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
@@ -158,11 +169,13 @@ public class TestStaticResourceJobCoordinator {
     StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
     StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     setupJobCoordinatorMetadata(jobModel, jobModelConfig, ImmutableSet.of(), true);
+    setUpDiagnosticsManager(jobModel);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
     this.staticResourceJobCoordinator.start();
     assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
     verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
+    verify(this.diagnosticsManager).start();
     verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
         streamRegexMonitor, null, null);
     verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
@@ -175,6 +188,7 @@ public class TestStaticResourceJobCoordinator {
     StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
     StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     setupJobCoordinatorMetadata(jobModel, jobModelConfig, ImmutableSet.of(JobMetadataChange.JOB_MODEL), true);
+    setUpDiagnosticsManager(jobModel);
     this.staticResourceJobCoordinator.start();
     verifyStartLifecycle();
     verify(this.jobRestartSignal).restartJob();
@@ -190,11 +204,13 @@ public class TestStaticResourceJobCoordinator {
     StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
+    setUpDiagnosticsManager(jobModel);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
     this.staticResourceJobCoordinator.start();
     assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
     verifyStartLifecycle();
     verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
+    verify(this.diagnosticsManager).start();
     verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
         streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
     verify(this.jobCoordinatorListener).onNewJobModel(PROCESSOR_ID, jobModel);
@@ -216,6 +232,9 @@ public class TestStaticResourceJobCoordinator {
     when(this.streamRegexMonitorFactory.build(any(), any(), any())).thenReturn(Optional.empty());
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.copyOf(Arrays.asList(JobMetadataChange.values())), false);
+    doReturn(Optional.empty()).when(this.staticResourceJobCoordinator)
+        .buildDiagnosticsManager(JOB_NAME, JOB_ID, jobModel,
+            CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, Optional.empty(), this.config);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
     this.staticResourceJobCoordinator.start();
     assertEquals(jobModel, this.staticResourceJobCoordinator.getJobModel());
@@ -227,13 +246,14 @@ public class TestStaticResourceJobCoordinator {
   }
 
   @Test
-  public void testStopAfterStart() {
+  public void testStopAfterStart() throws InterruptedException {
     Config jobModelConfig = mock(Config.class);
     JobModel jobModel = setupJobModel(jobModelConfig);
     StreamPartitionCountMonitor streamPartitionCountMonitor = setupStreamPartitionCountMonitor(jobModelConfig);
     StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.copyOf(Arrays.asList(JobMetadataChange.values())), false);
+    setUpDiagnosticsManager(jobModel);
     metadataResourceUtil(jobModel);
     // call start in order to set up monitors
     this.staticResourceJobCoordinator.start();
@@ -241,6 +261,7 @@ public class TestStaticResourceJobCoordinator {
     this.staticResourceJobCoordinator.stop();
 
     verify(this.jobCoordinatorListener).onJobModelExpired();
+    verify(this.diagnosticsManager).stop();
     verify(streamPartitionCountMonitor).stop();
     verify(streamRegexMonitor).stop();
     verify(this.coordinatorCommunication).stop();
@@ -263,6 +284,9 @@ public class TestStaticResourceJobCoordinator {
     when(this.streamRegexMonitorFactory.build(any(), any(), any())).thenReturn(Optional.empty());
     setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.copyOf(Arrays.asList(JobMetadataChange.values())), false);
+    doReturn(Optional.empty()).when(this.staticResourceJobCoordinator)
+        .buildDiagnosticsManager(JOB_NAME, JOB_ID, jobModel,
+            CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, Optional.empty(), this.config);
     metadataResourceUtil(jobModel);
     // call start in order to set up monitors
     this.staticResourceJobCoordinator.start();
@@ -299,10 +323,12 @@ public class TestStaticResourceJobCoordinator {
     StreamRegexMonitor streamRegexMonitor = setupStreamRegexMonitor(jobModel, jobModelConfig);
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
+    setUpDiagnosticsManager(jobModel);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
     this.staticResourceJobCoordinator.start();
     verifyStartLifecycle();
     verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
+    verify(this.diagnosticsManager).start();
     verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
         streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
     // call the callback from the monitor
@@ -322,10 +348,12 @@ public class TestStaticResourceJobCoordinator {
         callbackArgumentCaptor.capture())).thenReturn(Optional.of(streamRegexMonitor));
     JobCoordinatorMetadata newMetadata = setupJobCoordinatorMetadata(jobModel, jobModelConfig,
         ImmutableSet.of(JobMetadataChange.NEW_DEPLOYMENT, JobMetadataChange.JOB_MODEL), true);
+    setUpDiagnosticsManager(jobModel);
     MetadataResourceUtil metadataResourceUtil = metadataResourceUtil(jobModel);
     this.staticResourceJobCoordinator.start();
     verifyStartLifecycle();
     verify(this.staticResourceJobCoordinator).doSetLoggingContextConfig(jobModelConfig);
+    verify(this.diagnosticsManager).start();
     verifyPrepareWorkerExecutionAndMonitor(jobModel, metadataResourceUtil, streamPartitionCountMonitor,
         streamRegexMonitor, newMetadata, SINGLE_SSP_FANOUT);
     // call the callback from the monitor
@@ -393,6 +421,12 @@ public class TestStaticResourceJobCoordinator {
     return metadataResourceUtil;
   }
 
+  private void setUpDiagnosticsManager(JobModel expectedJobModel) {
+    doReturn(Optional.of(this.diagnosticsManager)).when(this.staticResourceJobCoordinator)
+        .buildDiagnosticsManager(JOB_NAME, JOB_ID, expectedJobModel,
+            CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, Optional.empty(), this.config);
+  }
+
   private void verifyStartLifecycle() {
     verify(this.systemAdmins).start();
     verify(this.startpointManager).start();
@@ -437,6 +471,13 @@ public class TestStaticResourceJobCoordinator {
     verify(this.staticResourceJobCoordinator, never()).metadataResourceUtil(any());
     verify(this.startpointManager, never()).fanOut(any());
     verifyZeroInteractions(this.jobModelServingContext, this.coordinatorCommunication, streamPartitionCountMonitor,
-        streamRegexMonitor, this.jobCoordinatorListener);
+        streamRegexMonitor, this.jobCoordinatorListener, this.diagnosticsManager);
+  }
+
+  private static Config config() {
+    Map<String, String> configMap = new HashMap<>();
+    configMap.put(JobConfig.JOB_NAME, JOB_NAME);
+    configMap.put(JobConfig.JOB_ID, JOB_ID);
+    return new MapConfig(configMap);
   }
 }

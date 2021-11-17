@@ -25,6 +25,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
+import org.apache.samza.config.JobConfig;
+import org.apache.samza.coordinator.CoordinationConstants;
 import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.coordinator.JobModelHelper;
@@ -37,6 +40,7 @@ import org.apache.samza.coordinator.StreamRegexMonitorFactory;
 import org.apache.samza.coordinator.communication.CoordinatorCommunication;
 import org.apache.samza.coordinator.communication.JobInfoServingContext;
 import org.apache.samza.coordinator.lifecycle.JobRestartSignal;
+import org.apache.samza.diagnostics.DiagnosticsManager;
 import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.JobMetadataChange;
 import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
@@ -47,6 +51,7 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.startpoint.StartpointManager;
 import org.apache.samza.storage.ChangelogStreamManager;
 import org.apache.samza.system.SystemAdmins;
+import org.apache.samza.util.DiagnosticsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,21 +80,27 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
   private final String processorId;
   private final Config config;
 
-  private Optional<JobCoordinatorListener> jobCoordinatorListener = Optional.empty();
+  private volatile Optional<JobCoordinatorListener> jobCoordinatorListener = Optional.empty();
+
+  /**
+   * {@link DiagnosticsManager} constructed using a {@link JobModel}, so this can only be constructed within
+   * {@link #start} after the job model is built.
+   */
+  private volatile Optional<DiagnosticsManager> currentDiagnosticsManager = Optional.empty();
 
   /**
    * Job model is calculated during {@link #start()}, so it is not immediately available.
    */
-  private Optional<JobModel> currentJobModel = Optional.empty();
+  private volatile Optional<JobModel> currentJobModel = Optional.empty();
   /**
    * {@link JobModelMonitors} depend on job model, so they are only available after {@link #start()}.
    */
-  private Optional<JobModelMonitors> currentJobModelMonitors = Optional.empty();
+  private volatile Optional<JobModelMonitors> currentJobModelMonitors = Optional.empty();
   /**
    * Keeps track of if the job coordinator has completed all preparation for running the job, including
    * publishing a new job model and starting the job model monitors.
    */
-  private AtomicBoolean jobPreparationComplete = new AtomicBoolean(false);
+  private final AtomicBoolean jobPreparationComplete = new AtomicBoolean(false);
 
   StaticResourceJobCoordinator(String processorId, JobModelHelper jobModelHelper,
       JobInfoServingContext jobModelServingContext, CoordinatorCommunication coordinatorCommunication,
@@ -123,6 +134,7 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
       doSetLoggingContextConfig(jobModel.getConfig());
       // monitors should be created right after job model is calculated (see jobModelMonitors() for more details)
       JobModelMonitors jobModelMonitors = jobModelMonitors(jobModel);
+      Optional<DiagnosticsManager> diagnosticsManager = diagnosticsManager(jobModel);
       JobCoordinatorMetadata newMetadata =
           this.jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel, jobModel.getConfig());
       Set<JobMetadataChange> jobMetadataChanges = checkForMetadataChanges(newMetadata);
@@ -139,10 +151,14 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
         this.jobRestartSignal.restartJob();
       } else {
         prepareWorkerExecution(jobModel, newMetadata, jobMetadataChanges);
-        this.coordinatorCommunication.start();
-        this.currentJobModel = Optional.of(jobModel);
-        this.jobCoordinatorListener.ifPresent(listener -> listener.onNewJobModel(this.processorId, jobModel));
+        // save components that depend on job model in order to manage lifecycle or access later
+        this.currentDiagnosticsManager = diagnosticsManager;
         this.currentJobModelMonitors = Optional.of(jobModelMonitors);
+        this.currentJobModel = Optional.of(jobModel);
+        // lifecycle: start components
+        this.coordinatorCommunication.start();
+        this.jobCoordinatorListener.ifPresent(listener -> listener.onNewJobModel(this.processorId, jobModel));
+        this.currentDiagnosticsManager.ifPresent(DiagnosticsManager::start);
         jobModelMonitors.start();
         this.jobPreparationComplete.set(true);
       }
@@ -157,6 +173,7 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
     try {
       this.jobCoordinatorListener.ifPresent(JobCoordinatorListener::onJobModelExpired);
       if (this.jobPreparationComplete.get()) {
+        this.currentDiagnosticsManager.ifPresent(StaticResourceJobCoordinator::quietlyStop);
         this.currentJobModelMonitors.ifPresent(JobModelMonitors::stop);
         this.coordinatorCommunication.stop();
       }
@@ -212,6 +229,14 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
     LoggingContextHolder.INSTANCE.setConfig(config);
   }
 
+  private Optional<DiagnosticsManager> diagnosticsManager(JobModel jobModel) {
+    JobConfig jobConfig = new JobConfig(this.config);
+    String jobName = jobConfig.getName().orElseThrow(() -> new ConfigException("Missing job name"));
+    // TODO SAMZA-2705: construct execEnvContainerId for diagnostics
+    return buildDiagnosticsManager(jobName, jobConfig.getJobId(), jobModel,
+        CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, Optional.empty(), this.config);
+  }
+
   /**
    * Run set up steps so that workers can begin processing:
    * 1. Persist job coordinator metadata
@@ -234,13 +259,33 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
     }
   }
 
+  /**
+   * Wrapper around {@link MetadataResourceUtil} constructor so it can be stubbed during testing.
+   */
   @VisibleForTesting
   MetadataResourceUtil metadataResourceUtil(JobModel jobModel) {
     return new MetadataResourceUtil(jobModel, this.metrics, this.config);
   }
 
+  /**
+   * Wrapper around {@link DiagnosticsUtil#buildDiagnosticsManager} so it can be stubbed during testing.
+   */
+  @VisibleForTesting
+  Optional<DiagnosticsManager> buildDiagnosticsManager(String jobName,
+      String jobId, JobModel jobModel, String containerId, Optional<String> execEnvContainerId, Config config) {
+    return DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, execEnvContainerId, config);
+  }
+
   private Set<JobMetadataChange> checkForMetadataChanges(JobCoordinatorMetadata newMetadata) {
     JobCoordinatorMetadata previousMetadata = this.jobCoordinatorMetadataManager.readJobCoordinatorMetadata();
     return this.jobCoordinatorMetadataManager.checkForMetadataChanges(newMetadata, previousMetadata);
+  }
+
+  private static void quietlyStop(DiagnosticsManager diagnosticsManager) {
+    try {
+      diagnosticsManager.stop();
+    } catch (InterruptedException e) {
+      LOG.error("Exception while stopping diagnostics manager", e);
+    }
   }
 }
