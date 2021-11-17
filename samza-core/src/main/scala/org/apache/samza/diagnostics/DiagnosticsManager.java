@@ -175,16 +175,17 @@ public class DiagnosticsManager {
   }
 
   public void stop() throws InterruptedException {
-    scheduler.shutdown();
-
-    // Allow any scheduled publishes to finish, and block for termination
-    scheduler.awaitTermination(terminationDuration.toMillis(), TimeUnit.MILLISECONDS);
-
-    if (!scheduler.isTerminated()) {
-      LOG.warn("Unable to terminate scheduler");
-      scheduler.shutdownNow();
+    try {
+      scheduler.shutdown();
+      // Allow any scheduled publishes to finish, and block for termination
+      scheduler.awaitTermination(terminationDuration.toMillis(), TimeUnit.MILLISECONDS);
+    } finally {
+      if (!scheduler.isTerminated()) {
+        LOG.warn("Unable to terminate scheduler");
+        scheduler.shutdownNow();
+      }
+      this.systemProducer.stop();
     }
-    this.systemProducer.stop();
   }
 
   public void addExceptionEvent(DiagnosticsExceptionEvent diagnosticsExceptionEvent) {

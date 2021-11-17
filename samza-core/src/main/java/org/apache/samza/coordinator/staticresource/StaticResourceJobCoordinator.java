@@ -134,6 +134,7 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
       doSetLoggingContextConfig(jobModel.getConfig());
       // monitors should be created right after job model is calculated (see jobModelMonitors() for more details)
       JobModelMonitors jobModelMonitors = jobModelMonitors(jobModel);
+      Optional<DiagnosticsManager> diagnosticsManager = diagnosticsManager(jobModel);
       JobCoordinatorMetadata newMetadata =
           this.jobCoordinatorMetadataManager.generateJobCoordinatorMetadata(jobModel, jobModel.getConfig());
       Set<JobMetadataChange> jobMetadataChanges = checkForMetadataChanges(newMetadata);
@@ -149,12 +150,15 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
         LOG.info("Triggering job restart");
         this.jobRestartSignal.restartJob();
       } else {
-        setUpDiagnostics(jobModel);
         prepareWorkerExecution(jobModel, newMetadata, jobMetadataChanges);
-        this.coordinatorCommunication.start();
-        this.currentJobModel = Optional.of(jobModel);
-        this.jobCoordinatorListener.ifPresent(listener -> listener.onNewJobModel(this.processorId, jobModel));
+        // save components that depend on job model in order to manage lifecycle or access later
+        this.currentDiagnosticsManager = diagnosticsManager;
         this.currentJobModelMonitors = Optional.of(jobModelMonitors);
+        this.currentJobModel = Optional.of(jobModel);
+        // lifecycle: start components
+        this.coordinatorCommunication.start();
+        this.jobCoordinatorListener.ifPresent(listener -> listener.onNewJobModel(this.processorId, jobModel));
+        this.currentDiagnosticsManager.ifPresent(DiagnosticsManager::start);
         jobModelMonitors.start();
         this.jobPreparationComplete.set(true);
       }
@@ -225,19 +229,12 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
     LoggingContextHolder.INSTANCE.setConfig(config);
   }
 
-  /**
-   * Sets up {@link DiagnosticsManager} for the job coordinator.
-   */
-  private void setUpDiagnostics(JobModel jobModel) {
+  private Optional<DiagnosticsManager> diagnosticsManager(JobModel jobModel) {
     JobConfig jobConfig = new JobConfig(this.config);
     String jobName = jobConfig.getName().orElseThrow(() -> new ConfigException("Missing job name"));
     // TODO SAMZA-2705: construct execEnvContainerId for diagnostics
-    Optional<DiagnosticsManager> diagnosticsManager = buildDiagnosticsManager(jobName, jobConfig.getJobId(), jobModel,
-        CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, Optional.empty(), config);
-    if (diagnosticsManager.isPresent()) {
-      diagnosticsManager.get().start();
-      this.currentDiagnosticsManager = diagnosticsManager;
-    }
+    return buildDiagnosticsManager(jobName, jobConfig.getJobId(), jobModel,
+        CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, Optional.empty(), this.config);
   }
 
   /**
