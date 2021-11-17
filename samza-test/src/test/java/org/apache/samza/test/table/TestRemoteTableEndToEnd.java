@@ -360,12 +360,13 @@ public class TestRemoteTableEndToEnd {
       final RemoteTableDescriptor joinTableDesc =
               new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1")
           .withReadFunction(InMemoryProfileReadFunction.getInMemoryReadFunction(testName, profiles))
-          .withRateLimiter(readRateLimiter, creditFunction, null);
+          .withRateLimiter(readRateLimiter, creditFunction, null, null);
 
       final RemoteTableDescriptor outputTableDesc =
               new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1")
           .withReadFunction(new NoOpTableReadFunction<>())
           .withReadRateLimiterDisabled()
+          .withUpdateRateLimiterDisabled()
           .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction(testName))
           .withWriteRateLimit(1000);
 

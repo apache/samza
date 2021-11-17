@@ -191,7 +191,7 @@ public class TestRemoteTableWithBatchEndToEnd {
       RemoteTableDescriptor<Integer, Profile, Void> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
       inputTableDesc
           .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(testName, profiles))
-          .withRateLimiter(readRateLimiter, creditFunction, null);
+          .withRateLimiter(readRateLimiter, creditFunction, null, null);
       if (batchRead) {
         inputTableDesc.withBatchProvider(new CompactBatchProvider().withMaxBatchSize(batchSize).withMaxBatchDelay(Duration.ofHours(1)));
       }
@@ -203,7 +203,7 @@ public class TestRemoteTableWithBatchEndToEnd {
       outputTableDesc
           .withReadFunction(readFn)
           .withWriteFunction(writer)
-          .withRateLimiter(writeRateLimiter, creditFunction, creditFunction);
+          .withRateLimiter(writeRateLimiter, creditFunction, creditFunction, creditFunction);
       if (batchWrite && partialUpdate) {
         outputTableDesc.withBatchProvider(new CompleteBatchProvider().withMaxBatchSize(batchSize).withMaxBatchDelay(Duration.ofHours(1)));
       } else if (batchWrite) {

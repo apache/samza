@@ -116,7 +116,7 @@ public class RemoteTableProvider extends BaseTableProvider {
           }));
     }
 
-    boolean isRateLimited = readRateLimiter != null || writeRateLimiter != null;
+    boolean isRateLimited = readRateLimiter != null || writeRateLimiter != null || updateRateLimiter != null;
     if (isRateLimited) {
       rateLimitingExecutors.computeIfAbsent(tableId, (arg) ->
           Executors.newSingleThreadExecutor(runnable -> {

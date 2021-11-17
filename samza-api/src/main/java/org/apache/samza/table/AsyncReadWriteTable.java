@@ -112,7 +112,7 @@ public interface AsyncReadWriteTable<K, V, U> extends Table {
    * on the table's implementation.
    *
    * @param updates the key and update mappings.
-   * @param updates the key and default value mappings.
+   * @param defaults the key and default value mappings.
    * @param args additional arguments
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    * @return CompletableFuture for the operation
