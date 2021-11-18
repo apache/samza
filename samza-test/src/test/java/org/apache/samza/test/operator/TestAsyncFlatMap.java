@@ -82,7 +82,7 @@ public class TestAsyncFlatMap {
   public void testProcessingFutureCompletesAfterTaskTimeout() {
     Map<String, String> configs = new HashMap<>();
     configs.put(TaskConfig.CALLBACK_TIMEOUT_MS, "100");
-    configs.put(PROCESS_JITTER, "200");
+    configs.put(PROCESS_JITTER, "2000");
 
     try {
       runTest(configs);
