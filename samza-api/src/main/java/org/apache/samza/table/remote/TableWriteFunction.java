@@ -19,14 +19,12 @@
 
 package org.apache.samza.table.remote;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import javax.annotation.Nullable;
 import org.apache.samza.SamzaException;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
@@ -74,6 +72,7 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
   /**
    * Asynchronously store single table {@code record} with specified {@code key} and additional arguments.
    * This method must be thread-safe.
+   *
    * @param key key for the table record
    * @param record table record to be written
    * @param args additional arguments
@@ -123,24 +122,30 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
    * Asynchronously update the record with specified {@code key} and additional arguments.
    * This method must be thread-safe.
    *
+   * If the update operation failed due to the an existing record missing for the key, the implementation can return
+   * a future completed exceptionally with a {@link org.apache.samza.table.RecordDoesNotExistException} which will
+   * allow to Put a default value if one is provided.
+   *
    * @param key key for the table record
    * @param update update record for the given key
-   * @param record default record to be written if the update is applied to a non-existent record
    * @return CompletableFuture for the update request
    */
-  CompletableFuture<Void> updateAsync(K key, U update, @Nullable V record);
+  CompletableFuture<Void> updateAsync(K key, U update);
 
   /**
    * Asynchronously update the record with specified {@code key} and additional arguments.
    * This method must be thread-safe.
    *
+   * If the update operation failed due to the an existing record missing for the key, the implementation can return
+   * a future completed exceptionally with a {@link org.apache.samza.table.RecordDoesNotExistException} which will
+   * allow to Put a default value if one is provided.
+   *
    * @param key key for the table record
    * @param update update record for the given key
-   * @param record default record to be written if the update is applied to a non-existent record
    * @param args additional arguments
    * @return CompletableFuture for the update request
    */
-  default CompletableFuture<Void> updateAsync(K key, U update, @Nullable V record, Object ... args) {
+  default CompletableFuture<Void> updateAsync(K key, U update, Object ... args) {
     throw new SamzaException("Not supported");
   }
 
@@ -148,34 +153,22 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
    * Asynchronously updates the table with {@code records} with specified {@code keys}. This method must be thread-safe.
    * The default implementation calls updateAsync for each entry and return a combined future.
    * @param records updates for the table
-   * @param defaults default records to be written for keys if the update is applied to a non-existent record
    * @return CompletableFuture for the update request
    */
-  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> records,
-      @Nullable Collection<Entry<K, V>> defaults) {
-    final ImmutableMap<K, V> defaultMap = defaults == null
-        ? ImmutableMap.of()
-        : defaults.stream().collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue));
-    final List<CompletableFuture<Void>> updateFutures =
-        records.stream().map(e -> {
-          if (!defaultMap.isEmpty() && defaultMap.containsKey(e.getKey())) {
-            return updateAsync(e.getKey(), e.getValue(), defaultMap.get(e.getKey()));
-          } else {
-            return updateAsync(e.getKey(), e.getValue(), null);
-          }
-        }).collect(Collectors.toList());
+  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> records) {
+    final List<CompletableFuture<Void>> updateFutures = records.stream()
+        .map(entry -> updateAsync(entry.getKey(), entry.getValue()))
+        .collect(Collectors.toList());
     return CompletableFuture.allOf(Iterables.toArray(updateFutures, CompletableFuture.class));
   }
 
   /**
    * Asynchronously updates the table with {@code records} with specified {@code keys}. This method must be thread-safe.
    * @param records updates for the table
-   * @param defaults default records to be written for keys if the update is applied to a non-existent record
    * @param args additional arguments
    * @return CompletableFuture for the update request
    */
-  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> records,
-      @Nullable Collection<Entry<K, V>> defaults, Object ... args) {
+  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> records, Object ... args) {
     throw new SamzaException("Not supported");
   }
 

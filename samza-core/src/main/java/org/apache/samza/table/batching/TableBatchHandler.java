@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import com.google.common.base.Preconditions;
 import java.util.stream.Collectors;
-import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 
@@ -103,26 +102,17 @@ public class TableBatchHandler<K, V, U> implements BatchHandler<K, V> {
    * @param operations The batch update operations.
    * @return A CompletableFuture to represent the status of the batch update operation.
    */
-  private CompletableFuture<?> handleBatchUpdate(Collection<Operation<K, UpdatePair<U, V>>> operations) {
+  private CompletableFuture<?> handleBatchUpdate(Collection<Operation<K, U>> operations) {
     Preconditions.checkNotNull(operations);
 
-    final List<Entry<K, UpdatePair<U, V>>> updatePairs = operations.stream()
+    final List<Entry<K, U>> updates = operations.stream()
         .map(op -> new Entry<>(op.getKey(), op.getValue()))
         .collect(Collectors.toList());
-    if (updatePairs.isEmpty()) {
+    if (updates.isEmpty()) {
       return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
-
-    final List<Entry<K, U>> updates = updatePairs.stream()
-        .map(entry -> new Entry<>(entry.getKey(), entry.getValue().getUpdate()))
-        .collect(Collectors.toList());
-
-    final List<Entry<K, V>> defaults = updatePairs.stream()
-        .map(entry -> new Entry<>(entry.getKey(), entry.getValue().getDefault()))
-        .collect(Collectors.toList());
-
-    final Object[] args = getOperationArgsForUpdates(operations);
-    return args == null ? table.updateAllAsync(updates, defaults) : table.updateAllAsync(updates, defaults, args);
+    final Object[] args = getOperationArgs(operations);
+    return args == null ? table.updateAllAsync(updates) : table.updateAllAsync(updates, args);
   }
 
   /**
@@ -146,16 +136,7 @@ public class TableBatchHandler<K, V, U> implements BatchHandler<K, V> {
     return operations.stream().map(op -> op.getKey()).collect(Collectors.toList());
   }
 
-  private Object[] getOperationArgs(Collection<Operation<K, V>> operations) {
-    if (!operations.stream().anyMatch(operation -> operation.getArgs() != null && operation.getArgs().length > 0)) {
-      return null;
-    }
-    final List<Object[]> argsList = new ArrayList<>(operations.size());
-    operations.forEach(operation -> argsList.add(operation.getArgs()));
-    return argsList.toArray();
-  }
-
-  private Object[] getOperationArgsForUpdates(Collection<Operation<K, UpdatePair<U, V>>> operations) {
+  private <KEY, VAL> Object[] getOperationArgs(Collection<Operation<KEY, VAL>> operations) {
     if (!operations.stream().anyMatch(operation -> operation.getArgs() != null && operation.getArgs().length > 0)) {
       return null;
     }
@@ -174,7 +155,7 @@ public class TableBatchHandler<K, V, U> implements BatchHandler<K, V> {
         .collect(Collectors.toList());
   }
 
-  private List<Operation<K, UpdatePair<U, V>>> getUpdateOperations(Batch<K, UpdatePair<U, V>> batch) {
+  private List<Operation<K, U>> getUpdateOperations(Batch<K, U> batch) {
     return batch.getOperations().stream().filter(op -> op instanceof UpdateOperation)
         .collect(Collectors.toList());
   }
@@ -192,7 +173,7 @@ public class TableBatchHandler<K, V, U> implements BatchHandler<K, V> {
   public CompletableFuture<Void> handle(Batch<K, V> batch) {
     return CompletableFuture.allOf(
         handleBatchPut(getPutOperations(batch)),
-        handleBatchUpdate(getUpdateOperations((Batch<K, UpdatePair<U, V>>) batch)),
+        handleBatchUpdate(getUpdateOperations((Batch<K, U>) batch)),
         handleBatchDelete(getDeleteOperations(batch)),
         handleBatchGet(getQueryOperations(batch)))
         .whenComplete((val, throwable) -> {

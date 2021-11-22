@@ -20,7 +20,7 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.UpdatePair;
+import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
@@ -33,7 +33,7 @@ import org.apache.samza.operators.functions.WatermarkFunction;
  * @param <U> the type of the update
  */
 @InterfaceStability.Unstable
-public class SendUpdateToTableOperatorSpec<K, V, U> extends OperatorSpec<KV<K, UpdatePair<U, V>>, KV<K, UpdatePair<U, V>>> {
+public class SendUpdateToTableOperatorSpec<K, V, U> extends OperatorSpec<KV<K, UpdateMessage<U, V>>, KV<K, UpdateMessage<U, V>>> {
   private final String tableId;
   private final Object[] args;
 

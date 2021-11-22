@@ -24,25 +24,25 @@ import javax.annotation.Nullable;
 
 
 /**
- * A UpdatePair representing the update and an optional default record to be inserted for a key,
+ * Represents an update and an optional default record to be inserted for a key,
  * if the update is applied to a non-existent record.
  *
  * @param <U> type of the update record
  * @param <V> type of the default record
  */
-public final class UpdatePair<U, V> {
+public final class UpdateMessage<U, V> {
   private final U update;
   @Nullable private final V defaultValue;
 
-  public static <U, V> UpdatePair<U, V> of(U update, @Nullable V defaultValue) {
-    return new UpdatePair<>(update, defaultValue);
+  public static <U, V> UpdateMessage<U, V> of(U update, @Nullable V defaultValue) {
+    return new UpdateMessage<>(update, defaultValue);
   }
 
-  public static <U, V> UpdatePair<U, V> of(U update) {
-    return new UpdatePair<>(update, null);
+  public static <U, V> UpdateMessage<U, V> of(U update) {
+    return new UpdateMessage<>(update, null);
   }
 
-  private UpdatePair(U update, V defaultValue) {
+  private UpdateMessage(U update, V defaultValue) {
     this.update = update;
     this.defaultValue = defaultValue;
   }
@@ -60,10 +60,10 @@ public final class UpdatePair<U, V> {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof UpdatePair)) {
+    if (!(other instanceof UpdateMessage)) {
       return false;
     }
-    UpdatePair<?, ?> otherPair = (UpdatePair<?, ?>) other;
+    UpdateMessage<?, ?> otherPair = (UpdateMessage<?, ?>) other;
     return Objects.deepEquals(this.update, otherPair.getUpdate())
         && Objects.deepEquals(this.defaultValue, otherPair.getDefault());
   }

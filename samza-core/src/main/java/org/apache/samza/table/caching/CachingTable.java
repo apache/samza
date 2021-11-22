@@ -234,22 +234,22 @@ public class CachingTable<K, V, U> extends BaseReadWriteTable<K, V, U>
   }
 
   @Override
-  public void update(K key, U update, V defaultValue, Object... args) {
+  public void update(K key, U update, Object... args) {
     throw new SamzaException("Caching not supported with updates");
   }
 
   @Override
-  public void updateAll(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object... args) {
+  public void updateAll(List<Entry<K, U>> updates, Object... args) {
     throw new SamzaException("Caching not supported with updates");
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, V defaultValue, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
     throw new SamzaException("Caching not supported with updates");
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object... args) {
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
     throw new SamzaException("Caching not supported with updates");
   }
 

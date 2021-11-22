@@ -299,9 +299,11 @@ public interface MessageStream<M> {
   <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object ... args);
 
   /**
-   * Allows sending messages in this {@link MessageStream} to a {@link Table} and then propagates this
+   * Allows sending update messages in this {@link MessageStream} to a {@link Table} and then propagates this
    * {@link MessageStream} to the next chained operator. The type of input message is expected to be {@link KV},
-   * otherwise a {@link ClassCastException} will be thrown. The value is an update pair- update and an option default.
+   * otherwise a {@link ClassCastException} will be thrown. The value is an UpdateMessage- update and default value.
+   * Defaults are optional and can be used if the Remote Table integration supports inserting a default through PUT in
+   * the event an update fails due to an existing record being absent.
    * <p>
    * Note: The update will be written but may not be flushed to the underlying table before its propagated to the
    * chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
@@ -315,7 +317,7 @@ public interface MessageStream<M> {
    * @param <U> the type of update value for the table
    * @return this {@link MessageStream}
    */
-  <K, V, U> MessageStream<KV<K, UpdatePair<U, V>>> sendUpdateTo(Table<KV<K, UpdatePair<U, V>>> table, Object ... args);
+  <K, V, U> MessageStream<KV<K, UpdateMessage<U, V>>> sendUpdateTo(Table<KV<K, V>> table, Object ... args);
 
   /**
    * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..

@@ -94,9 +94,9 @@ public class RemoteTableProvider extends BaseTableProvider {
     // Update part (reuse write fn)
     TableRateLimiter updateRateLimiter = null;
     if (writeFn != null) {
-      TableRateLimiter.CreditFunction<?, ?> writeCreditFn = deserializeObject(tableConfig, RemoteTableDescriptor.UPDATE_CREDIT_FN);
+      TableRateLimiter.CreditFunction<?, ?> updateCreditFn = deserializeObject(tableConfig, RemoteTableDescriptor.UPDATE_CREDIT_FN);
       updateRateLimiter = rateLimiter != null && rateLimiter.getSupportedTags().contains(RemoteTableDescriptor.RL_UPDATE_TAG)
-          ? new TableRateLimiter(tableId, rateLimiter, writeCreditFn, RemoteTableDescriptor.RL_UPDATE_TAG)
+          ? new TableRateLimiter(tableId, rateLimiter, updateCreditFn, RemoteTableDescriptor.RL_UPDATE_TAG)
           : null;
     }
 
@@ -178,4 +178,3 @@ public class RemoteTableProvider extends BaseTableProvider {
     });
   }
 }
-

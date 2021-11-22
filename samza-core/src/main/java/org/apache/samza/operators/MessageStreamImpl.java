@@ -199,7 +199,7 @@ public class MessageStreamImpl<M> implements MessageStream<M> {
   }
 
   @Override
-  public <K, V, U> MessageStream<KV<K, UpdatePair<U, V>>> sendUpdateTo(Table<KV<K, UpdatePair<U, V>>> table,
+  public <K, V, U> MessageStream<KV<K, UpdateMessage<U, V>>> sendUpdateTo(Table<KV<K, V>> table,
       Object... args) {
     String opId = this.streamAppDesc.getNextOpId(OpCode.SEND_UPDATE_TO);
     SendUpdateToTableOperatorSpec<K, V, U> op =

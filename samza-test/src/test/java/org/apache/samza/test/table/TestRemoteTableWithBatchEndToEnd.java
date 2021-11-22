@@ -32,7 +32,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.UpdatePair;
+import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
@@ -50,7 +50,6 @@ import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescripto
 import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
-import org.jetbrains.annotations.Nullable;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -141,16 +140,15 @@ public class TestRemoteTableWithBatchEndToEnd {
     }
 
     @Override
-    public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update, @Nullable EnrichedPageView record) {
+    public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update) {
       records.put(key, update);
       return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Void> updateAllAsync(Collection<Entry<Integer, EnrichedPageView>> records,
-        Collection<Entry<Integer, EnrichedPageView>> defaults) {
+    public CompletableFuture<Void> updateAllAsync(Collection<Entry<Integer, EnrichedPageView>> records) {
       batchWritesCounter.incrementAndGet();
-      return TableWriteFunction.super.updateAllAsync(records, defaults);
+      return TableWriteFunction.super.updateAllAsync(records);
     }
 
     @Override
@@ -220,7 +218,7 @@ public class TestRemoteTableWithBatchEndToEnd {
         appDesc.getInputStream(isd)
             .map(pv -> new KV<>(pv.getMemberId(), pv))
             .join(inputTable, new PageViewToProfileJoinFunction())
-            .map(m -> new KV<>(m.getMemberId(), UpdatePair.of(m, m)))
+            .map(m -> new KV<>(m.getMemberId(), UpdateMessage.of(m, m)))
             .sendUpdateTo(outputTable);
       } else {
         appDesc.getInputStream(isd)

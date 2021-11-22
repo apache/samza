@@ -30,11 +30,11 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.BaseReadWriteTable;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.RecordDoesNotExistException;
 import org.apache.samza.table.batching.BatchProvider;
 import org.apache.samza.table.batching.AsyncBatchingTable;
 import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
@@ -87,7 +87,7 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
   // Rate limiting
   protected final TableRateLimiter<K, V> readRateLimiter;
   protected final TableRateLimiter<K, V> writeRateLimiter;
-  protected final TableRateLimiter<K, UpdatePair<U, V>> updateRateLimiter;
+  protected final TableRateLimiter<K, U> updateRateLimiter;
   protected final ExecutorService rateLimitingExecutor;
   // Retries
   protected final TableRetryPolicy readRetryPolicy;
@@ -124,7 +124,7 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
       TableWriteFunction<K, V, U> writeFn,
       TableRateLimiter<K, V> readRateLimiter,
       TableRateLimiter<K, V> writeRateLimiter,
-      TableRateLimiter<K, UpdatePair<U, V>> updateRateLimiter,
+      TableRateLimiter<K, U> updateRateLimiter,
       ExecutorService rateLimitingExecutor,
       TableRetryPolicy readRetryPolicy,
       TableRetryPolicy writeRetryPolicy,
@@ -294,45 +294,49 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
 
 
   @Override
-  public void update(K key, U update, V defaultValue, Object... args) {
+  public void update(K key, U update, Object... args) {
     try {
-      updateAsync(key, update, defaultValue, args).get();
+      updateAsync(key, update, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public void updateAll(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object... args) {
+  public void updateAll(List<Entry<K, U>> updates, Object... args) {
     try {
-      updateAllAsync(updates, defaults, args).get();
+      updateAllAsync(updates, args).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, V defaultValue, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(key, "null key");
     Preconditions.checkNotNull(update, "null update");
 
-    return instrument(() -> asyncTable.updateAsync(key, update, defaultValue, args), metrics.numUpdates,
+    return instrument(() -> asyncTable.updateAsync(key, update, args), metrics.numUpdates,
         metrics.updateNs)
         .exceptionally(e -> {
+          // rethrow RecordDoesNotExistException instead of wrapping it in SamzaException
+          if (e.getCause() instanceof RecordDoesNotExistException) {
+            throw (RecordDoesNotExistException) e.getCause();
+          }
           throw new SamzaException("Failed to update a record with key=" + key, e);
         });
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, List<Entry<K, V>> defaults, Object... args) {
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(updates, "null records");
 
     if (updates.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
-    return instrument(() -> asyncTable.updateAllAsync(updates, defaults, args), metrics.numUpdateAlls,
+    return instrument(() -> asyncTable.updateAllAsync(updates, args), metrics.numUpdateAlls,
         metrics.updateAllNs)
         .exceptionally(e -> {
           String strKeys = updates.stream().map(r -> r.getKey().toString()).collect(Collectors.joining(","));

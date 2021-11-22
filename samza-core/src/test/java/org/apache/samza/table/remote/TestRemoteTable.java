@@ -25,7 +25,6 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
@@ -78,7 +77,7 @@ public class TestRemoteTable {
 
     TableRateLimiter<K, V> readRateLimiter = mock(TableRateLimiter.class);
     TableRateLimiter<K, V> writeRateLimiter = mock(TableRateLimiter.class);
-    TableRateLimiter<K, UpdatePair<U, V>> updateRateLimiter = mock(TableRateLimiter.class);
+    TableRateLimiter<K, U> updateRateLimiter = mock(TableRateLimiter.class);
 
     TableRetryPolicy readPolicy = retry ? new TableRetryPolicy() : null;
     TableRetryPolicy writePolicy = retry ? new TableRetryPolicy() : null;
@@ -326,22 +325,21 @@ public class TestRemoteTable {
     CompletableFuture<Void> failureFuture = new CompletableFuture();
     failureFuture.completeExceptionally(new RuntimeException("Test exception"));
     if (!error) {
-      doReturn(successFuture).when(writeFn).updateAsync(any(), any(), any());
+      doReturn(successFuture).when(writeFn).updateAsync(any(), any());
     } else {
-      doReturn(failureFuture).when(writeFn).updateAsync(any(), any(), any());
+      doReturn(failureFuture).when(writeFn).updateAsync(any(), any());
     }
 
     RemoteTable<String, String, String> table = getTable(tableId, mock(TableReadFunction.class), writeFn, false);
     if (sync) {
-      table.update("foo", "bar", "bar");
+      table.update("foo", "bar");
     } else {
-      table.updateAsync("foo", "bar", "bar").join();
+      table.updateAsync("foo", "bar").join();
     }
     ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
-    ArgumentCaptor<String> defaultCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<String> updateCaptor = ArgumentCaptor.forClass(String.class);
     verify(mockWriteFn, times(1))
-        .updateAsync(keyCaptor.capture(), updateCaptor.capture(), defaultCaptor.capture());
+        .updateAsync(keyCaptor.capture(), updateCaptor.capture());
   }
 
   @Test
@@ -504,6 +502,46 @@ public class TestRemoteTable {
     doTestPutAll(false, true, false);
   }
 
+  public void doTestUpdateAll(boolean sync, boolean error) {
+    String tableId = "testUpdateAll-" + sync + error;
+    TableWriteFunction<String, String, String> mockWriteFn = mock(TableWriteFunction.class);
+    TableWriteFunction<String, String, String> writeFn = mockWriteFn;
+    CompletableFuture<Void> successFuture = CompletableFuture.completedFuture(null);
+    CompletableFuture<Void> failureFuture = new CompletableFuture();
+    failureFuture.completeExceptionally(new RuntimeException("Test exception"));
+    if (!error) {
+      doReturn(successFuture).when(writeFn).updateAllAsync(anyCollection());
+    } else {
+      doReturn(failureFuture).when(writeFn).updateAllAsync(anyCollection());
+    }
+
+    List<Entry<String, String>> updates = Arrays.asList(new Entry<>("foo1", "bar1"), new Entry<>("foo2", "bar2"));
+
+    RemoteTable<String, String, String> table = getTable(tableId, mock(TableReadFunction.class), writeFn, false);
+    if (sync) {
+      table.updateAll(updates);
+    } else {
+      table.updateAllAsync(updates).join();
+    }
+    ArgumentCaptor<List> argCaptor = ArgumentCaptor.forClass(List.class);
+    verify(mockWriteFn, times(1)).updateAllAsync(argCaptor.capture());
+  }
+
+  @Test
+  public void testUpdateAll() {
+    doTestUpdateAll(true, false);
+  }
+
+  @Test
+  public void testUpdateAllAsync() {
+    doTestUpdateAll(false, false);
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testUpdateAllAsyncError() {
+    doTestUpdateAll(false, true);
+  }
+
   public void doTestDeleteAll(boolean sync, boolean error) {
     TableWriteFunction<String, String, Void> writeFn = mock(TableWriteFunction.class);
     RemoteTable<String, String, Void> table = getTable("testDeleteAll-" + sync + error,
@@ -655,10 +693,10 @@ public class TestRemoteTable {
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAsync(any(), any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(anyCollection());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(anyCollection(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any(), any());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any(), any(), any());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(anyCollection(), anyCollection());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(anyCollection(), anyCollection(), any());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(anyCollection());
+    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(anyCollection(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(anyCollection());
@@ -689,28 +727,25 @@ public class TestRemoteTable {
     verify(writeFn, times(1)).putAllAsync(anyCollection(), any());
 
     // UpdateAsync
+    verify(writeFn, times(0)).updateAsync(any(), any());
     verify(writeFn, times(0)).updateAsync(any(), any(), any());
-    verify(writeFn, times(0)).updateAsync(any(), any(), any(), any());
-    table.updateAsync("foo", "bar", "bar").join();
+    table.updateAsync("foo", "bar").join();
+    verify(writeFn, times(1)).updateAsync(any(), any());
+    verify(writeFn, times(0)).updateAsync(any(), any(), any());
+    table.updateAsync("foo", "bar", 3).join();
+    verify(writeFn, times(1)).updateAsync(any(), any());
     verify(writeFn, times(1)).updateAsync(any(), any(), any());
-    verify(writeFn, times(0)).updateAsync(any(), any(), any(), any());
-    table.updateAsync("foo", "bar", "bar", 3).join();
-    verify(writeFn, times(1)).updateAsync(any(), any(), any());
-    verify(writeFn, times(1)).updateAsync(any(), any(), any(), any());
     // UpdateAllAsync
-    verify(writeFn, times(0)).updateAllAsync(anyCollection(), anyCollection());
-    verify(writeFn, times(0)).updateAllAsync(anyCollection(), anyCollection(), any());
+    verify(writeFn, times(0)).updateAllAsync(anyCollection());
+    verify(writeFn, times(0)).updateAllAsync(anyCollection(), any());
+    table.updateAllAsync(Arrays.asList(new Entry<>("foo", "bar"))).join();
+    verify(writeFn, times(1)).updateAllAsync(anyCollection());
+    verify(writeFn, times(0)).updateAllAsync(anyCollection(), any());
     table.updateAllAsync(
-        Arrays.asList(new Entry<>("foo", "bar")),
-        Arrays.asList(new Entry<>("foo", "bar"))).join();
-    verify(writeFn, times(1)).updateAllAsync(anyCollection(), anyCollection());
-    verify(writeFn, times(0)).updateAllAsync(anyCollection(), anyCollection(), any());
-    table.updateAllAsync(
-        Arrays.asList(new Entry<>("foo", "bar")),
         Arrays.asList(new Entry<>("foo", "bar")),
         Arrays.asList(0, 0)).join();
-    verify(writeFn, times(1)).updateAllAsync(anyCollection(), anyCollection());
-    verify(writeFn, times(1)).updateAllAsync(anyCollection(), anyCollection(), any());
+    verify(writeFn, times(1)).updateAllAsync(anyCollection());
+    verify(writeFn, times(1)).updateAllAsync(anyCollection(), any());
 
     // DeleteAsync
     verify(writeFn, times(0)).deleteAsync(any());

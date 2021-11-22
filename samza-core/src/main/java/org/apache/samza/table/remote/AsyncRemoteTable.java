@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-import javax.annotation.Nullable;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
@@ -89,20 +88,19 @@ public class AsyncRemoteTable<K, V, U> implements AsyncReadWriteTable<K, V, U> {
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
     return args.length > 0
-        ? writeFn.updateAsync(key, update, defaultValue, args)
-        : writeFn.updateAsync(key, update, defaultValue);
+        ? writeFn.updateAsync(key, update, args)
+        : writeFn.updateAsync(key, update);
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
-      Object... args) {
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
     return args.length > 0
-        ? writeFn.updateAllAsync(updates, defaults, args)
-        : writeFn.updateAllAsync(updates, defaults);
+        ? writeFn.updateAllAsync(updates, args)
+        : writeFn.updateAllAsync(updates);
   }
 
   @Override

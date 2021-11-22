@@ -20,22 +20,19 @@
 package org.apache.samza.table.batching;
 
 import com.google.common.base.Preconditions;
-import org.apache.samza.operators.UpdatePair;
-
 
 /**
  * Update operation.
  *
  * @param <K> The type of the key.
- * @param <V> The type of the default value
  * @param <U> The type of the update
  */
-public class UpdateOperation<K, V, U> implements Operation<K, UpdatePair<U, V>> {
+public class UpdateOperation<K, U> implements Operation<K, U> {
   final private K key;
-  final private UpdatePair<U, V> val;
+  final private U val;
   final private Object[] args;
 
-  public UpdateOperation(K key, UpdatePair<U, V> val, Object ... args) {
+  public UpdateOperation(K key, U val, Object ... args) {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(val);
     Preconditions.checkNotNull(args);
@@ -50,7 +47,7 @@ public class UpdateOperation<K, V, U> implements Operation<K, UpdatePair<U, V>> 
   }
 
   @Override
-  public UpdatePair<U, V> getValue() {
+  public U getValue() {
     return val;
   }
 

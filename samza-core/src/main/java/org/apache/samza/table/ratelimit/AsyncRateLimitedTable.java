@@ -20,17 +20,13 @@ package org.apache.samza.table.ratelimit;
 
 import com.google.common.base.Preconditions;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-import javax.annotation.Nullable;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
-import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.remote.TableRateLimiter;
@@ -52,11 +48,11 @@ public class AsyncRateLimitedTable<K, V, U> implements AsyncReadWriteTable<K, V,
   private final AsyncReadWriteTable<K, V, U> table;
   private final TableRateLimiter<K, V> readRateLimiter;
   private final TableRateLimiter<K, V> writeRateLimiter;
-  private final TableRateLimiter<K, UpdatePair<U, V>> updateRateLimiter;
+  private final TableRateLimiter<K, U> updateRateLimiter;
   private final ExecutorService rateLimitingExecutor;
 
   public AsyncRateLimitedTable(String tableId, AsyncReadWriteTable<K, V, U> table, TableRateLimiter<K, V> readRateLimiter,
-      TableRateLimiter<K, V> writeRateLimiter, TableRateLimiter<K, UpdatePair<U, V>> updateRateLimiter,
+      TableRateLimiter<K, V> writeRateLimiter, TableRateLimiter<K, U> updateRateLimiter,
       ExecutorService rateLimitingExecutor) {
     Preconditions.checkNotNull(tableId, "null tableId");
     Preconditions.checkNotNull(table, "null table");
@@ -107,29 +103,17 @@ public class AsyncRateLimitedTable<K, V, U> implements AsyncReadWriteTable<K, V,
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
     return doUpdate(
-      () -> updateRateLimiter.throttle(key, UpdatePair.of(update, defaultValue), args),
-      () -> table.updateAsync(key, update, defaultValue, args));
+      () -> updateRateLimiter.throttle(key, update, args),
+      () -> table.updateAsync(key, update, args));
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
-      Object... args) {
-
-    final ImmutableMap<K, V> defaultsMap = defaults != null && !defaults.isEmpty()
-        ? defaults.stream().collect(ImmutableMap.toImmutableMap(Entry::getKey, Entry::getValue))
-        : ImmutableMap.of();
-
-    final ImmutableList<Entry<K, UpdatePair<U, V>>> updatePairs = updates.stream()
-        .map(update -> new Entry<>(
-            update.getKey(),
-            UpdatePair.of(update.getValue(), defaultsMap.get(update.getKey()))))
-        .collect(ImmutableList.toImmutableList());
-
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
     return doUpdate(
-      () -> updateRateLimiter.throttleRecords(updatePairs),
-      () -> table.updateAllAsync(updates, defaults, args));
+      () -> updateRateLimiter.throttleRecords(updates),
+      () -> table.updateAllAsync(updates, args));
   }
 
   @Override

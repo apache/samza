@@ -20,25 +20,35 @@ package org.apache.samza.operators.impl;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
-import org.apache.samza.operators.UpdatePair;
+import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SendUpdateToTableOperatorSpec;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.RecordDoesNotExistException;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
  * Implementation of a send-update-stream-to-table operator that applies updates to existing records
- * in the table. If there is no pre-existing record, based on Table's implementation it attempts to write a a new record.
+ * in the table. If there is no pre-existing record, based on Table's implementation it might attempt to write a
+ * default record and then applies an update.
  *
  * @param <K> the type of the record key
  * @param <V> the type of the record value
  * @param <U> the type of the update applied to this table
  */
-public class SendUpdateToTableOperatorImpl<K, V, U> extends OperatorImpl<KV<K, UpdatePair<U, V>>, KV<K, UpdatePair<U, V>>> {
+public class SendUpdateToTableOperatorImpl<K, V, U>
+    extends OperatorImpl<KV<K, UpdateMessage<U, V>>, KV<K, UpdateMessage<U, V>>> {
+  private static final Logger LOG = LoggerFactory.getLogger(SendUpdateToTableOperatorImpl.class);
+
   private final SendUpdateToTableOperatorSpec<K, V, U> sendUpdateToTableOpSpec;
   private final ReadWriteTable<K, V, U> table;
 
@@ -52,11 +62,38 @@ public class SendUpdateToTableOperatorImpl<K, V, U> extends OperatorImpl<KV<K, U
   }
 
   @Override
-  protected CompletionStage<Collection<KV<K, UpdatePair<U, V>>>> handleMessageAsync(KV<K, UpdatePair<U, V>> message,
+  protected CompletionStage<Collection<KV<K, UpdateMessage<U, V>>>> handleMessageAsync(KV<K, UpdateMessage<U, V>> message,
       MessageCollector collector, TaskCoordinator coordinator) {
-    return table.updateAsync(message.getKey(), message.getValue().getUpdate(), message.getValue().getDefault(),
-        sendUpdateToTableOpSpec.getArgs())
-        .thenApply(result -> Collections.singleton(message));
+    final CompletableFuture<Void> updateFuture = table.updateAsync(message.getKey(), message.getValue().getUpdate(),
+        sendUpdateToTableOpSpec.getArgs());
+
+    return updateFuture
+        .handle((result, ex) -> {
+          if (ex == null) {
+            return false;
+          } else if (!(ex.getCause() instanceof RecordDoesNotExistException)) {
+            throw new SamzaException("Update failed with exception: ", ex);
+          } else {
+            return message.getValue().getDefault() != null;
+          }
+        })
+        .thenCompose(shouldPutDefault -> {
+          // If update fails for a given key due to a RecordDoesNotExistException exception thrown and a default is
+          // provided, then attempt to PUT a default record for the key and then apply the update
+          if (shouldPutDefault) {
+            final CompletableFuture<Void> putFuture = table.putAsync(message.getKey(), message.getValue().getDefault(),
+                sendUpdateToTableOpSpec.getArgs());
+            return putFuture
+                .exceptionally(ex -> {
+                  LOG.error("PUT default failed due the following exception: ", ex);
+                  return null;
+                })
+                .thenCompose(res -> table.updateAsync(message.getKey(), message.getValue().getUpdate(),
+                sendUpdateToTableOpSpec.getArgs()));
+          } else {
+            return CompletableFuture.completedFuture(null);
+          }
+        }).thenApply(result -> Collections.singleton(message));
   }
 
   @Override
@@ -65,7 +102,7 @@ public class SendUpdateToTableOperatorImpl<K, V, U> extends OperatorImpl<KV<K, U
   }
 
   @Override
-  protected OperatorSpec<KV<K, UpdatePair<U, V>>, KV<K, UpdatePair<U, V>>> getOperatorSpec() {
+  protected OperatorSpec<KV<K, UpdateMessage<U, V>>, KV<K, UpdateMessage<U, V>>> getOperatorSpec() {
     return sendUpdateToTableOpSpec;
   }
 }

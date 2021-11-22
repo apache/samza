@@ -27,7 +27,6 @@ import com.couchbase.client.java.document.json.JsonObject;
 import com.google.common.base.Preconditions;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
@@ -83,7 +82,7 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(String key, Object updates, @Nullable V record) {
+  public CompletableFuture<Void> updateAsync(String key, Object updates) {
     // TODO Add support for partial updates LISAMZA-21874
     throw new SamzaException("Update is unsupported");
   }

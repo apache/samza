@@ -31,7 +31,6 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.storage.kv.Entry;
@@ -282,7 +281,7 @@ public class TestCachingTable {
     // It is okay to share rateLimitHelper and async helper for read/write in test
     TableRateLimiter<String, String> readRateLimitHelper = mock(TableRateLimiter.class);
     TableRateLimiter<String, String> writeRateLimitHelper = mock(TableRateLimiter.class);
-    TableRateLimiter<String, UpdatePair<String, String>> updateRateLimitHelper = mock(TableRateLimiter.class);
+    TableRateLimiter<String, String> updateRateLimitHelper = mock(TableRateLimiter.class);
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
 
@@ -399,7 +398,7 @@ public class TestCachingTable {
 
     TableRateLimiter<String, String> readRateLimitHelper = mock(TableRateLimiter.class);
     TableRateLimiter<String, String> writeRateLimitHelper = mock(TableRateLimiter.class);
-    TableRateLimiter<String, UpdatePair<String, String>> updateRateLimitHelper = mock(TableRateLimiter.class);
+    TableRateLimiter<String, String> updateRateLimitHelper = mock(TableRateLimiter.class);
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     doReturn(CompletableFuture.completedFuture("")).when(readFn).getAsync(any());
 

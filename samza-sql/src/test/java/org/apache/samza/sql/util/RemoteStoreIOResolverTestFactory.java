@@ -64,7 +64,7 @@ public class RemoteStoreIOResolverTestFactory implements SqlIOResolverFactory {
     }
 
     @Override
-    public CompletableFuture<Void> updateAsync(Object key, Object update, @Nullable Object record) {
+    public CompletableFuture<Void> updateAsync(Object key, @Nullable Object record) {
       throw new SamzaException("Update unsupported");
     }
 

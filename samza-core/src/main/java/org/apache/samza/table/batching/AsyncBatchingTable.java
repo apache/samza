@@ -25,10 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-import javax.annotation.Nullable;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
-import org.apache.samza.operators.UpdatePair;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
@@ -39,7 +37,7 @@ import org.apache.samza.util.HighResolutionClock;
  * A wrapper of a {@link AsyncReadWriteTable} that supports batch operations.
  *
  * This batching table does not guarantee any ordering of different operation types within the batch.
- * For instance, query(Q) and update(u) operations arrives in the following sequences, Q1, U1, Q2, U2,
+ * For instance, query(Q) and put/delete(u) operations arrives in the following sequences, Q1, U1, Q2, U2,
  * it does not mean the remote data store will receive the messages in the same order. Instead,
  * the operations will be grouped by type and sent via micro batches. For this sequence, Q1 and Q2 will
  * be grouped to micro batch B1; U1 and U2 will be grouped to micro batch B2, the implementation class
@@ -63,7 +61,7 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U>
   private final BatchProvider<K, V> batchProvider;
   private final ScheduledExecutorService batchTimerExecutorService;
   private BatchProcessor<K, V> batchProcessor;
-  private BatchProcessor<K, UpdatePair<U, V>> updateBatchProcessor;
+  private BatchProcessor<K, U> updateBatchProcessor;
 
   /**
    * @param tableId The id of the table.
@@ -122,21 +120,19 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U>
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
     try {
-      return updateBatchProcessor.processPutDeleteOrUpdateOperations(new UpdateOperation<>(key,
-          UpdatePair.of(update, defaultValue), args));
+      return updateBatchProcessor.processPutDeleteOrUpdateOperations(new UpdateOperation<>(key, update, args));
     } catch (BatchingNotSupportedException e) {
-      return table.updateAsync(key, update, defaultValue, args);
+      return table.updateAsync(key, update, args);
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
-      Object... args) {
-    return table.updateAllAsync(updates, defaults);
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
+    return table.updateAllAsync(updates);
   }
 
   @Override
@@ -187,7 +183,7 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U>
         batchProvider, clock, batchTimerExecutorService);
     // BatchProvider will create new instance of Batch in the batch processor
     // Therefore, batches will not be shared between updates and puts/deletes
-    updateBatchProcessor = (BatchProcessor<K, UpdatePair<U, V>>) new BatchProcessor<>(batchMetrics,
+    updateBatchProcessor = (BatchProcessor<K, U>) new BatchProcessor<>(batchMetrics,
         new TableBatchHandler<>(table), batchProvider, clock, batchTimerExecutorService);
   }
 
@@ -197,7 +193,7 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U>
   }
 
   @VisibleForTesting
-  BatchProcessor<K, UpdatePair<U, V>> getUpdateBatchProcessor() {
+  BatchProcessor<K, U> getUpdateBatchProcessor() {
     return updateBatchProcessor;
   }
 }

@@ -20,7 +20,6 @@ package org.apache.samza.table.retry;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import javax.annotation.Nullable;
 import net.jodah.failsafe.RetryPolicy;
 
 import java.util.List;
@@ -118,14 +117,13 @@ public class AsyncRetriableTable<K, V, U> implements AsyncReadWriteTable<K, V, U
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, @Nullable V defaultValue, Object... args) {
-    return doWrite(() -> table.updateAsync(key, update, defaultValue, args));
+  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
+    return doWrite(() -> table.updateAsync(key, update, args));
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, @Nullable List<Entry<K, V>> defaults,
-      Object... args) {
-    return doWrite(() -> table.updateAllAsync(updates, defaults, args));
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
+    return doWrite(() -> table.updateAllAsync(updates, args));
   }
 
   @Override
