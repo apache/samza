@@ -18,7 +18,9 @@
  */
 package org.apache.samza.metrics.reporter;
 
+import java.time.Duration;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -53,11 +55,11 @@ public class MetricsSnapshotReporterFactory implements MetricsReporterFactory {
 
     SystemStream systemStream = getSystemStream(reporterName, config);
     SystemProducer producer = getProducer(reporterName, config, registry);
-    int reportingInterval = getReportingInterval(reporterName, config);
+    Duration reportingInterval = Duration.ofSeconds(getReportingInterval(reporterName, config));
     String jobName = getJobName(config);
     String jobId = getJobId(config);
     Serde<MetricsSnapshot> serde = getSerde(reporterName, config);
-    Optional<String> blacklist = getBlacklist(reporterName, config);
+    Optional<Pattern> blacklist = getBlacklist(reporterName, config);
 
     MetricsSnapshotReporter reporter =
         new MetricsSnapshotReporter(producer, systemStream, reportingInterval, jobName, jobId, containerName,
@@ -114,11 +116,11 @@ public class MetricsSnapshotReporterFactory implements MetricsReporterFactory {
     return serde;
   }
 
-  protected Optional<String> getBlacklist(String reporterName, Config config) {
+  protected Optional<Pattern> getBlacklist(String reporterName, Config config) {
     MetricsConfig metricsConfig = new MetricsConfig(config);
     Optional<String> blacklist = metricsConfig.getMetricsSnapshotReporterBlacklist(reporterName);
     LOG.info("Got blacklist as: {}", blacklist);
-    return blacklist;
+    return blacklist.map(Pattern::compile);
   }
 
   protected int getReportingInterval(String reporterName, Config config) {

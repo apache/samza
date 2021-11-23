@@ -18,6 +18,7 @@
  */
 package org.apache.samza.metrics.reporter;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,15 +29,16 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
+import org.apache.samza.metrics.MetricsRegistryWithSource;
 import org.apache.samza.metrics.MetricsReporter;
 import org.apache.samza.metrics.MetricsVisitor;
 import org.apache.samza.metrics.ReadableMetricsRegistry;
-import org.apache.samza.metrics.MetricsRegistryWithSource;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.serializers.Serializer;
 import org.apache.samza.system.OutgoingMessageEnvelope;
@@ -62,7 +64,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
 
   private final SystemProducer producer;
   private final SystemStream out;
-  private final int reportingInterval;
+  private final Duration reportingInterval;
   private final String jobName;
   private final String jobId;
   private final String containerName;
@@ -70,7 +72,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
   private final String samzaVersion;
   private final String host;
   private final Serializer<MetricsSnapshot> serializer;
-  private final Optional<String> blacklist;
+  private final Optional<Pattern> blacklist;
   private final Clock clock;
 
   private final String execEnvironmentContainerId;
@@ -79,9 +81,9 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
   private final List<MetricsRegistryWithSource> registries = new ArrayList<>();
   private final Set<String> blacklistedMetrics = new HashSet<>();
 
-  public MetricsSnapshotReporter(SystemProducer producer, SystemStream out, int reportingInterval, String jobName,
+  public MetricsSnapshotReporter(SystemProducer producer, SystemStream out, Duration reportingInterval, String jobName,
       String jobId, String containerName, String version, String samzaVersion, String host,
-      Serializer<MetricsSnapshot> serializer, Optional<String> blacklist, Clock clock) {
+      Serializer<MetricsSnapshot> serializer, Optional<Pattern> blacklist, Clock clock) {
     this.producer = producer;
     this.out = out;
     this.reportingInterval = reportingInterval;
@@ -110,7 +112,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
     LOG.info("Starting producer.");
     this.producer.start();
     LOG.info("Starting reporter timer.");
-    this.executor.scheduleWithFixedDelay(this, 0, reportingInterval, TimeUnit.SECONDS);
+    this.executor.scheduleWithFixedDelay(this, 0, reportingInterval.getSeconds(), TimeUnit.SECONDS);
   }
 
   @Override
@@ -215,7 +217,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
     String fullMetricName = group + "." + metricName;
 
     if (isBlacklisted && !this.blacklistedMetrics.contains(fullMetricName)) {
-      if (fullMetricName.matches(this.blacklist.get())) {
+      if (this.blacklist.get().matcher(fullMetricName).matches()) {
         this.blacklistedMetrics.add(fullMetricName);
         LOG.debug("Samza diagnostics: blacklisted metric {} because it matched blacklist regex: {}", fullMetricName,
             this.blacklist.get());
