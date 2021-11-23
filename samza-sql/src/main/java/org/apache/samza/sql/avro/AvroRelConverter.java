@@ -266,7 +266,7 @@ public class AvroRelConverter implements SamzaRelConverter {
       case ENUM:
         return avroObj.toString();
       case FIXED:
-        GenericData.Fixed fixed = (GenericData.Fixed) avroObj;
+        org.apache.avro.generic.GenericFixed fixed = (org.apache.avro.generic.GenericFixed) avroObj;
         return new ByteString(fixed.bytes());
       case BYTES:
         return new ByteString(((ByteBuffer) avroObj).array());
