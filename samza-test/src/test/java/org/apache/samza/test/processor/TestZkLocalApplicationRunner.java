@@ -319,12 +319,12 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     assertEquals(previousJobModel[0], updatedJobModel);
     assertEquals(new MapConfig(), updatedJobModel.getConfig());
     assertEquals(NUM_KAFKA_EVENTS, processedMessagesLatch.getCount());
-    appRunner1.kill();
-    appRunner1.waitForFinish();
     appRunner2.kill();
     appRunner2.waitForFinish();
-    assertEquals(appRunner1.status(), ApplicationStatus.SuccessfulFinish);
     assertEquals(appRunner2.status(), ApplicationStatus.UnsuccessfulFinish);
+    appRunner1.kill();
+    appRunner1.waitForFinish();
+    assertEquals(appRunner1.status(), ApplicationStatus.SuccessfulFinish);
   }
 
   /**
