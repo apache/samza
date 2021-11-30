@@ -17,28 +17,29 @@
  * under the License.
  */
 
-package org.apache.samza.metrics;
+package org.apache.samza.metrics.reporter;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import org.apache.samza.metrics.reporter.MetricsSnapshot;
-import org.apache.samza.metrics.reporter.MetricsSnapshotReporter;
+import java.util.Optional;
+import java.util.regex.Pattern;
+import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.serializers.Serializer;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.SystemClock;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import scala.Some;
-import scala.runtime.AbstractFunction0;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 
 public class TestMetricsSnapshotReporter {
@@ -56,7 +57,7 @@ public class TestMetricsSnapshotReporter {
   private static final String TASK_VERSION = "test version";
   private static final String SAMZA_VERSION = "test samza version";
   private static final String HOSTNAME = "test host";
-  private static final int REPORTING_INTERVAL = 60000;
+  private static final Duration REPORTING_INTERVAL = Duration.ofSeconds(60000);
 
   private Serializer<MetricsSnapshot> serializer;
   private SystemProducer producer;
@@ -69,7 +70,7 @@ public class TestMetricsSnapshotReporter {
 
   @Test
   public void testBlacklistAll() {
-    this.metricsSnapshotReporter = getMetricsSnapshotReporter(BLACKLIST_ALL);
+    this.metricsSnapshotReporter = getMetricsSnapshotReporter(Optional.of(BLACKLIST_ALL));
 
     Assert.assertTrue("Should ignore all metrics",
         this.metricsSnapshotReporter.shouldIgnore("org.apache.samza.system.kafka.KafkaSystemProducerMetrics",
@@ -84,7 +85,7 @@ public class TestMetricsSnapshotReporter {
 
   @Test
   public void testBlacklistNone() {
-    this.metricsSnapshotReporter = getMetricsSnapshotReporter(BLACKLIST_NONE);
+    this.metricsSnapshotReporter = getMetricsSnapshotReporter(Optional.of(BLACKLIST_NONE));
 
     Assert.assertFalse("Should not ignore any metrics",
         this.metricsSnapshotReporter.shouldIgnore("org.apache.samza.system.kafka.KafkaSystemProducerMetrics",
@@ -99,7 +100,7 @@ public class TestMetricsSnapshotReporter {
 
   @Test
   public void testBlacklistGroup() {
-    this.metricsSnapshotReporter = getMetricsSnapshotReporter(BLACKLIST_GROUPS);
+    this.metricsSnapshotReporter = getMetricsSnapshotReporter(Optional.of(BLACKLIST_GROUPS));
     Assert.assertTrue("Should ignore all metrics from this group",
         this.metricsSnapshotReporter.shouldIgnore("org.apache.samza.system.SystemConsumersMetrics", "poll-ns"));
 
@@ -118,7 +119,7 @@ public class TestMetricsSnapshotReporter {
 
   @Test
   public void testBlacklistAllButTwoGroups() {
-    this.metricsSnapshotReporter = getMetricsSnapshotReporter(BLACKLIST_ALL_BUT_TWO_GROUPS);
+    this.metricsSnapshotReporter = getMetricsSnapshotReporter(Optional.of(BLACKLIST_ALL_BUT_TWO_GROUPS));
 
     Assert.assertFalse("Should not ignore this group",
         this.metricsSnapshotReporter.shouldIgnore("org.apache.samza.system.SystemConsumersMetrics", "poll-ns"));
@@ -141,7 +142,7 @@ public class TestMetricsSnapshotReporter {
     String metricName = "someName";
     MetricsRegistryMap registry = new MetricsRegistryMap();
 
-    metricsSnapshotReporter = getMetricsSnapshotReporter(TestMetricsSnapshotReporter.BLACKLIST_NONE);
+    metricsSnapshotReporter = getMetricsSnapshotReporter(Optional.empty());
     registry.newGauge(group, metricName, 42);
     metricsSnapshotReporter.register(source, registry);
 
@@ -176,17 +177,8 @@ public class TestMetricsSnapshotReporter {
     Assert.assertEquals(42, metricMap.get(group).get(metricName));
   }
 
-  private MetricsSnapshotReporter getMetricsSnapshotReporter(String blacklist) {
+  private MetricsSnapshotReporter getMetricsSnapshotReporter(Optional<String> blacklist) {
     return new MetricsSnapshotReporter(producer, SYSTEM_STREAM, REPORTING_INTERVAL, JOB_NAME, JOB_ID, CONTAINER_NAME,
-        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, new Some<>(blacklist), getClock());
-  }
-
-  private AbstractFunction0<Object> getClock() {
-    return new AbstractFunction0<Object>() {
-      @Override
-      public Object apply() {
-        return System.currentTimeMillis();
-      }
-    };
+        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, blacklist.map(Pattern::compile), SystemClock.instance());
   }
 }

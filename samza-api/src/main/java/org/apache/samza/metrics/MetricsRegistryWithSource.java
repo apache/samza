@@ -16,28 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.samza.metrics;
 
-package org.apache.samza.metrics.reporter
+/**
+ * Simple holder for {@link ReadableMetricsRegistry} and its source, used for implementations of
+ * {@link MetricsReporter}.
+ */
+public class MetricsRegistryWithSource {
+  private final String source;
+  private final ReadableMetricsRegistry registry;
 
-import java.util.Map
-import java.util.HashMap
-import scala.beans.BeanProperty
-
-object MetricsSnapshot {
-  def fromMap(map: Map[String, Map[String, Object]]) = {
-    val header = MetricsHeader.fromMap(map.get("header"))
-    val metrics = Metrics.fromMap(map.get("metrics").asInstanceOf[Map[String, Map[String, Object]]])
-    new MetricsSnapshot(header, metrics)
+  public MetricsRegistryWithSource(String source, ReadableMetricsRegistry registry) {
+    this.source = source;
+    this.registry = registry;
   }
-}
 
-class MetricsSnapshot(@BeanProperty val header: MetricsHeader, @BeanProperty val metrics: Metrics) {
-  def getAsMap(): Map[String, Object] = {
-    val map = new HashMap[String, Object]
+  public String getSource() {
+    return source;
+  }
 
-    map.put("header", header.getAsMap)
-    map.put("metrics", metrics.getAsMap)
-
-    map
+  public ReadableMetricsRegistry getRegistry() {
+    return registry;
   }
 }
