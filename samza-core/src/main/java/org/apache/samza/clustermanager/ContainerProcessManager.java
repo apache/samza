@@ -161,7 +161,7 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(EXEC_ENV_CONTAINER_ID_SYS_PROPERTY));
     this.diagnosticsManager =
         DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, state.jobModelManager.jobModel(), METRICS_SOURCE_NAME,
-            execEnvContainerId, config);
+            execEnvContainerId, Optional.empty(), config);
 
     this.localityManager = localityManager;
     // Wire all metrics to all reporters

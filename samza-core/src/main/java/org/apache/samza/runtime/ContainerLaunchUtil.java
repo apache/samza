@@ -41,6 +41,7 @@ import org.apache.samza.coordinator.stream.messages.SetConfig;
 import org.apache.samza.coordinator.stream.messages.SetContainerHostMapping;
 import org.apache.samza.coordinator.stream.messages.SetExecutionEnvContainerIdMapping;
 import org.apache.samza.diagnostics.DiagnosticsManager;
+import org.apache.samza.environment.EnvironmentVariables;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.logging.LoggingContextHolder;
 import org.apache.samza.metadatastore.MetadataStore;
@@ -67,9 +68,12 @@ public class ContainerLaunchUtil {
    * Any change here needs to take Beam into account.
    */
   public static void run(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,  String containerId, JobModel jobModel) {
-    Optional<String> execEnvContainerId = Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID));
+    Optional<String> executionEnvContainerId =
+        Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID));
+    Optional<String> executionEnvAttemptId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID));
     JobConfig jobConfig = new JobConfig(jobModel.getConfig());
-    ContainerLaunchUtil.run(appDesc, jobConfig.getName().get(), jobConfig.getJobId(), containerId, execEnvContainerId, jobModel);
+    ContainerLaunchUtil.run(appDesc, jobConfig.getName().get(), jobConfig.getJobId(), containerId,
+        executionEnvContainerId, executionEnvAttemptId, jobModel);
   }
 
   /**
@@ -77,7 +81,11 @@ public class ContainerLaunchUtil {
    */
   public static void run(
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
-      String jobName, String jobId, String containerId, Optional<String> execEnvContainerId,
+      String jobName,
+      String jobId,
+      String containerId,
+      Optional<String> executionEnvContainerId,
+      Optional<String> executionEnvAttemptId,
       JobModel jobModel) {
     Config config = jobModel.getConfig();
 
@@ -87,8 +95,9 @@ public class ContainerLaunchUtil {
     MDC.put("jobId", jobId);
     LoggingContextHolder.INSTANCE.setConfig(jobModel.getConfig());
 
-    DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, execEnvContainerId, config);
-    run(appDesc, jobName, jobId, containerId, execEnvContainerId, jobModel, config, buildExternalContext(config));
+    DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, executionEnvContainerId, config);
+    run(appDesc, jobName, jobId, containerId, executionEnvContainerId, executionEnvAttemptId, jobModel, config,
+        buildExternalContext(config));
 
     System.exit(0);
   }
@@ -98,7 +107,8 @@ public class ContainerLaunchUtil {
       String jobName,
       String jobId,
       String containerId,
-      Optional<String> execEnvContainerIdOptional,
+      Optional<String> executionEnvContainerId,
+      Optional<String> executionEnvAttemptId,
       JobModel jobModel,
       Config config,
       Optional<ExternalContext> externalContextOptional) {
@@ -119,8 +129,8 @@ public class ContainerLaunchUtil {
 
       // Creating diagnostics manager and reporter, and wiring it respectively
       Optional<DiagnosticsManager> diagnosticsManager =
-          DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, execEnvContainerIdOptional,
-              config);
+          DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, executionEnvContainerId,
+              executionEnvAttemptId, config);
       MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(
@@ -149,7 +159,7 @@ public class ContainerLaunchUtil {
       }
 
       if (new JobConfig(config).getApplicationMasterHighAvailabilityEnabled()) {
-        execEnvContainerIdOptional.ifPresent(execEnvContainerId -> {
+        executionEnvContainerId.ifPresent(execEnvContainerId -> {
           ExecutionContainerIdManager executionContainerIdManager = new ExecutionContainerIdManager(
               new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, SetExecutionEnvContainerIdMapping.TYPE));
           executionContainerIdManager.writeExecutionEnvironmentContainerIdMapping(containerId, execEnvContainerId);

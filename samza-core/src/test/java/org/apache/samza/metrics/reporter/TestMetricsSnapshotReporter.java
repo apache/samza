@@ -30,11 +30,12 @@ import org.apache.samza.serializers.Serializer;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
-import org.apache.samza.util.SystemClock;
+import org.apache.samza.util.Clock;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -58,13 +59,18 @@ public class TestMetricsSnapshotReporter {
   private static final String SAMZA_VERSION = "test samza version";
   private static final String HOSTNAME = "test host";
   private static final Duration REPORTING_INTERVAL = Duration.ofSeconds(60000);
+  private static final long RESET_TIME = 10;
+  private static final long SEND_TIME = 20;
 
   private Serializer<MetricsSnapshot> serializer;
   private SystemProducer producer;
+  private Clock clock;
 
   @Before
   public void setup() {
     producer = mock(SystemProducer.class);
+    clock = mock(Clock.class);
+    Mockito.when(clock.currentTimeMillis()).thenReturn(RESET_TIME, SEND_TIME);
     serializer = new MetricsSnapshotSerdeV2();
   }
 
@@ -162,13 +168,10 @@ public class TestMetricsSnapshotReporter {
 
     MetricsSnapshot metricsSnapshot = (MetricsSnapshot) envelopes.get(0).getMessage();
 
-    Assert.assertEquals(JOB_NAME, metricsSnapshot.getHeader().getJobName());
-    Assert.assertEquals(JOB_ID, metricsSnapshot.getHeader().getJobId());
-    Assert.assertEquals(CONTAINER_NAME, metricsSnapshot.getHeader().getContainerName());
-    Assert.assertEquals(source, metricsSnapshot.getHeader().getSource());
-    Assert.assertEquals(SAMZA_VERSION, metricsSnapshot.getHeader().getSamzaVersion());
-    Assert.assertEquals(TASK_VERSION, metricsSnapshot.getHeader().getVersion());
-    Assert.assertEquals(HOSTNAME, metricsSnapshot.getHeader().getHost());
+    MetricsHeader expectedHeader =
+        new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, "", Optional.of(""), source, TASK_VERSION, SAMZA_VERSION,
+            HOSTNAME, SEND_TIME, RESET_TIME);
+    Assert.assertEquals(expectedHeader, metricsSnapshot.getHeader());
 
     Map<String, Map<String, Object>> metricMap = metricsSnapshot.getMetrics().getAsMap();
     Assert.assertEquals(1, metricMap.size());
@@ -179,6 +182,6 @@ public class TestMetricsSnapshotReporter {
 
   private MetricsSnapshotReporter getMetricsSnapshotReporter(Optional<String> blacklist) {
     return new MetricsSnapshotReporter(producer, SYSTEM_STREAM, REPORTING_INTERVAL, JOB_NAME, JOB_ID, CONTAINER_NAME,
-        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, blacklist.map(Pattern::compile), SystemClock.instance());
+        TASK_VERSION, SAMZA_VERSION, HOSTNAME, serializer, blacklist.map(Pattern::compile), this.clock);
   }
 }
