@@ -74,27 +74,22 @@ import static org.mockito.Mockito.withSettings;
 
 public class TestRemoteTableDescriptor {
 
-  private void doTestSerialize(RateLimiter rateLimiter, CreditFunction readCredFn, CreditFunction writeCredFn,
-      CreditFunction updateCredFn) {
+  private void doTestSerialize(RateLimiter rateLimiter, CreditFunction readCredFn, CreditFunction writeCredFn) {
     String tableId = "1";
     RemoteTableDescriptor desc = new RemoteTableDescriptor(tableId)
         .withReadFunction(createMockTableReadFunction())
         .withWriteFunction(createMockTableWriteFunction());
     if (rateLimiter != null) {
-      desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn, updateCredFn);
+      desc.withRateLimiter(rateLimiter, readCredFn, writeCredFn);
       if (readCredFn == null) {
         desc.withReadRateLimiterDisabled();
       }
       if (writeCredFn == null) {
         desc.withWriteRateLimiterDisabled();
       }
-      if (updateCredFn == null) {
-        desc.withUpdateRateLimiterDisabled();
-      }
     } else {
       desc.withReadRateLimit(100);
       desc.withWriteRateLimit(200);
-      desc.withUpdateRateLimit(200);
     }
     Map<String, String> tableConfig = desc.toConfig(new MapConfig());
     assertExists(RemoteTableDescriptor.RATE_LIMITER, tableId, tableConfig);
@@ -102,8 +97,6 @@ public class TestRemoteTableDescriptor {
         tableConfig.containsKey(JavaTableConfig.buildKey(tableId, RemoteTableDescriptor.READ_CREDIT_FN)));
     Assert.assertEquals(writeCredFn != null,
         tableConfig.containsKey(JavaTableConfig.buildKey(tableId, RemoteTableDescriptor.WRITE_CREDIT_FN)));
-    Assert.assertEquals(updateCredFn != null,
-        tableConfig.containsKey(JavaTableConfig.buildKey(tableId, RemoteTableDescriptor.UPDATE_CREDIT_FN)));
   }
 
   @Test
@@ -120,8 +113,7 @@ public class TestRemoteTableDescriptor {
     String tableId2 = "2";
     RemoteTableDescriptor desc2 = new RemoteTableDescriptor(tableId2)
         .withWriteFunction(createMockTableWriteFunction())
-        .withWriteRateLimiterDisabled()
-        .withUpdateRateLimiterDisabled();
+        .withWriteRateLimiterDisabled();
     tableConfig = desc2.toConfig(new MapConfig());
     Assert.assertNotNull(tableConfig);
 
@@ -140,32 +132,22 @@ public class TestRemoteTableDescriptor {
 
   @Test
   public void testSerializeSimple() {
-    doTestSerialize(null, null, null, null);
+    doTestSerialize(null, null, null);
   }
 
   @Test
   public void testSerializeWithLimiter() {
-    doTestSerialize(createMockRateLimiter(), new CountingCreditFunction(), new CountingCreditFunction(), new CountingCreditFunction());
+    doTestSerialize(createMockRateLimiter(), new CountingCreditFunction(), new CountingCreditFunction());
   }
 
   @Test
   public void testSerializeWithLimiterAndReadCredFn() {
-    doTestSerialize(createMockRateLimiter(), (k, v, args) -> 1, null, null);
+    doTestSerialize(createMockRateLimiter(), (k, v, args) -> 1, null);
   }
 
   @Test
   public void testSerializeWithLimiterAndWriteCredFn() {
-    doTestSerialize(createMockRateLimiter(), null, (k, v, args) -> 1, null);
-  }
-
-  @Test
-  public void testSerializeWithLimiterAndUpdateCredFn() {
-    doTestSerialize(createMockRateLimiter(), null, null, (k, v, args) -> 1);
-  }
-
-  @Test
-  public void testSerializeWithLimiterAndReadWriteUpdateCredFns() {
-    doTestSerialize(createMockRateLimiter(), (key, value, args) -> 1, (key, value, args) -> 1, (key, value, args) -> 1);
+    doTestSerialize(createMockRateLimiter(), null, (k, v, args) -> 1);
   }
 
   @Test
@@ -191,7 +173,7 @@ public class TestRemoteTableDescriptor {
     RemoteTableDescriptor desc = new RemoteTableDescriptor("1");
     desc.withReadFunction(createMockTableReadFunction());
     desc.withReadRateLimit(100);
-    desc.withRateLimiter(createMockRateLimiter(), null, null, null);
+    desc.withRateLimiter(createMockRateLimiter(), null, null);
     desc.toConfig(new MapConfig());
   }
 
@@ -227,9 +209,6 @@ public class TestRemoteTableDescriptor {
     CreditFunction writeCredFn = createMockCreditFunction();
     when(writeCredFn.toConfig(any(), any())).thenReturn(createConfigPair(key));
 
-    CreditFunction updateCredFn = createMockCreditFunction();
-    when(updateCredFn.toConfig(any(), any())).thenReturn(createConfigPair(key));
-
     TableRetryPolicy readRetryPolicy = createMockTableRetryPolicy();
     when(readRetryPolicy.toConfig(any(), any())).thenReturn(createConfigPair(key));
 
@@ -238,7 +217,7 @@ public class TestRemoteTableDescriptor {
 
     Map<String, String> tableConfig = new RemoteTableDescriptor("1").withReadFunction(readFn)
         .withWriteFunction(writeFn)
-        .withRateLimiter(rateLimiter, readCredFn, writeCredFn, updateCredFn)
+        .withRateLimiter(rateLimiter, readCredFn, writeCredFn)
         .withReadRetryPolicy(readRetryPolicy)
         .withWriteRetryPolicy(writeRetryPolicy)
         .toConfig(new MapConfig());
@@ -276,11 +255,9 @@ public class TestRemoteTableDescriptor {
         .withReadRetryPolicy(new TableRetryPolicy())
         .withWriteRateLimit(1000)
         .withReadRateLimit(2000)
-        .withUpdateRateLimit(1000)
         .toConfig(new MapConfig());
     Assert.assertEquals(String.valueOf(2000), tableConfig.get("tables.1.io.read.credits"));
     Assert.assertEquals(String.valueOf(1000), tableConfig.get("tables.1.io.write.credits"));
-    Assert.assertEquals(String.valueOf(1000), tableConfig.get("tables.1.io.update.credits"));
   }
 
   private Context createMockContext(TableDescriptor tableDescriptor) {
@@ -329,8 +306,8 @@ public class TestRemoteTableDescriptor {
     }
   }
 
-  private void doTestDeserializeReadFunctionAndLimiter(boolean rateOnly, boolean rlGets, boolean rlPuts, boolean rlUpdates) {
-    int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0) + (rlUpdates ? 1 : 0);
+  private void doTestDeserializeReadFunctionAndLimiter(boolean rateOnly, boolean rlGets, boolean rlPuts) {
+    int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0);
     RemoteTableDescriptor<String, String, String> desc = new RemoteTableDescriptor("1")
         .withReadFunction(createMockTableReadFunction())
         .withReadRetryPolicy(new TableRetryPolicy().withRetryPredicate((ex) -> false))
@@ -348,11 +325,6 @@ public class TestRemoteTableDescriptor {
       } else {
         desc.withWriteRateLimiterDisabled();
       }
-      if (rlUpdates) {
-        desc.withUpdateRateLimit(2000);
-      } else {
-        desc.withUpdateRateLimiterDisabled();
-      }
     } else {
       if (numRateLimitOps > 0) {
         Map<String, Integer> tagCredits = new HashMap<>();
@@ -366,16 +338,10 @@ public class TestRemoteTableDescriptor {
         } else {
           desc.withWriteRateLimiterDisabled();
         }
-        if (rlUpdates) {
-          tagCredits.put(RemoteTableDescriptor.RL_UPDATE_TAG, 2000);
-        } else {
-          desc.withUpdateRateLimiterDisabled();
-        }
 
         // Spy the rate limiter to verify call count
         RateLimiter rateLimiter = spy(new EmbeddedTaggedRateLimiter(tagCredits));
-        desc.withRateLimiter(rateLimiter, new CountingCreditFunction(), new CountingCreditFunction(),
-            new CountingCreditFunction());
+        desc.withRateLimiter(rateLimiter, new CountingCreditFunction(), new CountingCreditFunction());
       } else {
         desc.withRateLimiterDisabled();
       }
@@ -389,7 +355,7 @@ public class TestRemoteTableDescriptor {
 
     AsyncReadWriteTable delegate = TestUtils.getFieldValue(rwTable, "asyncTable");
     Assert.assertTrue(delegate instanceof AsyncRetriableTable);
-    if (rlGets || rlPuts || rlUpdates) {
+    if (rlGets || rlPuts) {
       delegate = TestUtils.getFieldValue(delegate, "table");
       Assert.assertTrue(delegate instanceof AsyncRateLimitedTable);
     }
@@ -399,10 +365,8 @@ public class TestRemoteTableDescriptor {
     if (numRateLimitOps > 0) {
       TableRateLimiter readRateLimiter = TestUtils.getFieldValue(rwTable, "readRateLimiter");
       TableRateLimiter writeRateLimiter = TestUtils.getFieldValue(rwTable, "writeRateLimiter");
-      TableRateLimiter updateRateLimiter = TestUtils.getFieldValue(rwTable, "updateRateLimiter");
       Assert.assertTrue(!rlGets || readRateLimiter != null);
       Assert.assertTrue(!rlPuts || writeRateLimiter != null);
-      Assert.assertTrue(!rlUpdates || updateRateLimiter != null);
     }
 
     ThreadPoolExecutor callbackExecutor = TestUtils.getFieldValue(rwTable, "callbackExecutor");
@@ -411,37 +375,37 @@ public class TestRemoteTableDescriptor {
 
   @Test
   public void testDeserializeReadFunctionNoRateLimit() {
-    doTestDeserializeReadFunctionAndLimiter(false, false, false, false);
+    doTestDeserializeReadFunctionAndLimiter(false, false, false);
   }
 
   @Test
   public void testDeserializeReadFunctionAndLimiterWrite() {
-    doTestDeserializeReadFunctionAndLimiter(false, false, true, false);
+    doTestDeserializeReadFunctionAndLimiter(false, false, true);
   }
 
   @Test
   public void testDeserializeReadFunctionAndLimiterRead() {
-    doTestDeserializeReadFunctionAndLimiter(false, true, false, false);
+    doTestDeserializeReadFunctionAndLimiter(false, true, false);
   }
 
   @Test
   public void testDeserializeReadFunctionAndLimiterReadWrite() {
-    doTestDeserializeReadFunctionAndLimiter(false, true, true, false);
+    doTestDeserializeReadFunctionAndLimiter(false, true, true);
   }
 
   @Test
   public void testDeserializeReadFunctionAndLimiterRateOnlyWrite() {
-    doTestDeserializeReadFunctionAndLimiter(true, false, true, false);
+    doTestDeserializeReadFunctionAndLimiter(true, false, true);
   }
 
   @Test
   public void testDeserializeReadFunctionAndLimiterRateOnlyRead() {
-    doTestDeserializeReadFunctionAndLimiter(true, true, false, false);
+    doTestDeserializeReadFunctionAndLimiter(true, true, false);
   }
 
   @Test
   public void testDeserializeReadFunctionAndLimiterRateOnlyReadWrite() {
-    doTestDeserializeReadFunctionAndLimiter(true, true, true, false);
+    doTestDeserializeReadFunctionAndLimiter(true, true, true);
   }
 
   private RateLimiter createMockRateLimiter() {

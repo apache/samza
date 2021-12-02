@@ -50,7 +50,6 @@ public class TestAsyncRateLimitedTable {
   private TableReadFunction<String, String> readFn;
   private AsyncReadWriteTable<String, String, String> writeTable;
   private TableRateLimiter<String, String> writeRateLimiter;
-  private TableRateLimiter<String, String> updateRateLimiter;
   private TableWriteFunction<String, String, Void> writeFn;
 
   @Before
@@ -82,14 +81,13 @@ public class TestAsyncRateLimitedTable {
     doReturn(CompletableFuture.completedFuture(5)).when(writeFn).writeAsync(anyInt(), any());
 
     // update part
-    updateRateLimiter = mock(TableRateLimiter.class);
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(any(), any());
 
     delegate = new AsyncRemoteTable(readFn, writeFn);
-    writeTable = new AsyncRateLimitedTable("t1", delegate, readRateLimiter, writeRateLimiter, updateRateLimiter, schedExec);
+    writeTable = new AsyncRateLimitedTable("t1", delegate, readRateLimiter, writeRateLimiter, writeRateLimiter, schedExec);
     writeTable.init(TestRemoteTable.getMockContext());
   }
 
@@ -242,11 +240,11 @@ public class TestAsyncRateLimitedTable {
     writeTable.updateAsync("foo", "bar").join();
     verify(writeFn, times(1)).updateAsync(any(), any());
     verify(writeFn, times(0)).updateAsync(any(), any(), any());
-    verify(updateRateLimiter, times(0)).throttle(anyString());
-    verify(updateRateLimiter, times(1)).throttle(anyString(), anyString());
-    verify(updateRateLimiter, times(0)).throttle(anyCollection());
-    verify(updateRateLimiter, times(0)).throttleRecords(anyCollection());
-    verify(updateRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(1)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
     verifyReadPartNotCalled();
   }
 
@@ -255,11 +253,11 @@ public class TestAsyncRateLimitedTable {
     writeTable.updateAsync("foo", "bar", 1).join();
     verify(writeFn, times(0)).updateAsync(any(), any());
     verify(writeFn, times(1)).updateAsync(any(), any(), any());
-    verify(updateRateLimiter, times(0)).throttle(anyString());
-    verify(updateRateLimiter, times(1)).throttle(anyString(), anyString(), any());
-    verify(updateRateLimiter, times(0)).throttle(anyCollection());
-    verify(updateRateLimiter, times(0)).throttleRecords(anyCollection());
-    verify(updateRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(1)).throttle(anyString(), anyString(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
     verifyReadPartNotCalled();
   }
 
@@ -268,11 +266,11 @@ public class TestAsyncRateLimitedTable {
     writeTable.updateAllAsync(Arrays.asList(new Entry("1", "2"))).join();
     verify(writeFn, times(1)).updateAllAsync(anyCollection());
     verify(writeFn, times(0)).updateAllAsync(anyCollection(), any());
-    verify(updateRateLimiter, times(0)).throttle(anyString());
-    verify(updateRateLimiter, times(0)).throttle(anyString(), anyString());
-    verify(updateRateLimiter, times(0)).throttle(anyCollection());
-    verify(updateRateLimiter, times(1)).throttleRecords(anyCollection());
-    verify(updateRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(1)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
     verifyReadPartNotCalled();
   }
 
@@ -281,11 +279,11 @@ public class TestAsyncRateLimitedTable {
     writeTable.updateAllAsync(Arrays.asList(new Entry("1", "2")), Arrays.asList(0, 1)).join();
     verify(writeFn, times(0)).updateAllAsync(anyCollection());
     verify(writeFn, times(1)).updateAllAsync(anyCollection(), any());
-    verify(updateRateLimiter, times(0)).throttle(anyString());
-    verify(updateRateLimiter, times(0)).throttle(anyString(), anyString());
-    verify(updateRateLimiter, times(0)).throttle(anyCollection());
-    verify(updateRateLimiter, times(1)).throttleRecords(anyCollection());
-    verify(updateRateLimiter, times(0)).throttle(anyInt(), any());
+    verify(writeRateLimiter, times(0)).throttle(anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
+    verify(writeRateLimiter, times(0)).throttle(anyCollection());
+    verify(writeRateLimiter, times(1)).throttleRecords(anyCollection());
+    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
     verifyReadPartNotCalled();
   }
 
@@ -361,7 +359,7 @@ public class TestAsyncRateLimitedTable {
     TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
     AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
     AsyncRateLimitedTable table = new AsyncRateLimitedTable("t1", delegate,
-        readRateLimiter, writeRateLimiter, updateRateLimiter, schedExec);
+        readRateLimiter, writeRateLimiter, writeRateLimiter, schedExec);
     table.init(TestRemoteTable.getMockContext());
 
     table.flush();

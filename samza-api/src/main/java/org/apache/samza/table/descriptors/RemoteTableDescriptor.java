@@ -27,7 +27,6 @@ import java.util.Map;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
-import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.table.batching.BatchProvider;
 import org.apache.samza.table.remote.TablePart;
 import org.apache.samza.table.remote.TableRateLimiter;
@@ -57,7 +56,7 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
    * Tag to be used for provision credits for rate limiting read operations from the remote table.
    * Caller must pre-populate the credits with this tag when specifying a custom rate limiter instance
    * through {@link RemoteTableDescriptor#withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction,
-   * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
+   * TableRateLimiter.CreditFunction)}
    */
   public static final String RL_READ_TAG = "readTag";
 
@@ -65,17 +64,9 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
    * Tag to be used for provision credits for rate limiting write operations into the remote table.
    * Caller can optionally populate the credits with this tag when specifying a custom rate limiter instance
    * through {@link RemoteTableDescriptor#withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction,
-   * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)} and it needs the write functionality.
+   * TableRateLimiter.CreditFunction)} and it needs the write functionality.
    */
   public static final String RL_WRITE_TAG = "writeTag";
-
-  /**
-   * Tag to be used for provision credits for rate limiting update operations into the remote table.
-   * Caller can optionally populate the credits with this tag when specifying a custom rate limiter instance
-   * through {@link RemoteTableDescriptor#withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction,
-   * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)} and it needs the update functionality.
-   */
-  public static final String RL_UPDATE_TAG = "updateTag";
 
   public static final String READ_FN = "io.read.func";
   public static final String WRITE_FN = "io.write.func";
@@ -84,11 +75,8 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
   public static final String READ_CREDITS = "io.read.credits";
   //Key name for table api write rate limit
   public static final String WRITE_CREDITS = "io.write.credits";
-  //Key name for table api update rate limit
-  public static final String UPDATE_CREDITS = "io.update.credits";
   public static final String READ_CREDIT_FN = "io.read.credit.func";
   public static final String WRITE_CREDIT_FN = "io.write.credit.func";
-  public static final String UPDATE_CREDIT_FN = "io.update.credit.func";
   public static final String ASYNC_CALLBACK_POOL_SIZE = "io.async.callback.pool.size";
   public static final String READ_RETRY_POLICY = "io.read.retry.policy";
   public static final String WRITE_RETRY_POLICY = "io.write.retry.policy";
@@ -109,9 +97,6 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
   // Indicate whether write rate limiter is enabled or not
   private boolean enableWriteRateLimiter = true;
 
-  // Indicate whether update rate limiter is enabled or not
-  private boolean enableUpdateRateLimiter = true;
-
   // Batching support to reduce traffic volume sent to the remote store.
   private BatchProvider<K, V> batchProvider;
 
@@ -120,7 +105,6 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
 
   private TableRateLimiter.CreditFunction<K, V> readCreditFn;
   private TableRateLimiter.CreditFunction<K, V> writeCreditFn;
-  private TableRateLimiter.CreditFunction<K, UpdateMessage<U, V>> updateCreditFn;
 
   private TableRetryPolicy readRetryPolicy;
   private TableRetryPolicy writeRetryPolicy;
@@ -194,27 +178,24 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
    * @param rateLimiter rate limiter instance to be used for throttling
    * @param readCreditFn credit function for rate limiting read operations
    * @param writeCreditFn credit function for rate limiting write operations
-   * @param updateCreditFn credit function for rate limiting update operations
    * @return this table descriptor instance
    */
   public RemoteTableDescriptor<K, V, U> withRateLimiter(RateLimiter rateLimiter,
       TableRateLimiter.CreditFunction<K, V> readCreditFn,
-      TableRateLimiter.CreditFunction<K, V> writeCreditFn,
-      TableRateLimiter.CreditFunction<K, UpdateMessage<U, V>> updateCreditFn) {
+      TableRateLimiter.CreditFunction<K, V> writeCreditFn) {
     Preconditions.checkNotNull(rateLimiter, "null read rate limiter");
     this.rateLimiter = rateLimiter;
     this.readCreditFn = readCreditFn;
     this.writeCreditFn = writeCreditFn;
-    this.updateCreditFn = updateCreditFn;
     return this;
   }
 
   /**
    * Disable both read and write rate limiter. If the read rate limiter is enabled, the user must provide a rate limiter
-   * by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction,
-   * TableRateLimiter.CreditFunction )} or {@link #withReadRateLimit(int)}. If the write rate limiter is enabled,
+   * by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
+   * or {@link #withReadRateLimit(int)}. If the write rate limiter is enabled,
    * the user must provide a rate limiter by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction,
-   * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)} or {@link #withWriteRateLimit(int)}.
+   * TableRateLimiter.CreditFunction)} or {@link #withWriteRateLimit(int)}.
    * By default, both read and write rate limiters are enabled.
    *
    * @return this table descriptor instance.
@@ -222,7 +203,6 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
   public RemoteTableDescriptor<K, V, U> withRateLimiterDisabled() {
     withReadRateLimiterDisabled();
     withWriteRateLimiterDisabled();
-    withUpdateRateLimiterDisabled();
     return this;
   }
 
@@ -247,19 +227,9 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
   }
 
   /**
-   * Disable the update rate limiter.
-   *
-   * @return this table descriptor instance.
-   */
-  public RemoteTableDescriptor<K, V, U> withUpdateRateLimiterDisabled() {
-    this.enableUpdateRateLimiter = false;
-    return this;
-  }
-
-  /**
    * Specify the rate limit for table read operations. If the read rate limit is set with this method
    * it is invalid to call {@link RemoteTableDescriptor#withRateLimiter(RateLimiter,
-   * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
+   * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
    * and vice versa.
    * Note that this is the total credit of rate limit for the entire job, each task will get a per task
    * credit of creditsPerSec/tasksCount. Hence creditsPerSec should be greater than total number of tasks.
@@ -275,7 +245,7 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
   /**
    * Specify the rate limit for table write operations. If the write rate limit is set with this method
    * it is invalid to call {@link RemoteTableDescriptor#withRateLimiter(RateLimiter,
-   * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
+   * TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
    * and vice versa.
    * Note that this is the total credit of rate limit for the entire job, each task will get a per task
    * credit of creditsPerSec/tasksCount. Hence creditsPerSec should be greater than total number of tasks.
@@ -285,12 +255,6 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
   public RemoteTableDescriptor<K, V, U> withWriteRateLimit(int creditsPerSec) {
     Preconditions.checkArgument(creditsPerSec > 0, "Max write rate must be a positive number.");
     tagCreditsMap.put(RL_WRITE_TAG, creditsPerSec);
-    return this;
-  }
-
-  public RemoteTableDescriptor<K, V, U> withUpdateRateLimit(int creditsPerSec) {
-    Preconditions.checkArgument(creditsPerSec > 0, "Max write rate must be a positive number.");
-    tagCreditsMap.put(RL_UPDATE_TAG, creditsPerSec);
     return this;
   }
 
@@ -337,12 +301,6 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
     if (writeCreditFn != null) {
       addTableConfig(WRITE_CREDIT_FN, SerdeUtils.serialize("write credit function", writeCreditFn), tableConfig);
       addTablePartConfig(WRITE_CREDIT_FN, writeCreditFn, jobConfig, tableConfig);
-    }
-
-    // Handle updateCredit functions
-    if (updateCreditFn != null) {
-      addTableConfig(UPDATE_CREDIT_FN, SerdeUtils.serialize("update credit function", updateCreditFn), tableConfig);
-      addTablePartConfig(UPDATE_CREDIT_FN, updateCreditFn, jobConfig, tableConfig);
     }
 
     // Handle read retry policy
@@ -407,9 +365,6 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
     if (this.enableWriteRateLimiter && tagCreditsMap.containsKey(RL_WRITE_TAG)) {
       addTableConfig(WRITE_CREDITS, String.valueOf(tagCreditsMap.get(RL_WRITE_TAG)), tableConfig);
     }
-    if (this.enableUpdateRateLimiter && tagCreditsMap.containsKey(RL_UPDATE_TAG)) {
-      addTableConfig(UPDATE_CREDITS, String.valueOf(tagCreditsMap.get(RL_UPDATE_TAG)), tableConfig);
-    }
   }
 
   @Override
@@ -430,11 +385,6 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
     if (writeFn != null && enableWriteRateLimiter) {
       Preconditions.checkArgument(writeCreditFn != null || tagCreditsMap.containsKey(RL_WRITE_TAG),
           "Write rate limiter is enabled, there is no write rate limiter configured.");
-    }
-
-    if (writeFn != null && enableUpdateRateLimiter) {
-      Preconditions.checkArgument(updateCreditFn != null || tagCreditsMap.containsKey(RL_UPDATE_TAG),
-          "Update rate limiter is enabled, there is no update rate limiter configured.");
     }
   }
 

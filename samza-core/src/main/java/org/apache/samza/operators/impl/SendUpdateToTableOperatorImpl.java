@@ -70,22 +70,24 @@ public class SendUpdateToTableOperatorImpl<K, V, U>
     return updateFuture
         .handle((result, ex) -> {
           if (ex == null) {
+            // success, no need to Put a default value
             return false;
-          } else if (!(ex.getCause() instanceof RecordDoesNotExistException)) {
-            throw new SamzaException("Update failed with exception: ", ex);
+          } else if (ex.getCause() instanceof RecordDoesNotExistException && message.getValue().getDefault() != null) {
+            // If update fails for a given key due to a RecordDoesNotExistException exception thrown and a default is
+            // provided, then attempt to PUT a default record for the key and then apply the update
+            return true;
           } else {
-            return message.getValue().getDefault() != null;
+            throw new SamzaException("Update failed with exception: ", ex);
           }
         })
         .thenCompose(shouldPutDefault -> {
-          // If update fails for a given key due to a RecordDoesNotExistException exception thrown and a default is
-          // provided, then attempt to PUT a default record for the key and then apply the update
           if (shouldPutDefault) {
             final CompletableFuture<Void> putFuture = table.putAsync(message.getKey(), message.getValue().getDefault(),
                 sendUpdateToTableOpSpec.getArgs());
             return putFuture
                 .exceptionally(ex -> {
-                  LOG.error("PUT default failed due the following exception: ", ex);
+                  LOG.warn("PUT default failed due to an exception. Ignoring the exception and proceeding with update. "
+                          + "The exception encountered is: ", ex);
                   return null;
                 })
                 .thenCompose(res -> table.updateAsync(message.getKey(), message.getValue().getUpdate(),

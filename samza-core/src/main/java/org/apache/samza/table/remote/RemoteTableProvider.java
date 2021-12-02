@@ -80,6 +80,7 @@ public class RemoteTableProvider extends BaseTableProvider {
     TableRetryPolicy readRetryPolicy = deserializeObject(tableConfig, RemoteTableDescriptor.READ_RETRY_POLICY);
 
     // Write part
+    // Reuse write rate limiter for update
     TableRateLimiter writeRateLimiter = null;
     TableRetryPolicy writeRetryPolicy = null;
     TableWriteFunction writeFn = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_FN);
@@ -89,15 +90,6 @@ public class RemoteTableProvider extends BaseTableProvider {
           ? new TableRateLimiter(tableId, rateLimiter, writeCreditFn, RemoteTableDescriptor.RL_WRITE_TAG)
           : null;
       writeRetryPolicy = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_RETRY_POLICY);
-    }
-
-    // Update part (reuse write fn)
-    TableRateLimiter updateRateLimiter = null;
-    if (writeFn != null) {
-      TableRateLimiter.CreditFunction<?, ?> updateCreditFn = deserializeObject(tableConfig, RemoteTableDescriptor.UPDATE_CREDIT_FN);
-      updateRateLimiter = rateLimiter != null && rateLimiter.getSupportedTags().contains(RemoteTableDescriptor.RL_UPDATE_TAG)
-          ? new TableRateLimiter(tableId, rateLimiter, updateCreditFn, RemoteTableDescriptor.RL_UPDATE_TAG)
-          : null;
     }
 
     if (readRetryPolicy != null || writeRetryPolicy != null) {
@@ -116,7 +108,7 @@ public class RemoteTableProvider extends BaseTableProvider {
           }));
     }
 
-    boolean isRateLimited = readRateLimiter != null || writeRateLimiter != null || updateRateLimiter != null;
+    boolean isRateLimited = readRateLimiter != null || writeRateLimiter != null;
     if (isRateLimited) {
       rateLimitingExecutors.computeIfAbsent(tableId, (arg) ->
           Executors.newSingleThreadExecutor(runnable -> {
@@ -138,10 +130,9 @@ public class RemoteTableProvider extends BaseTableProvider {
           }));
     }
 
-
     RemoteTable table = new RemoteTable(tableId,
         readFn, writeFn,
-        readRateLimiter, writeRateLimiter, updateRateLimiter, rateLimitingExecutors.get(tableId),
+        readRateLimiter, writeRateLimiter, writeRateLimiter, rateLimitingExecutors.get(tableId),
         readRetryPolicy, writeRetryPolicy, retryExecutor, batchProvider, batchExecutors.get(tableId),
         callbackExecutors.get(tableId));
     table.init(this.context);

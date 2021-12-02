@@ -435,13 +435,12 @@ public class TestRemoteTableEndToEnd {
       final RemoteTableDescriptor joinTableDesc =
               new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1")
           .withReadFunction(InMemoryProfileReadFunction.getInMemoryReadFunction(profiles))
-          .withRateLimiter(readRateLimiter, creditFunction, null, null);
+          .withRateLimiter(readRateLimiter, creditFunction, null);
 
       final RemoteTableDescriptor outputTableDesc =
               new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1")
           .withReadFunction(new NoOpTableReadFunction<>())
           .withReadRateLimiterDisabled()
-          .withUpdateRateLimiterDisabled()
           .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction(testName))
           .withWriteRateLimit(1000);
 
@@ -533,12 +532,11 @@ public class TestRemoteTableEndToEnd {
       final RemoteTableDescriptor joinTableDesc =
           new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1").withReadFunction(
               InMemoryProfileReadFunction.getInMemoryReadFunction(profiles))
-              .withRateLimiter(readRateLimiter, creditFunction, null, null);
+              .withRateLimiter(readRateLimiter, creditFunction, null);
 
       final RemoteTableDescriptor outputTableDesc =
           new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1").withReadFunction(new NoOpTableReadFunction<>())
               .withReadRateLimiterDisabled()
-              .withUpdateRateLimiterDisabled()
               .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction2(testName))
               .withWriteRateLimit(1000);
 
