@@ -51,7 +51,7 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.RecordDoesNotExistException;
+import org.apache.samza.table.RecordNotFoundException;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.serializers.NoOpSerde;
@@ -83,7 +83,6 @@ import static org.apache.samza.test.table.TestTableData.generateProfiles;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
-
 
 public class TestRemoteTableEndToEnd {
   private static final Map<String, AtomicInteger> COUNTERS = new HashMap<>();
@@ -197,20 +196,13 @@ public class TestRemoteTableEndToEnd {
 
   static class InMemoryEnrichedPageViewWriteFunction2 extends BaseTableFunction
       implements TableWriteFunction<Integer, EnrichedPageView, EnrichedPageView> {
-    private transient Map<Integer, EnrichedPageView> recordsMap;
-    private String testName;
+    private final Map<Integer, EnrichedPageView> recordsMap;
+    private final String testName;
 
 
     public InMemoryEnrichedPageViewWriteFunction2(String testName) {
       this.testName = testName;
-    }
-
-    // Verify serializable functionality
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-      in.defaultReadObject();
-
-      // Write to the global list for verification
-      recordsMap = WRITTEN_RECORD_MAP;
+      this.recordsMap = new HashMap<>();
     }
 
     @Override
@@ -222,10 +214,6 @@ public class TestRemoteTableEndToEnd {
 
     @Override
     public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record, Object ... args) {
-      boolean append = (boolean) args[0];
-      if (append) {
-        record = new EnrichedPageView(record.pageKey, record.memberId, record.company + "-w");
-      }
       COUNTERS.get(testName + "-put").incrementAndGet();
       recordsMap.put(key, record);
       return CompletableFuture.completedFuture(null);
@@ -235,7 +223,7 @@ public class TestRemoteTableEndToEnd {
     public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update) {
       if (!recordsMap.containsKey(key)) {
         return CompletableFuture.supplyAsync(() -> {
-          throw new RecordDoesNotExistException("Record with key : " + key + " does not exist");
+          throw new RecordNotFoundException("Record with key : " + key + " does not exist");
         });
       } else {
         COUNTERS.get(testName + "-update").incrementAndGet();
@@ -246,9 +234,15 @@ public class TestRemoteTableEndToEnd {
 
     @Override
     public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update, Object ... args) {
+      boolean showThrowException = (boolean) args[0];
+      if (showThrowException) {
+        return CompletableFuture.supplyAsync(() -> {
+          throw new RuntimeException("Update failed");
+        });
+      }
       if (!recordsMap.containsKey(key)) {
         return CompletableFuture.supplyAsync(() -> {
-          throw new RecordDoesNotExistException("Record with key : " + key + " does not exist");
+          throw new RecordNotFoundException("Record with key : " + key + " does not exist");
         });
       } else {
         COUNTERS.get(testName + "-update").incrementAndGet();
@@ -522,7 +516,8 @@ public class TestRemoteTableEndToEnd {
     }
   }
 
-  private void doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(String testName) throws IOException {
+  private void doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(String testName, boolean withDefaults,
+      boolean withException) throws IOException {
     final String profiles = Base64Serializer.serialize(generateProfiles(30));
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
@@ -551,11 +546,25 @@ public class TestRemoteTableEndToEnd {
       final DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
       final GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
 
-      appDesc.getInputStream(isd)
-          .map(pv -> new KV<>(pv.getMemberId(), pv))
-          .join(joinTable, new PageViewToProfileJoinFunction())
-          .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
-          .sendUpdateTo(outputTable);
+      if (withDefaults) {
+        appDesc.getInputStream(isd)
+            .map(pv -> new KV<>(pv.getMemberId(), pv))
+            .join(joinTable, new PageViewToProfileJoinFunction())
+            .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
+            .sendUpdateTo(outputTable);
+      } else if (withException) {
+        appDesc.getInputStream(isd)
+            .map(pv -> new KV<>(pv.getMemberId(), pv))
+            .join(joinTable, new PageViewToProfileJoinFunction())
+            .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
+            .sendUpdateTo(outputTable, true);
+      } else {
+        appDesc.getInputStream(isd)
+            .map(pv -> new KV<>(pv.getMemberId(), pv))
+            .join(joinTable, new PageViewToProfileJoinFunction())
+            .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m)))
+            .sendUpdateTo(outputTable);
+      }
     };
 
     int numPageViews = 15;
@@ -565,14 +574,30 @@ public class TestRemoteTableEndToEnd {
     TestRunner.of(app)
         .addInputStream(inputDescriptor, integerListMap)
         .run(Duration.ofSeconds(10));
-
-    Assert.assertEquals(10, COUNTERS.get(testName + "-put").intValue());
-    Assert.assertEquals(15, COUNTERS.get(testName + "-update").intValue());
+    if (withDefaults) {
+      Assert.assertEquals(10, COUNTERS.get(testName + "-put").intValue());
+      Assert.assertEquals(15, COUNTERS.get(testName + "-update").intValue());
+    }
   }
 
   @Test
-  public void testStreamTableJoinRemoteTableWithFirstTimeUpdates() throws Exception {
-    doTestStreamTableJoinRemoteTableWithFirstTimeUpdates("testStreamTableJoinRemoteTableWithFirstTimeUpdates");
+  public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithDefaults() throws Exception {
+    doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
+        "testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithDefaults", true, false);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithoutDefaults() throws Exception {
+    // RecordNotFoundException is wrapped in multiple levels of exceptions, hence we only check the top level
+    // exception i.e SamzaException
+    doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
+        "testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithoutDefaults", false, false);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithMiscException() throws Exception {
+    doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
+        "testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithMiscException", false, true);
   }
 
   @Test

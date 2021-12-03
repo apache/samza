@@ -34,7 +34,7 @@ import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.table.AsyncReadWriteTable;
 import org.apache.samza.table.BaseReadWriteTable;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.RecordDoesNotExistException;
+import org.apache.samza.table.RecordNotFoundException;
 import org.apache.samza.table.batching.BatchProvider;
 import org.apache.samza.table.batching.AsyncBatchingTable;
 import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
@@ -94,7 +94,7 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
   protected final TableRetryPolicy writeRetryPolicy;
   protected final ScheduledExecutorService retryExecutor;
   // batch
-  protected final BatchProvider<K, V> batchProvider;
+  protected final BatchProvider<K, V, U> batchProvider;
   protected final ScheduledExecutorService batchExecutor;
 
   // Other
@@ -129,7 +129,7 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
       TableRetryPolicy readRetryPolicy,
       TableRetryPolicy writeRetryPolicy,
       ScheduledExecutorService retryExecutor,
-      BatchProvider<K, V> batchProvider,
+      BatchProvider<K, V, U> batchProvider,
       ScheduledExecutorService batchExecutor,
       ExecutorService callbackExecutor) {
 
@@ -321,8 +321,8 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
         metrics.updateNs)
         .exceptionally(e -> {
           // rethrow RecordDoesNotExistException instead of wrapping it in SamzaException
-          if (e.getCause() instanceof RecordDoesNotExistException) {
-            throw (RecordDoesNotExistException) e.getCause();
+          if (e.getCause() instanceof RecordNotFoundException) {
+            throw (RecordNotFoundException) e.getCause();
           }
           throw new SamzaException("Failed to update a record with key=" + key, e);
         });
@@ -458,5 +458,9 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
       });
     }
     return ioFuture;
+  }
+
+  public BatchProvider<K, V, U> getBatchProvider() {
+    return this.batchProvider;
   }
 }

@@ -27,12 +27,13 @@ import java.util.concurrent.CompletableFuture;
  *
  * @param <K> The key type of the operations
  * @param <V> The value type of the operations.
+ * @param <U> The update type of the operations.
  */
-public interface BatchHandler<K, V> {
+public interface BatchHandler<K, V, U> {
   /**
    *
    * @param batch The batch to be handled
    * @return A {@link CompletableFuture} that indicates the status of the handle process.
    */
-  CompletableFuture<Void> handle(Batch<K, V> batch);
+  CompletableFuture<Void> handle(Batch<K, V, U> batch);
 }

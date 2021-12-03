@@ -98,7 +98,7 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
   private boolean enableWriteRateLimiter = true;
 
   // Batching support to reduce traffic volume sent to the remote store.
-  private BatchProvider<K, V> batchProvider;
+  private BatchProvider<K, V, U> batchProvider;
 
   // Rates for constructing the default rate limiter when they are non-zero
   private Map<String, Integer> tagCreditsMap = new HashMap<>();
@@ -274,7 +274,10 @@ public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, Re
     return this;
   }
 
-  public RemoteTableDescriptor<K, V, U> withBatchProvider(BatchProvider<K, V> batchProvider) {
+  /**
+   * Specifies a batch provider inorder to batch Table operations.
+   * */
+  public RemoteTableDescriptor<K, V, U> withBatchProvider(BatchProvider<K, V, U> batchProvider) {
     this.batchProvider = batchProvider;
     return this;
   }

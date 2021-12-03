@@ -58,10 +58,9 @@ import org.apache.samza.util.HighResolutionClock;
 public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U> {
   private final AsyncReadWriteTable<K, V, U> table;
   private final String tableId;
-  private final BatchProvider<K, V> batchProvider;
+  private final BatchProvider<K, V, U> batchProvider;
   private final ScheduledExecutorService batchTimerExecutorService;
-  private BatchProcessor<K, V> batchProcessor;
-  private BatchProcessor<K, U> updateBatchProcessor;
+  private BatchProcessor<K, V, U> batchProcessor;
 
   /**
    * @param tableId The id of the table.
@@ -69,7 +68,7 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U>
    * @param batchProvider Batch provider to create a batch instance.
    * @param batchTimerExecutorService Executor service for batch timer.
    */
-  public AsyncBatchingTable(String tableId, AsyncReadWriteTable table, BatchProvider batchProvider,
+  public AsyncBatchingTable(String tableId, AsyncReadWriteTable<K, V, U> table, BatchProvider<K, V, U> batchProvider,
       ScheduledExecutorService batchTimerExecutorService) {
     Preconditions.checkNotNull(tableId);
     Preconditions.checkNotNull(table);
@@ -122,7 +121,7 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U>
   @Override
   public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
     try {
-      return updateBatchProcessor.processPutDeleteOrUpdateOperations(new UpdateOperation<>(key, update, args));
+      return batchProcessor.processPutDeleteOrUpdateOperations(new UpdateOperation<>(key, update, args));
     } catch (BatchingNotSupportedException e) {
       return table.updateAsync(key, update, args);
     } catch (Exception e) {
@@ -176,24 +175,14 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U>
     table.close();
   }
 
-  @SuppressWarnings("unchecked")
   @VisibleForTesting
   void createBatchProcessor(HighResolutionClock clock, BatchMetrics batchMetrics) {
     batchProcessor = new BatchProcessor<>(batchMetrics, new TableBatchHandler<>(table),
         batchProvider, clock, batchTimerExecutorService);
-    // BatchProvider will create new instance of Batch in the batch processor
-    // Therefore, batches will not be shared between updates and puts/deletes
-    updateBatchProcessor = (BatchProcessor<K, U>) new BatchProcessor<>(batchMetrics,
-        new TableBatchHandler<>(table), batchProvider, clock, batchTimerExecutorService);
   }
 
   @VisibleForTesting
-  BatchProcessor<K, V> getBatchProcessor() {
+  BatchProcessor<K, V, U> getBatchProcessor() {
     return batchProcessor;
-  }
-
-  @VisibleForTesting
-  BatchProcessor<K, U> getUpdateBatchProcessor() {
-    return updateBatchProcessor;
   }
 }

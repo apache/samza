@@ -29,7 +29,9 @@ import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SendUpdateToTableOperatorSpec;
 import org.apache.samza.table.ReadWriteTable;
-import org.apache.samza.table.RecordDoesNotExistException;
+import org.apache.samza.table.RecordNotFoundException;
+import org.apache.samza.table.batching.CompactBatchProvider;
+import org.apache.samza.table.remote.RemoteTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.slf4j.Logger;
@@ -55,6 +57,12 @@ public class SendUpdateToTableOperatorImpl<K, V, U>
   public SendUpdateToTableOperatorImpl(SendUpdateToTableOperatorSpec<K, V, U>  sendUpdateToTableOpSpec, Context context) {
     this.sendUpdateToTableOpSpec = sendUpdateToTableOpSpec;
     this.table = context.getTaskContext().getTable(sendUpdateToTableOpSpec.getTableId());
+    if (context.getTaskContext().getTable(sendUpdateToTableOpSpec.getTableId()) instanceof RemoteTable) {
+      RemoteTable<K, V, U> remoteTable = (RemoteTable<K, V, U>) table;
+      if (remoteTable.getBatchProvider() instanceof CompactBatchProvider) {
+        throw new SamzaException("Batching is not supported with Compact Batches for partial updates");
+      }
+    }
   }
 
   @Override
@@ -72,7 +80,7 @@ public class SendUpdateToTableOperatorImpl<K, V, U>
           if (ex == null) {
             // success, no need to Put a default value
             return false;
-          } else if (ex.getCause() instanceof RecordDoesNotExistException && message.getValue().getDefault() != null) {
+          } else if (ex.getCause() instanceof RecordNotFoundException && message.getValue().getDefault() != null) {
             // If update fails for a given key due to a RecordDoesNotExistException exception thrown and a default is
             // provided, then attempt to PUT a default record for the key and then apply the update
             return true;

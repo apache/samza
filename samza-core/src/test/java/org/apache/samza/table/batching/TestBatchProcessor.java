@@ -43,7 +43,7 @@ public class TestBatchProcessor {
     @Test
     public void testCreate() {
       final ReadWriteTable<Integer, Integer, Integer> table = mock(ReadWriteTable.class);
-      final BatchProcessor<Integer, Integer> batchProcessor = createBatchProcessor(table,
+      final BatchProcessor<Integer, Integer, Integer> batchProcessor = createBatchProcessor(table,
           3, Integer.MAX_VALUE);
 
       // The batch processor initially has no operation.
@@ -58,7 +58,7 @@ public class TestBatchProcessor {
     @Test
     public void testUpdateAndLookup() {
       final ReadWriteTable<Integer, Integer, Integer> table = mock(ReadWriteTable.class);
-      final BatchProcessor<Integer, Integer> batchProcessor =
+      final BatchProcessor<Integer, Integer, Integer> batchProcessor =
           createBatchProcessor(table, Integer.MAX_VALUE, Integer.MAX_VALUE);
 
       int numberOfPuts = 10;
@@ -71,7 +71,7 @@ public class TestBatchProcessor {
 
       // Verify that the value is correct for each key.
       for (int i = 0; i < numberOfPuts; i++) {
-        final Operation<Integer, Integer> operation = batchProcessor.getLastUpdate(i);
+        final Operation<Integer, Integer, Integer> operation = batchProcessor.getLatestPutUpdateOrDelete(i);
         Assert.assertEquals(i, operation.getKey().intValue());
         Assert.assertEquals(i, operation.getValue().intValue());
       }
@@ -95,7 +95,7 @@ public class TestBatchProcessor {
       final ReadWriteTable<Integer, Integer, Integer> table = mock(ReadWriteTable.class);
       when(table.putAllAsync(anyList())).thenReturn(CompletableFuture.supplyAsync(tableUpdateSupplier));
 
-      final BatchProcessor<Integer, Integer> batchProcessor =
+      final BatchProcessor<Integer, Integer, Integer> batchProcessor =
           createBatchProcessor(table, maxBatchSize, Integer.MAX_VALUE);
 
       List<CompletableFuture<Void>> futureList = new ArrayList<>();
@@ -126,7 +126,7 @@ public class TestBatchProcessor {
       when(table.putAllAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
       when(table.deleteAllAsync(anyList())).thenReturn(CompletableFuture.completedFuture(null));
 
-      final BatchProcessor<Integer, Integer> batchProcessor =
+      final BatchProcessor<Integer, Integer, Integer> batchProcessor =
           createBatchProcessor(table, Integer.MAX_VALUE, maxBatchDelayMs);
 
       for (int i = 0; i < putOperationCount; i++) {
@@ -147,11 +147,11 @@ public class TestBatchProcessor {
     }
   }
 
-  private static BatchProcessor<Integer, Integer> createBatchProcessor(ReadWriteTable<Integer, Integer, Integer> table,
+  private static BatchProcessor<Integer, Integer, Integer> createBatchProcessor(ReadWriteTable<Integer, Integer, Integer> table,
       int maxSize, int maxDelay) {
-    final BatchProvider<Integer, Integer> batchProvider = new CompactBatchProvider<Integer, Integer>()
+    final BatchProvider<Integer, Integer, Integer> batchProvider = new CompactBatchProvider<Integer, Integer, Integer>()
         .withMaxBatchDelay(Duration.ofMillis(maxDelay)).withMaxBatchSize(maxSize);
-    final BatchHandler<Integer, Integer> batchHandler = new TableBatchHandler<>(table);
+    final BatchHandler<Integer, Integer, Integer> batchHandler = new TableBatchHandler<>(table);
     final BatchMetrics batchMetrics = mock(BatchMetrics.class);
     return new BatchProcessor<>(batchMetrics, batchHandler, batchProvider, () -> 0, Executors.newSingleThreadScheduledExecutor());
   }

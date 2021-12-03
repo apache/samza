@@ -31,15 +31,16 @@ import java.util.concurrent.CompletableFuture;
  *
  * @param <K> The type of the key associated with the {@link Operation}
  * @param <V> The type of the value associated with the {@link Operation}
+ * @param <U> The type of the update associated with the {@link Operation}
  */
-public interface Batch<K, V> {
+public interface Batch<K, V, U> {
   /**
    * Add an operation to the batch.
    *
    * @param operation The operation to be added.
    * @return A {@link CompletableFuture} that indicate the status of the batch.
    */
-  CompletableFuture<Void> addOperation(Operation<K, V> operation);
+  CompletableFuture<Void> addOperation(Operation<K, V, U> operation);
 
   /**
    * Close the bach so that it will not accept more operations.
@@ -54,7 +55,7 @@ public interface Batch<K, V> {
   /**
    * @return The operations buffered by the batch.
    */
-  Collection<Operation<K, V>> getOperations();
+  Collection<Operation<K, V, U>> getOperations();
 
   /**
    * @return The batch max delay.

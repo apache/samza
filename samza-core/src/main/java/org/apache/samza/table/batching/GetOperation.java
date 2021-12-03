@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * @param <K> The type of the key.
  */
-public class GetOperation<K, V> implements Operation<K, V> {
+public class GetOperation<K, V, U> implements Operation<K, V, U> {
   final K key;
   final Object[] args;
   final CompletableFuture<V> completableFuture = new CompletableFuture<>();
@@ -56,6 +56,14 @@ public class GetOperation<K, V> implements Operation<K, V> {
    */
   @Override
   public V getValue() {
+    return null;
+  }
+
+  /**
+   * @return null.
+   */
+  @Override
+  public U getUpdate() {
     return null;
   }
 

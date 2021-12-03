@@ -141,7 +141,7 @@ public class TestBatchTable {
     }
     sleep();
 
-    final BatchProcessor<Integer, Integer> batchProcessor = asyncBatchingTable.getBatchProcessor();
+    final BatchProcessor<Integer, Integer, Integer> batchProcessor = asyncBatchingTable.getBatchProcessor();
 
     // Verify that all async puts are finished.
     futures.forEach(future -> Assert.assertTrue(future.isDone()));
@@ -165,7 +165,7 @@ public class TestBatchTable {
     }
 
     CompletableFuture<Void> future = asyncBatchingTable.putAllAsync(entries);
-    final BatchProcessor<Integer, Integer> batchProcessor = asyncBatchingTable.getBatchProcessor();
+    final BatchProcessor<Integer, Integer, Integer> batchProcessor = asyncBatchingTable.getBatchProcessor();
 
     sleep();
 
@@ -185,18 +185,6 @@ public class TestBatchTable {
   }
 
   @Test
-  public void testUpdateAsyncWithCompactBatch() {
-    // the setup method by default uses CompactBatch for batching
-    // CompactBatch doesn't support batching for updates and instead table's updateAsync is used
-    final List<CompletableFuture<Void>> futures = new LinkedList<>();
-    for (int i = 0; i < BATCH_SIZE; i++) {
-      futures.add(asyncBatchingTable.updateAsync(i, i));
-    }
-    futures.forEach(future -> Assert.assertTrue(future.isDone()));
-    verify(table, times(5)).updateAsync(anyInt(), anyInt());
-  }
-
-  @Test
   public void testUpdateAsync() {
     // Use CompleteBatch instead of CompactBatch as CompactBatch doesn't support updates
     asyncBatchingTable = new AsyncBatchingTable("id", table, new CompleteBatchProvider()
@@ -211,21 +199,21 @@ public class TestBatchTable {
     }
     sleep();
 
-    final BatchProcessor<Integer, Integer> updateBatchProcessor =
-        asyncBatchingTable.getUpdateBatchProcessor();
+    final BatchProcessor<Integer, Integer, Integer> batchProcessor =
+        asyncBatchingTable.getBatchProcessor();
 
     // Verify that all async updates are finished.
     futures.forEach(future -> Assert.assertTrue(future.isDone()));
     verify(table, times(1)).updateAllAsync(anyList());
 
     // There should be no operations in the batch processor.
-    Assert.assertEquals(0, updateBatchProcessor.size());
+    Assert.assertEquals(0, batchProcessor.size());
 
     asyncBatchingTable.updateAsync(1, 1);
     asyncBatchingTable.updateAsync(2, 2);
 
     // Now batch size should be 2.
-    Assert.assertEquals(2, updateBatchProcessor.size());
+    Assert.assertEquals(2, batchProcessor.size());
   }
 
   @Test
@@ -244,14 +232,14 @@ public class TestBatchTable {
     }
 
     CompletableFuture<Void> future = asyncBatchingTable.updateAllAsync(updates);
-    final BatchProcessor<Integer, Integer> updateBatchProcessor = asyncBatchingTable.getUpdateBatchProcessor();
+    final BatchProcessor<Integer, Integer, Integer> batchProcessor = asyncBatchingTable.getBatchProcessor();
 
     sleep();
 
     // Verify that updateAllAsync is finished.
     Assert.assertTrue(future.isDone());
 
-    Assert.assertEquals(0, updateBatchProcessor.size());
+    Assert.assertEquals(0, batchProcessor.size());
 
     // The addBatchUpdates batch operations propagates to the table.
     verify(table, times(1)).updateAllAsync(anyList());
@@ -259,7 +247,7 @@ public class TestBatchTable {
     // This new addBatchUpdates will make the batch size to be 1.
     asyncBatchingTable.updateAsync(BATCH_SIZE, BATCH_SIZE);
 
-    Assert.assertEquals(1, updateBatchProcessor.size());
+    Assert.assertEquals(1, batchProcessor.size());
   }
 
   @Test

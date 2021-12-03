@@ -27,28 +27,42 @@ import com.google.common.base.Preconditions;
  * @param <K> The type of the key.
  * @param <U> The type of the update
  */
-public class UpdateOperation<K, U> implements Operation<K, U> {
+public class UpdateOperation<K, V, U> implements Operation<K, V, U> {
   final private K key;
-  final private U val;
+  final private U update;
   final private Object[] args;
 
-  public UpdateOperation(K key, U val, Object ... args) {
+  public UpdateOperation(K key, U update, Object ... args) {
     Preconditions.checkNotNull(key);
-    Preconditions.checkNotNull(val);
+    Preconditions.checkNotNull(update);
     Preconditions.checkNotNull(args);
     this.key = key;
-    this.val = val;
+    this.update = update;
     this.args = args;
   }
 
+  /**
+   * @return The key to be updated in the table.
+   */
   @Override
   public K getKey() {
     return key;
   }
 
+  /**
+   * @return null.
+   */
   @Override
-  public U getValue() {
-    return val;
+  public V getValue() {
+    return null;
+  }
+
+  /**
+   * @return The Update to be applied to the table for the key.
+   */
+  @Override
+  public U getUpdate() {
+    return update;
   }
 
   @Override

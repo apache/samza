@@ -30,6 +30,7 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
 
 import com.google.common.collect.Iterables;
+import org.apache.samza.table.RecordNotFoundException;
 
 
 /**
@@ -123,7 +124,7 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
    * This method must be thread-safe.
    *
    * If the update operation failed due to the an existing record missing for the key, the implementation can return
-   * a future completed exceptionally with a {@link org.apache.samza.table.RecordDoesNotExistException} which will
+   * a future completed exceptionally with a {@link RecordNotFoundException} which will
    * allow to Put a default value if one is provided.
    *
    * @param key key for the table record
@@ -137,7 +138,7 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
    * This method must be thread-safe.
    *
    * If the update operation failed due to the an existing record missing for the key, the implementation can return
-   * a future completed exceptionally with a {@link org.apache.samza.table.RecordDoesNotExistException} which will
+   * a future completed exceptionally with a {@link RecordNotFoundException} which will
    * allow to Put a default value if one is provided.
    *
    * @param key key for the table record

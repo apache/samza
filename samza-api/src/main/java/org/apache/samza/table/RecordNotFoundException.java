@@ -26,22 +26,22 @@ package org.apache.samza.table;
  * attempt to call {@link AsyncReadWriteTable#putAsync(Object, Object, Object...)} instead to insert a new record if a
  * default is provided.
  */
-public class RecordDoesNotExistException extends RuntimeException {
+public class RecordNotFoundException extends RuntimeException {
   private static final long serialVersionUID = 1L;
 
-  public RecordDoesNotExistException() {
+  public RecordNotFoundException() {
     super();
   }
 
-  public RecordDoesNotExistException(String s, Throwable t) {
+  public RecordNotFoundException(String s, Throwable t) {
     super(s, t);
   }
 
-  public RecordDoesNotExistException(String s) {
+  public RecordNotFoundException(String s) {
     super(s);
   }
 
-  public RecordDoesNotExistException(Throwable t) {
+  public RecordNotFoundException(Throwable t) {
     super(t);
   }
 }
