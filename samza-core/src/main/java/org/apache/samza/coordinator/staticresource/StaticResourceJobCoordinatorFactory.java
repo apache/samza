@@ -87,11 +87,11 @@ public class StaticResourceJobCoordinatorFactory implements JobCoordinatorFactor
         new StreamRegexMonitorFactory(streamMetadataCache, metricsRegistry);
     Optional<String> executionEnvContainerId =
         Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID));
-    Optional<String> executionEnvAttemptId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID));
+    Optional<String> samzaEpochId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID));
     return new StaticResourceJobCoordinator(processorId, jobModelHelper, jobModelServingContext,
         coordinatorCommunication, jobCoordinatorMetadataManager, streamPartitionCountMonitorFactory,
         streamRegexMonitorFactory, startpointManager, changelogStreamManager, jobRestartSignal, metricsRegistry,
-        systemAdmins, executionEnvContainerId, executionEnvAttemptId, config);
+        systemAdmins, executionEnvContainerId, samzaEpochId, config);
   }
 
   private static JobModelHelper buildJobModelHelper(MetadataStore metadataStore,

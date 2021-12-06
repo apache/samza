@@ -48,7 +48,7 @@ public class TestMetricsSnapshotSerdeV2 {
   }
 
   @Test
-  public void testSerializeThenDeserializeEmptyAttemptIdInHeader() {
+  public void testSerializeThenDeserializeEmptySamzaEpochIdInHeader() {
     SamzaException samzaException = new SamzaException("this is a samza exception", new RuntimeException("cause"));
     MetricsSnapshot metricsSnapshot = metricsSnapshot(samzaException, false);
     MetricsSnapshotSerdeV2 metricsSnapshotSerde = new MetricsSnapshotSerdeV2();
@@ -79,7 +79,7 @@ public class TestMetricsSnapshotSerdeV2 {
    * Helps for verifying compatibility when schemas evolve.
    */
   @Test
-  public void testDeserializeRawEmptyAttemptIdInHeader() {
+  public void testDeserializeRawEmptySamzaEpochIdInHeader() {
     SamzaException samzaException = new SamzaException("this is a samza exception", new RuntimeException("cause"));
     MetricsSnapshot metricsSnapshot = metricsSnapshot(samzaException, false);
     MetricsSnapshotSerdeV2 metricsSnapshotSerde = new MetricsSnapshotSerdeV2();
@@ -89,11 +89,11 @@ public class TestMetricsSnapshotSerdeV2 {
         expectedSeralizedSnapshot(samzaException, false, true).getBytes(StandardCharsets.UTF_8)));
   }
 
-  private static MetricsSnapshot metricsSnapshot(Exception exception, boolean includeExecutionEnvAttemptId) {
+  private static MetricsSnapshot metricsSnapshot(Exception exception, boolean includeSamzaEpochId) {
     MetricsHeader metricsHeader;
-    if (includeExecutionEnvAttemptId) {
+    if (includeSamzaEpochId) {
       metricsHeader =
-          new MetricsHeader("jobName", "i001", "container 0", "test container ID", Optional.of("test attempt ID"),
+          new MetricsHeader("jobName", "i001", "container 0", "test container ID", Optional.of("epoch-123"),
               "source", "300.14.25.1", "1", "1", 1, 1);
     } else {
       metricsHeader =
@@ -114,23 +114,23 @@ public class TestMetricsSnapshotSerdeV2 {
   }
 
   /**
-   * @param includeExecutionEnvAttemptId include the new exec-env-attempt-id field (for testing that new code can read
-   *                                     old data without this field)
+   * @param includeSamzaEpochId include the new samza-epoch-id field (for testing that new code can read old data
+   *                           without this field)
    * @param includeExtraHeaderField include an extra new field (for testing that old code can read new data with extra
    *                                fields)
    */
-  private static String expectedSeralizedSnapshot(Exception exception, boolean includeExecutionEnvAttemptId,
+  private static String expectedSeralizedSnapshot(Exception exception, boolean includeSamzaEpochId,
       boolean includeExtraHeaderField) {
     String stackTrace = ExceptionUtils.getStackTrace(exception);
-    // in serialized string, backslash in whitespace characters (e.g. \n, \t) are escaped
     String serializedSnapshot =
         "{\"header\":[\"java.util.HashMap\",{\"job-id\":\"i001\",\"exec-env-container-id\":\"test container ID\",";
-    if (includeExecutionEnvAttemptId) {
-      serializedSnapshot += "\"exec-env-attempt-id\":\"test attempt ID\",";
+    if (includeSamzaEpochId) {
+      serializedSnapshot += "\"samza-epoch-id\":\"epoch-123\",";
     }
     if (includeExtraHeaderField) {
       serializedSnapshot += "\"extra-header-field\":\"extra header value\",";
     }
+    // in serialized string, backslash in whitespace characters (e.g. \n, \t) are escaped
     String escapedStackTrace = stackTrace.replace("\n", "\\n").replace("\t", "\\t");
     serializedSnapshot +=
         "\"samza-version\":\"1\",\"job-name\":\"jobName\",\"host\":\"1\",\"reset-time\":[\"java.lang.Long\",1],"

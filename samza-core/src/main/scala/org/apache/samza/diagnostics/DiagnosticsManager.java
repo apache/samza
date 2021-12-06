@@ -59,7 +59,7 @@ public class DiagnosticsManager {
   private final String jobId;
   private final String containerId;
   private final String executionEnvContainerId;
-  private final String executionEnvAttemptId;
+  private final String samzaEpochId;
   private final String taskClassVersion;
   private final String samzaVersion;
   private final String hostname;
@@ -95,7 +95,7 @@ public class DiagnosticsManager {
       int containerThreadPoolSize,
       String containerId,
       String executionEnvContainerId,
-      String executionEnvAttemptId,
+      String samzaEpochId,
       String taskClassVersion,
       String samzaVersion,
       String hostname,
@@ -106,7 +106,7 @@ public class DiagnosticsManager {
       Config config) {
 
     this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numPersistentStores, maxHeapSizeBytes,
-        containerThreadPoolSize, containerId, executionEnvContainerId, executionEnvAttemptId, taskClassVersion,
+        containerThreadPoolSize, containerId, executionEnvContainerId, samzaEpochId, taskClassVersion,
         samzaVersion, hostname, diagnosticSystemStream, systemProducer, terminationDuration,
         Executors.newSingleThreadScheduledExecutor(
             new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()), autosizingEnabled,
@@ -124,7 +124,7 @@ public class DiagnosticsManager {
       int containerThreadPoolSize,
       String containerId,
       String executionEnvContainerId,
-      String executionEnvAttemptId,
+      String samzaEpochId,
       String taskClassVersion,
       String samzaVersion,
       String hostname,
@@ -145,7 +145,7 @@ public class DiagnosticsManager {
     this.containerThreadPoolSize = containerThreadPoolSize;
     this.containerId = containerId;
     this.executionEnvContainerId = executionEnvContainerId;
-    this.executionEnvAttemptId = executionEnvAttemptId;
+    this.samzaEpochId = samzaEpochId;
     this.taskClassVersion = taskClassVersion;
     this.samzaVersion = samzaVersion;
     this.hostname = hostname;
@@ -216,7 +216,7 @@ public class DiagnosticsManager {
       try {
         DiagnosticsStreamMessage diagnosticsStreamMessage =
             new DiagnosticsStreamMessage(jobName, jobId, "samza-container-" + containerId, executionEnvContainerId,
-                Optional.of(executionEnvAttemptId), taskClassVersion, samzaVersion, hostname,
+                Optional.of(samzaEpochId), taskClassVersion, samzaVersion, hostname,
                 clock.currentTimeMillis(), resetTime.toEpochMilli());
 
         // Add job-related params to the message (if not already published)

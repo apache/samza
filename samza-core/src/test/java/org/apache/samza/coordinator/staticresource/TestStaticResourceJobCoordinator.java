@@ -88,7 +88,7 @@ public class TestStaticResourceJobCoordinator {
   private static final String JOB_ID = "123";
   private static final String PROCESSOR_ID = "samza-job-coordinator";
   private static final Optional<String> EXECUTION_ENV_CONTAINER_ID = Optional.of("execution_container_123");
-  private static final Optional<String> EXECUTION_ENV_ATTEMPT_ID = Optional.of("execution_attempt_123");
+  private static final Optional<String> SAMZA_EPOCH_ID = Optional.of("epoch_123");
   private static final SystemStream SYSTEM_STREAM = new SystemStream("system", "stream");
   private static final TaskName TASK_NAME = new TaskName("Partition " + 0);
   private static final Map<String, ContainerModel> CONTAINERS = ImmutableMap.of("0", new ContainerModel("0",
@@ -139,8 +139,7 @@ public class TestStaticResourceJobCoordinator {
         spy(new StaticResourceJobCoordinator(PROCESSOR_ID, this.jobModelHelper, this.jobModelServingContext,
             this.coordinatorCommunication, this.jobCoordinatorMetadataManager, this.streamPartitionCountMonitorFactory,
             this.streamRegexMonitorFactory, Optional.of(this.startpointManager), this.changelogStreamManager,
-            this.jobRestartSignal, this.metrics, this.systemAdmins, EXECUTION_ENV_CONTAINER_ID,
-            EXECUTION_ENV_ATTEMPT_ID, this.config));
+            this.jobRestartSignal, this.metrics, this.systemAdmins, EXECUTION_ENV_CONTAINER_ID, SAMZA_EPOCH_ID, this.config));
     this.staticResourceJobCoordinator.setListener(this.jobCoordinatorListener);
     doNothing().when(this.staticResourceJobCoordinator).doSetLoggingContextConfig(any());
   }
@@ -429,7 +428,7 @@ public class TestStaticResourceJobCoordinator {
   private void setUpDiagnosticsManager(JobModel expectedJobModel) {
     doReturn(Optional.of(this.diagnosticsManager)).when(this.staticResourceJobCoordinator)
         .buildDiagnosticsManager(JOB_NAME, JOB_ID, expectedJobModel,
-            CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, EXECUTION_ENV_CONTAINER_ID, EXECUTION_ENV_ATTEMPT_ID,
+            CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, EXECUTION_ENV_CONTAINER_ID, SAMZA_EPOCH_ID,
             this.config);
   }
 

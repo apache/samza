@@ -59,7 +59,7 @@ public class LocalContainerRunner {
 
     Optional<String> executionEnvContainerId =
         Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID));
-    Optional<String> executionEnvAttemptId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID));
+    Optional<String> samzaEpochId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID));
 
     int delay = new Random().nextInt(SamzaContainer.DEFAULT_READ_JOBMODEL_DELAY_MS()) + 1;
     JobModel jobModel = SamzaContainer.readJobModel(coordinatorUrl, delay);
@@ -78,7 +78,7 @@ public class LocalContainerRunner {
     ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc =
         ApplicationDescriptorUtil.getAppDescriptor(ApplicationUtil.fromConfig(config), config);
 
-    ContainerLaunchUtil.run(appDesc, jobName, jobId, containerId, executionEnvContainerId, executionEnvAttemptId,
+    ContainerLaunchUtil.run(appDesc, jobName, jobId, containerId, executionEnvContainerId, samzaEpochId,
         jobModel);
   }
 }

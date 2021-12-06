@@ -79,7 +79,7 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
   private final SystemAdmins systemAdmins;
   private final String processorId;
   private final Optional<String> executionEnvContainerId;
-  private final Optional<String> executionEnvAttemptId;
+  private final Optional<String> samzaEpochId;
   private final Config config;
 
   private volatile Optional<JobCoordinatorListener> jobCoordinatorListener = Optional.empty();
@@ -110,7 +110,7 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
       StreamPartitionCountMonitorFactory streamPartitionCountMonitorFactory,
       StreamRegexMonitorFactory streamRegexMonitorFactory, Optional<StartpointManager> startpointManager,
       ChangelogStreamManager changelogStreamManager, JobRestartSignal jobRestartSignal, MetricsRegistry metrics,
-      SystemAdmins systemAdmins, Optional<String> executionEnvContainerId, Optional<String> executionEnvAttemptId,
+      SystemAdmins systemAdmins, Optional<String> executionEnvContainerId, Optional<String> samzaEpochId,
       Config config) {
     this.jobModelHelper = jobModelHelper;
     this.jobModelServingContext = jobModelServingContext;
@@ -125,7 +125,7 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
     this.systemAdmins = systemAdmins;
     this.processorId = processorId;
     this.executionEnvContainerId = executionEnvContainerId;
-    this.executionEnvAttemptId = executionEnvAttemptId;
+    this.samzaEpochId = samzaEpochId;
     this.config = config;
   }
 
@@ -238,7 +238,7 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
     JobConfig jobConfig = new JobConfig(this.config);
     String jobName = jobConfig.getName().orElseThrow(() -> new ConfigException("Missing job name"));
     return buildDiagnosticsManager(jobName, jobConfig.getJobId(), jobModel,
-        CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, this.executionEnvContainerId, this.executionEnvAttemptId,
+        CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, this.executionEnvContainerId, this.samzaEpochId,
         this.config);
   }
 
@@ -277,10 +277,10 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
    */
   @VisibleForTesting
   Optional<DiagnosticsManager> buildDiagnosticsManager(String jobName, String jobId, JobModel jobModel,
-      String containerId, Optional<String> executionEnvContainerId, Optional<String> executionEnvAttemptId,
+      String containerId, Optional<String> executionEnvContainerId, Optional<String> samzaEpochId,
       Config config) {
     return DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, executionEnvContainerId,
-        executionEnvAttemptId, config);
+        samzaEpochId, config);
   }
 
   private Set<JobMetadataChange> checkForMetadataChanges(JobCoordinatorMetadata newMetadata) {

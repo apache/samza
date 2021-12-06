@@ -69,9 +69,9 @@ public class DiagnosticsStreamMessage {
   private final Map<String, Map<String, Object>> metricsMessage;
 
   public DiagnosticsStreamMessage(String jobName, String jobId, String containerName, String executionEnvContainerId,
-      Optional<String> executionEnvAttemptId, String taskClassVersion, String samzaVersion, String hostname,
+      Optional<String> samzaEpochId, String taskClassVersion, String samzaVersion, String hostname,
       long timestamp, long resetTimestamp) {
-    this.metricsHeader = new MetricsHeader(jobName, jobId, containerName, executionEnvContainerId, executionEnvAttemptId,
+    this.metricsHeader = new MetricsHeader(jobName, jobId, containerName, executionEnvContainerId, samzaEpochId,
         DiagnosticsManager.class.getName(), taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp);
     this.metricsMessage = new HashMap<>();
   }
@@ -252,7 +252,7 @@ public class DiagnosticsStreamMessage {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
         new DiagnosticsStreamMessage(metricsSnapshot.getHeader().getJobName(), metricsSnapshot.getHeader().getJobId(),
             metricsSnapshot.getHeader().getContainerName(), metricsSnapshot.getHeader().getExecEnvironmentContainerId(),
-            metricsSnapshot.getHeader().getExecEnvironmentAttemptId(), metricsSnapshot.getHeader().getVersion(),
+            metricsSnapshot.getHeader().getSamzaEpochId(), metricsSnapshot.getHeader().getVersion(),
             metricsSnapshot.getHeader().getSamzaVersion(), metricsSnapshot.getHeader().getHost(),
             metricsSnapshot.getHeader().getTime(), metricsSnapshot.getHeader().getResetTime());
 

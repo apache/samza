@@ -31,7 +31,7 @@ public class TestMetricsHeader {
   private static final String JOB_ID = "id-a";
   private static final String CONTAINER_NAME = "samza-container-0";
   private static final String EXEC_ENV_CONTAINER_ID = "container-12345";
-  private static final String EXEC_ENV_ATTEMPT_ID = "attempt-12345";
+  private static final String SAMZA_EPOCH_ID = "epoch-12345";
   private static final String SOURCE = "metrics-source";
   private static final String VERSION = "1.2.3";
   private static final String SAMZA_VERSION = "4.5.6";
@@ -42,14 +42,14 @@ public class TestMetricsHeader {
   @Test
   public void testGetAsMap() {
     MetricsHeader metricsHeader =
-        new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXEC_ENV_CONTAINER_ID, Optional.of(EXEC_ENV_ATTEMPT_ID),
+        new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXEC_ENV_CONTAINER_ID, Optional.of(SAMZA_EPOCH_ID),
             SOURCE, VERSION, SAMZA_VERSION, HOST, TIME, RESET_TIME);
     Map<String, Object> expected = new HashMap<>();
     expected.put("job-name", JOB_NAME);
     expected.put("job-id", JOB_ID);
     expected.put("container-name", CONTAINER_NAME);
     expected.put("exec-env-container-id", EXEC_ENV_CONTAINER_ID);
-    expected.put("exec-env-attempt-id", EXEC_ENV_ATTEMPT_ID);
+    expected.put("samza-epoch-id", SAMZA_EPOCH_ID);
     expected.put("source", SOURCE);
     expected.put("version", VERSION);
     expected.put("samza-version", SAMZA_VERSION);
@@ -58,11 +58,11 @@ public class TestMetricsHeader {
     expected.put("reset-time", RESET_TIME);
     assertEquals(expected, metricsHeader.getAsMap());
 
-    // test with empty execution env attempt id
+    // test with empty samza epoch id
     metricsHeader =
         new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXEC_ENV_CONTAINER_ID, Optional.empty(), SOURCE, VERSION,
             SAMZA_VERSION, HOST, TIME, RESET_TIME);
-    expected.remove("exec-env-attempt-id");
+    expected.remove("samza-epoch-id");
     assertEquals(expected, metricsHeader.getAsMap());
   }
 
@@ -73,7 +73,7 @@ public class TestMetricsHeader {
     map.put("job-id", JOB_ID);
     map.put("container-name", CONTAINER_NAME);
     map.put("exec-env-container-id", EXEC_ENV_CONTAINER_ID);
-    map.put("exec-env-attempt-id", EXEC_ENV_ATTEMPT_ID);
+    map.put("samza-epoch-id", SAMZA_EPOCH_ID);
     map.put("source", SOURCE);
     map.put("version", VERSION);
     map.put("samza-version", SAMZA_VERSION);
@@ -81,16 +81,15 @@ public class TestMetricsHeader {
     map.put("time", TIME);
     map.put("reset-time", RESET_TIME);
     MetricsHeader expected =
-        new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXEC_ENV_CONTAINER_ID, Optional.of(EXEC_ENV_ATTEMPT_ID),
+        new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXEC_ENV_CONTAINER_ID, Optional.of(SAMZA_EPOCH_ID),
             SOURCE, VERSION, SAMZA_VERSION, HOST, TIME, RESET_TIME);
     assertEquals(expected, MetricsHeader.fromMap(map));
 
-    // test with missing execution env attempt id
-    map.remove("exec-env-attempt-id");
+    // test with missing samza epoch id
+    map.remove("samza-epoch-id");
     expected =
         new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXEC_ENV_CONTAINER_ID, Optional.empty(), SOURCE, VERSION,
             SAMZA_VERSION, HOST, TIME, RESET_TIME);
     assertEquals(expected, MetricsHeader.fromMap(map));
-
   }
 }

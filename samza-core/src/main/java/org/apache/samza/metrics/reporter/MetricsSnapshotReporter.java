@@ -77,7 +77,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
   private final Clock clock;
 
   private final String executionEnvContainerId;
-  private final String executionEnvAttemptId;
+  private final String samzaEpochId;
   private final ScheduledExecutorService executor;
   private final long resetTime;
   private final List<MetricsRegistryWithSource> registries = new ArrayList<>();
@@ -101,7 +101,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
 
     this.executionEnvContainerId =
         Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID)).orElse("");
-    this.executionEnvAttemptId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID)).orElse("");
+    this.samzaEpochId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID)).orElse("");
     this.executor = Executors.newSingleThreadScheduledExecutor(
         new ThreadFactoryBuilder().setNameFormat("Samza MetricsSnapshotReporter Thread-%d").setDaemon(true).build());
     this.resetTime = this.clock.currentTimeMillis();
@@ -197,7 +197,7 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
       if (!metricsMsg.isEmpty()) {
         MetricsHeader header =
             new MetricsHeader(this.jobName, this.jobId, this.containerName, this.executionEnvContainerId,
-                Optional.of(this.executionEnvAttemptId), source, this.version, this.samzaVersion, this.host,
+                Optional.of(this.samzaEpochId), source, this.version, this.samzaVersion, this.host,
                 this.clock.currentTimeMillis(), this.resetTime);
         Metrics metrics = new Metrics(metricsMsg);
         LOG.debug("Flushing metrics for {} to {} with header and map: header={}, map={}.", source, out,

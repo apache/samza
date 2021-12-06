@@ -45,7 +45,7 @@ public class TestDiagnosticsStreamMessage {
   private static final String JOB_ID = "test job id";
   private static final String CONTAINER_NAME = "sample container name";
   private static final String EXECUTION_ENV_CONTAINER_ID = "exec container id";
-  private static final String EXECUTION_ENV_ATTEMPT_ID = "exec attempt id";
+  private static final String SAMZA_EPOCH_ID = "epoch-123";
   private static final String TASK_CLASS_VERSION = "0.0.1";
   private static final String SAMZA_VERSION = "1.3.0";
   private static final String HOSTNAME = "sample host name";
@@ -53,9 +53,9 @@ public class TestDiagnosticsStreamMessage {
   private final long resetTimestamp = System.currentTimeMillis();
   private final Config config = new MapConfig(ImmutableMap.of("job.name", JOB_NAME, "job.id", JOB_ID));
 
-  private DiagnosticsStreamMessage getDiagnosticsStreamMessage(Optional<String> executionEnvAttemptId) {
+  private DiagnosticsStreamMessage getDiagnosticsStreamMessage(Optional<String> samzaEpochId) {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
-        new DiagnosticsStreamMessage(JOB_NAME, JOB_ID, CONTAINER_NAME, EXECUTION_ENV_CONTAINER_ID, executionEnvAttemptId,
+        new DiagnosticsStreamMessage(JOB_NAME, JOB_ID, CONTAINER_NAME, EXECUTION_ENV_CONTAINER_ID, samzaEpochId,
             TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, timestamp, resetTimestamp);
 
     diagnosticsStreamMessage.addContainerMb(1024);
@@ -105,7 +105,7 @@ public class TestDiagnosticsStreamMessage {
   @Test
   public void basicTest() {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
-        getDiagnosticsStreamMessage(Optional.of(EXECUTION_ENV_ATTEMPT_ID));
+        getDiagnosticsStreamMessage(Optional.of(SAMZA_EPOCH_ID));
     Collection<DiagnosticsExceptionEvent> exceptionEventList = getExceptionList();
     diagnosticsStreamMessage.addDiagnosticsExceptionEvents(exceptionEventList);
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
@@ -126,7 +126,7 @@ public class TestDiagnosticsStreamMessage {
   @Test
   public void serdeTest() {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
-        getDiagnosticsStreamMessage(Optional.of(EXECUTION_ENV_ATTEMPT_ID));
+        getDiagnosticsStreamMessage(Optional.of(SAMZA_EPOCH_ID));
     Collection<DiagnosticsExceptionEvent> exceptionEventList = getExceptionList();
     diagnosticsStreamMessage.addDiagnosticsExceptionEvents(exceptionEventList);
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
@@ -134,7 +134,7 @@ public class TestDiagnosticsStreamMessage {
 
     MetricsSnapshot metricsSnapshot = diagnosticsStreamMessage.convertToMetricsSnapshot();
     MetricsHeader expectedHeader = new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXECUTION_ENV_CONTAINER_ID,
-        Optional.of(EXECUTION_ENV_ATTEMPT_ID), DiagnosticsManager.class.getName(), TASK_CLASS_VERSION, SAMZA_VERSION,
+        Optional.of(SAMZA_EPOCH_ID), DiagnosticsManager.class.getName(), TASK_CLASS_VERSION, SAMZA_VERSION,
         HOSTNAME, timestamp, resetTimestamp);
     Assert.assertEquals(metricsSnapshot.getHeader(), expectedHeader);
 
@@ -153,7 +153,7 @@ public class TestDiagnosticsStreamMessage {
   }
 
   @Test
-  public void testSerdeEmptyAttemptIdInHeader() {
+  public void testSerdeEmptySamzaEpochIdInHeader() {
     DiagnosticsStreamMessage diagnosticsStreamMessage = getDiagnosticsStreamMessage(Optional.empty());
     MetricsSnapshot metricsSnapshot = diagnosticsStreamMessage.convertToMetricsSnapshot();
     MetricsHeader expectedHeader =

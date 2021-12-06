@@ -70,10 +70,10 @@ public class ContainerLaunchUtil {
   public static void run(ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,  String containerId, JobModel jobModel) {
     Optional<String> executionEnvContainerId =
         Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID));
-    Optional<String> executionEnvAttemptId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID));
+    Optional<String> samzaEpochId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID));
     JobConfig jobConfig = new JobConfig(jobModel.getConfig());
     ContainerLaunchUtil.run(appDesc, jobConfig.getName().get(), jobConfig.getJobId(), containerId,
-        executionEnvContainerId, executionEnvAttemptId, jobModel);
+        executionEnvContainerId, samzaEpochId, jobModel);
   }
 
   /**
@@ -85,7 +85,7 @@ public class ContainerLaunchUtil {
       String jobId,
       String containerId,
       Optional<String> executionEnvContainerId,
-      Optional<String> executionEnvAttemptId,
+      Optional<String> samzaEpochId,
       JobModel jobModel) {
     Config config = jobModel.getConfig();
 
@@ -96,7 +96,7 @@ public class ContainerLaunchUtil {
     LoggingContextHolder.INSTANCE.setConfig(jobModel.getConfig());
 
     DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, executionEnvContainerId, config);
-    run(appDesc, jobName, jobId, containerId, executionEnvContainerId, executionEnvAttemptId, jobModel, config,
+    run(appDesc, jobName, jobId, containerId, executionEnvContainerId, samzaEpochId, jobModel, config,
         buildExternalContext(config));
 
     System.exit(0);
@@ -108,7 +108,7 @@ public class ContainerLaunchUtil {
       String jobId,
       String containerId,
       Optional<String> executionEnvContainerId,
-      Optional<String> executionEnvAttemptId,
+      Optional<String> samzaEpochId,
       JobModel jobModel,
       Config config,
       Optional<ExternalContext> externalContextOptional) {
@@ -130,7 +130,7 @@ public class ContainerLaunchUtil {
       // Creating diagnostics manager and reporter, and wiring it respectively
       Optional<DiagnosticsManager> diagnosticsManager =
           DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, executionEnvContainerId,
-              executionEnvAttemptId, config);
+              samzaEpochId, config);
       MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
 
       SamzaContainer container = SamzaContainer$.MODULE$.apply(

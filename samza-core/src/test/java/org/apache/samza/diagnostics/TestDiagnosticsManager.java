@@ -56,7 +56,7 @@ public class TestDiagnosticsManager {
   private static final String JOB_NAME = "Testjob";
   private static final String JOB_ID = "test job id";
   private static final String EXECUTION_ENV_CONTAINER_ID = "exec container id";
-  private static final String EXECUTION_ENV_ATTEMPT_ID = "exec attmept id";
+  private static final String SAMZA_EPOCH_ID = "epoch-123";
   private static final String TASK_CLASS_VERSION = "0.0.1";
   private static final String SAMZA_VERSION = "1.3.0";
   private static final String HOSTNAME = "sample host name";
@@ -98,7 +98,7 @@ public class TestDiagnosticsManager {
     this.diagnosticsManager =
         new DiagnosticsManager(JOB_NAME, JOB_ID, containerModels, CONTAINER_MB, CONTAINER_NUM_CORES,
             NUM_PERSISTENT_STORES, MAX_HEAP_SIZE, CONTAINER_THREAD_POOL_SIZE, "0", EXECUTION_ENV_CONTAINER_ID,
-            EXECUTION_ENV_ATTEMPT_ID, TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, diagnosticsSystemStream,
+            SAMZA_EPOCH_ID, TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, diagnosticsSystemStream,
             mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, AUTOSIZING_ENABLED, config, this.clock);
 
     exceptionEventList.forEach(
@@ -113,7 +113,7 @@ public class TestDiagnosticsManager {
     DiagnosticsManager diagnosticsManager =
         new DiagnosticsManager(JOB_NAME, JOB_ID, containerModels, CONTAINER_MB, CONTAINER_NUM_CORES,
             NUM_PERSISTENT_STORES, MAX_HEAP_SIZE, CONTAINER_THREAD_POOL_SIZE, "0", EXECUTION_ENV_CONTAINER_ID,
-            EXECUTION_ENV_ATTEMPT_ID, TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, diagnosticsSystemStream,
+            SAMZA_EPOCH_ID, TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, diagnosticsSystemStream,
             mockSystemProducer, Duration.ofSeconds(1), mockExecutorService, AUTOSIZING_ENABLED, config, this.clock);
 
     diagnosticsManager.start();
@@ -132,7 +132,7 @@ public class TestDiagnosticsManager {
     DiagnosticsManager diagnosticsManager =
         new DiagnosticsManager(JOB_NAME, JOB_ID, containerModels, CONTAINER_MB, CONTAINER_NUM_CORES,
             NUM_PERSISTENT_STORES, MAX_HEAP_SIZE, CONTAINER_THREAD_POOL_SIZE, "0", EXECUTION_ENV_CONTAINER_ID,
-            EXECUTION_ENV_ATTEMPT_ID, TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, diagnosticsSystemStream,
+            SAMZA_EPOCH_ID, TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, diagnosticsSystemStream,
             mockSystemProducer, terminationDuration, mockExecutorService, AUTOSIZING_ENABLED, config, this.clock);
 
     diagnosticsManager.stop();
@@ -152,7 +152,7 @@ public class TestDiagnosticsManager {
     DiagnosticsManager diagnosticsManager =
         new DiagnosticsManager(JOB_NAME, JOB_ID, containerModels, CONTAINER_MB, CONTAINER_NUM_CORES,
             NUM_PERSISTENT_STORES, MAX_HEAP_SIZE, CONTAINER_THREAD_POOL_SIZE, "0", EXECUTION_ENV_CONTAINER_ID,
-            EXECUTION_ENV_ATTEMPT_ID, TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, diagnosticsSystemStream,
+            SAMZA_EPOCH_ID, TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, diagnosticsSystemStream,
             mockSystemProducer, terminationDuration, mockExecutorService, AUTOSIZING_ENABLED, config, this.clock);
 
     diagnosticsManager.stop();
@@ -264,7 +264,7 @@ public class TestDiagnosticsManager {
         new MetricsSnapshotSerdeV2().fromBytes((byte[]) outgoingMessageEnvelope.getMessage());
 
     MetricsHeader expectedHeader = new MetricsHeader(JOB_NAME, JOB_ID, "samza-container-0", EXECUTION_ENV_CONTAINER_ID,
-        Optional.of(EXECUTION_ENV_ATTEMPT_ID), DiagnosticsManager.class.getName(), TASK_CLASS_VERSION, SAMZA_VERSION,
+        Optional.of(SAMZA_EPOCH_ID), DiagnosticsManager.class.getName(), TASK_CLASS_VERSION, SAMZA_VERSION,
         HOSTNAME, sendTime, RESET_TIME);
     Assert.assertEquals(expectedHeader, metricsSnapshot.getHeader());
   }

@@ -40,7 +40,7 @@ public class TestMetricsSnapshotSerde {
   }
 
   @Test
-  public void testSerializeThenDeserializeEmptyAttemptIdInHeader() {
+  public void testSerializeThenDeserializeEmptySamzaEpochIdInHeader() {
     MetricsSnapshot snapshot = metricsSnapshot(true);
     MetricsSnapshotSerde serde = new MetricsSnapshotSerde();
     byte[] bytes = serde.toBytes(snapshot);
@@ -66,19 +66,19 @@ public class TestMetricsSnapshotSerde {
    * Helps for verifying compatibility when schemas evolve.
    */
   @Test
-  public void testDeserializeRawEmptyAttemptIdInHeader() {
+  public void testDeserializeRawEmptySamzaEpochIdInHeader() {
     MetricsSnapshot snapshot = metricsSnapshot(false);
     MetricsSnapshotSerde serde = new MetricsSnapshotSerde();
     assertEquals(snapshot, serde.fromBytes(expectedSeralizedSnapshot(false, false).getBytes(StandardCharsets.UTF_8)));
     assertEquals(snapshot, serde.fromBytes(expectedSeralizedSnapshot(false, true).getBytes(StandardCharsets.UTF_8)));
   }
 
-  private static String expectedSeralizedSnapshot(boolean includeExecutionEnvAttemptId,
+  private static String expectedSeralizedSnapshot(boolean includeSamzaEpochId,
       boolean includeExtraHeaderField) {
     String serializedSnapshot =
         "{\"header\":{\"job-id\":\"testjobid\",\"exec-env-container-id\":\"test exec env container id\",";
-    if (includeExecutionEnvAttemptId) {
-      serializedSnapshot += "\"exec-env-attempt-id\":\"test exec env attempt id\",";
+    if (includeSamzaEpochId) {
+      serializedSnapshot += "\"samza-epoch-id\":\"epoch-123\",";
     }
     if (includeExtraHeaderField) {
       serializedSnapshot += "\"extra-header-field\":\"extra header value\",";
@@ -90,11 +90,11 @@ public class TestMetricsSnapshotSerde {
     return serializedSnapshot;
   }
 
-  private static MetricsSnapshot metricsSnapshot(boolean includeExecutionEnvAttemptId) {
+  private static MetricsSnapshot metricsSnapshot(boolean includeSamzaEpochId) {
     MetricsHeader metricsHeader;
-    if (includeExecutionEnvAttemptId) {
+    if (includeSamzaEpochId) {
       metricsHeader = new MetricsHeader("test-jobName", "testjobid", "samza-container-0", "test exec env container id",
-          Optional.of("test exec env attempt id"), "test source", "version", "samzaversion", "host", 1L, 2L);
+          Optional.of("epoch-123"), "test source", "version", "samzaversion", "host", 1L, 2L);
     } else {
       metricsHeader = new MetricsHeader("test-jobName", "testjobid", "samza-container-0", "test exec env container id",
           "test source", "version", "samzaversion", "host", 1L, 2L);

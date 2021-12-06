@@ -90,10 +90,10 @@ public class DiagnosticsUtil {
    * Create a {@link DiagnosticsManager} for the given jobName, jobId, containerId, and execEnvContainerId, if
    * diagnostics is enabled.
    * @param executionEnvContainerId ID assigned to the container by the cluster manager (e.g. YARN)
-   * @param executionEnvAttemptId ID assigned to the job deployment attempt by the cluster manager
+   * @param samzaEpochId ID assigned to the job deployment attempt by the cluster manager
    */
   public static Optional<DiagnosticsManager> buildDiagnosticsManager(String jobName, String jobId, JobModel jobModel,
-      String containerId, Optional<String> executionEnvContainerId, Optional<String> executionEnvAttemptId, Config config) {
+      String containerId, Optional<String> executionEnvContainerId, Optional<String> samzaEpochId, Config config) {
 
     JobConfig jobConfig = new JobConfig(config);
     MetricsConfig metricsConfig = new MetricsConfig(config);
@@ -133,7 +133,7 @@ public class DiagnosticsUtil {
       DiagnosticsManager diagnosticsManager =
           new DiagnosticsManager(jobName, jobId, jobModel.getContainers(), containerMemoryMb, containerNumCores,
               new StorageConfig(config).getNumPersistentStores(), maxHeapSizeBytes, containerThreadPoolSize,
-              containerId, executionEnvContainerId.orElse(""), executionEnvAttemptId.orElse(""), taskClassVersion,
+              containerId, executionEnvContainerId.orElse(""), samzaEpochId.orElse(""), taskClassVersion,
               samzaVersion, hostName, diagnosticsSystemStream, systemProducer,
               Duration.ofMillis(new TaskConfig(config).getShutdownMs()), jobConfig.getAutosizingEnabled(), config);
 
