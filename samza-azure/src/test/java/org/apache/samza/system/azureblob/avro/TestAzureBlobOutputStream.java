@@ -21,6 +21,7 @@ package org.apache.samza.system.azureblob.avro;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.concurrent.CountDownLatch;
 import org.apache.samza.AzureException;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
@@ -46,6 +47,8 @@ import org.mockito.ArgumentCaptor;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 import static org.mockito.Mockito.any;
@@ -85,6 +88,9 @@ public class TestAzureBlobOutputStream {
   private static final String BLOB_RECORD_NUMBER_METADATA = "numberOfRecords";
   private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory = mock(BlobMetadataGeneratorFactory.class);
   private final Config blobMetadataGeneratorConfig = mock(Config.class);
+  private final BlobMetadataGenerator mockBlobMetadataGenerator = mock(BlobMetadataGenerator.class);
+
+  private static final Logger LOG = LoggerFactory.getLogger(TestAzureBlobOutputStream.class);
 
   @Before
   public void setup() throws Exception {
@@ -103,7 +109,6 @@ public class TestAzureBlobOutputStream {
     mockCompression = mock(Compression.class);
     doReturn(COMPRESSED_BYTES).when(mockCompression).compress(BYTES);
 
-    BlobMetadataGenerator mockBlobMetadataGenerator = mock(BlobMetadataGenerator.class);
     doAnswer(invocation -> {
       BlobMetadataContext blobMetadataContext = invocation.getArgumentAt(0, BlobMetadataContext.class);
       String streamName = blobMetadataContext.getStreamName();
@@ -414,6 +419,68 @@ public class TestAzureBlobOutputStream {
     Assert.assertEquals(BYTES.length, azureBlobOutputStream.getSize());
     azureBlobOutputStream.write(BYTES, 0, BYTES.length - 10);
     Assert.assertEquals(BYTES.length + BYTES.length - 10, azureBlobOutputStream.getSize());
+  }
+
+  /**
+   * Test to ensure that flush timeout is respected even if the block upload to azure is stuck/ taking longer than flush timeout
+   * a countdown latch is used to mimic the upload to azure stuck
+   * if flush timeout is respected then an exception is thrown when the flushtimeout_ms duration expires
+   * else if timeout is not respected (aka bug is not fixed) then no exception is thrown and test hangs
+   * In this test, the flush timeout is chosen to be 10 milliseconds, at the end of which, an AzureException of upload failed is thrown.
+   * @throws Exception
+   * @throws InterruptedException
+   */
+  @Test(expected = AzureException.class)
+  public void  testRespectFlushTimeout() throws Exception, InterruptedException {
+    // get the threadpool to be the exactly the same as that passed down to AzureBlobOutputStream from AzureBlobSystemProducer
+    threadPool = new ThreadPoolExecutor(1, 1, 60,
+        TimeUnit.SECONDS, new LinkedBlockingDeque<Runnable>(1), new ThreadPoolExecutor.CallerRunsPolicy());
+
+    // set a very small flushtimeout of 10ms to avoid test taking too long to complete
+    azureBlobOutputStream = spy(new AzureBlobOutputStream(mockBlobAsyncClient, threadPool, mockMetrics,
+        blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, FAKE_STREAM,
+        10, THRESHOLD, mockByteArrayOutputStream, mockCompression));
+
+    doNothing().when(azureBlobOutputStream).clearAndMarkClosed();
+    doReturn(mockBlobMetadataGenerator).when(azureBlobOutputStream).getBlobMetadataGenerator();
+    when(mockCompression.compress(BYTES)).thenReturn(COMPRESSED_BYTES, COMPRESSED_BYTES, COMPRESSED_BYTES, COMPRESSED_BYTES);
+
+    // create a latch to mimic uploads getting stuck
+    // and hence unable to honor flush timeout without the fix in stageblock
+    // fix in stageBlock = subscribeOn(Schedulers.boundedElastic()).block(flushtimeout)
+    CountDownLatch latch = new CountDownLatch(1);
+    doAnswer(invocation -> {
+
+      String blockid = invocation.getArgumentAt(0, String.class);
+      return Mono.just(1).map(integer -> {
+        try {
+          LOG.info("For block id = " + blockid + " start waiting on the countdown latch ");
+          // start indefinite stuck -> mimic upload stuck
+          latch.await();
+          // below log will never be reached
+          LOG.info("For block id = " + blockid + " done waiting on the countdown latch ");
+        } catch (Exception e) {
+          LOG.info("For block id = " + blockid + " an exception was caught " + e);
+        }
+        return "One";
+      });
+    }).when(azureBlobOutputStream).invokeBlobClientStageBlock(anyString(), anyObject(), anyInt());
+
+    doAnswer(invocation -> {
+      LOG.info("commit block ");
+      return null;
+    }).when(azureBlobOutputStream).commitBlob(anyObject(), anyMap());
+
+    azureBlobOutputStream.write(BYTES, 0, THRESHOLD / 2);
+    azureBlobOutputStream.write(BYTES, THRESHOLD / 2, THRESHOLD / 2);
+    azureBlobOutputStream.write(BYTES, 0, THRESHOLD / 2);
+    azureBlobOutputStream.write(BYTES, THRESHOLD / 2, THRESHOLD / 2);
+    azureBlobOutputStream.write(BYTES, 0, THRESHOLD / 2);
+    azureBlobOutputStream.write(BYTES, THRESHOLD / 2, THRESHOLD / 2);
+    // close will wait for all pending uploads to finish
+    // since the uploads are "stuck" (waiting for latch countdown), flushtimeout will get triggered
+    // and throw an exception saying upload failed.
+    azureBlobOutputStream.close();
   }
 
   private String blockIdEncoded(int blockNum) {

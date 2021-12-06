@@ -16,7 +16,7 @@
   <appender name="console" class="org.apache.log4j.ConsoleAppender">
     <layout class="org.apache.log4j.PatternLayout">
       <param name="ConversionPattern"
-             value="%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n" />
+             value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5p %c{1}:%L [%t] - %m%n" />
     </layout>
   </appender>
 

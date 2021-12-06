@@ -21,6 +21,7 @@ package org.apache.samza.system.azureblob.avro;
 
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
 import com.google.common.annotations.VisibleForTesting;
+import java.time.Duration;
 import org.apache.samza.AzureException;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
@@ -44,6 +45,9 @@ import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
 
 /**
  * This class extends {@link java.io.OutputStream} and uses {@link java.io.ByteArrayOutputStream}
@@ -273,7 +277,13 @@ public class AzureBlobOutputStream extends OutputStream {
   // SAMZA-2476 stubbing BlockBlobAsyncClient.stageBlock was causing flaky tests.
   @VisibleForTesting
   void stageBlock(String blockIdEncoded, ByteBuffer outputStream, int blockSize) throws InterruptedException {
-    blobAsyncClient.stageBlock(blockIdEncoded, Flux.just(outputStream), blockSize).block();
+    invokeBlobClientStageBlock(blockIdEncoded, outputStream, blockSize).subscribeOn(Schedulers.boundedElastic()).block(
+        Duration.ofMillis(flushTimeoutMs));
+  }
+
+  @VisibleForTesting
+  Mono<Void> invokeBlobClientStageBlock(String blockIdEncoded, ByteBuffer outputStream, int blockSize) {
+    return blobAsyncClient.stageBlock(blockIdEncoded, Flux.just(outputStream), blockSize);
   }
 
   // blockList cleared makes it hard to test close
