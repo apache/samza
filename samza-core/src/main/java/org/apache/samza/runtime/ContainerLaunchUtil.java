@@ -216,21 +216,27 @@ public class ContainerLaunchUtil {
    */
   private static ContainerHeartbeatMonitor createContainerHeartbeatMonitor(SamzaContainer container,
       MetadataStore coordinatorStreamStore, Config config) {
-    String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
-    String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID);
-    if (executionEnvContainerId != null) {
-      log.info("Got execution environment container id: {}", executionEnvContainerId);
-      return new ContainerHeartbeatMonitor(() -> {
-        try {
-          container.shutdown();
-          containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
-        } catch (Exception e) {
-          log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
-          System.exit(1);
-        }
-      }, coordinatorUrl, executionEnvContainerId, coordinatorStreamStore, config);
+    if (new JobConfig(config).getContainerHeartbeatMonitorEnabled()) {
+      String coordinatorUrl = System.getenv(ShellCommandConfig.ENV_COORDINATOR_URL);
+      String executionEnvContainerId = System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID);
+      if (executionEnvContainerId != null) {
+        log.info("Got execution environment container id for container heartbeat monitor: {}", executionEnvContainerId);
+        return new ContainerHeartbeatMonitor(() -> {
+          try {
+            container.shutdown();
+            containerRunnerException = new SamzaException("Container shutdown due to expired heartbeat");
+          } catch (Exception e) {
+            log.error("Heartbeat monitor failed to shutdown the container gracefully. Exiting process.", e);
+            System.exit(1);
+          }
+        }, coordinatorUrl, executionEnvContainerId, coordinatorStreamStore, config);
+      } else {
+        log.warn("Container heartbeat monitor is enabled, but execution environment container id is not set. "
+            + "Container heartbeat monitor will not be created");
+        return null;
+      }
     } else {
-      log.warn("Execution environment container id not set. Container heartbeat monitor will not be created");
+      log.info("Container heartbeat monitor is disabled");
       return null;
     }
   }

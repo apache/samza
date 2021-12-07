@@ -590,4 +590,13 @@ public class TestJobConfig {
     Assert.assertEquals(900, clusterManagerConfig.getContainerMemoryMb());
     Assert.assertEquals(2, clusterManagerConfig.getNumCores());
   }
+
+  @Test
+  public void testGetContainerHeartbeatMonitorEnabled() {
+    assertTrue(new JobConfig(new MapConfig()).getContainerHeartbeatMonitorEnabled());
+    assertTrue(new JobConfig(new MapConfig(
+        ImmutableMap.of(JobConfig.CONTAINER_HEARTBEAT_MONITOR_ENABLED, "true"))).getContainerHeartbeatMonitorEnabled());
+    assertFalse(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.CONTAINER_HEARTBEAT_MONITOR_ENABLED,
+        "false"))).getContainerHeartbeatMonitorEnabled());
+  }
 }
