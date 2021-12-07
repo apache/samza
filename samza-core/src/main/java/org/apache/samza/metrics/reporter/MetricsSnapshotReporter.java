@@ -33,6 +33,7 @@ import java.util.regex.Pattern;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ShellCommandConfig;
+import org.apache.samza.environment.EnvironmentVariables;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistryWithSource;
@@ -75,7 +76,8 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
   private final Optional<Pattern> blacklist;
   private final Clock clock;
 
-  private final String execEnvironmentContainerId;
+  private final String executionEnvContainerId;
+  private final String samzaEpochId;
   private final ScheduledExecutorService executor;
   private final long resetTime;
   private final List<MetricsRegistryWithSource> registries = new ArrayList<>();
@@ -97,8 +99,9 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
     this.blacklist = blacklist;
     this.clock = clock;
 
-    this.execEnvironmentContainerId =
+    this.executionEnvContainerId =
         Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID)).orElse("");
+    this.samzaEpochId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID)).orElse("");
     this.executor = Executors.newSingleThreadScheduledExecutor(
         new ThreadFactoryBuilder().setNameFormat("Samza MetricsSnapshotReporter Thread-%d").setDaemon(true).build());
     this.resetTime = this.clock.currentTimeMillis();
@@ -193,8 +196,9 @@ public class MetricsSnapshotReporter implements MetricsReporter, Runnable {
       // publish to Kafka only if the metricsMsg carries any metrics
       if (!metricsMsg.isEmpty()) {
         MetricsHeader header =
-            new MetricsHeader(this.jobName, this.jobId, this.containerName, this.execEnvironmentContainerId, source,
-                this.version, this.samzaVersion, this.host, this.clock.currentTimeMillis(), this.resetTime);
+            new MetricsHeader(this.jobName, this.jobId, this.containerName, this.executionEnvContainerId,
+                Optional.of(this.samzaEpochId), source, this.version, this.samzaVersion, this.host,
+                this.clock.currentTimeMillis(), this.resetTime);
         Metrics metrics = new Metrics(metricsMsg);
         LOG.debug("Flushing metrics for {} to {} with header and map: header={}, map={}.", source, out,
             header.getAsMap(), metrics.getAsMap());

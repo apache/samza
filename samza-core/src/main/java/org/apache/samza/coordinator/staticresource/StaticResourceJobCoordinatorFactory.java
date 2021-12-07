@@ -18,9 +18,11 @@
  */
 package org.apache.samza.coordinator.staticresource;
 
+import java.util.Optional;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
+import org.apache.samza.config.ShellCommandConfig;
 import org.apache.samza.container.LocalityManager;
 import org.apache.samza.container.grouper.task.TaskAssignmentManager;
 import org.apache.samza.container.grouper.task.TaskPartitionAssignmentManager;
@@ -44,6 +46,7 @@ import org.apache.samza.coordinator.stream.messages.SetJobCoordinatorMetadataMes
 import org.apache.samza.coordinator.stream.messages.SetTaskContainerMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskModeMapping;
 import org.apache.samza.coordinator.stream.messages.SetTaskPartitionMapping;
+import org.apache.samza.environment.EnvironmentVariables;
 import org.apache.samza.job.metadata.JobCoordinatorMetadataManager;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -73,8 +76,8 @@ public class StaticResourceJobCoordinatorFactory implements JobCoordinatorFactor
     JobRestartSignal jobRestartSignal =
         ReflectionUtil.getObj(new JobCoordinatorConfig(config).getJobRestartSignalFactory(),
             JobRestartSignalFactory.class).build(new JobRestartSignalFactoryContext(config));
-    StartpointManager startpointManager =
-        jobConfig.getStartpointEnabled() ? new StartpointManager(metadataStore) : null;
+    Optional<StartpointManager> startpointManager =
+        jobConfig.getStartpointEnabled() ? Optional.of(new StartpointManager(metadataStore)) : Optional.empty();
     SystemAdmins systemAdmins = new SystemAdmins(config, StaticResourceJobCoordinator.class.getSimpleName());
     StreamMetadataCache streamMetadataCache = new StreamMetadataCache(systemAdmins, 0, SystemClock.instance());
     JobModelHelper jobModelHelper = buildJobModelHelper(metadataStore, streamMetadataCache);
@@ -82,10 +85,13 @@ public class StaticResourceJobCoordinatorFactory implements JobCoordinatorFactor
         new StreamPartitionCountMonitorFactory(streamMetadataCache, metricsRegistry);
     StreamRegexMonitorFactory streamRegexMonitorFactory =
         new StreamRegexMonitorFactory(streamMetadataCache, metricsRegistry);
+    Optional<String> executionEnvContainerId =
+        Optional.ofNullable(System.getenv(ShellCommandConfig.ENV_EXECUTION_ENV_CONTAINER_ID));
+    Optional<String> samzaEpochId = Optional.ofNullable(System.getenv(EnvironmentVariables.SAMZA_EPOCH_ID));
     return new StaticResourceJobCoordinator(processorId, jobModelHelper, jobModelServingContext,
         coordinatorCommunication, jobCoordinatorMetadataManager, streamPartitionCountMonitorFactory,
         streamRegexMonitorFactory, startpointManager, changelogStreamManager, jobRestartSignal, metricsRegistry,
-        systemAdmins, config);
+        systemAdmins, executionEnvContainerId, samzaEpochId, config);
   }
 
   private static JobModelHelper buildJobModelHelper(MetadataStore metadataStore,

@@ -21,61 +21,88 @@ package org.apache.samza.serializers;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.samza.metrics.reporter.Metrics;
 import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.junit.Test;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 
 public class TestMetricsSnapshotSerde {
-  private static final String SERIALIZED =
-      "{\"header\":{\"job-id\":\"testjobid\",\"exec-env-container-id\":\"test exec env container id\",\"samza-version\":\"samzaversion\",\"job-name\":\"test-jobName\",\"host\":\"host\",\"reset-time\":2,\"container-name\":\"samza-container-0\",\"source\":\"test source\",\"time\":1,\"version\":\"version\"},\"metrics\":{\"test\":{\"test2\":\"foo\"}}}";
+  @Test
+  public void testSerializeThenDeserialize() {
+    MetricsSnapshot snapshot = metricsSnapshot(true);
+    MetricsSnapshotSerde serde = new MetricsSnapshotSerde();
+    byte[] bytes = serde.toBytes(snapshot);
+    assertEquals(snapshot, serde.fromBytes(bytes));
+  }
 
   @Test
-  public void testMetricsSerdeSerializeAndDeserialize() {
-    Map<String, Object> metricsMap = new HashMap<>();
-    metricsMap.put("test2", "foo");
-    Map<String, Map<String, Object>> metricsGroupMap = new HashMap<>();
-    metricsGroupMap.put("test", metricsMap);
-    MetricsSnapshot snapshot = new MetricsSnapshot(metricsHeader(), Metrics.fromMap(metricsGroupMap));
+  public void testSerializeThenDeserializeEmptySamzaEpochIdInHeader() {
+    MetricsSnapshot snapshot = metricsSnapshot(true);
     MetricsSnapshotSerde serde = new MetricsSnapshotSerde();
     byte[] bytes = serde.toBytes(snapshot);
     assertEquals(snapshot, serde.fromBytes(bytes));
   }
 
   /**
-   * Helps for testing compatibility against older versions of code.
+   * Helps for verifying compatibility when schemas evolve.
+   *
+   * Maps have non-deterministic ordering when serialized, so it is difficult to check exact serialized results. It
+   * isn't really necessary to check the serialized results anyways. We just need to make sure serialized data can be
+   * read by old and new systems.
    */
   @Test
-  public void testMetricsSerdeSerialize() {
-    Map<String, Object> metricsMap = new HashMap<>();
-    metricsMap.put("test2", "foo");
-    Map<String, Map<String, Object>> metricsGroupMap = new HashMap<>();
-    metricsGroupMap.put("test", metricsMap);
-    MetricsSnapshot snapshot = new MetricsSnapshot(metricsHeader(), Metrics.fromMap(metricsGroupMap));
+  public void testDeserializeRaw() {
+    MetricsSnapshot snapshot = metricsSnapshot(true);
     MetricsSnapshotSerde serde = new MetricsSnapshotSerde();
-    assertArrayEquals(SERIALIZED.getBytes(StandardCharsets.UTF_8), serde.toBytes(snapshot));
+    assertEquals(snapshot, serde.fromBytes(expectedSeralizedSnapshot(true, false).getBytes(StandardCharsets.UTF_8)));
+    assertEquals(snapshot, serde.fromBytes(expectedSeralizedSnapshot(true, true).getBytes(StandardCharsets.UTF_8)));
   }
 
   /**
-   * Helps for testing compatibility against older versions of code.
+   * Helps for verifying compatibility when schemas evolve.
    */
   @Test
-  public void testMetricsSerdeDeserialize() {
+  public void testDeserializeRawEmptySamzaEpochIdInHeader() {
+    MetricsSnapshot snapshot = metricsSnapshot(false);
+    MetricsSnapshotSerde serde = new MetricsSnapshotSerde();
+    assertEquals(snapshot, serde.fromBytes(expectedSeralizedSnapshot(false, false).getBytes(StandardCharsets.UTF_8)));
+    assertEquals(snapshot, serde.fromBytes(expectedSeralizedSnapshot(false, true).getBytes(StandardCharsets.UTF_8)));
+  }
+
+  private static String expectedSeralizedSnapshot(boolean includeSamzaEpochId,
+      boolean includeExtraHeaderField) {
+    String serializedSnapshot =
+        "{\"header\":{\"job-id\":\"testjobid\",\"exec-env-container-id\":\"test exec env container id\",";
+    if (includeSamzaEpochId) {
+      serializedSnapshot += "\"samza-epoch-id\":\"epoch-123\",";
+    }
+    if (includeExtraHeaderField) {
+      serializedSnapshot += "\"extra-header-field\":\"extra header value\",";
+    }
+    serializedSnapshot +=
+        "\"samza-version\":\"samzaversion\",\"job-name\":\"test-jobName\",\"host\":\"host\",\"reset-time\":2,"
+            + "\"container-name\":\"samza-container-0\",\"source\":\"test source\",\"time\":1,\"version\":\"version\"},"
+            + "\"metrics\":{\"test\":{\"test2\":\"foo\"}}}";
+    return serializedSnapshot;
+  }
+
+  private static MetricsSnapshot metricsSnapshot(boolean includeSamzaEpochId) {
+    MetricsHeader metricsHeader;
+    if (includeSamzaEpochId) {
+      metricsHeader = new MetricsHeader("test-jobName", "testjobid", "samza-container-0", "test exec env container id",
+          Optional.of("epoch-123"), "test source", "version", "samzaversion", "host", 1L, 2L);
+    } else {
+      metricsHeader = new MetricsHeader("test-jobName", "testjobid", "samza-container-0", "test exec env container id",
+          "test source", "version", "samzaversion", "host", 1L, 2L);
+    }
     Map<String, Object> metricsMap = new HashMap<>();
     metricsMap.put("test2", "foo");
     Map<String, Map<String, Object>> metricsGroupMap = new HashMap<>();
     metricsGroupMap.put("test", metricsMap);
-    MetricsSnapshot snapshot = new MetricsSnapshot(metricsHeader(), Metrics.fromMap(metricsGroupMap));
-    MetricsSnapshotSerde serde = new MetricsSnapshotSerde();
-    assertEquals(snapshot, serde.fromBytes(SERIALIZED.getBytes(StandardCharsets.UTF_8)));
-  }
-
-  private static MetricsHeader metricsHeader() {
-    return new MetricsHeader("test-jobName", "testjobid", "samza-container-0", "test exec env container id",
-        "test source", "version", "samzaversion", "host", 1L, 2L);
+    return new MetricsSnapshot(metricsHeader, Metrics.fromMap(metricsGroupMap));
   }
 }

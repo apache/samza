@@ -75,6 +75,6 @@ public class MetricsSnapshot {
 
   @Override
   public String toString() {
-    return "MetricsSnapshotJava{" + "metricsHeader=" + metricsHeader + ", metrics=" + metrics + '}';
+    return "MetricsSnapshot{" + "metricsHeader=" + metricsHeader + ", metrics=" + metrics + '}';
   }
 }

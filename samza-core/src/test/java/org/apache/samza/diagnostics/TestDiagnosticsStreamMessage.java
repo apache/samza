@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.config.Config;
@@ -32,6 +33,7 @@ import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metrics.reporter.MetricsHeader;
 import org.apache.samza.metrics.reporter.MetricsSnapshot;
 import org.apache.samza.system.SystemStreamPartition;
 import org.junit.Assert;
@@ -39,22 +41,22 @@ import org.junit.Test;
 
 
 public class TestDiagnosticsStreamMessage {
-
-  private final String jobName = "Testjob";
-  private final String jobId = "test job id";
-  private final String containerName = "sample container name";
-  private final String executionEnvContainerId = "exec container id";
-  private final String taskClassVersion = "0.0.1";
-  private final String samzaVersion = "1.3.0";
-  private final String hostname = "sample host name";
+  private static final String JOB_NAME = "Testjob";
+  private static final String JOB_ID = "test job id";
+  private static final String CONTAINER_NAME = "sample container name";
+  private static final String EXECUTION_ENV_CONTAINER_ID = "exec container id";
+  private static final String SAMZA_EPOCH_ID = "epoch-123";
+  private static final String TASK_CLASS_VERSION = "0.0.1";
+  private static final String SAMZA_VERSION = "1.3.0";
+  private static final String HOSTNAME = "sample host name";
   private final long timestamp = System.currentTimeMillis();
   private final long resetTimestamp = System.currentTimeMillis();
-  private final Config config = new MapConfig(ImmutableMap.of("job.name", jobName, "job.id", jobId));
+  private final Config config = new MapConfig(ImmutableMap.of("job.name", JOB_NAME, "job.id", JOB_ID));
 
-  private DiagnosticsStreamMessage getDiagnosticsStreamMessage() {
+  private DiagnosticsStreamMessage getDiagnosticsStreamMessage(Optional<String> samzaEpochId) {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
-        new DiagnosticsStreamMessage(jobName, jobId, containerName, executionEnvContainerId, taskClassVersion,
-            samzaVersion, hostname, timestamp, resetTimestamp);
+        new DiagnosticsStreamMessage(JOB_NAME, JOB_ID, CONTAINER_NAME, EXECUTION_ENV_CONTAINER_ID, samzaEpochId,
+            TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, timestamp, resetTimestamp);
 
     diagnosticsStreamMessage.addContainerMb(1024);
     diagnosticsStreamMessage.addContainerNumCores(2);
@@ -66,10 +68,10 @@ public class TestDiagnosticsStreamMessage {
   }
 
   public static Collection<DiagnosticsExceptionEvent> getExceptionList() {
-    BoundedList boundedList = new BoundedList<DiagnosticsExceptionEvent>("exceptions");
+    BoundedList<DiagnosticsExceptionEvent> boundedList = new BoundedList<>("exceptions");
     DiagnosticsExceptionEvent diagnosticsExceptionEvent =
         new DiagnosticsExceptionEvent(1, new Exception("this is a samza exception", new Exception("cause")),
-            new HashMap());
+            new HashMap<>());
 
     boundedList.add(diagnosticsExceptionEvent);
     return boundedList.getValues();
@@ -77,7 +79,7 @@ public class TestDiagnosticsStreamMessage {
 
   public List<ProcessorStopEvent> getProcessorStopEventList() {
     List<ProcessorStopEvent> stopEventList = new ArrayList<>();
-    stopEventList.add(new ProcessorStopEvent("0", executionEnvContainerId, hostname, 101));
+    stopEventList.add(new ProcessorStopEvent("0", EXECUTION_ENV_CONTAINER_ID, HOSTNAME, 101));
     return stopEventList;
   }
 
@@ -102,8 +104,8 @@ public class TestDiagnosticsStreamMessage {
    */
   @Test
   public void basicTest() {
-
-    DiagnosticsStreamMessage diagnosticsStreamMessage = getDiagnosticsStreamMessage();
+    DiagnosticsStreamMessage diagnosticsStreamMessage =
+        getDiagnosticsStreamMessage(Optional.of(SAMZA_EPOCH_ID));
     Collection<DiagnosticsExceptionEvent> exceptionEventList = getExceptionList();
     diagnosticsStreamMessage.addDiagnosticsExceptionEvents(exceptionEventList);
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
@@ -123,20 +125,18 @@ public class TestDiagnosticsStreamMessage {
    */
   @Test
   public void serdeTest() {
-    DiagnosticsStreamMessage diagnosticsStreamMessage = getDiagnosticsStreamMessage();
+    DiagnosticsStreamMessage diagnosticsStreamMessage =
+        getDiagnosticsStreamMessage(Optional.of(SAMZA_EPOCH_ID));
     Collection<DiagnosticsExceptionEvent> exceptionEventList = getExceptionList();
     diagnosticsStreamMessage.addDiagnosticsExceptionEvents(exceptionEventList);
     diagnosticsStreamMessage.addProcessorStopEvents(getProcessorStopEventList());
     diagnosticsStreamMessage.addContainerModels(getSampleContainerModels());
 
     MetricsSnapshot metricsSnapshot = diagnosticsStreamMessage.convertToMetricsSnapshot();
-    Assert.assertEquals(metricsSnapshot.getHeader().getJobName(), jobName);
-    Assert.assertEquals(metricsSnapshot.getHeader().getJobId(), jobId);
-    Assert.assertEquals(metricsSnapshot.getHeader().getExecEnvironmentContainerId(), executionEnvContainerId);
-    Assert.assertEquals(metricsSnapshot.getHeader().getVersion(), taskClassVersion);
-    Assert.assertEquals(metricsSnapshot.getHeader().getSamzaVersion(), samzaVersion);
-    Assert.assertEquals(metricsSnapshot.getHeader().getHost(), hostname);
-    Assert.assertEquals(metricsSnapshot.getHeader().getSource(), DiagnosticsManager.class.getName());
+    MetricsHeader expectedHeader = new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXECUTION_ENV_CONTAINER_ID,
+        Optional.of(SAMZA_EPOCH_ID), DiagnosticsManager.class.getName(), TASK_CLASS_VERSION, SAMZA_VERSION,
+        HOSTNAME, timestamp, resetTimestamp);
+    Assert.assertEquals(metricsSnapshot.getHeader(), expectedHeader);
 
     Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
     Assert.assertTrue(metricsMap.get("org.apache.samza.container.SamzaContainerMetrics").containsKey("exceptions"));
@@ -149,7 +149,20 @@ public class TestDiagnosticsStreamMessage {
 
     DiagnosticsStreamMessage convertedDiagnosticsStreamMessage =
         DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
+    Assert.assertEquals(convertedDiagnosticsStreamMessage, diagnosticsStreamMessage);
+  }
 
-    Assert.assertTrue(convertedDiagnosticsStreamMessage.equals(diagnosticsStreamMessage));
+  @Test
+  public void testSerdeEmptySamzaEpochIdInHeader() {
+    DiagnosticsStreamMessage diagnosticsStreamMessage = getDiagnosticsStreamMessage(Optional.empty());
+    MetricsSnapshot metricsSnapshot = diagnosticsStreamMessage.convertToMetricsSnapshot();
+    MetricsHeader expectedHeader =
+        new MetricsHeader(JOB_NAME, JOB_ID, CONTAINER_NAME, EXECUTION_ENV_CONTAINER_ID, Optional.empty(),
+            DiagnosticsManager.class.getName(), TASK_CLASS_VERSION, SAMZA_VERSION, HOSTNAME, timestamp, resetTimestamp);
+    Assert.assertEquals(metricsSnapshot.getHeader(), expectedHeader);
+
+    DiagnosticsStreamMessage convertedDiagnosticsStreamMessage =
+        DiagnosticsStreamMessage.convertToDiagnosticsStreamMessage(metricsSnapshot);
+    Assert.assertEquals(convertedDiagnosticsStreamMessage, diagnosticsStreamMessage);
   }
 }

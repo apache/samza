@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -35,7 +36,9 @@ import org.apache.samza.serializers.MetricsSnapshotSerdeV2;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemStream;
+import org.apache.samza.util.Clock;
 import org.apache.samza.util.ReflectionUtil;
+import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +59,7 @@ public class DiagnosticsManager {
   private final String jobId;
   private final String containerId;
   private final String executionEnvContainerId;
+  private final String samzaEpochId;
   private final String taskClassVersion;
   private final String samzaVersion;
   private final String hostname;
@@ -70,6 +74,7 @@ public class DiagnosticsManager {
   private final Map<String, ContainerModel> containerModels;
   private final boolean autosizingEnabled;
   private final Config config;
+  private final Clock clock;
   private boolean jobParamsEmitted = false;
 
   private final SystemProducer systemProducer; // SystemProducer for writing diagnostics data
@@ -90,6 +95,7 @@ public class DiagnosticsManager {
       int containerThreadPoolSize,
       String containerId,
       String executionEnvContainerId,
+      String samzaEpochId,
       String taskClassVersion,
       String samzaVersion,
       String hostname,
@@ -99,10 +105,12 @@ public class DiagnosticsManager {
       boolean autosizingEnabled,
       Config config) {
 
-    this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numPersistentStores, maxHeapSizeBytes, containerThreadPoolSize,
-        containerId, executionEnvContainerId, taskClassVersion, samzaVersion, hostname, diagnosticSystemStream, systemProducer,
-        terminationDuration, Executors.newSingleThreadScheduledExecutor(
-            new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()), autosizingEnabled, config);
+    this(jobName, jobId, containerModels, containerMemoryMb, containerNumCores, numPersistentStores, maxHeapSizeBytes,
+        containerThreadPoolSize, containerId, executionEnvContainerId, samzaEpochId, taskClassVersion,
+        samzaVersion, hostname, diagnosticSystemStream, systemProducer, terminationDuration,
+        Executors.newSingleThreadScheduledExecutor(
+            new ThreadFactoryBuilder().setNameFormat(PUBLISH_THREAD_NAME).setDaemon(true).build()), autosizingEnabled,
+        config, SystemClock.instance());
   }
 
   @VisibleForTesting
@@ -116,6 +124,7 @@ public class DiagnosticsManager {
       int containerThreadPoolSize,
       String containerId,
       String executionEnvContainerId,
+      String samzaEpochId,
       String taskClassVersion,
       String samzaVersion,
       String hostname,
@@ -124,7 +133,8 @@ public class DiagnosticsManager {
       Duration terminationDuration,
       ScheduledExecutorService executorService,
       boolean autosizingEnabled,
-      Config config) {
+      Config config,
+      Clock clock) {
     this.jobName = jobName;
     this.jobId = jobId;
     this.containerModels = containerModels;
@@ -135,6 +145,7 @@ public class DiagnosticsManager {
     this.containerThreadPoolSize = containerThreadPoolSize;
     this.containerId = containerId;
     this.executionEnvContainerId = executionEnvContainerId;
+    this.samzaEpochId = samzaEpochId;
     this.taskClassVersion = taskClassVersion;
     this.samzaVersion = samzaVersion;
     this.hostname = hostname;
@@ -147,8 +158,9 @@ public class DiagnosticsManager {
     this.scheduler = executorService;
     this.autosizingEnabled = autosizingEnabled;
     this.config = config;
+    this.clock = clock;
 
-    resetTime = Instant.now();
+    this.resetTime = Instant.ofEpochMilli(this.clock.currentTimeMillis());
     this.systemProducer.register(getClass().getSimpleName());
 
     try {
@@ -199,13 +211,13 @@ public class DiagnosticsManager {
   }
 
   private class DiagnosticsStreamPublisher implements Runnable {
-
     @Override
     public void run() {
       try {
         DiagnosticsStreamMessage diagnosticsStreamMessage =
             new DiagnosticsStreamMessage(jobName, jobId, "samza-container-" + containerId, executionEnvContainerId,
-                taskClassVersion, samzaVersion, hostname, System.currentTimeMillis(), resetTime.toEpochMilli());
+                Optional.of(samzaEpochId), taskClassVersion, samzaVersion, hostname,
+                clock.currentTimeMillis(), resetTime.toEpochMilli());
 
         // Add job-related params to the message (if not already published)
         if (!jobParamsEmitted) {

@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.samza.config.Config;
@@ -68,13 +69,10 @@ public class DiagnosticsStreamMessage {
   private final Map<String, Map<String, Object>> metricsMessage;
 
   public DiagnosticsStreamMessage(String jobName, String jobId, String containerName, String executionEnvContainerId,
-      String taskClassVersion, String samzaVersion, String hostname, long timestamp, long resetTimestamp) {
-
-    // Create the metricHeader
-    metricsHeader =
-        new MetricsHeader(jobName, jobId, containerName, executionEnvContainerId, DiagnosticsManager.class.getName(),
-            taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp);
-
+      Optional<String> samzaEpochId, String taskClassVersion, String samzaVersion, String hostname,
+      long timestamp, long resetTimestamp) {
+    this.metricsHeader = new MetricsHeader(jobName, jobId, containerName, executionEnvContainerId, samzaEpochId,
+        DiagnosticsManager.class.getName(), taskClassVersion, samzaVersion, hostname, timestamp, resetTimestamp);
     this.metricsMessage = new HashMap<>();
   }
 
@@ -254,9 +252,9 @@ public class DiagnosticsStreamMessage {
     DiagnosticsStreamMessage diagnosticsStreamMessage =
         new DiagnosticsStreamMessage(metricsSnapshot.getHeader().getJobName(), metricsSnapshot.getHeader().getJobId(),
             metricsSnapshot.getHeader().getContainerName(), metricsSnapshot.getHeader().getExecEnvironmentContainerId(),
-            metricsSnapshot.getHeader().getVersion(), metricsSnapshot.getHeader().getSamzaVersion(),
-            metricsSnapshot.getHeader().getHost(), metricsSnapshot.getHeader().getTime(),
-            metricsSnapshot.getHeader().getResetTime());
+            metricsSnapshot.getHeader().getSamzaEpochId(), metricsSnapshot.getHeader().getVersion(),
+            metricsSnapshot.getHeader().getSamzaVersion(), metricsSnapshot.getHeader().getHost(),
+            metricsSnapshot.getHeader().getTime(), metricsSnapshot.getHeader().getResetTime());
 
     Map<String, Map<String, Object>> metricsMap = metricsSnapshot.getMetrics().getAsMap();
     Map<String, Object> diagnosticsManagerGroupMap = metricsMap.get(GROUP_NAME_FOR_DIAGNOSTICS_MANAGER);

@@ -72,6 +72,6 @@ public class Metrics {
 
   @Override
   public String toString() {
-    return "MetricsJava{" + "immutableMetrics=" + immutableMetrics + '}';
+    return "Metrics{" + "immutableMetrics=" + immutableMetrics + '}';
   }
 }

@@ -19,6 +19,7 @@
 package org.apache.samza.metrics.reporter;
 
 import java.util.Map;
+import java.util.Optional;
 import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
 
@@ -27,7 +28,8 @@ import static org.junit.Assert.assertEquals;
 
 public class TestMetricsSnapshot {
   private static final MetricsHeader METRICS_HEADER =
-      new MetricsHeader("job", "id", "container", "container-id", "source", "1.2", "3.4", "a.b.c", 100, 10);
+      new MetricsHeader("job", "id", "container", "container-id", Optional.of("epoch-123"), "source", "1.2", "3.4",
+          "a.b.c", 100, 10);
   private static final Metrics METRICS =
       new Metrics(ImmutableMap.of("group0", ImmutableMap.of("a", "b"), "group1", ImmutableMap.of("c", "d")));
 

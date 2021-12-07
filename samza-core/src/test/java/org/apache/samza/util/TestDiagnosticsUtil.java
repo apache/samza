@@ -50,6 +50,7 @@ public class TestDiagnosticsUtil {
   private static final String JOB_ID = "someId";
   private static final String CONTAINER_ID = "someContainerId";
   private static final String ENV_ID = "someEnvID";
+  private static final String SAMZA_EPOCH_ID = "someEpochID";
   public static final String REPORTER_FACTORY = "org.apache.samza.metrics.reporter.MetricsSnapshotReporterFactory";
   public static final String SYSTEM_FACTORY = "com.foo.system.SomeSystemFactory";
 
@@ -65,7 +66,7 @@ public class TestDiagnosticsUtil {
 
     Optional<DiagnosticsManager> diagnosticsManager =
         DiagnosticsUtil.buildDiagnosticsManager(JOB_NAME, JOB_ID, mockJobModel, CONTAINER_ID, Optional.of(ENV_ID),
-            config);
+            Optional.of(SAMZA_EPOCH_ID), config);
 
     Assert.assertTrue(diagnosticsManager.isPresent());
   }

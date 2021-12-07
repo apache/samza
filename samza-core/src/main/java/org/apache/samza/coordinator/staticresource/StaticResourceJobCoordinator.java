@@ -78,6 +78,8 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
   private final MetricsRegistry metrics;
   private final SystemAdmins systemAdmins;
   private final String processorId;
+  private final Optional<String> executionEnvContainerId;
+  private final Optional<String> samzaEpochId;
   private final Config config;
 
   private volatile Optional<JobCoordinatorListener> jobCoordinatorListener = Optional.empty();
@@ -106,21 +108,24 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
       JobInfoServingContext jobModelServingContext, CoordinatorCommunication coordinatorCommunication,
       JobCoordinatorMetadataManager jobCoordinatorMetadataManager,
       StreamPartitionCountMonitorFactory streamPartitionCountMonitorFactory,
-      StreamRegexMonitorFactory streamRegexMonitorFactory, StartpointManager startpointManager,
+      StreamRegexMonitorFactory streamRegexMonitorFactory, Optional<StartpointManager> startpointManager,
       ChangelogStreamManager changelogStreamManager, JobRestartSignal jobRestartSignal, MetricsRegistry metrics,
-      SystemAdmins systemAdmins, Config config) {
+      SystemAdmins systemAdmins, Optional<String> executionEnvContainerId, Optional<String> samzaEpochId,
+      Config config) {
     this.jobModelHelper = jobModelHelper;
     this.jobModelServingContext = jobModelServingContext;
     this.coordinatorCommunication = coordinatorCommunication;
     this.jobCoordinatorMetadataManager = jobCoordinatorMetadataManager;
     this.streamPartitionCountMonitorFactory = streamPartitionCountMonitorFactory;
     this.streamRegexMonitorFactory = streamRegexMonitorFactory;
-    this.startpointManager = Optional.ofNullable(startpointManager);
+    this.startpointManager = startpointManager;
     this.changelogStreamManager = changelogStreamManager;
     this.jobRestartSignal = jobRestartSignal;
     this.metrics = metrics;
     this.systemAdmins = systemAdmins;
     this.processorId = processorId;
+    this.executionEnvContainerId = executionEnvContainerId;
+    this.samzaEpochId = samzaEpochId;
     this.config = config;
   }
 
@@ -232,9 +237,9 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
   private Optional<DiagnosticsManager> diagnosticsManager(JobModel jobModel) {
     JobConfig jobConfig = new JobConfig(this.config);
     String jobName = jobConfig.getName().orElseThrow(() -> new ConfigException("Missing job name"));
-    // TODO SAMZA-2705: construct execEnvContainerId for diagnostics
     return buildDiagnosticsManager(jobName, jobConfig.getJobId(), jobModel,
-        CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, Optional.empty(), this.config);
+        CoordinationConstants.JOB_COORDINATOR_CONTAINER_NAME, this.executionEnvContainerId, this.samzaEpochId,
+        this.config);
   }
 
   /**
@@ -271,9 +276,11 @@ public class StaticResourceJobCoordinator implements JobCoordinator {
    * Wrapper around {@link DiagnosticsUtil#buildDiagnosticsManager} so it can be stubbed during testing.
    */
   @VisibleForTesting
-  Optional<DiagnosticsManager> buildDiagnosticsManager(String jobName,
-      String jobId, JobModel jobModel, String containerId, Optional<String> execEnvContainerId, Config config) {
-    return DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, execEnvContainerId, config);
+  Optional<DiagnosticsManager> buildDiagnosticsManager(String jobName, String jobId, JobModel jobModel,
+      String containerId, Optional<String> executionEnvContainerId, Optional<String> samzaEpochId,
+      Config config) {
+    return DiagnosticsUtil.buildDiagnosticsManager(jobName, jobId, jobModel, containerId, executionEnvContainerId,
+        samzaEpochId, config);
   }
 
   private Set<JobMetadataChange> checkForMetadataChanges(JobCoordinatorMetadata newMetadata) {
