@@ -172,6 +172,9 @@ public class JobConfig extends MapConfig {
   public static final String YARN_CONTAINER_HEARTBEAT_RETRY_SLEEP_DURATION_MS = "yarn.container.heartbeat.retry-sleep-duration.ms";
   public static final long YARN_CONTAINER_HEARTBEAT_RETRY_SLEEP_DURATION_MS_DEFAULT = 10000;
 
+  public static final String CONTAINER_HEARTBEAT_MONITOR_ENABLED = "job.container.heartbeat.monitor.enabled";
+  private static final boolean CONTAINER_HEARTBEAT_MONITOR_ENABLED_DEFAULT = true;
+
   public JobConfig(Config config) {
     super(config);
   }
@@ -458,5 +461,9 @@ public class JobConfig extends MapConfig {
 
   public boolean getStartpointEnabled() {
     return getBoolean(JOB_STARTPOINT_ENABLED, true);
+  }
+
+  public boolean getContainerHeartbeatMonitorEnabled() {
+    return getBoolean(CONTAINER_HEARTBEAT_MONITOR_ENABLED, CONTAINER_HEARTBEAT_MONITOR_ENABLED_DEFAULT);
   }
 }
