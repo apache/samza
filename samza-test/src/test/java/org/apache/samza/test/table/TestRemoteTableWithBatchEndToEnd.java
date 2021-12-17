@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.UpdateOptions;
 import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.Entry;
@@ -286,7 +287,7 @@ public class TestRemoteTableWithBatchEndToEnd {
           .map(pv -> new KV<>(pv.getMemberId(), pv))
           .join(inputTable, new PageViewToProfileJoinFunction())
           .map(m -> new KV<>(m.getMemberId(), UpdateMessage.of(m, m)))
-          .sendUpdateTo(table);
+          .sendTo(table, UpdateOptions.UPDATE_WITH_DEFAULTS);
     };
 
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");

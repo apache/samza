@@ -25,9 +25,10 @@ import java.util.concurrent.CompletionStage;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.UpdateOptions;
 import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.operators.spec.OperatorSpec;
-import org.apache.samza.operators.spec.SendUpdateToTableOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableWithUpdateOperatorSpec;
 import org.apache.samza.table.ReadWriteTable;
 import org.apache.samza.table.RecordNotFoundException;
 import org.apache.samza.table.batching.CompactBatchProvider;
@@ -39,7 +40,7 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Implementation of a send-update-stream-to-table operator that applies updates to existing records
+ * Implementation of a send-to-table operator that applies updates to existing records
  * in the table. If there is no pre-existing record, based on Table's implementation it might attempt to write a
  * default record and then applies an update.
  *
@@ -47,17 +48,17 @@ import org.slf4j.LoggerFactory;
  * @param <V> the type of the record value
  * @param <U> the type of the update applied to this table
  */
-public class SendUpdateToTableOperatorImpl<K, V, U>
+public class SendToTableWithUpdateOperatorImpl<K, V, U>
     extends OperatorImpl<KV<K, UpdateMessage<U, V>>, KV<K, UpdateMessage<U, V>>> {
-  private static final Logger LOG = LoggerFactory.getLogger(SendUpdateToTableOperatorImpl.class);
+  private static final Logger LOG = LoggerFactory.getLogger(SendToTableWithUpdateOperatorImpl.class);
 
-  private final SendUpdateToTableOperatorSpec<K, V, U> sendUpdateToTableOpSpec;
+  private final SendToTableWithUpdateOperatorSpec<K, V, U> spec;
   private final ReadWriteTable<K, V, U> table;
 
-  public SendUpdateToTableOperatorImpl(SendUpdateToTableOperatorSpec<K, V, U>  sendUpdateToTableOpSpec, Context context) {
-    this.sendUpdateToTableOpSpec = sendUpdateToTableOpSpec;
-    this.table = context.getTaskContext().getTable(sendUpdateToTableOpSpec.getTableId());
-    if (context.getTaskContext().getTable(sendUpdateToTableOpSpec.getTableId()) instanceof RemoteTable) {
+  public SendToTableWithUpdateOperatorImpl(SendToTableWithUpdateOperatorSpec<K, V, U> spec, Context context) {
+    this.spec = spec;
+    this.table = context.getTaskContext().getTable(spec.getTableId());
+    if (context.getTaskContext().getTable(spec.getTableId()) instanceof RemoteTable) {
       RemoteTable<K, V, U> remoteTable = (RemoteTable<K, V, U>) table;
       if (remoteTable.getBatchProvider() instanceof CompactBatchProvider) {
         throw new SamzaException("Batching is not supported with Compact Batches for partial updates");
@@ -72,34 +73,38 @@ public class SendUpdateToTableOperatorImpl<K, V, U>
   @Override
   protected CompletionStage<Collection<KV<K, UpdateMessage<U, V>>>> handleMessageAsync(KV<K, UpdateMessage<U, V>> message,
       MessageCollector collector, TaskCoordinator coordinator) {
-    final CompletableFuture<Void> updateFuture = table.updateAsync(message.getKey(), message.getValue().getUpdate(),
-        sendUpdateToTableOpSpec.getArgs());
+    final UpdateOptions options = spec.getUpdateOptions();
+    final CompletableFuture<Void> updateFuture = table.updateAsync(message.getKey(), message.getValue().getUpdate());
 
     return updateFuture
         .handle((result, ex) -> {
           if (ex == null) {
             // success, no need to Put a default value
             return false;
-          } else if (ex.getCause() instanceof RecordNotFoundException && message.getValue().getDefault() != null) {
-            // If update fails for a given key due to a RecordDoesNotExistException exception thrown and a default is
-            // provided, then attempt to PUT a default record for the key and then apply the update
-            return true;
+          } else if (ex.getCause() instanceof RecordNotFoundException && message.getValue().hasDefault()) {
+            // If an update fails for a given key due to a RecordDoesNotExistException exception thrown and
+            // a default is provided and the UpdateOptions is set to UPDATE_WITH_DEFAULTS, then attempt
+            // to PUT a default record for the key and then apply the update.
+            if (options == UpdateOptions.UPDATE_WITH_DEFAULTS) {
+              return true;
+            } else {
+              throw new SamzaException("Put default failed for update as the Update options was set to " + options +
+                  ". Please use UpdateOptions.UPDATE_WITH_DEFAULTS instead.");
+            }
           } else {
             throw new SamzaException("Update failed with exception: ", ex);
           }
         })
         .thenCompose(shouldPutDefault -> {
           if (shouldPutDefault) {
-            final CompletableFuture<Void> putFuture = table.putAsync(message.getKey(), message.getValue().getDefault(),
-                sendUpdateToTableOpSpec.getArgs());
+            final CompletableFuture<Void> putFuture = table.putAsync(message.getKey(), message.getValue().getDefault());
             return putFuture
                 .exceptionally(ex -> {
                   LOG.warn("PUT default failed due to an exception. Ignoring the exception and proceeding with update. "
                           + "The exception encountered is: ", ex);
                   return null;
                 })
-                .thenCompose(res -> table.updateAsync(message.getKey(), message.getValue().getUpdate(),
-                sendUpdateToTableOpSpec.getArgs()));
+                .thenCompose(res -> table.updateAsync(message.getKey(), message.getValue().getUpdate()));
           } else {
             return CompletableFuture.completedFuture(null);
           }
@@ -113,6 +118,6 @@ public class SendUpdateToTableOperatorImpl<K, V, U>
 
   @Override
   protected OperatorSpec<KV<K, UpdateMessage<U, V>>, KV<K, UpdateMessage<U, V>>> getOperatorSpec() {
-    return sendUpdateToTableOpSpec;
+    return spec;
   }
 }

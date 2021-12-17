@@ -46,7 +46,7 @@ public abstract class OperatorSpec<M, OM> implements Serializable {
     FILTER,
     SINK,
     SEND_TO,
-    SEND_UPDATE_TO,
+    SEND_TO_WITH_UPDATE,
     JOIN,
     WINDOW,
     MERGE,

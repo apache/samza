@@ -48,7 +48,7 @@ import org.apache.samza.task.InitableTask;
  * </pre>
  * For High Level API {@link StreamApplication}s, use {@link StreamApplicationDescriptor#getTable(TableDescriptor)} to
  * obtain the corresponding {@link Table} instance that can be used with the {@link MessageStream} operators like
- * {@link MessageStream#sendTo(Table, Object[])}. Alternatively, use {@link TaskContext#getTable(String)} in
+ * {@link MessageStream#sendTo(Table)}. Alternatively, use {@link TaskContext#getTable(String)} in
  * {@link InitableFunction#init} to get the table instance for use within operator functions. For Low Level API
  * {@link TaskApplication}s, use {@link TaskContext#getTable(String)} in {@link InitableTask#init} to get the
  * table instance for use within the Task.

@@ -55,6 +55,10 @@ public final class UpdateMessage<U, V> {
     return defaultValue;
   }
 
+  public boolean hasDefault() {
+    return defaultValue != null;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {
