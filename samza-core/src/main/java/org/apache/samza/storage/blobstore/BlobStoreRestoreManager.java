@@ -148,8 +148,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    *
    */
   @Override
-  public void restore() {
-    restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes, loggedBaseDir,
+  public CompletableFuture<Void> restore() {
+    return restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes, loggedBaseDir,
         storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor);
   }
 
@@ -207,7 +207,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    * Restores all eligible stores in the task.
    */
   @VisibleForTesting
-  static void restoreStores(String jobName, String jobId, TaskName taskName, Set<String> storesToRestore,
+  static CompletableFuture<Void> restoreStores(String jobName, String jobId, TaskName taskName, Set<String> storesToRestore,
       Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
       File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
       StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
@@ -279,10 +279,10 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     });
 
     // wait for all restores to finish
-    FutureUtil.allOf(restoreFutures).whenComplete((res, ex) -> {
+    return FutureUtil.allOf(restoreFutures).whenComplete((res, ex) -> {
       LOG.info("Restore completed for task: {} stores", taskName);
       metrics.restoreNs.set(System.nanoTime() - restoreStartTime);
-    }).join(); // TODO dchen make non-blocking for the restore executor
+    });
   }
 
   /**

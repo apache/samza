@@ -29,6 +29,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.Partition;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointV1;
@@ -61,6 +63,7 @@ import org.apache.samza.util.SystemClock;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import scala.collection.JavaConverters;
@@ -143,7 +146,7 @@ public class TestContainerStorageManager {
     // Add instrumentation to mocked storage engine, to record the number of store.restore() calls
     doAnswer(invocation -> {
       storeRestoreCallCount++;
-      return null;
+      return CompletableFuture.completedFuture(null);
     }).when(mockStorageEngine).restore(any());
 
     // Set the mocked stores' properties to be persistent
@@ -233,11 +236,12 @@ public class TestContainerStorageManager {
 
     StateBackendFactory backendFactory = mock(StateBackendFactory.class);
     TaskRestoreManager restoreManager = mock(TaskRestoreManager.class);
-    when(backendFactory.getRestoreManager(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    ArgumentCaptor<ExecutorService> restoreExecutorCaptor = ArgumentCaptor.forClass(ExecutorService.class);
+    when(backendFactory.getRestoreManager(any(), any(), any(), restoreExecutorCaptor.capture(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(restoreManager);
     doAnswer(invocation -> {
       storeRestoreCallCount++;
-      return null;
+      return CompletableFuture.completedFuture(null);
     }).when(restoreManager).restore();
 
     // Create the container storage manager
@@ -262,6 +266,14 @@ public class TestContainerStorageManager {
         DEFAULT_STORE_BASE_DIR,
         null,
         new SystemClock());
+  }
+
+  private void sleep() {
+    try {
+      Thread.sleep(10);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
   }
 
   @Test
@@ -323,7 +335,7 @@ public class TestContainerStorageManager {
         .thenReturn(restoreManager);
     doAnswer(invocation -> {
       storeRestoreCallCount++;
-      return null;
+      return CompletableFuture.completedFuture(null);
     }).when(restoreManager).restore();
 
     // Create the container storage manager
