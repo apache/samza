@@ -87,7 +87,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     configOverrides.put(TaskConfig.CHECKPOINT_READ_VERSIONS, "2");
     finalRun(CHANGELOG_TOPIC,
         expectedChangelogMessagesAfterSecondRun, expectedInitialStoreContentsOnSecondRun,
-        Arrays.asList("4", "5", "5", ":shutdown"),configOverrides);
+        Arrays.asList("4", "5", "5", ":shutdown"), configOverrides);
   }
 
   @Test
@@ -130,7 +130,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
       List<ConsumerRecord<String, String>> inputRecords =
           consumeMessages(Collections.singletonList(INPUT_TOPIC), inputMessages.size());
       List<String> readInputMessages = inputRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
-     Assert.assertEquals(expectedInputTopicMessages, readInputMessages);
+      Assert.assertEquals(expectedInputTopicMessages, readInputMessages);
     }
 
     // run the application
