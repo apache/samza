@@ -268,14 +268,6 @@ public class TestContainerStorageManager {
         new SystemClock());
   }
 
-  private void sleep() {
-    try {
-      Thread.sleep(10);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-  }
-
   @Test
   public void testParallelismAndMetrics() throws InterruptedException {
     this.containerStorageManager.start();
