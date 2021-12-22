@@ -804,7 +804,9 @@ public class TestBlobStoreUtil {
     when(mockCheckpoint.getVersion()).thenReturn((short) 1);
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), null, null);
-    blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint);
+    Map<String, Pair<String, SnapshotIndex>> prevSnapshotIndexes =
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint);
+    assertEquals(prevSnapshotIndexes.size(), 0);
   }
 
   @Test

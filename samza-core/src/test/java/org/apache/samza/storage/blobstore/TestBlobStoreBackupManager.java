@@ -155,7 +155,7 @@ public class TestBlobStoreBackupManager {
   }
 
   @Test
-  public void testInitWithInvalidCheckpointFails() {
+  public void testInitWithInvalidCheckpoint() {
     // init called with null checkpoint storeStorageEngineMap
     blobStoreBackupManager.init(null);
     // verify delete snapshot index blob called from init 0 times because prevSnapshotMap returned from init is empty
@@ -165,12 +165,10 @@ public class TestBlobStoreBackupManager {
 
     // init called with Checkpoint V1 -> unsupported
     Checkpoint checkpoint = new CheckpointV1(new HashMap<>());
-    String expectedException = "Checkpoint version 1 is not supported for blob store backup and restore.";
     try {
       blobStoreBackupManager.init(checkpoint);
-      Assert.fail("Checkpoint V1 is exepcted to fail.");
     } catch (SamzaException exception) {
-      Assert.assertEquals(exception.getMessage(), expectedException);
+      Assert.fail("Checkpoint V1 is expected to only log warning.");
     }
   }
 
