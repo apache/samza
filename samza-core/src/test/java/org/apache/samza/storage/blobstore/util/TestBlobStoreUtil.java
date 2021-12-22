@@ -798,7 +798,6 @@ public class TestBlobStoreUtil {
     assertTrue(snapshotIndexes.isEmpty());
   }
 
-  @Test(expected = SamzaException.class)
   public void testGetSSIThrowsExceptionForCheckpointV1() {
     Checkpoint mockCheckpoint = mock(Checkpoint.class);
     when(mockCheckpoint.getVersion()).thenReturn((short) 1);
