@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -260,7 +260,6 @@ public class ContainerStorageManager {
         containerChangelogSystems, systemFactories, config, this.samzaContainerMetrics.registry());
     this.storeConsumers = createStoreIndexedMap(this.changelogSystemStreams, storeSystemConsumers);
 
-    // TODO HIGH dchen tune based on observed concurrency
     JobConfig jobConfig = new JobConfig(config);
     int restoreThreadPoolSize =
         Math.min(
@@ -753,27 +752,63 @@ public class ContainerStorageManager {
     // ContainerStorageManager we always start the changelog consumer here in case it is required
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);
 
-    List<Future> taskRestoreFutures = new ArrayList<>();
+    List<Future<Void>> taskRestoreFutures = new ArrayList<>();
 
     // Submit restore callable for each taskInstance
-    taskRestoreManagers.forEach((taskInstance, restoreManagersMap) ->
-        // Submit for each restore factory
-        restoreManagersMap.forEach((factoryName, taskRestoreManager) -> taskRestoreFutures.add(restoreExecutor.submit(
-        new TaskRestoreCallable(this.samzaContainerMetrics, taskInstance, taskRestoreManager)))));
+    taskRestoreManagers.forEach((taskInstance, restoreManagersMap) -> {
+      // Submit for each restore factory
+      restoreManagersMap.forEach((factoryName, taskRestoreManager) -> {
+        long startTime = System.currentTimeMillis();
+        String taskName = taskInstance.getTaskName();
+        LOG.info("Starting restore for state for task: {}", taskName);
+        CompletableFuture<Void> restoreFuture = taskRestoreManager.restore().handle((res, ex) -> {
+          // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
+          // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
+          try {
+            taskRestoreManager.close();
+          } catch (Exception e) {
+            LOG.error("Error closing restore manager for task: {} after {} restore",
+                taskName, ex != null ? "unsuccessful" : "successful", e);
+            // ignore exception from close. container may still be be able to continue processing/backups
+            // if restore manager close fails.
+          }
 
-    // Loop-over the future list to wait for each thread to finish, catch any exceptions during restore and throw
+          long timeToRestore = System.currentTimeMillis() - startTime;
+          if (samzaContainerMetrics != null) {
+            Gauge taskGauge = samzaContainerMetrics.taskStoreRestorationMetrics().getOrDefault(taskInstance, null);
+
+            if (taskGauge != null) {
+              taskGauge.set(timeToRestore);
+            }
+          }
+
+          if (ex != null) {
+            // log and rethrow exception to communicate restore failure
+            String msg = String.format("Error restoring state for task: %s", taskName);
+            LOG.error(msg, ex);
+            throw new SamzaException(msg, ex); // wrap in unchecked exception to throw from lambda
+          } else {
+            return null;
+          }
+        });
+
+        taskRestoreFutures.add(restoreFuture);
+      });
+    });
+
+    // Loop-over the future list to wait for each restore to finish, catch any exceptions during restore and throw
     // as samza exceptions
-    for (Future future : taskRestoreFutures) {
+    for (Future<Void> future : taskRestoreFutures) {
       try {
         future.get();
       } catch (InterruptedException e) {
-        LOG.warn("Received an interrupt during store restoration. Issuing interrupts to the store restoration workers to exit "
+        LOG.warn("Received an interrupt during store restoration. Interrupting the restore executor to exit "
             + "prematurely without restoring full state.");
         restoreExecutor.shutdownNow();
         throw e;
       } catch (Exception e) {
-        LOG.error("Exception when restoring ", e);
-        throw new SamzaException("Exception when restoring ", e);
+        LOG.error("Exception when restoring state.", e);
+        throw new SamzaException("Exception when restoring state.", e);
       }
     }
 
@@ -991,58 +1026,5 @@ public class ContainerStorageManager {
       this.getSideInputHandlers().forEach(TaskSideInputHandler::stop);
     }
     LOG.info("Shutdown complete");
-  }
-
-  /**
-   * Callable for performing the restore on a task restore manager and emitting the task-restoration metric.
-   * After restoration, all persistent stores are stopped (which will invoke compaction in case of certain persistent
-   * stores that were opened in bulk-load mode).
-   * Performing stop here parallelizes this compaction, which is a time-intensive operation.
-   *
-   */
-  private class TaskRestoreCallable implements Callable<Void> {
-
-    private TaskName taskName;
-    private TaskRestoreManager taskRestoreManager;
-    private SamzaContainerMetrics samzaContainerMetrics;
-
-    public TaskRestoreCallable(SamzaContainerMetrics samzaContainerMetrics, TaskName taskName,
-        TaskRestoreManager taskRestoreManager) {
-      this.samzaContainerMetrics = samzaContainerMetrics;
-      this.taskName = taskName;
-      this.taskRestoreManager = taskRestoreManager;
-    }
-
-    @Override
-    public Void call() {
-      long startTime = System.currentTimeMillis();
-      try {
-        LOG.info("Starting stores in task instance {}", this.taskName.getTaskName());
-        taskRestoreManager.restore();
-      } catch (InterruptedException e) {
-        /*
-         * The container thread is the only external source to trigger an interrupt to the restoration thread and thus
-         * it is okay to swallow this exception and not propagate it upstream. If the container is interrupted during
-         * the store restoration, ContainerStorageManager signals the restore workers to abandon restoration and then
-         * finally propagates the exception upstream to trigger container shutdown.
-         */
-        LOG.warn("Received an interrupt during store restoration for task: {}.", this.taskName.getTaskName());
-      } finally {
-        // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
-        // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
-        taskRestoreManager.close();
-        long timeToRestore = System.currentTimeMillis() - startTime;
-
-        if (this.samzaContainerMetrics != null) {
-          Gauge taskGauge = this.samzaContainerMetrics.taskStoreRestorationMetrics().getOrDefault(this.taskName, null);
-
-          if (taskGauge != null) {
-            taskGauge.set(timeToRestore);
-          }
-        }
-      }
-
-      return null;
-    }
   }
 }

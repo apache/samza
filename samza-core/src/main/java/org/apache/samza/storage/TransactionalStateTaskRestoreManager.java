@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -82,6 +84,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   private final Clock clock;
   private final StorageManagerUtil storageManagerUtil;
   private final FileUtil fileUtil;
+  private final ExecutorService restoreExecutor;
 
   private StoreActions storeActions; // available after init
   private Map<SystemStreamPartition, SystemStreamPartitionMetadata> currentChangelogOffsets;
@@ -91,6 +94,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       JobContext jobContext,
       ContainerContext containerContext,
       TaskModel taskModel,
+      ExecutorService restoreExecutor,
       Map<String, SystemStream> storeChangelogs,
       Map<String, StorageEngine> inMemoryStores, // in memory stores to be mutated during restore
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
@@ -105,6 +109,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       Config config,
       Clock clock) {
     this.taskModel = taskModel;
+    this.restoreExecutor = restoreExecutor;
     this.storeChangelogs = storeChangelogs;
     this.systemAdmins = systemAdmins;
     this.storeConsumers = storeConsumers;
@@ -137,25 +142,33 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   }
 
   @Override
-  public void restore() throws InterruptedException {
-    Map<String, RestoreOffsets> storesToRestore = storeActions.storesToRestore;
+  public CompletableFuture<Void> restore() {
+    return CompletableFuture.runAsync(() -> {
+      Map<String, RestoreOffsets> storesToRestore = storeActions.storesToRestore;
 
-    for (Map.Entry<String, RestoreOffsets> entry : storesToRestore.entrySet()) {
-      String storeName = entry.getKey();
-      String endOffset = entry.getValue().endingOffset;
-      SystemStream systemStream = storeChangelogs.get(storeName);
-      SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem());
-      SystemConsumer systemConsumer = storeConsumers.get(storeName);
-      SystemStreamPartition changelogSSP = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
+      for (Map.Entry<String, RestoreOffsets> entry : storesToRestore.entrySet()) {
+        String storeName = entry.getKey();
+        String endOffset = entry.getValue().endingOffset;
+        SystemStream systemStream = storeChangelogs.get(storeName);
+        SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem());
+        SystemConsumer systemConsumer = storeConsumers.get(storeName);
+        SystemStreamPartition changelogSSP = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
 
-      ChangelogSSPIterator changelogSSPIterator =
-          new ChangelogSSPIterator(systemConsumer, changelogSSP, endOffset, systemAdmin, true,
-              currentChangelogOffsets.get(changelogSSP).getNewestOffset());
-      StorageEngine taskStore = storeEngines.get(storeName);
+        ChangelogSSPIterator changelogSSPIterator =
+            new ChangelogSSPIterator(systemConsumer, changelogSSP, endOffset, systemAdmin, true,
+                currentChangelogOffsets.get(changelogSSP).getNewestOffset());
+        StorageEngine taskStore = storeEngines.get(storeName);
 
-      LOG.info("Restoring store: {} for task: {}", storeName, taskModel.getTaskName());
-      taskStore.restore(changelogSSPIterator);
-    }
+        LOG.info("Restoring store: {} for task: {}", storeName, taskModel.getTaskName());
+        try {
+          taskStore.restore(changelogSSPIterator);
+        } catch (InterruptedException e) {
+          String msg = String.format("Interrupted while restoring store: %s for task: %s",
+              storeName, taskModel.getTaskName().getTaskName());
+          throw new SamzaException(msg, e); // wrap in unchecked exception to throw from lambda
+        }
+      }
+    }, restoreExecutor);
   }
 
   /**

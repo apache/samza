@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.samza.checkpoint.Checkpoint;
 
 
@@ -34,6 +35,7 @@ public interface TaskRestoreManager {
 
   /**
    * Restore state from checkpoints, state snapshots and changelogs.
+   *
    * Currently, store restoration happens on a separate thread pool within {@code ContainerStorageManager}. In case of
    * interrupt/shutdown signals from {@code SamzaContainer}, {@code ContainerStorageManager} may interrupt the restore
    * thread.
@@ -44,7 +46,7 @@ public interface TaskRestoreManager {
    * {@code SamzaContainer} will not wait for clean up and the interrupt signal is the best effort by the container
    * to notify that its shutting down.
    */
-  void restore() throws InterruptedException;
+  CompletableFuture<Void> restore();
 
   /**
    * Closes all initiated resources include storage engines

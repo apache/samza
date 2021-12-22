@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -79,12 +81,14 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
   private final int maxChangeLogStreamPartitions;
   private final Config config;
   private final StorageManagerUtil storageManagerUtil;
+  private final ExecutorService restoreExecutor;
 
   NonTransactionalStateTaskRestoreManager(
       Set<String> storeNames,
       JobContext jobContext,
       ContainerContext containerContext,
       TaskModel taskModel,
+      ExecutorService restoreExecutor,
       Map<String, SystemStream> storeChangelogs,
       Map<String, StorageEngine> inMemoryStores,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
@@ -100,6 +104,7 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
       Config config,
       Clock clock) {
     this.taskModel = taskModel;
+    this.restoreExecutor = restoreExecutor;
     this.clock = clock;
     this.storeChangelogs = storeChangelogs;
     this.systemAdmins = systemAdmins;
@@ -351,17 +356,25 @@ class NonTransactionalStateTaskRestoreManager implements TaskRestoreManager {
    * Restore each store in taskStoresToRestore sequentially
    */
   @Override
-  public void restore() throws InterruptedException {
-    for (String storeName : taskStoresToRestore) {
-      LOG.info("Restoring store: {} for task: {}", storeName, taskModel.getTaskName());
-      SystemConsumer systemConsumer = storeConsumers.get(storeName);
-      SystemStream systemStream = storeChangelogs.get(storeName);
-      SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem());
-      ChangelogSSPIterator changelogSSPIterator = new ChangelogSSPIterator(systemConsumer,
-          new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()), null, systemAdmin, false);
+  public CompletableFuture<Void> restore() {
+    return CompletableFuture.runAsync(() -> {
+      for (String storeName : taskStoresToRestore) {
+        LOG.info("Restoring store: {} for task: {}", storeName, taskModel.getTaskName());
+        SystemConsumer systemConsumer = storeConsumers.get(storeName);
+        SystemStream systemStream = storeChangelogs.get(storeName);
+        SystemAdmin systemAdmin = systemAdmins.getSystemAdmin(systemStream.getSystem());
+        ChangelogSSPIterator changelogSSPIterator = new ChangelogSSPIterator(systemConsumer,
+            new SystemStreamPartition(systemStream, taskModel.getChangelogPartition()), null, systemAdmin, false);
 
-      taskStores.get(storeName).restore(changelogSSPIterator);
-    }
+        try {
+          taskStores.get(storeName).restore(changelogSSPIterator);
+        } catch (InterruptedException e) {
+          String msg = String.format("Interrupted while restoring store: %s for task: %s",
+              storeName, taskModel.getTaskName().getTaskName());
+          throw new SamzaException(msg, e); // wrap in unchecked exception to throw from lambda
+        }
+      }
+    }, restoreExecutor);
   }
 
   /**
