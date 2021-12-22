@@ -77,7 +77,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
     // double check collectors.flush
     List<String> expectedChangelogMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", null, "98", "99");
-    initialRun(inputMessagesOnInitialRun, expectedChangelogMessagesOnInitialRun);
+    runStatefulApp(inputMessagesOnInitialRun, inputMessagesOnInitialRun, expectedChangelogMessagesOnInitialRun, CONFIGS);
 
     // first two are reverts for uncommitted messages from last run for keys 98 and 99
     List<String> expectedChangelogMessagesAfterSecondRun =
@@ -85,11 +85,42 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
     Map<String, String> configOverrides = new HashMap<>(CONFIGS);
     configOverrides.put(TaskConfig.CHECKPOINT_READ_VERSIONS, "2");
-    secondRun(CHANGELOG_TOPIC,
-        expectedChangelogMessagesAfterSecondRun, expectedInitialStoreContentsOnSecondRun, configOverrides);
+    finalRun(CHANGELOG_TOPIC,
+        expectedChangelogMessagesAfterSecondRun, expectedInitialStoreContentsOnSecondRun,
+        Arrays.asList("4", "5", "5", ":shutdown"), configOverrides);
   }
 
-  private void initialRun(List<String> inputMessages, List<String> expectedChangelogMessages) {
+  @Test
+  public void testStopCheckpointV1V2AndRestartStaleCheckpointV2() {
+    List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
+    // double check collectors.flush
+    List<String> expectedChangelogMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", null, "98", "99");
+    runStatefulApp(inputMessagesOnInitialRun, inputMessagesOnInitialRun, expectedChangelogMessagesOnInitialRun, CONFIGS);
+
+
+    Map<String, String> secondConfigRunOverrides = new HashMap<>(CONFIGS);
+    // only write checkpoint v1, making checkpoint v2 stale
+    secondConfigRunOverrides.put(TaskConfig.CHECKPOINT_WRITE_VERSIONS, "1");
+    secondConfigRunOverrides.put(TaskConfig.CHECKPOINT_READ_VERSIONS, "2, 1");
+    List<String> inputMessagesOnSecondRun = Arrays.asList("77", "78", "79", ":shutdown");
+    // first two are reverts for uncommitted messages from last run for keys 98 and 99
+    expectedChangelogMessagesOnInitialRun = Arrays.asList(null, null, "98", "99", "77", "78", "79");
+    runStatefulApp(inputMessagesOnSecondRun, inputMessagesOnSecondRun, expectedChangelogMessagesOnInitialRun,
+        secondConfigRunOverrides);
+
+    // takes the latest written checkpoint v1 from run 2 since v2 checkpoints are stale
+    List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3", "77", "78", "79", "98", "99");
+
+    Map<String, String> configOverrides = new HashMap<>(CONFIGS);
+    configOverrides.put(TaskConfig.CHECKPOINT_READ_VERSIONS, "2, 1");
+    // Does not have to rewind to the last written v2 checkpoints (1, 2, 3) despite the v2 priority
+    configOverrides.put(TaskConfig.LIVE_CHECKPOINT_MAX_AGE_MS, "0"); // use the latest checkpoint
+    finalRun(CHANGELOG_TOPIC,
+        Collections.emptyList(), expectedInitialStoreContentsOnSecondRun, Collections.emptyList(), configOverrides);
+  }
+
+  private void runStatefulApp(List<String> inputMessages, List<String> expectedInputTopicMessages,
+      List<String> expectedChangelogMessages, Map<String, String> configs) {
     // create input topic and produce the first batch of input messages
     createTopic(INPUT_TOPIC, 1);
     inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
@@ -99,12 +130,12 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
       List<ConsumerRecord<String, String>> inputRecords =
           consumeMessages(Collections.singletonList(INPUT_TOPIC), inputMessages.size());
       List<String> readInputMessages = inputRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
-      Assert.assertEquals(inputMessages, readInputMessages);
+      Assert.assertEquals(expectedInputTopicMessages, readInputMessages);
     }
 
     // run the application
     RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, Collections.singletonMap(STORE_NAME, CHANGELOG_TOPIC)), "myApp", CONFIGS);
+        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, Collections.singletonMap(STORE_NAME, CHANGELOG_TOPIC)), "myApp", configs);
 
     // wait for the application to finish
     context.getRunner().waitForFinish();
@@ -120,14 +151,13 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     LOG.info("Finished initial run");
   }
 
-  private void secondRun(String changelogTopic, List<String> expectedChangelogMessages,
-      List<String> expectedInitialStoreContents, Map<String, String> overriddenConfigs) {
+  private void finalRun(String changelogTopic, List<String> expectedChangelogMessages,
+      List<String> expectedInitialStoreContents,  List<String> inputMessages, Map<String, String> overriddenConfigs) {
     // remove previous files so restore is from the checkpointV2
     new FileUtil().rm(new File(LOGGED_STORE_BASE_DIR));
 
     // produce the second batch of input messages
 
-    List<String> inputMessages = Arrays.asList("4", "5", "5", ":shutdown");
     inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
 
     // run the application

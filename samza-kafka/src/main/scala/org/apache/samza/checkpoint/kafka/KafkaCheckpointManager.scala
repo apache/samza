@@ -82,6 +82,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val stopConsumerAfterFirstRead: Boolean = new TaskConfig(config).getCheckpointManagerConsumerStopAfterFirstRead
 
   val checkpointReadVersions: util.List[lang.Short] = new TaskConfig(config).getCheckpointReadVersions
+  val liveCheckpointMaxAgeMillis: Long = new TaskConfig(config).getLiveCheckpointMaxAgeMillis
+
 
   /**
     * Create checkpoint stream prior to start.
@@ -243,12 +245,15 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     */
   private def readCheckpoints(): Map[TaskName, Checkpoint] = {
     val checkpoints = mutable.Map[TaskName, Checkpoint]()
+    val checkpointAppendTime = mutable.Map[TaskName, Long]()
 
     val iterator = new SystemStreamPartitionIterator(systemConsumer, checkpointSsp)
     var numMessagesRead = 0
 
     while (iterator.hasNext) {
       val checkpointEnvelope: IncomingMessageEnvelope = iterator.next
+      // Kafka log append time for the checkpoint message
+      val checkpointEnvelopeTs = checkpointEnvelope.getEventTime;
       val offset = checkpointEnvelope.getOffset
 
       numMessagesRead += 1
@@ -290,9 +295,12 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
           // if checkpoint key version does not match configured checkpoint version to read, skip the message.
           if (checkpointReadVersions.contains(
             KafkaCheckpointLogKey.CHECKPOINT_KEY_VERSIONS.get(checkpointKey.getType))) {
-            if (!checkpoints.contains(checkpointKey.getTaskName) ||
-              shouldOverrideCheckpoint(checkpoints.get(checkpointKey.getTaskName), checkpointKey)) {
-              checkpoints.put(checkpointKey.getTaskName, deserializeCheckpoint(checkpointKey, msgBytes))
+            val taskName = checkpointKey.getTaskName
+            if (!checkpoints.contains(taskName) ||
+              shouldOverrideCheckpoint(checkpoints.get(taskName), checkpointKey, checkpointAppendTime.get(taskName),
+                checkpointEnvelopeTs)) {
+              checkpoints.put(taskName, deserializeCheckpoint(checkpointKey, msgBytes))
+              checkpointAppendTime.put(taskName, checkpointEnvelopeTs)
             } // else ignore the de-prioritized checkpoint
           } else {
             // Ignore and skip the unknown checkpoint key type. We do not want to throw any exceptions for this case
@@ -375,19 +383,22 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     }
   }
 
-  private def shouldOverrideCheckpoint(currentCheckpoint: Option[Checkpoint],
-    newCheckpointKey: KafkaCheckpointLogKey): Boolean = {
+  private def shouldOverrideCheckpoint(currentCheckpoint: Option[Checkpoint], newCheckpointKey: KafkaCheckpointLogKey,
+    currentCheckpointAppendTime: Option[Long], newCheckpointAppendTime: Long): Boolean = {
     val newCheckpointVersion = KafkaCheckpointLogKey.CHECKPOINT_KEY_VERSIONS.get(newCheckpointKey.getType)
     if (newCheckpointVersion == null) {
       // Unknown checkpoint version
       throw new IllegalArgumentException("Unknown checkpoint key type: " + newCheckpointKey.getType +
         " for checkpoint key: " + newCheckpointKey)
     }
-    // Override checkpoint if the current checkpoint does not exist or if new checkpoint has a higher restore
-    // priority than the currently written checkpoint
+    // Override checkpoint if:
+    // 1. The current checkpoint does not exist or
+    // 2. The new checkpoint has a higher restore priority than the currently written checkpoint
+    // 3. The current checkpoint is determined to be stale compared to the new checkpoint timestamp
     currentCheckpoint.isEmpty ||
       checkpointReadVersions.indexOf(newCheckpointVersion) <=
-        checkpointReadVersions.indexOf(currentCheckpoint.get.getVersion)
+        checkpointReadVersions.indexOf(currentCheckpoint.get.getVersion) ||
+      (newCheckpointAppendTime - currentCheckpointAppendTime.get > liveCheckpointMaxAgeMillis)
   }
 
   private def deserializeCheckpoint(checkpointKey: KafkaCheckpointLogKey, checkpointMsgBytes: Array[Byte]): Checkpoint = {

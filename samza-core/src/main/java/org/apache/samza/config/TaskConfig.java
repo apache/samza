@@ -127,6 +127,8 @@ public class TaskConfig extends MapConfig {
   // checkpoint version to read during container startup
   public static final String CHECKPOINT_READ_VERSIONS = "task.checkpoint.read.versions";
   public static final List<String> DEFAULT_CHECKPOINT_READ_VERSIONS = ImmutableList.of("1");
+  public static final String LIVE_CHECKPOINT_MAX_AGE_MS = "task.live.checkpoint.max.age";
+  public static final long DEFAULT_LIVE_CHECKPOINT_MAX_AGE_MS = 600000L; // 10 mins
 
   public static final String TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = "task.transactional.state.checkpoint.enabled";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_CHECKPOINT_ENABLED = true;
@@ -358,6 +360,10 @@ public class TaskConfig extends MapConfig {
     } else {
       return checkpointReadPriorityList;
     }
+  }
+
+  public long getLiveCheckpointMaxAgeMillis() {
+    return getLong(LIVE_CHECKPOINT_MAX_AGE_MS, DEFAULT_LIVE_CHECKPOINT_MAX_AGE_MS);
   }
 
   public boolean getTransactionalStateCheckpointEnabled() {
