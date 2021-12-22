@@ -82,7 +82,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val stopConsumerAfterFirstRead: Boolean = new TaskConfig(config).getCheckpointManagerConsumerStopAfterFirstRead
 
   val checkpointReadVersions: util.List[lang.Short] = new TaskConfig(config).getCheckpointReadVersions
-  val LiveCheckpointMaxAgeMillis: Long = new TaskConfig(config).getLiveCheckpointMaxAgeMillis
+  val liveCheckpointMaxAgeMillis: Long = new TaskConfig(config).getLiveCheckpointMaxAgeMillis
 
 
   /**
@@ -398,7 +398,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     currentCheckpoint.isEmpty ||
       checkpointReadVersions.indexOf(newCheckpointVersion) <=
         checkpointReadVersions.indexOf(currentCheckpoint.get.getVersion) ||
-      (newCheckpointAppendTime - currentCheckpointAppendTime.get > LiveCheckpointMaxAgeMillis)
+      (newCheckpointAppendTime - currentCheckpointAppendTime.get > liveCheckpointMaxAgeMillis)
   }
 
   private def deserializeCheckpoint(checkpointKey: KafkaCheckpointLogKey, checkpointMsgBytes: Array[Byte]): Checkpoint = {
