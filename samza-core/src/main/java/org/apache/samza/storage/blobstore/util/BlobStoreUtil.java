@@ -111,7 +111,8 @@ public class BlobStoreUtil {
     }
 
     if (checkpoint.getVersion() == 1) {
-      throw new SamzaException("Checkpoint version 1 is not supported for blob store backup and restore.");
+      LOG.warn("Checkpoint version 1 is not supported for blob store backup and restore.");
+      return ImmutableMap.of();
     }
 
     Map<String, CompletableFuture<Pair<String, SnapshotIndex>>>

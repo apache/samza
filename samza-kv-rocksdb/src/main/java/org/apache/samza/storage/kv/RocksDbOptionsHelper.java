@@ -72,6 +72,12 @@ public class RocksDbOptionsHelper {
   private static final String ROCKSDB_MAX_OPEN_FILES = "rocksdb.max.open.files";
   private static final String ROCKSDB_MAX_FILE_OPENING_THREADS = "rocksdb.max.file.opening.threads";
 
+  /**
+   * RocksDB default for {@link RocksDbOptionsHelper#ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS} is 1.
+   */
+  private static final int DEFAULT_ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS = 4;
+
+
   public static Options options(Config storeConfig, int numTasksForContainer, File storeDir, StorageEngineFactory.StoreMode storeMode) {
     Options options = new Options();
 
@@ -155,7 +161,9 @@ public class RocksDbOptionsHelper {
     }
 
     if (storeConfig.containsKey(ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS)) {
-      options.setMaxBackgroundCompactions(storeConfig.getInt(ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS));
+      options.setMaxBackgroundCompactions(
+          storeConfig.getInt(ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS,
+              DEFAULT_ROCKSDB_COMPACTION_MAX_BACKGROUND_COMPACTIONS));
     }
 
     if (storeConfig.containsKey(ROCKSDB_COMPACTION_TARGET_FILE_SIZE_BASE)) {

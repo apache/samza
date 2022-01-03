@@ -798,13 +798,14 @@ public class TestBlobStoreUtil {
     assertTrue(snapshotIndexes.isEmpty());
   }
 
-  @Test(expected = SamzaException.class)
   public void testGetSSIThrowsExceptionForCheckpointV1() {
     Checkpoint mockCheckpoint = mock(Checkpoint.class);
     when(mockCheckpoint.getVersion()).thenReturn((short) 1);
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), null, null);
-    blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint);
+    Map<String, Pair<String, SnapshotIndex>> prevSnapshotIndexes =
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint);
+    assertEquals(prevSnapshotIndexes.size(), 0);
   }
 
   @Test
