@@ -44,8 +44,8 @@ class FileUtil extends Logging {
       oos.writeLong(checksum)
       oos.writeUTF(data)
     } finally {
-      oos.close()
-      fos.close()
+      if (oos != null) oos.close()
+      if (fos != null) fos.close()
     }
 
     //atomic swap of tmp and real offset file
@@ -77,7 +77,7 @@ class FileUtil extends Logging {
         error("Error in writing to file %s isAppend %s" format (file, append))
         System.out.println(e)
     } finally {
-      fileWriter.close()
+      if (fileWriter != null) fileWriter.close()
     }
 
     //atomic swap of tmp and real file
@@ -117,8 +117,8 @@ class FileUtil extends Logging {
         null
       }
     } finally {
-      ois.close()
-      fis.close()
+      if (ois != null) ois.close()
+      if (fis != null) fis.close()
     }
   }
 
