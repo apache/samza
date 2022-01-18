@@ -97,9 +97,9 @@ import static org.apache.kafka.clients.producer.ProducerConfig.*;
  */
 public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarness {
   private static final Logger LOG = LoggerFactory.getLogger(StreamApplicationIntegrationTestHarness.class);
-  private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
+  private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(80);
   private static final int DEFAULT_REPLICATION_FACTOR = 1;
-  private int numEmptyPolls = 3;
+  private int numEmptyPolls = 5;
 
   /**
    * Creates a kafka topic with the provided name and the number of partitions

@@ -139,7 +139,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   private MetadataStore zkMetadataStore;
 
   @Rule
-  public Timeout testTimeOutInMillis = new Timeout(150000);
+  public Timeout testTimeOutInMillis = new Timeout(250000);
 
   @Rule
   public final ExpectedException expectedException = ExpectedException.none();
