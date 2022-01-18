@@ -25,6 +25,7 @@ import org.apache.samza.scheduler.CallbackScheduler;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 
 
 /**
@@ -61,16 +62,29 @@ public interface TaskContext {
   KeyValueStore<?, ?> getStore(String storeName);
 
   /**
+   * Gets the {@link ReadWriteUpdateTable} corresponding to the {@code tableId} for this task.
+   *
+   * @param tableId id of the {@link ReadWriteUpdateTable} to get
+   * @param <K> the type of the key in this table
+   * @param <V> the type of the value in this table
+   * @param <U> the type of the update applied to records in this table
+   * @return the {@link ReadWriteUpdateTable} associated with {@code tableId} for this task
+   * @throws IllegalArgumentException if there is no table associated with {@code tableId}
+   */
+  <K, V, U> ReadWriteUpdateTable<K, V, U> getUpdatableTable(String tableId);
+
+  /**
    * Gets the {@link ReadWriteTable} corresponding to the {@code tableId} for this task.
+   * This is retained for backward compatibility of the API. Please prefer the use of {@link #getUpdatableTable(String)}
+   * instead as it provides the ability to do updates as well.
    *
    * @param tableId id of the {@link ReadWriteTable} to get
    * @param <K> the type of the key in this table
    * @param <V> the type of the value in this table
-   * @param <U> the type of the update applied to records in this table
    * @return the {@link ReadWriteTable} associated with {@code tableId} for this task
    * @throws IllegalArgumentException if there is no table associated with {@code tableId}
    */
-  <K, V, U> ReadWriteTable<K, V, U> getTable(String tableId);
+  <K, V> ReadWriteTable<K, V> getTable(String tableId);
 
   /**
    * Gets the {@link CallbackScheduler} for this task, which can be used to schedule a callback to be executed

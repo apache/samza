@@ -28,12 +28,12 @@ import java.util.concurrent.ExecutorService;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
-import static org.apache.samza.table.BaseReadWriteTable.Func0;
-import static org.apache.samza.table.BaseReadWriteTable.Func1;
+import static org.apache.samza.table.BaseReadWriteUpdateTable.Func0;
+import static org.apache.samza.table.BaseReadWriteUpdateTable.Func1;
 
 /**
  * A composable read and/or write rate limited asynchronous table implementation
@@ -42,16 +42,16 @@ import static org.apache.samza.table.BaseReadWriteTable.Func1;
  * @param <V> the type of the value in this table
  * @param <U> the type of the update applied to records in this table
  */
-public class AsyncRateLimitedTable<K, V, U> implements AsyncReadWriteTable<K, V, U> {
+public class AsyncRateLimitedTable<K, V, U> implements AsyncReadWriteUpdateTable<K, V, U> {
 
   private final String tableId;
-  private final AsyncReadWriteTable<K, V, U> table;
+  private final AsyncReadWriteUpdateTable<K, V, U> table;
   private final TableRateLimiter<K, V> readRateLimiter;
   private final TableRateLimiter<K, V> writeRateLimiter;
   private final TableRateLimiter<K, U> updateRateLimiter;
   private final ExecutorService rateLimitingExecutor;
 
-  public AsyncRateLimitedTable(String tableId, AsyncReadWriteTable<K, V, U> table, TableRateLimiter<K, V> readRateLimiter,
+  public AsyncRateLimitedTable(String tableId, AsyncReadWriteUpdateTable<K, V, U> table, TableRateLimiter<K, V> readRateLimiter,
       TableRateLimiter<K, V> writeRateLimiter, TableRateLimiter<K, U> updateRateLimiter,
       ExecutorService rateLimitingExecutor) {
     Preconditions.checkNotNull(tableId, "null tableId");

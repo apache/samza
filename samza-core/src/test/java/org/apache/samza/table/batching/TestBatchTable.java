@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -43,7 +43,7 @@ public class TestBatchTable {
   private static final Duration BATCH_DELAY = Duration.ofMillis(Integer.MAX_VALUE);
 
   private AsyncBatchingTable<Integer, Integer, Integer> asyncBatchingTable;
-  private ReadWriteTable<Integer, Integer, Integer> table;
+  private ReadWriteUpdateTable<Integer, Integer, Integer> table;
   private Map<Integer, Integer> tableDb;
 
   @Before
@@ -103,7 +103,7 @@ public class TestBatchTable {
       return CompletableFuture.completedFuture(null);
     };
 
-    table = mock(ReadWriteTable.class);
+    table = mock(ReadWriteUpdateTable.class);
     final BatchMetrics batchMetrics = mock(BatchMetrics.class);
     tableDb = new HashMap<>();
     asyncBatchingTable = new AsyncBatchingTable("id", table, new CompactBatchProvider()

@@ -28,13 +28,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
 import org.apache.samza.util.HighResolutionClock;
 
 
 /**
- * A wrapper of a {@link AsyncReadWriteTable} that supports batch operations.
+ * A wrapper of a {@link AsyncReadWriteUpdateTable} that supports batch operations.
  *
  * This batching table does not guarantee any ordering of different operation types within the batch.
  * For instance, query(Q) and put/delete(u) operations arrives in the following sequences, Q1, U1, Q2, U2,
@@ -49,14 +49,14 @@ import org.apache.samza.util.HighResolutionClock;
  *
  * The Batch implementation class can throw {@link BatchingNotSupportedException} if it thinks the operation is
  * not batch-able. When receiving this exception, {@link AsyncBatchingTable} will send the operation to the
- * {@link AsyncReadWriteTable}.
+ * {@link AsyncReadWriteUpdateTable}.
  *
  * @param <K> The type of the key.
  * @param <V> The type of the value.
  * @param <U> the type of the update applied to this table
  */
-public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U> {
-  private final AsyncReadWriteTable<K, V, U> table;
+public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteUpdateTable<K, V, U> {
+  private final AsyncReadWriteUpdateTable<K, V, U> table;
   private final String tableId;
   private final BatchProvider<K, V, U> batchProvider;
   private final ScheduledExecutorService batchTimerExecutorService;
@@ -68,7 +68,7 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteTable<K, V, U>
    * @param batchProvider Batch provider to create a batch instance.
    * @param batchTimerExecutorService Executor service for batch timer.
    */
-  public AsyncBatchingTable(String tableId, AsyncReadWriteTable<K, V, U> table, BatchProvider<K, V, U> batchProvider,
+  public AsyncBatchingTable(String tableId, AsyncReadWriteUpdateTable<K, V, U> table, BatchProvider<K, V, U> batchProvider,
       ScheduledExecutorService batchTimerExecutorService) {
     Preconditions.checkNotNull(tableId);
     Preconditions.checkNotNull(table);

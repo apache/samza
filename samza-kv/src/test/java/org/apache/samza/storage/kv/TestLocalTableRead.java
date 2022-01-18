@@ -33,7 +33,7 @@ import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -91,7 +91,7 @@ public class TestLocalTableRead {
 
   @Test
   public void testGet() throws Exception {
-    ReadWriteTable table = createTable(false);
+    ReadWriteUpdateTable table = createTable(false);
     Assert.assertEquals("v1", table.get("k1"));
     Assert.assertEquals("v2", table.getAsync("k2").get());
     Assert.assertNull(table.get("k3"));
@@ -106,7 +106,7 @@ public class TestLocalTableRead {
 
   @Test
   public void testGetAll() throws Exception {
-    ReadWriteTable table = createTable(false);
+    ReadWriteUpdateTable table = createTable(false);
     Assert.assertEquals(values, table.getAll(keys));
     Assert.assertEquals(values, table.getAllAsync(keys).get());
     verify(kvStore, times(2)).getAll(any());
@@ -121,7 +121,7 @@ public class TestLocalTableRead {
 
   @Test
   public void testTimerDisabled() throws Exception {
-    ReadWriteTable table = createTable(true);
+    ReadWriteUpdateTable table = createTable(true);
     table.get("");
     table.getAsync("").get();
     table.getAll(keys);

@@ -28,7 +28,7 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.data.TestMessageEnvelope;
 import org.apache.samza.operators.functions.StreamTableJoinFunction;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import org.junit.Test;
@@ -74,11 +74,11 @@ public class TestStreamTableJoinOperatorImpl {
             return record.getKey();
           }
         });
-    ReadWriteTable table = mock(ReadWriteTable.class);
+    ReadWriteUpdateTable table = mock(ReadWriteUpdateTable.class);
     when(table.getAsync("1")).thenReturn(CompletableFuture.completedFuture("r1"));
     when(table.getAsync("2")).thenReturn(CompletableFuture.completedFuture(null));
     Context context = new MockContext();
-    when(context.getTaskContext().getTable(tableId)).thenReturn(table);
+    when(context.getTaskContext().getUpdatableTable(tableId)).thenReturn(table);
 
     MessageCollector mockMessageCollector = mock(MessageCollector.class);
     TaskCoordinator mockTaskCoordinator = mock(TaskCoordinator.class);
@@ -125,11 +125,11 @@ public class TestStreamTableJoinOperatorImpl {
           }
         });
 
-    ReadWriteTable table = mock(ReadWriteTable.class);
+    ReadWriteUpdateTable table = mock(ReadWriteUpdateTable.class);
     when(table.getAsync("1")).thenReturn(CompletableFuture.completedFuture("r1"));
 
     Context context = new MockContext();
-    when(context.getTaskContext().getTable(tableId)).thenReturn(table);
+    when(context.getTaskContext().getUpdatableTable(tableId)).thenReturn(table);
 
     MessageCollector mockMessageCollector = mock(MessageCollector.class);
     TaskCoordinator mockTaskCoordinator = mock(TaskCoordinator.class);

@@ -26,7 +26,7 @@ import org.apache.samza.storage.kv.Entry;
 import org.junit.Before;
 import org.junit.Test;
 
-import org.apache.samza.table.BaseReadWriteTable.Func0;
+import org.apache.samza.table.BaseReadWriteUpdateTable.Func0;
 
 import static org.junit.Assert.assertTrue;
 

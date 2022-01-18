@@ -34,7 +34,7 @@ import org.apache.samza.metrics.Timer;
 import org.apache.samza.table.descriptors.BaseTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.caching.guava.GuavaCacheTable;
 import org.apache.samza.table.descriptors.CachingTableDescriptor;
 import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
@@ -109,13 +109,13 @@ public class TestCachingTable {
     assertEquals("true", CachingTableDescriptor.WRITE_AROUND, "1", tableConfig);
   }
 
-  private static Pair<ReadWriteTable<String, String, String>, Map<String, String>> getMockCache() {
+  private static Pair<ReadWriteUpdateTable<String, String, String>, Map<String, String>> getMockCache() {
     // To allow concurrent writes for disjoint keys by testConcurrentAccess, we must use CHM here.
     // This is okay because the atomic section in CachingTable covers both cache and table so using
     // CHM for each does not serialize such two-step operation so the atomicity is still tested.
     // Regular HashMap is not thread-safe even for disjoint keys.
     final Map<String, String> cacheStore = new ConcurrentHashMap<>();
-    final ReadWriteTable cacheTable = mock(ReadWriteTable.class);
+    final ReadWriteUpdateTable cacheTable = mock(ReadWriteUpdateTable.class);
 
     doAnswer(invocation -> {
       String key = invocation.getArgumentAt(0, String.class);
@@ -137,11 +137,11 @@ public class TestCachingTable {
     return Pair.of(cacheTable, cacheStore);
   }
 
-  private void initTables(ReadWriteTable ... tables) {
+  private void initTables(ReadWriteUpdateTable... tables) {
     initTables(false, tables);
   }
 
-  private void initTables(boolean isTimerMetricsDisabled, ReadWriteTable ... tables) {
+  private void initTables(boolean isTimerMetricsDisabled, ReadWriteUpdateTable... tables) {
     Map<String, String> config = new HashMap<>();
     if (isTimerMetricsDisabled) {
       config.put(MetricsConfig.METRICS_TIMER_ENABLED, "false");
@@ -166,9 +166,9 @@ public class TestCachingTable {
     }
 
     Context context = new MockContext();
-    final ReadWriteTable cacheTable = getMockCache().getLeft();
+    final ReadWriteUpdateTable cacheTable = getMockCache().getLeft();
 
-    final ReadWriteTable realTable = mock(ReadWriteTable.class);
+    final ReadWriteUpdateTable realTable = mock(ReadWriteUpdateTable.class);
 
     doAnswer(invocation -> {
       String key = invocation.getArgumentAt(0, String.class);
@@ -188,7 +188,7 @@ public class TestCachingTable {
 
       Assert.fail();
       return null;
-    }).when(context.getTaskContext()).getTable(anyString());
+    }).when(context.getTaskContext()).getUpdatableTable(anyString());
 
     when(context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new NoOpMetricsRegistry());
 
@@ -241,9 +241,9 @@ public class TestCachingTable {
 
   @Test
   public void testNonexistentKeyInTable() {
-    ReadWriteTable<String, String, String> table = mock(ReadWriteTable.class);
+    ReadWriteUpdateTable<String, String, String> table = mock(ReadWriteUpdateTable.class);
     doReturn(CompletableFuture.completedFuture(null)).when(table).getAsync(any());
-    ReadWriteTable<String, String, String> cache = getMockCache().getLeft();
+    ReadWriteUpdateTable<String, String, String> cache = getMockCache().getLeft();
     CachingTable<String, String, String> cachingTable = new CachingTable<>("myTable", table, cache, false);
     initTables(cachingTable);
     Assert.assertNull(cachingTable.get("abc"));
@@ -254,9 +254,9 @@ public class TestCachingTable {
 
   @Test
   public void testKeyEviction() {
-    ReadWriteTable<String, String, Void> table = mock(ReadWriteTable.class);
+    ReadWriteUpdateTable<String, String, Void> table = mock(ReadWriteUpdateTable.class);
     doReturn(CompletableFuture.completedFuture("3")).when(table).getAsync(any());
-    ReadWriteTable<String, String, Void> cache = mock(ReadWriteTable.class);
+    ReadWriteUpdateTable<String, String, Void> cache = mock(ReadWriteUpdateTable.class);
 
     // no handler added to mock cache so get/put are noop, this can simulate eviction
     CachingTable<String, String, Void> cachingTable = new CachingTable<>("myTable", table, cache, false);
@@ -276,7 +276,7 @@ public class TestCachingTable {
   public void testGuavaCacheAndRemoteTable() throws Exception {
     String tableId = "testGuavaCacheAndRemoteTable";
     Cache<String, String> guavaCache = CacheBuilder.newBuilder().initialCapacity(100).build();
-    final ReadWriteTable<String, String, String> guavaTable = new GuavaCacheTable<>(tableId + "-cache", guavaCache);
+    final ReadWriteUpdateTable<String, String, String> guavaTable = new GuavaCacheTable<>(tableId + "-cache", guavaCache);
 
     // It is okay to share rateLimitHelper and async helper for read/write in test
     TableRateLimiter<String, String> readRateLimitHelper = mock(TableRateLimiter.class);
@@ -394,7 +394,7 @@ public class TestCachingTable {
     String tableId = "testTimerDisabled";
 
     Cache<String, String> guavaCache = CacheBuilder.newBuilder().initialCapacity(100).build();
-    final ReadWriteTable<String, String, String> guavaTable = new GuavaCacheTable<>(tableId, guavaCache);
+    final ReadWriteUpdateTable<String, String, String> guavaTable = new GuavaCacheTable<>(tableId, guavaCache);
 
     TableRateLimiter<String, String> readRateLimitHelper = mock(TableRateLimiter.class);
     TableRateLimiter<String, String> writeRateLimitHelper = mock(TableRateLimiter.class);

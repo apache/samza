@@ -26,7 +26,7 @@ import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.ratelimit.AsyncRateLimitedTable;
 import org.apache.samza.table.retry.AsyncRetriableTable;
 import org.apache.samza.table.retry.TableRetryPolicy;
@@ -143,7 +143,7 @@ public class TestRemoteTable {
     TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
     RemoteTable<String, String, String> table = getTable(tableId, readFn, writeFn, true);
     // AsyncRetriableTable
-    AsyncReadWriteTable innerTable = TestUtils.getFieldValue(table, "asyncTable");
+    AsyncReadWriteUpdateTable innerTable = TestUtils.getFieldValue(table, "asyncTable");
     Assert.assertTrue(innerTable instanceof AsyncRetriableTable);
     Assert.assertNotNull(TestUtils.getFieldValue(innerTable, "readRetryMetrics"));
     Assert.assertNotNull(TestUtils.getFieldValue(innerTable, "writeRetryMetrics"));

@@ -26,7 +26,7 @@ import org.apache.samza.operators.KV;
 import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import java.util.Collection;
@@ -42,11 +42,11 @@ import java.util.Collection;
 public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, V>> {
 
   private final SendToTableOperatorSpec<K, V> sendToTableOpSpec;
-  private final ReadWriteTable<K, V, ?> table;
+  private final ReadWriteUpdateTable<K, V, ?> table;
 
   SendToTableOperatorImpl(SendToTableOperatorSpec<K, V> sendToTableOpSpec, Context context) {
     this.sendToTableOpSpec = sendToTableOpSpec;
-    this.table = context.getTaskContext().getTable(sendToTableOpSpec.getTableId());
+    this.table = context.getTaskContext().getUpdatableTable(sendToTableOpSpec.getTableId());
   }
 
   @Override

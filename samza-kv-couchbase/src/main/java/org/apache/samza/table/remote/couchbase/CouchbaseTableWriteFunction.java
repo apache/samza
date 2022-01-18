@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.remote.TableWriteFunction;
 
 import org.slf4j.Logger;
@@ -63,7 +63,7 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
   }
 
   @Override
-  public void init(Context context, AsyncReadWriteTable table) {
+  public void init(Context context, AsyncReadWriteUpdateTable table) {
     super.init(context, table);
     LOGGER.info("Write function for bucket {} initialized successfully", bucketName);
   }

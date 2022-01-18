@@ -34,7 +34,7 @@ import org.apache.samza.storage.kv.Entry;
  * @param <V> the type of the value in this table
  * @param <U> the type of the update applied to this table
  */
-public interface AsyncReadWriteTable<K, V, U> extends Table {
+public interface AsyncReadWriteUpdateTable<K, V, U> extends Table {
   /**
    * Asynchronously gets the value associated with the specified {@code key}.
    *

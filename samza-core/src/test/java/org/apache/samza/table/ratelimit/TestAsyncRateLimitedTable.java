@@ -26,7 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.remote.AsyncRemoteTable;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.remote.TableReadFunction;
@@ -45,10 +45,10 @@ public class TestAsyncRateLimitedTable {
   private final ScheduledExecutorService schedExec = Executors.newSingleThreadScheduledExecutor();
 
   private Map<String, String> readMap = new HashMap<>();
-  private AsyncReadWriteTable readTable;
+  private AsyncReadWriteUpdateTable readTable;
   private TableRateLimiter readRateLimiter;
   private TableReadFunction<String, String> readFn;
-  private AsyncReadWriteTable<String, String, String> writeTable;
+  private AsyncReadWriteUpdateTable<String, String, String> writeTable;
   private TableRateLimiter<String, String> writeRateLimiter;
   private TableWriteFunction<String, String, Void> writeFn;
 
@@ -63,7 +63,7 @@ public class TestAsyncRateLimitedTable {
     doReturn(CompletableFuture.completedFuture(readMap)).when(readFn).getAllAsync(any());
     doReturn(CompletableFuture.completedFuture(readMap)).when(readFn).getAllAsync(any(), any());
     doReturn(CompletableFuture.completedFuture(5)).when(readFn).readAsync(anyInt(), any());
-    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, null);
+    AsyncReadWriteUpdateTable delegate = new AsyncRemoteTable(readFn, null);
     readTable = new AsyncRateLimitedTable("t1", delegate, readRateLimiter, null, null, schedExec);
     readTable.init(TestRemoteTable.getMockContext());
 
@@ -93,7 +93,7 @@ public class TestAsyncRateLimitedTable {
 
   @Test(expected = NullPointerException.class)
   public void testNotNullTableId() {
-    new AsyncRateLimitedTable(null, mock(AsyncReadWriteTable.class),
+    new AsyncRateLimitedTable(null, mock(AsyncReadWriteUpdateTable.class),
         mock(TableRateLimiter.class), mock(TableRateLimiter.class), mock(TableRateLimiter.class),
         mock(ScheduledExecutorService.class));
   }
@@ -107,14 +107,14 @@ public class TestAsyncRateLimitedTable {
 
   @Test(expected = NullPointerException.class)
   public void testNotNullRateLimitingExecutor() {
-    new AsyncRateLimitedTable("t1", mock(AsyncReadWriteTable.class),
+    new AsyncRateLimitedTable("t1", mock(AsyncReadWriteUpdateTable.class),
         mock(TableRateLimiter.class), mock(TableRateLimiter.class), mock(TableRateLimiter.class),
         null);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testNotNullAtLeastOneRateLimiter() {
-    new AsyncRateLimitedTable("t1", mock(AsyncReadWriteTable.class),
+    new AsyncRateLimitedTable("t1", mock(AsyncReadWriteUpdateTable.class),
         null, null, null,
         mock(ScheduledExecutorService.class));
   }
@@ -357,7 +357,7 @@ public class TestAsyncRateLimitedTable {
     TableRateLimiter writeRateLimiter = mock(TableRateLimiter.class);
     TableReadFunction<String, String> readFn = mock(TableReadFunction.class);
     TableWriteFunction<String, String, String> writeFn = mock(TableWriteFunction.class);
-    AsyncReadWriteTable delegate = new AsyncRemoteTable(readFn, writeFn);
+    AsyncReadWriteUpdateTable delegate = new AsyncRemoteTable(readFn, writeFn);
     AsyncRateLimitedTable table = new AsyncRateLimitedTable("t1", delegate,
         readRateLimiter, writeRateLimiter, writeRateLimiter, schedExec);
     table.init(TestRemoteTable.getMockContext());

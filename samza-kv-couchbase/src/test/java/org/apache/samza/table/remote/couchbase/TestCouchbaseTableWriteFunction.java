@@ -34,7 +34,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerde;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -199,7 +199,7 @@ public class TestCouchbaseTableWriteFunction {
         CouchbaseEnvironmentConfigs.class)).toReturn(bucket);
     CouchbaseTableWriteFunction<V> writeFunction =
         new CouchbaseTableWriteFunction<>(DEFAULT_BUCKET_NAME, valueClass, DEFAULT_CLUSTER_NODE).withSerde(serde);
-    writeFunction.init(mock(Context.class), mock(AsyncReadWriteTable.class));
+    writeFunction.init(mock(Context.class), mock(AsyncReadWriteUpdateTable.class));
     return writeFunction;
   }
 }

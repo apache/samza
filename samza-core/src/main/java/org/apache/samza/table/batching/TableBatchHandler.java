@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import com.google.common.base.Preconditions;
 import java.util.stream.Collectors;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 
 
 /**
@@ -39,9 +39,9 @@ import org.apache.samza.table.AsyncReadWriteTable;
  * @param <U> The update type of the operation.
  */
 public class TableBatchHandler<K, V, U> implements BatchHandler<K, V, U> {
-  private final AsyncReadWriteTable<K, V, U> table;
+  private final AsyncReadWriteUpdateTable<K, V, U> table;
 
-  public TableBatchHandler(AsyncReadWriteTable<K, V, U> table) {
+  public TableBatchHandler(AsyncReadWriteUpdateTable<K, V, U> table) {
     Preconditions.checkNotNull(table);
 
     this.table = table;

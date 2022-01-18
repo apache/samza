@@ -29,7 +29,7 @@ import org.apache.samza.operators.UpdateOptions;
 import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SendToTableWithUpdateOperatorSpec;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.RecordNotFoundException;
 import org.apache.samza.table.batching.CompactBatchProvider;
 import org.apache.samza.table.remote.RemoteTable;
@@ -53,12 +53,12 @@ public class SendToTableWithUpdateOperatorImpl<K, V, U>
   private static final Logger LOG = LoggerFactory.getLogger(SendToTableWithUpdateOperatorImpl.class);
 
   private final SendToTableWithUpdateOperatorSpec<K, V, U> spec;
-  private final ReadWriteTable<K, V, U> table;
+  private final ReadWriteUpdateTable<K, V, U> table;
 
   public SendToTableWithUpdateOperatorImpl(SendToTableWithUpdateOperatorSpec<K, V, U> spec, Context context) {
     this.spec = spec;
-    this.table = context.getTaskContext().getTable(spec.getTableId());
-    if (context.getTaskContext().getTable(spec.getTableId()) instanceof RemoteTable) {
+    this.table = context.getTaskContext().getUpdatableTable(spec.getTableId());
+    if (context.getTaskContext().getUpdatableTable(spec.getTableId()) instanceof RemoteTable) {
       RemoteTable<K, V, U> remoteTable = (RemoteTable<K, V, U>) table;
       if (remoteTable.getBatchProvider() instanceof CompactBatchProvider) {
         throw new SamzaException("Batching is not supported with Compact Batches for partial updates");

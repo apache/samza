@@ -21,9 +21,9 @@ package org.apache.samza.table;
 
 /**
  * Custom exception which can be thrown by implementations of {@link org.apache.samza.table.remote.TableWriteFunction}
- * when {@link AsyncReadWriteTable#updateAsync(Object, Object, Object...)} fails due an existing record not being
+ * when {@link AsyncReadWriteUpdateTable#updateAsync(Object, Object, Object...)} fails due an existing record not being
  * present for the given key. {@link org.apache.samza.operators.MessageStream#sendTo(Table,
- * org.apache.samza.operators.UpdateOptions)} will attempt to call {@link AsyncReadWriteTable#putAsync(Object, Object,
+ * org.apache.samza.operators.UpdateOptions)} will attempt to call {@link AsyncReadWriteUpdateTable#putAsync(Object, Object,
  * Object...)} instead to insert a new record if a default is provided.
  */
 public class RecordNotFoundException extends RuntimeException {

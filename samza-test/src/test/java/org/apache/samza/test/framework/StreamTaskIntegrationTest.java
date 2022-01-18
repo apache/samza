@@ -45,7 +45,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
@@ -258,11 +258,11 @@ public class StreamTaskIntegrationTest {
   }
 
   static public class StatefulStreamTask implements StreamTask, InitableTask {
-    private ReadWriteTable<Integer, Profile, ?> profileViewTable;
+    private ReadWriteUpdateTable<Integer, Profile, ?> profileViewTable;
 
     @Override
     public void init(Context context) throws Exception {
-      profileViewTable = context.getTaskContext().getTable("profile-view-store");
+      profileViewTable = context.getTaskContext().getUpdatableTable("profile-view-store");
     }
 
     @Override

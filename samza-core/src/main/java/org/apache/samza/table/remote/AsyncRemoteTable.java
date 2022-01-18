@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 
 
 /**
@@ -37,7 +37,7 @@ import org.apache.samza.table.AsyncReadWriteTable;
  * @param <V> the type of the value in this table
  * @param <U> the type of the update applied to this table
  */
-public class AsyncRemoteTable<K, V, U> implements AsyncReadWriteTable<K, V, U> {
+public class AsyncRemoteTable<K, V, U> implements AsyncReadWriteUpdateTable<K, V, U> {
 
   private final TableReadFunction<K, V> readFn;
   private final TableWriteFunction<K, V, U> writeFn;

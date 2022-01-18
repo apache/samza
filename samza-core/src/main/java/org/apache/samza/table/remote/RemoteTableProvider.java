@@ -22,7 +22,7 @@ package org.apache.samza.table.remote;
 import com.google.common.base.Preconditions;
 
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.batching.BatchProvider;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.retry.TableRetryPolicy;
@@ -60,7 +60,7 @@ public class RemoteTableProvider extends BaseTableProvider {
   }
 
   @Override
-  public ReadWriteTable getTable() {
+  public ReadWriteUpdateTable getTable() {
 
     Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
 

@@ -31,9 +31,9 @@ import org.apache.samza.context.Context;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
-import org.apache.samza.table.BaseReadWriteTable;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
+import org.apache.samza.table.BaseReadWriteUpdateTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.RecordNotFoundException;
 import org.apache.samza.table.batching.BatchProvider;
 import org.apache.samza.table.batching.AsyncBatchingTable;
@@ -51,7 +51,7 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
 
 
 /**
- * A Samza {@link ReadWriteTable} backed by a remote data-store or service.
+ * A Samza {@link ReadWriteUpdateTable} backed by a remote data-store or service.
  * <p>
  * Many stream-processing applications require to look-up data from remote data sources eg: databases,
  * web-services, RPC systems to process messages in the stream. Such access to adjunct datasets can be
@@ -78,8 +78,8 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
  * @param <V> the type of the value in this table
  * @param <U> the type of the update in this table
  */
-public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
-    implements ReadWriteTable<K, V, U>, AsyncReadWriteTable<K, V, U> {
+public final class RemoteTable<K, V, U> extends BaseReadWriteUpdateTable<K, V, U>
+    implements ReadWriteUpdateTable<K, V, U>, AsyncReadWriteUpdateTable<K, V, U> {
 
   // Read/write functions
   protected final TableReadFunction<K, V> readFn;
@@ -101,7 +101,7 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
   protected final ExecutorService callbackExecutor;
 
   // The async table to delegate to
-  protected final AsyncReadWriteTable<K, V, U> asyncTable;
+  protected final AsyncReadWriteUpdateTable<K, V, U> asyncTable;
 
   /**
    * Construct a RemoteTable instance
@@ -150,7 +150,7 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteTable<K, V, U>
     this.batchProvider = batchProvider;
     this.batchExecutor = batchExecutor;
 
-    AsyncReadWriteTable table = new AsyncRemoteTable(readFn, writeFn);
+    AsyncReadWriteUpdateTable table = new AsyncRemoteTable(readFn, writeFn);
     if (readRateLimiter != null || writeRateLimiter != null || updateRateLimiter != null) {
       table = new AsyncRateLimitedTable(tableId, table, readRateLimiter, writeRateLimiter, updateRateLimiter,
           rateLimitingExecutor);

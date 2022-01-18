@@ -23,8 +23,8 @@ import com.google.common.base.Preconditions;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.BaseReadWriteTable;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.BaseReadWriteUpdateTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
 import java.util.ArrayList;
@@ -41,7 +41,7 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
 
 /**
  * A hybrid table incorporating a cache with a Samza table. The cache is
- * represented as a {@link ReadWriteTable}.
+ * represented as a {@link ReadWriteUpdateTable}.
  *
  * The intented use case is to optimize the latency of accessing the actual table, e.g.
  * remote tables, when eventual consistency between cache and table is acceptable.
@@ -62,18 +62,18 @@ import static org.apache.samza.table.utils.TableMetricsUtil.updateTimer;
  * @param <K> type of the table key
  * @param <V> type of the table value
  */
-public class CachingTable<K, V, U> extends BaseReadWriteTable<K, V, U>
-    implements ReadWriteTable<K, V, U> {
+public class CachingTable<K, V, U> extends BaseReadWriteUpdateTable<K, V, U>
+    implements ReadWriteUpdateTable<K, V, U> {
 
-  private final ReadWriteTable<K, V, U> table;
-  private final ReadWriteTable<K, V, U> cache;
+  private final ReadWriteUpdateTable<K, V, U> table;
+  private final ReadWriteUpdateTable<K, V, U> cache;
   private final boolean isWriteAround;
 
   // Common caching stats
   private AtomicLong hitCount = new AtomicLong();
   private AtomicLong missCount = new AtomicLong();
 
-  public CachingTable(String tableId, ReadWriteTable<K, V, U> table, ReadWriteTable<K, V, U> cache, boolean isWriteAround) {
+  public CachingTable(String tableId, ReadWriteUpdateTable<K, V, U> table, ReadWriteUpdateTable<K, V, U> cache, boolean isWriteAround) {
     super(tableId);
     this.table = table;
     this.cache = cache;
