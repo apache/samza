@@ -39,6 +39,7 @@ import org.apache.samza.execution.TestStreamManager;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.test.harness.IntegrationTestHarness;
+import org.junit.After;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,6 +101,10 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
   private static final int DEFAULT_REPLICATION_FACTOR = 1;
   private int numEmptyPolls = 3;
+  /**
+   A new Kafka consumer will be created to consume messages from every new topic to avoid consumer group rebalance
+   Note that the consumers in this map will not be initialized in {@link #setUp()} but will be shutdown in {@link #tearDown()}
+   */
   private Map<String, KafkaConsumer> topicConsumerMap = new HashMap<>();
 
   /**
@@ -267,5 +272,15 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
     // for every topic create a new consumer group to avoid group rebalance
     consumerProps.setProperty(GROUP_ID_CONFIG, "group" + topicConsumerMap.size());
     return consumerProps;
+  }
+
+  @After
+  @Override
+  public void tearDown() {
+    topicConsumerMap.values().forEach(c -> {
+      c.unsubscribe();
+      c.close();
+    });
+    super.tearDown();
   }
 }
