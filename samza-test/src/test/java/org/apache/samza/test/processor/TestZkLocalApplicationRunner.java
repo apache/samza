@@ -125,6 +125,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   private static final String JOB_DEBOUNCE_TIME_MS = "10000";
   private static final String BARRIER_TIMEOUT_MS = "10000";
   private static final String[] PROCESSOR_IDS = new String[] {"0000000000", "0000000001", "0000000002"};
+  private static final int NUM_PARTITION = 5;
 
   private String inputKafkaTopic;
   private String outputKafkaTopic;
@@ -137,6 +138,7 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   private String testStreamAppName;
   private String testStreamAppId;
   private MetadataStore zkMetadataStore;
+  private Map<String, Integer> topicToPartitionCount;
 
   @Rule
   public Timeout testTimeOutInMillis = new Timeout(150000);
@@ -171,11 +173,11 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
     zkUtils = new ZkUtils(zkKeyBuilder, zkClient, ZK_CONNECTION_TIMEOUT_MS, ZK_SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
     zkUtils.connect();
 
-    ImmutableMap<String, Integer> topicToPartitionCount = ImmutableMap.of(
+    topicToPartitionCount = ImmutableMap.of(
         inputSinglePartitionKafkaTopic, 1,
         outputSinglePartitionKafkaTopic, 1,
-        inputKafkaTopic, 5,
-        outputKafkaTopic, 5);
+        inputKafkaTopic, NUM_PARTITION,
+        outputKafkaTopic, NUM_PARTITION);
 
     List<NewTopic> newTopics =
         ImmutableList.of(inputKafkaTopic, outputKafkaTopic, inputSinglePartitionKafkaTopic, outputSinglePartitionKafkaTopic)
@@ -197,10 +199,12 @@ public class TestZkLocalApplicationRunner extends IntegrationTestHarness {
   }
 
   private void publishKafkaEvents(String topic, int startIndex, int endIndex, String streamProcessorId) {
+    int partitionCount = topicToPartitionCount.getOrDefault(topic, 1);
     for (int eventIndex = startIndex; eventIndex < endIndex; eventIndex++) {
       try {
         LOGGER.info("Publish kafka event with index : {} for stream processor: {}.", eventIndex, streamProcessorId);
-        producer.send(new ProducerRecord(topic, new TestKafkaEvent(streamProcessorId, String.valueOf(eventIndex)).toString().getBytes()));
+        producer.send(new ProducerRecord(topic, eventIndex % partitionCount, null,
+            new TestKafkaEvent(streamProcessorId, String.valueOf(eventIndex)).toString().getBytes()));
       } catch (Exception  e) {
         LOGGER.error("Publishing to kafka topic: {} resulted in exception: {}.", new Object[]{topic, e});
         throw new SamzaException(e);

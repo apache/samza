@@ -139,7 +139,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     // verify that the input messages were produced successfully
     if (inputMessages.size() > 0) {
       List<ConsumerRecord<String, String>> inputRecords =
-          consumeMessages(Collections.singletonList(INPUT_TOPIC), inputMessages.size());
+          consumeMessages(INPUT_TOPIC, inputMessages.size());
       List<String> readInputMessages = inputRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
       Assert.assertEquals(inputMessages, readInputMessages);
     }
@@ -156,7 +156,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     // consume and verify the changelog messages
     if (expectedChangelogMessages.size() > 0) {
       List<ConsumerRecord<String, String>> changelogRecords =
-          consumeMessages(Collections.singletonList(STORE_1_CHANGELOG), expectedChangelogMessages.size());
+          consumeMessages(STORE_1_CHANGELOG, expectedChangelogMessages.size());
       List<String> changelogMessages = changelogRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
       Assert.assertEquals(expectedChangelogMessages, changelogMessages);
     }
@@ -190,7 +190,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
 
     // consume and verify any additional changelog messages
     List<ConsumerRecord<String, String>> changelogRecords =
-        consumeMessages(Collections.singletonList(changelogTopic), expectedChangelogMessages.size());
+        consumeMessages(changelogTopic, expectedChangelogMessages.size());
     List<String> changelogMessages = changelogRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
     Assert.assertEquals(expectedChangelogMessages, changelogMessages);
 
