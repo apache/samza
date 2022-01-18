@@ -104,7 +104,10 @@ public class SendToTableWithUpdateOperatorImpl<K, V, U>
                           + "The exception encountered is: ", ex);
                   return null;
                 })
-                .thenCompose(res -> table.updateAsync(message.getKey(), message.getValue().getUpdate()));
+                .thenCompose(res -> table.updateAsync(message.getKey(), message.getValue().getUpdate()))
+                .exceptionally(ex -> {
+                  throw new SamzaException("Update after Put default failed with exception: ", ex);
+                });
           } else {
             return CompletableFuture.completedFuture(null);
           }

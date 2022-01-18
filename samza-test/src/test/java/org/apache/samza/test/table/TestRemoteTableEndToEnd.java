@@ -181,16 +181,24 @@ public class TestRemoteTableEndToEnd {
     }
   }
 
-  static class InMemoryEnrichedPageViewWriteFunction2 extends BaseTableFunction
+  private static class InMemoryEnrichedPageViewWriteFunction2 extends BaseTableFunction
       implements TableWriteFunction<Integer, EnrichedPageView, EnrichedPageView> {
     private final Map<Integer, EnrichedPageView> recordsMap;
     private final String testName;
-    private final boolean withException;
+    private final boolean failUpdatesAlways;
+    private boolean failAfterPutDefault;
 
-    public InMemoryEnrichedPageViewWriteFunction2(String testName, boolean withException) {
+    public InMemoryEnrichedPageViewWriteFunction2(String testName, boolean failUpdatesAlways,
+        boolean failAfterPutDefault) {
+      this(testName, failUpdatesAlways);
+      this.failAfterPutDefault = failAfterPutDefault;
+    }
+
+    public InMemoryEnrichedPageViewWriteFunction2(String testName, boolean failUpdatesAlways) {
       this.testName = testName;
-      this.withException = withException;
+      this.failUpdatesAlways = failUpdatesAlways;
       this.recordsMap = new HashMap<>();
+      this.failAfterPutDefault = false;
     }
 
     @Override
@@ -209,9 +217,19 @@ public class TestRemoteTableEndToEnd {
 
     @Override
     public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update) {
+      if (failUpdatesAlways) {
+        return CompletableFuture.supplyAsync(() -> {
+          throw new RuntimeException("Update failed");
+        });
+      }
+
       if (!recordsMap.containsKey(key)) {
         return CompletableFuture.supplyAsync(() -> {
           throw new RecordNotFoundException("Record with key : " + key + " does not exist");
+        });
+      } else if (failAfterPutDefault) {
+        return CompletableFuture.supplyAsync(() -> {
+          throw new RuntimeException("Update failed");
         });
       } else {
         COUNTERS.get(testName + "-update").incrementAndGet();
@@ -222,14 +240,19 @@ public class TestRemoteTableEndToEnd {
 
     @Override
     public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update, Object ... args) {
-      if (withException) {
+      if (failUpdatesAlways) {
         return CompletableFuture.supplyAsync(() -> {
           throw new RuntimeException("Update failed");
         });
       }
+
       if (!recordsMap.containsKey(key)) {
         return CompletableFuture.supplyAsync(() -> {
           throw new RecordNotFoundException("Record with key : " + key + " does not exist");
+        });
+      } else if (failAfterPutDefault) {
+        return CompletableFuture.supplyAsync(() -> {
+          throw new RuntimeException("Update failed");
         });
       } else {
         COUNTERS.get(testName + "-update").incrementAndGet();
@@ -330,7 +353,7 @@ public class TestRemoteTableEndToEnd {
   }
 
   private void doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(String testName, boolean withDefaults,
-      boolean withException) throws IOException {
+      boolean failUpdatesAlways) throws IOException {
     final String profiles = Base64Serializer.serialize(generateProfiles(30));
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
@@ -345,7 +368,7 @@ public class TestRemoteTableEndToEnd {
       final RemoteTableDescriptor outputTableDesc =
           new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1").withReadFunction(new NoOpTableReadFunction<>())
               .withReadRateLimiterDisabled()
-              .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction2(testName, withException))
+              .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction2(testName, failUpdatesAlways))
               .withWriteRateLimit(1000);
 
       // counters to count puts and updates
@@ -387,14 +410,18 @@ public class TestRemoteTableEndToEnd {
     }
   }
 
-  @Test
+  @Test()
   public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithDefaults() throws Exception {
+    // Test will attempt to apply updates. If there is no pre-existing records, it will PUT a default and
+    // then attempt an update
     doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
         "testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithDefaults", true, false);
   }
 
   @Test(expected = SamzaException.class)
   public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithoutDefaults() throws Exception {
+    // Test will attempt to apply updates. It will fail as there is no pre-existing record and no default will be
+    // inserted
     // RecordNotFoundException is wrapped in multiple levels of exceptions, hence we only check the top level
     // exception i.e SamzaException
     doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
@@ -403,6 +430,7 @@ public class TestRemoteTableEndToEnd {
 
   @Test(expected = SamzaException.class)
   public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithMiscException() throws Exception {
+    // Updates should fail as updates always fail in the WriteFunction
     doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
         "testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithMiscException", false, true);
   }
@@ -446,6 +474,48 @@ public class TestRemoteTableEndToEnd {
           .join(joinTable, new PageViewToProfileJoinFunction())
           .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
           .sendTo(outputTable, UpdateOptions.UPDATE_ONLY);
+    };
+    int numPageViews = 15;
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<PageView> inputDescriptor = isd.getInputDescriptor("PageView", new NoOpSerde<>());
+    Map<Integer, List<PageView>> integerListMap = TestTableData.generatePartitionedPageViews(numPageViews, 1);
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, integerListMap)
+        .run(Duration.ofSeconds(10));
+  }
+
+  // Test fails with the following exception:
+  // org.apache.samza.SamzaException: Update after Put default failed with exception.
+  @Test(expected = SamzaException.class)
+  public void testSendToUpdatesFailureAfterPutDefault() throws Exception {
+    // the test checks for failure when update after put default fails
+    String testName = "testSendToUpdatesFailureAfterPutDefault";
+    final String profiles = Base64Serializer.serialize(generateProfiles(30));
+
+    final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final TableRateLimiter.CreditFunction creditFunction = (k, v, args) -> 1;
+    final StreamApplication app = appDesc -> {
+      final RemoteTableDescriptor joinTableDesc =
+          new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1").withReadFunction(
+              InMemoryProfileReadFunction.getInMemoryReadFunction(profiles))
+              .withRateLimiter(readRateLimiter, creditFunction, null);
+      final RemoteTableDescriptor outputTableDesc =
+          new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1").withReadFunction(new NoOpTableReadFunction<>())
+              .withReadRateLimiterDisabled()
+              .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction2(testName, false, true))
+              .withWriteRateLimit(1000);
+
+      final Table<KV<Integer, Profile>> outputTable = appDesc.getTable(outputTableDesc);
+      final Table<KV<Integer, Profile>> joinTable = appDesc.getTable(joinTableDesc);
+
+      final DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      final GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+
+      appDesc.getInputStream(isd)
+          .map(pv -> new KV<>(pv.getMemberId(), pv))
+          .join(joinTable, new PageViewToProfileJoinFunction())
+          .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
+          .sendTo(outputTable, UpdateOptions.UPDATE_WITH_DEFAULTS);
     };
     int numPageViews = 15;
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
