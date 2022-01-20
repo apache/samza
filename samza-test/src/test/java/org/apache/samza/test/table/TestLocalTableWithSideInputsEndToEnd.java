@@ -45,7 +45,7 @@ import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.task.InitableTask;
@@ -170,11 +170,11 @@ public class TestLocalTableWithSideInputsEndToEnd {
   }
 
   static class PageViewProfileJoinStreamTask implements InitableTask, StreamTask {
-    private ReadWriteTable<Integer, Profile> profileTable;
+    private ReadWriteUpdateTable<Integer, Profile, ?> profileTable;
 
     @Override
     public void init(Context context) {
-      this.profileTable = context.getTaskContext().getTable(PROFILE_TABLE);
+      this.profileTable = context.getTaskContext().getUpdatableTable(PROFILE_TABLE);
     }
 
     @Override

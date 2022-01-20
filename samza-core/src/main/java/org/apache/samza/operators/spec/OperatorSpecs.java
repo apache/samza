@@ -20,6 +20,7 @@
 package org.apache.samza.operators.spec;
 
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.UpdateOptions;
 import org.apache.samza.operators.functions.AsyncFlatMapFunction;
 import org.apache.samza.operators.functions.FilterFunction;
 import org.apache.samza.operators.functions.FlatMapFunction;
@@ -227,14 +228,28 @@ public class OperatorSpecs {
    *
    * @param tableId the table Id for the underlying table
    * @param opId the unique ID of the operator
-   * @param args additional arguments passed to the table
    * @param <K> the type of the table record key
    * @param <V> the type of the table record value
    * @return the {@link SendToTableOperatorSpec}
    */
   public static <K, V> SendToTableOperatorSpec<K, V> createSendToTableOperatorSpec(
-     String tableId, String opId, Object ... args) {
-    return new SendToTableOperatorSpec(tableId, opId, args);
+     String tableId, String opId) {
+    return new SendToTableOperatorSpec(tableId, opId);
+  }
+
+  /**
+   * Creates a {@link SendToTableWithUpdateOperatorSpec} with a key extractor and a value extractor function.
+   *
+   * @param tableId the table Id for the underlying table
+   * @param opId the unique ID of the operator
+   * @param <K> the type of the table record key
+   * @param <V> the type of the table record value
+   * @param <U> the type of the table record value
+   * @return the {@link SendToTableOperatorSpec}
+   */
+  public static <K, V, U> SendToTableWithUpdateOperatorSpec<K, V, U> createSendToTableWithUpdateOperatorSpec(
+      String tableId, String opId, UpdateOptions updateOptions) {
+    return new SendToTableWithUpdateOperatorSpec<>(tableId, opId, updateOptions);
   }
 
   /**

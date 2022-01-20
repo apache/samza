@@ -28,7 +28,7 @@ import com.google.common.base.Preconditions;
  * @param <K> The type of the key.
  * @param <V> The type of the value
  */
-public class PutOperation<K, V> implements Operation<K, V> {
+public class PutOperation<K, V, U> implements Operation<K, V, U> {
   final private K key;
   final private V val;
   final private Object[] args;
@@ -56,6 +56,14 @@ public class PutOperation<K, V> implements Operation<K, V> {
   @Override
   public V getValue() {
     return val;
+  }
+
+  /**
+   * @return null.
+   */
+  @Override
+  public U getUpdate() {
+    return null;
   }
 
   /**

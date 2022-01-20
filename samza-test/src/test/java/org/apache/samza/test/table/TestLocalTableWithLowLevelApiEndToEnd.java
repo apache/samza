@@ -30,7 +30,7 @@ import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.task.InitableTask;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.StreamTask;
@@ -69,10 +69,10 @@ public class TestLocalTableWithLowLevelApiEndToEnd {
   }
 
   static public class MyStreamTask implements StreamTask, InitableTask {
-    private ReadWriteTable<Integer, TestTableData.PageView> pageViewTable;
+    private ReadWriteUpdateTable<Integer, TestTableData.PageView, ?> pageViewTable;
     @Override
     public void init(Context context) {
-      pageViewTable = context.getTaskContext().getTable("t1");
+      pageViewTable = context.getTaskContext().getUpdatableTable("t1");
     }
     @Override
     public void process(IncomingMessageEnvelope message, MessageCollector collector, TaskCoordinator coordinator) {

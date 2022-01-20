@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -42,13 +42,13 @@ public class TestBatchProcessor {
   public static class TestCreate {
     @Test
     public void testCreate() {
-      final ReadWriteTable<Integer, Integer> table = mock(ReadWriteTable.class);
-      final BatchProcessor<Integer, Integer> batchProcessor = createBatchProcessor(table,
+      final ReadWriteUpdateTable<Integer, Integer, Integer> table = mock(ReadWriteUpdateTable.class);
+      final BatchProcessor<Integer, Integer, Integer> batchProcessor = createBatchProcessor(table,
           3, Integer.MAX_VALUE);
 
       // The batch processor initially has no operation.
       Assert.assertEquals(0, batchProcessor.size());
-      batchProcessor.processUpdateOperation(new PutOperation<>(1, 1));
+      batchProcessor.processPutDeleteOrUpdateOperations(new PutOperation<>(1, 1));
       // The batch processor now has one operation.
       Assert.assertEquals(1, batchProcessor.size());
     }
@@ -57,13 +57,13 @@ public class TestBatchProcessor {
   public static class TestUpdatesAndLookup {
     @Test
     public void testUpdateAndLookup() {
-      final ReadWriteTable<Integer, Integer> table = mock(ReadWriteTable.class);
-      final BatchProcessor<Integer, Integer> batchProcessor =
+      final ReadWriteUpdateTable<Integer, Integer, Integer> table = mock(ReadWriteUpdateTable.class);
+      final BatchProcessor<Integer, Integer, Integer> batchProcessor =
           createBatchProcessor(table, Integer.MAX_VALUE, Integer.MAX_VALUE);
 
       int numberOfPuts = 10;
       for (int i = 0; i < numberOfPuts; i++) {
-        batchProcessor.processUpdateOperation(new PutOperation<>(i, i));
+        batchProcessor.processPutDeleteOrUpdateOperations(new PutOperation<>(i, i));
       }
 
       // verify that the number of addBatch operations is correct.
@@ -71,7 +71,7 @@ public class TestBatchProcessor {
 
       // Verify that the value is correct for each key.
       for (int i = 0; i < numberOfPuts; i++) {
-        final Operation<Integer, Integer> operation = batchProcessor.getLastUpdate(i);
+        final Operation<Integer, Integer, Integer> operation = batchProcessor.getLatestPutUpdateOrDelete(i);
         Assert.assertEquals(i, operation.getKey().intValue());
         Assert.assertEquals(i, operation.getValue().intValue());
       }
@@ -92,16 +92,16 @@ public class TestBatchProcessor {
         return null;
       };
 
-      final ReadWriteTable<Integer, Integer> table = mock(ReadWriteTable.class);
+      final ReadWriteUpdateTable<Integer, Integer, Integer> table = mock(ReadWriteUpdateTable.class);
       when(table.putAllAsync(anyList())).thenReturn(CompletableFuture.supplyAsync(tableUpdateSupplier));
 
-      final BatchProcessor<Integer, Integer> batchProcessor =
+      final BatchProcessor<Integer, Integer, Integer> batchProcessor =
           createBatchProcessor(table, maxBatchSize, Integer.MAX_VALUE);
 
       List<CompletableFuture<Void>> futureList = new ArrayList<>();
       // One batch will be created and sent to the remote table after the for-loop.
       for (int i = 0; i < maxBatchSize; i++) {
-        futureList.add(batchProcessor.processUpdateOperation(new PutOperation<>(i, i)));
+        futureList.add(batchProcessor.processPutDeleteOrUpdateOperations(new PutOperation<>(i, i)));
       }
 
       for (int i = 0; i < maxBatchSize; i++) {
@@ -122,15 +122,15 @@ public class TestBatchProcessor {
       final int maxBatchDelayMs = 100;
       final int putOperationCount = 100;
 
-      final ReadWriteTable<Integer, Integer> table = mock(ReadWriteTable.class);
+      final ReadWriteUpdateTable<Integer, Integer, Integer> table = mock(ReadWriteUpdateTable.class);
       when(table.putAllAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
       when(table.deleteAllAsync(anyList())).thenReturn(CompletableFuture.completedFuture(null));
 
-      final BatchProcessor<Integer, Integer> batchProcessor =
+      final BatchProcessor<Integer, Integer, Integer> batchProcessor =
           createBatchProcessor(table, Integer.MAX_VALUE, maxBatchDelayMs);
 
       for (int i = 0; i < putOperationCount; i++) {
-        batchProcessor.processUpdateOperation(new PutOperation<>(i, i));
+        batchProcessor.processPutDeleteOrUpdateOperations(new PutOperation<>(i, i));
       }
 
       // There's one batch with infinite maximum size, it has 100ms maximum delay.
@@ -147,11 +147,12 @@ public class TestBatchProcessor {
     }
   }
 
-  private static BatchProcessor<Integer, Integer> createBatchProcessor(ReadWriteTable<Integer, Integer> table,
+  private static BatchProcessor<Integer, Integer, Integer> createBatchProcessor(
+      ReadWriteUpdateTable<Integer, Integer, Integer> table,
       int maxSize, int maxDelay) {
-    final BatchProvider<Integer, Integer> batchProvider = new CompactBatchProvider<Integer, Integer>()
+    final BatchProvider<Integer, Integer, Integer> batchProvider = new CompactBatchProvider<Integer, Integer, Integer>()
         .withMaxBatchDelay(Duration.ofMillis(maxDelay)).withMaxBatchSize(maxSize);
-    final BatchHandler<Integer, Integer> batchHandler = new TableBatchHandler<>(table);
+    final BatchHandler<Integer, Integer, Integer> batchHandler = new TableBatchHandler<>(table);
     final BatchMetrics batchMetrics = mock(BatchMetrics.class);
     return new BatchProcessor<>(batchMetrics, batchHandler, batchProvider, () -> 0, Executors.newSingleThreadScheduledExecutor());
   }

@@ -22,7 +22,7 @@ package org.apache.samza.table.remote;
 import com.google.common.base.Preconditions;
 
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.batching.BatchProvider;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.retry.TableRetryPolicy;
@@ -43,7 +43,7 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public class RemoteTableProvider extends BaseTableProvider {
 
-  private final List<RemoteTable<?, ?>> tables = new ArrayList<>();
+  private final List<RemoteTable<?, ?, ?>> tables = new ArrayList<>();
 
   /**
    * Map of tableId -> executor service for async table IO and callbacks. The same executors
@@ -60,7 +60,7 @@ public class RemoteTableProvider extends BaseTableProvider {
   }
 
   @Override
-  public ReadWriteTable getTable() {
+  public ReadWriteUpdateTable getTable() {
 
     Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
 
@@ -80,6 +80,7 @@ public class RemoteTableProvider extends BaseTableProvider {
     TableRetryPolicy readRetryPolicy = deserializeObject(tableConfig, RemoteTableDescriptor.READ_RETRY_POLICY);
 
     // Write part
+    // Reuse write rate limiter for update
     TableRateLimiter writeRateLimiter = null;
     TableRetryPolicy writeRetryPolicy = null;
     TableWriteFunction writeFn = deserializeObject(tableConfig, RemoteTableDescriptor.WRITE_FN);
@@ -129,10 +130,9 @@ public class RemoteTableProvider extends BaseTableProvider {
           }));
     }
 
-
     RemoteTable table = new RemoteTable(tableId,
         readFn, writeFn,
-        readRateLimiter, writeRateLimiter, rateLimitingExecutors.get(tableId),
+        readRateLimiter, writeRateLimiter, writeRateLimiter, rateLimitingExecutors.get(tableId),
         readRetryPolicy, writeRetryPolicy, retryExecutor, batchProvider, batchExecutors.get(tableId),
         callbackExecutors.get(tableId));
     table.init(this.context);
@@ -169,4 +169,3 @@ public class RemoteTableProvider extends BaseTableProvider {
     });
   }
 }
-

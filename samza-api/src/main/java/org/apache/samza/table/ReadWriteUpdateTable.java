@@ -26,13 +26,14 @@ import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.storage.kv.Entry;
 
 /**
- * A table that supports synchronous and asynchronous get, put and delete by one or more keys
+ * A table that supports synchronous and asynchronous get, put, update and delete by one or more keys
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <U> the type of the update applied to records in this table
  */
 @InterfaceStability.Unstable
-public interface ReadWriteTable<K, V> extends ReadWriteUpdateTable<K, V, Void> {
+public interface ReadWriteUpdateTable<K, V, U> extends AsyncReadWriteUpdateTable<K, V, U> {
 
   /**
    * Gets the value associated with the specified {@code key}.
@@ -71,11 +72,10 @@ public interface ReadWriteTable<K, V> extends ReadWriteUpdateTable<K, V, Void> {
    * Updates the record associated with a given {@code key} with the specified {@code update}.
    *
    * @param key the key with which the specified {@code value} is to be associated.
+   * @param update the update to be applied to the record specified by {@code key}.
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  default void update(K key, Void update) {
-    throw new SamzaException("Not supported");
-  }
+  void update(K key, U update);
 
   /**
    * Updates the mappings of the given keys with the corresponding updates.
@@ -83,9 +83,8 @@ public interface ReadWriteTable<K, V> extends ReadWriteUpdateTable<K, V, Void> {
    * @param updates the updates for the given keys
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    */
-  default void updateAll(List<Entry<K, Void>> updates) {
-    throw new SamzaException("Not supported");
-  }
+  void updateAll(List<Entry<K, U>> updates);
+
 
   /**
    * Updates the mapping of the specified key-value pair;

@@ -39,14 +39,14 @@ import org.apache.samza.util.HighResolutionClock;
  * @param <K> The type of the key associated with the {@link Operation}
  * @param <V> The type of the value associated with the {@link Operation}
  */
-public class BatchProcessor<K, V> {
+public class BatchProcessor<K, V, U> {
   private final ScheduledExecutorService scheduledExecutorService;
   private final ReentrantLock lock = new ReentrantLock();
-  private final BatchHandler<K, V> batchHandler;
-  private final BatchProvider<K, V> batchProvider;
+  private final BatchHandler<K, V, U> batchHandler;
+  private final BatchProvider<K, V, U> batchProvider;
   private final BatchMetrics batchMetrics;
   private final HighResolutionClock clock;
-  private Batch<K, V> batch;
+  private Batch<K, V, U> batch;
   private ScheduledFuture<?> scheduledFuture;
   private long batchOpenTimestamp;
 
@@ -57,8 +57,8 @@ public class BatchProcessor<K, V> {
    * @param clock A clock used to get the timestamp.
    * @param scheduledExecutorService A scheduled executor service to set timers for the managed batches.
    */
-  public BatchProcessor(BatchMetrics batchMetrics, BatchHandler<K, V> batchHandler, BatchProvider batchProvider,
-      HighResolutionClock clock, ScheduledExecutorService scheduledExecutorService) {
+  public BatchProcessor(BatchMetrics batchMetrics, BatchHandler<K, V, U> batchHandler,
+      BatchProvider<K, V, U> batchProvider, HighResolutionClock clock, ScheduledExecutorService scheduledExecutorService) {
     Preconditions.checkNotNull(batchHandler);
     Preconditions.checkNotNull(batchProvider);
     Preconditions.checkNotNull(clock);
@@ -71,7 +71,7 @@ public class BatchProcessor<K, V> {
     this.clock = clock;
   }
 
-  private CompletableFuture<Void> addOperation(Operation<K, V> operation) {
+  private CompletableFuture<Void> addOperation(Operation<K, V, U> operation) {
     if (batch == null) {
       startNewBatch();
     }
@@ -86,13 +86,13 @@ public class BatchProcessor<K, V> {
    * @param operation The query operation to be added to the batch.
    * @return A {@link CompletableFuture} to indicate whether the operation is finished.
    */
-  CompletableFuture<V> processQueryOperation(Operation<K, V> operation) {
+  CompletableFuture<V> processQueryOperation(Operation<K, V, U> operation) {
     Preconditions.checkNotNull(operation);
     Preconditions.checkArgument(operation instanceof GetOperation);
 
     lock.lock();
     try {
-      GetOperation<K, V> getOperation = (GetOperation) operation;
+      GetOperation<K, V, U> getOperation = (GetOperation<K, V, U>) operation;
       addOperation(getOperation);
       return getOperation.getCompletableFuture();
     } finally {
@@ -101,12 +101,14 @@ public class BatchProcessor<K, V> {
   }
 
   /**
-   * @param operation The update operation to be added to the batch.
+   * @param operation The Put/Delete/Update operation to be added to the batch.
    * @return A {@link CompletableFuture} to indicate whether the operation is finished.
    */
-  CompletableFuture<Void> processUpdateOperation(Operation<K, V> operation) {
+  CompletableFuture<Void> processPutDeleteOrUpdateOperations(Operation<K, V, U> operation) {
     Preconditions.checkNotNull(operation);
-    Preconditions.checkArgument(operation instanceof PutOperation || operation instanceof DeleteOperation);
+    Preconditions.checkArgument(operation instanceof PutOperation
+        || operation instanceof DeleteOperation
+        || operation instanceof UpdateOperation);
 
     lock.lock();
     try {
@@ -144,7 +146,7 @@ public class BatchProcessor<K, V> {
   /**
    * Set a timer to close the batch when the batch is older than the max delay.
    */
-  private void setBatchTimer(Batch<K, V> batch) {
+  private void setBatchTimer(Batch<K, V, U> batch) {
     final long maxDelay = batch.getMaxBatchDelay().toMillis();
     if (maxDelay != Integer.MAX_VALUE) {
       scheduledFuture = scheduledExecutorService.schedule(() -> {
@@ -176,17 +178,17 @@ public class BatchProcessor<K, V> {
   }
 
   /**
-   * Get the latest update operation for the specified key.
+   * Get the latest Put/Update/Delete operation for the specified key.
    */
   @VisibleForTesting
-  Operation<K, V> getLastUpdate(K key) {
-    final Collection<Operation<K, V>> operations = batch.getOperations();
-    final Iterator<Operation<K, V>> iterator = operations.iterator();
-    Operation<K, V> lastUpdate = null;
+  Operation<K, V, U> getLatestPutUpdateOrDelete(K key) {
+    final Collection<Operation<K, V, U>> operations = batch.getOperations();
+    final Iterator<Operation<K, V, U>> iterator = operations.iterator();
+    Operation<K, V, U> lastUpdate = null;
     while (iterator.hasNext()) {
-      final Operation<K, V> operation = iterator.next();
-      if ((operation instanceof PutOperation || operation instanceof DeleteOperation)
-          && operation.getKey().equals(key)) {
+      final Operation<K, V, U> operation = iterator.next();
+      if ((operation instanceof PutOperation || operation instanceof DeleteOperation ||
+          operation instanceof UpdateOperation) && operation.getKey().equals(key)) {
         lastUpdate = operation;
       }
     }

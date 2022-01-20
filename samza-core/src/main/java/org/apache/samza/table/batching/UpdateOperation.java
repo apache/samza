@@ -19,9 +19,51 @@
 
 package org.apache.samza.table.batching;
 
-public class CompactBatchProvider<K, V, U> extends BatchProvider<K, V, U> {
+import com.google.common.base.Preconditions;
+
+/**
+ * Update operation.
+ *
+ * @param <K> The type of the key.
+ * @param <U> The type of the update
+ */
+public class UpdateOperation<K, V, U> implements Operation<K, V, U> {
+  final private K key;
+  final private U update;
+
+  public UpdateOperation(K key, U update) {
+    Preconditions.checkNotNull(key);
+    Preconditions.checkNotNull(update);
+    this.key = key;
+    this.update = update;
+  }
+
+  /**
+   * @return The key to be updated in the table.
+   */
   @Override
-  public Batch<K, V, U> getBatch() {
-    return new CompactBatch<>(getMaxBatchSize(), getMaxBatchDelay());
+  public K getKey() {
+    return key;
+  }
+
+  /**
+   * @return null.
+   */
+  @Override
+  public V getValue() {
+    return null;
+  }
+
+  /**
+   * @return The Update to be applied to the table for the key.
+   */
+  @Override
+  public U getUpdate() {
+    return update;
+  }
+
+  @Override
+  public Object[] getArgs() {
+    return null;
   }
 }

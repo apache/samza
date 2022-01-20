@@ -43,7 +43,7 @@ import org.apache.samza.serializers.KVSerde;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.standalone.PassthroughJobCoordinatorFactory;
 import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.test.framework.TestRunner;
 import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
@@ -269,11 +269,11 @@ public class TestLocalTableEndToEnd {
     private static final Map<String, MyMapFunction> TASK_TO_MAP_FUNCTION_MAP = new HashMap<>();
 
     private transient List<Profile> received;
-    private transient ReadWriteTable table;
+    private transient ReadWriteUpdateTable table;
 
     @Override
     public void init(Context context) {
-      table = context.getTaskContext().getTable("t1");
+      table = context.getTaskContext().getUpdatableTable("t1");
       this.received = new ArrayList<>();
 
       TASK_TO_MAP_FUNCTION_MAP.put(context.getTaskContext().getTaskModel().getTaskName().getTaskName(), this);

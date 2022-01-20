@@ -39,6 +39,7 @@ import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.OutputOperatorSpec;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
+import org.apache.samza.operators.spec.SendToTableWithUpdateOperatorSpec;
 import org.apache.samza.operators.spec.SinkOperatorSpec;
 import org.apache.samza.operators.spec.StreamOperatorSpec;
 import org.apache.samza.operators.spec.StreamTableJoinOperatorSpec;
@@ -236,6 +237,8 @@ public class OperatorImplGraph {
       return new StreamTableJoinOperatorImpl((StreamTableJoinOperatorSpec) operatorSpec, context);
     } else if (operatorSpec instanceof SendToTableOperatorSpec) {
       return new SendToTableOperatorImpl((SendToTableOperatorSpec) operatorSpec, context);
+    } else if (operatorSpec instanceof SendToTableWithUpdateOperatorSpec) {
+      return new SendToTableWithUpdateOperatorImpl((SendToTableWithUpdateOperatorSpec) operatorSpec, context);
     } else if (operatorSpec instanceof BroadcastOperatorSpec) {
       String streamId = ((BroadcastOperatorSpec) operatorSpec).getOutputStream().getStreamId();
       SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);

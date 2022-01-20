@@ -40,7 +40,7 @@ package org.apache.samza.table.remote;
 import com.google.common.base.Preconditions;
 
 import org.apache.samza.context.Context;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 
 
 /**
@@ -48,10 +48,10 @@ import org.apache.samza.table.AsyncReadWriteTable;
  */
 abstract public class BaseTableFunction implements TableFunction {
 
-  protected transient AsyncReadWriteTable table;
+  protected transient AsyncReadWriteUpdateTable table;
 
   @Override
-  public void init(Context context, AsyncReadWriteTable table) {
+  public void init(Context context, AsyncReadWriteUpdateTable table) {
     Preconditions.checkNotNull(context, "null context");
     Preconditions.checkNotNull(table, "null table");
     this.table = table;

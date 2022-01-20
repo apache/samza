@@ -38,8 +38,8 @@ import org.apache.samza.task.InitableTask;
  * <p>
  * Use a {@link TableDescriptor} to specify the properties of a {@link Table}. For High Level API
  * {@link StreamApplication}s, use {@link StreamApplicationDescriptor#getTable} to obtain the {@link Table} instance for
- * the descriptor that can be used with the {@link MessageStream} operators like {@link MessageStream#sendTo(Table, Object[])}.
- * Alternatively, use {@link TaskContext#getTable(String)} in {@link InitableFunction#init} to get the table instance
+ * the descriptor that can be used with the {@link MessageStream} operators like {@link MessageStream#sendTo(Table)}.
+ * Alternatively, use {@link TaskContext#getUpdatableTable(String)} in {@link InitableFunction#init} to get the table instance
  * for use within operator functions. For Low Level API {@link TaskApplication}s, use {@link TaskContext#getTable}
  * in {@link InitableTask#init} to get the table instance for use within the Task.
  *

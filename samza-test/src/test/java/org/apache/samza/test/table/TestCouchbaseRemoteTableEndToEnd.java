@@ -135,12 +135,12 @@ public class TestCouchbaseRemoteTableEndToEnd {
           .withBootstrapCarrierDirectPort(couchbaseMock.getCarrierPort(outputBucketName))
           .withBootstrapHttpDirectPort(couchbaseMock.getHttpPort());
 
-      RemoteTableDescriptor inputTableDesc = new RemoteTableDescriptor<String, String>("input-table")
+      RemoteTableDescriptor inputTableDesc = new RemoteTableDescriptor<String, String, Void>("input-table")
           .withReadFunction(readFunction)
           .withRateLimiterDisabled();
       Table<KV<String, String>> inputTable = appDesc.getTable(inputTableDesc);
 
-      RemoteTableDescriptor outputTableDesc = new RemoteTableDescriptor<String, JsonObject>("output-table")
+      RemoteTableDescriptor outputTableDesc = new RemoteTableDescriptor<String, JsonObject, Object>("output-table")
           .withReadFunction(new NoOpTableReadFunction<>())
           .withWriteFunction(writeFunction)
           .withRateLimiterDisabled();
@@ -168,7 +168,7 @@ public class TestCouchbaseRemoteTableEndToEnd {
   }
 
   static class JoinFunction
-      implements StreamTableJoinFunction<String, KV<String, String>, KV<String, String>, KV<String, JsonObject>> {
+      implements StreamTableJoinFunction<String, KV<String, String>, KV<String, String>, Object> {
 
     @Override
     public KV<String, JsonObject> apply(KV<String, String> message, KV<String, String> record) {

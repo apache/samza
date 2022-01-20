@@ -42,14 +42,14 @@ import org.apache.samza.application.descriptors.StreamApplicationDescriptor;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.MockContext;
-import org.apache.samza.operators.TableImpl;
-import org.apache.samza.operators.functions.MapFunction;
+import org.apache.samza.operators.UpdateOptions;
+import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
 import org.apache.samza.operators.KV;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.RecordNotFoundException;
 import org.apache.samza.table.descriptors.TableDescriptor;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.serializers.NoOpSerde;
@@ -70,7 +70,9 @@ import org.apache.samza.test.util.Base64Serializer;
 import org.apache.samza.util.RateLimiter;
 
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 import static org.apache.samza.test.table.TestTableData.EnrichedPageView;
 import static org.apache.samza.test.table.TestTableData.PageView;
@@ -81,10 +83,12 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
 
-
 public class TestRemoteTableEndToEnd {
   private static final Map<String, AtomicInteger> COUNTERS = new HashMap<>();
   private static final Map<String, List<EnrichedPageView>> WRITTEN_RECORDS = new HashMap<>();
+  private static final Map<Integer, EnrichedPageView> WRITTEN_RECORD_MAP = new HashMap<>();
+  @Rule
+  public ExpectedException exceptionRule = ExpectedException.none();
 
   static class InMemoryProfileReadFunction extends BaseTableFunction
       implements TableReadFunction<Integer, Profile> {
@@ -110,10 +114,6 @@ public class TestRemoteTableEndToEnd {
     @Override
     public CompletableFuture<Profile> getAsync(Integer key, Object ... args) {
       Profile profile = profileMap.get(key);
-      boolean append = (boolean) args[0];
-      if (append) {
-        profile = new Profile(profile.memberId, profile.company + "-r");
-      }
       return CompletableFuture.completedFuture(profile);
     }
 
@@ -122,13 +122,13 @@ public class TestRemoteTableEndToEnd {
       return false;
     }
 
-    static InMemoryProfileReadFunction getInMemoryReadFunction(String testName, String serializedProfiles) {
+    static InMemoryProfileReadFunction getInMemoryReadFunction(String serializedProfiles) {
       return new InMemoryProfileReadFunction(serializedProfiles);
     }
   }
 
   static class InMemoryEnrichedPageViewWriteFunction extends BaseTableFunction
-      implements TableWriteFunction<Integer, EnrichedPageView> {
+      implements TableWriteFunction<Integer, EnrichedPageView, EnrichedPageView> {
 
     private String testName;
     private transient List<EnrichedPageView> records;
@@ -147,18 +147,19 @@ public class TestRemoteTableEndToEnd {
 
     @Override
     public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record) {
-      System.out.println("==> " + testName + " writing " + record.getPageKey());
       records.add(record);
       return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record, Object ... args) {
-      boolean append = (boolean) args[0];
-      if (append) {
-        record = new EnrichedPageView(record.pageKey, record.memberId, record.company + "-w");
-      }
       records.add(record);
+      return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update) {
+      records.add(update);
       return CompletableFuture.completedFuture(null);
     }
 
@@ -174,133 +175,72 @@ public class TestRemoteTableEndToEnd {
     }
   }
 
-  static class InMemoryCounterReadFunction extends BaseTableFunction
-      implements TableReadFunction {
-
+  private static class InMemoryEnrichedPageViewWriteFunction2 extends BaseTableFunction
+      implements TableWriteFunction<Integer, EnrichedPageView, EnrichedPageView> {
+    private final Map<Integer, EnrichedPageView> recordsMap;
     private final String testName;
+    private final boolean failUpdatesAlways;
+    private boolean failAfterPutDefault;
 
-    private InMemoryCounterReadFunction(String testName) {
+    public InMemoryEnrichedPageViewWriteFunction2(String testName, boolean failUpdatesAlways,
+        boolean failAfterPutDefault) {
+      this(testName, failUpdatesAlways);
+      this.failAfterPutDefault = failAfterPutDefault;
+    }
+
+    public InMemoryEnrichedPageViewWriteFunction2(String testName, boolean failUpdatesAlways) {
       this.testName = testName;
+      this.failUpdatesAlways = failUpdatesAlways;
+      this.recordsMap = new HashMap<>();
+      this.failAfterPutDefault = false;
     }
 
     @Override
-    public CompletableFuture readAsync(int opId, Object... args) {
-      if (1 == opId) {
-        boolean shouldReturnValue = (boolean) args[0];
-        AtomicInteger counter = COUNTERS.get(testName);
-        Integer result = shouldReturnValue ? counter.get() : null;
-        return CompletableFuture.completedFuture(result);
+    public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record) {
+      recordsMap.put(key, record);
+      COUNTERS.get(testName + "-put").incrementAndGet();
+      return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record, Object ... args) {
+      COUNTERS.get(testName + "-put").incrementAndGet();
+      recordsMap.put(key, record);
+      return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update) {
+      if (failUpdatesAlways) {
+        return CompletableFuture.supplyAsync(() -> {
+          throw new RuntimeException("Update failed");
+        });
+      }
+
+      if (!recordsMap.containsKey(key)) {
+        return CompletableFuture.supplyAsync(() -> {
+          throw new RecordNotFoundException("Record with key : " + key + " does not exist");
+        });
+      } else if (failAfterPutDefault) {
+        return CompletableFuture.supplyAsync(() -> {
+          throw new RuntimeException("Update failed");
+        });
       } else {
-        throw new SamzaException("Invalid opId: " + opId);
+        COUNTERS.get(testName + "-update").incrementAndGet();
+        recordsMap.put(key, update);
+        return CompletableFuture.completedFuture(null);
       }
     }
 
     @Override
-    public CompletableFuture getAsync(Object key) {
-      throw new SamzaException("Not supported");
+    public CompletableFuture<Void> deleteAsync(Integer key) {
+      recordsMap.remove(key);
+      return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public boolean isRetriable(Throwable exception) {
       return false;
-    }
-  }
-
-  static class InMemoryCounterWriteFunction extends BaseTableFunction
-      implements TableWriteFunction {
-
-    private final String testName;
-
-    private InMemoryCounterWriteFunction(String testName) {
-      this.testName = testName;
-    }
-
-    @Override
-    public CompletableFuture<Void> putAsync(Object key, Object record) {
-      throw new SamzaException("Not supported");
-    }
-
-    @Override
-    public CompletableFuture<Void> deleteAsync(Object key) {
-      throw new SamzaException("Not supported");
-    }
-
-    @Override
-    public CompletableFuture writeAsync(int opId, Object... args) {
-      Integer result;
-      AtomicInteger counter = COUNTERS.get(testName);
-      boolean shouldModify = (boolean) args[0];
-      switch (opId) {
-        case 1:
-          result = shouldModify ? counter.incrementAndGet() : counter.get();
-          break;
-        case 2:
-          result = shouldModify ? counter.decrementAndGet() : counter.get();
-          break;
-        default:
-          throw new SamzaException("Invalid opId: " + opId);
-      }
-      return CompletableFuture.completedFuture(result);
-    }
-
-    @Override
-    public boolean isRetriable(Throwable exception) {
-      return false;
-    }
-  }
-
-  private static class TestReadWriteMapFunction implements MapFunction<PageView, PageView> {
-
-    private final String counterTableName;
-    private ReadWriteTable counterTable;
-
-    private TestReadWriteMapFunction(String counterTableName) {
-      this.counterTableName = counterTableName;
-    }
-
-    @Override
-    public void init(Context context) {
-      counterTable = context.getTaskContext().getTable(counterTableName);
-    }
-
-    @Override
-    public PageView apply(PageView pageView) {
-      try {
-        // Counter manipulation
-        badOpId();
-        Assert.assertNull(getCounterValue(false));
-        Integer beforeValue = getCounterValue(true);
-        Assert.assertEquals(beforeValue, incCounterValue(false));
-        Assert.assertEquals(beforeValue, decCounterValue(false));
-        Assert.assertEquals(Integer.valueOf(beforeValue + 1), incCounterValue(true));
-        Assert.assertEquals(beforeValue, decCounterValue(true));
-        Assert.assertEquals(beforeValue, getCounterValue(true));
-        incCounterValue(true);
-        return pageView;
-      } catch (Exception ex) {
-        throw new SamzaException(ex);
-      }
-    }
-
-    private Integer getCounterValue(boolean shouldReturn) {
-      return (Integer) counterTable.readAsync(1, shouldReturn).join();
-    }
-
-    private Integer incCounterValue(boolean shouldModifdy) {
-      return (Integer) counterTable.writeAsync(1, shouldModifdy).join();
-    }
-
-    private Integer decCounterValue(boolean shouldModifdy) {
-      return (Integer) counterTable.writeAsync(2, shouldModifdy).join();
-    }
-
-    private void badOpId() {
-      try {
-        counterTable.readAsync(0).join();
-        Assert.fail("Shouldn't reach here");
-      } catch (SamzaException ex) {
-        // Expected exception
-      }
     }
   }
 
@@ -321,7 +261,7 @@ public class TestRemoteTableEndToEnd {
     return appDesc.getTable(cachingDesc);
   }
 
-  private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, boolean withArgs,
+  private void doTestStreamTableJoinRemoteTable(boolean withCache, boolean defaultCache, boolean withUpdate,
       String testName) throws Exception {
     WRITTEN_RECORDS.put(testName, new ArrayList<>());
 
@@ -333,18 +273,18 @@ public class TestRemoteTableEndToEnd {
     final StreamApplication app = appDesc -> {
 
       final RemoteTableDescriptor joinTableDesc =
-              new RemoteTableDescriptor<Integer, TestTableData.Profile>("profile-table-1")
-          .withReadFunction(InMemoryProfileReadFunction.getInMemoryReadFunction(testName, profiles))
+              new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1")
+          .withReadFunction(InMemoryProfileReadFunction.getInMemoryReadFunction(profiles))
           .withRateLimiter(readRateLimiter, creditFunction, null);
 
       final RemoteTableDescriptor outputTableDesc =
-              new RemoteTableDescriptor<Integer, EnrichedPageView>("enriched-page-view-table-1")
+              new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1")
           .withReadFunction(new NoOpTableReadFunction<>())
           .withReadRateLimiterDisabled()
           .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction(testName))
           .withWriteRateLimit(1000);
 
-      final Table<KV<Integer, EnrichedPageView>> outputTable = withCache
+      final Table<KV<Integer, Profile>> outputTable = withCache
           ? getCachingTable(outputTableDesc, defaultCache, appDesc)
           : appDesc.getTable(outputTableDesc);
 
@@ -355,33 +295,18 @@ public class TestRemoteTableEndToEnd {
       final DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
       final GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
 
-      if (!withArgs) {
+      if (withUpdate) {
         appDesc.getInputStream(isd)
             .map(pv -> new KV<>(pv.getMemberId(), pv))
             .join(joinTable, new PageViewToProfileJoinFunction())
-            .map(m -> new KV(m.getMemberId(), m))
-            .sendTo(outputTable);
-
+            .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
+            .sendTo(outputTable, UpdateOptions.UPDATE_WITH_DEFAULTS);
       } else {
-        COUNTERS.put(testName, new AtomicInteger());
-
-        final RemoteTableDescriptor counterTableDesc =
-            new RemoteTableDescriptor("counter-table-1")
-                .withReadFunction(new InMemoryCounterReadFunction(testName))
-                .withWriteFunction(new InMemoryCounterWriteFunction(testName))
-                .withRateLimiterDisabled();
-
-        final Table counterTable = withCache
-            ? getCachingTable(counterTableDesc, defaultCache, appDesc)
-            : appDesc.getTable(counterTableDesc);
-
-        final String counterTableName = ((TableImpl) counterTable).getTableId();
         appDesc.getInputStream(isd)
-            .map(new TestReadWriteMapFunction(counterTableName))
             .map(pv -> new KV<>(pv.getMemberId(), pv))
-            .join(joinTable, new PageViewToProfileJoinFunction(), true)
-            .map(m -> new KV(m.getMemberId(), m))
-            .sendTo(outputTable, true);
+            .join(joinTable, new PageViewToProfileJoinFunction())
+            .map(m -> KV.of(m.getMemberId(), m))
+            .sendTo(outputTable);
       }
     };
 
@@ -395,12 +320,181 @@ public class TestRemoteTableEndToEnd {
 
     Assert.assertEquals(numPageViews, WRITTEN_RECORDS.get(testName).size());
     Assert.assertNotNull(WRITTEN_RECORDS.get(testName).get(0));
-    if (!withArgs) {
-      WRITTEN_RECORDS.get(testName).forEach(epv -> Assert.assertFalse(epv.company.contains("-")));
-    } else {
-      WRITTEN_RECORDS.get(testName).forEach(epv -> Assert.assertTrue(epv.company.endsWith("-r-w")));
-      Assert.assertEquals(numPageViews, COUNTERS.get(testName).get());
+    WRITTEN_RECORDS.get(testName).forEach(epv -> Assert.assertFalse(epv.company.contains("-")));
+  }
+
+  private void doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(String testName, boolean withDefaults,
+      boolean failUpdatesAlways) throws IOException {
+    final String profiles = Base64Serializer.serialize(generateProfiles(30));
+
+    final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final TableRateLimiter.CreditFunction creditFunction = (k, v, args) -> 1;
+    final StreamApplication app = appDesc -> {
+
+      final RemoteTableDescriptor joinTableDesc =
+          new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1").withReadFunction(
+              InMemoryProfileReadFunction.getInMemoryReadFunction(profiles))
+              .withRateLimiter(readRateLimiter, creditFunction, null);
+
+      final RemoteTableDescriptor outputTableDesc =
+          new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1").withReadFunction(new NoOpTableReadFunction<>())
+              .withReadRateLimiterDisabled()
+              .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction2(testName, failUpdatesAlways))
+              .withWriteRateLimit(1000);
+
+      // counters to count puts and updates
+      COUNTERS.put(testName + "-put", new AtomicInteger());
+      COUNTERS.put(testName + "-update", new AtomicInteger());
+
+      final Table<KV<Integer, Profile>> outputTable = appDesc.getTable(outputTableDesc);
+
+      final Table<KV<Integer, Profile>> joinTable = appDesc.getTable(joinTableDesc);
+
+      final DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      final GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+
+      if (withDefaults) {
+        appDesc.getInputStream(isd)
+            .map(pv -> new KV<>(pv.getMemberId(), pv))
+            .join(joinTable, new PageViewToProfileJoinFunction())
+            .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
+            .sendTo(outputTable, UpdateOptions.UPDATE_WITH_DEFAULTS);
+      } else {
+        appDesc.getInputStream(isd)
+            .map(pv -> new KV<>(pv.getMemberId(), pv))
+            .join(joinTable, new PageViewToProfileJoinFunction())
+            .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m)))
+            .sendTo(outputTable, UpdateOptions.UPDATE_ONLY);
+      }
+    };
+
+    int numPageViews = 15;
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<PageView> inputDescriptor = isd.getInputDescriptor("PageView", new NoOpSerde<>());
+    Map<Integer, List<PageView>> integerListMap = TestTableData.generatePartitionedPageViews(numPageViews, 1);
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, integerListMap)
+        .run(Duration.ofSeconds(10));
+    if (withDefaults) {
+      Assert.assertEquals(10, COUNTERS.get(testName + "-put").intValue());
+      Assert.assertEquals(15, COUNTERS.get(testName + "-update").intValue());
     }
+  }
+
+  @Test()
+  public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithDefaults() throws Exception {
+    // Test will attempt to apply updates. If there is no pre-existing records, it will PUT a default and
+    // then attempt an update
+    doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
+        "testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithDefaults", true, false);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithoutDefaults() throws Exception {
+    // Test will attempt to apply updates. It will fail as there is no pre-existing record and no default will be
+    // inserted
+    // RecordNotFoundException is wrapped in multiple levels of exceptions, hence we only check the top level
+    // exception i.e SamzaException
+    doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
+        "testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithoutDefaults", false, false);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithMiscException() throws Exception {
+    // Updates should fail as updates always fail in the WriteFunction
+    doTestStreamTableJoinRemoteTableWithFirstTimeUpdates(
+        "testStreamTableJoinRemoteTableWithFirstTimeUpdatesWithMiscException", false, true);
+  }
+
+  // Test fails with the following exception:
+  // org.apache.samza.SamzaException: Put default failed for update as the UpdateOptions was set to UPDATE_ONLY.
+  // Please use UpdateOptions.UPDATE_WITH_DEFAULTS instead.
+  @Test(expected = SamzaException.class)
+  public void testSendToWithDefaultsAndUpdateOnly() throws Exception {
+    String testName = "testSendToWithDefaultsAndUpdateOnly";
+    final String profiles = Base64Serializer.serialize(generateProfiles(30));
+
+    final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final TableRateLimiter.CreditFunction creditFunction = (k, v, args) -> 1;
+    final StreamApplication app = appDesc -> {
+
+      final RemoteTableDescriptor joinTableDesc =
+          new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1").withReadFunction(
+              InMemoryProfileReadFunction.getInMemoryReadFunction(profiles))
+              .withRateLimiter(readRateLimiter, creditFunction, null);
+
+      final RemoteTableDescriptor outputTableDesc =
+          new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1").withReadFunction(new NoOpTableReadFunction<>())
+              .withReadRateLimiterDisabled()
+              .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction2(testName, false))
+              .withWriteRateLimit(1000);
+
+      // counters to count puts and updates
+      COUNTERS.put(testName + "-put", new AtomicInteger());
+      COUNTERS.put(testName + "-update", new AtomicInteger());
+
+      final Table<KV<Integer, Profile>> outputTable = appDesc.getTable(outputTableDesc);
+
+      final Table<KV<Integer, Profile>> joinTable = appDesc.getTable(joinTableDesc);
+
+      final DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      final GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+
+      appDesc.getInputStream(isd)
+          .map(pv -> new KV<>(pv.getMemberId(), pv))
+          .join(joinTable, new PageViewToProfileJoinFunction())
+          .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
+          .sendTo(outputTable, UpdateOptions.UPDATE_ONLY);
+    };
+    int numPageViews = 15;
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<PageView> inputDescriptor = isd.getInputDescriptor("PageView", new NoOpSerde<>());
+    Map<Integer, List<PageView>> integerListMap = TestTableData.generatePartitionedPageViews(numPageViews, 1);
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, integerListMap)
+        .run(Duration.ofSeconds(10));
+  }
+
+  // Test fails with the following exception:
+  // org.apache.samza.SamzaException: Update after Put default failed with exception.
+  @Test(expected = SamzaException.class)
+  public void testSendToUpdatesFailureAfterPutDefault() throws Exception {
+    // the test checks for failure when update after put default fails
+    String testName = "testSendToUpdatesFailureAfterPutDefault";
+    final String profiles = Base64Serializer.serialize(generateProfiles(30));
+
+    final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final TableRateLimiter.CreditFunction creditFunction = (k, v, args) -> 1;
+    final StreamApplication app = appDesc -> {
+      final RemoteTableDescriptor joinTableDesc =
+          new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1").withReadFunction(
+              InMemoryProfileReadFunction.getInMemoryReadFunction(profiles))
+              .withRateLimiter(readRateLimiter, creditFunction, null);
+      final RemoteTableDescriptor outputTableDesc =
+          new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1").withReadFunction(new NoOpTableReadFunction<>())
+              .withReadRateLimiterDisabled()
+              .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction2(testName, false, true))
+              .withWriteRateLimit(1000);
+
+      final Table<KV<Integer, Profile>> outputTable = appDesc.getTable(outputTableDesc);
+      final Table<KV<Integer, Profile>> joinTable = appDesc.getTable(joinTableDesc);
+
+      final DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      final GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+
+      appDesc.getInputStream(isd)
+          .map(pv -> new KV<>(pv.getMemberId(), pv))
+          .join(joinTable, new PageViewToProfileJoinFunction())
+          .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
+          .sendTo(outputTable, UpdateOptions.UPDATE_WITH_DEFAULTS);
+    };
+    int numPageViews = 15;
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<PageView> inputDescriptor = isd.getInputDescriptor("PageView", new NoOpSerde<>());
+    Map<Integer, List<PageView>> integerListMap = TestTableData.generatePartitionedPageViews(numPageViews, 1);
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, integerListMap)
+        .run(Duration.ofSeconds(10));
   }
 
   @Test
@@ -419,18 +513,63 @@ public class TestRemoteTableEndToEnd {
   }
 
   @Test
-  public void testStreamTableJoinRemoteTableWithArgs() throws Exception {
-    doTestStreamTableJoinRemoteTable(false, false, true, "testStreamTableJoinRemoteTableWithArgs");
+  public void testStreamTableJoinRemoteTableWithUpdates() throws Exception {
+    doTestStreamTableJoinRemoteTable(false, false, true, "testStreamTableJoinRemoteTableWithUpdates");
   }
 
-  @Test
-  public void testStreamTableJoinRemoteTableWithCacheWithArgs() throws Exception {
-    doTestStreamTableJoinRemoteTable(true, false, true, "testStreamTableJoinRemoteTableWithCacheWithArgs");
+  @Test(expected = SamzaException.class)
+  public void testStreamTableJoinRemoteTableWithUpdatesWithCache() throws Exception {
+    doTestStreamTableJoinRemoteTable(true, false, true, "testStreamTableJoinRemoteTableWithUpdatesWithCache");
   }
 
-  @Test
-  public void testStreamTableJoinRemoteTableWithDefaultCacheWithArgs() throws Exception {
-    doTestStreamTableJoinRemoteTable(true, true, true, "testStreamTableJoinRemoteTableWithDefaultCacheWithArgs");
+  @Test(expected = SamzaException.class)
+  public void testStreamTableJoinRemoteTableWithUpdatesWithDefaultCache() throws Exception {
+    doTestStreamTableJoinRemoteTable(true, true, true, "testStreamTableJoinRemoteTableWithUpdatesWithDefaultCache");
+  }
+
+  // Test will fail as we use sendTo with KV<K, UpdateMessage> stream without UpdateOptions
+  @Test(expected = SamzaException.class)
+  public void testSendToUpdatesWithoutUpdateOptions() throws Exception {
+    // max member id for page views is 10
+    final String profiles = Base64Serializer.serialize(generateProfiles(10));
+
+    final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final TableRateLimiter.CreditFunction creditFunction = (k, v, args) -> 1;
+    final StreamApplication app = appDesc -> {
+
+      final RemoteTableDescriptor joinTableDesc =
+          new RemoteTableDescriptor<Integer, TestTableData.Profile, Void>("profile-table-1")
+              .withReadFunction(InMemoryProfileReadFunction.getInMemoryReadFunction(profiles))
+              .withRateLimiter(readRateLimiter, creditFunction, null);
+
+      final RemoteTableDescriptor outputTableDesc =
+          new RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView>("enriched-page-view-table-1")
+              .withReadFunction(new NoOpTableReadFunction<>())
+              .withReadRateLimiterDisabled()
+              .withWriteFunction(new InMemoryEnrichedPageViewWriteFunction2("testUpdateWithoutUpdateOptions", false))
+              .withWriteRateLimit(1000);
+
+      final Table<KV<Integer, Profile>> outputTable = appDesc.getTable(outputTableDesc);
+
+      final Table<KV<Integer, Profile>> joinTable = appDesc.getTable(joinTableDesc);
+
+      final DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      final GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+
+      appDesc.getInputStream(isd)
+          .map(pv -> new KV<>(pv.getMemberId(), pv))
+          .join(joinTable, new PageViewToProfileJoinFunction())
+          .map(m -> new KV(m.getMemberId(), UpdateMessage.of(m, m)))
+          .sendTo(outputTable);
+    };
+
+    int numPageViews = 40;
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<PageView> inputDescriptor = isd
+        .getInputDescriptor("PageView", new NoOpSerde<>());
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, TestTableData.generatePartitionedPageViews(numPageViews, 4))
+        .run(Duration.ofSeconds(10));
   }
 
   private Context createMockContext() {
@@ -450,8 +589,8 @@ public class TestRemoteTableEndToEnd {
     future.completeExceptionally(new RuntimeException("Expected test exception"));
     doReturn(future).when(reader).getAsync(anyString());
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
-    RemoteTable<String, String> table = new RemoteTable<>("table1", reader, null,
-        rateLimitHelper, null, Executors.newSingleThreadExecutor(),
+    RemoteTable<String, String, Void> table = new RemoteTable<>("table1", reader, null,
+        rateLimitHelper, null, null, Executors.newSingleThreadExecutor(),
         null, null, null,
         null, null, null);
     table.init(createMockContext());
@@ -461,25 +600,41 @@ public class TestRemoteTableEndToEnd {
   @Test(expected = SamzaException.class)
   public void testCatchWriterException() {
     TableReadFunction<String, String> reader = mock(TableReadFunction.class);
-    TableWriteFunction<String, String> writer = mock(TableWriteFunction.class);
+    TableWriteFunction<String, String, Void> writer = mock(TableWriteFunction.class);
     CompletableFuture<String> future = new CompletableFuture<>();
     future.completeExceptionally(new RuntimeException("Expected test exception"));
     doReturn(future).when(writer).putAsync(anyString(), any());
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
-    RemoteTable<String, String> table = new RemoteTable<String, String>("table1", reader, writer,
-        rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
+    RemoteTable<String, String, Void> table = new RemoteTable<>("table1", reader, writer,
+        rateLimitHelper, rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
         null, null, null,
         null, null, null);
     table.init(createMockContext());
     table.put("abc", "efg");
   }
 
+  @Test(expected = SamzaException.class)
+  public void testCatchWriterExceptionWithUpdates() {
+    TableReadFunction<String, String> reader = mock(TableReadFunction.class);
+    TableWriteFunction<String, String, String> writer = mock(TableWriteFunction.class);
+    CompletableFuture<String> future = new CompletableFuture<>();
+    future.completeExceptionally(new RuntimeException("Expected test exception"));
+    doReturn(future).when(writer).updateAsync(anyString(), anyString());
+    TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
+    RemoteTable<String, String, String> table = new RemoteTable<>("table1", reader, writer,
+        rateLimitHelper, rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
+        null, null, null,
+        null, null, null);
+    table.init(createMockContext());
+    table.update("abc", "xyz");
+  }
+
   @Test
   public void testUninitializedWriter() {
     TableReadFunction<String, String> reader = mock(TableReadFunction.class);
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
-    RemoteTable<String, String> table = new RemoteTable<String, String>("table1", reader, null,
-        rateLimitHelper, null, Executors.newSingleThreadExecutor(),
+    RemoteTable<String, String, Void> table = new RemoteTable<>("table1", reader, null,
+        rateLimitHelper, null, null, Executors.newSingleThreadExecutor(),
         null, null, null,
         null, null, null);
     table.init(createMockContext());

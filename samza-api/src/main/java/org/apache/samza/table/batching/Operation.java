@@ -20,12 +20,13 @@
 package org.apache.samza.table.batching;
 
 /**
- * Interface for operations that can be batched.
+ * Interface for table operations that can be batched.
  *
  * @param <K> The key type associated with the operation.
  * @param <V> The value type associated with the operation.
+ * @param <U> The update type associated with the operation.
  */
-public interface Operation<K, V> {
+public interface Operation<K, V, U> {
   /**
    * @return The key associated with the operation.
    */
@@ -35,6 +36,11 @@ public interface Operation<K, V> {
    * @return The value associated with the operation.
    */
   V getValue();
+
+  /**
+   * @return The update associated with the operation.
+   */
+  U getUpdate();
 
   /**
    * @return The extra arguments associated with the operation.

@@ -42,6 +42,10 @@ public class TableMetrics {
   public final Timer putNs;
   public final Counter numPutAlls;
   public final Timer putAllNs;
+  public final Counter numUpdates;
+  public final Timer updateNs;
+  public final Counter numUpdateAlls;
+  public final Timer updateAllNs;
   public final Counter numDeletes;
   public final Timer deleteNs;
   public final Counter numDeleteAlls;
@@ -73,6 +77,10 @@ public class TableMetrics {
     putNs = tableMetricsUtil.newTimer("put-ns");
     numPutAlls = tableMetricsUtil.newCounter("num-putAlls");
     putAllNs = tableMetricsUtil.newTimer("putAll-ns");
+    numUpdates = tableMetricsUtil.newCounter("update-puts");
+    updateNs = tableMetricsUtil.newTimer("update-ns");
+    numUpdateAlls = tableMetricsUtil.newCounter("num-updateAlls");
+    updateAllNs = tableMetricsUtil.newTimer("updateAll-ns");
     numDeletes = tableMetricsUtil.newCounter("num-deletes");
     deleteNs = tableMetricsUtil.newTimer("delete-ns");
     numDeleteAlls = tableMetricsUtil.newCounter("num-deleteAlls");

@@ -49,12 +49,12 @@ public class TestTableManager {
 
   public static class DummyTableProviderFactory implements TableProviderFactory {
 
-    static ReadWriteTable table;
+    static ReadWriteUpdateTable table;
     static TableProvider tableProvider;
 
     @Override
     public TableProvider getTableProvider(String tableId) {
-      table = mock(ReadWriteTable.class);
+      table = mock(ReadWriteUpdateTable.class);
       tableProvider = mock(TableProvider.class);
       when(tableProvider.getTable()).thenReturn(table);
       return tableProvider;

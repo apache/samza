@@ -35,7 +35,7 @@ import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.descriptors.TableDescriptor;
@@ -148,11 +148,6 @@ public class TestRemoteTableDescriptor {
   @Test
   public void testSerializeWithLimiterAndWriteCredFn() {
     doTestSerialize(createMockRateLimiter(), null, (k, v, args) -> 1);
-  }
-
-  @Test
-  public void testSerializeWithLimiterAndReadWriteCredFns() {
-    doTestSerialize(createMockRateLimiter(), (key, value, args) -> 1, (key, value, args) -> 1);
   }
 
   @Test
@@ -313,7 +308,7 @@ public class TestRemoteTableDescriptor {
 
   private void doTestDeserializeReadFunctionAndLimiter(boolean rateOnly, boolean rlGets, boolean rlPuts) {
     int numRateLimitOps = (rlGets ? 1 : 0) + (rlPuts ? 1 : 0);
-    RemoteTableDescriptor<String, String> desc = new RemoteTableDescriptor("1")
+    RemoteTableDescriptor<String, String, String> desc = new RemoteTableDescriptor("1")
         .withReadFunction(createMockTableReadFunction())
         .withReadRetryPolicy(new TableRetryPolicy().withRetryPredicate((ex) -> false))
         .withWriteFunction(createMockTableWriteFunction())
@@ -358,7 +353,7 @@ public class TestRemoteTableDescriptor {
     Assert.assertTrue(table instanceof RemoteTable);
     RemoteTable rwTable = (RemoteTable) table;
 
-    AsyncReadWriteTable delegate = TestUtils.getFieldValue(rwTable, "asyncTable");
+    AsyncReadWriteUpdateTable delegate = TestUtils.getFieldValue(rwTable, "asyncTable");
     Assert.assertTrue(delegate instanceof AsyncRetriableTable);
     if (rlGets || rlPuts) {
       delegate = TestUtils.getFieldValue(delegate, "table");
