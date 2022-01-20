@@ -187,6 +187,77 @@ public class TestSamzaObjectMapper {
     deserializeFromObjectNode(jobModelJson);
   }
 
+  @Test
+  public void testSerializeSystemStreamPartition() throws IOException {
+    // case 1: keyBucket not explicitly mentioned
+    SystemStreamPartition ssp = new SystemStreamPartition("foo", "bar", new Partition(1));
+    String serializedString = this.samzaObjectMapper.writeValueAsString(ssp);
+
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    ObjectNode sspJson = objectMapper.createObjectNode();
+    sspJson.put("system", "foo");
+    sspJson.put("stream", "bar");
+    sspJson.put("partition", 1);
+
+    // use a plain ObjectMapper to read JSON to make comparison easier
+    ObjectNode serializedAsJson = (ObjectNode) new ObjectMapper().readTree(serializedString);
+    ObjectNode expectedJson = sspJson;
+
+    assertEquals(expectedJson.get("system"), serializedAsJson.get("system"));
+    assertEquals(expectedJson.get("stream"), serializedAsJson.get("stream"));
+    assertEquals(expectedJson.get("partition"), serializedAsJson.get("partition"));
+
+    //Case 2: with non-null keyBucket
+    ssp = new SystemStreamPartition("foo", "bar", new Partition(1), 1);
+    serializedString = this.samzaObjectMapper.writeValueAsString(ssp);
+
+    sspJson = objectMapper.createObjectNode();
+    sspJson.put("system", "foo");
+    sspJson.put("stream", "bar");
+    sspJson.put("partition", 1);
+    sspJson.put("keyBucket", 1);
+
+    // use a plain ObjectMapper to read JSON to make comparison easier
+    serializedAsJson = (ObjectNode) new ObjectMapper().readTree(serializedString);
+    expectedJson = sspJson;
+
+    assertEquals(expectedJson.get("system"), serializedAsJson.get("system"));
+    assertEquals(expectedJson.get("stream"), serializedAsJson.get("stream"));
+    assertEquals(expectedJson.get("partition"), serializedAsJson.get("partition"));
+    assertEquals(expectedJson.get("keyBucket"), serializedAsJson.get("keyBucket"));
+  }
+
+  @Test
+  public void testDeserializeSystemStreamPartition() throws IOException {
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    // case 1: keyBucket not explicitly mentioned
+    ObjectNode sspJson = objectMapper.createObjectNode();
+    sspJson.put("system", "foo");
+    sspJson.put("stream", "bar");
+    sspJson.put("partition", 1);
+
+    SystemStreamPartition ssp = new SystemStreamPartition("foo", "bar", new Partition(1));
+    String jsonString = new ObjectMapper().writeValueAsString(sspJson);
+    SystemStreamPartition deserSSP = this.samzaObjectMapper.readValue(jsonString, SystemStreamPartition.class);
+
+    assertEquals(ssp, deserSSP);
+
+    // case 2: explicitly set key bucket
+    sspJson = objectMapper.createObjectNode();
+    sspJson.put("system", "foo");
+    sspJson.put("stream", "bar");
+    sspJson.put("partition", 1);
+    sspJson.put("keyBucket", 1);
+
+    ssp = new SystemStreamPartition("foo", "bar", new Partition(1), 1);
+    jsonString = new ObjectMapper().writeValueAsString(sspJson);
+    deserSSP = this.samzaObjectMapper.readValue(jsonString, SystemStreamPartition.class);
+
+    assertEquals(ssp, deserSSP);
+  }
+
   private JobModel deserializeFromObjectNode(ObjectNode jobModelJson) throws IOException {
     // use plain ObjectMapper to get JSON string
     String jsonString = new ObjectMapper().writeValueAsString(jobModelJson);
@@ -206,6 +277,7 @@ public class TestSamzaObjectMapper {
     containerModel1TaskTestSSPJson.put("system", "foo");
     containerModel1TaskTestSSPJson.put("stream", "bar");
     containerModel1TaskTestSSPJson.put("partition", 1);
+    containerModel1TaskTestSSPJson.put("keyBucket", -1);
 
     ArrayNode containerModel1TaskTestSSPsJson = objectMapper.createArrayNode();
     containerModel1TaskTestSSPsJson.add(containerModel1TaskTestSSPJson);

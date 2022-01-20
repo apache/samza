@@ -599,4 +599,53 @@ public class TestJobConfig {
     assertFalse(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.CONTAINER_HEARTBEAT_MONITOR_ENABLED,
         "false"))).getContainerHeartbeatMonitorEnabled());
   }
+
+  @Test
+  public void testGetElastictyEnabled() {
+    // greater than 1 means enabled
+    JobConfig jobConfig = new JobConfig(
+        new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(2))));
+    assertTrue(jobConfig.getElasticityEnabled());
+
+    // one means disabled
+    jobConfig =
+        new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(1))));
+    assertFalse(jobConfig.getElasticityEnabled());
+
+    // zero means disabled
+    jobConfig =
+        new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(0))));
+    assertFalse(jobConfig.getElasticityEnabled());
+
+    // negative means disabled
+    jobConfig =
+        new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(-1))));
+    assertFalse(jobConfig.getElasticityEnabled());
+
+    // not specified uses the default standby count, which means disabled
+    jobConfig = new JobConfig(new MapConfig());
+    assertFalse(jobConfig.getElasticityEnabled());
+  }
+
+  @Test
+  public void testGetElasticityFactor() {
+    JobConfig jobConfig = new JobConfig(
+        new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(2))));
+    assertEquals(2, jobConfig.getElasticityFactor());
+
+    jobConfig = new JobConfig(
+        new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(1))));
+    assertEquals(1, jobConfig.getElasticityFactor());
+
+    jobConfig =
+        new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(0))));
+    assertEquals(0, jobConfig.getElasticityFactor());
+
+    jobConfig =
+        new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(-1))));
+    assertEquals(-1, jobConfig.getElasticityFactor());
+
+    jobConfig = new JobConfig(new MapConfig());
+    assertEquals(JobConfig.DEFAULT_JOB_ELASTICITY_FACTOR, jobConfig.getElasticityFactor());
+  }
 }

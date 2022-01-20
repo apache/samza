@@ -246,6 +246,7 @@ public class SamzaObjectMapper {
       systemStreamPartitionMap.put("system", systemStreamPartition.getSystem());
       systemStreamPartitionMap.put("stream", systemStreamPartition.getStream());
       systemStreamPartitionMap.put("partition", systemStreamPartition.getPartition());
+      systemStreamPartitionMap.put("keyBucket", systemStreamPartition.getKeyBucket());
       jsonGenerator.writeObject(systemStreamPartitionMap);
     }
   }
@@ -258,7 +259,11 @@ public class SamzaObjectMapper {
       String system = node.get("system").textValue();
       String stream = node.get("stream").textValue();
       Partition partition = new Partition(node.get("partition").intValue());
-      return new SystemStreamPartition(system, stream, partition);
+      int keyBucket = -1;
+      if (node.get("keyBucket") != null) {
+        keyBucket = node.get("keyBucket").intValue();
+      }
+      return new SystemStreamPartition(system, stream, partition, keyBucket);
     }
   }
 

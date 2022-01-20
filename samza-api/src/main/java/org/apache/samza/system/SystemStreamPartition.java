@@ -27,6 +27,7 @@ import org.apache.samza.Partition;
 public class SystemStreamPartition extends SystemStream implements Comparable<SystemStreamPartition> {
   protected final Partition partition;
   protected final int hash;  // precomputed as instances are immutable and often stored in hash-addressed data structures
+  protected final int keyBucket; // used for elasticity to determine which elastic task should handle this ssp
 
   /**
    * Constructs a Samza stream partition object from specified components.
@@ -38,6 +39,7 @@ public class SystemStreamPartition extends SystemStream implements Comparable<Sy
     super(system, stream);
     this.partition = partition;
     this.hash = computeHashCode();
+    this.keyBucket = -1;
   }
 
   /**
@@ -57,6 +59,24 @@ public class SystemStreamPartition extends SystemStream implements Comparable<Sy
     this(other.getSystem(), other.getStream(), partition);
   }
 
+  public SystemStreamPartition(String system, String stream, Partition partition, int keyBucket) {
+    super(system, stream);
+    this.partition = partition;
+    this.hash = computeHashCode();
+    this.keyBucket = keyBucket;
+  }
+
+  public SystemStreamPartition(SystemStreamPartition other, int keyBucket) {
+    super(other.getSystem(), other.getStream());
+    this.partition = other.getPartition();
+    this.hash = computeHashCode();
+    this.keyBucket = keyBucket;
+  }
+
+  public int getKeyBucket() {
+    return keyBucket;
+  }
+
   public Partition getPartition() {
     return partition;
   }
@@ -74,6 +94,7 @@ public class SystemStreamPartition extends SystemStream implements Comparable<Sy
     final int prime = 31;
     int result = super.hashCode();
     result = prime * result + ((partition == null) ? 0 : partition.hashCode());
+    result = prime * result + ((keyBucket == -1) ? 0 : keyBucket);
     return result;
   }
 
@@ -91,11 +112,17 @@ public class SystemStreamPartition extends SystemStream implements Comparable<Sy
         return false;
     } else if (!partition.equals(other.partition))
       return false;
+    if (keyBucket != other.keyBucket) {
+      return false;
+    }
     return true;
   }
 
   @Override
   public String toString() {
+    if (keyBucket != -1) {
+      return "SystemStreamPartition [" + system + ", " + stream + ", " + partition.getPartitionId() + ", " + keyBucket + "]";
+    }
     return "SystemStreamPartition [" + system + ", " + stream + ", " + partition.getPartitionId() + "]";
   }
 
@@ -116,6 +143,12 @@ public class SystemStreamPartition extends SystemStream implements Comparable<Sy
     if (this.partition.compareTo(that.partition) < 0) {
       return -1;
     } else if (this.partition.compareTo(that.partition) > 0) {
+      return 1;
+    }
+
+    if (this.keyBucket < that.keyBucket) {
+      return -1;
+    } else if (this.keyBucket > that.keyBucket) {
       return 1;
     }
     return 0;

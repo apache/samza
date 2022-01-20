@@ -175,6 +175,12 @@ public class JobConfig extends MapConfig {
   public static final String CONTAINER_HEARTBEAT_MONITOR_ENABLED = "job.container.heartbeat.monitor.enabled";
   private static final boolean CONTAINER_HEARTBEAT_MONITOR_ENABLED_DEFAULT = true;
 
+
+  // Enabled elasticity for the job
+  // number of (elastic) tasks in the job will be old task count X elasticity factor
+  public static final String JOB_ELASTICITY_FACTOR = "job.elasticity.factor";
+  public static final int DEFAULT_JOB_ELASTICITY_FACTOR = 1;
+
   public JobConfig(Config config) {
     super(config);
   }
@@ -465,5 +471,13 @@ public class JobConfig extends MapConfig {
 
   public boolean getContainerHeartbeatMonitorEnabled() {
     return getBoolean(CONTAINER_HEARTBEAT_MONITOR_ENABLED, CONTAINER_HEARTBEAT_MONITOR_ENABLED_DEFAULT);
+  }
+
+  public boolean getElasticityEnabled() {
+    return getElasticityFactor() > 1;
+  }
+
+  public int getElasticityFactor() {
+    return getInt(JOB_ELASTICITY_FACTOR, DEFAULT_JOB_ELASTICITY_FACTOR);
   }
 }
