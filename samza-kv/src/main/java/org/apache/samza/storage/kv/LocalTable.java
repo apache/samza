@@ -148,22 +148,22 @@ public final class LocalTable<K, V, U> extends BaseReadWriteUpdateTable<K, V, U>
   }
 
   @Override
-  public void update(K key, U update, Object... args) {
+  public void update(K key, U update) {
     throw new SamzaException("Local tables do not support update operations");
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update) {
     throw new SamzaException("Local tables do not support update operations");
   }
 
   @Override
-  public void updateAll(List<Entry<K, U>> updates, Object... args) {
+  public void updateAll(List<Entry<K, U>> updates) {
     throw new SamzaException("Local tables do not support update operations");
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates) {
     throw new SamzaException("Local tables do not support update operations");
   }
 

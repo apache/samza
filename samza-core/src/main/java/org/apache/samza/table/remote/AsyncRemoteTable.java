@@ -88,19 +88,15 @@ public class AsyncRemoteTable<K, V, U> implements AsyncReadWriteUpdateTable<K, V
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
-    return args.length > 0
-        ? writeFn.updateAsync(key, update, args)
-        : writeFn.updateAsync(key, update);
+    return writeFn.updateAsync(key, update);
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates) {
     Preconditions.checkNotNull(writeFn, "null writeFn");
-    return args.length > 0
-        ? writeFn.updateAllAsync(updates, args)
-        : writeFn.updateAllAsync(updates);
+    return writeFn.updateAllAsync(updates);
   }
 
   @Override

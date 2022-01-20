@@ -132,27 +132,11 @@ public class TestAsyncRemoteTable {
   }
 
   @Test
-  public void testUpdateAsyncWithArgs() {
-    verifyFailure(() -> roTable.updateAsync(1, 2, Arrays.asList(0, 0)));
-    rwTable.updateAsync(1, 2, Arrays.asList(0, 0));
-    verify(writeFn, times(1)).updateAsync(any(), any(), any());
-  }
-
-  @Test
   public void testUpdateAllAsync() {
     List<Entry<Integer, Integer>> updates = Arrays.asList(new Entry<>(1, 100), new Entry<>(2, 200));
     verifyFailure(() -> roTable.updateAllAsync(updates));
     rwTable.updateAllAsync(updates);
     verify(writeFn, times(1)).updateAllAsync(any());
-  }
-
-  @Test
-  public void testUpdateAllAsyncWithArgs() {
-    List<Entry<Integer, Integer>> updates = Arrays.asList(new Entry<>(1, 100), new Entry<>(2, 200));
-    List<Integer> args = Arrays.asList(0, 0);
-    verifyFailure(() -> roTable.updateAllAsync(updates, args));
-    rwTable.updateAllAsync(updates, args);
-    verify(writeFn, times(1)).updateAllAsync(any(), any());
   }
 
   @Test

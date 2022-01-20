@@ -103,17 +103,17 @@ public class AsyncRateLimitedTable<K, V, U> implements AsyncReadWriteUpdateTable
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update) {
     return doUpdate(
-      () -> updateRateLimiter.throttle(key, update, args),
-      () -> table.updateAsync(key, update, args));
+      () -> updateRateLimiter.throttle(key, update),
+      () -> table.updateAsync(key, update));
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates) {
     return doUpdate(
       () -> updateRateLimiter.throttleRecords(updates),
-      () -> table.updateAllAsync(updates, args));
+      () -> table.updateAllAsync(updates));
   }
 
   @Override

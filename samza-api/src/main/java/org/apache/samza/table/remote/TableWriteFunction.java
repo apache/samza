@@ -134,23 +134,6 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
   CompletableFuture<Void> updateAsync(K key, U update);
 
   /**
-   * Asynchronously update the record with specified {@code key} and additional arguments.
-   * This method must be thread-safe.
-   *
-   * If the update operation failed due to the an existing record missing for the key, the implementation can return
-   * a future completed exceptionally with a {@link RecordNotFoundException} which will
-   * allow to Put a default value if one is provided.
-   *
-   * @param key key for the table record
-   * @param update update record for the given key
-   * @param args additional arguments
-   * @return CompletableFuture for the update request
-   */
-  default CompletableFuture<Void> updateAsync(K key, U update, Object ... args) {
-    throw new SamzaException("Not supported");
-  }
-
-  /**
    * Asynchronously updates the table with {@code records} with specified {@code keys}. This method must be thread-safe.
    * The default implementation calls updateAsync for each entry and return a combined future.
    * @param records updates for the table
@@ -161,16 +144,6 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
         .map(entry -> updateAsync(entry.getKey(), entry.getValue()))
         .collect(Collectors.toList());
     return CompletableFuture.allOf(Iterables.toArray(updateFutures, CompletableFuture.class));
-  }
-
-  /**
-   * Asynchronously updates the table with {@code records} with specified {@code keys}. This method must be thread-safe.
-   * @param records updates for the table
-   * @param args additional arguments
-   * @return CompletableFuture for the update request
-   */
-  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> records, Object ... args) {
-    throw new SamzaException("Not supported");
   }
 
   /**

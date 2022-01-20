@@ -73,19 +73,17 @@ public interface ReadWriteUpdateTable<K, V, U> extends AsyncReadWriteUpdateTable
    *
    * @param key the key with which the specified {@code value} is to be associated.
    * @param update the update to be applied to the record specified by {@code key}.
-   * @param args additional arguments
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  void update(K key, U update, Object ... args);
+  void update(K key, U update);
 
   /**
    * Updates the mappings of the given keys with the corresponding updates.
    *
    * @param updates the updates for the given keys
-   * @param args additional arguments
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    */
-  void updateAll(List<Entry<K, U>> updates, Object ... args);
+  void updateAll(List<Entry<K, U>> updates);
 
 
   /**

@@ -30,15 +30,12 @@ import com.google.common.base.Preconditions;
 public class UpdateOperation<K, V, U> implements Operation<K, V, U> {
   final private K key;
   final private U update;
-  final private Object[] args;
 
-  public UpdateOperation(K key, U update, Object ... args) {
+  public UpdateOperation(K key, U update) {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(update);
-    Preconditions.checkNotNull(args);
     this.key = key;
     this.update = update;
-    this.args = args;
   }
 
   /**
@@ -67,6 +64,6 @@ public class UpdateOperation<K, V, U> implements Operation<K, V, U> {
 
   @Override
   public Object[] getArgs() {
-    return args;
+    return null;
   }
 }

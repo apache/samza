@@ -294,30 +294,30 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteUpdateTable<K, V, U
 
 
   @Override
-  public void update(K key, U update, Object... args) {
+  public void update(K key, U update) {
     try {
-      updateAsync(key, update, args).get();
+      updateAsync(key, update).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public void updateAll(List<Entry<K, U>> updates, Object... args) {
+  public void updateAll(List<Entry<K, U>> updates) {
     try {
-      updateAllAsync(updates, args).get();
+      updateAllAsync(updates).get();
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(key, "null key");
     Preconditions.checkNotNull(update, "null update");
 
-    return instrument(() -> asyncTable.updateAsync(key, update, args), metrics.numUpdates,
+    return instrument(() -> asyncTable.updateAsync(key, update), metrics.numUpdates,
         metrics.updateNs)
         .exceptionally(e -> {
           // rethrow RecordDoesNotExistException instead of wrapping it in SamzaException
@@ -329,14 +329,14 @@ public final class RemoteTable<K, V, U> extends BaseReadWriteUpdateTable<K, V, U
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(updates, "null records");
 
     if (updates.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
-    return instrument(() -> asyncTable.updateAllAsync(updates, args), metrics.numUpdateAlls,
+    return instrument(() -> asyncTable.updateAllAsync(updates), metrics.numUpdateAlls,
         metrics.updateAllNs)
         .exceptionally(e -> {
           String strKeys = updates.stream().map(r -> r.getKey().toString()).collect(Collectors.joining(","));

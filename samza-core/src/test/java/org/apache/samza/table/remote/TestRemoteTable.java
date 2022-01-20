@@ -694,9 +694,7 @@ public class TestRemoteTable {
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(anyCollection());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).putAllAsync(anyCollection(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(anyCollection());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(anyCollection(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAsync(any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).deleteAllAsync(anyCollection());
@@ -728,24 +726,12 @@ public class TestRemoteTable {
 
     // UpdateAsync
     verify(writeFn, times(0)).updateAsync(any(), any());
-    verify(writeFn, times(0)).updateAsync(any(), any(), any());
     table.updateAsync("foo", "bar").join();
     verify(writeFn, times(1)).updateAsync(any(), any());
-    verify(writeFn, times(0)).updateAsync(any(), any(), any());
-    table.updateAsync("foo", "bar", 3).join();
-    verify(writeFn, times(1)).updateAsync(any(), any());
-    verify(writeFn, times(1)).updateAsync(any(), any(), any());
     // UpdateAllAsync
     verify(writeFn, times(0)).updateAllAsync(anyCollection());
-    verify(writeFn, times(0)).updateAllAsync(anyCollection(), any());
     table.updateAllAsync(Arrays.asList(new Entry<>("foo", "bar"))).join();
     verify(writeFn, times(1)).updateAllAsync(anyCollection());
-    verify(writeFn, times(0)).updateAllAsync(anyCollection(), any());
-    table.updateAllAsync(
-        Arrays.asList(new Entry<>("foo", "bar")),
-        Arrays.asList(0, 0)).join();
-    verify(writeFn, times(1)).updateAllAsync(anyCollection());
-    verify(writeFn, times(1)).updateAllAsync(anyCollection(), any());
 
     // DeleteAsync
     verify(writeFn, times(0)).deleteAsync(any());

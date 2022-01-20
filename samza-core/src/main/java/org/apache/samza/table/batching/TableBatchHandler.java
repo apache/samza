@@ -112,8 +112,7 @@ public class TableBatchHandler<K, V, U> implements BatchHandler<K, V, U> {
     if (updates.isEmpty()) {
       return CompletableFuture.completedFuture(Collections.EMPTY_MAP);
     }
-    final Object[] args = getOperationArgs(operations);
-    return args == null ? table.updateAllAsync(updates) : table.updateAllAsync(updates, args);
+    return table.updateAllAsync(updates);
   }
 
   /**

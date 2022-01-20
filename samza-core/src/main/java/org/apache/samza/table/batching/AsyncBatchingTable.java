@@ -119,18 +119,18 @@ public class AsyncBatchingTable<K, V, U> implements AsyncReadWriteUpdateTable<K,
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
+  public CompletableFuture<Void> updateAsync(K key, U update) {
     try {
-      return batchProcessor.processPutDeleteOrUpdateOperations(new UpdateOperation<>(key, update, args));
+      return batchProcessor.processPutDeleteOrUpdateOperations(new UpdateOperation<>(key, update));
     } catch (BatchingNotSupportedException e) {
-      return table.updateAsync(key, update, args);
+      return table.updateAsync(key, update);
     } catch (Exception e) {
       throw new SamzaException(e);
     }
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates) {
     return table.updateAllAsync(updates);
   }
 

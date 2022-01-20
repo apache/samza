@@ -71,20 +71,19 @@ public interface ReadWriteTable<K, V> extends ReadWriteUpdateTable<K, V, Void> {
    * Updates the record associated with a given {@code key} with the specified {@code update}.
    *
    * @param key the key with which the specified {@code value} is to be associated.
-   * @param args additional arguments
    * @throws NullPointerException if the specified {@code key} is {@code null}.
    */
-  default void update(K key, Void update, Object ... args) {
+  default void update(K key, Void update) {
     throw new SamzaException("Not supported");
   }
 
   /**
    * Updates the mappings of the given keys with the corresponding updates.
    *
-   * @param args additional arguments
+   * @param updates the updates for the given keys
    * @throws NullPointerException if any of the specified {@code entries} has {@code null} as key.
    */
-  default void updateAll(List<Entry<K, Void>> updates, Object ... args) {
+  default void updateAll(List<Entry<K, Void>> updates) {
     throw new SamzaException("Not supported");
   }
 

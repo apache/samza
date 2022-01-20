@@ -164,12 +164,6 @@ public class TestRemoteTableEndToEnd {
     }
 
     @Override
-    public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update, Object ... args) {
-      records.add(update);
-      return CompletableFuture.completedFuture(null);
-    }
-
-    @Override
     public CompletableFuture<Void> deleteAsync(Integer key) {
       records.remove(key);
       return CompletableFuture.completedFuture(null);
@@ -217,29 +211,6 @@ public class TestRemoteTableEndToEnd {
 
     @Override
     public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update) {
-      if (failUpdatesAlways) {
-        return CompletableFuture.supplyAsync(() -> {
-          throw new RuntimeException("Update failed");
-        });
-      }
-
-      if (!recordsMap.containsKey(key)) {
-        return CompletableFuture.supplyAsync(() -> {
-          throw new RecordNotFoundException("Record with key : " + key + " does not exist");
-        });
-      } else if (failAfterPutDefault) {
-        return CompletableFuture.supplyAsync(() -> {
-          throw new RuntimeException("Update failed");
-        });
-      } else {
-        COUNTERS.get(testName + "-update").incrementAndGet();
-        recordsMap.put(key, update);
-        return CompletableFuture.completedFuture(null);
-      }
-    }
-
-    @Override
-    public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update, Object ... args) {
       if (failUpdatesAlways) {
         return CompletableFuture.supplyAsync(() -> {
           throw new RuntimeException("Update failed");
@@ -648,14 +619,14 @@ public class TestRemoteTableEndToEnd {
     TableWriteFunction<String, String, String> writer = mock(TableWriteFunction.class);
     CompletableFuture<String> future = new CompletableFuture<>();
     future.completeExceptionally(new RuntimeException("Expected test exception"));
-    doReturn(future).when(writer).updateAsync(anyString(), anyString(), anyString());
+    doReturn(future).when(writer).updateAsync(anyString(), anyString());
     TableRateLimiter rateLimitHelper = mock(TableRateLimiter.class);
     RemoteTable<String, String, String> table = new RemoteTable<>("table1", reader, writer,
         rateLimitHelper, rateLimitHelper, rateLimitHelper, Executors.newSingleThreadExecutor(),
         null, null, null,
         null, null, null);
     table.init(createMockContext());
-    table.update("abc", "xyz", "xyz");
+    table.update("abc", "xyz");
   }
 
   @Test

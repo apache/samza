@@ -82,9 +82,7 @@ public class TestAsyncRateLimitedTable {
 
     // update part
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAsync(any(), any(), any());
     doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(any());
-    doReturn(CompletableFuture.completedFuture(null)).when(writeFn).updateAllAsync(any(), any());
 
     delegate = new AsyncRemoteTable(readFn, writeFn);
     writeTable = new AsyncRateLimitedTable("t1", delegate, readRateLimiter, writeRateLimiter, writeRateLimiter, schedExec);
@@ -239,22 +237,8 @@ public class TestAsyncRateLimitedTable {
   public void testUpdateAsync() {
     writeTable.updateAsync("foo", "bar").join();
     verify(writeFn, times(1)).updateAsync(any(), any());
-    verify(writeFn, times(0)).updateAsync(any(), any(), any());
     verify(writeRateLimiter, times(0)).throttle(anyString());
     verify(writeRateLimiter, times(1)).throttle(anyString(), anyString());
-    verify(writeRateLimiter, times(0)).throttle(anyCollection());
-    verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
-    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
-    verifyReadPartNotCalled();
-  }
-
-  @Test
-  public void testUpdateAsyncWithArgs() {
-    writeTable.updateAsync("foo", "bar", 1).join();
-    verify(writeFn, times(0)).updateAsync(any(), any());
-    verify(writeFn, times(1)).updateAsync(any(), any(), any());
-    verify(writeRateLimiter, times(0)).throttle(anyString());
-    verify(writeRateLimiter, times(1)).throttle(anyString(), anyString(), any());
     verify(writeRateLimiter, times(0)).throttle(anyCollection());
     verify(writeRateLimiter, times(0)).throttleRecords(anyCollection());
     verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
@@ -265,20 +249,6 @@ public class TestAsyncRateLimitedTable {
   public void testUpdateAllAsync() {
     writeTable.updateAllAsync(Arrays.asList(new Entry("1", "2"))).join();
     verify(writeFn, times(1)).updateAllAsync(anyCollection());
-    verify(writeFn, times(0)).updateAllAsync(anyCollection(), any());
-    verify(writeRateLimiter, times(0)).throttle(anyString());
-    verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
-    verify(writeRateLimiter, times(0)).throttle(anyCollection());
-    verify(writeRateLimiter, times(1)).throttleRecords(anyCollection());
-    verify(writeRateLimiter, times(0)).throttle(anyInt(), any());
-    verifyReadPartNotCalled();
-  }
-
-  @Test
-  public void testUpdateAllAsyncWithArgs() {
-    writeTable.updateAllAsync(Arrays.asList(new Entry("1", "2")), Arrays.asList(0, 1)).join();
-    verify(writeFn, times(0)).updateAllAsync(anyCollection());
-    verify(writeFn, times(1)).updateAllAsync(anyCollection(), any());
     verify(writeRateLimiter, times(0)).throttle(anyString());
     verify(writeRateLimiter, times(0)).throttle(anyString(), anyString());
     verify(writeRateLimiter, times(0)).throttle(anyCollection());
@@ -388,10 +358,6 @@ public class TestAsyncRateLimitedTable {
     verify(writeFn, times(0)).putAsync(any(), any(), any());
     verify(writeFn, times(0)).putAllAsync(any());
     verify(writeFn, times(0)).putAllAsync(any(), any());
-    verify(writeFn, times(0)).updateAsync(any(), any(), any());
-    verify(writeFn, times(0)).updateAsync(any(), any(), any(), any());
-    verify(writeFn, times(0)).updateAllAsync(any(), any());
-    verify(writeFn, times(0)).updateAllAsync(any(), any(), any());
     verify(writeFn, times(0)).deleteAsync(any());
     verify(writeFn, times(0)).deleteAsync(any(), any());
     verify(writeFn, times(0)).deleteAllAsync(any());

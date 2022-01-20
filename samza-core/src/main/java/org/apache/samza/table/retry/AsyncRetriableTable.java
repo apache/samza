@@ -117,13 +117,13 @@ public class AsyncRetriableTable<K, V, U> implements AsyncReadWriteUpdateTable<K
   }
 
   @Override
-  public CompletableFuture<Void> updateAsync(K key, U update, Object... args) {
-    return doWrite(() -> table.updateAsync(key, update, args));
+  public CompletableFuture<Void> updateAsync(K key, U update) {
+    return doWrite(() -> table.updateAsync(key, update));
   }
 
   @Override
-  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates, Object... args) {
-    return doWrite(() -> table.updateAllAsync(updates, args));
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates) {
+    return doWrite(() -> table.updateAllAsync(updates));
   }
 
   @Override
