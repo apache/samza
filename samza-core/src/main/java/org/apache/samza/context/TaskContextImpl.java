@@ -27,6 +27,7 @@ import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteTableDelegate;
 import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.TableManager;
 
@@ -101,7 +102,7 @@ public class TaskContextImpl implements TaskContext {
   @Override
   public <K, V> ReadWriteTable<K, V> getTable(String tableId) {
     final ReadWriteUpdateTable table = this.tableManager.getTable(tableId);
-    return (ReadWriteTable) table;
+    return new ReadWriteTableDelegate(table);
   }
 
   @Override
