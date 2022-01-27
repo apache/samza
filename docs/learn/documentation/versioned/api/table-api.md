@@ -64,19 +64,19 @@ The diagram below illustrates the overall architecture of Samza Table API.
 
 Let’s look at a few concepts before diving into the API.
 
-![diagram-medium](/img/{{site.version}}/learn/documentation/api/table-class-diagram.svg)
+![diagram-medium](/img/{{site.version}}/learn/documentation/api/table-api-class-diagram.png)
 
 [`Table`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/Table.java) - 
 This interface represents a dataset that can be accessed by key. We support 
-two types of tables: read-only and read-write. A table can be accessed either 
+gets, put, updates and deletes. A table can be accessed either 
 synchronously or asynchronously and a request may contain one or more keys. 
 There are three broad categories of tables: local, remote and hybrid.
 
-[`ReadableTable`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadableTable.java) - 
-Interface that represents a read-only table. It implements Table.
+[`AsyncReadWriteUpdateTable`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/AsyncReadWriteUpdateTable.java) -
+Interface that represents a read-write-update table with asynchronous operations. Core interface for all table implementations.
 
-[`ReadWriteTable`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadWriteTable.java) - 
-Interface that represents a read-write table. It implements Table.
+[`ReadWriteUpdateTable`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadWriteUpdateTable.java) - 
+Interface that represents a read-write-update table. It implements AsyncReadWriteUpdateTable. Supports synchronous operations as well.
 
 [`TableDescriptor`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/operators/TableDescriptor.java) - 
 User-facing object that contains metadata that completely describes a table. 
@@ -139,11 +139,11 @@ The code snippet below illustrates the usage of table in Samza high level API.
 14  }
 15
 16  static class MyMapFunc implements MapFunction<PageView, KV<Integer, PageView>> {
-17    private ReadableTable<Integer, Profile> profileTable;
+17    private ReadWriteUpdateTable<Integer, Profile> profileTable;
 18
 19    @Override
 20    public void init(Config config, TaskContext context) {
-21      profileTable = (ReadableTable<Integer, Profile>) context.getTable("t1");
+21      profileTable = (ReadWriteUpdateTable<Integer, Profile>) context.getTable("t1");
 22    }
 23 
 24    @Override
@@ -208,11 +208,11 @@ The code snippet below illustrates the usage of table in Samza high level API us
 21  }
 22
 23  static class MyMapFunc implements MapFunction<PageView, KV<Integer, PageView>> {
-24    private ReadableTable<Integer, Profile> profileTable;
+24    private ReadWriteUpdateTable<Integer, Profile> profileTable;
 25
 26    @Override
 27    public void init(Config config, TaskContext context) {
-28      profileTable = (ReadableTable<Integer, Profile>) context.getTable("t1");
+28      profileTable = (ReadWriteUpdateTable<Integer, Profile>) context.getTable("t1");
 29    }
 30 
 31    @Override
@@ -261,11 +261,11 @@ The code snippet below illustrates the usage of table in Samza Low Level Task AP
 14
 15
 16  public class MyStreamTask implements StreamTask, InitableTask {
-17    private ReadWriteTable<Integer, Profile> profileTable;
+17    private ReadWriteUpdateTable<Integer, Profile> profileTable;
 18 
 19    @Override
 20    public void init(Config config, TaskContext context) {
-21      profileTable = (ReadWriteTable<Integer, Profile>) context.getTable("t1");
+21      profileTable = (ReadWriteUpdateTable<Integer, Profile>) context.getTable("t1");
 22    }
 23 
 24    @Override
@@ -288,8 +288,8 @@ join with a table and finally write the output to another table.
 5. Line 21: A reference to table “t1” is obtained in the `Task.init()` method.
 6. Line 26-28: gets the profile key and record from the incoming stream and writes to the table. 
 
-[`ReadableTable`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadableTable.java) 
-or [`ReadWriteTable`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadWriteTable.java) 
+[`ReadWriteUpdateTable`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadWriteUpdateTable.java) 
+or [`ReadWriteUpdateTable`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadWriteUpdateTable.java) 
 can be used in the 
 [`StreamTask.process()`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/task/StreamTask.java#L49) 
 method on the table reference obtained 
@@ -307,25 +307,29 @@ The table below summarizes table metrics:
 |---------|-------|-------------|
 |`num-batches`|`AsyncBatchingTable`|Number of batch operations|
 |`batch-ns`|`AsyncBatchingTable`|Time interval between opening and closing a batch|
-|`get-ns`|`ReadableTable`|Average latency of `get/getAsync()` operations|
-|`getAll-ns`|`ReadableTable`|Average latency of `getAll/getAllAsync()` operations|
-|`num-gets`|`ReadableTable`|Count of `get/getAsync()` operations
-|`num-getAlls`|`ReadableTable`|Count of `getAll/getAllAsync()` operations
-|`num-missed-lookups`|`ReadableTable`|Count of missed get/getAll() operations
-|`read-ns`|`ReadableTable`|Average latency of `readAsync()` operations|
-|`num-reads`|`ReadableTable`|Count of `readAsync()` operations
-|`put-ns`|`ReadWriteTable`|Average latency of `put/putAsync()` operations
-|`putAll-ns`|`ReadWriteTable`|Average latency of `putAll/putAllAsync()` operations
-|`num-puts`|`ReadWriteTable`|Count of `put/putAsync()` operations
-|`num-putAlls`|`ReadWriteTable`|Count of `putAll/putAllAsync()` operations
-|`delete-ns`|`ReadWriteTable`|Average latency of `delete/deleteAsync()` operations
-|`deleteAll-ns`|`ReadWriteTable`|Average latency of `deleteAll/deleteAllAsync()` operations
-|`delete-num`|`ReadWriteTable`|Count of `delete/deleteAsync()` operations
-|`deleteAll-num`|`ReadWriteTable`|Count of `deleteAll/deleteAllAsync()` operations
-|`num-writes`|`ReadWriteTable`|Count of `writeAsync()` operations
-|`write-ns`|`ReadWriteTable`|Average latency of `writeAsync()` operations
-|`flush-ns`|`ReadWriteTable`|Average latency of flush operations
-|`flush-num`|`ReadWriteTable`|Count of flush operations
+|`get-ns`|`ReadWriteUpdateTable`|Average latency of `get/getAsync()` operations|
+|`getAll-ns`|`ReadWriteUpdateTable`|Average latency of `getAll/getAllAsync()` operations|
+|`num-gets`|`ReadWriteUpdateTable`|Count of `get/getAsync()` operations
+|`num-getAlls`|`ReadWriteUpdateTable`|Count of `getAll/getAllAsync()` operations
+|`num-missed-lookups`|`ReadWriteUpdateTable`|Count of missed get/getAll() operations
+|`read-ns`|`ReadWriteUpdateTable`|Average latency of `readAsync()` operations|
+|`num-reads`|`ReadWriteUpdateTable`|Count of `readAsync()` operations
+|`put-ns`|`ReadWriteUpdateTable`|Average latency of `put/putAsync()` operations
+|`putAll-ns`|`ReadWriteUpdateTable`|Average latency of `putAll/putAllAsync()` operations
+|`num-puts`|`ReadWriteUpdateTable`|Count of `put/putAsync()` operations
+|`num-putAlls`|`ReadWriteUpdateTable`|Count of `putAll/putAllAsync()` operations
+|`update-ns`|`ReadWriteUpdateTable`|Average latency of `update/updateAsync()` operations
+|`updateAll-ns`|`ReadWriteUpdateTable`|Average latency of `updateAll/updateAllAsync()` operations
+|`num-updates`|`ReadWriteUpdateTable`|Count of `update/updateAsync()` operations
+|`num-updateAlls`|`ReadWriteUpdateTable`|Count of `updatesAll/updateAllAsync()` operations
+|`delete-ns`|`ReadWriteUpdateTable`|Average latency of `delete/deleteAsync()` operations
+|`deleteAll-ns`|`ReadWriteUpdateTable`|Average latency of `deleteAll/deleteAllAsync()` operations
+|`delete-num`|`ReadWriteUpdateTable`|Count of `delete/deleteAsync()` operations
+|`deleteAll-num`|`ReadWriteUpdateTable`|Count of `deleteAll/deleteAllAsync()` operations
+|`num-writes`|`ReadWriteUpdateTable`|Count of `writeAsync()` operations
+|`write-ns`|`ReadWriteUpdateTable`|Average latency of `writeAsync()` operations
+|`flush-ns`|`ReadWriteUpdateTable`|Average latency of flush operations
+|`flush-num`|`ReadWriteUpdateTable`|Count of flush operations
 |`hit-rate`|`CachingTable`|Cache hit rate (%)
 |`miss-rate`|`CachingTable`|Cache miss rate (%)
 |`req-count`|`CachingTable`|Count of requests
@@ -354,8 +358,8 @@ throughput. They can be used with Samza with Low Level Task API to achieve the m
 throughput. 
 
 Remote Tables are represented by class 
-[`RemoteReadableTable`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteReadableTable.java) and 
-[`RemoteReadWriteTable`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteReadWriteTable.java). 
+[`RemoteReadWriteUpdateTable`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteReadWriteUpdateTable.java) and 
+[`RemoteReadWriteUpdateTable`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteReadWriteUpdateTable.java). 
 All configuration options of a Remote Table can be found in the 
 [`RemoteTableDescriptor`](https://github.com/apache/samza/blob/master/samza-core/src/main/java/org/apache/samza/table/remote/RemoteTableDescriptor.java) class. 
 
@@ -468,7 +472,7 @@ on remote store directly, if they are not supported by a table function.
 19
 20  public class MyMapFunc implements MapFunction { 
 21
-22    AsyncReadWriteTable table;
+22    AsyncReadWriteUpdateTable table;
 23    MyCouchbaseTableWriteFunction writeFunc;
 24
 25    @Override
@@ -598,7 +602,7 @@ The life of a table goes through a few phases
      table-id during initialization of a 
    [`InitableTask`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/task/InitableTask.java).
 4. **Cleanup** - 
-   [`close()`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadableTable.java) 
+   [`close()`] (https://github.com/apache/samza/blob/master/samza-api/src/main/java/org/apache/samza/table/ReadWriteUpdateTable.java) 
    is invoked on all tables when a job is stopped.
 
 ## Developing a Local Table
@@ -676,6 +680,7 @@ Our recommendation is to:
    invoked extensively in Samza applications, e.g.
    * `TableReadFunction.get[All]()`
    * `TableWriteFunction.put[All]()`
+   * `TableWriteFunction.update[All]()`
    * `TableWriteFunction.delete[All]()`
 2. Log all initialization-related successes/failures occurring in overrides of 
 `InitableFunction.init()` to improve diagnosability.

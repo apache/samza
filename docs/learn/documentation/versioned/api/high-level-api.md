@@ -109,7 +109,7 @@ A [MessageStream](javadocs/org/apache/samza/operators/MessageStream), as the nam
 2. By transforming an existing MessageStream using operators like map, filter, window, join etc.
 
 #### Table
-A [Table](javadocs/org/apache/samza/table/Table) is an abstraction for data sources that support random access by key. It is an evolution of the older [KeyValueStore](javadocs/org/apache/samza/storage/kv/KeyValueStore) API. It offers support for both local and remote data sources and composition through hybrid tables. For remote data sources, a [RemoteTable] provides optimized access with caching, rate-limiting, and retry support. Depending on the implementation, a Table can be a [ReadableTable](javadocs/org/apache/samza/table/ReadableTable) or a [ReadWriteTable](javadocs/org/apache/samza/table/ReadWriteTable).
+A [Table](javadocs/org/apache/samza/table/Table) is an abstraction for data sources that support random access by key. It is an evolution of the older [KeyValueStore](javadocs/org/apache/samza/storage/kv/KeyValueStore) API. It offers support for both local and remote data sources and composition through hybrid tables. For remote data sources, a [RemoteTable] provides optimized access with caching, rate-limiting, and retry support. 
  
 In the High Level Streams API, you can obtain and use a Table as follows:
 
@@ -259,6 +259,27 @@ Sends all messages in this MessageStream to the provided Table. The expected mes
         .sendTo(profilesTable);
         
 {% endhighlight %}
+
+Sends all update messages in this MessageStream to the provided Table. The expected message type is [KV](javadocs/org/apache/samza/operators/KV).
+V should be on type UpdateMessage which defines an update message and an optional default to be inserted in the absence of an existing record.
+User also needs to pass an UpdateOptions parameter as well in the sendTo call of MessageStream. It defines the behavior of the sendTo-table operator 
+in terms of whether it should insert a default in the absence of an existing record or not.
+
+{% highlight java %}
+
+    MessageStream<UserInfoEvent> userInfoEventStream = ...
+    Table<KV<Long, UserInfo>> userInfoTable = ...
+
+    userInfoEventStream
+        .map(event -> {
+          UserInfo userInfo = event.getUserInfo();
+          String update = ...; 
+          return KV.of(userInfo.getUserId(), UpdateMessage.of(update, userInfo));
+        })
+        .sendTo(userInfoTable, UpdateOptions.UPDATE_WITH_DEFAULTS);
+
+{% endhighlight %}
+
 
 #### Sink
 Allows sending messages from this MessageStream to an output system using the provided [SinkFunction](javadocs/org/apache/samza/operators/functions/SinkFunction.html).

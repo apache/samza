@@ -31,6 +31,7 @@ import org.apache.samza.storage.kv.Entry;
 
 import com.google.common.collect.Iterables;
 import org.apache.samza.table.RecordNotFoundException;
+import org.apache.samza.table.Table;
 
 
 /**
@@ -120,12 +121,13 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
   }
 
   /**
-   * Asynchronously update the record with specified {@code key} and additional arguments.
+   * Asynchronously update the resource for a given {@code key} with the {@code update}.
    * This method must be thread-safe.
    *
-   * If the update operation failed due to the an existing record missing for the key, the implementation can return
-   * a future completed exceptionally with a {@link RecordNotFoundException} which will
-   * allow to Put a default value if one is provided.
+   * If the update operation failed due to the update being applied to a non-existent resource, the update
+   * implementation can return a future completed exceptionally with a {@link RecordNotFoundException}. This will
+   * allow the {@link org.apache.samza.operators.MessageStream#sendTo(Table, org.apache.samza.operators.UpdateOptions)}}
+   * to Put a default resource, if one is provided in the {@link org.apache.samza.operators.UpdateMessage}.
    *
    * @param key key for the table record
    * @param update update record for the given key
@@ -134,13 +136,14 @@ public interface TableWriteFunction<K, V, U> extends TableFunction {
   CompletableFuture<Void> updateAsync(K key, U update);
 
   /**
-   * Asynchronously updates the table with {@code records} with specified {@code keys}. This method must be thread-safe.
+   * Asynchronously updates the table with multiple {@code updates}. This method must be thread-safe.
+   *
    * The default implementation calls updateAsync for each entry and return a combined future.
-   * @param records updates for the table
+   * @param updates updates for the table
    * @return CompletableFuture for the update request
    */
-  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> records) {
-    final List<CompletableFuture<Void>> updateFutures = records.stream()
+  default CompletableFuture<Void> updateAllAsync(Collection<Entry<K, U>> updates) {
+    final List<CompletableFuture<Void>> updateFutures = updates.stream()
         .map(entry -> updateAsync(entry.getKey(), entry.getValue()))
         .collect(Collectors.toList());
     return CompletableFuture.allOf(Iterables.toArray(updateFutures, CompletableFuture.class));
