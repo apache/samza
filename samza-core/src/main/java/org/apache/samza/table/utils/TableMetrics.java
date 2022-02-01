@@ -77,7 +77,7 @@ public class TableMetrics {
     putNs = tableMetricsUtil.newTimer("put-ns");
     numPutAlls = tableMetricsUtil.newCounter("num-putAlls");
     putAllNs = tableMetricsUtil.newTimer("putAll-ns");
-    numUpdates = tableMetricsUtil.newCounter("update-puts");
+    numUpdates = tableMetricsUtil.newCounter("num-updates");
     updateNs = tableMetricsUtil.newTimer("update-ns");
     numUpdateAlls = tableMetricsUtil.newCounter("num-updateAlls");
     updateAllNs = tableMetricsUtil.newTimer("updateAll-ns");
