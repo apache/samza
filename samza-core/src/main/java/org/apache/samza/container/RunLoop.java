@@ -85,6 +85,7 @@ public class RunLoop implements Runnable, Throttleable {
   private final HighResolutionClock clock;
   private final boolean isAsyncCommitEnabled;
   private volatile boolean runLoopResumedSinceLastChecked;
+  private final int elasticityFactor;
 
   public RunLoop(Map<TaskName, RunLoopTask> runLoopTasks,
       ExecutorService threadPool,
@@ -98,6 +99,23 @@ public class RunLoop implements Runnable, Throttleable {
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled) {
+    this(runLoopTasks, threadPool, consumerMultiplexer, maxConcurrency, windowMs, commitMs, callbackTimeoutMs,
+        maxThrottlingDelayMs, maxIdleMs, containerMetrics, clock, isAsyncCommitEnabled, 1);
+  }
+
+  public RunLoop(Map<TaskName, RunLoopTask> runLoopTasks,
+      ExecutorService threadPool,
+      SystemConsumers consumerMultiplexer,
+      int maxConcurrency,
+      long windowMs,
+      long commitMs,
+      long callbackTimeoutMs,
+      long maxThrottlingDelayMs,
+      long maxIdleMs,
+      SamzaContainerMetrics containerMetrics,
+      HighResolutionClock clock,
+      boolean isAsyncCommitEnabled,
+      int elasticityFactor) {
 
     this.threadPool = threadPool;
     this.consumerMultiplexer = consumerMultiplexer;
@@ -121,6 +139,7 @@ public class RunLoop implements Runnable, Throttleable {
     this.sspToTaskWorkerMapping = Collections.unmodifiableMap(getSspToAsyncTaskWorkerMap(runLoopTasks, workers));
     this.taskWorkers = Collections.unmodifiableList(new ArrayList<>(workers.values()));
     this.isAsyncCommitEnabled = isAsyncCommitEnabled;
+    this.elasticityFactor = elasticityFactor;
   }
 
   /**
@@ -239,8 +258,29 @@ public class RunLoop implements Runnable, Throttleable {
     if (!shutdownNow) {
       if (envelope != null) {
         PendingEnvelope pendingEnvelope = new PendingEnvelope(envelope);
-        for (AsyncTaskWorker worker : sspToTaskWorkerMapping.get(envelope.getSystemStreamPartition())) {
-          worker.state.insertEnvelope(pendingEnvelope);
+        SystemStreamPartition sspOfEnvelope = null;
+        // when elasticity is enabled
+        // the tasks actually consume a keyBucket of the ssp.
+        // hence use the SSP with keybucket to find the worker(s) for the envelope
+        if (elasticityFactor <= 1) {
+          sspOfEnvelope = envelope.getSystemStreamPartition();
+        } else {
+          sspOfEnvelope = envelope.getSystemStreamPartition(elasticityFactor);
+          log.trace("elasticity enabled. using the ssp of the envelope as {}", sspOfEnvelope);
+        }
+        List<AsyncTaskWorker> listOfWorkersForEnvelope = sspToTaskWorkerMapping.get(sspOfEnvelope);
+        if (listOfWorkersForEnvelope != null) {
+          for (AsyncTaskWorker worker : listOfWorkersForEnvelope) {
+            worker.state.insertEnvelope(pendingEnvelope);
+          }
+        } else if (elasticityFactor > 1) {
+          // when elasticity is enabled
+          // this condition happens when a keyBucket of the SSP is being consumed but other keyBuckets are not consumed
+          // if this update is not done for the SSP then the unprocessed envelopes from other keyBuckets
+          // will make the consumerMultiplexer not poll as it sees envelopes available for consumption.
+          consumerMultiplexer.tryUpdate(envelope.getSystemStreamPartition());
+          log.trace("updating the system consumers for ssp keyBucket {} not processed by this runloop",
+              envelope.getSystemStreamPartition(elasticityFactor));
         }
       }
 

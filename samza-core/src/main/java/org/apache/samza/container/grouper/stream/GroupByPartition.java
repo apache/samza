@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
@@ -36,10 +37,12 @@ import org.apache.samza.system.SystemStreamPartition;
  */
 public class GroupByPartition implements SystemStreamPartitionGrouper {
   private final Set<SystemStreamPartition> broadcastStreams;
+  private final int elasticityFactor;
 
   public GroupByPartition(Config config) {
     TaskConfig taskConfig = new TaskConfig(config);
     this.broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
+    elasticityFactor = new JobConfig(config).getElasticityFactor();
   }
 
   @Override
@@ -52,12 +55,22 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
         continue;
       }
 
-      TaskName taskName = new TaskName(String.format("Partition %d", ssp.getPartition().getPartitionId()));
-
-      if (!groupedMap.containsKey(taskName)) {
-        groupedMap.put(taskName, new HashSet<>());
+      // if elasticity factor > 1 then elasticity is enabled
+      // for each partition create ElasticityFactor number of tasks
+      // i.e; result will have number of tasks =  ElasticityFactor X number of partitions
+      // each task will have name Partition_X_Y where X is the partition number and Y <= elasticityFactor
+      // each task Partition_X_Y consumes the keyBucket Y of all the SSP with partition number X.
+      // #todo: add the elasticity ticket for more details?
+      if (elasticityFactor > 1) {
+        for (int i = 0; i < elasticityFactor; i++) {
+          TaskName taskName = new TaskName(String.format("Partition %d %d", ssp.getPartition().getPartitionId(), i));
+          SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, i);
+          addToTaskNameSSPMap(groupedMap, taskName, sspWithKeyBucket);
+        }
+      } else {
+        TaskName taskName = new TaskName(String.format("Partition %d", ssp.getPartition().getPartitionId()));
+        addToTaskNameSSPMap(groupedMap, taskName, ssp);
       }
-      groupedMap.get(taskName).add(ssp);
     }
 
     // assign the broadcast streams to all the taskNames
@@ -68,5 +81,13 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
     }
 
     return groupedMap;
+  }
+
+  private void addToTaskNameSSPMap(Map<TaskName, Set<SystemStreamPartition>> groupedMap, TaskName taskName,
+      SystemStreamPartition ssp) {
+    if (!groupedMap.containsKey(taskName)) {
+      groupedMap.put(taskName, new HashSet<>());
+    }
+    groupedMap.get(taskName).add(ssp);
   }
 }

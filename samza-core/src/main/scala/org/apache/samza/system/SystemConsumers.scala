@@ -172,7 +172,10 @@ class SystemConsumers (
   def start {
     for ((systemStreamPartition, offset) <- sspToRegisteredOffsets.asScala) {
       val consumer = consumers(systemStreamPartition.getSystem)
-      consumer.register(systemStreamPartition, offset)
+      // If elasticity is enabled then the RunLoop gives SSP with keybucket
+      // but the actual systemConsumer which consumes from the input does not know about KeyBucket.
+      // hence, use an SSP without KeyBucket
+      consumer.register(new SystemStreamPartition(systemStreamPartition.getSystemStream, systemStreamPartition.getPartition), offset)
     }
 
     debug("Starting consumers.")
@@ -212,7 +215,12 @@ class SystemConsumers (
   }
 
 
-  def register(systemStreamPartition: SystemStreamPartition, offset: String) {
+  def register(givenSystemStreamPartition: SystemStreamPartition, offset: String) {
+    // If elasticity is enabled then the RunLoop gives SSP with keybucket
+    // but the MessageChooser does not know about the KeyBucket
+    // hence, use an SSP without KeyBucket
+    val systemStreamPartition = new SystemStreamPartition(givenSystemStreamPartition.getSystem,
+      givenSystemStreamPartition.getStream, givenSystemStreamPartition.getPartition)
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
