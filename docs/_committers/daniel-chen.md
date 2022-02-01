@@ -1,14 +1,14 @@
 ---
-name: Sanil Jain
+name: Daniel Chen
 website:
-linkedin: https://www.linkedin.com/in/sanil15/
-twitter:
+linkedin: https://www.linkedin.com/in/dxichen
+twitter: dxichen
 image:
-github: Sanil15
+github: dxichen
 pmc_member: false
 job_title:
 samza_title:
-order: 115
+order: 130
 ---
 <!--
    Licensed to the Apache Software Foundation (ASF) under one or more

@@ -25,21 +25,23 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.UpdateOptions;
+import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.serializers.NoOpSerde;
 import org.apache.samza.storage.kv.Entry;
 import org.apache.samza.system.descriptors.DelegatingSystemDescriptor;
 import org.apache.samza.system.descriptors.GenericInputDescriptor;
 import org.apache.samza.table.Table;
 import org.apache.samza.table.batching.CompactBatchProvider;
+import org.apache.samza.table.batching.CompleteBatchProvider;
 import org.apache.samza.table.descriptors.RemoteTableDescriptor;
 import org.apache.samza.table.remote.BaseTableFunction;
 import org.apache.samza.table.remote.TableRateLimiter;
@@ -58,7 +60,7 @@ import static org.mockito.Mockito.*;
 
 
 public class TestRemoteTableWithBatchEndToEnd {
-  private static final Map<String, List<EnrichedPageView>> WRITTEN_RECORDS = new HashMap<>();
+  private static final Map<String, Map<Integer, EnrichedPageView>> WRITTEN_RECORDS = new HashMap<>();
   private static final Map<String, AtomicInteger> BATCH_WRITES = new HashMap<>();
   private static final Map<String, AtomicInteger> BATCH_READS = new HashMap<>();
 
@@ -103,8 +105,8 @@ public class TestRemoteTableWithBatchEndToEnd {
   }
 
   static class InMemoryWriteFunction extends BaseTableFunction
-      implements TableWriteFunction<Integer, EnrichedPageView> {
-    private transient List<EnrichedPageView> records;
+      implements TableWriteFunction<Integer, EnrichedPageView, EnrichedPageView> {
+    private transient Map<Integer, EnrichedPageView> records;
     private transient AtomicInteger batchWritesCounter;
     private final String testName;
 
@@ -123,7 +125,7 @@ public class TestRemoteTableWithBatchEndToEnd {
 
     @Override
     public CompletableFuture<Void> putAsync(Integer key, EnrichedPageView record) {
-      records.add(record);
+      records.put(key, record);
       return CompletableFuture.completedFuture(null);
     }
 
@@ -137,6 +139,18 @@ public class TestRemoteTableWithBatchEndToEnd {
     public CompletableFuture<Void> putAllAsync(Collection<Entry<Integer, EnrichedPageView>> records) {
       batchWritesCounter.incrementAndGet();
       return TableWriteFunction.super.putAllAsync(records);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateAsync(Integer key, EnrichedPageView update) {
+      records.put(key, update);
+      return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateAllAsync(Collection<Entry<Integer, EnrichedPageView>> records) {
+      batchWritesCounter.incrementAndGet();
+      return TableWriteFunction.super.updateAllAsync(records);
     }
 
     @Override
@@ -163,7 +177,7 @@ public class TestRemoteTableWithBatchEndToEnd {
 
     BATCH_READS.put(testName, new AtomicInteger());
     BATCH_WRITES.put(testName, new AtomicInteger());
-    WRITTEN_RECORDS.put(testName, new CopyOnWriteArrayList<>());
+    WRITTEN_RECORDS.put(testName, new HashMap<>());
 
     int count = 16;
     int batchSize = 4;
@@ -171,9 +185,9 @@ public class TestRemoteTableWithBatchEndToEnd {
 
     final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
     final RateLimiter writeRateLimiter = mock(RateLimiter.class, withSettings().serializable());
-    final TableRateLimiter.CreditFunction creditFunction = (k, v, args)->1;
+    final TableRateLimiter.CreditFunction creditFunction = (k, v, args) -> 1;
     final StreamApplication app = appDesc -> {
-      RemoteTableDescriptor<Integer, Profile> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
+      RemoteTableDescriptor<Integer, Profile, Void> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
       inputTableDesc
           .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(testName, profiles))
           .withRateLimiter(readRateLimiter, creditFunction, null);
@@ -184,7 +198,7 @@ public class TestRemoteTableWithBatchEndToEnd {
       // dummy reader
       TableReadFunction readFn = new MyReadFunction();
 
-      RemoteTableDescriptor<Integer, EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");
+      RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");
       outputTableDesc
           .withReadFunction(readFn)
           .withWriteFunction(writer)
@@ -193,16 +207,17 @@ public class TestRemoteTableWithBatchEndToEnd {
         outputTableDesc.withBatchProvider(new CompactBatchProvider().withMaxBatchSize(batchSize).withMaxBatchDelay(Duration.ofHours(1)));
       }
 
-      Table<KV<Integer, EnrichedPageView>> outputTable = appDesc.getTable(outputTableDesc);
+      Table outputTable = appDesc.getTable(outputTableDesc);
 
       Table<KV<Integer, Profile>> inputTable = appDesc.getTable(inputTableDesc);
 
       DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
       GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+
       appDesc.getInputStream(isd)
           .map(pv -> new KV<>(pv.getMemberId(), pv))
           .join(inputTable, new PageViewToProfileJoinFunction())
-          .map(m -> new KV(m.getMemberId(), m))
+          .map(m -> new KV<>(m.getMemberId(), m))
           .sendTo(outputTable);
     };
 
@@ -217,27 +232,106 @@ public class TestRemoteTableWithBatchEndToEnd {
 
     Assert.assertEquals(count, WRITTEN_RECORDS.get(testName).size());
     Assert.assertNotNull(WRITTEN_RECORDS.get(testName).get(0));
-
-    if (batchRead) {
-      Assert.assertEquals(count / batchSize, BATCH_READS.get(testName).get());
-    }
     if (batchWrite) {
       Assert.assertEquals(count / batchSize, BATCH_WRITES.get(testName).get());
     }
   }
 
+  private void doTestStreamTableJoinRemoteTablePartialUpdates(String testName, boolean isCompactBatch) throws Exception {
+    final InMemoryWriteFunction writer = new InMemoryWriteFunction(testName);
+
+    BATCH_READS.put(testName, new AtomicInteger());
+    BATCH_WRITES.put(testName, new AtomicInteger());
+    WRITTEN_RECORDS.put(testName, new HashMap<>());
+
+    int count = 16;
+    int batchSize = 4;
+    String profiles = Base64Serializer.serialize(generateProfiles(count));
+
+    final RateLimiter readRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final RateLimiter writeRateLimiter = mock(RateLimiter.class, withSettings().serializable());
+    final TableRateLimiter.CreditFunction creditFunction = (k, v, args)->1;
+    final StreamApplication app = appDesc -> {
+      RemoteTableDescriptor<Integer, Profile, Void> inputTableDesc = new RemoteTableDescriptor<>("profile-table-1");
+      inputTableDesc
+          .withReadFunction(InMemoryReadFunction.getInMemoryReadFunction(testName, profiles))
+          .withRateLimiter(readRateLimiter, creditFunction, null);
+
+      // dummy reader
+      TableReadFunction<Integer, EnrichedPageView> readFn = new MyReadFunction();
+
+      RemoteTableDescriptor<Integer, EnrichedPageView, EnrichedPageView> outputTableDesc = new RemoteTableDescriptor<>("enriched-page-view-table-1");
+      outputTableDesc
+          .withReadFunction(readFn)
+          .withWriteFunction(writer)
+          .withRateLimiter(writeRateLimiter, creditFunction, creditFunction);
+      if (isCompactBatch) {
+        outputTableDesc.withBatchProvider(
+            new CompactBatchProvider<Integer, EnrichedPageView, EnrichedPageView>()
+                .withMaxBatchSize(batchSize)
+                .withMaxBatchDelay(Duration.ofHours(1)));
+      } else {
+        outputTableDesc.withBatchProvider(
+            new CompleteBatchProvider<Integer, EnrichedPageView, EnrichedPageView>()
+                .withMaxBatchSize(batchSize)
+                .withMaxBatchDelay(Duration.ofHours(1)));
+      }
+
+      Table<KV<Integer, EnrichedPageView>> table = appDesc.getTable(outputTableDesc);
+
+      Table<KV<Integer, Profile>> inputTable = appDesc.getTable(inputTableDesc);
+
+      DelegatingSystemDescriptor ksd = new DelegatingSystemDescriptor("test");
+      GenericInputDescriptor<PageView> isd = ksd.getInputDescriptor("PageView", new NoOpSerde<>());
+      appDesc.getInputStream(isd)
+          .map(pv -> new KV<>(pv.getMemberId(), pv))
+          .join(inputTable, new PageViewToProfileJoinFunction())
+          .map(m -> new KV<>(m.getMemberId(), UpdateMessage.of(m, m)))
+          .sendTo(table, UpdateOptions.UPDATE_WITH_DEFAULTS);
+    };
+
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<PageView> inputDescriptor = isd
+        .getInputDescriptor("PageView", new NoOpSerde<>());
+    TestRunner.of(app)
+        .addInputStream(inputDescriptor, Arrays.asList(generatePageViewsWithDistinctKeys(count)))
+        .addConfig("task.max.concurrency", String.valueOf(count))
+        .addConfig("task.async.commit", String.valueOf(true))
+        .run(Duration.ofSeconds(10));
+
+    Assert.assertEquals(count, WRITTEN_RECORDS.get(testName).size());
+    Assert.assertNotNull(WRITTEN_RECORDS.get(testName).get(0));
+    Assert.assertEquals(count / batchSize, BATCH_WRITES.get(testName).get());
+  }
+
   @Test
   public void testStreamTableJoinRemoteTableBatchingReadWrite() throws Exception {
-    doTestStreamTableJoinRemoteTable("testStreamTableJoinRemoteTableBatchingReadWrite", true, true);
+    doTestStreamTableJoinRemoteTable("testStreamTableJoinRemoteTableBatchingReadWrite", true,
+        true);
   }
 
   @Test
   public void testStreamTableJoinRemoteTableBatchingRead() throws Exception {
-    doTestStreamTableJoinRemoteTable("testStreamTableJoinRemoteTableBatchingRead", true, false);
+    doTestStreamTableJoinRemoteTable("testStreamTableJoinRemoteTableBatchingRead", true,
+        false);
+  }
+
+  @Test
+  public void testStreamTableJoinRemoteTableBatchReadsWithUpdatesCompleteBatch() throws Exception {
+    doTestStreamTableJoinRemoteTablePartialUpdates("testStreamTableJoinRemoteTableBatchReadsWithUpdatesCompleteBatch",
+        false);
+  }
+
+  @Test(expected = SamzaException.class)
+  public void testStreamTableJoinRemoteTableBatchReadsWithUpdatesCompactBatch() throws Exception {
+    // test should fail with SamzaException as Batching is not supported with Compact Batches for partial updates
+    doTestStreamTableJoinRemoteTablePartialUpdates("testStreamTableJoinRemoteTableBatchReadsWithUpdatesCompactBatch",
+        true);
   }
 
   @Test
   public void testStreamTableJoinRemoteTableBatchingWrite() throws Exception {
-    doTestStreamTableJoinRemoteTable("testStreamTableJoinRemoteTableBatchingWrite", false, true);
+    doTestStreamTableJoinRemoteTable("testStreamTableJoinRemoteTableBatchingWrite", false,
+        true);
   }
 }

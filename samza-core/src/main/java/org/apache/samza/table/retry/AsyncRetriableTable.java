@@ -29,12 +29,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Predicate;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.remote.TableReadFunction;
 import org.apache.samza.table.remote.TableWriteFunction;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
-import static org.apache.samza.table.BaseReadWriteTable.Func1;
+import static org.apache.samza.table.BaseReadWriteUpdateTable.Func1;
 import static org.apache.samza.table.retry.FailsafeAdapter.failsafe;
 
 
@@ -44,12 +44,14 @@ import static org.apache.samza.table.retry.FailsafeAdapter.failsafe;
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <U> the type of the update applied to records in this table
  */
-public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
+public class AsyncRetriableTable<K, V, U> implements AsyncReadWriteUpdateTable<K, V, U> {
 
   private final String tableId;
-  private final AsyncReadWriteTable<K, V> table;
+  private final AsyncReadWriteUpdateTable<K, V, U> table;
   private final RetryPolicy readRetryPolicy;
+  // write retry policy will apply for updates as well
   private final RetryPolicy writeRetryPolicy;
   private final ScheduledExecutorService retryExecutor;
 
@@ -58,7 +60,7 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
   @VisibleForTesting
   RetryMetrics writeRetryMetrics;
 
-  public AsyncRetriableTable(String tableId, AsyncReadWriteTable<K, V> table,
+  public AsyncRetriableTable(String tableId, AsyncReadWriteUpdateTable<K, V, U> table,
       TableRetryPolicy readRetryPolicy, TableRetryPolicy writeRetryPolicy, ScheduledExecutorService retryExecutor,
       TableReadFunction readFn, TableWriteFunction writeFn) {
 
@@ -112,6 +114,16 @@ public class AsyncRetriableTable<K, V> implements AsyncReadWriteTable<K, V> {
   @Override
   public CompletableFuture<Void> putAllAsync(List<Entry<K, V>> entries, Object ... args) {
     return doWrite(() -> table.putAllAsync(entries, args));
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAsync(K key, U update) {
+    return doWrite(() -> table.updateAsync(key, update));
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates) {
+    return doWrite(() -> table.updateAllAsync(updates));
   }
 
   @Override

@@ -27,7 +27,7 @@ import com.google.common.base.Preconditions;
  *
  * @param <K> The type of the key.
  */
-public class DeleteOperation<K, V> implements Operation<K, V> {
+public class DeleteOperation<K, V, U> implements Operation<K, V, U> {
   final K key;
   final Object[] args;
 
@@ -51,6 +51,14 @@ public class DeleteOperation<K, V> implements Operation<K, V> {
    */
   @Override
   public V getValue() {
+    return null;
+  }
+
+  /**
+   * @return null.
+   */
+  @Override
+  public U getUpdate() {
     return null;
   }
 

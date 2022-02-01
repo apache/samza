@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.samza.config.JavaTableConfig;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.table.BaseTableProvider;
 import org.apache.samza.table.descriptors.GuavaCacheTableDescriptor;
 import org.apache.samza.table.utils.SerdeUtils;
@@ -44,7 +44,7 @@ public class GuavaCacheTableProvider extends BaseTableProvider {
   }
 
   @Override
-  public ReadWriteTable getTable() {
+  public ReadWriteUpdateTable getTable() {
     Preconditions.checkNotNull(context, String.format("Table %s not initialized", tableId));
     JavaTableConfig tableConfig = new JavaTableConfig(context.getJobContext().getConfig());
     Cache guavaCache = SerdeUtils.deserialize(GuavaCacheTableDescriptor.GUAVA_CACHE,

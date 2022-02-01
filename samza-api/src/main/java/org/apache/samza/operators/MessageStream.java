@@ -291,13 +291,34 @@ public interface MessageStream<M> {
    * scheme when propogated to next operator.
    *
    * @param table the table to write messages to
-   * @param args additional arguments passed to the table
    * @param <K> the type of key in the table
    * @param <V> the type of record value in the table
    * @return this {@link MessageStream}
    */
-  <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table, Object ... args);
+  <K, V> MessageStream<KV<K, V>> sendTo(Table<KV<K, V>> table);
 
+  /**
+   * Allows sending update messages in this {@link MessageStream} to a {@link Table} and then propagates this
+   * {@link MessageStream} to the next chained operator. The type of input message is expected to be {@link KV},
+   * otherwise a {@link ClassCastException} will be thrown. The value is an {@link UpdateMessage}- update and default
+   * value. Defaults are optional and can be used if the Remote Table integration supports inserting a default through
+   * PUT in the event an update fails due to an existing record being absent.
+   * The user also needs to pass {@link UpdateOptions} argument which defines whether the update is an update only operation
+   * or a update with default.
+   * <p>
+   * Note: The update will be written but may not be flushed to the underlying table before its propagated to the
+   * chained operators. Whether the message can be read back from the Table in the chained operator depends on whether
+   * it was flushed and whether the Table offers read after write consistency. Messages retain the original partitioning
+   * scheme when propagated to next operator.
+   *
+   * @param table the table to write update messages to
+   * @param updateOptions The update options which defines how the update will be performed
+   * @param <K> the type of key in the table
+   * @param <V> the type of record value in the table
+   * @param <U> the type of update value for the table
+   * @return this {@link MessageStream}
+   */
+  <K, V, U> MessageStream<KV<K, UpdateMessage<U, V>>> sendTo(Table<KV<K, V>> table, UpdateOptions updateOptions);
   /**
    * Broadcasts messages in this {@link MessageStream} to all instances of its downstream operators..
    * @param serde the {@link Serde} to use for (de)serializing the message.

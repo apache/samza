@@ -24,18 +24,18 @@ import java.time.Duration;
 import org.apache.samza.table.remote.TablePart;
 
 
-public abstract class BatchProvider<K, V> implements TablePart, Serializable {
-  public abstract Batch<K, V> getBatch();
+public abstract class BatchProvider<K, V, U> implements TablePart, Serializable {
+  public abstract Batch<K, V, U> getBatch();
 
   private int maxBatchSize = 100;
   private Duration maxBatchDelay = Duration.ofMillis(100);
 
-  public BatchProvider<K, V> withMaxBatchSize(int maxBatchSize) {
+  public BatchProvider<K, V, U> withMaxBatchSize(int maxBatchSize) {
     this.maxBatchSize = maxBatchSize;
     return this;
   }
 
-  public BatchProvider<K, V> withMaxBatchDelay(Duration maxBatchDelay) {
+  public BatchProvider<K, V, U> withMaxBatchDelay(Duration maxBatchDelay) {
     this.maxBatchDelay = maxBatchDelay;
     return this;
   }

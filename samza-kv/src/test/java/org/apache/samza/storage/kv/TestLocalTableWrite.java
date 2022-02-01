@@ -32,7 +32,7 @@ import org.apache.samza.context.JobContext;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.Timer;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -98,7 +98,7 @@ public class TestLocalTableWrite {
 
   @Test
   public void testPut() throws Exception {
-    ReadWriteTable table = createTable(false);
+    ReadWriteUpdateTable table = createTable(false);
     table.put("k1", "v1");
     table.putAsync("k2", "v2").get();
     table.putAsync("k3", null).get();
@@ -120,7 +120,7 @@ public class TestLocalTableWrite {
 
   @Test
   public void testPutAll() throws Exception {
-    ReadWriteTable table = createTable(false);
+    ReadWriteUpdateTable table = createTable(false);
     List<Entry> entries = Arrays.asList(new Entry("k1", "v1"), new Entry("k2", null));
     table.putAll(entries);
     table.putAllAsync(entries).get();
@@ -142,7 +142,7 @@ public class TestLocalTableWrite {
 
   @Test
   public void testDelete() throws Exception {
-    ReadWriteTable table = createTable(false);
+    ReadWriteUpdateTable table = createTable(false);
     table.delete("");
     table.deleteAsync("").get();
     verify(kvStore, times(2)).delete(any());
@@ -162,7 +162,7 @@ public class TestLocalTableWrite {
 
   @Test
   public void testDeleteAll() throws Exception {
-    ReadWriteTable table = createTable(false);
+    ReadWriteUpdateTable table = createTable(false);
     table.deleteAll(Collections.emptyList());
     table.deleteAllAsync(Collections.emptyList()).get();
     verify(kvStore, times(2)).deleteAll(any());
@@ -182,7 +182,7 @@ public class TestLocalTableWrite {
 
   @Test
   public void testFlush() {
-    ReadWriteTable table = createTable(false);
+    ReadWriteUpdateTable table = createTable(false);
     table.flush();
     table.flush();
     // Note: store.flush() is NOT called here
@@ -203,7 +203,7 @@ public class TestLocalTableWrite {
 
   @Test
   public void testTimerDisabled() throws Exception {
-    ReadWriteTable table = createTable(true);
+    ReadWriteUpdateTable table = createTable(true);
     table.put("", "");
     table.putAsync("", "").get();
     table.putAll(Collections.emptyList());

@@ -313,13 +313,11 @@ public class TestOperatorSpec {
   @Test
   public void testSendToTableOperatorSpec() {
     String tableId = "t1";
-    SendToTableOperatorSpec<String, Integer> sendOpSpec =
-        new SendToTableOperatorSpec<>(tableId, "output-1", 1, null, "3");
+    SendToTableOperatorSpec<String, Integer> sendOpSpec = new SendToTableOperatorSpec<>(tableId, "output-1");
     SendToTableOperatorSpec<String, Integer> sendToCopy = (SendToTableOperatorSpec<String, Integer>) OperatorSpecTestUtils
         .copyOpSpec(sendOpSpec);
     assertNotEquals(sendToCopy, sendOpSpec);
     assertEquals(sendToCopy.getOpId(), sendOpSpec.getOpId());
-    assertArrayEquals(sendToCopy.getArgs(), sendOpSpec.getArgs());
     assertTrue(sendToCopy.getTableId().equals(sendOpSpec.getTableId()));
   }
 

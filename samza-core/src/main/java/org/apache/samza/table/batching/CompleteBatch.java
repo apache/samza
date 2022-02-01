@@ -32,9 +32,10 @@ import java.util.concurrent.CompletableFuture;
  *
  * @param <K> The type of the key associated with the {@link Operation}
  * @param <V> The type of the value associated with the {@link Operation}
+ * @param <U> The type of the update associated with the {@link Operation}
  */
-class CompleteBatch<K, V> extends AbstractBatch<K, V> {
-  private final List<Operation<K, V>> operations = new ArrayList<>();
+class CompleteBatch<K, V, U> extends AbstractBatch<K, V, U> {
+  private final List<Operation<K, V, U>> operations = new ArrayList<>();
 
   public CompleteBatch(int maxBatchSize, Duration maxBatchDelay) {
     super(maxBatchSize, maxBatchDelay);
@@ -52,7 +53,7 @@ class CompleteBatch<K, V> extends AbstractBatch<K, V> {
    * All operations will be buffered without any compaction.
    */
   @Override
-  public CompletableFuture<Void> addOperation(Operation<K, V> operation) {
+  public CompletableFuture<Void> addOperation(Operation<K, V, U> operation) {
     Preconditions.checkNotNull(operation);
     operations.add(operation);
     if (size() >= maxBatchSize) {
@@ -62,7 +63,7 @@ class CompleteBatch<K, V> extends AbstractBatch<K, V> {
   }
 
   @Override
-  public Collection<Operation<K, V>> getOperations() {
+  public Collection<Operation<K, V, U>> getOperations() {
     return operations;
   }
 }

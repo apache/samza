@@ -20,11 +20,13 @@ package org.apache.samza.operators.impl;
 
 import java.util.Collections;
 import java.util.concurrent.CompletionStage;
+import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.SendToTableOperatorSpec;
-import org.apache.samza.table.ReadWriteTable;
+import org.apache.samza.table.ReadWriteUpdateTable;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskCoordinator;
 import java.util.Collection;
@@ -40,11 +42,11 @@ import java.util.Collection;
 public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, V>> {
 
   private final SendToTableOperatorSpec<K, V> sendToTableOpSpec;
-  private final ReadWriteTable<K, V> table;
+  private final ReadWriteUpdateTable<K, V, ?> table;
 
   SendToTableOperatorImpl(SendToTableOperatorSpec<K, V> sendToTableOpSpec, Context context) {
     this.sendToTableOpSpec = sendToTableOpSpec;
-    this.table = context.getTaskContext().getTable(sendToTableOpSpec.getTableId());
+    this.table = context.getTaskContext().getUpdatableTable(sendToTableOpSpec.getTableId());
   }
 
   @Override
@@ -54,7 +56,12 @@ public class SendToTableOperatorImpl<K, V> extends OperatorImpl<KV<K, V>, KV<K, 
   @Override
   protected CompletionStage<Collection<KV<K, V>>> handleMessageAsync(KV<K, V> message, MessageCollector collector,
       TaskCoordinator coordinator) {
-    return table.putAsync(message.getKey(), message.getValue(), sendToTableOpSpec.getArgs())
+    if (message.getValue() instanceof UpdateMessage) {
+      throw new SamzaException("Incorrect use of .sendTo operator with UpdateMessage value type. "
+          + "Please use the following method on MessageStream- sendTo(Table<KV<K, UpdateMessage<U, V>>> table,"
+          + "UpdateOptions updateOptions).");
+    }
+    return table.putAsync(message.getKey(), message.getValue())
         .thenApply(result -> Collections.singleton(message));
   }
 

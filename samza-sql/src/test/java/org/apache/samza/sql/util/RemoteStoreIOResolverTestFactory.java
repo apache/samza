@@ -23,6 +23,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
+import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.sql.serializers.SamzaSqlRelMessageSerdeFactory;
 import org.apache.samza.sql.serializers.SamzaSqlRelRecordSerdeFactory;
@@ -53,12 +55,17 @@ public class RemoteStoreIOResolverTestFactory implements SqlIOResolverFactory {
   }
 
   public static class InMemoryWriteFunction extends BaseTableFunction
-      implements TableWriteFunction<Object, Object> {
+      implements TableWriteFunction<Object, Object, Object> {
 
     @Override
     public CompletableFuture<Void> putAsync(Object key, Object record) {
       records.put(key.toString(), record);
       return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateAsync(Object key, @Nullable Object record) {
+      throw new SamzaException("Update unsupported");
     }
 
     @Override

@@ -19,9 +19,9 @@
 
 package org.apache.samza.table.batching;
 
-public class CompleteBatchProvider<K, V> extends BatchProvider<K, V> {
+public class CompleteBatchProvider<K, V, U> extends BatchProvider<K, V, U> {
   @Override
-  public Batch<K, V> getBatch() {
+  public Batch<K, V, U> getBatch() {
     return new CompleteBatch<>(getMaxBatchSize(), getMaxBatchDelay());
   }
 }

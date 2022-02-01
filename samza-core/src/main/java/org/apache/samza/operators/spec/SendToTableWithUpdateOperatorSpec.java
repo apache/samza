@@ -20,34 +20,43 @@ package org.apache.samza.operators.spec;
 
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.operators.KV;
+import org.apache.samza.operators.UpdateOptions;
+import org.apache.samza.operators.UpdateMessage;
 import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 
 /**
- * The spec for operator that writes a stream to a table by extracting keys and values
+ * The spec for operator that writes an update stream to a table by extracting keys, updates and defaults
  * from the incoming messages.
  *
  * @param <K> the type of the table record key
  * @param <V> the type of the table record value
+ * @param <U> the type of the update
  */
 @InterfaceStability.Unstable
-public class SendToTableOperatorSpec<K, V> extends OperatorSpec<KV<K, V>, KV<K, V>> {
-
+public class SendToTableWithUpdateOperatorSpec<K, V, U> extends OperatorSpec<KV<K, UpdateMessage<U, V>>, KV<K, UpdateMessage<U, V>>> {
   private final String tableId;
+  private final UpdateOptions updateOptions;
 
   /**
    * Constructor for a {@link SendToTableOperatorSpec}.
    *
    * @param tableId  the Id of the table written to
    * @param opId  the unique ID for this operator
+   * @param updateOptions  the update options for this operator
    */
-  SendToTableOperatorSpec(String tableId, String opId) {
-    super(OpCode.SEND_TO, opId);
+  SendToTableWithUpdateOperatorSpec(String tableId, String opId, UpdateOptions updateOptions) {
+    super(OpCode.SEND_TO_WITH_UPDATE, opId);
     this.tableId = tableId;
+    this.updateOptions = updateOptions;
   }
 
   public String getTableId() {
     return tableId;
+  }
+
+  public UpdateOptions getUpdateOptions() {
+    return updateOptions;
   }
 
   @Override

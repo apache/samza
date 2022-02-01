@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
  */
-abstract public class BaseReadWriteTable<K, V> implements ReadWriteTable<K, V> {
+abstract public class BaseReadWriteUpdateTable<K, V, U> implements ReadWriteUpdateTable<K, V, U> {
 
   protected final Logger logger;
 
@@ -48,7 +48,7 @@ abstract public class BaseReadWriteTable<K, V> implements ReadWriteTable<K, V> {
    * Construct an instance
    * @param tableId Id of the table
    */
-  public BaseReadWriteTable(String tableId) {
+  public BaseReadWriteUpdateTable(String tableId) {
     Preconditions.checkArgument(tableId != null & !tableId.isEmpty(),
         String.format("Invalid table Id: %s", tableId));
     this.tableId = tableId;

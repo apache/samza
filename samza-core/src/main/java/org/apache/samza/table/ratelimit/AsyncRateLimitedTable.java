@@ -28,29 +28,32 @@ import java.util.concurrent.ExecutorService;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.storage.kv.Entry;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.remote.TableRateLimiter;
 import org.apache.samza.table.utils.TableMetricsUtil;
 
-import static org.apache.samza.table.BaseReadWriteTable.Func0;
-import static org.apache.samza.table.BaseReadWriteTable.Func1;
+import static org.apache.samza.table.BaseReadWriteUpdateTable.Func0;
+import static org.apache.samza.table.BaseReadWriteUpdateTable.Func1;
 
 /**
  * A composable read and/or write rate limited asynchronous table implementation
  *
  * @param <K> the type of the key in this table
  * @param <V> the type of the value in this table
+ * @param <U> the type of the update applied to records in this table
  */
-public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
+public class AsyncRateLimitedTable<K, V, U> implements AsyncReadWriteUpdateTable<K, V, U> {
 
   private final String tableId;
-  private final AsyncReadWriteTable<K, V> table;
+  private final AsyncReadWriteUpdateTable<K, V, U> table;
   private final TableRateLimiter<K, V> readRateLimiter;
   private final TableRateLimiter<K, V> writeRateLimiter;
+  private final TableRateLimiter<K, U> updateRateLimiter;
   private final ExecutorService rateLimitingExecutor;
 
-  public AsyncRateLimitedTable(String tableId, AsyncReadWriteTable<K, V> table, TableRateLimiter<K, V> readRateLimiter,
-      TableRateLimiter<K, V> writeRateLimiter, ExecutorService rateLimitingExecutor) {
+  public AsyncRateLimitedTable(String tableId, AsyncReadWriteUpdateTable<K, V, U> table, TableRateLimiter<K, V> readRateLimiter,
+      TableRateLimiter<K, V> writeRateLimiter, TableRateLimiter<K, U> updateRateLimiter,
+      ExecutorService rateLimitingExecutor) {
     Preconditions.checkNotNull(tableId, "null tableId");
     Preconditions.checkNotNull(table, "null table");
     Preconditions.checkNotNull(rateLimitingExecutor, "null rateLimitingExecutor");
@@ -60,6 +63,7 @@ public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
     this.table = table;
     this.readRateLimiter = readRateLimiter;
     this.writeRateLimiter = writeRateLimiter;
+    this.updateRateLimiter = updateRateLimiter;
     this.rateLimitingExecutor = rateLimitingExecutor;
   }
 
@@ -99,6 +103,20 @@ public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
   }
 
   @Override
+  public CompletableFuture<Void> updateAsync(K key, U update) {
+    return doUpdate(
+      () -> updateRateLimiter.throttle(key, update),
+      () -> table.updateAsync(key, update));
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAllAsync(List<Entry<K, U>> updates) {
+    return doUpdate(
+      () -> updateRateLimiter.throttleRecords(updates),
+      () -> table.updateAllAsync(updates));
+  }
+
+  @Override
   public CompletableFuture<Void> deleteAsync(K key, Object ... args) {
     return doWrite(
       () -> writeRateLimiter.throttle(key, args),
@@ -131,6 +149,9 @@ public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
       if (isWriteRateLimited()) {
         writeRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("put-throttle-ns"));
       }
+      if (isUpdateRateLimited()) {
+        updateRateLimiter.setTimerMetric(tableMetricsUtil.newTimer("update-throttle-ns"));
+      }
     }
   }
 
@@ -152,6 +173,10 @@ public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
     return writeRateLimiter != null;
   }
 
+  private boolean isUpdateRateLimited() {
+    return updateRateLimiter != null;
+  }
+
   private <T> CompletableFuture<T> doRead(Func0 throttleFunc, Func1<T> func) {
     return isReadRateLimited()
         ? CompletableFuture
@@ -168,4 +193,11 @@ public class AsyncRateLimitedTable<K, V> implements AsyncReadWriteTable<K, V> {
         : func.apply();
   }
 
+  private <T> CompletableFuture<T> doUpdate(Func0 throttleFunc, Func1<T> func) {
+    return isUpdateRateLimited()
+        ? CompletableFuture
+        .runAsync(() -> throttleFunc.apply(), rateLimitingExecutor)
+        .thenCompose((r) -> func.apply())
+        : func.apply();
+  }
 }

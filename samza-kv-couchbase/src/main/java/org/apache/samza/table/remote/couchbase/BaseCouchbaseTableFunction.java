@@ -34,7 +34,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.context.Context;
 import org.apache.samza.serializers.Serde;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.remote.BaseTableFunction;
 
 
@@ -79,7 +79,7 @@ public abstract class BaseCouchbaseTableFunction<V> extends BaseTableFunction {
   }
 
   @Override
-  public void init(Context context, AsyncReadWriteTable table) {
+  public void init(Context context, AsyncReadWriteUpdateTable table) {
     super.init(context, table);
     bucket = COUCHBASE_BUCKET_REGISTRY.getBucket(bucketName, clusterNodes, environmentConfigs);
   }

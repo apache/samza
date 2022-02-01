@@ -24,16 +24,13 @@ import com.couchbase.client.java.document.BinaryDocument;
 import com.couchbase.client.java.document.Document;
 import com.couchbase.client.java.document.JsonDocument;
 import com.couchbase.client.java.document.json.JsonObject;
-
 import com.google.common.base.Preconditions;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.context.Context;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 import org.apache.samza.table.remote.TableWriteFunction;
 
 import org.slf4j.Logger;
@@ -50,7 +47,7 @@ import rx.SingleSubscriber;
  * @param <V> Type of values to write to Couchbase
  */
 public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V>
-    implements TableWriteFunction<String, V> {
+    implements TableWriteFunction<String, V, Object> {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseTableWriteFunction.class);
 
@@ -66,7 +63,7 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
   }
 
   @Override
-  public void init(Context context, AsyncReadWriteTable table) {
+  public void init(Context context, AsyncReadWriteUpdateTable table) {
     super.init(context, table);
     LOGGER.info("Write function for bucket {} initialized successfully", bucketName);
   }
@@ -82,6 +79,12 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
     return asyncWriteHelper(
         bucket.async().upsert(document, timeout.toMillis(), TimeUnit.MILLISECONDS),
         String.format("Failed to insert key %s into bucket %s", key, bucketName));
+  }
+
+  @Override
+  public CompletableFuture<Void> updateAsync(String key, Object updates) {
+    // TODO Add support for partial updates LISAMZA-21874
+    throw new SamzaException("Update is unsupported");
   }
 
   @Override
@@ -119,5 +122,4 @@ public class CouchbaseTableWriteFunction<V> extends BaseCouchbaseTableFunction<V
     });
     return future;
   }
-
 }

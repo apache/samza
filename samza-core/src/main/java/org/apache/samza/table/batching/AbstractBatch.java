@@ -23,7 +23,7 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 
-abstract class AbstractBatch<K, V> implements Batch<K, V> {
+abstract class AbstractBatch<K, V, U> implements Batch<K, V, U> {
   protected final int maxBatchSize;
   protected final Duration maxBatchDelay;
   protected final CompletableFuture<Void> completableFuture;

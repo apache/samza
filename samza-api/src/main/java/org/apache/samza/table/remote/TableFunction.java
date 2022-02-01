@@ -41,7 +41,7 @@ import java.io.Serializable;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.functions.ClosableFunction;
-import org.apache.samza.table.AsyncReadWriteTable;
+import org.apache.samza.table.AsyncReadWriteUpdateTable;
 
 
 /**
@@ -56,7 +56,7 @@ public interface TableFunction extends TablePart, ClosableFunction, Serializable
    * @param context the {@link Context} for this task
    * @param table the {@link TableFunction} which this table function belongs to
    */
-  void init(Context context, AsyncReadWriteTable table);
+  void init(Context context, AsyncReadWriteUpdateTable table);
 
   /**
    * Determine whether the current operation can be retried with the last thrown exception.

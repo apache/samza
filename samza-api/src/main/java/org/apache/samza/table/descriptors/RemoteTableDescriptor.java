@@ -44,8 +44,9 @@ import com.google.common.base.Preconditions;
  *
  * @param <K> the type of the key
  * @param <V> the type of the value
+ * @param <U> the type of the update
  */
-public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, RemoteTableDescriptor<K, V>> {
+public class RemoteTableDescriptor<K, V, U> extends BaseTableDescriptor<K, V, RemoteTableDescriptor<K, V, U>> {
 
   public static final String PROVIDER_FACTORY_CLASS_NAME = "org.apache.samza.table.remote.RemoteTableProviderFactory";
 
@@ -85,7 +86,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   private TableReadFunction<K, V> readFn;
 
   // Output support for a specific remote store (optional)
-  private TableWriteFunction<K, V> writeFn;
+  private TableWriteFunction<K, V, U> writeFn;
 
   // Rate limiter for client-side throttling; it is set by withRateLimiter()
   private RateLimiter rateLimiter;
@@ -97,7 +98,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   private boolean enableWriteRateLimiter = true;
 
   // Batching support to reduce traffic volume sent to the remote store.
-  private BatchProvider<K, V> batchProvider;
+  private BatchProvider<K, V, U> batchProvider;
 
   // Rates for constructing the default rate limiter when they are non-zero
   private Map<String, Integer> tagCreditsMap = new HashMap<>();
@@ -125,7 +126,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param readFn read function instance
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withReadFunction(TableReadFunction<K, V> readFn) {
+  public RemoteTableDescriptor<K, V, U> withReadFunction(TableReadFunction<K, V> readFn) {
     Preconditions.checkNotNull(readFn, "null read function");
     this.readFn = readFn;
     return this;
@@ -136,7 +137,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param writeFn write function instance
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withWriteFunction(TableWriteFunction<K, V> writeFn) {
+  public RemoteTableDescriptor<K, V, U> withWriteFunction(TableWriteFunction<K, V, U> writeFn) {
     Preconditions.checkNotNull(writeFn, "null write function");
     this.writeFn = writeFn;
     return this;
@@ -147,7 +148,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param retryPolicy retry policy for the write function
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withReadRetryPolicy(TableRetryPolicy retryPolicy) {
+  public RemoteTableDescriptor<K, V, U> withReadRetryPolicy(TableRetryPolicy retryPolicy) {
     Preconditions.checkNotNull(readFn, "null read function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
     this.readRetryPolicy = retryPolicy;
@@ -159,7 +160,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param retryPolicy retry policy for the write function
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withWriteRetryPolicy(TableRetryPolicy retryPolicy) {
+  public RemoteTableDescriptor<K, V, U> withWriteRetryPolicy(TableRetryPolicy retryPolicy) {
     Preconditions.checkNotNull(writeFn, "null write function");
     Preconditions.checkNotNull(retryPolicy, "null retry policy");
     this.writeRetryPolicy = retryPolicy;
@@ -179,7 +180,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param writeCreditFn credit function for rate limiting write operations
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withRateLimiter(RateLimiter rateLimiter,
+  public RemoteTableDescriptor<K, V, U> withRateLimiter(RateLimiter rateLimiter,
       TableRateLimiter.CreditFunction<K, V> readCreditFn,
       TableRateLimiter.CreditFunction<K, V> writeCreditFn) {
     Preconditions.checkNotNull(rateLimiter, "null read rate limiter");
@@ -192,13 +193,14 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
   /**
    * Disable both read and write rate limiter. If the read rate limiter is enabled, the user must provide a rate limiter
    * by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
-   * or {@link #withReadRateLimit(int)}. If the write rate limiter is enabled, the user must provide a rate limiter
-   * by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction, TableRateLimiter.CreditFunction)}
-   * or {@link #withWriteRateLimit(int)}. By default, both read and write rate limiters are enabled.
+   * or {@link #withReadRateLimit(int)}. If the write rate limiter is enabled,
+   * the user must provide a rate limiter by calling {@link #withRateLimiter(RateLimiter, TableRateLimiter.CreditFunction,
+   * TableRateLimiter.CreditFunction)} or {@link #withWriteRateLimit(int)}.
+   * By default, both read and write rate limiters are enabled.
    *
    * @return this table descriptor instance.
    */
-  public RemoteTableDescriptor<K, V> withRateLimiterDisabled() {
+  public RemoteTableDescriptor<K, V, U> withRateLimiterDisabled() {
     withReadRateLimiterDisabled();
     withWriteRateLimiterDisabled();
     return this;
@@ -209,7 +211,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    *
    * @return this table descriptor instance.
    */
-  public RemoteTableDescriptor<K, V> withReadRateLimiterDisabled() {
+  public RemoteTableDescriptor<K, V, U> withReadRateLimiterDisabled() {
     this.enableReadRateLimiter = false;
     return this;
   }
@@ -219,7 +221,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    *
    * @return this table descriptor instance.
    */
-  public RemoteTableDescriptor<K, V> withWriteRateLimiterDisabled() {
+  public RemoteTableDescriptor<K, V, U> withWriteRateLimiterDisabled() {
     this.enableWriteRateLimiter = false;
     return this;
   }
@@ -234,7 +236,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param creditsPerSec rate limit for read operations; must be positive and greater than total number tasks
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withReadRateLimit(int creditsPerSec) {
+  public RemoteTableDescriptor<K, V, U> withReadRateLimit(int creditsPerSec) {
     Preconditions.checkArgument(creditsPerSec > 0, "Max read rate must be a positive number.");
     tagCreditsMap.put(RL_READ_TAG, creditsPerSec);
     return this;
@@ -250,7 +252,7 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param creditsPerSec rate limit for write operations; must be positive and greater than total number tasks
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withWriteRateLimit(int creditsPerSec) {
+  public RemoteTableDescriptor<K, V, U> withWriteRateLimit(int creditsPerSec) {
     Preconditions.checkArgument(creditsPerSec > 0, "Max write rate must be a positive number.");
     tagCreditsMap.put(RL_WRITE_TAG, creditsPerSec);
     return this;
@@ -267,12 +269,15 @@ public class RemoteTableDescriptor<K, V> extends BaseTableDescriptor<K, V, Remot
    * @param poolSize max number of threads in the executor for async callbacks
    * @return this table descriptor instance
    */
-  public RemoteTableDescriptor<K, V> withAsyncCallbackExecutorPoolSize(int poolSize) {
+  public RemoteTableDescriptor<K, V, U> withAsyncCallbackExecutorPoolSize(int poolSize) {
     this.asyncCallbackPoolSize = poolSize;
     return this;
   }
 
-  public RemoteTableDescriptor<K, V> withBatchProvider(BatchProvider<K, V> batchProvider) {
+  /**
+   * Specifies a batch provider inorder to batch Table operations.
+   * */
+  public RemoteTableDescriptor<K, V, U> withBatchProvider(BatchProvider<K, V, U> batchProvider) {
     this.batchProvider = batchProvider;
     return this;
   }
