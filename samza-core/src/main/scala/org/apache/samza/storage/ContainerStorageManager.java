@@ -244,7 +244,7 @@ public class ContainerStorageManager {
     Set<String> inMemoryStoreNames = storageEngineFactories.keySet().stream()
         .filter(storeName -> {
           Optional<String> storeFactory = storageConfig.getStorageFactoryClassName(storeName);
-          return storeFactory.isPresent() && !storeFactory.get()
+          return storeFactory.isPresent() && storeFactory.get()
               .equals(StorageConfig.INMEMORY_KV_STORAGE_ENGINE_FACTORY);
         })
         .collect(Collectors.toSet());
