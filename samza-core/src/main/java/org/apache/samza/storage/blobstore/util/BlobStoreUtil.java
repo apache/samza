@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
@@ -83,6 +84,7 @@ public class BlobStoreUtil {
   private final ExecutorService executor;
   private final BlobStoreBackupManagerMetrics backupMetrics;
   private final BlobStoreRestoreManagerMetrics restoreMetrics;
+  private final SnapshotIndexSerde snapshotIndexSerde;
 
   public BlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
       BlobStoreBackupManagerMetrics backupMetrics, BlobStoreRestoreManagerMetrics restoreMetrics) {
@@ -90,6 +92,7 @@ public class BlobStoreUtil {
     this.executor = executor;
     this.backupMetrics = backupMetrics;
     this.restoreMetrics = restoreMetrics;
+    this.snapshotIndexSerde = new SnapshotIndexSerde();
   }
 
   /**
@@ -100,10 +103,11 @@ public class BlobStoreUtil {
    * @param taskName task name to get the store state checkpoint markers and snapshot indexes for
    * @param checkpoint {@link Checkpoint} instance to get the store state checkpoint markers from. Only
    *                   {@link CheckpointV2} and newer are supported for blob stores.
+   * @param storesToBackupOrRestore set of store names to be backed up or restored
    * @return Map of store name to its blob id of snapshot indices and their corresponding snapshot indices for the task.
    */
   public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(
-      String jobName, String jobId, String taskName, Checkpoint checkpoint) {
+      String jobName, String jobId, String taskName, Checkpoint checkpoint, Set<String> storesToBackupOrRestore) {
     //TODO MED shesharma document error handling (checkpoint ver, blob not found, getBlob)
     if (checkpoint == null) {
       LOG.debug("No previous checkpoint found for taskName: {}", taskName);
@@ -124,21 +128,26 @@ public class BlobStoreUtil {
 
     if (storeSnapshotIndexBlobIds != null) {
       storeSnapshotIndexBlobIds.forEach((storeName, snapshotIndexBlobId) -> {
-        try {
-          LOG.debug("Getting snapshot index for taskName: {} store: {} blobId: {}", taskName, storeName, snapshotIndexBlobId);
-          Metadata requestMetadata =
-              new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
-          CompletableFuture<SnapshotIndex> snapshotIndexFuture =
-              getSnapshotIndex(snapshotIndexBlobId, requestMetadata).toCompletableFuture();
-          Pair<CompletableFuture<String>, CompletableFuture<SnapshotIndex>> pairOfFutures =
-              Pair.of(CompletableFuture.completedFuture(snapshotIndexBlobId), snapshotIndexFuture);
+        if (storesToBackupOrRestore.contains(storeName)) {
+          try {
+            LOG.debug("Getting snapshot index for taskName: {} store: {} blobId: {}", taskName, storeName, snapshotIndexBlobId);
+            Metadata requestMetadata =
+                new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
+            CompletableFuture<SnapshotIndex> snapshotIndexFuture =
+                getSnapshotIndex(snapshotIndexBlobId, requestMetadata).toCompletableFuture();
+            Pair<CompletableFuture<String>, CompletableFuture<SnapshotIndex>> pairOfFutures =
+                Pair.of(CompletableFuture.completedFuture(snapshotIndexBlobId), snapshotIndexFuture);
 
-          // save the future and block once in the end instead of blocking for each request.
-          storeSnapshotIndexFutures.put(storeName, FutureUtil.toFutureOfPair(pairOfFutures));
-        } catch (Exception e) {
-          throw new SamzaException(
-              String.format("Error getting SnapshotIndex for blobId: %s for taskName: %s store: %s",
-                  snapshotIndexBlobId, taskName, storeName), e);
+            // save the future and block once in the end instead of blocking for each request.
+            storeSnapshotIndexFutures.put(storeName, FutureUtil.toFutureOfPair(pairOfFutures));
+          } catch (Exception e) {
+            throw new SamzaException(
+                String.format("Error getting SnapshotIndex for blobId: %s for taskName: %s store: %s",
+                    snapshotIndexBlobId, taskName, storeName), e);
+          }
+        } else {
+          LOG.debug("SnapshotIndex blob id {} for store {} is not present in the set of stores to be backed up/restores: {}",
+              snapshotIndexBlobId, storeName, storesToBackupOrRestore);
         }
       });
     } else {
@@ -173,7 +182,7 @@ public class BlobStoreUtil {
     return FutureUtil.executeAsyncWithRetries(opName, () -> {
       ByteArrayOutputStream indexBlobStream = new ByteArrayOutputStream(); // no need to close ByteArrayOutputStream
       return blobStoreManager.get(blobId, indexBlobStream, metadata).toCompletableFuture()
-          .thenApplyAsync(f -> new SnapshotIndexSerde().fromBytes(indexBlobStream.toByteArray()), executor);
+          .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor);
     }, isCauseNonRetriable(), executor);
   }
 
@@ -183,7 +192,7 @@ public class BlobStoreUtil {
    * @return a Future containing the blob ID of the {@link SnapshotIndex}.
    */
   public CompletableFuture<String> putSnapshotIndex(SnapshotIndex snapshotIndex) {
-    byte[] bytes = new SnapshotIndexSerde().toBytes(snapshotIndex);
+    byte[] bytes = snapshotIndexSerde.toBytes(snapshotIndex);
     String opName = "putSnapshotIndex for checkpointId: " + snapshotIndex.getSnapshotMetadata().getCheckpointId();
     return FutureUtil.executeAsyncWithRetries(opName, () -> {
       InputStream inputStream = new ByteArrayInputStream(bytes); // no need to close ByteArrayInputStream

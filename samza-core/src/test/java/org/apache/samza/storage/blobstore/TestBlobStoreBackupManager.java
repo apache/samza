@@ -161,7 +161,7 @@ public class TestBlobStoreBackupManager {
     // verify delete snapshot index blob called from init 0 times because prevSnapshotMap returned from init is empty
     // in case of null checkpoint.
     verify(blobStoreUtil, times(0)).deleteSnapshotIndexBlob(anyString(), any(Metadata.class));
-    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class))).thenCallRealMethod();
+    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
 
     // init called with Checkpoint V1 -> unsupported
     Checkpoint checkpoint = new CheckpointV1(new HashMap<>());
@@ -288,7 +288,7 @@ public class TestBlobStoreBackupManager {
     Checkpoint checkpoint =
         new CheckpointV2(checkpointId, new HashMap<>(),
             ImmutableMap.of(BlobStoreStateBackendFactory.class.getName(), previousCheckpoints));
-    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class))).thenCallRealMethod();
+    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
     blobStoreBackupManager.init(checkpoint);
 
     // mock: set task store dir to return corresponding test local store and create checkpoint dir

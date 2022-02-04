@@ -39,6 +39,7 @@ import com.fasterxml.jackson.databind.cfg.MapperConfig;
 import com.fasterxml.jackson.databind.introspect.AnnotatedField;
 import com.fasterxml.jackson.databind.introspect.AnnotatedMethod;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
@@ -149,7 +150,7 @@ public class SamzaObjectMapper {
 
     // Convert camel case to hyphenated field names, and register the module.
     mapper.setPropertyNamingStrategy(new CamelCaseToDashesStrategy());
-    mapper.registerModule(module);
+    mapper.registerModules(module, new Jdk8Module());
 
     return mapper;
   }
