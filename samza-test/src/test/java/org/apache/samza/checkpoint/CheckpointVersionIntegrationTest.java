@@ -128,7 +128,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     // verify that the input messages were produced successfully
     if (inputMessages.size() > 0) {
       List<ConsumerRecord<String, String>> inputRecords =
-          consumeMessages(Collections.singletonList(INPUT_TOPIC), inputMessages.size());
+          consumeMessages(INPUT_TOPIC, inputMessages.size());
       List<String> readInputMessages = inputRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
       Assert.assertEquals(expectedInputTopicMessages, readInputMessages);
     }
@@ -143,7 +143,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     // consume and verify the changelog messages
     if (expectedChangelogMessages.size() > 0) {
       List<ConsumerRecord<String, String>> changelogRecords =
-          consumeMessages(Collections.singletonList(CHANGELOG_TOPIC), expectedChangelogMessages.size());
+          consumeMessages(CHANGELOG_TOPIC, expectedChangelogMessages.size());
       List<String> changelogMessages = changelogRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
       Assert.assertEquals(expectedChangelogMessages, changelogMessages);
     }
@@ -172,7 +172,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
 
     // consume and verify any additional changelog messages
     List<ConsumerRecord<String, String>> changelogRecords =
-        consumeMessages(Collections.singletonList(changelogTopic), expectedChangelogMessages.size());
+        consumeMessages(changelogTopic, expectedChangelogMessages.size());
     List<String> changelogMessages = changelogRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
     Assert.assertEquals(expectedChangelogMessages, changelogMessages);
   }

@@ -20,15 +20,15 @@ package org.apache.samza.test.framework;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.samza.application.SamzaApplication;
 import org.apache.samza.config.ApplicationConfig;
@@ -39,6 +39,7 @@ import org.apache.samza.execution.TestStreamManager;
 import org.apache.samza.runtime.ApplicationRunner;
 import org.apache.samza.runtime.ApplicationRunners;
 import org.apache.samza.test.harness.IntegrationTestHarness;
+import org.junit.After;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,7 +76,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.*;
  *
  * Execution model: {@link SamzaApplication}s are run as their own {@link org.apache.samza.job.local.ThreadJob}s.
  * Similarly, embedded Kafka servers and Zookeeper servers are run as their own threads.
- * {@link #produceMessage(String, int, String, String)} and {@link #consumeMessages(Collection, int)} are blocking calls.
+ * {@link #produceMessage(String, int, String, String)} and {@link #consumeMessages(String, int)} are blocking calls.
  *
  * <h3>Usage Example</h3>
  * Here is an actual test that publishes a message into Kafka, runs an application, and verifies consumption
@@ -100,6 +101,11 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
   private static final Duration POLL_TIMEOUT_MS = Duration.ofSeconds(20);
   private static final int DEFAULT_REPLICATION_FACTOR = 1;
   private int numEmptyPolls = 3;
+  /**
+   A new Kafka consumer will be created to consume messages from every new topic to avoid consumer group rebalance
+   Note that the consumers in this map will not be initialized in {@link #setUp()} but will be shutdown in {@link #tearDown()}
+   */
+  private Map<String, KafkaConsumer> topicConsumerMap = new HashMap<>();
 
   /**
    * Creates a kafka topic with the provided name and the number of partitions
@@ -128,7 +134,6 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
     return Integer.parseInt(KafkaConfig.TOPIC_DEFAULT_REPLICATION_FACTOR());
   }
 
-
   /**
    * Read messages from the provided list of topics until {@param threshold} messages have been read or until
    * {@link #numEmptyPolls} polls return no messages.
@@ -136,24 +141,25 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
    * The default poll time out is determined by {@link #POLL_TIMEOUT_MS} and the number of empty polls are
    * determined by {@link #numEmptyPolls}
    *
-   * @param topics the list of topics to consume from
+   * @param topic the topic to consume from
    * @param threshold the number of messages to consume
    * @return the list of {@link ConsumerRecord}s whose size can be atmost {@param threshold}
    */
-  public List<ConsumerRecord<String, String>> consumeMessages(Collection<String> topics, int threshold) {
+  public List<ConsumerRecord<String, String>> consumeMessages(String topic, int threshold) {
     int emptyPollCount = 0;
     List<ConsumerRecord<String, String>> recordList = new ArrayList<>();
-    consumer.subscribe(topics);
-
+    KafkaConsumer kafkaConsumer =
+        topicConsumerMap.computeIfAbsent(topic, t -> new KafkaConsumer<>(createConsumerConfigs()));
+    kafkaConsumer.subscribe(Collections.singletonList(topic));
     while (emptyPollCount < numEmptyPolls && recordList.size() < threshold) {
-      ConsumerRecords<String, String> records = consumer.poll(POLL_TIMEOUT_MS);
-      LOG.info("Read {} messages from topics: {}", records.count(), StringUtils.join(topics, ","));
+      ConsumerRecords<String, String> records = kafkaConsumer.poll(POLL_TIMEOUT_MS);
+      LOG.info("Read {} messages from topic: {}", records.count(), topic);
       if (!records.isEmpty()) {
         Iterator<ConsumerRecord<String, String>> iterator = records.iterator();
         while (iterator.hasNext() && recordList.size() < threshold) {
           ConsumerRecord record = iterator.next();
-          LOG.info("Read key: {} val: {} from topic: {} on partition: {}",
-              record.key(), record.value(), record.topic(), record.partition());
+          LOG.info("Read key: {} val: {} from topic: {} on partition: {}", record.key(), record.value(), record.topic(),
+              record.partition());
           recordList.add(record);
           emptyPollCount = 0;
         }
@@ -173,8 +179,7 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
    * @return RunApplicationContext which contains objects created within runApplication, to be used for verification
    * if necessary
    */
-  protected RunApplicationContext runApplication(SamzaApplication streamApplication,
-      String appName,
+  protected RunApplicationContext runApplication(SamzaApplication streamApplication, String appName,
       Map<String, String> overriddenConfigs) {
     Map<String, String> configMap = new HashMap<>();
     configMap.put(ApplicationConfig.APP_RUNNER_CLASS, "org.apache.samza.runtime.LocalApplicationRunner");
@@ -263,6 +268,19 @@ public class StreamApplicationIntegrationTestHarness extends IntegrationTestHarn
      */
     consumerProps.setProperty(KEY_DESERIALIZER_CLASS_CONFIG, STRING_DESERIALIZER);
     consumerProps.setProperty(VALUE_DESERIALIZER_CLASS_CONFIG, STRING_DESERIALIZER);
+
+    // for every topic create a new consumer group to avoid group rebalance
+    consumerProps.setProperty(GROUP_ID_CONFIG, "group" + topicConsumerMap.size());
     return consumerProps;
+  }
+
+  @After
+  @Override
+  public void tearDown() {
+    topicConsumerMap.values().forEach(c -> {
+      c.unsubscribe();
+      c.close();
+    });
+    super.tearDown();
   }
 }

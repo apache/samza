@@ -19,7 +19,6 @@
 package org.apache.samza.test.operator;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -92,7 +91,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     runApplication(app, appName, configs);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(outputTopicName, 2);
     assertEquals(2, messages.size());
 
     Assert.assertFalse(KafkaSystemAdmin.deleteMessageCalled);
@@ -121,7 +120,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
     runApplication(app, appName, configs);
 
     // consume and validate result
-    List<ConsumerRecord<String, String>> messages = consumeMessages(Collections.singletonList(outputTopicName), 2);
+    List<ConsumerRecord<String, String>> messages = consumeMessages(outputTopicName, 2);
     assertEquals(2, messages.size());
 
     for (ConsumerRecord<String, String> message : messages) {

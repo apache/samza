@@ -20,7 +20,6 @@
 package org.apache.samza.test.framework;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -45,7 +44,7 @@ public class TestStreamApplicationIntegrationTestHarness extends StreamApplicati
     // verify that the input messages were produced successfully
     if (inputMessages.size() > 0) {
       List<ConsumerRecord<String, String>> inputRecords =
-          consumeMessages(Collections.singletonList(INPUT_TOPIC), inputMessages.size());
+          consumeMessages(INPUT_TOPIC, inputMessages.size());
       List<String> readInputMessages = inputRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
       Assert.assertEquals(inputMessages, readInputMessages);
     }
