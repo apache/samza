@@ -19,21 +19,42 @@
 
 package org.apache.samza.serializers.model;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.ObjectCodec;
+import com.fasterxml.jackson.core.Version;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.checkpoint.kafka.KafkaStateCheckpointMarker;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
+import org.apache.samza.job.JobCoordinatorMetadata;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.JobModel;
+import org.apache.samza.job.model.LocalityModel;
+import org.apache.samza.job.model.ProcessorLocality;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.system.SystemStreamPartition;
@@ -258,6 +279,47 @@ public class TestSamzaObjectMapper {
     assertEquals(ssp, deserSSP);
   }
 
+  @Test
+  public void testSerDePreElasticSystemStreamPartition() throws IOException {
+    ObjectMapper preElasticObjectMapper = getPreEleasticObjectMapper();
+    ObjectMapper elasticObjectMapper = SamzaObjectMapper.getObjectMapper();
+
+
+    //Scenario 1: ssp serialized with preElasticMapper and deserialized by new Mapper with elasticity
+    SystemStreamPartition ssp = new SystemStreamPartition("foo", "bar", new Partition(1));
+    String serializedString = preElasticObjectMapper.writeValueAsString(ssp);
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    ObjectNode serializedSSPAsJson = objectMapper.createObjectNode();
+    serializedSSPAsJson.put("system", "foo");
+    serializedSSPAsJson.put("stream", "bar");
+    serializedSSPAsJson.put("partition", 1);
+
+    JsonNode deserSSPAsJson = elasticObjectMapper.readTree(serializedString);
+
+    assertEquals(serializedSSPAsJson.get("system"), deserSSPAsJson.get("system"));
+    assertEquals(serializedSSPAsJson.get("stream"), deserSSPAsJson.get("stream"));
+    assertEquals(serializedSSPAsJson.get("partition"), deserSSPAsJson.get("partition"));
+    assertEquals(serializedSSPAsJson.get("keyBucket"), deserSSPAsJson.get("-1"));
+
+    //Scenario 1: ssp serialized with new elasticMapper and deserialized by old preElastic Mapper
+    SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition("foo", "bar", new Partition(1), 1);
+    serializedString = elasticObjectMapper.writeValueAsString(sspWithKeyBucket);
+
+
+    serializedSSPAsJson = objectMapper.createObjectNode();
+    serializedSSPAsJson.put("system", "foo");
+    serializedSSPAsJson.put("stream", "bar");
+    serializedSSPAsJson.put("partition", 1);
+    serializedSSPAsJson.put("keyBucket", 1);
+
+    deserSSPAsJson = preElasticObjectMapper.readTree(serializedString);
+
+    assertEquals(serializedSSPAsJson.get("system"), deserSSPAsJson.get("system"));
+    assertEquals(serializedSSPAsJson.get("stream"), deserSSPAsJson.get("stream"));
+    assertEquals(serializedSSPAsJson.get("partition"), deserSSPAsJson.get("partition"));
+  }
+
   private JobModel deserializeFromObjectNode(ObjectNode jobModelJson) throws IOException {
     // use plain ObjectMapper to get JSON string
     String jsonString = new ObjectMapper().writeValueAsString(jobModelJson);
@@ -305,4 +367,104 @@ public class TestSamzaObjectMapper {
 
     return jobModelJson;
   }
+
+  private static class PreElasticitySystemStreamPartitionSerializer extends JsonSerializer<SystemStreamPartition> {
+    @Override
+    public void serialize(SystemStreamPartition systemStreamPartition, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException,
+                                                                                                                                        JsonProcessingException {
+      Map<String, Object> systemStreamPartitionMap = new HashMap<String, Object>();
+      systemStreamPartitionMap.put("system", systemStreamPartition.getSystem());
+      systemStreamPartitionMap.put("stream", systemStreamPartition.getStream());
+      systemStreamPartitionMap.put("partition", systemStreamPartition.getPartition());
+      jsonGenerator.writeObject(systemStreamPartitionMap);
+    }
+  }
+
+  private static class PreElasticitySystemStreamPartitionDeserializer extends JsonDeserializer<SystemStreamPartition> {
+    @Override
+    public SystemStreamPartition deserialize(JsonParser jsonParser, DeserializationContext context) throws IOException, JsonProcessingException {
+      ObjectCodec oc = jsonParser.getCodec();
+      JsonNode node = oc.readTree(jsonParser);
+      String system = node.get("system").textValue();
+      String stream = node.get("stream").textValue();
+      Partition partition = new Partition(node.get("partition").intValue());
+      return new SystemStreamPartition(system, stream, partition);
+    }
+  }
+
+  private static final ObjectMapper OBJECT_MAPPER = getPreEleasticObjectMapper();
+  public static ObjectMapper getPreEleasticObjectMapper() {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.configure(DeserializationFeature.WRAP_EXCEPTIONS, false);
+    mapper.configure(SerializationFeature.WRAP_EXCEPTIONS, false);
+    SimpleModule module = new SimpleModule("SamzaModule", new Version(1, 0, 0, ""));
+
+    // Setup custom serdes for simple data types.
+    module.addSerializer(Partition.class, new SamzaObjectMapper.PartitionSerializer());
+    module.addSerializer(SystemStreamPartition.class, new PreElasticitySystemStreamPartitionSerializer());
+    module.addKeySerializer(SystemStreamPartition.class, new SamzaObjectMapper.SystemStreamPartitionKeySerializer());
+    module.addSerializer(TaskName.class, new SamzaObjectMapper.TaskNameSerializer());
+    module.addSerializer(TaskMode.class, new SamzaObjectMapper.TaskModeSerializer());
+    module.addDeserializer(TaskName.class, new SamzaObjectMapper.TaskNameDeserializer());
+    module.addDeserializer(Partition.class, new SamzaObjectMapper.PartitionDeserializer());
+    module.addDeserializer(SystemStreamPartition.class, new PreElasticitySystemStreamPartitionDeserializer());
+    module.addKeyDeserializer(SystemStreamPartition.class, new SamzaObjectMapper.SystemStreamPartitionKeyDeserializer());
+    module.addDeserializer(Config.class, new SamzaObjectMapper.ConfigDeserializer());
+    module.addDeserializer(TaskMode.class, new SamzaObjectMapper.TaskModeDeserializer());
+    module.addSerializer(CheckpointId.class, new SamzaObjectMapper.CheckpointIdSerializer());
+    module.addDeserializer(CheckpointId.class, new SamzaObjectMapper.CheckpointIdDeserializer());
+
+    // Setup mixins for data models.
+    mapper.addMixIn(TaskModel.class, JsonTaskModelMixIn.class);
+    mapper.addMixIn(ContainerModel.class, JsonContainerModelMixIn.class);
+    mapper.addMixIn(JobModel.class, JsonJobModelMixIn.class);
+    mapper.addMixIn(CheckpointV2.class, JsonCheckpointV2Mixin.class);
+    mapper.addMixIn(KafkaStateCheckpointMarker.class, KafkaStateCheckpointMarkerMixin.class);
+
+    module.addDeserializer(ContainerModel.class, new JsonDeserializer<ContainerModel>() {
+      @Override
+      public ContainerModel deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+        ObjectCodec oc = jp.getCodec();
+        JsonNode node = oc.readTree(jp);
+        /*
+         * Before Samza 0.13, "container-id" was used.
+         * In Samza 0.13, "processor-id" was added to be the id to use and "container-id" was deprecated. However,
+         * "container-id" still needed to be checked for backwards compatibility in case "processor-id" was missing
+         * (i.e. from a job model corresponding to a version of the job that was on a pre Samza 0.13 version).
+         * In Samza 1.0, "container-id" was further cleaned up from ContainerModel. This logic is still being left here
+         * as a fallback for backwards compatibility with pre Samza 0.13. ContainerModel.getProcessorId was changed to
+         * ContainerModel.getId in the Java API, but "processor-id" still needs to be used as the JSON key for backwards
+         * compatibility with Samza 0.13 and Samza 0.14.
+         */
+        String id;
+        if (node.get(JsonContainerModelMixIn.PROCESSOR_ID_KEY) == null) {
+          if (node.get(JsonContainerModelMixIn.CONTAINER_ID_KEY) == null) {
+            throw new SamzaException(
+                String.format("JobModel was missing %s and %s. This should never happen. JobModel corrupt!",
+                    JsonContainerModelMixIn.PROCESSOR_ID_KEY, JsonContainerModelMixIn.CONTAINER_ID_KEY));
+          }
+          id = String.valueOf(node.get(JsonContainerModelMixIn.CONTAINER_ID_KEY).intValue());
+        } else {
+          id = node.get(JsonContainerModelMixIn.PROCESSOR_ID_KEY).textValue();
+        }
+        Map<TaskName, TaskModel> tasksMapping =
+            OBJECT_MAPPER.readValue(OBJECT_MAPPER.treeAsTokens(node.get(JsonContainerModelMixIn.TASKS_KEY)),
+                new TypeReference<Map<TaskName, TaskModel>>() { });
+        return new ContainerModel(id, tasksMapping);
+      }
+    });
+
+    mapper.addMixIn(LocalityModel.class, JsonLocalityModelMixIn.class);
+    mapper.addMixIn(ProcessorLocality.class, JsonProcessorLocalityMixIn.class);
+
+    // Register mixins for job coordinator metadata model
+    mapper.addMixIn(JobCoordinatorMetadata.class, JsonJobCoordinatorMetadataMixIn.class);
+
+    // Convert camel case to hyphenated field names, and register the module.
+    mapper.setPropertyNamingStrategy(new SamzaObjectMapper.CamelCaseToDashesStrategy());
+    mapper.registerModule(module);
+
+    return mapper;
+  }
+
 }

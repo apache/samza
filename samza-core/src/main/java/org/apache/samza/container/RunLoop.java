@@ -262,19 +262,14 @@ public class RunLoop implements Runnable, Throttleable {
         // when elasticity is enabled
         // the tasks actually consume a keyBucket of the ssp.
         // hence use the SSP with keybucket to find the worker(s) for the envelope
-        if (elasticityFactor <= 1) {
-          sspOfEnvelope = envelope.getSystemStreamPartition();
-        } else {
-          sspOfEnvelope = envelope.getSystemStreamPartition(elasticityFactor);
-          log.trace("elasticity enabled. using the ssp of the envelope as {}", sspOfEnvelope);
-        }
+        sspOfEnvelope = envelope.getSystemStreamPartition(elasticityFactor);
         List<AsyncTaskWorker> listOfWorkersForEnvelope = sspToTaskWorkerMapping.get(sspOfEnvelope);
         if (listOfWorkersForEnvelope != null) {
           for (AsyncTaskWorker worker : listOfWorkersForEnvelope) {
             worker.state.insertEnvelope(pendingEnvelope);
           }
         } else if (elasticityFactor > 1) {
-          // when elasticity is enabled
+          // is listOfWorkersForEnvelope is null and elascity factor > 1 (aka enabled), then
           // this condition happens when a keyBucket of the SSP is being consumed but other keyBuckets are not consumed
           // if this update is not done for the SSP then the unprocessed envelopes from other keyBuckets
           // will make the consumerMultiplexer not poll as it sees envelopes available for consumption.
@@ -749,7 +744,7 @@ public class RunLoop implements Runnable, Throttleable {
         IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
 
         if (envelope.isEndOfStream()) {
-          SystemStreamPartition ssp = envelope.getSystemStreamPartition();
+          SystemStreamPartition ssp = envelope.getSystemStreamPartition(elasticityFactor);
           processingSspSet.remove(ssp);
           if (!hasIntermediateStreams) {
             pendingEnvelopeQueue.remove();
