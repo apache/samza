@@ -83,7 +83,7 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
     return groupedMap;
   }
 
-  private void addToTaskNameSSPMap(Map<TaskName, Set<SystemStreamPartition>> groupedMap, TaskName taskName,
+  private static void addToTaskNameSSPMap(Map<TaskName, Set<SystemStreamPartition>> groupedMap, TaskName taskName,
       SystemStreamPartition ssp) {
     if (!groupedMap.containsKey(taskName)) {
       groupedMap.put(taskName, new HashSet<>());

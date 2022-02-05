@@ -111,6 +111,19 @@ public class IncomingMessageEnvelope {
     return systemStreamPartition;
   }
 
+<<<<<<< HEAD
+=======
+  // used for elasticity to determine which elastic task should handle this envelope
+  public SystemStreamPartition getSystemStreamPartition(int elasticityFactor) {
+    if (elasticityFactor <= 1) {
+      return systemStreamPartition;
+    }
+    Object envelopeKeyorOffset = key != null ? key : offset;
+    int keyBucket = Math.abs(envelopeKeyorOffset.hashCode()) % elasticityFactor;
+    return new SystemStreamPartition(systemStreamPartition, keyBucket);
+  }
+
+>>>>>>> 3f51e469e (add tests and address comments)
   /**
    * Offset associated with this message, provided by the system consumer that consumed the message.
    */

@@ -55,6 +55,8 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   private val SYSTEM_STREAM_PARTITION =
     new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-stream"), new Partition(0))
   private val SYSTEM_STREAM_PARTITIONS = ImmutableSet.of(SYSTEM_STREAM_PARTITION)
+  @Mock
+  private val envelope = new IncomingMessageEnvelope(SYSTEM_STREAM_PARTITION, "0", null, null)
 
   @Mock
   private var task: AllTask = null
@@ -131,6 +133,44 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(this.task).processAsync(envelope, this.collector, coordinator, callback)
     verify(processesCounter).inc()
     verify(messagesActuallyProcessedCounter).inc()
+  }
+
+  @Test
+  def testProcessWithElasticityEnabled() {
+    val processedSSPKeyBucket = new SystemStreamPartition(SYSTEM_STREAM_PARTITION, 0)
+    val notProcessedSSPKeyBucket = new SystemStreamPartition(SYSTEM_STREAM_PARTITION, 1)
+    setupTaskInstance(Some(this.applicationTaskContextFactory), MoreExecutors.newDirectExecutorService(),
+      2,
+      ImmutableSet.of(processedSSPKeyBucket))
+    val processesCounter = mock[Counter]
+    when(this.metrics.processes).thenReturn(processesCounter)
+    val messagesActuallyProcessedCounter = mock[Counter]
+    when(this.metrics.messagesActuallyProcessed).thenReturn(messagesActuallyProcessedCounter)
+    when(this.offsetManager.getStartingOffset(TASK_NAME, new SystemStreamPartition(SYSTEM_STREAM_PARTITION, 0))).thenReturn(Some("0"))
+
+    val coordinator = mock[ReadableCoordinator]
+    val callbackFactory = mock[TaskCallbackFactory]
+    val callback = mock[TaskCallback]
+    when(callbackFactory.createCallback()).thenReturn(callback)
+
+    // case 1: taskInstance processes the keyBucket=0 of the ssp and envelope is from same keyBucket
+    // regular processing should happen
+    when(envelope.getSystemStreamPartition(2)).thenReturn(processedSSPKeyBucket)
+    this.taskInstance.process(envelope, coordinator, callbackFactory)
+    assertEquals(1, this.taskInstanceExceptionHandler.numTimesCalled)
+    verify(this.task).processAsync(envelope, this.collector, coordinator, callback)
+    verify(processesCounter).inc()
+    verify(messagesActuallyProcessedCounter).inc()
+
+    // case 1: taskInstance processes the keyBucket=0 of the ssp and envelope is NOT from same keyBucket
+    // taskInstance.process should throw the exception ssp is not registered.
+    when(envelope.getSystemStreamPartition(2)).thenReturn(notProcessedSSPKeyBucket)
+    val thrown = intercept[Exception] {
+      this.taskInstance.process(envelope, coordinator, callbackFactory)
+    }
+    assert(thrown.isInstanceOf[SamzaException])
+    assert(thrown.getMessage.contains(notProcessedSSPKeyBucket.toString))
+    assert(thrown.getMessage.contains("is not registered!"))
   }
 
   @Test
@@ -1029,7 +1069,9 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
   private def setupTaskInstance(
     applicationTaskContextFactory: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-    commitThreadPool: ExecutorService = MoreExecutors.newDirectExecutorService()): Unit = {
+    commitThreadPool: ExecutorService = MoreExecutors.newDirectExecutorService(),
+    elasticityFactor:Int = 1,
+    systemStreamPartitions: ImmutableSet[SystemStreamPartition] = SYSTEM_STREAM_PARTITIONS): Unit = {
     this.taskInstance = new TaskInstance(this.task,
       this.taskModel,
       this.metrics,
@@ -1039,14 +1081,14 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       offsetManager = this.offsetManager,
       commitManager = this.taskCommitManager,
       tableManager = this.taskTableManager,
-      systemStreamPartitions = SYSTEM_STREAM_PARTITIONS,
+      systemStreamPartitions = systemStreamPartitions,
       exceptionHandler = this.taskInstanceExceptionHandler,
       commitThreadPool = commitThreadPool,
       jobContext = this.jobContext,
       containerContext = this.containerContext,
       applicationContainerContextOption = Some(this.applicationContainerContext),
       applicationTaskContextFactoryOption = applicationTaskContextFactory,
-      externalContextOption = Some(this.externalContext))
+      externalContextOption = Some(this.externalContext), elasticityFactor = elasticityFactor)
   }
 
   /**

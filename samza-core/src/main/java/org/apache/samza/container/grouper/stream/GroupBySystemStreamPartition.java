@@ -62,7 +62,7 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
       if (elasticityFactor > 1) {
         for (int i = 0; i < elasticityFactor; i++) {
           SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, i);
-          addToTaskNameSSPMap(groupedMap, ssp);
+          addToTaskNameSSPMap(groupedMap, sspWithKeyBucket);
         }
       } else {
         addToTaskNameSSPMap(groupedMap, ssp);
@@ -79,7 +79,7 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
     return groupedMap;
   }
 
-  private void addToTaskNameSSPMap(Map<TaskName, Set<SystemStreamPartition>> groupedMap, SystemStreamPartition ssp) {
+  private static void addToTaskNameSSPMap(Map<TaskName, Set<SystemStreamPartition>> groupedMap, SystemStreamPartition ssp) {
     HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
     sspSet.add(ssp);
     groupedMap.put(new TaskName(ssp.toString()), sspSet);

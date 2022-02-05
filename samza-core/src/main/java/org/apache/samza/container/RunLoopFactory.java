@@ -19,8 +19,6 @@
 
 package org.apache.samza.container;
 
-import org.apache.samza.config.Config;
-import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.util.HighResolutionClock;
@@ -41,10 +39,10 @@ public class RunLoopFactory {
       ExecutorService threadPool,
       long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics,
-      Config config,
-      HighResolutionClock clock) {
+      TaskConfig taskConfig,
+      HighResolutionClock clock,
+      int elasticityFactor) {
 
-    TaskConfig taskConfig = new TaskConfig(config);
     long taskWindowMs = taskConfig.getWindowMs();
 
     log.info("Got window milliseconds: {}.", taskWindowMs);
@@ -65,7 +63,6 @@ public class RunLoopFactory {
     long maxIdleMs = taskConfig.getMaxIdleMs();
     log.info("Got maxIdleMs: {}.", maxIdleMs);
 
-    int elasticityFactor = new JobConfig(config).getElasticityFactor();
     log.info("Got elasticity factor: {}.", elasticityFactor);
 
     log.info("Run loop in asynchronous mode.");
