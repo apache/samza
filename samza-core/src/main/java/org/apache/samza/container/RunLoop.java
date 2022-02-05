@@ -744,7 +744,7 @@ public class RunLoop implements Runnable, Throttleable {
         IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
 
         if (envelope.isEndOfStream()) {
-          SystemStreamPartition ssp = envelope.getSystemStreamPartition(elasticityFactor);
+          SystemStreamPartition ssp = envelope.getSystemStreamPartition();
           processingSspSet.remove(ssp);
           if (!hasIntermediateStreams) {
             pendingEnvelopeQueue.remove();

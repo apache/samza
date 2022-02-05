@@ -212,8 +212,7 @@ class TaskInstance(
     // if elasticity is enabled aka elasticity factor > 1
     // then this TaskInstance processes only those envelopes whose key falls
     // within the keyBucket of the SSP assigned to the task.
-    val incomingMessageSsp = if (elasticityFactor == 1) envelope.getSystemStreamPartition
-    else envelope.getSystemStreamPartition(elasticityFactor)
+    val incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
 
     if (!ssp2CaughtupMapping.getOrElse(incomingMessageSsp,
       throw new SamzaException(incomingMessageSsp + " is not registered!"))) {
@@ -543,8 +542,7 @@ class TaskInstance(
     // if elasticity is enabled aka elasticity factor > 1
     // then this TaskInstance handles only those envelopes whose key falls
     // within the keyBucket of the SSP assigned to the task.
-    val incomingMessageSsp = if (elasticityFactor == 1) envelope.getSystemStreamPartition
-    else envelope.getSystemStreamPartition(elasticityFactor)
+    val incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
 
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(envelope.getOffset)) {
       ssp2CaughtupMapping(incomingMessageSsp) = true
