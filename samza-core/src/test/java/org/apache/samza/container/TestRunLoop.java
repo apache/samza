@@ -165,31 +165,6 @@ public class TestRunLoop {
   }
 
   @Test
-  public void testProcessElasticityEnabled() {
-
-    TaskName taskName0 = new TaskName(p0.toString() + " 0");
-    SystemStreamPartition ssp0KeyBucket0 = new SystemStreamPartition("testSystem", "testStream", p0, 0);
-
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0KeyBucket0);
-
-    IncomingMessageEnvelope envelope00 = spy(new IncomingMessageEnvelope(ssp0, "0", "key0", "value0"));
-    IncomingMessageEnvelope envelope01 = spy(new IncomingMessageEnvelope(ssp0, "1", "key0", "value0"));
-    when(envelope00.getSystemStreamPartition(2)).thenReturn(ssp0KeyBucket0);
-    when(envelope01.getSystemStreamPartition(2)).thenReturn(new SystemStreamPartition("testSystem", "testStream", p0, 1));
-
-    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
-    int maxMessagesInFlight = 1;
-    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(ssp0EndOfStream).thenReturn(null);
-    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2);
-    runLoop.run();
-
-    InOrder inOrder = inOrder(task0);
-    inOrder.verify(task0).process(eq(envelope00), any(), any());
-  }
-
-  @Test
   public void testWindow() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 
