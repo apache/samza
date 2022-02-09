@@ -21,6 +21,7 @@ package org.apache.samza.container;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
 import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.system.MessageType;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.CoordinatorRequests;
@@ -242,7 +244,7 @@ public class RunLoop implements Runnable, Throttleable {
     IncomingMessageEnvelope envelope = consumerMultiplexer.choose(false);
     if (envelope != null) {
       log.trace("Choose envelope ssp {} offset {} for processing",
-          envelope.getSystemStreamPartition(), envelope.getOffset());
+          envelope.getSystemStreamPartition(elasticityFactor), envelope.getOffset());
       containerMetrics.envelopes().inc();
     } else {
       log.trace("No envelope is available");
@@ -258,12 +260,10 @@ public class RunLoop implements Runnable, Throttleable {
     if (!shutdownNow) {
       if (envelope != null) {
         PendingEnvelope pendingEnvelope = new PendingEnvelope(envelope);
-        SystemStreamPartition sspOfEnvelope = null;
         // when elasticity is enabled
         // the tasks actually consume a keyBucket of the ssp.
         // hence use the SSP with keybucket to find the worker(s) for the envelope
-        sspOfEnvelope = envelope.getSystemStreamPartition(elasticityFactor);
-        List<AsyncTaskWorker> listOfWorkersForEnvelope = sspToTaskWorkerMapping.get(sspOfEnvelope);
+        List<AsyncTaskWorker> listOfWorkersForEnvelope = getWorkersForEnvelope(envelope);
         if (listOfWorkersForEnvelope != null) {
           for (AsyncTaskWorker worker : listOfWorkersForEnvelope) {
             worker.state.insertEnvelope(pendingEnvelope);
@@ -273,7 +273,7 @@ public class RunLoop implements Runnable, Throttleable {
           // this condition happens when a keyBucket of the SSP is being consumed but other keyBuckets are not consumed
           // if this update is not done for the SSP then the unprocessed envelopes from other keyBuckets
           // will make the consumerMultiplexer not poll as it sees envelopes available for consumption.
-          consumerMultiplexer.tryUpdate(envelope.getSystemStreamPartition());
+          consumerMultiplexer.tryUpdate(envelope.getSystemStreamPartition(elasticityFactor));
           log.trace("updating the system consumers for ssp keyBucket {} not processed by this runloop",
               envelope.getSystemStreamPartition(elasticityFactor));
         }
@@ -285,6 +285,40 @@ public class RunLoop implements Runnable, Throttleable {
     }
   }
 
+  /**
+   * when elasticity is not enabled, fetch the workers from sspToTaskWorkerMapping using envelope.getSSP()
+   * when elasticity is enabled,
+   *       sspToTaskWorkerMapping has workers for a SSP which has keyBucket
+   *       hence need to use envelop.getSSP(elasticityFactor)
+   *       Additionally, when envelope is EnofStream, it needs to be sent to all works for the ssp irrespective of keyBucket
+   * @param envelope
+   * @return list of workers for the envelope
+   */
+  private List<AsyncTaskWorker> getWorkersForEnvelope(IncomingMessageEnvelope envelope) {
+    if (elasticityFactor <= 1) {
+      return sspToTaskWorkerMapping.get(envelope.getSystemStreamPartition());
+    }
+
+    final SystemStreamPartition sspOfEnvelope = envelope.getSystemStreamPartition(elasticityFactor);
+    List<AsyncTaskWorker> listOfWorkersForEnvelope = null;
+
+    // if envelope is end of stream or watermark, it needs to be routed to all tasks consuming the ssp irresp of keybucket
+    MessageType messageType = MessageType.of(envelope.getMessage());
+    if (envelope.isEndOfStream() || MessageType.END_OF_STREAM == messageType || MessageType.WATERMARK == messageType) {
+
+      //sspToTaskWorkerMapping has ssps with keybucket so extract and check only system, stream and partition and ignore the keybucket
+      listOfWorkersForEnvelope = sspToTaskWorkerMapping.entrySet()
+          .stream()
+          .filter(sspToTask -> sspToTask.getKey().getSystemStream().equals(sspOfEnvelope.getSystemStream())
+              && sspToTask.getKey().getPartition().equals(sspOfEnvelope.getPartition()))
+          .map(sspToWorker -> sspToWorker.getValue())
+          .flatMap(Collection::stream)
+          .collect(Collectors.toList());
+    } else {
+      listOfWorkersForEnvelope = sspToTaskWorkerMapping.get(sspOfEnvelope);
+    }
+    return listOfWorkersForEnvelope;
+  }
 
   /**
    * Block the runloop thread if all tasks are busy. When a task worker finishes or window/commit completes,
@@ -505,7 +539,7 @@ public class RunLoop implements Runnable, Throttleable {
      */
     private void process() {
       final IncomingMessageEnvelope envelope = state.fetchEnvelope();
-      log.trace("Process ssp {} offset {}", envelope.getSystemStreamPartition(), envelope.getOffset());
+      log.trace("Process ssp {} offset {}", envelope.getSystemStreamPartition(elasticityFactor), envelope.getOffset());
 
       final ReadableCoordinator coordinator = new ReadableCoordinator(task.taskName());
       TaskCallbackFactory callbackFactory = new TaskCallbackFactory() {
@@ -744,7 +778,7 @@ public class RunLoop implements Runnable, Throttleable {
         IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
 
         if (envelope.isEndOfStream()) {
-          SystemStreamPartition ssp = envelope.getSystemStreamPartition();
+          SystemStreamPartition ssp = envelope.getSystemStreamPartition(elasticityFactor);
           processingSspSet.remove(ssp);
           if (!hasIntermediateStreams) {
             pendingEnvelopeQueue.remove();
@@ -887,11 +921,11 @@ public class RunLoop implements Runnable, Throttleable {
       int queueSize = pendingEnvelopeQueue.size();
       taskMetrics.pendingMessages().set(queueSize);
       log.trace("fetch envelope ssp {} offset {} to process.",
-          pendingEnvelope.envelope.getSystemStreamPartition(), pendingEnvelope.envelope.getOffset());
+          pendingEnvelope.envelope.getSystemStreamPartition(elasticityFactor), pendingEnvelope.envelope.getOffset());
       log.debug("Task {} pending envelopes count is {} after fetching.", taskName, queueSize);
 
       if (pendingEnvelope.markProcessed()) {
-        SystemStreamPartition partition = pendingEnvelope.envelope.getSystemStreamPartition();
+        SystemStreamPartition partition = pendingEnvelope.envelope.getSystemStreamPartition(elasticityFactor);
         consumerMultiplexer.tryUpdate(partition);
         log.debug("Update chooser for {}", partition);
       }

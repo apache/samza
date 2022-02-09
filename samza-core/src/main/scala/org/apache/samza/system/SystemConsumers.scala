@@ -175,7 +175,7 @@ class SystemConsumers (
       // If elasticity is enabled then the RunLoop gives SSP with keybucket
       // but the actual systemConsumer which consumes from the input does not know about KeyBucket.
       // hence, use an SSP without KeyBucket
-      consumer.register(new SystemStreamPartition(systemStreamPartition.getSystemStream, systemStreamPartition.getPartition), offset)
+      consumer.register(getSSPWithoutKeyBucket(systemStreamPartition), offset)
     }
 
     debug("Starting consumers.")
@@ -215,12 +215,11 @@ class SystemConsumers (
   }
 
 
-  def register(givenSystemStreamPartition: SystemStreamPartition, offset: String) {
+  def register(ssp: SystemStreamPartition, offset: String) {
     // If elasticity is enabled then the RunLoop gives SSP with keybucket
     // but the MessageChooser does not know about the KeyBucket
     // hence, use an SSP without KeyBucket
-    val systemStreamPartition = new SystemStreamPartition(givenSystemStreamPartition.getSystem,
-      givenSystemStreamPartition.getStream, givenSystemStreamPartition.getPartition)
+    val systemStreamPartition = getSSPWithoutKeyBucket(ssp)
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
@@ -355,13 +354,14 @@ class SystemConsumers (
   }
 
   def tryUpdate(ssp: SystemStreamPartition) {
+    val systemStreamPartition = getSSPWithoutKeyBucket(ssp)
     var updated = false
     try {
-      updated = update(ssp)
+      updated = update(systemStreamPartition)
     } finally {
       if (!updated) {
         // if failed to update the chooser, add the ssp back into the emptySystemStreamPartitionBySystem map to ensure that we will poll for the next message
-        emptySystemStreamPartitionsBySystem.get(ssp.getSystem).add(ssp)
+        emptySystemStreamPartitionsBySystem.get(systemStreamPartition.getSystem).add(systemStreamPartition)
       }
     }
   }
@@ -408,6 +408,10 @@ class SystemConsumers (
     }
 
     updated
+  }
+
+  private def getSSPWithoutKeyBucket(sspWithKeyBucket: SystemStreamPartition): SystemStreamPartition = {
+    new SystemStreamPartition(sspWithKeyBucket.getSystem, sspWithKeyBucket.getStream, sspWithKeyBucket.getPartition)
   }
 }
 
