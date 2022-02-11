@@ -248,7 +248,7 @@ class SystemConsumers (
 
 
   def isEndOfStream(systemStreamPartition: SystemStreamPartition) = {
-    endOfStreamSSPs.contains(systemStreamPartition)
+    endOfStreamSSPs.contains(getSSPWithoutKeyBucket(systemStreamPartition))
   }
 
   def choose (updateChooser: Boolean = true): IncomingMessageEnvelope = {
