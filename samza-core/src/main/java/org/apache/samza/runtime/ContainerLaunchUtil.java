@@ -19,6 +19,7 @@
 
 package org.apache.samza.runtime;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -99,10 +100,11 @@ public class ContainerLaunchUtil {
     run(appDesc, jobName, jobId, containerId, executionEnvContainerId, samzaEpochId, jobModel, config,
         buildExternalContext(config));
 
-    System.exit(0);
+    exitProcess(0);
   }
 
-  private static void run(
+  @VisibleForTesting
+  static void run(
       ApplicationDescriptorImpl<? extends ApplicationDescriptor> appDesc,
       String jobName,
       String jobId,
@@ -112,8 +114,14 @@ public class ContainerLaunchUtil {
       JobModel jobModel,
       Config config,
       Optional<ExternalContext> externalContextOptional) {
-    CoordinatorStreamStore coordinatorStreamStore = new CoordinatorStreamStore(config, new MetricsRegistryMap());
+    CoordinatorStreamStore coordinatorStreamStore = buildCoordinatorStreamStore(config, new MetricsRegistryMap());
     coordinatorStreamStore.init();
+
+    /*
+     * We track the exit code and only trigger exit in the finally block to make sure we are able to execute all the
+     * clean up steps. Prior implementation had short circuited exit causing some of the clean up steps to be missed.
+     */
+    int exitCode = 0;
 
     try {
       TaskFactory taskFactory = TaskFactoryUtil.getTaskFactory(appDesc);
@@ -179,13 +187,37 @@ public class ContainerLaunchUtil {
 
       if (containerRunnerException != null) {
         log.error("Container stopped with Exception. Exiting process now.", containerRunnerException);
-        System.exit(1);
+        exitCode = 1;
       }
     } catch (Throwable e) {
-      log.error("Container stopped with Exception. ", containerRunnerException);
+      /*
+       * Two separate log statements are intended to print the entire stack trace as part of the logs. Using
+       * single log statement with custom format requires explicitly fetching stack trace and null checks which makes
+       * the code slightly hard to read in comparison with the current choice.
+       */
+      log.error("Exiting the process due to", e);
+      log.error("Container runner exception: ", containerRunnerException);
+      exitCode = 1;
     } finally {
       coordinatorStreamStore.close();
+      /*
+       * Only exit in the scenario of non-zero exit code in order to maintain parity with current implementation where
+       * the method completes when no errors are encountered.
+       */
+      if (exitCode != 0) {
+        exitProcess(exitCode);
+      }
     }
+  }
+
+  @VisibleForTesting
+  static CoordinatorStreamStore buildCoordinatorStreamStore(Config config, MetricsRegistryMap metricsRegistryMap) {
+    return new CoordinatorStreamStore(config, metricsRegistryMap);
+  }
+
+  @VisibleForTesting
+  static void exitProcess(int status) {
+    System.exit(status);
   }
 
   private static Optional<ExternalContext> buildExternalContext(Config config) {
