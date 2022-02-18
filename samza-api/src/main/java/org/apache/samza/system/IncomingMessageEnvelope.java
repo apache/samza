@@ -111,10 +111,28 @@ public class IncomingMessageEnvelope {
     return systemStreamPartition;
   }
 
-  // used for elasticity to determine which elastic task should handle this envelope
+  /**
+   * fetches the SSP (with keybucket) for the envelope based on elasticity factor.
+   * keyBucket is determined by the key if non-null else by the offset
+   *
+   * Special case messages like Watermark msgs which should belong to all keybuckets of an ssp
+   *     however, they might have both key and offset as null, hence keybucket cant be determined
+   *     but choosing keybucket = 0 as ssp with keybucket is expected with elasticity enabled
+   *     the correct handling of special case messages is the responsibility of the caller
+   * @param elasticityFactor
+   * @return
+   *  SSP without keybucket if elasticity is not enabled
+   *  SSP with keybucket otherwise
+   */
   public SystemStreamPartition getSystemStreamPartition(int elasticityFactor) {
+    if (elasticityFactor <= 1) {
+      return systemStreamPartition;
+    }
     Object envelopeKeyorOffset = key != null ? key : offset;
-    int keyBucket = Math.abs(envelopeKeyorOffset.hashCode() % elasticityFactor);
+    if (envelopeKeyorOffset == null) {
+      return new SystemStreamPartition(systemStreamPartition, 0);
+    }
+    int keyBucket = Math.abs(envelopeKeyorOffset.hashCode()) % elasticityFactor;
     return new SystemStreamPartition(systemStreamPartition, keyBucket);
   }
 

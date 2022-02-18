@@ -40,7 +40,8 @@ public class RunLoopFactory {
       long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics,
       TaskConfig taskConfig,
-      HighResolutionClock clock) {
+      HighResolutionClock clock,
+      int elasticityFactor) {
 
     long taskWindowMs = taskConfig.getWindowMs();
 
@@ -62,6 +63,8 @@ public class RunLoopFactory {
     long maxIdleMs = taskConfig.getMaxIdleMs();
     log.info("Got maxIdleMs: {}.", maxIdleMs);
 
+    log.info("Got elasticity factor: {}.", elasticityFactor);
+
     log.info("Run loop in asynchronous mode.");
 
     return new RunLoop(
@@ -76,6 +79,7 @@ public class RunLoopFactory {
       maxIdleMs,
       containerMetrics,
       clock,
-      isAsyncCommitEnabled);
+      isAsyncCommitEnabled,
+      elasticityFactor);
   }
 }

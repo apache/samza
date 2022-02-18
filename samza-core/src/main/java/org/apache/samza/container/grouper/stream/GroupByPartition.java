@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
@@ -36,10 +37,12 @@ import org.apache.samza.system.SystemStreamPartition;
  */
 public class GroupByPartition implements SystemStreamPartitionGrouper {
   private final Set<SystemStreamPartition> broadcastStreams;
+  private final int elasticityFactor;
 
   public GroupByPartition(Config config) {
     TaskConfig taskConfig = new TaskConfig(config);
     this.broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
+    elasticityFactor = new JobConfig(config).getElasticityFactor();
   }
 
   @Override
@@ -52,12 +55,21 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
         continue;
       }
 
-      TaskName taskName = new TaskName(String.format("Partition %d", ssp.getPartition().getPartitionId()));
-
-      if (!groupedMap.containsKey(taskName)) {
-        groupedMap.put(taskName, new HashSet<>());
+      // if elasticity factor > 1 then elasticity is enabled
+      // for each partition create ElasticityFactor number of tasks
+      // i.e; result will have number of tasks =  ElasticityFactor X number of partitions
+      // each task will have name Partition_X_Y where X is the partition number and Y <= elasticityFactor
+      // each task Partition_X_Y consumes the keyBucket Y of all the SSP with partition number X.
+      for (int i = 0; i < elasticityFactor; i++) {
+        int keyBucket = elasticityFactor == 1 ? -1 : i;
+        String taskNameStr = elasticityFactor == 1 ?
+            String.format("Partition %d", ssp.getPartition().getPartitionId()) :
+            String.format("Partition %d %d", ssp.getPartition().getPartitionId(), keyBucket);
+        TaskName taskName = new TaskName(taskNameStr);
+        SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, keyBucket);
+        groupedMap.putIfAbsent(taskName, new HashSet<>());
+        groupedMap.get(taskName).add(sspWithKeyBucket);
       }
-      groupedMap.get(taskName).add(ssp);
     }
 
     // assign the broadcast streams to all the taskNames

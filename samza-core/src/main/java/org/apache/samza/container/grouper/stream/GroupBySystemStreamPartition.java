@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.system.SystemStreamPartition;
@@ -35,10 +36,12 @@ import org.apache.samza.system.SystemStreamPartition;
  */
 public class GroupBySystemStreamPartition implements SystemStreamPartitionGrouper {
   private final Set<SystemStreamPartition> broadcastStreams;
+  private final int elasticityFactor;
 
   public GroupBySystemStreamPartition(Config config) {
     TaskConfig taskConfig = new TaskConfig(config);
     broadcastStreams = taskConfig.getBroadcastSystemStreamPartitions();
+    elasticityFactor = new JobConfig(config).getElasticityFactor();
   }
 
   @Override
@@ -50,9 +53,18 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
         continue;
       }
 
-      HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
-      sspSet.add(ssp);
-      groupedMap.put(new TaskName(ssp.toString()), sspSet);
+      // if elasticity factor > 1 then elasticity is enabled
+      // for each ssp create ElasticityFactor number of tasks
+      // i.e; result will have number of tasks =  ElasticityFactor X number of SSP
+      // each task will have name SSP[system,stream,partition,keyBucket] keyBucket <= elasticityFactor
+      // each task portion corresponding to keyBucket of the SSP.
+      for (int i = 0; i < elasticityFactor; i++) {
+        int keyBucket = elasticityFactor == 1 ? -1 : i;
+        SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, keyBucket);
+        HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
+        sspSet.add(sspWithKeyBucket);
+        groupedMap.put(new TaskName(sspWithKeyBucket.toString()), sspSet);
+      }
     }
 
     // assign the broadcast streams to all the taskNames

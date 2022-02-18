@@ -165,6 +165,38 @@ public class TestRunLoop {
   }
 
   @Test
+  public void testProcessElasticityEnabled() {
+
+    TaskName taskName0 = new TaskName(p0.toString() + " 0");
+    SystemStreamPartition ssp = new SystemStreamPartition("testSystem", "testStream", p0);
+    SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStream", p0, 0);
+    SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStream", p0, 1);
+
+    // have a single task in the run loop that processes ssp0 -> 0th keybucket of ssp
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+
+    // create two IME such that one of their ssp keybucket maps to ssp0 and the other one maps to ssp1
+    // task in the runloop should process only the first ime (aka the one whose ssp keybucket is ssp0)
+    IncomingMessageEnvelope envelope00 = spy(new IncomingMessageEnvelope(ssp, "0", "key0", "value0"));
+    IncomingMessageEnvelope envelope01 = spy(new IncomingMessageEnvelope(ssp, "1", "key0", "value0"));
+    when(envelope00.getSystemStreamPartition(2)).thenReturn(ssp0);
+    when(envelope01.getSystemStreamPartition(2)).thenReturn(ssp1);
+
+
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(ssp0EndOfStream).thenReturn(null);
+
+    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
+    int maxMessagesInFlight = 1;
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2);
+    runLoop.run();
+
+    verify(task0).process(eq(envelope00), any(), any());
+    verify(task0, never()).process(eq(envelope01), any(), any());
+  }
+
+  @Test
   public void testWindow() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 

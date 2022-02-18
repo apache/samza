@@ -609,7 +609,8 @@ object SamzaContainer extends Logging {
           containerContext = containerContext,
           applicationContainerContextOption = applicationContainerContextOption,
           applicationTaskContextFactoryOption = applicationTaskContextFactoryOption,
-          externalContextOption = externalContextOption)
+          externalContextOption = externalContextOption,
+          elasticityFactor = jobConfig.getElasticityFactor)
 
       val taskInstance = createTaskInstance(task)
 
@@ -625,7 +626,8 @@ object SamzaContainer extends Logging {
       maxThrottlingDelayMs,
       samzaContainerMetrics,
       taskConfig,
-      clock)
+      clock,
+      jobConfig.getElasticityFactor)
 
     val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
 

@@ -74,4 +74,26 @@ public class TestGroupBySystemStreamPartition {
 
     assertEquals(expectedResult, result);
   }
+
+  @Test
+  public void testElasticityEnabledLocalStreamGroupedCorrectly() {
+    Config config = new MapConfig(ImmutableMap.of("job.elasticity.factor", "2"));
+    SystemStreamPartitionGrouper grouper = grouperFactory.getSystemStreamPartitionGrouper(config);
+    Map<TaskName, Set<SystemStreamPartition>> emptyResult = grouper.group(new HashSet<>());
+    assertTrue(emptyResult.isEmpty());
+
+    Map<TaskName, Set<SystemStreamPartition>> result = grouper.group(ImmutableSet.of(aa0, aa1, aa2, ac0));
+    Map<TaskName, Set<SystemStreamPartition>> expectedResult = ImmutableMap.<TaskName, Set<SystemStreamPartition>>builder()
+        .put(new TaskName(new SystemStreamPartition(aa0, 0).toString()), ImmutableSet.of(new SystemStreamPartition(aa0, 0)))
+        .put(new TaskName(new SystemStreamPartition(aa0, 1).toString()), ImmutableSet.of(new SystemStreamPartition(aa0, 1)))
+        .put(new TaskName(new SystemStreamPartition(aa1, 0).toString()), ImmutableSet.of(new SystemStreamPartition(aa1, 0)))
+        .put(new TaskName(new SystemStreamPartition(aa1, 1).toString()), ImmutableSet.of(new SystemStreamPartition(aa1, 1)))
+        .put(new TaskName(new SystemStreamPartition(aa2, 0).toString()), ImmutableSet.of(new SystemStreamPartition(aa2, 0)))
+        .put(new TaskName(new SystemStreamPartition(aa2, 1).toString()), ImmutableSet.of(new SystemStreamPartition(aa2, 1)))
+        .put(new TaskName(new SystemStreamPartition(ac0, 0).toString()), ImmutableSet.of(new SystemStreamPartition(ac0, 0)))
+        .put(new TaskName(new SystemStreamPartition(ac0, 1).toString()), ImmutableSet.of(new SystemStreamPartition(ac0, 1)))
+        .build();
+
+    assertEquals(expectedResult, result);
+  }
 }

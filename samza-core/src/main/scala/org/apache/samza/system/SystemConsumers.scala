@@ -172,7 +172,10 @@ class SystemConsumers (
   def start {
     for ((systemStreamPartition, offset) <- sspToRegisteredOffsets.asScala) {
       val consumer = consumers(systemStreamPartition.getSystem)
-      consumer.register(systemStreamPartition, offset)
+      // If elasticity is enabled then the RunLoop gives SSP with keybucket
+      // but the actual systemConsumer which consumes from the input does not know about KeyBucket.
+      // hence, use an SSP without KeyBucket
+      consumer.register(removeKeyBucket(systemStreamPartition), offset)
     }
 
     debug("Starting consumers.")
@@ -212,7 +215,11 @@ class SystemConsumers (
   }
 
 
-  def register(systemStreamPartition: SystemStreamPartition, offset: String) {
+  def register(ssp: SystemStreamPartition, offset: String) {
+    // If elasticity is enabled then the RunLoop gives SSP with keybucket
+    // but the MessageChooser does not know about the KeyBucket
+    // hence, use an SSP without KeyBucket
+    val systemStreamPartition = removeKeyBucket(ssp)
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
@@ -241,7 +248,7 @@ class SystemConsumers (
 
 
   def isEndOfStream(systemStreamPartition: SystemStreamPartition) = {
-    endOfStreamSSPs.contains(systemStreamPartition)
+    endOfStreamSSPs.contains(removeKeyBucket(systemStreamPartition))
   }
 
   def choose (updateChooser: Boolean = true): IncomingMessageEnvelope = {
@@ -347,13 +354,14 @@ class SystemConsumers (
   }
 
   def tryUpdate(ssp: SystemStreamPartition) {
+    val systemStreamPartition = removeKeyBucket(ssp)
     var updated = false
     try {
-      updated = update(ssp)
+      updated = update(systemStreamPartition)
     } finally {
       if (!updated) {
         // if failed to update the chooser, add the ssp back into the emptySystemStreamPartitionBySystem map to ensure that we will poll for the next message
-        emptySystemStreamPartitionsBySystem.get(ssp.getSystem).add(ssp)
+        emptySystemStreamPartitionsBySystem.get(systemStreamPartition.getSystem).add(systemStreamPartition)
       }
     }
   }
@@ -400,6 +408,10 @@ class SystemConsumers (
     }
 
     updated
+  }
+
+  private def removeKeyBucket(sspWithKeyBucket: SystemStreamPartition): SystemStreamPartition = {
+    new SystemStreamPartition(sspWithKeyBucket.getSystem, sspWithKeyBucket.getStream, sspWithKeyBucket.getPartition)
   }
 }
 

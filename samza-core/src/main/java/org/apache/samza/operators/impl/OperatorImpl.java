@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MetricsConfig;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
@@ -89,6 +90,7 @@ public abstract class OperatorImpl<M, RM> {
   private WatermarkStates watermarkStates;
   private CallbackScheduler callbackScheduler;
   private ControlMessageSender controlMessageSender;
+  private int elasticityFactor;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -127,6 +129,7 @@ public abstract class OperatorImpl<M, RM> {
     this.taskModel = taskContext.getTaskModel();
     this.callbackScheduler = taskContext.getCallbackScheduler();
     handleInit(context);
+    this.elasticityFactor = new JobConfig(context.getJobContext().getConfig()).getElasticityFactor();
 
     initialized = true;
   }
@@ -255,6 +258,29 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   /**
+   * returns true if current task should broadcast control message (end of stream/watermark) to others
+   * if elasticity is not enabled (elasticity factor <=1 ) then the current task is eligible
+   * if elastiicty is enabled, pick the elastic task consuming keybucket = 0 of the ssp as the eligible task
+   * @param ssp ssp that the current task consumes
+   * @return true if current task is eligible to broadcast control messages
+   */
+  private boolean shouldTaskBroadcastToOtherPartitions(SystemStreamPartition ssp) {
+    if (elasticityFactor <= 1) {
+      return true;
+    }
+
+    // if elasticity is enabled then taskModel actually has ssp with keybuckets in it
+    // check if this current elastic task processes the first keybucket (=0) of the ssp given
+    return
+        taskModel.getSystemStreamPartitions().stream()
+            .filter(sspInModel ->
+                ssp.getSystemStream().equals(sspInModel.getSystemStream()) // ensure same systemstream as ssp given
+                && ssp.getPartition().equals(sspInModel.getPartition()) // ensure same partition as ssp given
+                && sspInModel.getKeyBucket() == 0) // ensure sspInModel has keyBucket 0
+            .count() > 0; // >0 means current task consumes the keyBucket = 0 of the ssp given
+  }
+
+  /**
    * Aggregate {@link EndOfStreamMessage} from each ssp of the stream.
    * Invoke onEndOfStream() if the stream reaches the end.
    * @param eos {@link EndOfStreamMessage} object
@@ -272,9 +298,11 @@ public abstract class OperatorImpl<M, RM> {
 
     if (eosStates.isEndOfStream(stream)) {
       LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
-      if (eos.getTaskName() != null) {
+      if (eos.getTaskName() != null && shouldTaskBroadcastToOtherPartitions(ssp)) {
         // This is the aggregation task, which already received all the eos messages from upstream
         // broadcast the end-of-stream to all the peer partitions
+        // additionally if elasiticty is enabled
+        // then only one of the elastic tasks of the ssp will broadcast
         controlMessageSender.broadcastToOtherPartitions(new EndOfStreamMessage(), ssp, collector);
       }
 
@@ -351,9 +379,11 @@ public abstract class OperatorImpl<M, RM> {
     if (currentWatermark < watermark) {
       LOG.debug("Got watermark {} from stream {}", watermark, ssp.getSystemStream());
 
-      if (watermarkMessage.getTaskName() != null) {
+      if (watermarkMessage.getTaskName() != null && shouldTaskBroadcastToOtherPartitions(ssp)) {
         // This is the aggregation task, which already received all the watermark messages from upstream
         // broadcast the watermark to all the peer partitions
+        // additionally if elasiticty is enabled
+        // then only one of the elastic tasks of the ssp will broadcast
         controlMessageSender.broadcastToOtherPartitions(new WatermarkMessage(watermark), ssp, collector);
       }
       // populate the watermark through the dag

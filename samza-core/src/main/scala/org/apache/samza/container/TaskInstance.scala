@@ -67,7 +67,8 @@ class TaskInstance(
   containerContext: ContainerContext,
   applicationContainerContextOption: Option[ApplicationContainerContext],
   applicationTaskContextFactoryOption: Option[ApplicationTaskContextFactory[ApplicationTaskContext]],
-  externalContextOption: Option[ExternalContext]) extends Logging with RunLoopTask {
+  externalContextOption: Option[ExternalContext],
+  elasticityFactor: Int = 1) extends Logging with RunLoopTask {
 
   val taskName: TaskName = taskModel.getTaskName
   val isInitableTask = task.isInstanceOf[InitableTask]
@@ -208,7 +209,10 @@ class TaskInstance(
     callbackFactory: TaskCallbackFactory) {
     metrics.processes.inc
 
-    val incomingMessageSsp = envelope.getSystemStreamPartition
+    // if elasticity is enabled aka elasticity factor > 1
+    // then this TaskInstance processes only those envelopes whose key falls
+    // within the keyBucket of the SSP assigned to the task.
+    val incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
 
     if (!ssp2CaughtupMapping.getOrElse(incomingMessageSsp,
       throw new SamzaException(incomingMessageSsp + " is not registered!"))) {
@@ -535,7 +539,10 @@ class TaskInstance(
    * it's already caught up.
    */
   private def checkCaughtUp(envelope: IncomingMessageEnvelope) = {
-    val incomingMessageSsp = envelope.getSystemStreamPartition
+    // if elasticity is enabled aka elasticity factor > 1
+    // then this TaskInstance handles only those envelopes whose key falls
+    // within the keyBucket of the SSP assigned to the task.
+    val incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
 
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(envelope.getOffset)) {
       ssp2CaughtupMapping(incomingMessageSsp) = true
