@@ -98,7 +98,7 @@ public class TestRepartitionJoinWindowApp extends StreamApplicationIntegrationTe
   }
 
   @Test
-  public void testRepartitionJoinWindowAppAndDeleteMessagesOnCommit() throws Exception {
+  public void ittestRepartitionJoinWindowAppAndDeleteMessagesOnCommit() throws Exception {
     String inputTopicName1 = "page-views2";
     String inputTopicName2 = "ad-clicks2";
     String outputTopicName = "user-ad-click-counts2";

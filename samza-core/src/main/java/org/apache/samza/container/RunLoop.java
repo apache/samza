@@ -290,7 +290,7 @@ public class RunLoop implements Runnable, Throttleable {
    * when elasticity is enabled,
    *       sspToTaskWorkerMapping has workers for a SSP which has keyBucket
    *       hence need to use envelop.getSSP(elasticityFactor)
-   *       Additionally, when envelope is EnofStream, it needs to be sent to all works for the ssp irrespective of keyBucket
+   *       Additionally, when envelope is EnofStream or Watermark, it needs to be sent to all works for the ssp irrespective of keyBucket
    * @param envelope
    * @return list of workers for the envelope
    */

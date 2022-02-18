@@ -175,7 +175,7 @@ class SystemConsumers (
       // If elasticity is enabled then the RunLoop gives SSP with keybucket
       // but the actual systemConsumer which consumes from the input does not know about KeyBucket.
       // hence, use an SSP without KeyBucket
-      consumer.register(getSSPWithoutKeyBucket(systemStreamPartition), offset)
+      consumer.register(removeKeyBucket(systemStreamPartition), offset)
     }
 
     debug("Starting consumers.")
@@ -219,7 +219,7 @@ class SystemConsumers (
     // If elasticity is enabled then the RunLoop gives SSP with keybucket
     // but the MessageChooser does not know about the KeyBucket
     // hence, use an SSP without KeyBucket
-    val systemStreamPartition = getSSPWithoutKeyBucket(ssp)
+    val systemStreamPartition = removeKeyBucket(ssp)
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(offset)) {
@@ -248,7 +248,7 @@ class SystemConsumers (
 
 
   def isEndOfStream(systemStreamPartition: SystemStreamPartition) = {
-    endOfStreamSSPs.contains(getSSPWithoutKeyBucket(systemStreamPartition))
+    endOfStreamSSPs.contains(removeKeyBucket(systemStreamPartition))
   }
 
   def choose (updateChooser: Boolean = true): IncomingMessageEnvelope = {
@@ -354,7 +354,7 @@ class SystemConsumers (
   }
 
   def tryUpdate(ssp: SystemStreamPartition) {
-    val systemStreamPartition = getSSPWithoutKeyBucket(ssp)
+    val systemStreamPartition = removeKeyBucket(ssp)
     var updated = false
     try {
       updated = update(systemStreamPartition)
@@ -410,7 +410,7 @@ class SystemConsumers (
     updated
   }
 
-  private def getSSPWithoutKeyBucket(sspWithKeyBucket: SystemStreamPartition): SystemStreamPartition = {
+  private def removeKeyBucket(sspWithKeyBucket: SystemStreamPartition): SystemStreamPartition = {
     new SystemStreamPartition(sspWithKeyBucket.getSystem, sspWithKeyBucket.getStream, sspWithKeyBucket.getPartition)
   }
 }

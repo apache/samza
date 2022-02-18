@@ -615,12 +615,24 @@ public class TestJobConfig {
     // zero means disabled
     jobConfig =
         new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(0))));
-    assertFalse(jobConfig.getElasticityEnabled());
+    boolean exceptionCaught = false;
+    try {
+      jobConfig.getElasticityEnabled();
+    } catch (ConfigException e) {
+      exceptionCaught = true;
+    }
+    assertTrue(exceptionCaught);
 
     // negative means disabled
     jobConfig =
         new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(-1))));
-    assertFalse(jobConfig.getElasticityEnabled());
+    exceptionCaught = false;
+    try {
+      jobConfig.getElasticityEnabled();
+    } catch (ConfigException e) {
+      exceptionCaught = true;
+    }
+    assertTrue(exceptionCaught);
 
     // not specified uses the default standby count, which means disabled
     jobConfig = new JobConfig(new MapConfig());
@@ -639,11 +651,23 @@ public class TestJobConfig {
 
     jobConfig =
         new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(0))));
-    assertEquals(0, jobConfig.getElasticityFactor());
+    boolean exceptionCaught = false;
+    try {
+      jobConfig.getElasticityFactor();
+    } catch (ConfigException e) {
+      exceptionCaught = true;
+    }
+    assertTrue(exceptionCaught);
 
     jobConfig =
         new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(-1))));
-    assertEquals(-1, jobConfig.getElasticityFactor());
+    exceptionCaught = false;
+    try {
+      jobConfig.getElasticityFactor();
+    } catch (ConfigException e) {
+      exceptionCaught = true;
+    }
+    assertTrue(exceptionCaught);
 
     jobConfig = new JobConfig(new MapConfig());
     assertEquals(JobConfig.DEFAULT_JOB_ELASTICITY_FACTOR, jobConfig.getElasticityFactor());

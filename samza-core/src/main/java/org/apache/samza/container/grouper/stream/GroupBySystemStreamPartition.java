@@ -57,15 +57,13 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
       // for each ssp create ElasticityFactor number of tasks
       // i.e; result will have number of tasks =  ElasticityFactor X number of SSP
       // each task will have name SSP[system,stream,partition,keyBucket] keyBucket <= elasticityFactor
-      // each task portion correspdnding to keyBucket of the SSP.
-      // #todo: add the elasticity ticket for more details?
-      if (elasticityFactor > 1) {
-        for (int i = 0; i < elasticityFactor; i++) {
-          SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, i);
-          addToTaskNameSSPMap(groupedMap, sspWithKeyBucket);
-        }
-      } else {
-        addToTaskNameSSPMap(groupedMap, ssp);
+      // each task portion corresponding to keyBucket of the SSP.
+      for (int i = 0; i < elasticityFactor; i++) {
+        int keyBucket = elasticityFactor == 1 ? -1 : i;
+        SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, keyBucket);
+        HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
+        sspSet.add(sspWithKeyBucket);
+        groupedMap.put(new TaskName(sspWithKeyBucket.toString()), sspSet);
       }
     }
 
@@ -77,11 +75,5 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
     }
 
     return groupedMap;
-  }
-
-  private static void addToTaskNameSSPMap(Map<TaskName, Set<SystemStreamPartition>> groupedMap, SystemStreamPartition ssp) {
-    HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
-    sspSet.add(ssp);
-    groupedMap.put(new TaskName(ssp.toString()), sspSet);
   }
 }

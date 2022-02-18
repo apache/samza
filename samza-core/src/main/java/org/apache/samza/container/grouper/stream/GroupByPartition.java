@@ -60,16 +60,15 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
       // i.e; result will have number of tasks =  ElasticityFactor X number of partitions
       // each task will have name Partition_X_Y where X is the partition number and Y <= elasticityFactor
       // each task Partition_X_Y consumes the keyBucket Y of all the SSP with partition number X.
-      // #todo: add the elasticity ticket for more details?
-      if (elasticityFactor > 1) {
-        for (int i = 0; i < elasticityFactor; i++) {
-          TaskName taskName = new TaskName(String.format("Partition %d %d", ssp.getPartition().getPartitionId(), i));
-          SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, i);
-          addToTaskNameSSPMap(groupedMap, taskName, sspWithKeyBucket);
-        }
-      } else {
-        TaskName taskName = new TaskName(String.format("Partition %d", ssp.getPartition().getPartitionId()));
-        addToTaskNameSSPMap(groupedMap, taskName, ssp);
+      for (int i = 0; i < elasticityFactor; i++) {
+        int keyBucket = elasticityFactor == 1 ? -1 : i;
+        String taskNameStr = elasticityFactor == 1 ?
+            String.format("Partition %d", ssp.getPartition().getPartitionId()) :
+            String.format("Partition %d %d", ssp.getPartition().getPartitionId(), keyBucket);
+        TaskName taskName = new TaskName(taskNameStr);
+        SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, keyBucket);
+        groupedMap.putIfAbsent(taskName, new HashSet<>());
+        groupedMap.get(taskName).add(sspWithKeyBucket);
       }
     }
 
@@ -81,13 +80,5 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
     }
 
     return groupedMap;
-  }
-
-  private static void addToTaskNameSSPMap(Map<TaskName, Set<SystemStreamPartition>> groupedMap, TaskName taskName,
-      SystemStreamPartition ssp) {
-    if (!groupedMap.containsKey(taskName)) {
-      groupedMap.put(taskName, new HashSet<>());
-    }
-    groupedMap.get(taskName).add(ssp);
   }
 }
