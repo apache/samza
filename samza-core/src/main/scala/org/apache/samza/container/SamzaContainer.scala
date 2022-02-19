@@ -431,7 +431,8 @@ object SamzaContainer extends Logging {
       metrics = systemConsumersMetrics,
       dropDeserializationError = dropDeserializationError,
       pollIntervalMs = pollIntervalMs,
-      clock = () => clock.nanoTime())
+      clock = () => clock.nanoTime(),
+      elasticityFactor = jobConfig.getElasticityFactor)
 
     val producerMultiplexer = new SystemProducers(
       producers = producers,
