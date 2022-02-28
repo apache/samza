@@ -18,7 +18,7 @@
  */
 ext {
   scalaSuffix = "2.12"
-  scalaVersion = "2.12.1"
+  scalaVersion = "2.12.11"
   // Extra options for the compiler:
   // -feature: Give detailed warnings about language feature use (rather than just 'there were 4 warnings')
   // -language:implicitConversions: Allow the use of implicit conversions without warning or library import
