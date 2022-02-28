@@ -104,9 +104,9 @@ def job_model_watcher(event, expected_processors):
 
 def __validate_job_model(job_model, killed_processors=[]):
     ## Validate the TaskModel. Check if all the partitions are assigned to the containers.
-    expected_ssps = [{u'partition': 0, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'},
-                        {u'partition': 1, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'},
-                        {u'partition': 2, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'}]
+    expected_ssps = [{u'keyBucket': -1, u'partition': 0, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'},
+                        {u'keyBucket': -1, u'partition': 1, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'},
+                        {u'keyBucket': -1, u'partition': 2, u'system': u'testSystemName', u'stream': u'standalone_integration_test_kafka_input_topic'}]
     actual_ssps = []
     for container_id, tasks in job_model['containers'].iteritems():
         for partition, ssps in tasks['tasks'].iteritems():
