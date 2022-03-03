@@ -426,11 +426,9 @@ class TestSystemConsumers {
     consumer.setNextResponse(nextResponse01)
 
     // envelope01 does not belong to ssp_keybucket processed by the container
-    // and hence systemConsumers should not return it during choose no matter how many times choose is called
     // and hence the metric for choseObject should not be updated
-    assertNull(systemConsumers.choose())
-    assertNull(systemConsumers.choose())
-    assertNull(systemConsumers.choose())
+    assertNull(systemConsumers.choose()) //refresh
+    assertEquals(envelope01, systemConsumers.choose())
     assertEquals(1, systemConsumersMetrics.choseObject.getCount)
   }
 

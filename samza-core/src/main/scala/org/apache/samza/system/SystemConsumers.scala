@@ -353,19 +353,7 @@ class SystemConsumers (
       while (sspAndEnvelopeIterator.hasNext) {
         val sspAndEnvelope = sspAndEnvelopeIterator.next
         val systemStreamPartition = sspAndEnvelope.getKey
-        val filtered_envelopes = new util.ArrayList[IncomingMessageEnvelope](sspAndEnvelope.getValue)
-        // filter out all the envelopes with SSP not registered with this SystemConsumers
-        // with elasticity enabled, SSP of the envelope will be the SSP with KeyBucket
-        // and hence will filter out envelopes if their key bucket is not registered
-        // without elasticity, there are no key buckets
-        // and hence full SSP is registered and all envelopes of the SSP will be retained
-        filtered_envelopes.removeIf {
-          new Predicate[IncomingMessageEnvelope] {
-            def test(envelope: IncomingMessageEnvelope): Boolean =
-              !sspKeyBucketsRegistered.contains(envelope.getSystemStreamPartition(elasticityFactor))
-          }
-        }
-        val envelopes = new ArrayDeque[IncomingMessageEnvelope](filtered_envelopes)
+        val envelopes = new ArrayDeque(sspAndEnvelope.getValue)
         val numEnvelopes = envelopes.size
         totalUnprocessedMessages += numEnvelopes
 
