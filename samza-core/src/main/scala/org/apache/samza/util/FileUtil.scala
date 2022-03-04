@@ -26,8 +26,7 @@ import java.nio.file._
 import java.util.zip.CRC32
 
 class FileUtil extends Logging {
-  val VERSION = 1
-  val MAX_WRITE_UTF_SEGMENT = 0xFFFF
+  val MaxStringSegmentWriteSize: Int = 64 * 1024
 
   /**
     * Writes checksum & data to a file
@@ -49,8 +48,8 @@ class FileUtil extends Logging {
 
       var remainingDataSegment = data
       // Split data into writable segments
-      while (remainingDataSegment.length > MAX_WRITE_UTF_SEGMENT) {
-        val splitData  = data.splitAt(MAX_WRITE_UTF_SEGMENT)
+      while (remainingDataSegment.length > MaxStringSegmentWriteSize) {
+        val splitData  = data.splitAt(MaxStringSegmentWriteSize)
         oos.writeUTF(splitData._1)
         remainingDataSegment = splitData._2
       }

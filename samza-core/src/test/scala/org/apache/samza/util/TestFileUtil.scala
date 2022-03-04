@@ -34,8 +34,8 @@ class TestFileUtil {
   val data = "100"
   val fileUtil = new FileUtil()
   val checksum: Long = fileUtil.getChecksum(data)
-  val TMP_DIR: String = System.getProperty("java.io.tmpdir")
-  val file = new File(TMP_DIR, "test")
+  val tmpDir: String = System.getProperty("java.io.tmpdir")
+  val file = new File(tmpDir, "test")
 
   @Test
   def testWriteDataToFile() {
@@ -56,7 +56,7 @@ class TestFileUtil {
 
   @Test
   def testWriteLargeDataToFile() {
-    val largeData = RandomStringUtils.randomAscii(fileUtil.MAX_WRITE_UTF_SEGMENT + 1)
+    val largeData = RandomStringUtils.randomAscii(fileUtil.MaxStringSegmentWriteSize + 1)
     val largeChecksum = fileUtil.getChecksum(largeData)
 
     // Invoke test
@@ -156,14 +156,14 @@ class TestFileUtil {
      * /tmp/samza-file-util-RANDOM-symlink (symlink to dir above)
      * /tmp/samza-file-util-RANDOM/subdir (created via the symlink above)
      */
-    val tmpDirPath = Paths.get(TMP_DIR)
+    val tmpDirPath = Paths.get(tmpDir)
     val tmpSubDirName = "samza-file-util-" + Random.nextInt()
     val tmpSubDirSymlinkName = tmpSubDirName + "-symlink"
 
-    val tmpSubDirPath = Paths.get(TMP_DIR, tmpSubDirName);
+    val tmpSubDirPath = Paths.get(tmpDir, tmpSubDirName);
     fileUtil.createDirectories(tmpSubDirPath)
 
-    val tmpSymlinkPath = Paths.get(TMP_DIR, tmpSubDirSymlinkName)
+    val tmpSymlinkPath = Paths.get(tmpDir, tmpSubDirSymlinkName)
     Files.createSymbolicLink(tmpSymlinkPath, tmpDirPath);
 
     try {
@@ -179,7 +179,7 @@ class TestFileUtil {
     fileUtil.createDirectories(tmpSymlinkPath)
 
     // verify that subdirs can be created via symlinks correctly.
-    val tmpSubSubDirPath = Paths.get(TMP_DIR, tmpSubDirName + "-symlink", "subdir")
+    val tmpSubSubDirPath = Paths.get(tmpDir, tmpSubDirName + "-symlink", "subdir")
     fileUtil.createDirectories(tmpSubSubDirPath)
   }
 }
