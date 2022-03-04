@@ -56,7 +56,7 @@ class TestFileUtil {
 
   @Test
   def testWriteLargeDataToFile() {
-    val largeData = RandomStringUtils.randomAscii(fileUtil.MaxStringSegmentWriteSize + 1)
+    val largeData = RandomStringUtils.randomAscii(fileUtil.MaxStringSegmentWriteSize * 2)
     val largeChecksum = fileUtil.getChecksum(largeData)
 
     // Invoke test

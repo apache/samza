@@ -48,8 +48,8 @@ class FileUtil extends Logging {
 
       var remainingDataSegment = data
       // Split data into writable segments
-      while (remainingDataSegment.length > MaxStringSegmentWriteSize) {
-        val splitData  = data.splitAt(MaxStringSegmentWriteSize)
+      while (remainingDataSegment.length >= MaxStringSegmentWriteSize) {
+        val splitData  = remainingDataSegment.splitAt(MaxStringSegmentWriteSize - 1)
         oos.writeUTF(splitData._1)
         remainingDataSegment = splitData._2
       }
