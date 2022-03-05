@@ -26,9 +26,12 @@ import java.nio.file._
 import java.util.zip.CRC32
 
 class FileUtil extends Logging {
+  val MaxStringSegmentWriteSize: Int = 64 * 1024
+
   /**
     * Writes checksum & data to a file
     * Checksum is pre-fixed to the data and is a 32-bit long type data.
+    * The data must only ASCII characters to be correcty serialized.
     * @param file The file handle to write to
     * @param data The data to be written to the file
     * */
@@ -42,7 +45,15 @@ class FileUtil extends Logging {
       fos = new FileOutputStream(tmpFile)
       oos = new ObjectOutputStream(fos)
       oos.writeLong(checksum)
-      oos.writeUTF(data)
+
+      var remainingDataSegment = data
+      // Split data into writable segments
+      while (remainingDataSegment.length >= MaxStringSegmentWriteSize) {
+        val splitData  = remainingDataSegment.splitAt(MaxStringSegmentWriteSize - 1)
+        oos.writeUTF(splitData._1)
+        remainingDataSegment = splitData._2
+      }
+      oos.writeUTF(remainingDataSegment)
     } finally {
       if (oos != null) oos.close()
       if (fos != null) fos.close()
@@ -109,7 +120,10 @@ class FileUtil extends Logging {
       fis = new FileInputStream(file)
       ois = new ObjectInputStream(fis)
       val checksumFromFile = ois.readLong()
-      val data = ois.readUTF()
+      var data = ois.readUTF()
+      while (ois.available() > 0) {
+        data = data + ois.readUTF()
+      }
       if(checksumFromFile == getChecksum(data)) {
         data
       } else {
