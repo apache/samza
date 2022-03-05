@@ -125,8 +125,8 @@ class SystemConsumers (
 
   /**
    * Set of all the SystemStreamPartitions registered with this SystemConsumers
-   * With elasticity enabled, the SystemStreamPartitions are actually key buckets within a full SSP
-   * Without elasticity, there are no key buckets and hence is the full SSP
+   * With elasticity-enabled, the SSPs have valid (i.e. >=0) keyBuckets,
+   * with elasticity disabled, keyBuckets on all SSPs are = -1.
    */
   private val sspKeyBucketsRegistered = new HashSet[SystemStreamPartition] ()
 
@@ -290,14 +290,18 @@ class SystemConsumers (
 
         // Ok to give the chooser a new message from this stream.
         timeout = 0
-        // increment metrics only if the envelope belongs to the SSP registered with this SystemConsumers
-        if (sspKeyBucketsRegistered.contains(envelopeFromChooser.getSystemStreamPartition(elasticityFactor))) {
+        if (elasticityFactor == 1) {
           metrics.choseObject.inc
           metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
         } else {
-          metrics.choseNull.inc
+          // increment metrics only if the envelope belongs to one of the SSP key buckets registered with this SystemConsumers
+          if (sspKeyBucketsRegistered.contains(envelopeFromChooser.getSystemStreamPartition(elasticityFactor))) {
+            metrics.choseObject.inc
+            metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
+          } else {
+            metrics.choseNull.inc
+          }
         }
-
         if (updateChooser) {
           trace("Update chooser for " + systemStreamPartition.getPartition)
           tryUpdate(systemStreamPartition)
