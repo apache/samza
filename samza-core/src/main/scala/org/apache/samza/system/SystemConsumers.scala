@@ -28,6 +28,8 @@ import java.util.HashMap
 import java.util.HashSet
 import java.util.Queue
 import java.util.Set
+import java.util.function.Predicate
+import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
@@ -112,12 +114,21 @@ class SystemConsumers (
    * Clock can be used to inject a custom clock when mocking this class in
    * tests. The default implementation returns the current system clock time.
    */
-  val clock: () => Long = () => System.nanoTime()) extends Logging with TimerUtil {
+  val clock: () => Long = () => System.nanoTime(),
+
+  val elasticityFactor: Int = 1) extends Logging with TimerUtil {
 
   /**
    * Mapping from the {@see SystemStreamPartition} to the registered offsets.
    */
   private val sspToRegisteredOffsets = new HashMap[SystemStreamPartition, String]()
+
+  /**
+   * Set of all the SystemStreamPartitions registered with this SystemConsumers
+   * With elasticity-enabled, the SSPs have valid (i.e. >=0) keyBuckets,
+   * with elasticity disabled, keyBuckets on all SSPs are = -1.
+   */
+  private val sspKeyBucketsRegistered = new HashSet[SystemStreamPartition] ()
 
   /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These
@@ -162,6 +173,7 @@ class SystemConsumers (
    */
   var totalUnprocessedMessages = 0
 
+  info("Got elasticity factor: %s" format elasticityFactor)
   debug("Got stream consumers: %s" format consumers)
   debug("Got no new message timeout: %s" format noNewMessagesTimeout)
 
@@ -219,6 +231,7 @@ class SystemConsumers (
     // If elasticity is enabled then the RunLoop gives SSP with keybucket
     // but the MessageChooser does not know about the KeyBucket
     // hence, use an SSP without KeyBucket
+    sspKeyBucketsRegistered.add(ssp)
     val systemStreamPartition = removeKeyBucket(ssp)
     debug("Registering stream: %s, %s" format (systemStreamPartition, offset))
 
@@ -277,9 +290,18 @@ class SystemConsumers (
 
         // Ok to give the chooser a new message from this stream.
         timeout = 0
-        metrics.choseObject.inc
-        metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
-
+        if (elasticityFactor == 1) {
+          metrics.choseObject.inc
+          metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
+        } else {
+          // increment metrics only if the envelope belongs to one of the SSP key buckets registered with this SystemConsumers
+          if (sspKeyBucketsRegistered.contains(envelopeFromChooser.getSystemStreamPartition(elasticityFactor))) {
+            metrics.choseObject.inc
+            metrics.systemStreamMessagesChosen(envelopeFromChooser.getSystemStreamPartition).inc
+          } else {
+            metrics.choseNull.inc
+          }
+        }
         if (updateChooser) {
           trace("Update chooser for " + systemStreamPartition.getPartition)
           tryUpdate(systemStreamPartition)

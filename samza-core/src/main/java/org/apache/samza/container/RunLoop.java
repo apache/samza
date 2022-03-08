@@ -270,12 +270,18 @@ public class RunLoop implements Runnable, Throttleable {
           }
         } else if (elasticityFactor > 1) {
           // is listOfWorkersForEnvelope is null and elascity factor > 1 (aka enabled), then
-          // this condition happens when a keyBucket of the SSP is being consumed but other keyBuckets are not consumed
+          // this condition happens when only a subset of keyBuckets of an SSP are being consumed at this container
+          // but not all keyBuckets of an SSP are consumed, therefore, we fake the consumption of the envelope,
+          // and decrement the metric, since this envelope's processing is skipped.
           // if this update is not done for the SSP then the unprocessed envelopes from other keyBuckets
-          // will make the consumerMultiplexer not poll as it sees envelopes available for consumption.
+          // will prevent the consumerMultiplexer from polling as it sees envelopes available for consumption.
           consumerMultiplexer.tryUpdate(envelope.getSystemStreamPartition(elasticityFactor));
           log.trace("updating the system consumers for ssp keyBucket {} not processed by this runloop",
               envelope.getSystemStreamPartition(elasticityFactor));
+          // since this envelope is not processed by the container, need to decrement the # envelopes metric
+          // # envelopes metric was incremented when the envelope was returned by the SystemConsumers
+          containerMetrics.envelopes().dec();
+          containerMetrics.skippedEnvelopes().inc();
         }
       }
 

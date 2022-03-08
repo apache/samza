@@ -35,6 +35,7 @@ class SamzaContainerMetrics(
   val processes = newCounter("process-calls")
   val envelopes = newCounter("process-envelopes")
   val nullEnvelopes = newCounter("process-null-envelopes")
+  val skippedEnvelopes = newCounter("skipped-envelopes")
   val chooseNs = newTimer("choose-ns")
   val windowNs = newTimer("window-ns")
   val timerNs = newTimer("timer-ns")

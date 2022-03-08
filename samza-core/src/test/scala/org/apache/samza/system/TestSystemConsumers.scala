@@ -32,6 +32,7 @@ import org.apache.samza.system.chooser.DefaultChooser
 import org.apache.samza.system.chooser.MockMessageChooser
 import org.apache.samza.util.BlockingEnvelopeMap
 import org.mockito.Mockito
+import org.mockito.Mockito.{spy, when}
 
 import scala.collection.JavaConverters._
 
@@ -372,6 +373,63 @@ class TestSystemConsumers {
       TaskConfig.DEFAULT_POLL_INTERVAL_MS, clock = () => 0)
 
     consumers.register(systemStreamPartition1, "0")
+  }
+
+  @Test
+  def testSystemConsumersElasticityEnabled: Unit = {
+    val system = "test-system"
+    // create two key bucekts "ssp0" and "ssp1" within one SSP "ssp"
+    // and two IME such that one of their ssp keybucket maps to ssp0 and the other one maps to ssp1
+    // registed only "ssp0" with the SystemConsumers
+    val ssp = new SystemStreamPartition(system, "some-stream", new Partition(0))
+    val ssp0 = new SystemStreamPartition(system, "some-stream", new Partition(0), 0)
+    val ssp1 = new SystemStreamPartition(system, "some-stream", new Partition(0), 1)
+    val envelope = spy(new IncomingMessageEnvelope(ssp, "100", "key", "value"))
+    val envelope00 = spy(new IncomingMessageEnvelope(ssp, "0", "key0", "value0"))
+    val envelope01 = spy(new IncomingMessageEnvelope(ssp, "1", "key1", "value0"))
+    when(envelope00.getSystemStreamPartition(2)).thenReturn(ssp0)
+    when(envelope01.getSystemStreamPartition(2)).thenReturn(ssp1)
+
+    val consumer = new CustomPollResponseSystemConsumer(envelope)
+    var now = 0
+    val systemAdmins = Mockito.mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin(system)).thenReturn(Mockito.mock(classOf[SystemAdmin]))
+
+    val systemConsumersMetrics = new SystemConsumersMetrics
+
+    val systemConsumers = new SystemConsumers(new MockMessageChooser, Map(system -> consumer), systemAdmins,
+      new SerdeManager, systemConsumersMetrics,
+      SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT,
+      SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR,
+      TaskConfig.DEFAULT_POLL_INTERVAL_MS, clock = () => now, 2)
+
+    systemConsumers.register(ssp0, "0")
+    systemConsumers.start
+
+    // Tell the consumer to return envelope00
+    val nextResponse00 = Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]](
+      ssp -> Collections.singletonList(envelope00)
+    )
+    consumer.setNextResponse(nextResponse00)
+
+    // Choose to trigger a refresh with data.
+    assertNull(systemConsumers.choose())
+
+    assertEquals(envelope00, systemConsumers.choose())
+    assertEquals(1, systemConsumersMetrics.choseObject.getCount)
+
+
+    // Tell the consumer to return envelop01
+    val nextResponse01 = Map[SystemStreamPartition, java.util.List[IncomingMessageEnvelope]](
+      ssp -> Collections.singletonList(envelope01)
+    )
+    consumer.setNextResponse(nextResponse01)
+
+    // envelope01 does not belong to ssp_keybucket processed by the container
+    // and hence the metric for choseObject should not be updated
+    assertNull(systemConsumers.choose()) //refresh
+    assertEquals(envelope01, systemConsumers.choose())
+    assertEquals(1, systemConsumersMetrics.choseObject.getCount)
   }
 
   /**

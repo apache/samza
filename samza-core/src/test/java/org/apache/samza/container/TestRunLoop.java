@@ -172,9 +172,6 @@ public class TestRunLoop {
     SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStream", p0, 0);
     SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStream", p0, 1);
 
-    // have a single task in the run loop that processes ssp0 -> 0th keybucket of ssp
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
-
     // create two IME such that one of their ssp keybucket maps to ssp0 and the other one maps to ssp1
     // task in the runloop should process only the first ime (aka the one whose ssp keybucket is ssp0)
     IncomingMessageEnvelope envelope00 = spy(new IncomingMessageEnvelope(ssp, "0", "key0", "value0"));
@@ -182,6 +179,22 @@ public class TestRunLoop {
     when(envelope00.getSystemStreamPartition(2)).thenReturn(ssp0);
     when(envelope01.getSystemStreamPartition(2)).thenReturn(ssp1);
 
+
+    // have a single task in the run loop that processes ssp0 -> 0th keybucket of ssp
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    doAnswer(invocation -> {
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      callback.complete();
+      return null;
+    }).when(task0).process(eq(envelope00), any(), any());
+
+    doAnswer(invocation -> {
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      callback.complete();
+      return null;
+    }).when(task0).process(eq(envelope01), any(), any());
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
     when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(ssp0EndOfStream).thenReturn(null);
@@ -194,6 +207,8 @@ public class TestRunLoop {
 
     verify(task0).process(eq(envelope00), any(), any());
     verify(task0, never()).process(eq(envelope01), any(), any());
+    assertEquals(2, containerMetrics.envelopes().getCount()); // envelop00 and end of stream
+    assertEquals(1, containerMetrics.processes().getCount()); // only envelope00 and not envelope01 and not end of stream
   }
 
   @Test
