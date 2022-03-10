@@ -29,7 +29,8 @@ import org.apache.samza.util.ReflectionUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.config.JobConfig.*;
+import static org.apache.samza.config.JobConfig.JOB_CONTAINER_THREAD_POOL_SIZE;
+import static org.apache.samza.config.JobConfig.JOB_CONTAINER_TASK_EXECUTOR_FACTORY;
 
 
 /**
@@ -54,7 +55,7 @@ public class TestDefaultTaskExecutorFactory {
   @Test
   public void testGetTaskExecutorFactory() {
     Map<String, String> mapConfig = new HashMap<>();
-    mapConfig.put(JOB_CONTAINER_TASK_EXECUTOR_FACTORY_TYPE, MockTaskExecutorFactory.class.getName());
+    mapConfig.put(JOB_CONTAINER_TASK_EXECUTOR_FACTORY, MockTaskExecutorFactory.class.getName());
     JobConfig config = new JobConfig(new MapConfig(mapConfig));
 
     String taskExecutorFactoryClassName = config.getTaskExecutorFactory();
