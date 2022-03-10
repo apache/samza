@@ -63,6 +63,8 @@ public class JobConfig extends MapConfig {
   public static final String JOB_CONTAINER_COUNT = "job.container.count";
   static final int DEFAULT_JOB_CONTAINER_COUNT = 1;
   public static final String JOB_CONTAINER_THREAD_POOL_SIZE = "job.container.thread.pool.size";
+  public static final String JOB_CONTAINER_TASK_EXECUTOR_FACTORY = "job.container.task.executor.factory";
+  public static final String DEFAULT_JOB_CONTAINER_TASK_EXECUTOR_FACTORY = "org.apache.samza.task.DefaultTaskExecutorFactory";
   // num commit threads == min(max(2 * num tasks in container, thread pool size), max thread pool size)
   public static final String COMMIT_THREAD_POOL_SIZE = "job.container.commit.thread.pool.size";
   static final int DEFAULT_COMMIT_THREAD_POOL_SIZE = 2;
@@ -353,6 +355,10 @@ public class JobConfig extends MapConfig {
     } else {
       return getInt(JOB_CONTAINER_THREAD_POOL_SIZE, 0);
     }
+  }
+
+  public String getTaskExecutorFactory() {
+    return get(JOB_CONTAINER_TASK_EXECUTOR_FACTORY, DEFAULT_JOB_CONTAINER_TASK_EXECUTOR_FACTORY);
   }
 
   public int getCommitThreadPoolSize() {
