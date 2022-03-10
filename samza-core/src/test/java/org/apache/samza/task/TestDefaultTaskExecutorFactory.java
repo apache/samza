@@ -23,11 +23,13 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.util.ReflectionUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.config.JobConfig.JOB_CONTAINER_THREAD_POOL_SIZE;
+import static org.apache.samza.config.JobConfig.*;
 
 
 /**
@@ -47,5 +49,25 @@ public class TestDefaultTaskExecutorFactory {
     ExecutorService executor = factory.getTaskExecutor(config);
 
     Assert.assertEquals(poolSize, ((ThreadPoolExecutor) executor).getCorePoolSize());
+  }
+
+  @Test
+  public void testGetTaskExecutorFactory() {
+    Map<String, String> mapConfig = new HashMap<>();
+    mapConfig.put(JOB_CONTAINER_TASK_EXECUTOR_FACTORY_TYPE, MockTaskExecutorFactory.class.getName());
+    JobConfig config = new JobConfig(new MapConfig(mapConfig));
+
+    String taskExecutorFactoryClassName = config.getTaskExecutorFactory();
+    TaskExecutorFactory taskExecutorFactory = ReflectionUtil.getObj(taskExecutorFactoryClassName, TaskExecutorFactory.class);
+
+    Assert.assertTrue(taskExecutorFactory instanceof MockTaskExecutorFactory);
+  }
+
+  public static class MockTaskExecutorFactory implements TaskExecutorFactory {
+
+    @Override
+    public ExecutorService getTaskExecutor(Config config) {
+      return null;
+    }
   }
 }

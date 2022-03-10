@@ -458,11 +458,7 @@ object SamzaContainer extends Logging {
     val taskThreadPool = if (threadPoolSize > 0) {
       val taskExecutorFactoryClassName = jobConfig.getTaskExecutorFactory
       val taskExecutorFactory = ReflectionUtil.getObj(taskExecutorFactoryClassName, classOf[TaskExecutorFactory])
-      if (taskExecutorFactory != null) {
-        taskExecutorFactory.getTaskExecutor(config)
-      } else {
-        null
-      }
+      taskExecutorFactory.getTaskExecutor(config)
     } else {
       null
     }
