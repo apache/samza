@@ -132,7 +132,10 @@ public class IncomingMessageEnvelope {
     if (envelopeKeyorOffset == null) {
       return new SystemStreamPartition(systemStreamPartition, 0);
     }
-    int keyBucket = Math.abs(envelopeKeyorOffset.hashCode()) % elasticityFactor;
+
+    // modulo 31 first to best spread out the hashcode and then modulo elasticityFactor for actual keyBucket
+    // Note: elasticityFactor <= 16 so modulo 31 is safe to do.
+    int keyBucket = (Math.abs(envelopeKeyorOffset.hashCode()) % 31) % elasticityFactor;
     return new SystemStreamPartition(systemStreamPartition, keyBucket);
   }
 

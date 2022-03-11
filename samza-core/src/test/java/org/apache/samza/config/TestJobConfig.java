@@ -669,6 +669,16 @@ public class TestJobConfig {
     }
     assertTrue(exceptionCaught);
 
+    jobConfig =
+        new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_FACTOR, Integer.toString(17))));
+    exceptionCaught = false;
+    try {
+      jobConfig.getElasticityFactor();
+    } catch (ConfigException e) {
+      exceptionCaught = true;
+    }
+    assertTrue(exceptionCaught);
+
     jobConfig = new JobConfig(new MapConfig());
     assertEquals(JobConfig.DEFAULT_JOB_ELASTICITY_FACTOR, jobConfig.getElasticityFactor());
   }
