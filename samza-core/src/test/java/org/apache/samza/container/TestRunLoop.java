@@ -212,6 +212,39 @@ public class TestRunLoop {
   }
 
   @Test
+  public void testEndOfStreamElasticityEnabled() {
+
+    TaskName taskName0 = new TaskName(p0.toString() + " 0");
+    TaskName taskName1 = new TaskName(p0.toString() + " 1");
+    SystemStreamPartition ssp = new SystemStreamPartition("testSystem", "testStream", p0);
+    SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStream", p0, 0);
+    SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStream", p0, 1);
+
+    // create EOS IME such that its ssp keybucket maps to ssp0 and not to ssp1
+    // task in the runloop should give this ime to both it tasks
+    IncomingMessageEnvelope envelopeEOS = spy(IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp));
+    when(envelopeEOS.getSystemStreamPartition(2)).thenReturn(ssp0);
+
+
+    // two task in the run loop that processes ssp0 -> 0th keybucket of ssp and ssp1 -> 1st keybucket of ssp
+    // EOS ime should be given to both the tasks irresp of the keybucket
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
+
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeEOS).thenReturn(null);
+
+    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0, taskName1, task1);
+    int maxMessagesInFlight = 1;
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2);
+    runLoop.run();
+
+    verify(task0).endOfStream(any());
+    verify(task1).endOfStream(any());
+  }
+
+  @Test
   public void testWindow() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 

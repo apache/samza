@@ -485,8 +485,8 @@ public class JobConfig extends MapConfig {
 
   public int getElasticityFactor() {
     int elasticityFactor = getInt(JOB_ELASTICITY_FACTOR, DEFAULT_JOB_ELASTICITY_FACTOR);
-    if (elasticityFactor < 1) {
-      throw new ConfigException("Elasticity factor can not be less than 1");
+    if (elasticityFactor < 1 || elasticityFactor > 16) {
+      throw new ConfigException("Elasticity factor can not be less than 1 or greater than 16");
     }
     return elasticityFactor;
   }

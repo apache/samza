@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -784,8 +785,18 @@ public class RunLoop implements Runnable, Throttleable {
         IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
 
         if (envelope.isEndOfStream()) {
-          SystemStreamPartition ssp = envelope.getSystemStreamPartition(elasticityFactor);
-          processingSspSet.remove(ssp);
+          if (elasticityFactor <= 1) {
+            SystemStreamPartition ssp = envelope.getSystemStreamPartition();
+            processingSspSet.remove(ssp);
+          } else {
+            // if envelope is end of stream, the ssp of envelope should be removed from task's processing set irresp of keyBucket
+            SystemStreamPartition sspOfEnvelope = envelope.getSystemStreamPartition();
+            Optional<SystemStreamPartition> ssp = processingSspSet.stream()
+                .filter(sspInSet -> sspInSet.getSystemStream().equals(sspOfEnvelope.getSystemStream())
+                    && sspInSet.getPartition().equals(sspOfEnvelope.getPartition()))
+                .findFirst();
+            ssp.ifPresent(processingSspSet::remove);
+          }
           if (!hasIntermediateStreams) {
             pendingEnvelopeQueue.remove();
           }
