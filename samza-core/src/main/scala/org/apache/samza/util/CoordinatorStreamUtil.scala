@@ -133,14 +133,14 @@ object CoordinatorStreamUtil extends Logging {
    * Reads and returns launch config persisted in coordinator stream. Only job.auto sizing configs are currently supported.
    * @param config full job config
    * @param metadataStore an instance of the instantiated MetadataStore
-   * @return empty config if auto sizing is disabled, otherwise auto sizing related configs.
+   * @return empty config if auto sizing is disabled, otherwise auto sizing related sizing configs.
    */
   def readLaunchConfigFromCoordinatorStream(config: Config, metadataStore: MetadataStore): Config = {
     if (!config.getBoolean(JobConfig.JOB_AUTOSIZING_ENABLED, false)) {
       new MapConfig()
     } else {
       val config = readConfigFromCoordinatorStream(metadataStore)
-      val launchConfig = config.asScala.filterKeys(key => JobConfig.isAutosizingConfig(key)).asJava
+      val launchConfig = config.asScala.filterKeys(key => JobConfig.isAutosizingSizingConfig(key)).asJava
 
       new MapConfig(launchConfig)
     }
@@ -196,7 +196,7 @@ object CoordinatorStreamUtil extends Logging {
       val jobConfig = new JobConfig(config)
       if (jobConfig.getAutosizingEnabled) {
         // If autosizing is enabled, we retain auto-sizing related configs
-        keysToRemove = keysToRemove.filter(configKey => !JobConfig.isAutosizingConfig(configKey))
+        keysToRemove = keysToRemove.filter(configKey => !JobConfig.isAutosizingSizingConfig(configKey))
       }
 
       if (jobConfig.getApplicationMasterHighAvailabilityEnabled) {
