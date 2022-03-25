@@ -960,6 +960,59 @@ public class TestBlobStoreUtil {
     verify(mockBlobStoreUtil, times(storesToBackupOrRestore.size())).getSnapshotIndex(anyString(), any(Metadata.class));
   }
 
+  /**
+   * This test verifies that a retriable exception is retried more than 3 times (default retry is limited to 3 attempts)
+   */
+  @Test
+  public void tesRetriableExceptionsRetriedUntilSuccess() throws IOException {
+    Path restoreDirBasePath = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX);
+
+    DirIndex mockDirIndex = mock(DirIndex.class);
+    when(mockDirIndex.getDirName()).thenReturn(DirIndex.ROOT_DIR_NAME);
+    FileIndex mockFileIndex = mock(FileIndex.class);
+    when(mockFileIndex.getFileName()).thenReturn("1.sst");
+
+    // setup mock file attributes. create a temp file to get current user/group/permissions so that they
+    // match with restored files.
+    File tmpFile = Paths.get(restoreDirBasePath.toString(), "tempfile-" + new Random().nextInt()).toFile();
+    tmpFile.createNewFile();
+    byte[] fileContents = "fileContents".getBytes();
+    PosixFileAttributes attrs = Files.readAttributes(tmpFile.toPath(), PosixFileAttributes.class);
+    FileMetadata fileMetadata =
+        new FileMetadata(1234L, 1243L, fileContents.length, // ctime mtime does not matter. size == 26
+            attrs.owner().getName(), attrs.group().getName(), PosixFilePermissions.toString(attrs.permissions()));
+    when(mockFileIndex.getFileMetadata()).thenReturn(fileMetadata);
+    Files.delete(tmpFile.toPath()); // delete so that it doesn't show up in restored dir contents.
+
+    List<FileBlob> mockFileBlobs = new ArrayList<>();
+    FileBlob mockFileBlob = mock(FileBlob.class);
+    when(mockFileBlob.getBlobId()).thenReturn("fileBlobId");
+    when(mockFileBlob.getOffset()).thenReturn(0);
+    mockFileBlobs.add(mockFileBlob);
+    when(mockFileIndex.getBlobs()).thenReturn(mockFileBlobs);
+
+    CRC32 checksum = new CRC32();
+    checksum.update(fileContents);
+    when(mockFileIndex.getChecksum()).thenReturn(checksum.getValue());
+    when(mockDirIndex.getFilesPresent()).thenReturn(ImmutableList.of(mockFileIndex));
+
+    BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
+    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class))).thenAnswer(
+      (Answer<CompletionStage<Void>>) invocationOnMock -> { // first try, retriable error
+        return FutureUtil.failedFuture(new RetriableException()); // retriable error
+      }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> {
+        return FutureUtil.failedFuture(new RetriableException()); // retriable error
+      }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> {
+        return FutureUtil.failedFuture(new RetriableException()); // retriable error
+      }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> { // 2nd try
+        return CompletableFuture.completedFuture(null); // success
+      });
+
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, null, null);
+    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
+    verify(mockBlobStoreManager, times(4)).get(anyString(), any(OutputStream.class), any(Metadata.class));
+  }
+
   private CheckpointV2 createCheckpointV2(String stateBackendFactory, Map<String, String> storeSnapshotIndexBlobIds) {
     CheckpointId checkpointId = CheckpointId.create();
     Map<String, Map<String, String>> factoryStoreSCMs = new HashMap<>();
