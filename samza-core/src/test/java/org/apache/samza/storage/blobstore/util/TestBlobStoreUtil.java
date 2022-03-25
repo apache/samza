@@ -975,9 +975,9 @@ public class TestBlobStoreUtil {
     when(blobStoreManager.put(any(InputStream.class), argumentCaptor.capture()))
         .thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // first try, retriable error
           return FutureUtil.failedFuture(new RetriableException()); // retriable error
-        }).thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // first try, retriable error
+        }).thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // second try, retriable error
           return FutureUtil.failedFuture(new RetriableException()); // retriable error
-        }).thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // first try, retriable error
+        }).thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // third try, retriable error
           return FutureUtil.failedFuture(new RetriableException()); // retriable error
         }).thenAnswer((Answer<CompletionStage<String>>) invocation -> CompletableFuture.completedFuture("blobId"));
 
