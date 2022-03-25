@@ -149,6 +149,7 @@ public class FutureUtil {
     Duration maxDuration = Duration.ofMinutes(10);
 
     RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+        .withMaxRetries(-1) // Sets maximum retry to unlimited from default of 3 attempts. Retries are now limited by max duration and not retry counts.
         .withBackoff(100, 312500, ChronoUnit.MILLIS, 5) // 100 ms, 500 ms, 2500 ms, 12.5 s, 1.05 min, 5.20 min, 5.20 min
         .withMaxDuration(maxDuration)
         .abortOn(abortRetries) // stop retrying if predicate returns true

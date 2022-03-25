@@ -960,6 +960,34 @@ public class TestBlobStoreUtil {
     verify(mockBlobStoreUtil, times(storesToBackupOrRestore.size())).getSnapshotIndex(anyString(), any(Metadata.class));
   }
 
+  /**
+   * This test verifies that a retriable exception is retried more than 3 times (default retry is limited to 3 attempts)
+   */
+  @Test
+  public void testPutFileRetriedMorethanThreeTimes() throws Exception {
+    SnapshotMetadata snapshotMetadata = new SnapshotMetadata(checkpointId, jobName, jobId, taskName, storeName);
+    Path path = Files.createTempFile("samza-testPutFileChecksum-", ".tmp");
+    FileUtil fileUtil = new FileUtil();
+    fileUtil.writeToTextFile(path.toFile(), RandomStringUtils.random(1000), false);
+
+    BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
+    ArgumentCaptor<Metadata> argumentCaptor = ArgumentCaptor.forClass(Metadata.class);
+    when(blobStoreManager.put(any(InputStream.class), argumentCaptor.capture()))
+        .thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // first try, retriable error
+          return FutureUtil.failedFuture(new RetriableException()); // retriable error
+        }).thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // second try, retriable error
+          return FutureUtil.failedFuture(new RetriableException()); // retriable error
+        }).thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // third try, retriable error
+          return FutureUtil.failedFuture(new RetriableException()); // retriable error
+        }).thenAnswer((Answer<CompletionStage<String>>) invocation -> CompletableFuture.completedFuture("blobId"));
+
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+
+    blobStoreUtil.putFile(path.toFile(), snapshotMetadata).join();
+    // Verify put operation is retried 4 times
+    verify(blobStoreManager, times(4)).put(any(InputStream.class), any(Metadata.class));
+  }
+
   private CheckpointV2 createCheckpointV2(String stateBackendFactory, Map<String, String> storeSnapshotIndexBlobIds) {
     CheckpointId checkpointId = CheckpointId.create();
     Map<String, Map<String, String>> factoryStoreSCMs = new HashMap<>();
