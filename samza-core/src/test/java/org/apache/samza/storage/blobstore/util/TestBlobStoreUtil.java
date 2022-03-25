@@ -1004,7 +1004,7 @@ public class TestBlobStoreUtil {
         return FutureUtil.failedFuture(new RetriableException()); // retriable error
       }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> {
         return FutureUtil.failedFuture(new RetriableException()); // retriable error
-      }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> { // 2nd try
+      }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> { // 4th try
         return CompletableFuture.completedFuture(null); // success
       });
 
