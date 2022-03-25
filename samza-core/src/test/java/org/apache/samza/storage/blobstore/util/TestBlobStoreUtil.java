@@ -964,53 +964,28 @@ public class TestBlobStoreUtil {
    * This test verifies that a retriable exception is retried more than 3 times (default retry is limited to 3 attempts)
    */
   @Test
-  public void tesRetriableExceptionsRetriedUntilSuccess() throws IOException {
-    Path restoreDirBasePath = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX);
+  public void testPutFileRetriedMorethanThreeTimes() throws Exception {
+    SnapshotMetadata snapshotMetadata = new SnapshotMetadata(checkpointId, jobName, jobId, taskName, storeName);
+    Path path = Files.createTempFile("samza-testPutFileChecksum-", ".tmp");
+    FileUtil fileUtil = new FileUtil();
+    fileUtil.writeToTextFile(path.toFile(), RandomStringUtils.random(1000), false);
 
-    DirIndex mockDirIndex = mock(DirIndex.class);
-    when(mockDirIndex.getDirName()).thenReturn(DirIndex.ROOT_DIR_NAME);
-    FileIndex mockFileIndex = mock(FileIndex.class);
-    when(mockFileIndex.getFileName()).thenReturn("1.sst");
+    BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
+    ArgumentCaptor<Metadata> argumentCaptor = ArgumentCaptor.forClass(Metadata.class);
+    when(blobStoreManager.put(any(InputStream.class), argumentCaptor.capture()))
+        .thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // first try, retriable error
+          return FutureUtil.failedFuture(new RetriableException()); // retriable error
+        }).thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // first try, retriable error
+          return FutureUtil.failedFuture(new RetriableException()); // retriable error
+        }).thenAnswer((Answer<CompletionStage<String>>) invocationOnMock -> { // first try, retriable error
+          return FutureUtil.failedFuture(new RetriableException()); // retriable error
+        }).thenAnswer((Answer<CompletionStage<String>>) invocation -> CompletableFuture.completedFuture("blobId"));
 
-    // setup mock file attributes. create a temp file to get current user/group/permissions so that they
-    // match with restored files.
-    File tmpFile = Paths.get(restoreDirBasePath.toString(), "tempfile-" + new Random().nextInt()).toFile();
-    tmpFile.createNewFile();
-    byte[] fileContents = "fileContents".getBytes();
-    PosixFileAttributes attrs = Files.readAttributes(tmpFile.toPath(), PosixFileAttributes.class);
-    FileMetadata fileMetadata =
-        new FileMetadata(1234L, 1243L, fileContents.length, // ctime mtime does not matter. size == 26
-            attrs.owner().getName(), attrs.group().getName(), PosixFilePermissions.toString(attrs.permissions()));
-    when(mockFileIndex.getFileMetadata()).thenReturn(fileMetadata);
-    Files.delete(tmpFile.toPath()); // delete so that it doesn't show up in restored dir contents.
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
 
-    List<FileBlob> mockFileBlobs = new ArrayList<>();
-    FileBlob mockFileBlob = mock(FileBlob.class);
-    when(mockFileBlob.getBlobId()).thenReturn("fileBlobId");
-    when(mockFileBlob.getOffset()).thenReturn(0);
-    mockFileBlobs.add(mockFileBlob);
-    when(mockFileIndex.getBlobs()).thenReturn(mockFileBlobs);
-
-    CRC32 checksum = new CRC32();
-    checksum.update(fileContents);
-    when(mockFileIndex.getChecksum()).thenReturn(checksum.getValue());
-    when(mockDirIndex.getFilesPresent()).thenReturn(ImmutableList.of(mockFileIndex));
-
-    BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
-    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class))).thenAnswer(
-      (Answer<CompletionStage<Void>>) invocationOnMock -> { // first try, retriable error
-        return FutureUtil.failedFuture(new RetriableException()); // retriable error
-      }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> {
-        return FutureUtil.failedFuture(new RetriableException()); // retriable error
-      }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> {
-        return FutureUtil.failedFuture(new RetriableException()); // retriable error
-      }).thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> { // 4th try
-        return CompletableFuture.completedFuture(null); // success
-      });
-
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, null, null);
-    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
-    verify(mockBlobStoreManager, times(4)).get(anyString(), any(OutputStream.class), any(Metadata.class));
+    blobStoreUtil.putFile(path.toFile(), snapshotMetadata).join();
+    // Verify put operation is retried 4 times
+    verify(blobStoreManager, times(4)).put(any(InputStream.class), any(Metadata.class));
   }
 
   private CheckpointV2 createCheckpointV2(String stateBackendFactory, Map<String, String> storeSnapshotIndexBlobIds) {
