@@ -18,6 +18,7 @@
  */
 package org.apache.samza.config;
 
+import java.util.Optional;
 import com.google.common.collect.ImmutableMap;
 import org.apache.samza.coordinator.lifecycle.NoOpJobRestartSignalFactory;
 import org.apache.samza.zk.ZkJobCoordinatorFactory;
@@ -25,7 +26,6 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 
 public class TestJobCoordinatorConfig {
@@ -47,9 +47,14 @@ public class TestJobCoordinatorConfig {
   public void getOptionalJobCoordinatorFactoryClassName() {
     assertFalse(new JobCoordinatorConfig(new MapConfig()).getOptionalJobCoordinatorFactoryClassName().isPresent());
 
-    JobCoordinatorConfig jobCoordinatorConfig = new JobCoordinatorConfig(new MapConfig(
+    JobCoordinatorConfig jobCoordinatorConfig =
+        new JobCoordinatorConfig(new MapConfig(ImmutableMap.of(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "")));
+    assertFalse(jobCoordinatorConfig.getOptionalJobCoordinatorFactoryClassName().isPresent());
+
+    jobCoordinatorConfig = new JobCoordinatorConfig(new MapConfig(
         ImmutableMap.of(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.custom.MyJobCoordinatorFactory")));
-    assertTrue(jobCoordinatorConfig.getOptionalJobCoordinatorFactoryClassName().isPresent());
+    assertEquals(Optional.of("org.custom.MyJobCoordinatorFactory"),
+        jobCoordinatorConfig.getOptionalJobCoordinatorFactoryClassName());
   }
 
   @Test
