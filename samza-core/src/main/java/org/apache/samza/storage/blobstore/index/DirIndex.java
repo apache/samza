@@ -51,7 +51,7 @@ public class DirIndex {
     Preconditions.checkNotNull(filesRemoved);
     Preconditions.checkNotNull(subDirsPresent);
     Preconditions.checkNotNull(subDirsRemoved);
-    // check to validate that a file is not present in file removed and file present list
+    // Check to validate that a file is not present in file removed and file present list
     Set<String> filesPresentSet = filesPresent.stream().map(FileIndex::getFileName).collect(Collectors.toSet());
     Set<String> filesRemovedSet = filesRemoved.stream().map(FileIndex::getFileName).collect(Collectors.toSet());
     Sets.SetView<String> presentAndRemovedFilesSet = Sets.intersection(filesPresentSet, filesRemovedSet);
@@ -182,5 +182,4 @@ public class DirIndex {
           '}';
     }
   }
-
 }
