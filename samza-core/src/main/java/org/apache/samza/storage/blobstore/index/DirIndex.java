@@ -21,7 +21,6 @@ package org.apache.samza.storage.blobstore.index;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
-import java.io.File;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
