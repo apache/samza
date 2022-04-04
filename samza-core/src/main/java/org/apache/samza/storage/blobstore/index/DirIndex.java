@@ -20,7 +20,11 @@
 package org.apache.samza.storage.blobstore.index;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
+import java.io.File;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
@@ -48,6 +52,12 @@ public class DirIndex {
     Preconditions.checkNotNull(filesRemoved);
     Preconditions.checkNotNull(subDirsPresent);
     Preconditions.checkNotNull(subDirsRemoved);
+    // check to validate that a file is not present in file removed and file present list
+    Set<String> filesPresentSet = filesPresent.stream().map(FileIndex::getFileName).collect(Collectors.toSet());
+    Set<String> filesRemovedSet = filesRemoved.stream().map(FileIndex::getFileName).collect(Collectors.toSet());
+    Sets.SetView<String> presentAndRemovedFilesSet = Sets.intersection(filesPresentSet, filesRemovedSet);
+    Preconditions.checkState(presentAndRemovedFilesSet.isEmpty(),
+        String.format("File present in both filesPresent and filesRemoved set: %s", presentAndRemovedFilesSet));
     this.dirName = dirName;
     this.filesPresent = filesPresent;
     this.filesRemoved = filesRemoved;
@@ -173,4 +183,5 @@ public class DirIndex {
           '}';
     }
   }
+
 }

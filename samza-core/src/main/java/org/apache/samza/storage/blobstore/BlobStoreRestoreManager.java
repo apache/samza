@@ -184,7 +184,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     List<CompletionStage<Void>> storeDeletionFutures = new ArrayList<>();
     initialStoreSnapshotIndexes.forEach((storeName, scmAndSnapshotIndex) -> {
       if (!storesToBackup.contains(storeName) && !storesToRestore.contains(storeName)) {
-        LOG.debug("Removing task: {} store: {} from blob store. It is either no longer used, " +
+        LOG.info("Removing task: {} store: {} from blob store. It is either no longer used, " +
             "or is no longer configured to be backed up or restored with blob store.", taskName, storeName);
         DirIndex dirIndex = scmAndSnapshotIndex.getRight().getDirIndex();
         Metadata requestMetadata =

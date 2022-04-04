@@ -227,7 +227,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
         CompletionStage<String> snapshotIndexBlobIdFuture =
             snapshotIndexFuture
                 .thenComposeAsync(si -> {
-                  LOG.trace("Uploading Snapshot index for task: {} store: {}", taskName, storeName);
+                  LOG.info("Uploading Snapshot index: {} for task: {} store: {}", si, taskName, storeName);
                   return blobStoreUtil.putSnapshotIndex(si);
                 }, executor);
 
@@ -287,7 +287,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
         // 1. remove TTL of index blob and all of its files and sub-dirs marked for retention
         CompletionStage<Void> removeTTLFuture =
             snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
-              LOG.debug("Removing TTL for index blob: {} and all of its files and sub-dirs for task: {} store :{}",
+              LOG.info("Removing TTL for index blob: {} and all of its files and sub-dirs for task: {} store :{}",
                   snapshotIndexBlobId, taskName, storeName);
               return blobStoreUtil.removeTTL(snapshotIndexBlobId, snapshotIndex, requestMetadata);
             }, executor);
@@ -296,7 +296,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
         // 2. delete the files/subdirs marked for deletion in the snapshot index.
         CompletionStage<Void> cleanupRemoteSnapshotFuture =
             snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
-              LOG.debug("Deleting files and dirs to remove for current index blob: {} for task: {} store: {}",
+              LOG.info("Deleting files and dirs to remove for current index blob: {} for task: {} store: {}",
                   snapshotIndexBlobId, taskName, storeName);
               return blobStoreUtil.cleanUpDir(snapshotIndex.getDirIndex(), requestMetadata);
             }, executor);
@@ -308,7 +308,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
             snapshotIndexFuture.thenComposeAsync(snapshotIndex -> {
               if (snapshotIndex.getPrevSnapshotIndexBlobId().isPresent()) {
                 String blobId = snapshotIndex.getPrevSnapshotIndexBlobId().get();
-                LOG.debug("Removing previous snapshot index blob: {} from blob store for task: {} store: {}.",
+                LOG.info("Removing previous snapshot index blob: {} from blob store for task: {} store: {}.",
                     blobId, taskName, storeName);
                 return blobStoreUtil.deleteSnapshotIndexBlob(blobId, requestMetadata);
               } else {
