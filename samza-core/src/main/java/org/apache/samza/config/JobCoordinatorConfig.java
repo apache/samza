@@ -74,13 +74,11 @@ public class JobCoordinatorConfig extends MapConfig {
   }
 
   public String getJobCoordinatorFactoryClassName() {
-    return getOptionalJobCoordinatorFactoryClassName()
-        .filter(className -> !Strings.isNullOrEmpty(className))
-        .orElse(ZkJobCoordinatorFactory.class.getName());
+    return getOptionalJobCoordinatorFactoryClassName().orElse(ZkJobCoordinatorFactory.class.getName());
   }
 
   public Optional<String> getOptionalJobCoordinatorFactoryClassName() {
-    return Optional.ofNullable(get(JOB_COORDINATOR_FACTORY));
+    return Optional.ofNullable(get(JOB_COORDINATOR_FACTORY)).filter(className -> !Strings.isNullOrEmpty(className));
   }
 
   public String getJobRestartSignalFactory() {
