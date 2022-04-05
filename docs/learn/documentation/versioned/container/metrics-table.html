@@ -356,6 +356,10 @@
         <td>Current CPU usage of the JVM process as a percentage from 0 to 100. The percentage represents the proportion of executed ticks by the JVM process to the total ticks across all CPUs. A negative number indicates the value was not available from the operating system. For more detail, see the JavaDoc for com.sun.management.OperatingSystemMXBean.</td>
     </tr>
     <tr>
+        <td>process-cpu-usage-processors</td>
+        <td>Number of processors currently in use by the JVM process, calculated by multiplying the usage percentage by the total number of processors. A negative number indicates that there was not enough information available to calculate this value. For more detail, see the JavaDoc for com.sun.management.OperatingSystemMXBean.</td>
+    </tr>
+    <tr>
         <td>system-cpu-usage</td>
         <td>Current CPU usage of the all processes in the whole system as a percentage from 0 to 100. The percentage represents the proportion of executed ticks by all processes to the total ticks across all CPUs. A negative number indicates the value was not available from the operating system. For more detail, see the JavaDoc for com.sun.management.OperatingSystemMXBean.</td>
     </tr>
