@@ -158,7 +158,7 @@ class TaskInstance(
         // WARNING: cleanUp is NOT optional with blob stores since this is where we reset the TTL for
         // tracked blobs. if this TTL reset is skipped, some of the blobs retained by future commits may
         // be deleted in the background by the blob store, leading to data loss.
-        debug("Cleaning up stale state from previous run for taskName: %s" format taskName)
+        info("Cleaning up stale state from previous run for taskName: %s" format taskName)
         commitManager.cleanUp(checkpointV2.getCheckpointId, checkpointV2.getStateCheckpointMarkers)
       }
     }
@@ -430,7 +430,7 @@ class TaskInstance(
     new Function[util.Map[String, util.Map[String, String]], CompletableFuture[Void]] {
       override def apply(uploadSCMs: util.Map[String, util.Map[String, String]]): CompletableFuture[Void] = {
         // Perform cleanup on unused checkpoints
-        debug("Cleaning up old checkpoint state for taskName: %s checkpointId: %s" format(taskName, checkpointId))
+        info("Cleaning up old checkpoint state for taskName: %s checkpointId: %s" format(taskName, checkpointId))
         val cleanUpStartTime = System.nanoTime()
         try {
           commitManager.cleanUp(checkpointId, uploadSCMs)
