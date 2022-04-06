@@ -65,6 +65,7 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
 
   // Conditional metrics. Only emitted if the Operating System supports it.
   val gProcessCpuUsage = if (osMXBean.isInstanceOf[OperatingSystemMXBean]) newGauge("process-cpu-usage", 0.0) else null
+  val gProcessCpuUsageProcessors = if (osMXBean.isInstanceOf[OperatingSystemMXBean]) newGauge("process-cpu-usage-processors", 0.0) else null
   val gSystemCpuUsage = if (osMXBean.isInstanceOf[OperatingSystemMXBean]) newGauge("system-cpu-usage", 0.0) else null
   val gOpenFileDescriptorCount = if (osMXBean.isInstanceOf[UnixOperatingSystemMXBean]) newGauge("open-file-descriptor-count", 0.0) else null
 
@@ -80,10 +81,10 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
     updateThreadUsage
     updateOperatingSystemMetrics
 
-    debug("updated metrics to: [%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s]" format
+    debug("updated metrics to: [%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s]" format
       (gMemNonHeapUsedM, gMemNonHeapCommittedM, gMemNonHeapMaxM, gMemHeapUsedM, gMemHeapCommittedM,gMemHeapMaxM, gThreadsNew,
         gThreadsRunnable, gThreadsBlocked, gThreadsWaiting, gThreadsTimedWaiting,
-        gThreadsTerminated, cGcCount, cGcTimeMillis, gProcessCpuUsage, gSystemCpuUsage, gOpenFileDescriptorCount))
+        gThreadsTerminated, cGcCount, cGcTimeMillis, gProcessCpuUsage, gProcessCpuUsageProcessors, gSystemCpuUsage, gOpenFileDescriptorCount))
   }
 
   def stop = executor.shutdown
@@ -163,7 +164,9 @@ class JvmMetrics(val registry: MetricsRegistry) extends MetricsHelper with Runna
   private def updateOperatingSystemMetrics {
     if (osMXBean.isInstanceOf[OperatingSystemMXBean]) {
       val operatingSystemMXBean = osMXBean.asInstanceOf[OperatingSystemMXBean]
-      gProcessCpuUsage.set(operatingSystemMXBean.getProcessCpuLoad * PCT)
+      val processCpuLoad = operatingSystemMXBean.getProcessCpuLoad
+      gProcessCpuUsage.set(processCpuLoad * PCT)
+      gProcessCpuUsageProcessors.set(processCpuLoad * operatingSystemMXBean.getAvailableProcessors)
       gSystemCpuUsage.set(operatingSystemMXBean.getSystemCpuLoad * PCT)
 
       if (osMXBean.isInstanceOf[UnixOperatingSystemMXBean]) {
