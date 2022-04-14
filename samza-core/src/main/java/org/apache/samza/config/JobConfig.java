@@ -402,13 +402,16 @@ public class JobConfig extends MapConfig {
   }
 
   /**
-   * Check if a given config parameter is an internal autosizing related config, based on
-   * its name having the prefix "job.autosizing"
+   * Check if a given config parameter is an internal autosizing related sizing config, based on
+   * if it maps to one of the autosizing related sizing configs.
+
    * @param configParam the config param to determine
-   * @return true if the config is related to autosizing, false otherwise
+   * @return true if the config is related to sizing via autosizing, false otherwise
    */
-  public static boolean isAutosizingConfig(String configParam) {
-    return configParam.startsWith(JOB_AUTOSIZING_CONFIG_PREFIX);
+  public static boolean isAutosizingSizingConfig(String configParam) {
+    return configParam.equals(JOB_AUTOSIZING_CONTAINER_COUNT) || configParam.equals(JOB_AUTOSIZING_CONTAINER_THREAD_POOL_SIZE)
+           || configParam.equals(JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB) || configParam.equals(JOB_AUTOSIZING_CONTAINER_MEMORY_MB)
+           || configParam.equals(JOB_AUTOSIZING_CONTAINER_MAX_CORES);
   }
 
   public boolean getJMXEnabled() {
