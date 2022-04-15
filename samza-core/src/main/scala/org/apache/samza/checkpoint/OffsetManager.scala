@@ -22,12 +22,13 @@ package org.apache.samza.checkpoint
 import java.util
 import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
-
 import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
-import org.apache.samza.config.{Config, StreamConfig, SystemConfig}
+import org.apache.samza.checkpoint.OffsetManager.info
+import org.apache.samza.config.{Config, JobConfig, StreamConfig, SystemConfig}
 import org.apache.samza.container.TaskName
+import org.apache.samza.elasticity.ElasticityUtils
 import org.apache.samza.startpoint.{Startpoint, StartpointManager}
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
 import org.apache.samza.system._
@@ -105,7 +106,10 @@ object OffsetManager extends Logging {
           // Build OffsetSetting so we can create a map for OffsetManager.
           (systemStream, OffsetSetting(systemStreamMetadata, defaultOffsetType, resetOffset))
       }.toMap
-    new OffsetManager(offsetSettings, checkpointManager, startpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
+    val elasticityCheckpointsEnabled = new JobConfig(config).getElasticityCheckpointEnabled
+
+    new OffsetManager(offsetSettings, checkpointManager, startpointManager, systemAdmins, checkpointListeners,
+      offsetManagerMetrics, elasticityCheckpointsEnabled)
   }
 }
 
@@ -160,7 +164,12 @@ class OffsetManager(
   /**
    * offsetManagerMetrics for keeping track of checkpointed offsets of each SystemStreamPartition.
    */
-  val offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics) extends Logging {
+  val offsetManagerMetrics: OffsetManagerMetrics = new OffsetManagerMetrics,
+
+  /**
+   * if true, checkpoints generated during elasticity deploys will be used for last processed offsets computation at container start
+   */
+  val elasticityCheckpointsEnabled: Boolean = false) extends Logging {
 
   /**
    * Last offsets processed for each SystemStreamPartition.
@@ -461,12 +470,19 @@ class OffsetManager(
 
     val checkpoint = checkpointManager.readLastCheckpoint(taskName)
 
-    if (checkpoint != null) {
-      Map(taskName -> checkpoint.getOffsets.asScala.toMap)
-    } else {
-      info("Did not receive a checkpoint for taskName %s. Proceeding without a checkpoint." format taskName)
-      Map(taskName -> Map())
+    val checkpointMap = checkpointManager.readAllCheckpoints()
+    if (!elasticityCheckpointsEnabled || !ElasticityUtils.wasElasticityEnabled(checkpointMap)) {
+      if (checkpoint != null) {
+        return Map(taskName -> checkpoint.getOffsets.asScala.toMap)
+      } else {
+        info("Did not receive a checkpoint for taskName %s. Proceeding without a checkpoint." format taskName)
+        return Map(taskName -> Map())
+      }
     }
+    info("Elasticity checkpoints is enabled and there was elasticity enabled in one of the previous deploys." +
+      "Last processed offsets computation at container start will use elasticity checkpoints if available.")
+    Map(taskName -> ElasticityUtils.computeLastProcessedOffsetsFromCheckpointMap(taskName,
+      systemStreamPartitions.get(taskName).get.asJava, checkpointMap, systemAdmins).asScala)
   }
 
   /**
