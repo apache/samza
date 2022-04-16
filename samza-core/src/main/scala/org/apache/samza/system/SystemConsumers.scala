@@ -188,6 +188,8 @@ class SystemConsumers (
       // but the actual systemConsumer which consumes from the input does not know about KeyBucket.
       // hence, use an SSP without KeyBucket
       consumer.register(removeKeyBucket(systemStreamPartition), offset)
+      chooser.register(removeKeyBucket(systemStreamPartition), offset)
+      debug("consumer.register and chooser.register for ssp: %s with offset %s" format (systemStreamPartition, offset))
     }
 
     debug("Starting consumers.")
@@ -243,8 +245,6 @@ class SystemConsumers (
 
     metrics.registerSystemStreamPartition(systemStreamPartition)
     unprocessedMessagesBySSP.put(systemStreamPartition, new ArrayDeque[IncomingMessageEnvelope]())
-
-    chooser.register(systemStreamPartition, offset)
 
     try {
       val consumer = consumers(systemStreamPartition.getSystem)
