@@ -111,6 +111,9 @@ public class JobConfig extends MapConfig {
   public static final String MONITOR_INPUT_REGEX_FREQUENCY_MS = "job.coordinator.monitor-input-regex.frequency.ms";
   static final int DEFAULT_MONITOR_INPUT_REGEX_FREQUENCY_MS = 300000;
 
+  public static final String COORDINATOR_EXECUTE_COMMAND = "job.coordinator.execute";
+  static final String DEFAULT_COORDINATOR_EXECUTE_COMMAND = "bin/run-jc.sh";
+
   public static final String REGEX_RESOLVED_STREAMS = "job.config.rewriter.%s.regex";
   public static final String REGEX_RESOLVED_SYSTEM = "job.config.rewriter.%s.system";
   public static final String REGEX_INHERITED_CONFIG = "job.config.rewriter.%s.config";
@@ -489,5 +492,9 @@ public class JobConfig extends MapConfig {
       throw new ConfigException("Elasticity factor can not be less than 1 or greater than 16");
     }
     return elasticityFactor;
+  }
+
+  public String getCoordinatorExecuteCommand() {
+    return get(COORDINATOR_EXECUTE_COMMAND, DEFAULT_COORDINATOR_EXECUTE_COMMAND);
   }
 }

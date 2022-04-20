@@ -43,7 +43,7 @@ class YarnJob(config: Config, hadoopConfig: Configuration) extends StreamJob wit
   def submit: YarnJob = {
     try {
       val jobConfig = new JobConfig(config)
-      val cmdExec = "./__package/bin/run-jc.sh"
+      val cmdExec = "./__package/" + jobConfig.getCoordinatorExecuteCommand
       val environment = YarnJob.buildEnvironment(config, this.yarnConfig, jobConfig)
 
       appId = client.submitApplication(
