@@ -682,4 +682,15 @@ public class TestJobConfig {
     jobConfig = new JobConfig(new MapConfig());
     assertEquals(JobConfig.DEFAULT_JOB_ELASTICITY_FACTOR, jobConfig.getElasticityFactor());
   }
+
+  @Test
+  public void testGetCoordinatorExecuteCommand() {
+    JobConfig jobConfig = new JobConfig(new MapConfig());
+    assertEquals(JobConfig.DEFAULT_COORDINATOR_EXECUTE_COMMAND, jobConfig.getCoordinatorExecuteCommand());
+
+    String myJcCmd = "bin/run-my-jc.sh";
+    jobConfig = new JobConfig(new MapConfig(
+        Collections.singletonMap(JobConfig.COORDINATOR_EXECUTE_COMMAND, myJcCmd)));
+    assertEquals(myJcCmd, jobConfig.getCoordinatorExecuteCommand());
+  }
 }
