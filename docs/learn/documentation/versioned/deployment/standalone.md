@@ -94,7 +94,7 @@ You should see the output messages emitted to the Kafka topic.
 
 ### Standalone Coordinator Internals
 
-Samza runs your application by logically breaking its execution down into multiple tasks. A task is the unit of parallelism for your application, with each task consumeing data from one or more partitions of your input streams.
+Samza runs your application by logically breaking its execution down into multiple tasks. A task is the unit of parallelism for your application, with each task consuming data from one or more partitions of your input streams.
 Obviously, there is a limit to the throughput you can achieve with a single instance. You can increase parallelism by simply running multiple instances of your application. The individual instances can be executed on the same machine, or distributed across
 machines. Likewise, to scale down your parallelism, you can shut down a few instances of your application. Samza will coordinate among available instances and dynamically assign the tasks them. The coordination logic itself is 
 pluggable - with a Zookeeper-based implementation provided out of the box.
