@@ -61,7 +61,13 @@ public class RemoteApplicationRunner implements ApplicationRunner {
 
   @Override
   public void run(ExternalContext externalContext) {
-    if (new JobConfig(config).getConfigLoaderFactory().isPresent()) {
+    // By default with RemoteApplication runner we are going to defer the planning to JobCoordinatorRunner
+    // with the exception of local deployment via  ProcessJob or ThreadJob
+    JobConfig jobConfig = new JobConfig(config);
+    String jobFactoryClass = jobConfig.getStreamJobFactoryClass().orElse(null);
+    if (new JobConfig(config).getConfigLoaderFactory().isPresent()
+        && !ProcessJobFactory.class.getName().equals(jobFactoryClass)
+        && !ThreadJobFactory.class.getName().equals(jobFactoryClass)) {
       JobRunner runner = new JobRunner(JobPlanner.generateSingleJobConfig(config));
       runner.submit();
       return;
@@ -146,17 +152,3 @@ public class RemoteApplicationRunner implements ApplicationRunner {
         finished = false;
       }
     } catch (Exception e) {
-      LOG.error("Error waiting for application to finish", e);
-      throw new SamzaException(e);
-    }
-
-    return finished;
-  }
-
-  /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {
-    JobRunner runner = new JobRunner(jobConfig);
-    ApplicationStatus status = runner.status();
-    LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
-    return status;
-  }
-}
