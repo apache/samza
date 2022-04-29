@@ -20,18 +20,26 @@
 package org.apache.samza.runtime;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import org.apache.samza.SamzaException;
 import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.descriptors.ApplicationDescriptor;
+import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.StreamJob;
 import org.apache.samza.job.StreamJobFactory;
+import org.apache.samza.job.local.ProcessJobFactory;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -102,6 +110,52 @@ public class TestRemoteApplicationRunner {
     m.put(JobConfig.JOB_ID, "runningJob");
     runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
     Assert.assertEquals(ApplicationStatus.Running, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
+  }
+
+  @Test
+  public void testLocalRunWithConfigLoaderFactoryPresent() {
+    Map<String, String> config = new HashMap<>();
+    config.put(ApplicationConfig.APP_NAME, "test-app");
+    config.put(JobConfig.CONFIG_LOADER_FACTORY, "org.apache.samza.config.loaders.PropertiesConfigLoaderFactory");
+    config.put(JobConfig.STREAM_JOB_FACTORY_CLASS, ProcessJobFactory.class.getName());
+
+    try {
+      runner.run(null);
+      Assert.fail("Should have went to the planning phase");
+    } catch (SamzaException e) {
+      Assert.assertFalse(e.getMessage().contains("No jobs to run."));
+    }
+  }
+
+  @Ignore //TODO: SAMZA-2738: Return real status for local jobs after avoiding recreating the Job in runner.status()
+  @Test
+  public void testLocalGetStatus() {
+    Map<String, String> m = new HashMap<>();
+    m.put(JobConfig.JOB_NAME, "jobName");
+    m.put(JobConfig.STREAM_JOB_FACTORY_CLASS, ProcessJobFactory.class.getName());
+
+    m.put(JobConfig.JOB_ID, "newJob");
+
+    StreamApplication userApp = appDesc -> { };
+    runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
+
+    Assert.assertEquals(ApplicationStatus.New, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
+
+    m.put(JobConfig.JOB_ID, "runningJob");
+    runner = spy(new RemoteApplicationRunner(userApp, new MapConfig(m)));
+    Assert.assertEquals(ApplicationStatus.Running, runner.getApplicationStatus(new JobConfig(new MapConfig(m))));
+  }
+
+  static public class MockRemoteJobPlanner extends RemoteJobPlanner {
+
+    public MockRemoteJobPlanner(ApplicationDescriptorImpl<? extends ApplicationDescriptor> descriptor) {
+      super(descriptor);
+    }
+
+    @Override
+    public List<JobConfig> prepareJobs() {
+      return Collections.emptyList();
+    }
   }
 
   static public class MockStreamJobFactory implements StreamJobFactory {

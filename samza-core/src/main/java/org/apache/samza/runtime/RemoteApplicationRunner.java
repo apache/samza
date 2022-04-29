@@ -74,7 +74,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
 
     // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
     try {
-      JobPlanner planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(app, config));
+      JobPlanner planner = getRemoteJobPlanner();
       List<JobConfig> jobConfigs = planner.prepareJobs();
       if (jobConfigs.isEmpty()) {
         throw new SamzaException("No jobs to run.");
@@ -161,6 +161,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
 
   /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {
     // Bypass recreating the job runner for local deployments
+    // TODO: SAMZA-2738: Return real status for local jobs after avoiding recreating the Job in runner.status()
     if (isLocalDeployment(jobConfig)) {
       return Running;
     }
@@ -170,9 +171,13 @@ public class RemoteApplicationRunner implements ApplicationRunner {
     return status;
   }
 
+  /* package private */ RemoteJobPlanner getRemoteJobPlanner() {
+    return new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(app, config));
+  }
+
   private boolean isLocalDeployment(JobConfig jobConfig) {
     String jobFactoryClass = jobConfig.getStreamJobFactoryClass().orElse(null);
-    return !ProcessJobFactory.class.getName().equals(jobFactoryClass)
-        && !ThreadJobFactory.class.getName().equals(jobFactoryClass);
+    return ProcessJobFactory.class.getName().equals(jobFactoryClass) ||
+        ThreadJobFactory.class.getName().equals(jobFactoryClass);
   }
 }
