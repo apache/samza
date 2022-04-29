@@ -31,6 +31,8 @@ import org.apache.samza.execution.JobPlanner;
 import org.apache.samza.execution.RemoteJobPlanner;
 import org.apache.samza.job.ApplicationStatus;
 import org.apache.samza.job.JobRunner;
+import org.apache.samza.job.local.ProcessJobFactory;
+import org.apache.samza.job.local.ThreadJobFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +63,10 @@ public class RemoteApplicationRunner implements ApplicationRunner {
 
   @Override
   public void run(ExternalContext externalContext) {
-    if (new JobConfig(config).getConfigLoaderFactory().isPresent()) {
+    // By default with RemoteApplication runner we are going to defer the planning to JobCoordinatorRunner
+    // with the exception of local deployment
+    JobConfig userJobConfig = new JobConfig(config);
+    if (userJobConfig.getConfigLoaderFactory().isPresent() && !isLocalDeployment(userJobConfig)) {
       JobRunner runner = new JobRunner(JobPlanner.generateSingleJobConfig(config));
       runner.submit();
       return;
@@ -69,7 +74,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
 
     // TODO SAMZA-2432: Clean this up once SAMZA-2405 is completed when legacy flow is removed.
     try {
-      JobPlanner planner = new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(app, config));
+      JobPlanner planner = getRemoteJobPlanner();
       List<JobConfig> jobConfigs = planner.prepareJobs();
       if (jobConfigs.isEmpty()) {
         throw new SamzaException("No jobs to run.");
@@ -117,6 +122,7 @@ public class RemoteApplicationRunner implements ApplicationRunner {
     waitForFinish(Duration.ofMillis(0));
   }
 
+
   @Override
   public boolean waitForFinish(Duration timeout) {
     JobConfig jobConfig = new JobConfig(JobPlanner.generateSingleJobConfig(config));
@@ -154,9 +160,24 @@ public class RemoteApplicationRunner implements ApplicationRunner {
   }
 
   /* package private */ ApplicationStatus getApplicationStatus(JobConfig jobConfig) {
+    // Bypass recreating the job runner for local deployments
+    // TODO: SAMZA-2738: Return real status for local jobs after avoiding recreating the Job in runner.status()
+    if (isLocalDeployment(jobConfig)) {
+      return Running;
+    }
     JobRunner runner = new JobRunner(jobConfig);
     ApplicationStatus status = runner.status();
     LOG.debug("Status is {} for job {}", new Object[]{status, jobConfig.getName()});
     return status;
+  }
+
+  /* package private */ RemoteJobPlanner getRemoteJobPlanner() {
+    return new RemoteJobPlanner(ApplicationDescriptorUtil.getAppDescriptor(app, config));
+  }
+
+  private boolean isLocalDeployment(JobConfig jobConfig) {
+    String jobFactoryClass = jobConfig.getStreamJobFactoryClass().orElse(null);
+    return ProcessJobFactory.class.getName().equals(jobFactoryClass) ||
+        ThreadJobFactory.class.getName().equals(jobFactoryClass);
   }
 }
