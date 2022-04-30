@@ -150,7 +150,7 @@ public class ElasticityUtils {
    */
   static ElasticTaskNameParts getTaskNameParts_GroupByPartition(TaskName taskName) {
     String taskNameStr = taskName.getTaskName();
-    log.info("GetTaskNameParts for taskName {}", taskNameStr);
+    log.debug("GetTaskNameParts for taskName {}", taskNameStr);
     Pattern elasticTaskPattern = Pattern.compile(ELASTIC_TASK_NAME_GROUP_BY_PARTITION_REGEX);
     Pattern nonElasticTaskPattern = Pattern.compile(TASK_NAME_GROUP_BY_PARTITION_REGEX);
 
@@ -173,7 +173,7 @@ public class ElasticityUtils {
    */
   static ElasticTaskNameParts getTaskNameParts_GroupBySSP(TaskName taskName) {
     String taskNameStr = taskName.getTaskName();
-    log.info("GetTaskNameParts for taskName {}", taskNameStr);
+    log.debug("GetTaskNameParts for taskName {}", taskNameStr);
     Pattern elasticTaskPattern = Pattern.compile(ELASTIC_TASK_NAME_GROUP_BY_SSP_REGEX);
     Pattern nonElasticTaskPattern = Pattern.compile(TASK_NAME_GROUP_BY_SSP_REGEX);
 
@@ -229,7 +229,7 @@ public class ElasticityUtils {
    * @return true if otherTask is ancestor of currentTask, false otherwise
    */
   static boolean isOtherTaskAncestorOfCurrentTask(TaskName currentTask, TaskName otherTask) {
-    log.info("isOtherTaskAncestorOfCurrentTask with currentTask {} and otherTask {}", currentTask, otherTask);
+    log.debug("isOtherTaskAncestorOfCurrentTask with currentTask {} and otherTask {}", currentTask, otherTask);
     if (!((isGroupByPartitionTask(currentTask) && isGroupByPartitionTask(otherTask))
         || (isGroupBySystemStreamPartitionTask(currentTask) && isGroupBySystemStreamPartitionTask(otherTask)))) {
       return false;
@@ -258,7 +258,7 @@ public class ElasticityUtils {
    * @return
    */
   static boolean isOtherTaskDescendantOfCurrentTask(TaskName currentTask, TaskName otherTask) {
-    log.info("isOtherTaskDescendantOfCurrentTask with currentTask {} and otherTask {}", currentTask, otherTask);
+    log.debug("isOtherTaskDescendantOfCurrentTask with currentTask {} and otherTask {}", currentTask, otherTask);
     if (!((isGroupByPartitionTask(currentTask) && isGroupByPartitionTask(otherTask))
         || (isGroupBySystemStreamPartitionTask(currentTask) && isGroupBySystemStreamPartitionTask(otherTask)))) {
       return false;
@@ -292,15 +292,15 @@ public class ElasticityUtils {
       TaskName taskName, Map<TaskName, Checkpoint> checkpointMap) {
     Set<Checkpoint> ancestorCheckpoints = new HashSet<>();
     Map<Integer, Set<Checkpoint>> descendantCheckpoints = new HashMap<>();
-    log.info("starting to parse the checkpoint map to find ancestors and descendants for taskName {}", taskName.getTaskName());
+    log.debug("starting to parse the checkpoint map to find ancestors and descendants for taskName {}", taskName.getTaskName());
     checkpointMap.keySet().forEach(otherTaskName -> {
       Checkpoint otherTaskCheckpoint = checkpointMap.get(otherTaskName);
       if (isOtherTaskAncestorOfCurrentTask(taskName, otherTaskName)) {
-        log.info("current task name is {} and other task name is {} and other task is ancestor", taskName, otherTaskName);
+        log.debug("current task name is {} and other task name is {} and other task is ancestor", taskName, otherTaskName);
         ancestorCheckpoints.add(otherTaskCheckpoint);
       }
       if (isOtherTaskDescendantOfCurrentTask(taskName, otherTaskName)) {
-        log.info("current task name is {} and other task name is {} and other task is descendant", taskName, otherTaskName);
+        log.debug("current task name is {} and other task name is {} and other task is descendant", taskName, otherTaskName);
         int otherEF = getElasticityFactorFromTaskName(otherTaskName);
         if (!descendantCheckpoints.containsKey(otherEF)) {
           descendantCheckpoints.put(otherEF, new HashSet<>());
@@ -308,7 +308,7 @@ public class ElasticityUtils {
         descendantCheckpoints.get(otherEF).add(otherTaskCheckpoint);
       }
     });
-    log.info("done computing all ancestors and descendants of {}", taskName);
+    log.debug("done computing all ancestors and descendants of {}", taskName);
     return new ImmutablePair<>(ancestorCheckpoints, descendantCheckpoints);
   }
 
@@ -325,7 +325,7 @@ public class ElasticityUtils {
     String checkpointStr = checkpoint.getOffsets().entrySet().stream()
         .map(k -> k.getKey() + " : " + k.getValue())
         .collect(Collectors.joining(", ", "{", "}"));
-    log.info("for ssp {}, in checkpoint {}", ssp, checkpointStr);
+    log.debug("for ssp {}, in checkpoint {}", ssp, checkpointStr);
 
     Optional<String> offsetFound = checkpoint.getOffsets().entrySet()
         .stream()
@@ -353,6 +353,7 @@ public class ElasticityUtils {
   static String getMaxOffsetForSSPInCheckpointSet(Set<Checkpoint> checkpointSet,
       SystemStreamPartition ssp, SystemAdmin systemAdmin) {
     return checkpointSet.stream()
+        .filter(Objects::nonNull)
         .map(checkpoint -> getOffsetForSSPInCheckpoint(checkpoint, ssp))
         .filter(Objects::nonNull)
         .sorted((offset1, offset2) -> systemAdmin.offsetComparator(offset2, offset1)) //confirm reverse sort - aka largest offset first
@@ -371,6 +372,7 @@ public class ElasticityUtils {
   static String getMinOffsetForSSPInCheckpointSet(Set<Checkpoint> checkpointSet,
       SystemStreamPartition ssp, SystemAdmin systemAdmin) {
     return checkpointSet.stream()
+        .filter(Objects::nonNull)
         .map(checkpoint -> getOffsetForSSPInCheckpoint(checkpoint, ssp))
         .filter(Objects::nonNull)
         .sorted((offset1, offset2) -> systemAdmin.offsetComparator(offset1, offset2)) //confirm ascending sort - aka smallest offset first
@@ -456,19 +458,25 @@ public class ElasticityUtils {
       String descendantLastOffsetForSSP = descendantCheckpoints.entrySet().stream()
           .map(entry -> getMinOffsetForSSPInCheckpointSet(entry.getValue(), ssp, systemAdmin)) // at each ef level, find min offset
           .sorted((offset1, offset2) -> systemAdmin.offsetComparator(offset2, offset1)) //confirm reverse sort - aka largest offset first
+          .filter(Objects::nonNull)
           .findFirst().orElse(null);
 
-      log.info("for taskName {} and ssp {} got lastoffset from ancestors as {}",
+      log.info("for taskName {} and ssp {} got lastoffset from descendants as {}",
           taskName, ssp_withKeyBucket, descendantLastOffsetForSSP);
 
       Integer offsetComparison = systemAdmin.offsetComparator(ancestorLastOffsetForSSP, descendantLastOffsetForSSP);
-      if (offsetComparison != null && offsetComparison > 0) { // means ancestorLastOffsetForSSP > descendantLastOffsetForSSP
+      if (descendantLastOffsetForSSP == null || (offsetComparison != null && offsetComparison > 0)) { // means ancestorLastOffsetForSSP > descendantLastOffsetForSSP
         currentLastOffsetForSSP = ancestorLastOffsetForSSP;
       } else {
         currentLastOffsetForSSP = descendantLastOffsetForSSP;
       }
-      log.info("for taskName {} and ssp {} got lastoffset as {}", taskName, ssp_withKeyBucket, currentLastOffsetForSSP);
-      taskSSPOffsets.put(ssp_withKeyBucket, currentLastOffsetForSSP);
+      if (currentLastOffsetForSSP == null) {
+        log.info("for taskName {} and ssp {} got lastoffset as null. "
+            + "skipping adding this ssp to task's offsets loaded from previous checkpoint", taskName, ssp_withKeyBucket);
+      } else {
+        log.info("for taskName {} and ssp {} got lastoffset as {}", taskName, ssp_withKeyBucket, currentLastOffsetForSSP);
+        taskSSPOffsets.put(ssp_withKeyBucket, currentLastOffsetForSSP);
+      }
     });
 
     String checkpointStr = taskSSPOffsets.entrySet().stream()
