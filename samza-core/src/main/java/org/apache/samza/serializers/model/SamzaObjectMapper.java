@@ -229,14 +229,12 @@ public class SamzaObjectMapper {
   public static class SystemStreamPartitionKeyDeserializer extends KeyDeserializer {
     @Override
     public Object deserializeKey(String sspString, DeserializationContext ctxt) throws IOException {
-      int idx = sspString.indexOf('.');
-      int lastIdx = sspString.lastIndexOf('.');
-      if (idx < 0 || lastIdx < 0) {
+      String[] parts = sspString.split("\\.");
+      if (parts.length < 3) {
         throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition");
       }
       return new SystemStreamPartition(
-          new SystemStream(sspString.substring(0, idx), sspString.substring(idx + 1, lastIdx)),
-          new Partition(Integer.parseInt(sspString.substring(lastIdx + 1))));
+          new SystemStream(parts[0], parts[1]), new Partition(Integer.parseInt(parts[2])));
     }
   }
 

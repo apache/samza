@@ -280,6 +280,28 @@ public class TestSamzaObjectMapper {
   }
 
   @Test
+  public void testSerdeSystemStreamPartitionKey() throws IOException {
+
+    SystemStreamPartition ssp = new SystemStreamPartition("foo", "bar", new Partition(1));
+    String offset = "100";
+
+    String sspmapString = this.samzaObjectMapper.writeValueAsString(ImmutableMap.of(ssp, offset));
+
+    TypeReference<HashMap<SystemStreamPartition, String>> typeRef
+        = new TypeReference<HashMap<SystemStreamPartition, String>>() { };
+
+    Map<SystemStreamPartition, String> deserSSPMap = this.samzaObjectMapper.readValue(sspmapString, typeRef);
+
+    SystemStreamPartition deserSSP = deserSSPMap.keySet().stream().findAny().get();
+    String deserOffset = deserSSPMap.values().stream().findFirst().get();
+    assertEquals(ssp.getSystem(), deserSSP.getSystem());
+    assertEquals(ssp.getStream(), deserSSP.getStream());
+    assertEquals(ssp.getPartition(), deserSSP.getPartition());
+    assertEquals(ssp.getKeyBucket(), deserSSP.getKeyBucket());
+    assertEquals(offset, deserOffset);
+  }
+
+  @Test
   public void testSerDePreElasticSystemStreamPartition() throws IOException {
     ObjectMapper preElasticObjectMapper = getPreEleasticObjectMapper();
     ObjectMapper elasticObjectMapper = SamzaObjectMapper.getObjectMapper();
