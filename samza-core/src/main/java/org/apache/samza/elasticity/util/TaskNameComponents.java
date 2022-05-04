@@ -16,9 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.elasticity;
+package org.apache.samza.elasticity.util;
 
-public class ElasticTaskNameParts {
+/**
+ * POJO class to store system, stream, partition, and keyBucket information associated with a Task,
+ *  that is encoded in the task's name.
+ */
+public class TaskNameComponents {
 
   public static final int DEFAULT_KEY_BUCKET = 0;
   public static final int DEFAULT_ELASTICITY_FACTOR = 1;
@@ -30,19 +34,19 @@ public class ElasticTaskNameParts {
   public final int keyBucket;
   public final int elasticityFactor;
 
-  public ElasticTaskNameParts(int partition) {
+  public TaskNameComponents(int partition) {
     this(partition, DEFAULT_KEY_BUCKET, DEFAULT_ELASTICITY_FACTOR);
   }
 
-  public ElasticTaskNameParts(int partition, int keyBucket, int elasticityFactor) {
+  public TaskNameComponents(int partition, int keyBucket, int elasticityFactor) {
     this("", "", partition, keyBucket, elasticityFactor);
   }
 
-  public ElasticTaskNameParts(String system, String stream, int partition) {
+  public TaskNameComponents(String system, String stream, int partition) {
     this(system, stream, partition, DEFAULT_KEY_BUCKET, DEFAULT_ELASTICITY_FACTOR);
   }
 
-  public ElasticTaskNameParts(String system, String stream, int partition, int keyBucket, int elasticityFactor) {
+  public TaskNameComponents(String system, String stream, int partition, int keyBucket, int elasticityFactor) {
     this.system = system;
     this.stream = stream;
     this.partition = partition;
@@ -53,9 +57,9 @@ public class ElasticTaskNameParts {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (!(o instanceof ElasticTaskNameParts)) return false;
+    if (!(o instanceof TaskNameComponents)) return false;
 
-    ElasticTaskNameParts that = (ElasticTaskNameParts) o;
+    TaskNameComponents that = (TaskNameComponents) o;
 
     if (!(this.system.equals(that.system))
         || !(this.stream.equals(that.stream))

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.elasticity;
+package org.apache.samza.elasticity.util;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,16 +50,20 @@ public class ElasticityUtils {
   // GroupByPartition tasks have names like Partition 0_1_2
   // where 0 is the partition number, 1 is the key bucket and 2 is the elasticity factor
   // see {@link GroupByPartition.ELASTIC_TASK_NAME_FORMAT}
-  static final String ELASTIC_TASK_NAME_GROUP_BY_PARTITION_REGEX = "Partition (\\d+)_(\\d+)_(\\d+)";
-  static final String TASK_NAME_GROUP_BY_PARTITION_REGEX = "Partition (\\d+)";
-  static final String TASK_NAME_GROUP_BY_PARTITION_PREFIX = "Partition ";
+  private static final String ELASTIC_TASK_NAME_GROUP_BY_PARTITION_REGEX = "Partition (\\d+)_(\\d+)_(\\d+)";
+  private static final Pattern ELASTIC_TASK_NAME_GROUP_BY_PARTITION_PATTERN = Pattern.compile(ELASTIC_TASK_NAME_GROUP_BY_PARTITION_REGEX);
+  private static final String TASK_NAME_GROUP_BY_PARTITION_REGEX = "Partition (\\d+)";
+  private static final Pattern TASK_NAME_GROUP_BY_PARTITION_PATTERN = Pattern.compile(TASK_NAME_GROUP_BY_PARTITION_REGEX);
+  private static final String TASK_NAME_GROUP_BY_PARTITION_PREFIX = "Partition ";
 
   //GroupBySSP tasks have names like "SystemStreamPartition [<system>, <Stream>, <partition>, keyBucket]_2"
   // where 2 is the elasticity factor
   // see {@link GroupBySystemStreamPartition} and {@link SystemStreamPartition.toString}
-  static final String ELASTIC_TASK_NAME_GROUP_BY_SSP_REGEX = "SystemStreamPartition \\[(\\S+), (\\S+), (\\d+), (\\d+)\\]_(\\d+)";
-  static final String TASK_NAME_GROUP_BY_SSP_REGEX = "SystemStreamPartition \\[(\\S+), (\\S+), (\\d+)\\]";
-  static final String TASK_NAME_GROUP_BY_SSP_PREFIX = "SystemStreamPartition ";
+  private static final String ELASTIC_TASK_NAME_GROUP_BY_SSP_REGEX = "SystemStreamPartition \\[(\\S+), (\\S+), (\\d+), (\\d+)\\]_(\\d+)";
+  private static final Pattern ELASTIC_TASK_NAME_GROUP_BY_SSP_PATTERN = Pattern.compile(ELASTIC_TASK_NAME_GROUP_BY_SSP_REGEX);
+  private static final String TASK_NAME_GROUP_BY_SSP_REGEX = "SystemStreamPartition \\[(\\S+), (\\S+), (\\d+)\\]";
+  private static final Pattern TASK_NAME_GROUP_BY_SSP_PATTERN = Pattern.compile(TASK_NAME_GROUP_BY_SSP_REGEX);
+  private static final String TASK_NAME_GROUP_BY_SSP_PREFIX = "SystemStreamPartition ";
 
   /**
    * Elasticity is supported for GroupByPartition tasks and GroupBySystemStreamPartition tasks
@@ -102,12 +106,10 @@ public class ElasticityUtils {
    */
   static boolean isTaskNameElastic(TaskName taskName) {
     if (isGroupByPartitionTask(taskName)) {
-      Pattern p = Pattern.compile(ELASTIC_TASK_NAME_GROUP_BY_PARTITION_REGEX);
-      Matcher m = p.matcher(taskName.getTaskName());
+      Matcher m = ELASTIC_TASK_NAME_GROUP_BY_PARTITION_PATTERN.matcher(taskName.getTaskName());
       return m.find();
     } else if (isGroupBySystemStreamPartitionTask(taskName)) {
-      Pattern p = Pattern.compile(ELASTIC_TASK_NAME_GROUP_BY_SSP_REGEX);
-      Matcher m = p.matcher(taskName.getTaskName());
+      Matcher m = ELASTIC_TASK_NAME_GROUP_BY_SSP_PATTERN.matcher(taskName.getTaskName());
       return m.find();
     }
     return false;
@@ -116,7 +118,7 @@ public class ElasticityUtils {
   /**
    * From given taskName extract the values for system, stream, partition, keyBucket and elasticityFactor
    * @param taskName any taskName
-   * @return ElasticTaskNameParts object containing system, stream, partition, keyBucket and elasticityFactor
+   * @return TaskNameComponents object containing system, stream, partition, keyBucket and elasticityFactor
    *    for GroupByPartition task:
    *         taskNames are of the format "Partition 0_1_2" (with elasticity) or "Partition 0" (without elasticity)
    *         system and stream are empty "" strings and partition is the input partition,
@@ -129,10 +131,10 @@ public class ElasticityUtils {
    *         without elasticity, keyBucket = 0 and elasticityFactor = 1 (the default values)
    *         with elasticity, keyBucket from name (ex 1 above) and elasticityFactor (ex 2 from above)
    *   for tasks created with other SSP groupers:
-   *        default ElasticTaskNameParts is returned which has empty system, stream,
+   *        default TaskNameComponents is returned which has empty system, stream,
    *        -1 for partition and 0 for keyBucket and 1 for elasticity factor
    */
-  static ElasticTaskNameParts getTaskNameParts(TaskName taskName) {
+  static TaskNameComponents getTaskNameParts(TaskName taskName) {
     if (isGroupByPartitionTask(taskName)) {
       return getTaskNameParts_GroupByPartition(taskName);
     } else if (isGroupBySystemStreamPartitionTask(taskName)) {
@@ -140,29 +142,27 @@ public class ElasticityUtils {
     }
     log.warn("TaskName {} is neither GroupByPartition nor GroupBySystemStreamPartition task. "
         + "Elasticity is not supported for this taskName. "
-        + "Returning default ElasticTaskNameParts which has default keyBucket 0,"
+        + "Returning default TaskNameComponents which has default keyBucket 0,"
         + " default elasticityFactor 1 and invalid partition -1", taskName.getTaskName());
-    return new ElasticTaskNameParts(ElasticTaskNameParts.INVALID_PARTITION);
+    return new TaskNameComponents(TaskNameComponents.INVALID_PARTITION);
   }
 
   /**
    * see doc for getTaskNameParts above
    */
-  static ElasticTaskNameParts getTaskNameParts_GroupByPartition(TaskName taskName) {
+  private static TaskNameComponents getTaskNameParts_GroupByPartition(TaskName taskName) {
     String taskNameStr = taskName.getTaskName();
     log.debug("GetTaskNameParts for taskName {}", taskNameStr);
-    Pattern elasticTaskPattern = Pattern.compile(ELASTIC_TASK_NAME_GROUP_BY_PARTITION_REGEX);
-    Pattern nonElasticTaskPattern = Pattern.compile(TASK_NAME_GROUP_BY_PARTITION_REGEX);
 
-    Matcher matcher = elasticTaskPattern.matcher(taskNameStr);
+    Matcher matcher = ELASTIC_TASK_NAME_GROUP_BY_PARTITION_PATTERN.matcher(taskNameStr);
     if (matcher.find()) {
-      return new ElasticTaskNameParts(Integer.valueOf(matcher.group(1)),
+      return new TaskNameComponents(Integer.valueOf(matcher.group(1)),
           Integer.valueOf(matcher.group(2)),
           Integer.valueOf(matcher.group(3)));
     }
-    matcher = nonElasticTaskPattern.matcher(taskNameStr);
+    matcher = TASK_NAME_GROUP_BY_PARTITION_PATTERN.matcher(taskNameStr);
     if (matcher.find()) {
-      return new ElasticTaskNameParts(Integer.valueOf(matcher.group(1)));
+      return new TaskNameComponents(Integer.valueOf(matcher.group(1)));
     }
     log.error("Could not extract partition, keybucket and elasticity factor from taskname for task {}.", taskNameStr);
     throw new IllegalArgumentException("TaskName format incompatible");
@@ -171,23 +171,21 @@ public class ElasticityUtils {
   /**
    * see doc for getTaskNameParts above
    */
-  static ElasticTaskNameParts getTaskNameParts_GroupBySSP(TaskName taskName) {
+  private static TaskNameComponents getTaskNameParts_GroupBySSP(TaskName taskName) {
     String taskNameStr = taskName.getTaskName();
     log.debug("GetTaskNameParts for taskName {}", taskNameStr);
-    Pattern elasticTaskPattern = Pattern.compile(ELASTIC_TASK_NAME_GROUP_BY_SSP_REGEX);
-    Pattern nonElasticTaskPattern = Pattern.compile(TASK_NAME_GROUP_BY_SSP_REGEX);
 
-    Matcher matcher = elasticTaskPattern.matcher(taskNameStr);
+    Matcher matcher = ELASTIC_TASK_NAME_GROUP_BY_SSP_PATTERN.matcher(taskNameStr);
     if (matcher.find()) {
-      return new ElasticTaskNameParts(matcher.group(1),
+      return new TaskNameComponents(matcher.group(1),
           matcher.group(2),
           Integer.valueOf(matcher.group(3)),
           Integer.valueOf(matcher.group(4)),
           Integer.valueOf(matcher.group(5)));
     }
-    matcher = nonElasticTaskPattern.matcher(taskNameStr);
+    matcher = TASK_NAME_GROUP_BY_SSP_PATTERN.matcher(taskNameStr);
     if (matcher.find()) {
-      return new ElasticTaskNameParts(matcher.group(1),
+      return new TaskNameComponents(matcher.group(1),
           matcher.group(2),
           Integer.valueOf(matcher.group(3)));
     }
@@ -235,17 +233,17 @@ public class ElasticityUtils {
       return false;
     }
 
-    ElasticTaskNameParts currentTaskNameParts = getTaskNameParts(currentTask);
-    ElasticTaskNameParts otherTaskNameParts = getTaskNameParts(otherTask);
+    TaskNameComponents currentTaskNameComponents = getTaskNameParts(currentTask);
+    TaskNameComponents otherTaskNameComponents = getTaskNameParts(otherTask);
 
-    if (!otherTaskNameParts.system.equals(currentTaskNameParts.system)
-        || !otherTaskNameParts.stream.equals(currentTaskNameParts.stream)
-        || otherTaskNameParts.partition != currentTaskNameParts.partition
-        || otherTaskNameParts.elasticityFactor > currentTaskNameParts.elasticityFactor) {
+    if (!otherTaskNameComponents.system.equals(currentTaskNameComponents.system)
+        || !otherTaskNameComponents.stream.equals(currentTaskNameComponents.stream)
+        || otherTaskNameComponents.partition != currentTaskNameComponents.partition
+        || otherTaskNameComponents.elasticityFactor > currentTaskNameComponents.elasticityFactor) {
       return false;
     }
 
-    return (currentTaskNameParts.keyBucket % otherTaskNameParts.elasticityFactor) == otherTaskNameParts.keyBucket;
+    return (currentTaskNameComponents.keyBucket % otherTaskNameComponents.elasticityFactor) == otherTaskNameComponents.keyBucket;
   }
 
   /**
@@ -264,17 +262,18 @@ public class ElasticityUtils {
       return false;
     }
 
-    ElasticTaskNameParts currentTaskNameParts = getTaskNameParts(currentTask);
-    ElasticTaskNameParts otherTaskNameParts = getTaskNameParts(otherTask);
+    TaskNameComponents currentTaskNameComponents = getTaskNameParts(currentTask);
+    TaskNameComponents otherTaskNameComponents = getTaskNameParts(otherTask);
 
-    if (!otherTaskNameParts.system.equals(currentTaskNameParts.system)
-        || !otherTaskNameParts.stream.equals(currentTaskNameParts.stream)
-        || otherTaskNameParts.partition != currentTaskNameParts.partition
-        || otherTaskNameParts.elasticityFactor <= currentTaskNameParts.elasticityFactor) {
+    if (!otherTaskNameComponents.system.equals(currentTaskNameComponents.system)
+        || !otherTaskNameComponents.stream.equals(currentTaskNameComponents.stream)
+        || otherTaskNameComponents.partition != currentTaskNameComponents.partition
+        || otherTaskNameComponents.elasticityFactor <= currentTaskNameComponents.elasticityFactor) {
       return false;
     }
 
-    return (otherTaskNameParts.keyBucket % currentTaskNameParts.elasticityFactor) == currentTaskNameParts.keyBucket;
+    return (
+        otherTaskNameComponents.keyBucket % currentTaskNameComponents.elasticityFactor) == currentTaskNameComponents.keyBucket;
   }
 
   /**

@@ -601,15 +601,6 @@ public class TestJobConfig {
   }
 
   @Test
-  public void testGetElasticityCheckpointEnabled() {
-    assertFalse(new JobConfig(new MapConfig()).getElasticityCheckpointEnabled());
-    assertTrue(new JobConfig(new MapConfig(
-        ImmutableMap.of(JobConfig.JOB_ELASTICITY_CHECKPOINTS_ENABLED, "true"))).getElasticityCheckpointEnabled());
-    assertFalse(new JobConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_ELASTICITY_CHECKPOINTS_ENABLED,
-        "false"))).getElasticityCheckpointEnabled());
-  }
-
-  @Test
   public void testGetElastictyEnabled() {
     // greater than 1 means enabled
     JobConfig jobConfig = new JobConfig(
