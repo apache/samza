@@ -18,6 +18,7 @@
  */
 package org.apache.samza.rest;
 
+import com.google.common.util.concurrent.UncaughtExceptionHandlers;
 import java.util.Map;
 import joptsimple.OptionSet;
 import org.apache.samza.config.Config;
@@ -83,6 +84,7 @@ public class SamzaRestService {
    */
   public static void main(String[] args)
       throws Exception {
+    Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit());
     SamzaMonitorService monitorService = null;
     try {
       SamzaRestConfig config = parseConfig(args);
