@@ -18,25 +18,35 @@
  */
 package org.apache.samza.config;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory;
 import org.apache.samza.container.grouper.stream.HashSystemStreamPartitionMapperFactory;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory;
+import org.apache.samza.environment.EnvironmentVariables;
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({System.class, JobConfig.class})
 public class TestJobConfig {
   @Test
   public void testGetName() {
@@ -549,13 +559,41 @@ public class TestJobConfig {
   public void testGetMetadataFile() {
     String execEnvContainerId = "container-id";
     String containerMetadataDirectory = "/tmp/samza/log/dir";
-    System.setProperty(JobConfig.CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY, containerMetadataDirectory);
-    assertEquals(new File(containerMetadataDirectory,
-            String.format(JobConfig.CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId)).getPath(),
-        JobConfig.getMetadataFile(execEnvContainerId).get().getPath());
-    System.clearProperty(JobConfig.CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY);
+    String containerMetadataFileNameFromEnv = "container-metadata-file.metadata";
 
+    PowerMockito.mockStatic(System.class);
+    PowerMockito.when(System.getProperty(JobConfig.CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY)).thenReturn(null);
+    PowerMockito.when(System.getenv(EnvironmentVariables.ENV_CONTAINER_METADATA_FILENAME)).thenReturn(null);
+
+    // samza.log.dir not specified
+    assertEquals(Optional.empty(), JobConfig.getMetadataFile(execEnvContainerId));
+
+    // provide value for samza.log.dir for remainder of tests
+    PowerMockito.when(System.getProperty(JobConfig.CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY))
+        .thenReturn(containerMetadataDirectory);
+
+    // CONTAINER_METADATA_FILENAME not specified, execEnvContainerId specified
+    assertEquals(Optional.of(new File(containerMetadataDirectory,
+            String.format(JobConfig.CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId))),
+        JobConfig.getMetadataFile(execEnvContainerId));
+
+    // CONTAINER_METADATA_FILENAME not specified, execEnvContainerId not specified
     assertEquals(Optional.empty(), JobConfig.getMetadataFile(null));
+
+    // CONTAINER_METADATA_FILENAME specified
+    PowerMockito.when(System.getenv(EnvironmentVariables.ENV_CONTAINER_METADATA_FILENAME))
+        .thenReturn(containerMetadataFileNameFromEnv);
+    assertEquals(Optional.of(new File(containerMetadataDirectory, containerMetadataFileNameFromEnv)),
+        JobConfig.getMetadataFile(execEnvContainerId));
+
+    // CONTAINER_METADATA_FILENAME invalid
+    PowerMockito.when(System.getenv(EnvironmentVariables.ENV_CONTAINER_METADATA_FILENAME))
+        .thenReturn("file/with/directories/file.txt");
+    try {
+      JobConfig.getMetadataFile(execEnvContainerId);
+    } catch (IllegalStateException e) {
+      // expected to throw exception for having directories in file name
+    }
   }
 
   @Test
