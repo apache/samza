@@ -29,6 +29,7 @@ import org.apache.samza.context.{ExternalContext, JobContextImpl}
 import org.apache.samza.coordinator.metadatastore.{CoordinatorStreamStore, NamespaceAwareCoordinatorStreamStore}
 import org.apache.samza.coordinator.stream.messages.SetChangelogMapping
 import org.apache.samza.coordinator.{JobModelManager, MetadataResourceUtil}
+import org.apache.samza.drain.DrainMonitor
 import org.apache.samza.execution.RemoteJobPlanner
 import org.apache.samza.job.model.JobModelUtil
 import org.apache.samza.job.{StreamJob, StreamJobFactory}
@@ -74,7 +75,9 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     val metadataResourceUtil = new MetadataResourceUtil(jobModel, metricsRegistry, config)
     metadataResourceUtil.createResources()
 
-    if (new JobConfig(config).getStartpointEnabled()) {
+    val jobConfig = new JobConfig(config)
+
+    if (jobConfig.getStartpointEnabled()) {
       // fan out the startpoints
       val startpointManager = new StartpointManager(coordinatorStreamStore)
       startpointManager.start()
@@ -84,10 +87,14 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         startpointManager.stop()
       }
     }
+    var drainMonitor: DrainMonitor = null
+    if (jobConfig.getDrainMonitorEnabled()) {
+      drainMonitor = new DrainMonitor(coordinatorStreamStore, config)
+    }
 
     val containerId = "0"
     var jmxServer: JmxServer = null
-    if (new JobConfig(config).getJMXEnabled) {
+    if (jobConfig.getJMXEnabled) {
       jmxServer = new JmxServer()
     }
 
@@ -136,8 +143,8 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
         JobContextImpl.fromConfigWithDefaults(config, jobModel),
         Option(appDesc.getApplicationContainerContextFactory.orElse(null)),
         Option(appDesc.getApplicationTaskContextFactory.orElse(null)),
-        buildExternalContext(config)
-      )
+        buildExternalContext(config),
+        drainMonitor = drainMonitor)
       container.setContainerListener(containerListener)
 
       val threadJob = new ThreadJob(container)
@@ -147,7 +154,6 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
       if (jmxServer != null) {
         jmxServer.stop
       }
-      coordinatorStreamStore.close()
     }
   }
 

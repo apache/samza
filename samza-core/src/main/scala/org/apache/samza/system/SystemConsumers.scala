@@ -156,6 +156,11 @@ class SystemConsumers (
   private var started = false
 
   /**
+   * Denotes if the SystemConsumers is in drain mode.
+   * */
+  private var draining = false
+
+  /**
    * Default timeout to noNewMessagesTimeout. Every time SystemConsumers
    * receives incoming messages, it sets timeout to 0. Every time
    * SystemConsumers receives no new incoming messages from the MessageChooser,
@@ -212,6 +217,10 @@ class SystemConsumers (
     started = true
 
     refresh
+  }
+
+  def drain: Unit = {
+    draining = true
   }
 
   def stop {
@@ -389,6 +398,10 @@ class SystemConsumers (
   }
 
   private def refresh {
+    if (draining) {
+      trace("Skipping refresh of chooser as the multiplexer is in drain mode.")
+      return
+    }
     trace("Refreshing chooser with new messages.")
 
     // Update last poll time so we don't poll too frequently.

@@ -214,6 +214,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     return jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
   }
 
+  public boolean isShutdownSuccessful() {
+    return state.status == SamzaApplicationState.SamzaAppStatus.SUCCEEDED;
+  }
+
   public void start() {
     LOG.info("Starting the container process manager");
 

@@ -395,7 +395,6 @@ public class StreamProcessor {
     } else {
       LOGGER.warn("StartpointManager cannot be instantiated because no metadata store defined for this stream processor");
     }
-
     /*
      * StreamProcessor has a metricsRegistry instance variable, but StreamProcessor registers its metrics on its own
      * with the reporters. Therefore, don't reuse the StreamProcessor.metricsRegistry, because SamzaContainer also
@@ -408,7 +407,7 @@ public class StreamProcessor {
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
         Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager,
-        Option.apply(diagnosticsManager.orElse(null)));
+        Option.apply(diagnosticsManager.orElse(null)), null);
   }
 
   private static JobCoordinator createJobCoordinator(Config config, String processorId, MetricsRegistry metricsRegistry, MetadataStore metadataStore) {
