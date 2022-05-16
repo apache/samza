@@ -91,6 +91,8 @@ public class DirDiff {
     Sets.SetView<String> retainedAndRemovedFilesSet = Sets.intersection(retainedFilesSet, removedFilesSet);
     Preconditions.checkState(retainedAndRemovedFilesSet.isEmpty(),
         String.format("Files present in both retained and removed sets: %s", retainedAndRemovedFilesSet.toString()));
+    // mutable files *names* like CURRENT may be present in both added and removed sets,
+    // which is fine since they need to be re-uploaded and the old blobs need to be deleted
 
     // validate that a subDir is not present in multiple lists
     Set<String> addedSubDirsSet = subDirsAdded.stream().map(DirDiff::getDirName).collect(Collectors.toSet());

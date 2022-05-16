@@ -21,6 +21,8 @@ package org.apache.samza.storage.blobstore.index;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
+
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,12 +53,10 @@ public class DirIndex {
     Preconditions.checkNotNull(filesRemoved);
     Preconditions.checkNotNull(subDirsPresent);
     Preconditions.checkNotNull(subDirsRemoved);
-    // Check to validate that a file is not present in file removed and file present list
-    Set<String> filesPresentSet = filesPresent.stream().map(FileIndex::getFileName).collect(Collectors.toSet());
-    Set<String> filesRemovedSet = filesRemoved.stream().map(FileIndex::getFileName).collect(Collectors.toSet());
-    Sets.SetView<String> presentAndRemovedFilesSet = Sets.intersection(filesPresentSet, filesRemovedSet);
-    Preconditions.checkState(presentAndRemovedFilesSet.isEmpty(),
-        String.format("File present in both filesPresent and filesRemoved set: %s", presentAndRemovedFilesSet));
+
+    // validate that the same file/blob is not present in both present and removed lists
+    validatePresentAndRemovedOverlap(filesPresent, filesRemoved, subDirsPresent, subDirsRemoved);
+
     this.dirName = dirName;
     this.filesPresent = filesPresent;
     this.filesRemoved = filesRemoved;
@@ -92,6 +92,71 @@ public class DirIndex {
     Stats stats = new Stats();
     updateStats(dirIndex, stats);
     return stats;
+  }
+
+  private static void validatePresentAndRemovedOverlap(List<FileIndex> filesPresent, List<FileIndex> filesRemoved, List<DirIndex> subDirsPresent, List<DirIndex> subDirsRemoved) {
+    Set<FileIndex> filesPresentSet = new HashSet<>(filesPresent);
+    Set<FileIndex> filesRemovedSet = new HashSet<>(filesRemoved);
+
+    Set<FileBlob> blobsPresentSet = filesPresent.stream()
+        .flatMap(fileIndex -> fileIndex.getBlobs().stream())
+        .collect(Collectors.toCollection(HashSet::new));
+
+    Set<FileBlob> blobsRemovedSet = filesRemoved.stream()
+        .flatMap(fileIndex -> fileIndex.getBlobs().stream())
+        .collect(Collectors.toCollection(HashSet::new));
+
+    // check within current subdir, since moving file to a different subDir should be OK.
+    Sets.SetView<FileIndex> presentAndRemovedFilesSet = Sets.intersection(filesPresentSet, filesRemovedSet);
+    Preconditions.checkState(presentAndRemovedFilesSet.isEmpty(),
+        String.format("File(s) present in both filesPresent and filesRemoved set: %s", presentAndRemovedFilesSet));
+
+    for (DirIndex subDirPresent: subDirsPresent) {
+      addFilesAndBlobsForSubDir(subDirPresent, filesPresentSet, filesRemovedSet, blobsPresentSet, blobsRemovedSet);
+    }
+
+    for (DirIndex subDirRemoved: subDirsRemoved) {
+      addFilesAndBlobsForSubDirRemoved(subDirRemoved, filesRemovedSet, blobsRemovedSet);
+    }
+
+    Sets.SetView<FileBlob> presentAndRemovedBlobsSet = Sets.intersection(blobsPresentSet, blobsRemovedSet);
+    Preconditions.checkState(presentAndRemovedBlobsSet.isEmpty(),
+        String.format("Blob(s) present in both blobsPresentSet and blobsRemovedSet set: %s", presentAndRemovedBlobsSet));
+  }
+
+  private static void addFilesAndBlobsForSubDir(DirIndex dirIndex,
+      Set<FileIndex> filesAdded, Set<FileIndex> filesRemoved,
+      Set<FileBlob> blobsAdded, Set<FileBlob> blobsRemoved) {
+    for (FileIndex filePresent: dirIndex.getFilesPresent()) {
+      filesAdded.add(filePresent);
+      blobsAdded.addAll(filePresent.getBlobs());
+    }
+
+    for (DirIndex subDir: dirIndex.getSubDirsPresent()) {
+      addFilesAndBlobsForSubDir(subDir, filesAdded, filesRemoved, blobsAdded, blobsRemoved);
+    }
+
+    for (DirIndex subDir: dirIndex.getSubDirsRemoved()) {
+      addFilesAndBlobsForSubDirRemoved(subDir, filesRemoved, blobsRemoved);
+    }
+  }
+
+  private static void addFilesAndBlobsForSubDirRemoved(DirIndex dirIndex,
+      Set<FileIndex> filesRemoved,
+      Set<FileBlob> blobsRemoved) {
+    for (FileIndex filePresent: dirIndex.getFilesPresent()) {
+      filesRemoved.add(filePresent);
+      blobsRemoved.addAll(filePresent.getBlobs());
+    }
+
+    for (FileIndex fileRemoved: dirIndex.getFilesRemoved()) {
+      filesRemoved.add(fileRemoved);
+      blobsRemoved.addAll(fileRemoved.getBlobs());
+    }
+
+    for (DirIndex subDir: dirIndex.getSubDirsPresent()) {
+      addFilesAndBlobsForSubDirRemoved(subDir, filesRemoved, blobsRemoved);
+    }
   }
 
   private static void updateStats(DirIndex dirIndex, Stats stats) {
