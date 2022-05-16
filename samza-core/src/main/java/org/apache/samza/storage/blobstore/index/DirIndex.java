@@ -106,6 +106,11 @@ public class DirIndex {
         .flatMap(fileIndex -> fileIndex.getBlobs().stream())
         .collect(Collectors.toCollection(HashSet::new));
 
+    // check within current subdir, since moving file to a different subDir should be OK.
+    Sets.SetView<FileIndex> presentAndRemovedFilesSet = Sets.intersection(filesPresentSet, filesRemovedSet);
+    Preconditions.checkState(presentAndRemovedFilesSet.isEmpty(),
+        String.format("File(s) present in both filesPresent and filesRemoved set: %s", presentAndRemovedFilesSet));
+
     for (DirIndex subDirPresent: subDirsPresent) {
       addFilesAndBlobsForSubDir(subDirPresent, filesPresentSet, filesRemovedSet, blobsPresentSet, blobsRemovedSet);
     }
@@ -113,10 +118,6 @@ public class DirIndex {
     for (DirIndex subDirRemoved: subDirsRemoved) {
       addFilesAndBlobsForSubDirRemoved(subDirRemoved, filesRemovedSet, blobsRemovedSet);
     }
-
-    Sets.SetView<FileIndex> presentAndRemovedFilesSet = Sets.intersection(filesPresentSet, filesRemovedSet);
-    Preconditions.checkState(presentAndRemovedFilesSet.isEmpty(),
-        String.format("File(s) present in both filesPresent and filesRemoved set: %s", presentAndRemovedFilesSet));
 
     Sets.SetView<FileBlob> presentAndRemovedBlobsSet = Sets.intersection(blobsPresentSet, blobsRemovedSet);
     Preconditions.checkState(presentAndRemovedBlobsSet.isEmpty(),

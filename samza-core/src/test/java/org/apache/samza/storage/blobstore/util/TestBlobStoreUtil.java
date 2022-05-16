@@ -102,11 +102,11 @@ public class TestBlobStoreUtil {
     BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
 
     // File, dir and recursive dir added, retained and removed in local
-    String local = "[a, c, z/1, y/1, p/m/1, q/n/1]";
-    String remote = "[a, b, z/1, x/1, p/m/1, p/m/2, r/o/1]";
-    String expectedAdded = "[c, y/1, q/n/1]";
-    String expectedRetained = "[a, z/1, p/m/1]";
-    String expectedRemoved = "[b, x/1, r/o/1, p/m/2]";
+    String local = "[a, c, z/1, y/2, p/m/3, q/n/4]";
+    String remote = "[a, b, z/1, x/2, p/m/3, p/m/5, r/o/6]";
+    String expectedAdded = "[c, y/2, q/n/4]";
+    String expectedRetained = "[a, z/1, p/m/3]";
+    String expectedRemoved = "[b, x/2, r/o/6, p/m/5]";
     SortedSet<String> expectedAddedFiles = BlobStoreTestUtil.getExpected(expectedAdded);
     SortedSet<String> expectedRetainedFiles = BlobStoreTestUtil.getExpected(expectedRetained);
     SortedSet<String> expectedPresentFiles = new TreeSet<>(expectedAddedFiles);
