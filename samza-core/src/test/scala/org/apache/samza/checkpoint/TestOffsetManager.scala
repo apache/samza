@@ -579,6 +579,47 @@ class TestOffsetManager {
     assertEquals("60", modifiedOffsets.get(ssp6))
   }
 
+  @Test
+  def testElasticityUpdateWithoutKeyBucket: Unit = {
+    // When elasticity is enabled, task consumes a part of the full SSP represented by SSP With KeyBucket.
+    // OffsetManager tracks the set of SSP with KeyBucket consumed by a task.
+    // However, after an IME processing is complete, OffsetManager.update is called without KeyBuket.
+    // OffsetManager has to find and udpate the last processed offset for the task correctly for its SSP with KeyBucket.
+    val taskName = new TaskName("c")
+    val systemStream = new SystemStream("test-system", "test-stream")
+    val partition = new Partition(0)
+    val systemStreamPartition = new SystemStreamPartition(systemStream, partition)
+    val systemStreamPartitionWithKeyBucket = new SystemStreamPartition(systemStreamPartition, 0);
+    val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(partition -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
+    val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
+    val checkpointManager = getCheckpointManager(systemStreamPartition, taskName)
+    val startpointManagerUtil = getStartpointManagerUtil()
+    val systemAdmins = mock(classOf[SystemAdmins])
+    when(systemAdmins.getSystemAdmin("test-system")).thenReturn(getSystemAdmin)
+    val offsetManager = OffsetManager(systemStreamMetadata, new MapConfig, checkpointManager, startpointManagerUtil.getStartpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
+    // register task and its input SSP with KeyBucket
+    offsetManager.register(taskName, Set(systemStreamPartitionWithKeyBucket))
+
+    offsetManager.start
+
+    // update is called with only the full SSP and no keyBucket information.
+    offsetManager.update(taskName, systemStreamPartition, "46")
+    // Get checkpoint snapshot like we do at the beginning of TaskInstance.commit()
+    val checkpoint46 = offsetManager.getLastProcessedOffsets(taskName)
+    offsetManager.update(taskName, systemStreamPartition, "47") // Offset updated before checkpoint
+    offsetManager.writeCheckpoint(taskName, new CheckpointV1(checkpoint46))
+    // OffsetManager correctly updates the lastProcessedOffset and checkpoint for the task and input SSP with KeyBucket.
+    assertEquals(Some("47"), offsetManager.getLastProcessedOffset(taskName, systemStreamPartitionWithKeyBucket))
+    assertEquals("46", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartitionWithKeyBucket).getValue)
+
+    // Now write the checkpoint for the latest offset
+    val checkpoint47 = offsetManager.getLastProcessedOffsets(taskName)
+    offsetManager.writeCheckpoint(taskName, new CheckpointV1(checkpoint47))
+
+    assertEquals(Some("47"), offsetManager.getLastProcessedOffset(taskName, systemStreamPartitionWithKeyBucket))
+    assertEquals("47", offsetManager.offsetManagerMetrics.checkpointedOffsets.get(systemStreamPartitionWithKeyBucket).getValue)
+  }
+
   // Utility method to create and write checkpoint in one statement
   def checkpoint(offsetManager: OffsetManager, taskName: TaskName): Unit = {
     offsetManager.writeCheckpoint(taskName, new CheckpointV1(offsetManager.getLastProcessedOffsets(taskName)))
