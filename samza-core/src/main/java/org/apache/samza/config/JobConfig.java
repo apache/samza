@@ -24,10 +24,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.container.grouper.stream.GroupByPartitionFactory;
 import org.apache.samza.container.grouper.stream.HashSystemStreamPartitionMapperFactory;
 import org.apache.samza.coordinator.metadatastore.CoordinatorStreamMetadataStoreFactory;
+import org.apache.samza.environment.EnvironmentVariables;
 import org.apache.samza.runtime.DefaultLocationIdProviderFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -144,7 +146,7 @@ public class JobConfig extends MapConfig {
   static final int DEFAULT_STANDBY_TASKS_REPLICATION_FACTOR = 1;
 
   // Naming format and directory for container.metadata file
-  public static final String CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata"; // Filename: <containerID>.metadata
+  public static final String CONTAINER_METADATA_FILENAME_FORMAT = "%s.metadata";
   public static final String CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY = "samza.log.dir";
 
   // Auto-sizing related configs that take precedence over respective sizing confings job.container.count, etc,
@@ -430,18 +432,30 @@ public class JobConfig extends MapConfig {
   }
 
   /**
-   * The metadata file is written in a {@code exec-env-container-id}.metadata file in the log-dir of the container.
-   * Here the {@code exec-env-container-id} refers to the ID assigned by the cluster manager (e.g., YARN) to the container,
-   * which uniquely identifies a container's lifecycle.
+   * Get the {@link File} in the "samza.log.dir" for writing container metadata.
+   * If {@link EnvironmentVariables#ENV_CONTAINER_METADATA_FILENAME} is specified, then use that as the file name.
+   * Otherwise, the file name is {@code exec-env-container-id}.metadata. Here the {@code exec-env-container-id} refers
+   * to the ID assigned by the cluster manager (e.g., YARN) to the container, which uniquely identifies a container's
+   * lifecycle.
    */
   public static Optional<File> getMetadataFile(String execEnvContainerId) {
     String dir = System.getProperty(CONTAINER_METADATA_DIRECTORY_SYS_PROPERTY);
-    if (dir == null || execEnvContainerId == null) {
-      return Optional.empty();
-    } else {
-      return Optional.of(
-          new File(dir, String.format(CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId)));
+    if (dir != null) {
+      String fileName = System.getenv(EnvironmentVariables.ENV_CONTAINER_METADATA_FILENAME);
+      if (StringUtils.isNotBlank(fileName)) {
+        if (fileName.contains(File.separator)) {
+          throw new IllegalStateException(String.format("%s should not include directories, but it is %s",
+              EnvironmentVariables.ENV_CONTAINER_METADATA_FILENAME, fileName));
+        } else {
+          return Optional.of(new File(dir, fileName));
+        }
+      } else {
+        if (execEnvContainerId != null) {
+          return Optional.of(new File(dir, String.format(CONTAINER_METADATA_FILENAME_FORMAT, execEnvContainerId)));
+        }
+      }
     }
+    return Optional.empty();
   }
 
   /**

@@ -36,4 +36,11 @@ public class EnvironmentVariables {
    * environment variable.
    */
   public static final String SAMZA_EPOCH_ID = "SAMZA_EPOCH_ID";
+
+  /**
+   * (Optional) File name to use for container metadata file. This should just be a file name, and it should not include
+   * any directory structure.
+   * If this is not specified, then the framework will choose a file name.
+   */
+  public static final String ENV_CONTAINER_METADATA_FILENAME = "CONTAINER_METADATA_FILENAME";
 }

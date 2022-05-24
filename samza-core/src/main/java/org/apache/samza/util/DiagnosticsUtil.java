@@ -80,6 +80,7 @@ public class DiagnosticsUtil {
       MetricsSnapshot metricsSnapshot = new MetricsSnapshot(metricsHeader, new Metrics());
       MetadataFileContents metadataFileContents =
           new MetadataFileContents("1", new String(new MetricsSnapshotSerdeV2().toBytes(metricsSnapshot)));
+      log.info("Writing metadata contents to {}", metadataFile.get().getPath());
       new FileUtil().writeToTextFile(metadataFile.get(), new String(new JsonSerde<>().toBytes(metadataFileContents)), false);
     } else {
       log.info("Skipping writing metadata file.");
