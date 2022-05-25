@@ -42,7 +42,7 @@
   metricsVersion = "2.2.0"
   mockitoVersion = "1.10.19"
   powerMockVersion = "1.6.6"
-  rocksdbVersion = "6.6.4"
+  rocksdbVersion = "7.0.3"
   scalaTestVersion = "3.0.1"
   slf4jVersion = "1.7.7"
   yarnVersion = "2.10.1"
