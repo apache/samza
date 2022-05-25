@@ -176,10 +176,10 @@ class TestRocksDbKeyValueStore
     while (iter.isValid) {
       iter.next()
     }
-    iter.dispose()
+    iter.close()
 
     lock.synchronized {
-      rocksDB.remove(key)
+      rocksDB.delete(key)
       iter = rocksDB.newIterator()
       iter.seek(key)
     }
@@ -187,7 +187,7 @@ class TestRocksDbKeyValueStore
     while (iter.isValid) {
       iter.next()
     }
-    iter.dispose()
+    iter.close()
 
     val dbDir = new File(System.getProperty("java.io.tmpdir")).toString
     val rocksDBReadOnly = RocksDB.openReadOnly(options, dbDir)

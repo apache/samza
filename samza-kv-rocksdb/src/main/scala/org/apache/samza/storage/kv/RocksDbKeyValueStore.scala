@@ -31,7 +31,9 @@ import org.apache.samza.checkpoint.CheckpointId
 import org.apache.samza.config.Config
 import org.apache.samza.storage.StorageManagerUtil
 import org.apache.samza.util.{FileUtil, Logging}
-import org.rocksdb.{TtlDB, _}
+import org.rocksdb.{Checkpoint, FlushOptions, Options, ReadOptions, RocksDB, RocksDBException, RocksIterator, TtlDB, WriteBatch, WriteOptions}
+
+import java.util
 
 object RocksDbKeyValueStore extends Logging {
 
@@ -151,10 +153,10 @@ class RocksDbKeyValueStore(
   override def getAll(keys: java.util.List[Array[Byte]]): java.util.Map[Array[Byte], Array[Byte]] = ifOpen {
     metrics.getAlls.inc
     require(keys != null, "Null keys not allowed.")
-    val map = db.multiGet(keys)
-    if (map != null) {
+    val values = db.multiGetAsList(keys)
+    if (values != null) {
       var bytesRead = 0L
-      val iterator = map.values().iterator
+      val iterator = values.iterator
       while (iterator.hasNext) {
         val value = iterator.next
         if (value != null) {
@@ -162,6 +164,10 @@ class RocksDbKeyValueStore(
         }
       }
       metrics.bytesRead.inc(bytesRead)
+    }
+    val map = new util.HashMap[Array[Byte], Array[Byte]]
+    for (i <- 0 until keys.size()) {
+      map.put(keys.get(i), values.get(i))
     }
     map
   }
@@ -188,7 +194,7 @@ class RocksDbKeyValueStore(
       val curr = iter.next()
       if (curr.getValue == null) {
         deletes += 1
-        writeBatch.remove(curr.getKey)
+        writeBatch.delete(curr.getKey)
       } else {
         wrote += 1
         val key = curr.getKey
