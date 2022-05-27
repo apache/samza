@@ -340,7 +340,7 @@ public class TestSamzaObjectMapper {
     assertEquals(serializedSSPAsJson.get("partition"), deserSSPAsJson.get("partition"));
     assertEquals(serializedSSPAsJson.get("keyBucket"), deserSSPAsJson.get("-1"));
 
-    //Scenario 1: ssp serialized with new elasticMapper and deserialized by old preElastic Mapper
+    //Scenario 2: ssp serialized with new elasticMapper and deserialized by old preElastic Mapper
     SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition("foo", "bar", new Partition(1), 1);
     serializedString = elasticObjectMapper.writeValueAsString(sspWithKeyBucket);
 
@@ -356,6 +356,37 @@ public class TestSamzaObjectMapper {
     assertEquals(serializedSSPAsJson.get("system"), deserSSPAsJson.get("system"));
     assertEquals(serializedSSPAsJson.get("stream"), deserSSPAsJson.get("stream"));
     assertEquals(serializedSSPAsJson.get("partition"), deserSSPAsJson.get("partition"));
+
+    // scenario 3: ssp as key serialized with preElasticMapper and deserialized by new Mapper with elasticity
+    Map<SystemStreamPartition, String> offsets = new HashMap<>();
+    String offset = "100";
+
+    String sspmapString = preElasticObjectMapper.writeValueAsString(ImmutableMap.of(ssp, offset));
+
+    TypeReference<HashMap<SystemStreamPartition, String>> typeRef
+        = new TypeReference<HashMap<SystemStreamPartition, String>>() { };
+
+    Map<SystemStreamPartition, String> deserSSPMap = elasticObjectMapper.readValue(sspmapString, typeRef);
+    SystemStreamPartition deserSSP = deserSSPMap.keySet().stream().findAny().get();
+    String deserOffset = deserSSPMap.values().stream().findFirst().get();
+    assertEquals(ssp.getSystem(), deserSSP.getSystem());
+    assertEquals(ssp.getStream(), deserSSP.getStream());
+    assertEquals(ssp.getPartition(), deserSSP.getPartition());
+    assertEquals(ssp.getKeyBucket(), deserSSP.getKeyBucket());
+    assertEquals(offset, deserOffset);
+
+    // Scenario 4: ssp key serialized with new elasticMapper and deserialized by old preElastic Mapper
+    sspmapString = elasticObjectMapper.writeValueAsString(ImmutableMap.of(sspWithKeyBucket, offset));
+
+    deserSSPMap = preElasticObjectMapper.readValue(sspmapString, typeRef);
+    deserSSP = deserSSPMap.keySet().stream().findAny().get();
+    deserOffset = deserSSPMap.values().stream().findFirst().get();
+    assertEquals(sspWithKeyBucket.getSystem(), deserSSP.getSystem());
+    assertEquals(sspWithKeyBucket.getStream(), deserSSP.getStream());
+    assertEquals(sspWithKeyBucket.getPartition(), deserSSP.getPartition());
+    // preElastic mapper does not know about KeyBucket so dont check for it
+    assertEquals(offset, deserOffset);
+
   }
 
   private JobModel deserializeFromObjectNode(ObjectNode jobModelJson) throws IOException {
@@ -409,14 +440,12 @@ public class TestSamzaObjectMapper {
   private static class OldSystemStreamPartitionKeyDeserializer extends KeyDeserializer {
     @Override
     public Object deserializeKey(String sspString, DeserializationContext ctxt) throws IOException {
-      int idx = sspString.indexOf('.');
-      int lastIdx = sspString.lastIndexOf('.');
-      if (idx < 0 || lastIdx < 0) {
-        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition");
+      String[] parts = sspString.split("\\.");
+      if (parts.length < 3 || parts.length > 4) {
+        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition' "
+            + "or 'system.stream.partition.keyBucket");
       }
-      return new SystemStreamPartition(
-          new SystemStream(sspString.substring(0, idx), sspString.substring(idx + 1, lastIdx)),
-          new Partition(Integer.parseInt(sspString.substring(lastIdx + 1))));
+      return new SystemStreamPartition(new SystemStream(parts[0], parts[1]), new Partition(Integer.parseInt(parts[2])));
     }
   }
   public static ObjectMapper getOldDeserForSSpKeyObjectMapper() {
@@ -454,6 +483,27 @@ public class TestSamzaObjectMapper {
     }
   }
 
+  private static class PreElasticitySystemStreamPartitionKeySerializer extends JsonSerializer<SystemStreamPartition> {
+    @Override
+    public void serialize(SystemStreamPartition ssp, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+      String sspString = ssp.getSystem() + "." + ssp.getStream() + "."
+          + String.valueOf(ssp.getPartition().getPartitionId());
+      jgen.writeFieldName(sspString);
+    }
+  }
+
+  private static class PreElasticitySystemStreamPartitionKeyDeserializer extends KeyDeserializer {
+    @Override
+    public Object deserializeKey(String sspString, DeserializationContext ctxt) throws IOException {
+      String[] parts = sspString.split("\\.");
+      if (parts.length < 3) {
+        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition");
+      }
+      return new SystemStreamPartition(
+          new SystemStream(parts[0], parts[1]), new Partition(Integer.parseInt(parts[2])));
+    }
+  }
+
   private static final ObjectMapper OBJECT_MAPPER = getPreEleasticObjectMapper();
   public static ObjectMapper getPreEleasticObjectMapper() {
     ObjectMapper mapper = new ObjectMapper();
@@ -464,13 +514,13 @@ public class TestSamzaObjectMapper {
     // Setup custom serdes for simple data types.
     module.addSerializer(Partition.class, new SamzaObjectMapper.PartitionSerializer());
     module.addSerializer(SystemStreamPartition.class, new PreElasticitySystemStreamPartitionSerializer());
-    module.addKeySerializer(SystemStreamPartition.class, new SamzaObjectMapper.SystemStreamPartitionKeySerializer());
+    module.addKeySerializer(SystemStreamPartition.class, new PreElasticitySystemStreamPartitionKeySerializer());
     module.addSerializer(TaskName.class, new SamzaObjectMapper.TaskNameSerializer());
     module.addSerializer(TaskMode.class, new SamzaObjectMapper.TaskModeSerializer());
     module.addDeserializer(TaskName.class, new SamzaObjectMapper.TaskNameDeserializer());
     module.addDeserializer(Partition.class, new SamzaObjectMapper.PartitionDeserializer());
     module.addDeserializer(SystemStreamPartition.class, new PreElasticitySystemStreamPartitionDeserializer());
-    module.addKeyDeserializer(SystemStreamPartition.class, new SamzaObjectMapper.SystemStreamPartitionKeyDeserializer());
+    module.addKeyDeserializer(SystemStreamPartition.class, new PreElasticitySystemStreamPartitionKeyDeserializer());
     module.addDeserializer(Config.class, new SamzaObjectMapper.ConfigDeserializer());
     module.addDeserializer(TaskMode.class, new SamzaObjectMapper.TaskModeDeserializer());
     module.addSerializer(CheckpointId.class, new SamzaObjectMapper.CheckpointIdSerializer());
