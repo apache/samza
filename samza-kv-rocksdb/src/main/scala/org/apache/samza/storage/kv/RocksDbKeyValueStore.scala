@@ -167,7 +167,9 @@ class RocksDbKeyValueStore(
     }
     val map = new util.HashMap[Array[Byte], Array[Byte]]
     for (i <- 0 until keys.size()) {
-      map.put(keys.get(i), values.get(i))
+      if (values.get(i) != null) {
+        map.put(keys.get(i), values.get(i))
+      }
     }
     map
   }
