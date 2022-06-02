@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import org.apache.samza.SamzaException;
 import org.junit.Test;
@@ -146,7 +147,7 @@ public class TestFutureUtil {
     map.put("1", CompletableFuture.completedFuture("1"));
     map.put("2", CompletableFuture.completedFuture("2"));
 
-    CompletableFuture<Map<String, String>> result = FutureUtil.toFutureOfMap(t -> true, map);
+    CompletableFuture<Map<String, String>> result = FutureUtil.toFutureOfMap((k, t) -> true, map);
     assertTrue(result.isDone());
     assertFalse(result.isCompletedExceptionally());
   }
@@ -158,7 +159,7 @@ public class TestFutureUtil {
     map.put("2", FutureUtil.failedFuture(new SamzaException()));
 
     CompletableFuture<Map<String, String>> result = FutureUtil
-        .toFutureOfMap(t -> FutureUtil.unwrapExceptions(CompletionException.class, t) instanceof SamzaException, map);
+        .toFutureOfMap((k, t) -> FutureUtil.unwrapExceptions(CompletionException.class, t) instanceof SamzaException, map);
     assertTrue(result.isDone());
     result.join();
     assertFalse(result.isCompletedExceptionally());
@@ -173,15 +174,15 @@ public class TestFutureUtil {
     SamzaException samzaException = new SamzaException();
     map.put("2", FutureUtil.failedFuture(samzaException));
 
-    Predicate<Throwable> mockPredicate = mock(Predicate.class);
-    when(mockPredicate.test(any()))
+    BiPredicate<String, Throwable> mockPredicate = mock(BiPredicate.class);
+    when(mockPredicate.test(any(), any()))
         .thenReturn(true)
         .thenReturn(false);
 
     CompletableFuture<Map<String, String>> result = FutureUtil.toFutureOfMap(mockPredicate, map);
     assertTrue(result.isDone());
     assertTrue(result.isCompletedExceptionally());
-    verify(mockPredicate, times(2)).test(any()); // verify that each failed value future is tested
+    verify(mockPredicate, times(2)).test(any(), any()); // verify that each failed value future is tested
 
     try {
       result.join();

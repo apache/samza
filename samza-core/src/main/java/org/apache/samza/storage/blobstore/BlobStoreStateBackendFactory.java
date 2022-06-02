@@ -40,6 +40,7 @@ import org.apache.samza.storage.StorageManagerUtil;
 import org.apache.samza.storage.TaskBackupManager;
 import org.apache.samza.storage.TaskRestoreManager;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
+import org.apache.samza.storage.blobstore.metrics.BlobStoreManagerMetrics;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.ReflectionUtil;
@@ -62,9 +63,10 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
     Preconditions.checkState(StringUtils.isNotBlank(blobStoreManagerFactory));
     BlobStoreManagerFactory factory = ReflectionUtil.getObj(blobStoreManagerFactory, BlobStoreManagerFactory.class);
     BlobStoreManager blobStoreManager = factory.getBackupBlobStoreManager(config, backupExecutor);
-    BlobStoreBackupManagerMetrics metrics = new BlobStoreBackupManagerMetrics(metricsRegistry);
+    BlobStoreManagerMetrics blobStoreManagerMetrics = new BlobStoreManagerMetrics(metricsRegistry);
+    BlobStoreBackupManagerMetrics blobStoreBackupManagerMetrics = new BlobStoreBackupManagerMetrics(metricsRegistry);
     return new BlobStoreBackupManager(jobContext.getJobModel(), containerModel, taskModel, backupExecutor,
-        metrics, config, clock, loggedStoreBaseDir, new StorageManagerUtil(), blobStoreManager);
+        blobStoreManagerMetrics, blobStoreBackupManagerMetrics, config, clock, loggedStoreBaseDir, new StorageManagerUtil(), blobStoreManager);
   }
 
   @Override
@@ -85,9 +87,10 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
     Preconditions.checkState(StringUtils.isNotBlank(blobStoreManagerFactory));
     BlobStoreManagerFactory factory = ReflectionUtil.getObj(blobStoreManagerFactory, BlobStoreManagerFactory.class);
     BlobStoreManager blobStoreManager = factory.getRestoreBlobStoreManager(config, restoreExecutor);
-    BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(metricsRegistry);
-    return new BlobStoreRestoreManager(taskModel, restoreExecutor, storesToRestore, metrics, config, loggedStoreBaseDir,
-        nonLoggedStoreBaseDir, new StorageManagerUtil(), blobStoreManager);
+    BlobStoreManagerMetrics blobStoreManagerMetrics = new BlobStoreManagerMetrics(metricsRegistry);
+    BlobStoreRestoreManagerMetrics blobStoreRestoreManagerMetrics = new BlobStoreRestoreManagerMetrics(metricsRegistry);
+    return new BlobStoreRestoreManager(taskModel, restoreExecutor, storesToRestore, blobStoreManagerMetrics,
+        blobStoreRestoreManagerMetrics, config, loggedStoreBaseDir, nonLoggedStoreBaseDir, new StorageManagerUtil(), blobStoreManager);
   }
 
   @Override
