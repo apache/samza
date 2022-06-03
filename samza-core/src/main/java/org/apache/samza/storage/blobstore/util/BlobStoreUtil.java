@@ -57,6 +57,7 @@ import org.apache.samza.storage.blobstore.BlobStoreManager;
 import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
 import org.apache.samza.storage.blobstore.Metadata;
 import org.apache.samza.storage.blobstore.diff.DirDiff;
+import org.apache.samza.storage.blobstore.exceptions.BlobNotFoundException;
 import org.apache.samza.storage.blobstore.exceptions.DeletedException;
 import org.apache.samza.storage.blobstore.exceptions.RetriableException;
 import org.apache.samza.storage.blobstore.index.DirIndex;
@@ -67,6 +68,7 @@ import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
 import org.apache.samza.storage.blobstore.index.serde.SnapshotIndexSerde;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
+import org.apache.samza.storage.blobstore.metrics.BlobStoreManagerMetrics;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
 import org.apache.samza.util.FutureUtil;
 import org.slf4j.Logger;
@@ -82,14 +84,17 @@ public class BlobStoreUtil {
 
   private final BlobStoreManager blobStoreManager;
   private final ExecutorService executor;
+  private final BlobStoreManagerMetrics blobStoreManagerMetrics;
   private final BlobStoreBackupManagerMetrics backupMetrics;
   private final BlobStoreRestoreManagerMetrics restoreMetrics;
   private final SnapshotIndexSerde snapshotIndexSerde;
 
   public BlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
-      BlobStoreBackupManagerMetrics backupMetrics, BlobStoreRestoreManagerMetrics restoreMetrics) {
+      BlobStoreManagerMetrics blobStoreManagerMetrics, BlobStoreBackupManagerMetrics backupMetrics,
+      BlobStoreRestoreManagerMetrics restoreMetrics) {
     this.blobStoreManager = blobStoreManager;
     this.executor = executor;
+    this.blobStoreManagerMetrics = blobStoreManagerMetrics;
     this.backupMetrics = backupMetrics;
     this.restoreMetrics = restoreMetrics;
     this.snapshotIndexSerde = new SnapshotIndexSerde();
@@ -156,14 +161,18 @@ public class BlobStoreUtil {
     }
 
     try {
-      return FutureUtil.toFutureOfMap(t -> {
+      return FutureUtil.toFutureOfMap((k, t) -> {
         Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class, t);
         if (unwrappedException instanceof DeletedException) {
           LOG.warn("Ignoring already deleted snapshot index for taskName: {}", taskName, t);
           return true;
-        } else {
-          return false;
         }
+        Throwable maybeBlobNotFoundException = FutureUtil.unwrapExceptions(BlobNotFoundException.class, t);
+        if (maybeBlobNotFoundException instanceof BlobNotFoundException) {
+          blobStoreManagerMetrics.storeBlobNotFoundError.get(k)
+              .set(blobStoreManagerMetrics.storeBlobNotFoundError.get(k).getValue() + 1);
+        }
+        return false;
       }, storeSnapshotIndexFutures).join();
     } catch (Exception e) {
       throw new SamzaException(
