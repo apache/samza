@@ -614,10 +614,10 @@ public class TestContainerStorageManager {
     private static final TaskModel STANDBY_TASK_MODEL =
         new TaskModel(STANDBY_TASK_NAME, Collections.emptySet(), new Partition(0), TaskMode.Standby);
 
-    private static final String sideInputStore = "side-input-store";
-    private static final SystemStream sideInputSystemStream = new SystemStream("test", "side-input-stream");
-    private static final String testStore = "test-store";
-    private static final SystemStream testSystemStream = new SystemStream("test", "stream");
+    private static final String SIDE_INPUT_STORE = "side-input-store";
+    private static final SystemStream SIDE_INPUT_SYSTEM_STREAM = new SystemStream("test", "side-input-stream");
+    private static final String TEST_STORE = "test-store";
+    private static final SystemStream TEST_SYSTEM_STREAM = new SystemStream("test", "stream");
 
     private final ContainerModel activeContainerModel;
     private final ContainerModel activeAndStandbyContainerModel;
@@ -644,17 +644,17 @@ public class TestContainerStorageManager {
       standbyContainerModelWithSideInputs = new ContainerModel("standby-container-with-side-input",
           ImmutableMap.of(STANDBY_TASK_NAME_2, STANDBY_TASK_MODEL_WITH_SIDE_INPUT));
 
-      activeStores = ImmutableSet.of(sideInputStore);
-      standbyStores = ImmutableSet.of(sideInputStore, testStore);
+      activeStores = ImmutableSet.of(SIDE_INPUT_STORE);
+      standbyStores = ImmutableSet.of(SIDE_INPUT_STORE, TEST_STORE);
 
-      sideInputStoresToSystemStreams = ImmutableMap.of(sideInputStore, ImmutableSet.of(sideInputSystemStream));
-      storesToSystemStreams = ImmutableMap.of(testStore, testSystemStream);
+      sideInputStoresToSystemStreams = ImmutableMap.of(SIDE_INPUT_STORE, ImmutableSet.of(SIDE_INPUT_SYSTEM_STREAM));
+      storesToSystemStreams = ImmutableMap.of(TEST_STORE, TEST_SYSTEM_STREAM);
 
       activeSideInputSSPs = ImmutableMap.of(ACTIVE_TASK_NAME, Collections.emptyMap());
       standbyChangelogSSPs =
-          ImmutableMap.of(STANDBY_TASK_NAME, ImmutableMap.of(testStore, ImmutableSet.of(STANDBY_CHANGELOG_SSP)));
+          ImmutableMap.of(STANDBY_TASK_NAME, ImmutableMap.of(TEST_STORE, ImmutableSet.of(STANDBY_CHANGELOG_SSP)));
       standbyWithSideInputSSPs = ImmutableMap.of(STANDBY_TASK_NAME_2,
-          ImmutableMap.of(testStore, ImmutableSet.of(STANDBY_CHANGELOG_SSP), sideInputStore, STANDBY_TASK_INPUT_SSP));
+          ImmutableMap.of(TEST_STORE, ImmutableSet.of(STANDBY_CHANGELOG_SSP), SIDE_INPUT_STORE, STANDBY_TASK_INPUT_SSP));
     }
   }
 }
