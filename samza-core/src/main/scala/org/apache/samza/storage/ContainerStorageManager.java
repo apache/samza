@@ -193,15 +193,15 @@ public class ContainerStorageManager {
       Clock clock) {
     this.checkpointManager = checkpointManager;
     this.containerModel = containerModel;
-    this.taskSideInputStoreSSPs = getTaskSideInputSSPs(containerModel, sideInputSystemStreams);
-    this.sideInputStoreNames = sideInputSystemStreams.keySet();
+    this.taskSideInputStoreSSPs = getTaskSideInputSSPs(containerModel, sideInputSystemStreams, changelogSystemStreams);
+    this.sideInputStoreNames = getSideInputStores(containerModel, sideInputSystemStreams, changelogSystemStreams);
     this.sideInputTaskLatches = new HashMap<>();
     this.hasSideInputs = this.taskSideInputStoreSSPs.values().stream()
         .flatMap(m -> m.values().stream())
         .flatMap(Collection::stream)
         .findAny()
         .isPresent();
-    this.changelogSystemStreams = getChangelogSystemStreams(containerModel, changelogSystemStreams); // handling standby tasks
+    this.changelogSystemStreams = getActiveTaskChangelogSystemStreams(containerModel, changelogSystemStreams);
 
     LOG.info("Starting with changelogSystemStreams = {} taskSideInputStoreSSPs = {}", this.changelogSystemStreams, this.taskSideInputStoreSSPs);
 
@@ -214,7 +214,7 @@ public class ContainerStorageManager {
 
     if (loggedStoreBaseDirectory != null && loggedStoreBaseDirectory.equals(nonLoggedStoreBaseDirectory)) {
       LOG.warn("Logged and non-logged store base directory are configured to same path: {}. It is recommended to configure"
-          + "them separately to ensure clean up of non-logged store data doesn't accidentally impact logged store data.",
+              + "them separately to ensure clean up of non-logged store data doesn't accidentally impact logged store data.",
           loggedStoreBaseDirectory);
     }
 
@@ -307,36 +307,17 @@ public class ContainerStorageManager {
   }
 
   /**
-   * Add all sideInputs to a map of maps, indexed first by taskName, then by sideInput store name.
-   *
-   * @param containerModel the containerModel to use
-   * @param sideInputSystemStreams the map of store to sideInput system stream
-   * @return taskSideInputSSPs map
-   */
-  private Map<TaskName, Map<String, Set<SystemStreamPartition>>> getTaskSideInputSSPs(ContainerModel containerModel, Map<String, Set<SystemStream>> sideInputSystemStreams) {
-    Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputSSPs = new HashMap<>();
-
-    containerModel.getTasks().forEach((taskName, taskModel) -> {
-      taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
-      sideInputSystemStreams.keySet().forEach(storeName -> {
-        Set<SystemStreamPartition> taskSideInputs = taskModel.getSystemStreamPartitions().stream().filter(ssp -> sideInputSystemStreams.get(storeName).contains(ssp.getSystemStream())).collect(Collectors.toSet());
-        taskSideInputSSPs.get(taskName).put(storeName, taskSideInputs);
-      });
-    });
-    return taskSideInputSSPs;
-  }
-
-  /**
-   * For each standby task, we remove its changeLogSSPs from changelogSSP map and add it to the task's taskSideInputSSPs.
-   * The task's sideInputManager will consume and restore these as well.
+   * Remove changeLogSSPs that are associated with standby tasks from changelogSSP map and only return changelogSSPs
+   * associated with the active tasks.
+   * The standby changelogs will be consumed and restored as side inputs.
    *
    * @param containerModel the container's model
    * @param changelogSystemStreams the passed in set of changelogSystemStreams
    * @return A map of changeLogSSP to storeName across all tasks, assuming no two stores have the same changelogSSP
    */
-  private Map<String, SystemStream> getChangelogSystemStreams(ContainerModel containerModel,
+  @VisibleForTesting
+  Map<String, SystemStream> getActiveTaskChangelogSystemStreams(ContainerModel containerModel,
       Map<String, SystemStream> changelogSystemStreams) {
-
     if (MapUtils.invertMap(changelogSystemStreams).size() != changelogSystemStreams.size()) {
       throw new SamzaException("Two stores cannot have the same changelog system-stream");
     }
@@ -348,11 +329,9 @@ public class ContainerStorageManager {
     );
 
     getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
-      taskSideInputStoreSSPs.putIfAbsent(taskName, new HashMap<>());
       changelogSystemStreams.forEach((storeName, systemStream) -> {
         SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
         changelogSSPToStore.remove(ssp);
-        taskSideInputStoreSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
       });
     });
 
@@ -361,6 +340,58 @@ public class ContainerStorageManager {
         .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getSystemStream()));
   }
 
+  /**
+   * Fetch the side input stores. For active containers, the stores correspond to the side inputs and for standbys, they
+   * include the durable stores.
+   * @param containerModel the container's model
+   * @param sideInputSystemStreams the map of store to side input system streams
+   * @param changelogSystemStreams the map of store to changelog system streams
+   * @return A set of side input stores
+   */
+  @VisibleForTesting
+  Set<String> getSideInputStores(ContainerModel containerModel,
+      Map<String, Set<SystemStream>> sideInputSystemStreams, Map<String, SystemStream> changelogSystemStreams) {
+    // add all the side input stores by default regardless of active vs standby
+    Set<String> sideInputStores = new HashSet<>(sideInputSystemStreams.keySet());
+
+    // In case of standby tasks, we treat the stores that have changelogs as side input stores for bootstrapping state
+    if (getTasks(containerModel, TaskMode.Standby).size() > 0) {
+      sideInputStores.addAll(changelogSystemStreams.keySet());
+    }
+    return sideInputStores;
+  }
+
+  /**
+   * Add all sideInputs to a map of maps, indexed first by taskName, then by sideInput store name.
+   *
+   * @param containerModel the containerModel to use
+   * @param sideInputSystemStreams the map of store to sideInput system stream
+   * @param changelogSystemStreams the map of store to changelog system stream
+   * @return taskSideInputSSPs map
+   */
+  @VisibleForTesting
+  Map<TaskName, Map<String, Set<SystemStreamPartition>>> getTaskSideInputSSPs(ContainerModel containerModel,
+      Map<String, Set<SystemStream>> sideInputSystemStreams, Map<String, SystemStream> changelogSystemStreams) {
+    Map<TaskName, Map<String, Set<SystemStreamPartition>>> taskSideInputSSPs = new HashMap<>();
+
+    containerModel.getTasks().forEach((taskName, taskModel) -> {
+      taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
+      sideInputSystemStreams.keySet().forEach(storeName -> {
+        Set<SystemStreamPartition> taskSideInputs = taskModel.getSystemStreamPartitions().stream().filter(ssp -> sideInputSystemStreams.get(storeName).contains(ssp.getSystemStream())).collect(Collectors.toSet());
+        taskSideInputSSPs.get(taskName).put(storeName, taskSideInputs);
+      });
+    });
+
+    getTasks(containerModel, TaskMode.Standby).forEach((taskName, taskModel) -> {
+      taskSideInputSSPs.putIfAbsent(taskName, new HashMap<>());
+      changelogSystemStreams.forEach((storeName, systemStream) -> {
+        SystemStreamPartition ssp = new SystemStreamPartition(systemStream, taskModel.getChangelogPartition());
+        taskSideInputSSPs.get(taskName).put(storeName, Collections.singleton(ssp));
+      });
+    });
+
+    return taskSideInputSSPs;
+  }
 
   /**
    *  Creates SystemConsumer objects for store restoration, creating one consumer per system.
@@ -488,7 +519,7 @@ public class ContainerStorageManager {
   // Helper method to filter active Tasks from the container model
   private static Map<TaskName, TaskModel> getTasks(ContainerModel containerModel, TaskMode taskMode) {
     return containerModel.getTasks().entrySet().stream()
-            .filter(x -> x.getValue().getTaskMode().equals(taskMode)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .filter(x -> x.getValue().getTaskMode().equals(taskMode)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   /**

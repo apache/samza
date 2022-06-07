@@ -46,6 +46,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.serializers.Serde;
@@ -68,6 +69,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import scala.collection.JavaConverters;
 
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 
@@ -85,6 +87,7 @@ public class TestContainerStorageManager {
   private Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
   private SamzaContainerMetrics samzaContainerMetrics;
   private Map<TaskName, TaskModel> tasks;
+  private StandbyTestContext testContext;
 
   private volatile int systemConsumerCreationCount;
   private volatile int systemConsumerStartCount;
@@ -266,6 +269,7 @@ public class TestContainerStorageManager {
         DEFAULT_STORE_BASE_DIR,
         null,
         new SystemClock());
+    this.testContext = new StandbyTestContext();
   }
 
   @Test
@@ -503,5 +507,154 @@ public class TestContainerStorageManager {
         factoriesToStores.get("factory1"));
     Assert.assertEquals(ImmutableSet.of("storeName0"),
         factoriesToStores.get("factory2"));
+  }
+
+  @Test
+  public void getActiveTaskChangelogSystemStreams() {
+    Map<String, SystemStream> storeToChangelogSystemStreams =
+        containerStorageManager.getActiveTaskChangelogSystemStreams(testContext.standbyContainerModel,
+            testContext.storesToSystemStreams);
+
+    assertEquals("Standby container should have no active change log", Collections.emptyMap(),
+        storeToChangelogSystemStreams);
+  }
+
+  @Test
+  public void getActiveTaskChangelogSystemStreamsForActiveAndStandbyContainer() {
+    Map<String, SystemStream> expectedStoreToChangelogSystemStreams =
+        testContext.storesToSystemStreams;
+    Map<String, SystemStream> storeToChangelogSystemStreams = containerStorageManager.getActiveTaskChangelogSystemStreams(
+        testContext.activeAndStandbyContainerModel, testContext.storesToSystemStreams);
+
+    assertEquals("Active and standby container model should have non empty store to changelog mapping",
+        expectedStoreToChangelogSystemStreams, storeToChangelogSystemStreams);
+  }
+
+  @Test
+  public void getActiveTaskChangelogSystemStreamsForStandbyContainer() {
+    Map<String, SystemStream> expectedStoreToChangelogSystemStreams =
+        testContext.storesToSystemStreams;
+    Map<String, SystemStream> storeToChangelogSystemStreams = containerStorageManager.getActiveTaskChangelogSystemStreams(
+        testContext.activeContainerModel, testContext.storesToSystemStreams);
+
+    assertEquals("Active container model should have non empty store to changelog mapping",
+        expectedStoreToChangelogSystemStreams, storeToChangelogSystemStreams);
+  }
+
+  @Test
+  public void getSideInputStoresForActiveContainer() {
+    Set<String> expectedSideInputStores = testContext.activeStores;
+    Set<String> actualSideInputStores =
+        containerStorageManager.getSideInputStores(testContext.activeContainerModel,
+            testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams);
+
+    assertEquals("Mismatch in stores", expectedSideInputStores, actualSideInputStores);
+  }
+
+  @Test
+  public void getSideInputStoresForStandbyContainer() {
+    final Set<String> expectedSideInputStores = testContext.standbyStores;
+    Set<String> actualSideInputStores =
+        containerStorageManager.getSideInputStores(testContext.standbyContainerModel,
+            testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams);
+
+    assertEquals("Mismatch in side input stores", expectedSideInputStores, actualSideInputStores);
+  }
+
+  @Test
+  public void getTaskSideInputSSPsForActiveContainer() {
+    Map<TaskName, Map<String, Set<SystemStreamPartition>>> expectedSideInputSSPs = testContext.activeSideInputSSPs;
+    Map<TaskName, Map<String, Set<SystemStreamPartition>>> actualSideInputSSPs =
+        containerStorageManager.getTaskSideInputSSPs(testContext.activeContainerModel,
+            Collections.emptyMap(), testContext.storesToSystemStreams);
+
+    assertEquals("Mismatch in task name --> store --> SSP mapping", expectedSideInputSSPs, actualSideInputSSPs);
+  }
+
+  @Test
+  public void getTaskSideInputSSPsForStandbyContainerWithSideInput() {
+    Map<TaskName, Map<String, Set<SystemStreamPartition>>> expectedSideInputSSPs = testContext.standbyWithSideInputSSPs;
+    Map<TaskName, Map<String, Set<SystemStreamPartition>>> actualSideInputSSPs =
+        containerStorageManager.getTaskSideInputSSPs(testContext.standbyContainerModelWithSideInputs,
+            testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams);
+
+    assertEquals("Mismatch in task name --> store --> SSP mapping", expectedSideInputSSPs, actualSideInputSSPs);
+  }
+
+  @Test
+  public void getTaskSideInputSSPsForStandbyContainerWithoutSideInputs() {
+    Map<TaskName, Map<String, Set<SystemStreamPartition>>> expectedSideInputSSPs = testContext.standbyChangelogSSPs;
+    Map<TaskName, Map<String, Set<SystemStreamPartition>>> actualSideInputSSPs =
+        containerStorageManager.getTaskSideInputSSPs(testContext.standbyContainerModel,
+            Collections.emptyMap(), testContext.storesToSystemStreams);
+
+    assertEquals("Mismatch in task name --> store --> SSP mapping", expectedSideInputSSPs, actualSideInputSSPs);
+  }
+
+  /**
+   * A container class to hold test fields and expected state for standby and side input related tests
+   */
+  private static class StandbyTestContext {
+    private static final String ACTIVE_TASK = "active-task-1";
+    private static final TaskName ACTIVE_TASK_NAME = new TaskName(ACTIVE_TASK);
+    private static final TaskModel ACTIVE_TASK_MODEL =
+        new TaskModel(ACTIVE_TASK_NAME, Collections.emptySet(), new Partition(1));
+
+    private static final String STANDBY_TASK_2 = "standby-task-2";
+    private static final TaskName STANDBY_TASK_NAME_2 = new TaskName(STANDBY_TASK_2);
+    private static final Set<SystemStreamPartition> STANDBY_TASK_INPUT_SSP =
+        ImmutableSet.of(new SystemStreamPartition("test", "side-input-stream", new Partition(2)));
+    private static final TaskModel STANDBY_TASK_MODEL_WITH_SIDE_INPUT =
+        new TaskModel(STANDBY_TASK_NAME_2, STANDBY_TASK_INPUT_SSP, new Partition(0), TaskMode.Standby);
+
+    private static final String STANDBY_TASK = "standby-task";
+    private static final TaskName STANDBY_TASK_NAME = new TaskName(STANDBY_TASK);
+    private static final SystemStreamPartition STANDBY_CHANGELOG_SSP =
+        new SystemStreamPartition("test", "stream", new Partition(0));
+    private static final TaskModel STANDBY_TASK_MODEL =
+        new TaskModel(STANDBY_TASK_NAME, Collections.emptySet(), new Partition(0), TaskMode.Standby);
+
+    private static final String sideInputStore = "side-input-store";
+    private static final SystemStream sideInputSystemStream = new SystemStream("test", "side-input-stream");
+    private static final String testStore = "test-store";
+    private static final SystemStream testSystemStream = new SystemStream("test", "stream");
+
+    private final ContainerModel activeContainerModel;
+    private final ContainerModel activeAndStandbyContainerModel;
+    private final ContainerModel standbyContainerModel;
+    private final ContainerModel standbyContainerModelWithSideInputs;
+
+    private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> activeSideInputSSPs;
+    private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> standbyChangelogSSPs;
+    private final Map<TaskName, Map<String, Set<SystemStreamPartition>>> standbyWithSideInputSSPs;
+
+    private final Map<String, SystemStream> storesToSystemStreams;
+    private final Map<String, Set<SystemStream>> sideInputStoresToSystemStreams;
+    private final Set<String> activeStores;
+    private final Set<String> standbyStores;
+
+    public StandbyTestContext() {
+      Map<TaskName, TaskModel> activeTasks = ImmutableMap.of(ACTIVE_TASK_NAME, ACTIVE_TASK_MODEL);
+      Map<TaskName, TaskModel> standbyTasks = ImmutableMap.of(STANDBY_TASK_NAME, STANDBY_TASK_MODEL);
+
+      activeContainerModel = new ContainerModel("active-container-model", activeTasks);
+      activeAndStandbyContainerModel = new ContainerModel("active-standby-container-model",
+          ImmutableMap.<TaskName, TaskModel>builder().putAll(activeTasks).putAll(standbyTasks).build());
+      standbyContainerModel = new ContainerModel("standby-container-model", standbyTasks);
+      standbyContainerModelWithSideInputs = new ContainerModel("standby-container-with-side-input",
+          ImmutableMap.of(STANDBY_TASK_NAME_2, STANDBY_TASK_MODEL_WITH_SIDE_INPUT));
+
+      activeStores = ImmutableSet.of(sideInputStore);
+      standbyStores = ImmutableSet.of(sideInputStore, testStore);
+
+      sideInputStoresToSystemStreams = ImmutableMap.of(sideInputStore, ImmutableSet.of(sideInputSystemStream));
+      storesToSystemStreams = ImmutableMap.of(testStore, testSystemStream);
+
+      activeSideInputSSPs = ImmutableMap.of(ACTIVE_TASK_NAME, Collections.emptyMap());
+      standbyChangelogSSPs =
+          ImmutableMap.of(STANDBY_TASK_NAME, ImmutableMap.of(testStore, ImmutableSet.of(STANDBY_CHANGELOG_SSP)));
+      standbyWithSideInputSSPs = ImmutableMap.of(STANDBY_TASK_NAME_2,
+          ImmutableMap.of(testStore, ImmutableSet.of(STANDBY_CHANGELOG_SSP), sideInputStore, STANDBY_TASK_INPUT_SSP));
+    }
   }
 }
