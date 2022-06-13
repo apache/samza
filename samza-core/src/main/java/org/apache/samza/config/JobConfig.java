@@ -164,6 +164,11 @@ public class JobConfig extends MapConfig {
 
   private static final String JOB_STARTPOINT_ENABLED = "job.startpoint.enabled";
 
+  // Enable DrainMonitor in Samza Containers
+  // Default is false for now. Will be turned on after testing
+  public static final String DRAIN_MONITOR_ENABLED = "samza.drain-monitor.enabled";
+  public static final boolean DRAIN_MONITOR_ENABLED_DEFAULT = false;
+
   // Enable ClusterBasedJobCoordinator aka ApplicationMaster High Availability (AM-HA).
   // High availability allows new AM to establish connection with already running containers
   public static final String YARN_AM_HIGH_AVAILABILITY_ENABLED = "yarn.am.high-availability.enabled";
@@ -468,6 +473,10 @@ public class JobConfig extends MapConfig {
 
   public boolean getApplicationMasterHighAvailabilityEnabled() {
     return getBoolean(YARN_AM_HIGH_AVAILABILITY_ENABLED, YARN_AM_HIGH_AVAILABILITY_ENABLED_DEFAULT);
+  }
+
+  public boolean getDrainMonitorEnabled() {
+    return getBoolean(DRAIN_MONITOR_ENABLED, DRAIN_MONITOR_ENABLED_DEFAULT);
   }
 
   public long getContainerHeartbeatRetryCount() {

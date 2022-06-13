@@ -19,15 +19,18 @@
 
 package org.apache.samza.container
 
+import com.google.common.collect.ImmutableMap
+
 import java.util
 import java.util.concurrent.atomic.AtomicReference
-
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 import org.apache.samza.Partition
 import org.apache.samza.config.{ClusterManagerConfig, Config, MapConfig}
 import org.apache.samza.context.{ApplicationContainerContext, ContainerContext}
 import org.apache.samza.coordinator.JobModelManager
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil
 import org.apache.samza.coordinator.server.{HttpServer, JobServlet}
+import org.apache.samza.drain.DrainMonitor
 import org.apache.samza.job.model.{ContainerModel, JobModel, TaskModel}
 import org.apache.samza.metrics.Gauge
 import org.apache.samza.serializers.model.SamzaObjectMapper
@@ -73,6 +76,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   private var samzaContainerListener: SamzaContainerListener = null
   @Mock
   private var containerStorageManager: ContainerStorageManager = null
+
+  private var drainMonitor: DrainMonitor = null
 
   private var samzaContainer: SamzaContainer = null
 
@@ -151,7 +156,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       containerContext = this.containerContext,
       applicationContainerContextOption = Some(this.applicationContainerContext),
       externalContextOption = None,
-      containerStorageManager = containerStorageManager)
+      containerStorageManager = containerStorageManager,
+      drainMonitor = drainMonitor)
     this.samzaContainer.setContainerListener(this.samzaContainerListener)
 
     new ShutDownSignal(samzaContainer).run();
@@ -320,6 +326,14 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   }
 
   private def setupSamzaContainer(applicationContainerContext: Option[ApplicationContainerContext]) {
+    val coordinatorStreamConfig = new MapConfig(ImmutableMap.of(
+      "job.name", "test-job",
+      "job.coordinator.system", "test-kafka"))
+    val coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(coordinatorStreamConfig)
+    val coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore
+    coordinatorStreamStore.init()
+    drainMonitor = new DrainMonitor(coordinatorStreamStore, config)
+
     this.samzaContainer = new SamzaContainer(
       this.config,
       Map(TASK_NAME -> this.taskInstance),
@@ -333,7 +347,8 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
       containerContext = this.containerContext,
       applicationContainerContextOption = applicationContainerContext,
       externalContextOption = None,
-      containerStorageManager = containerStorageManager)
+      containerStorageManager = containerStorageManager,
+      drainMonitor = drainMonitor)
     this.samzaContainer.setContainerListener(this.samzaContainerListener)
   }
 

@@ -18,13 +18,16 @@
  */
 package org.apache.samza.processor
 
+import com.google.common.collect.ImmutableMap
+
 import java.util
 import java.util.Collections
-
 import org.apache.samza.Partition
 import org.apache.samza.config.MapConfig
 import org.apache.samza.container._
 import org.apache.samza.context.{ContainerContext, JobContext}
+import org.apache.samza.coordinator.metadatastore.CoordinatorStreamStoreTestUtil
+import org.apache.samza.drain.DrainMonitor
 import org.apache.samza.job.model.TaskModel
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.storage.ContainerStorageManager
@@ -65,6 +68,14 @@ object StreamProcessorTestUtils {
       applicationTaskContextFactoryOption = None,
       externalContextOption = None)
 
+    val coordinatorStreamConfig = new MapConfig(ImmutableMap.of(
+      "job.name", "test-job",
+      "job.coordinator.system", "test-kafka"))
+    val coordinatorStreamStoreTestUtil = new CoordinatorStreamStoreTestUtil(coordinatorStreamConfig)
+    val coordinatorStreamStore = coordinatorStreamStoreTestUtil.getCoordinatorStreamStore
+    coordinatorStreamStore.init()
+    val drainMonitor = new DrainMonitor(coordinatorStreamStore, config)
+
     val container = new SamzaContainer(
       config = config,
       taskInstances = Map(taskName -> taskInstance),
@@ -77,7 +88,8 @@ object StreamProcessorTestUtils {
       containerContext = containerContext,
       applicationContainerContextOption = None,
       externalContextOption = None,
-      containerStorageManager = Mockito.mock(classOf[ContainerStorageManager]))
+      containerStorageManager = Mockito.mock(classOf[ContainerStorageManager]),
+      drainMonitor = drainMonitor)
     container
   }
 }
