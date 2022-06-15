@@ -171,6 +171,11 @@ class OffsetManager(
   val lastProcessedOffsets = new ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, String]]()
 
   /**
+   * The snapshot of last processed offsets for each SystemStreamPartition during the start process
+   */
+  val initialProcessedOffsets = mutable.Map[TaskName, mutable.Map[SystemStreamPartition, String]]()
+
+  /**
    * Offsets to start reading from for each SystemStreamPartition. This
    * variable is populated after all checkpoints have been restored.
    */
@@ -201,6 +206,7 @@ class OffsetManager(
     loadStartingOffsets
     loadStartpoints
     loadDefaults
+    recordInitialProcessedOffsets
 
     info("Successfully loaded last processed offsets: %s" format lastProcessedOffsets)
     info("Successfully loaded starting offsets: %s" format startingOffsets)
@@ -395,15 +401,46 @@ class OffsetManager(
 
     // delete corresponding startpoints after checkpoint is supposed to be committed
     if (startpointManager != null && startpoints.contains(taskName)) {
-      info("%d startpoint(s) for taskName: %s have been committed to the checkpoint." format (startpoints.get(taskName).size, taskName.getTaskName))
-      startpointManager.removeFanOutForTask(taskName)
-      startpoints -= taskName
+      val sspsWithProcessedOffsetUpdated = getSSPsWithProcessedOffsetUpdated(taskName, checkpoint)
+      startpointManager.removeFanOutForTaskSSPs(taskName, sspsWithProcessedOffsetUpdated.asJava)
+      // Remove the startpoints for the ssps that have received the updates of processed offsets. if all ssps of the
+      // task have received the updates of processed offsets, remove the whole task's startpoints.
+      startpoints.get(taskName) match {
+        case Some(sspToStartpoint) => {
+          val newSspToStartpoint = sspToStartpoint.filterKeys(ssp => !sspsWithProcessedOffsetUpdated.contains(ssp)).toMap
+          if (newSspToStartpoint.isEmpty) {
+            startpoints -= taskName
+            info("All startpoints for the taskName: %s have been committed to the checkpoint." format(taskName))
+          } else {
+            startpoints += taskName -> newSspToStartpoint
+            debug("Updated the startpoints and the latest startpoints for the task %s: %s" format(taskName, newSspToStartpoint))
+          }
+        }
+        case None => {}
+      }
 
       if (startpoints.isEmpty) {
         info("All outstanding startpoints have been committed to the checkpoint.")
         startpointManager.stop
       }
     }
+  }
+
+  private def getSSPsWithProcessedOffsetUpdated(taskName: TaskName, checkpoint: Checkpoint): mutable.Set[SystemStreamPartition] = {
+    val sspWithProcessedOffsetUpdated = mutable.Set[SystemStreamPartition]()
+    val cpOffsets = checkpoint.getOffsets
+    if (cpOffsets != null) {
+      initialProcessedOffsets.get(taskName) match {
+        case Some(sspOffsets) =>
+          sspOffsets.foreach{case (ssp, offset) =>
+            if (cpOffsets.containsKey(ssp) && cpOffsets.get(ssp) != offset) {
+              sspWithProcessedOffsetUpdated += ssp
+            }
+          }
+        case None => {}
+      }
+    }
+    sspWithProcessedOffsetUpdated
   }
 
   def stop {
@@ -666,6 +703,18 @@ class OffsetManager(
             }
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Get a snapshot of the existing processed offsets for all tasks during the start process. The intent of having this
+   * snapshot is to know if the partitions' offsets have been updated by comparing it with lastProcessedOffsets.
+   */
+  private def recordInitialProcessedOffsets: Unit = {
+    lastProcessedOffsets.asScala.foreach{case (taskName, sspOffsets) =>
+      sspOffsets.asScala.foreach{case (ssp, offset) =>
+        initialProcessedOffsets.getOrElseUpdate(taskName, mutable.Map[SystemStreamPartition, String]()) += ssp -> offset
       }
     }
   }

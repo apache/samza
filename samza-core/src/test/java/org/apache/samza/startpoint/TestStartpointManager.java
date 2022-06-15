@@ -142,6 +142,11 @@ public class TestStartpointManager {
       startpointManager.removeFanOutForTask(new TaskName("t0"));
       Assert.fail("Expected precondition exception.");
     } catch (IllegalStateException ex) { }
+
+    try {
+      startpointManager.removeFanOutForTaskSSPs(new TaskName("t0"), ImmutableSet.of(ssp));
+      Assert.fail("Expected precondition exception.");
+    } catch (IllegalStateException ex) { }
   }
 
   @Test
@@ -347,6 +352,33 @@ public class TestStartpointManager {
     Assert.assertEquals(0, startpointManager.getFanOutStore().all().size());
     Assert.assertTrue("Should not be deleted after remove all fan outs", startpointManager.readStartpoint(sspBroadcast).isPresent());
     Assert.assertTrue("Should not be deleted after remove all fan outs", startpointManager.readStartpoint(sspSingle).isPresent());
+  }
+
+  @Test
+  public void testRemoveFanOutForTaskSSPs() throws Exception {
+    SystemStreamPartition ssp0 = new SystemStreamPartition("mockSystem", "mockStream", new Partition(0));
+    SystemStreamPartition ssp1 = new SystemStreamPartition("mockSystem", "mockStream", new Partition(1));
+    TaskName taskName = new TaskName("mockTask");
+    Map<TaskName, Set<SystemStreamPartition>> taskToSSPs = ImmutableMap.of(taskName, ImmutableSet.of(ssp0, ssp1));
+    StartpointSpecific startpoint42 = new StartpointSpecific("42");
+    startpointManager.writeStartpoint(ssp0, startpoint42);
+    startpointManager.writeStartpoint(ssp1, startpoint42);
+    Map<TaskName, Map<SystemStreamPartition, Startpoint>> tasksFannedOutTo = startpointManager.fanOut(taskToSSPs);
+    Assert.assertEquals(ImmutableSet.of(taskName), tasksFannedOutTo.keySet());
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(ssp0).isPresent());
+    Assert.assertFalse("Should be deleted after fan out", startpointManager.readStartpoint(ssp1).isPresent());
+
+    // no action takes if not specify any system stream partition
+    startpointManager.removeFanOutForTaskSSPs(taskName, ImmutableSet.of());
+    Assert.assertEquals(ImmutableMap.of(ssp0, startpoint42, ssp1, startpoint42), startpointManager.getFanOutForTask(taskName));
+
+    // partially removal: remove the fanned out startpoint for the specified system stream partition only
+    startpointManager.removeFanOutForTaskSSPs(taskName, ImmutableSet.of(ssp0));
+    Assert.assertEquals(ImmutableMap.of(ssp1, startpoint42), startpointManager.getFanOutForTask(taskName));
+
+    // remove the whole task's startpoints if all the task's partitions' are removed
+    startpointManager.removeFanOutForTaskSSPs(taskName, ImmutableSet.of(ssp1));
+    Assert.assertEquals(ImmutableMap.of(), startpointManager.getFanOutForTask(taskName));
   }
 
   @Test
