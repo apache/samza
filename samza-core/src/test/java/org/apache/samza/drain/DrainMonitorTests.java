@@ -41,13 +41,13 @@ import org.mockito.Mockito;
  * Tests for {@link DrainMonitor}
  * */
 public class DrainMonitorTests {
-  private static final String TEST_DEPLOYMENT_ID = "foo";
+  private static final String TEST_RUN_ID = "foo";
 
   private static final Config
       CONFIG = new MapConfig(ImmutableMap.of(
           "job.name", "test-job",
       "job.coordinator.system", "test-kafka",
-      ApplicationConfig.APP_RUN_ID, TEST_DEPLOYMENT_ID));
+      ApplicationConfig.APP_RUN_ID, TEST_RUN_ID));
 
   private CoordinatorStreamStore coordinatorStreamStore;
 
@@ -114,7 +114,7 @@ public class DrainMonitorTests {
     final AtomicInteger numCallbacks = new AtomicInteger(0);
     final CountDownLatch latch = new CountDownLatch(1);
     // write drain before monitor start
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_DEPLOYMENT_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
     DrainMonitor drainMonitor = new DrainMonitor(coordinatorStreamStore, CONFIG);
     drainMonitor.registerDrainCallback(() -> {
       numCallbacks.incrementAndGet();
@@ -141,7 +141,7 @@ public class DrainMonitorTests {
       latch.countDown();
     });
     drainMonitor.start();
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_DEPLOYMENT_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
     if (!latch.await(2, TimeUnit.SECONDS)) {
       Assert.fail("Timed out waiting for drain callback to complete");
     }
@@ -150,8 +150,8 @@ public class DrainMonitorTests {
   }
 
   @Test
-  public void testCallbackNotCalledDueToMismatchedDeploymentId() throws InterruptedException {
-    // The test fails due to timeout as the published DrainNotification's deploymentId doesn't match deploymentId
+  public void testCallbackNotCalledDueToMismatchedRunId() throws InterruptedException {
+    // The test fails due to timeout as the published DrainNotification's runId doesn't match runId
     // in the config
     exceptionRule.expect(AssertionError.class);
     exceptionRule.expectMessage("Timed out waiting for drain callback to complete.");
@@ -166,8 +166,8 @@ public class DrainMonitorTests {
     });
 
     drainMonitor.start();
-    final String mismatchedDeploymentId = "bar";
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, mismatchedDeploymentId);
+    final String mismatchedRunId = "bar";
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, mismatchedRunId);
     if (!latch.await(2, TimeUnit.SECONDS)) {
       Assert.fail("Timed out waiting for drain callback to complete.");
     }
@@ -184,16 +184,16 @@ public class DrainMonitorTests {
 
   @Test
   public void testShouldDrain() {
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_DEPLOYMENT_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
     NamespaceAwareCoordinatorStreamStore drainStore =
         new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, DrainUtils.DRAIN_METADATA_STORE_NAMESPACE);
-    Assert.assertTrue(DrainMonitor.shouldDrain(drainStore, TEST_DEPLOYMENT_ID));
+    Assert.assertTrue(DrainMonitor.shouldDrain(drainStore, TEST_RUN_ID));
 
     // Cleanup old drain message
     DrainUtils.cleanup(coordinatorStreamStore, CONFIG);
 
-    final String mismatchedDeploymentId = "bar";
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, mismatchedDeploymentId);
-    Assert.assertFalse(DrainMonitor.shouldDrain(drainStore, TEST_DEPLOYMENT_ID));
+    final String mismatchedRunId = "bar";
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, mismatchedRunId);
+    Assert.assertFalse(DrainMonitor.shouldDrain(drainStore, TEST_RUN_ID));
   }
 }

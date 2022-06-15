@@ -115,10 +115,15 @@ public class OperatorImplGraph {
     // set states for end-of-stream; don't include side inputs (see SAMZA-2303)
     internalTaskContext.registerObject(EndOfStreamStates.class.getName(),
         new EndOfStreamStates(internalTaskContext.getSspsExcludingSideInputs(), producerTaskCounts));
+
     // set states for watermark; don't include side inputs (see SAMZA-2303)
     internalTaskContext.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(internalTaskContext.getSspsExcludingSideInputs(), producerTaskCounts,
             context.getContainerContext().getContainerMetricsRegistry()));
+
+    // set states for drain; don't include side inputs (see SAMZA-2303)
+    internalTaskContext.registerObject(DrainStates.class.getName(),
+        new DrainStates(internalTaskContext.getSspsExcludingSideInputs(), producerTaskCounts));
 
     specGraph.getInputOperators().forEach((streamId, inputOpSpec) -> {
       SystemStream systemStream = streamConfig.streamIdToSystemStream(streamId);

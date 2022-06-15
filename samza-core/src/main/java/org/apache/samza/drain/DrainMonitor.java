@@ -33,6 +33,7 @@ import javax.annotation.concurrent.GuardedBy;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.slf4j.Logger;
@@ -65,7 +66,6 @@ public class DrainMonitor {
     STOPPED
   }
 
-  private static final int POLLING_INTERVAL_MILLIS = 60_000;
   private static final int INITIAL_POLL_DELAY_MILLIS = 0;
 
   private final ScheduledExecutorService schedulerService =
@@ -75,7 +75,6 @@ public class DrainMonitor {
               .setDaemon(true)
               .build());
   private final String appRunId;
-  private final long pollingIntervalMillis;
   private final NamespaceAwareCoordinatorStreamStore drainMetadataStore;
   // Used to guard write access to state.
   private final Object lock = new Object();
@@ -83,20 +82,23 @@ public class DrainMonitor {
   @GuardedBy("lock")
   private State state = State.INIT;
   private DrainCallback callback;
+  private long pollingIntervalMillis;
 
   public DrainMonitor(MetadataStore metadataStore, Config config) {
-    this(metadataStore, config, POLLING_INTERVAL_MILLIS);
-  }
-
-  public DrainMonitor(MetadataStore metadataStore, Config config, long pollingIntervalMillis) {
     Preconditions.checkNotNull(metadataStore, "MetadataStore parameter cannot be null.");
     Preconditions.checkNotNull(config, "Config parameter cannot be null.");
-    Preconditions.checkArgument(pollingIntervalMillis > 0,
-        String.format("Polling interval specified is %d ms. It should be greater than 0.", pollingIntervalMillis));
     this.drainMetadataStore =
         new NamespaceAwareCoordinatorStreamStore(metadataStore, DrainUtils.DRAIN_METADATA_STORE_NAMESPACE);
     ApplicationConfig applicationConfig = new ApplicationConfig(config);
     this.appRunId = applicationConfig.getRunId();
+    JobConfig jobConfig = new JobConfig(config);
+    this.pollingIntervalMillis = jobConfig.getDrainMonitorPollIntervalMillis();
+  }
+
+  public DrainMonitor(MetadataStore metadataStore, Config config, long pollingIntervalMillis) {
+    this(metadataStore, config);
+    Preconditions.checkArgument(pollingIntervalMillis > 0,
+        String.format("Polling interval specified is %d ms. It should be greater than 0.", pollingIntervalMillis));
     this.pollingIntervalMillis = pollingIntervalMillis;
   }
 
@@ -207,12 +209,12 @@ public class DrainMonitor {
    * One time check check to see if there are any DrainNotification messages available in the
    * metadata store for the current deployment.
    * */
-  static boolean shouldDrain(NamespaceAwareCoordinatorStreamStore drainMetadataStore, String deploymentId) {
+  static boolean shouldDrain(NamespaceAwareCoordinatorStreamStore drainMetadataStore, String runId) {
     final Optional<List<DrainNotification>> drainNotifications = readDrainNotificationMessages(drainMetadataStore);
     if (drainNotifications.isPresent()) {
       final ImmutableList<DrainNotification> filteredDrainNotifications = drainNotifications.get()
           .stream()
-          .filter(notification -> deploymentId.equals(notification.getDeploymentId()))
+          .filter(notification -> runId.equals(notification.getRunId()))
           .collect(ImmutableList.toImmutableList());
       return !filteredDrainNotifications.isEmpty();
     }

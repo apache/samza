@@ -17,32 +17,20 @@
  * under the License.
  */
 
-package org.apache.samza.system;
+package org.apache.samza.task;
 
 /**
- * The type of the intermediate stream message. The enum will be encoded using its ordinal value and
- * put in the first byte of the serialization of intermediate message.
+ * The DrainListenerTask augments {@link StreamTask} allowing the method implementor to specify code to be
+ * executed when the 'drain' is reached for a task.
  */
-public enum MessageType {
-  USER_MESSAGE,
-  WATERMARK,
-  END_OF_STREAM,
-  DRAIN;
-
+public interface DrainListenerTask {
   /**
-   * Returns the {@link MessageType} of a particular intermediate stream message.
-   * @param message an intermediate stream message
-   * @return type of the message
+   * Guaranteed to be invoked when all SSPs processed by this task have drained.
+   *
+   * @param collector Contains the means of sending message envelopes to an output stream.*
+   * @param coordinator Manages execution of tasks.
+   *
+   * @throws Exception Any exception types encountered during the execution of the processing task.
    */
-  public static MessageType of(Object message) {
-    if (message instanceof WatermarkMessage) {
-      return WATERMARK;
-    } else if (message instanceof EndOfStreamMessage) {
-      return END_OF_STREAM;
-    } else if (message instanceof DrainMessage) {
-      return DRAIN;
-    } else {
-      return USER_MESSAGE;
-    }
-  }
+  void onDrain(MessageCollector collector, TaskCoordinator coordinator) throws Exception;
 }

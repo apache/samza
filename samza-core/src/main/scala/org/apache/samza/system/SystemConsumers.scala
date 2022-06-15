@@ -28,15 +28,15 @@ import java.util.HashMap
 import java.util.HashSet
 import java.util.Queue
 import java.util.Set
-import java.util.function.Predicate
+import java.util.function.{Consumer}
 import java.util.stream.Collectors
-
 import scala.collection.JavaConverters._
 import org.apache.samza.serializers.SerdeManager
 import org.apache.samza.util.{Logging, TimerUtil}
 import org.apache.samza.system.chooser.MessageChooser
 import org.apache.samza.SamzaException
 import org.apache.samza.config.TaskConfig
+
 
 object SystemConsumers {
   val DEFAULT_NO_NEW_MESSAGES_TIMEOUT = 10
@@ -116,7 +116,12 @@ class SystemConsumers (
    */
   val clock: () => Long = () => System.nanoTime(),
 
-  val elasticityFactor: Int = 1) extends Logging with TimerUtil {
+  val elasticityFactor: Int = 1,
+
+  /**
+   * Identifier of the current deployment.
+   * */
+  val runId: String = null) extends Logging with TimerUtil {
 
   /**
    * Mapping from the {@see SystemStreamPartition} to the registered offsets.
@@ -129,6 +134,10 @@ class SystemConsumers (
    * with elasticity disabled, keyBuckets on all SSPs are = -1.
    */
   private val sspKeyBucketsRegistered = new HashSet[SystemStreamPartition] ()
+
+  private val intermediateSSPs = new HashSet[SystemStreamPartition]()
+
+  private val intermediateSystems = new HashSet[String]()
 
   /**
    * A buffer of incoming messages grouped by SystemStreamPartition. These
@@ -155,10 +164,8 @@ class SystemConsumers (
     */
   private var started = false
 
-  /**
-   * Denotes if the SystemConsumers is in drain mode.
-   * */
-  private var draining = false
+  @volatile
+  private var isDraining = false
 
   /**
    * Default timeout to noNewMessagesTimeout. Every time SystemConsumers
@@ -193,8 +200,6 @@ class SystemConsumers (
       // but the actual systemConsumer which consumes from the input does not know about KeyBucket.
       // hence, use an SSP without KeyBucket
       consumer.register(removeKeyBucket(systemStreamPartition), offset)
-      chooser.register(removeKeyBucket(systemStreamPartition), offset)
-      debug("consumer.register and chooser.register for ssp: %s with offset %s" format (systemStreamPartition, offset))
     }
 
     debug("Starting consumers.")
@@ -214,13 +219,10 @@ class SystemConsumers (
 
     chooser.start
 
+
     started = true
 
     refresh
-  }
-
-  def drain: Unit = {
-    draining = true
   }
 
   def stop {
@@ -237,6 +239,14 @@ class SystemConsumers (
     }
   }
 
+  def drain(): Unit = {
+    if (!isDraining) {
+      isDraining = true;
+      info("SystemConsumers is set to drain mode.")
+      consumers.values.foreach(_.stop)
+      writeDrainControlMessageToSspQueue()
+    }
+  }
 
   def register(ssp: SystemStreamPartition, offset: String) {
     // If elasticity is enabled then the RunLoop gives SSP with keybucket
@@ -255,6 +265,8 @@ class SystemConsumers (
     metrics.registerSystemStreamPartition(systemStreamPartition)
     unprocessedMessagesBySSP.put(systemStreamPartition, new ArrayDeque[IncomingMessageEnvelope]())
 
+    chooser.register(systemStreamPartition, offset)
+
     try {
       val consumer = consumers(systemStreamPartition.getSystem)
       val existingOffset = sspToRegisteredOffsets.get(systemStreamPartition)
@@ -268,12 +280,17 @@ class SystemConsumers (
     }
   }
 
+  def registerIntermediateSSP(ssp: SystemStreamPartition): Unit = {
+    debug("Registering intermediate stream: %s" format ssp)
+    intermediateSSPs.add(ssp)
+    intermediateSystems.add(ssp.getSystem)
+  }
 
   def isEndOfStream(systemStreamPartition: SystemStreamPartition) = {
     endOfStreamSSPs.contains(removeKeyBucket(systemStreamPartition))
   }
 
-  def choose (updateChooser: Boolean = true): IncomingMessageEnvelope = {
+  def choose(updateChooser: Boolean = true): IncomingMessageEnvelope = {
     val envelopeFromChooser = chooser.choose
 
     updateTimer(metrics.deserializationNs) {
@@ -398,16 +415,54 @@ class SystemConsumers (
   }
 
   private def refresh {
-    if (draining) {
-      trace("Skipping refresh of chooser as the multiplexer is in drain mode.")
-      return
-    }
-    trace("Refreshing chooser with new messages.")
-
     // Update last poll time so we don't poll too frequently.
     lastPollNs = clock()
-    // Poll every system for new messages.
-    consumers.keys.map(poll(_))
+
+    if (isDraining) {
+      trace("Refreshing chooser with new messages from intermediate systems.")
+
+      // scala 2.11 doesn't allow using syntactical sugar: intermediateSystems.foreach(poll(_)) over java collections
+      intermediateSystems.forEach(new Consumer[String] {
+        override def accept(system: String): Unit = poll(system)
+      })
+    } else {
+      trace("Refreshing chooser with new messages.")
+      consumers.keys.foreach(poll(_))
+    }
+  }
+
+  private def writeDrainControlMessageToSspQueue() {
+    val sspsToDrain = new HashSet(sspKeyBucketsRegistered)
+
+    // only write Drain ControlMessages to source SSPs
+    // sspsToDrain = allSSPs - intermediateSSPs - eosSSPs
+    sspsToDrain.removeAll(intermediateSSPs)
+    sspsToDrain.removeAll(endOfStreamSSPs)
+
+    sspsToDrain.forEach(new Consumer[SystemStreamPartition] {
+      override def accept(ssp: SystemStreamPartition): Unit = {
+        val envelopes: Queue[IncomingMessageEnvelope] =
+          if (unprocessedMessagesBySSP.containsKey(ssp)) {
+            unprocessedMessagesBySSP.get(ssp)
+          } else {
+            new util.ArrayDeque[IncomingMessageEnvelope]()
+          }
+
+        // Add watermark ControlMessage only if there are intermediate SSPs as low-level API task doesn't process
+        // WatermarkMessages
+        if (!intermediateSSPs.isEmpty) {
+          envelopes.add(IncomingMessageEnvelope.buildWatermarkEnvelope(ssp, Long.MaxValue))
+          totalUnprocessedMessages += 1
+        }
+        // Add Drain ControlMessage
+        envelopes.add(IncomingMessageEnvelope.buildDrainMessage(ssp, runId))
+        totalUnprocessedMessages += 1
+        unprocessedMessagesBySSP.put(ssp, envelopes)
+
+        // update the chooser with the messages
+        tryUpdate(ssp)
+      }
+    })
   }
 
   /**

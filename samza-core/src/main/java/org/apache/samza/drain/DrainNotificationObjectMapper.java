@@ -67,7 +67,7 @@ public class DrainNotificationObjectMapper {
         throws IOException {
       Map<String, Object> drainMessageMap = new HashMap<>();
       drainMessageMap.put("uuid", value.getUuid().toString());
-      drainMessageMap.put("deploymentId", value.getDeploymentId());
+      drainMessageMap.put("runId", value.getRunId());
       jsonGenerator.writeObject(drainMessageMap);
     }
   }
@@ -79,8 +79,8 @@ public class DrainNotificationObjectMapper {
       ObjectCodec oc = jsonParser.getCodec();
       JsonNode node = oc.readTree(jsonParser);
       UUID uuid = UUID.fromString(node.get("uuid").textValue());
-      String deploymentId = node.get("deploymentId").textValue();
-      return new DrainNotification(uuid, deploymentId);
+      String runId = node.get("runId").textValue();
+      return new DrainNotification(uuid, runId);
     }
   }
 }

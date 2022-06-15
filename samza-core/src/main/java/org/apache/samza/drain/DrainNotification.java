@@ -33,26 +33,26 @@ public class DrainNotification {
   /**
    * Unique identifier for a deployment so drain notifications messages can be invalidated across a job restarts.
    */
-  private final String deploymentId;
+  private final String runId;
 
-  public DrainNotification(UUID uuid, String deploymentId) {
+  public DrainNotification(UUID uuid, String runId) {
     this.uuid = uuid;
-    this.deploymentId = deploymentId;
+    this.runId = runId;
   }
 
   public UUID getUuid() {
     return this.uuid;
   }
 
-  public String getDeploymentId() {
-    return deploymentId;
+  public String getRunId() {
+    return runId;
   }
 
   @Override
   public String toString() {
     final StringBuilder sb = new StringBuilder("DrainMessage{");
     sb.append(" UUID: ").append(uuid);
-    sb.append(", deploymentId: '").append(deploymentId).append('\'');
+    sb.append(", runId: '").append(runId).append('\'');
     sb.append('}');
     return sb.toString();
   }
@@ -67,11 +67,11 @@ public class DrainNotification {
     }
     DrainNotification that = (DrainNotification) o;
     return Objects.equal(uuid, that.uuid)
-        && Objects.equal(deploymentId, that.deploymentId);
+        && Objects.equal(runId, that.runId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(uuid, deploymentId);
+    return Objects.hashCode(uuid, runId);
   }
 }

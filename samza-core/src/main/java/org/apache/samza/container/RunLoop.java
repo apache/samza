@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
+import org.apache.samza.system.DrainMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.system.SystemConsumers;
@@ -70,7 +72,6 @@ public class RunLoop implements Runnable, Throttleable {
   private final List<AsyncTaskWorker> taskWorkers;
   private final SystemConsumers consumerMultiplexer;
   private final Map<SystemStreamPartition, List<AsyncTaskWorker>> sspToTaskWorkerMapping;
-
   private final ExecutorService threadPool;
   private final CoordinatorRequests coordinatorRequests;
   private final Object latch;
@@ -86,9 +87,11 @@ public class RunLoop implements Runnable, Throttleable {
   private volatile boolean shutdownNow = false;
   private volatile Throwable throwable = null;
   private final HighResolutionClock clock;
-  private final boolean isAsyncCommitEnabled;
+  private boolean isAsyncCommitEnabled;
   private volatile boolean runLoopResumedSinceLastChecked;
   private final int elasticityFactor;
+  private final String runId;
+  private boolean isDraining = false;
 
   public RunLoop(Map<TaskName, RunLoopTask> runLoopTasks,
       ExecutorService threadPool,
@@ -103,7 +106,7 @@ public class RunLoop implements Runnable, Throttleable {
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled) {
     this(runLoopTasks, threadPool, consumerMultiplexer, maxConcurrency, windowMs, commitMs, callbackTimeoutMs,
-        maxThrottlingDelayMs, maxIdleMs, containerMetrics, clock, isAsyncCommitEnabled, 1);
+        maxThrottlingDelayMs, maxIdleMs, containerMetrics, clock, isAsyncCommitEnabled, 1, null);
   }
 
   public RunLoop(Map<TaskName, RunLoopTask> runLoopTasks,
@@ -118,7 +121,8 @@ public class RunLoop implements Runnable, Throttleable {
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled,
-      int elasticityFactor) {
+      int elasticityFactor,
+      String runId) {
 
     this.threadPool = threadPool;
     this.consumerMultiplexer = consumerMultiplexer;
@@ -134,15 +138,27 @@ public class RunLoop implements Runnable, Throttleable {
     this.latch = new Object();
     this.workerTimer = Executors.newSingleThreadScheduledExecutor();
     this.clock = clock;
-    Map<TaskName, AsyncTaskWorker> workers = new HashMap<>();
+    // assign runId before creating workers. As the inner AsyncTaskWorker class is not static, it relies on
+    // the outer class fields to be init first
+    this.runId = runId;
+    Map<TaskName, AsyncTaskWorker>  workers = new HashMap<>();
     for (RunLoopTask task : runLoopTasks.values()) {
       workers.put(task.taskName(), new AsyncTaskWorker(task));
     }
     // Partions and tasks assigned to the container will not change during the run loop life time
     this.sspToTaskWorkerMapping = Collections.unmodifiableMap(getSspToAsyncTaskWorkerMap(runLoopTasks, workers));
+
     this.taskWorkers = Collections.unmodifiableList(new ArrayList<>(workers.values()));
     this.isAsyncCommitEnabled = isAsyncCommitEnabled;
     this.elasticityFactor = elasticityFactor;
+  }
+
+  /**
+   * Sets the RunLoop to drain mode.
+   * */
+  private void drain() {
+    isDraining = true;
+    isAsyncCommitEnabled = false;
   }
 
   /**
@@ -297,7 +313,8 @@ public class RunLoop implements Runnable, Throttleable {
    * when elasticity is enabled,
    *       sspToTaskWorkerMapping has workers for a SSP which has keyBucket
    *       hence need to use envelop.getSSP(elasticityFactor)
-   *       Additionally, when envelope is EnofStream or Watermark, it needs to be sent to all works for the ssp irrespective of keyBucket
+   *       Additionally, when envelope is EndOfStream or Watermark or Drain, it needs to be sent to all works for the ssp
+   *       irrespective of keyBucket
    * @param envelope
    * @return list of workers for the envelope
    */
@@ -309,9 +326,14 @@ public class RunLoop implements Runnable, Throttleable {
     final SystemStreamPartition sspOfEnvelope = envelope.getSystemStreamPartition(elasticityFactor);
     List<AsyncTaskWorker> listOfWorkersForEnvelope = null;
 
-    // if envelope is end of stream or watermark, it needs to be routed to all tasks consuming the ssp irresp of keybucket
+    // if envelope is end of stream or watermark or drain, it needs to be routed to all tasks consuming the ssp irresp
+    // of keybucket
     MessageType messageType = MessageType.of(envelope.getMessage());
-    if (envelope.isEndOfStream() || MessageType.END_OF_STREAM == messageType || MessageType.WATERMARK == messageType) {
+    if (envelope.isEndOfStream()
+        || envelope.isDrain()
+        || messageType == MessageType.END_OF_STREAM
+        || messageType == MessageType.DRAIN
+        || messageType == MessageType.WATERMARK) {
 
       //sspToTaskWorkerMapping has ssps with keybucket so extract and check only system, stream and partition and ignore the keybucket
       listOfWorkersForEnvelope = sspToTaskWorkerMapping.entrySet()
@@ -391,6 +413,20 @@ public class RunLoop implements Runnable, Throttleable {
   }
 
   /**
+   * Resume the runloop thread. This method is triggered after a task has completed drain.
+   */
+  private void resumeAfterDrain() {
+    log.trace("Resume loop thread");
+    if (coordinatorRequests.shouldShutdownNow()) {
+      shutdownNow = true;
+    }
+    synchronized (latch) {
+      latch.notifyAll();
+      runLoopResumedSinceLastChecked = true;
+    }
+  }
+
+  /**
    * Set the throwable and abort run loop. The throwable will be thrown from the run loop thread
    * @param t throwable
    */
@@ -426,6 +462,7 @@ public class RunLoop implements Runnable, Throttleable {
     COMMIT,
     PROCESS,
     END_OF_STREAM,
+    DRAIN,
     SCHEDULER,
     NO_OP
   }
@@ -443,7 +480,8 @@ public class RunLoop implements Runnable, Throttleable {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
       Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
-      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet, !task.intermediateStreams().isEmpty());
+      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet, !task.intermediateStreams().isEmpty(),
+          runId);
     }
 
     private void init() {
@@ -514,9 +552,36 @@ public class RunLoop implements Runnable, Throttleable {
         case END_OF_STREAM:
           endOfStream();
           break;
+        case DRAIN:
+          drain();
+          break;
         default:
           //no op
           break;
+      }
+    }
+
+    /**
+     * Called when a task has drained i.e all SSPs for the task have received a drain message.
+     * */
+    private void drain() {
+      state.complete = true;
+      state.startDrain();
+      try {
+        ReadableCoordinator coordinator = new ReadableCoordinator(task.taskName());
+
+        task.drain(coordinator);
+
+        // issue a shutdown request for the task
+        coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+        coordinatorRequests.update(coordinator);
+
+        // issue a commit explicitly before we shutdown the task
+        // Adding commit to coordinator will not work as the state is marked complete and NO_OP will always be the
+        // next operation for this task
+        commit();
+      } finally {
+        resumeAfterDrain();
       }
     }
 
@@ -526,6 +591,7 @@ public class RunLoop implements Runnable, Throttleable {
         ReadableCoordinator coordinator = new ReadableCoordinator(task.taskName());
 
         task.endOfStream(coordinator);
+
         // issue a request for shutdown of the task
         coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
         coordinatorRequests.update(coordinator);
@@ -538,7 +604,6 @@ public class RunLoop implements Runnable, Throttleable {
       } finally {
         resume();
       }
-
     }
 
     /**
@@ -638,9 +703,12 @@ public class RunLoop implements Runnable, Throttleable {
         }
       };
 
-      if (threadPool != null) {
+      if (threadPool != null && !isDraining) {
         log.trace("Task {} commits on the thread pool", task.taskName());
         threadPool.submit(commitWorker);
+      } else if (isDraining) {
+        log.trace("Task {} commits on the run loop thread as task is draining", task.taskName());
+        commitWorker.run();
       } else {
         log.trace("Task {} commits on the run loop thread", task.taskName());
         commitWorker.run();
@@ -759,24 +827,31 @@ public class RunLoop implements Runnable, Throttleable {
     private volatile boolean needScheduler = false;
     private volatile boolean complete = false;
     private volatile boolean endOfStream = false;
+    private volatile boolean shouldDrain = false;
     private volatile boolean windowInFlight = false;
     private volatile boolean commitInFlight = false;
     private volatile boolean schedulerInFlight = false;
     private final AtomicInteger messagesInFlight = new AtomicInteger(0);
-    private final ArrayDeque<PendingEnvelope> pendingEnvelopeQueue;
+    private final ArrayDeque<PendingEnvelope>   pendingEnvelopeQueue;
 
     //Set of SSPs that we are currently processing for this task instance
     private final Set<SystemStreamPartition> processingSspSet;
+    //Set of SSPs that we are currently processing for this task instance
+    private final Set<SystemStreamPartition> processingSspSetToDrain;
     private final TaskName taskName;
     private final TaskInstanceMetrics taskMetrics;
     private final boolean hasIntermediateStreams;
+    private final String runId;
 
-    AsyncTaskState(TaskName taskName, TaskInstanceMetrics taskMetrics, Set<SystemStreamPartition> sspSet, boolean hasIntermediateStreams) {
+    AsyncTaskState(TaskName taskName, TaskInstanceMetrics taskMetrics, Set<SystemStreamPartition> sspSet,
+        boolean hasIntermediateStreams, String runId) {
       this.taskName = taskName;
       this.taskMetrics = taskMetrics;
       this.pendingEnvelopeQueue = new ArrayDeque<>();
       this.processingSspSet = sspSet;
+      this.processingSspSetToDrain = new HashSet<>(sspSet);
       this.hasIntermediateStreams = hasIntermediateStreams;
+      this.runId = runId;
     }
 
     private boolean checkEndOfStream() {
@@ -796,6 +871,7 @@ public class RunLoop implements Runnable, Throttleable {
                     && sspInSet.getPartition().equals(sspOfEnvelope.getPartition()))
                 .findFirst();
             ssp.ifPresent(processingSspSet::remove);
+            ssp.ifPresent(processingSspSetToDrain::remove);
           }
           if (!hasIntermediateStreams) {
             pendingEnvelopeQueue.remove();
@@ -803,6 +879,57 @@ public class RunLoop implements Runnable, Throttleable {
         }
       }
       return processingSspSet.isEmpty();
+    }
+
+    private boolean shouldDrain() {
+      if (endOfStream) {
+        return false;
+      }
+
+      if (!pendingEnvelopeQueue.isEmpty()) {
+        PendingEnvelope pendingEnvelope = pendingEnvelopeQueue.peek();
+        IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
+
+        if (envelope.isDrain()) {
+          final DrainMessage message = (DrainMessage) envelope.getMessage();
+          if (!message.getRunId().equals(runId)) {
+            // Removing the drain message from the pending queue as it doesn't match with the current runId
+            // Removing it will ensure that it is not picked up by process()
+            pendingEnvelopeQueue.remove();
+          } else {
+            // set the RunLoop to drain mode
+            if (!isDraining) {
+              drain();
+            }
+
+            if (elasticityFactor <= 1) {
+              SystemStreamPartition ssp = envelope.getSystemStreamPartition();
+              processingSspSetToDrain.remove(ssp);
+            } else {
+              // SystemConsumers will write only one envelope (enclosing DrainMessage) per SSP in its buffer.
+              // This envelope doesn't have keybucket info it's SSP. With elasticity, the same SSP can be processed by
+              // multiple tasks. Therefore, if envelope contains drain message, the ssp of envelope should be removed
+              // from task's processing set irrespective of keyBucket.
+              SystemStreamPartition sspOfEnvelope = envelope.getSystemStreamPartition();
+              Optional<SystemStreamPartition> ssp = processingSspSetToDrain.stream()
+                  .filter(sspInSet -> sspInSet.getSystemStream().equals(sspOfEnvelope.getSystemStream())
+                      && sspInSet.getPartition().equals(sspOfEnvelope.getPartition()))
+                  .findFirst();
+              ssp.ifPresent(processingSspSetToDrain::remove);
+            }
+
+            if (!hasIntermediateStreams) {
+              // Don't remove from the pending queue as we want the DAG to pick up Drain message and propagate it to
+              // intermediate streams
+              pendingEnvelopeQueue.remove();
+            }
+          }
+        }
+        return processingSspSetToDrain.isEmpty();
+      }
+      // if no messages are in the queue, the task has probably already drained or there are no messages from
+      // the chooser
+      return false;
     }
 
     /**
@@ -813,6 +940,11 @@ public class RunLoop implements Runnable, Throttleable {
       if (checkEndOfStream()) {
         endOfStream = true;
       }
+
+      if (shouldDrain()) {
+        shouldDrain = true;
+      }
+
       if (coordinatorRequests.commitRequests().remove(taskName)) {
         needCommit = true;
       }
@@ -826,9 +958,9 @@ public class RunLoop implements Runnable, Throttleable {
        */
       if (needCommit) {
         return (messagesInFlight.get() == 0 || isAsyncCommitEnabled) && !opInFlight;
-      } else if (needWindow || needScheduler || endOfStream) {
+      } else if (needWindow || needScheduler || endOfStream || shouldDrain) {
         /*
-         * A task is ready for window, scheduler or end-of-stream operation.
+         * A task is ready for window, scheduler, drain or end-of-stream operation.
          */
         return messagesInFlight.get() == 0 && !opInFlight;
       } else {
@@ -847,14 +979,24 @@ public class RunLoop implements Runnable, Throttleable {
      */
     private WorkerOp nextOp() {
 
-      if (complete) return WorkerOp.NO_OP;
+      if (complete) {
+        return WorkerOp.NO_OP;
+      }
 
       if (isReady()) {
-        if (needCommit) return WorkerOp.COMMIT;
-        else if (needWindow) return WorkerOp.WINDOW;
-        else if (needScheduler) return WorkerOp.SCHEDULER;
-        else if (endOfStream && pendingEnvelopeQueue.isEmpty()) return WorkerOp.END_OF_STREAM;
-        else if (!pendingEnvelopeQueue.isEmpty()) return WorkerOp.PROCESS;
+        if (needCommit) {
+          return WorkerOp.COMMIT;
+        } else if (needWindow) {
+          return WorkerOp.WINDOW;
+        } else if (needScheduler) {
+          return WorkerOp.SCHEDULER;
+        } else if (endOfStream && pendingEnvelopeQueue.isEmpty()) {
+          return WorkerOp.END_OF_STREAM;
+        } else if (shouldDrain && pendingEnvelopeQueue.isEmpty()) {
+          return WorkerOp.DRAIN;
+        } else if (!pendingEnvelopeQueue.isEmpty()) {
+          return WorkerOp.PROCESS;
+        }
       }
       return WorkerOp.NO_OP;
     }
@@ -874,6 +1016,10 @@ public class RunLoop implements Runnable, Throttleable {
     private void startWindow() {
       needWindow = false;
       windowInFlight = true;
+    }
+
+    private void startDrain() {
+      shouldDrain = false;
     }
 
     private void startCommit() {
@@ -917,6 +1063,7 @@ public class RunLoop implements Runnable, Throttleable {
       pendingEnvelopeQueue.add(pendingEnvelope);
       int queueSize = pendingEnvelopeQueue.size();
       taskMetrics.pendingMessages().set(queueSize);
+      log.trace("Insert envelope to task {} queue.", taskName);
       log.trace("Insert envelope to task {} queue.", taskName);
       log.debug("Task {} pending envelope count is {} after insertion.", taskName, queueSize);
     }

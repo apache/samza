@@ -48,6 +48,7 @@ import org.apache.samza.coordinator.JobCoordinator;
 import org.apache.samza.coordinator.JobCoordinatorFactory;
 import org.apache.samza.coordinator.JobCoordinatorListener;
 import org.apache.samza.diagnostics.DiagnosticsManager;
+import org.apache.samza.drain.DrainMonitor;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -402,12 +403,18 @@ public class StreamProcessor {
      */
     MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
 
+    DrainMonitor drainMonitor = null;
+    JobConfig jobConfig = new JobConfig(config);
+    if (metadataStore != null && jobConfig.getDrainMonitorEnabled()) {
+      drainMonitor = new DrainMonitor(metadataStore, config);
+    }
+
     return SamzaContainer.apply(processorId, jobModel, ScalaJavaUtil.toScalaMap(this.customMetricsReporter),
         metricsRegistryMap, this.taskFactory, JobContextImpl.fromConfigWithDefaults(this.config, jobModel),
         Option.apply(this.applicationDefinedContainerContextFactoryOptional.orElse(null)),
         Option.apply(this.applicationDefinedTaskContextFactoryOptional.orElse(null)),
         Option.apply(this.externalContextOptional.orElse(null)), null, startpointManager,
-        Option.apply(diagnosticsManager.orElse(null)), null);
+        Option.apply(diagnosticsManager.orElse(null)), drainMonitor);
   }
 
   private static JobCoordinator createJobCoordinator(Config config, String processorId, MetricsRegistry metricsRegistry, MetadataStore metadataStore) {

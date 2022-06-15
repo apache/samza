@@ -167,7 +167,7 @@ public class StreamConfig extends MapConfig {
    * @param systemStream system stream to map to stream id
    * @return             stream id corresponding to the system stream
    */
-  private String systemStreamToStreamId(SystemStream systemStream) {
+  public String systemStreamToStreamId(SystemStream systemStream) {
     List<String> streamIds = getStreamIdsForSystem(systemStream.getSystem()).stream()
       .filter(streamId -> systemStream.getStream().equals(getPhysicalName(streamId))).collect(Collectors.toList());
     if (streamIds.size() > 1) {

@@ -41,7 +41,8 @@ public class RunLoopFactory {
       SamzaContainerMetrics containerMetrics,
       TaskConfig taskConfig,
       HighResolutionClock clock,
-      int elasticityFactor) {
+      int elasticityFactor,
+      String runId) {
 
     long taskWindowMs = taskConfig.getWindowMs();
 
@@ -65,6 +66,8 @@ public class RunLoopFactory {
 
     log.info("Got elasticity factor: {}.", elasticityFactor);
 
+    log.info("Got current run Id: {}.", runId);
+
     log.info("Run loop in asynchronous mode.");
 
     return new RunLoop(
@@ -80,6 +83,7 @@ public class RunLoopFactory {
       containerMetrics,
       clock,
       isAsyncCommitEnabled,
-      elasticityFactor);
+      elasticityFactor,
+      runId);
   }
 }

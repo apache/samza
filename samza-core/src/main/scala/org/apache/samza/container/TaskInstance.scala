@@ -72,6 +72,7 @@ class TaskInstance(
 
   val taskName: TaskName = taskModel.getTaskName
   val isInitableTask = task.isInstanceOf[InitableTask]
+  val isDrainTask = task.isInstanceOf[DrainListenerTask]
   val isEndOfStreamListenerTask = task.isInstanceOf[EndOfStreamListenerTask]
   val isClosableTask = task.isInstanceOf[ClosableTask]
 
@@ -110,6 +111,12 @@ class TaskInstance(
 
   val streamConfig: StreamConfig = new StreamConfig(config)
   override val intermediateStreams: java.util.Set[String] = JavaConverters.setAsJavaSetConverter(streamConfig.getStreamIds.filter(streamConfig.getIsIntermediateStream)).asJava
+
+  val intermediateSSPs: Set[SystemStreamPartition] = systemStreamPartitions.filter(ssp => {
+    val systemStream = ssp.getSystemStream
+    val streamId = streamConfig.systemStreamToStreamId(systemStream)
+    intermediateStreams.contains(streamId)
+  }).toSet
 
   val streamsToDeleteCommittedMessages: Set[String] = streamConfig.getStreamIds.filter(streamConfig.getDeleteCommittedMessages).map(streamConfig.getPhysicalName).toSet
 
@@ -189,19 +196,26 @@ class TaskInstance(
   }
 
   /**
-    * Computes the starting offset for the partitions assigned to the task and registers them with the underlying {@see SystemConsumers}.
-    *
-    * Starting offset for a partition of the task is computed in the following manner:
-    *
-    * 1. If a startpoint exists for a task, system stream partition and it resolves to a offset, then the resolved offset is used as the starting offset.
-    * 2. Else, the checkpointed offset for the system stream partition is used as the starting offset.
+   * This method registers the following with the underlying {@see SystemConsumers}:
+   * a) starting offsets for all SSPs assigned to the task
+   * b) intermediate SSPs assigned to the task
+   *
+   * Starting offset for a partition of the task is computed in the following manner:
+   *
+   * 1. If a startpoint exists for a task, system stream partition and it resolves to a offset, then the resolved offset is used as the starting offset.
+   * 2. Else, the checkpointed offset for the system stream partition is used as the starting offset.
     */
   def registerConsumers() {
     debug("Registering consumers for taskName: %s" format taskName)
+
     systemStreamPartitions.foreach(systemStreamPartition => {
       val startingOffset: String = getStartingOffset(systemStreamPartition)
       consumerMultiplexer.register(systemStreamPartition, startingOffset)
       metrics.addOffsetGauge(systemStreamPartition, () => offsetManager.getLastProcessedOffset(taskName, systemStreamPartition).orNull)
+    })
+
+    intermediateSSPs.foreach(ssp => {
+      consumerMultiplexer.registerIntermediateSSP(ssp)
     })
   }
 
@@ -238,6 +252,16 @@ class TaskInstance(
       exceptionHandler.maybeHandle {
         task.asInstanceOf[EndOfStreamListenerTask].onEndOfStream(collector, coordinator)
       }
+    }
+  }
+
+  def drain(coordinator: ReadableCoordinator): Unit = {
+    task match {
+      case _: DrainListenerTask =>
+        exceptionHandler.maybeHandle {
+          task.asInstanceOf[DrainListenerTask].onDrain(collector, coordinator)
+        }
+      case _ =>
     }
   }
 
@@ -613,14 +637,19 @@ class TaskInstance(
     // if elasticityFactor > 1, find the SSP with keyBucket
     var incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
 
-    // if envelope is end of stream or watermark, it needs to be routed to all tasks consuming the ssp irresp of keyBucket
+    // if envelope is end of stream or watermark or drain,
+    // it needs to be routed to all tasks consuming the ssp irresp of keyBucket
     val messageType = MessageType.of(envelope.getMessage)
-    if (envelope.isEndOfStream() || MessageType.END_OF_STREAM == messageType || MessageType.WATERMARK == messageType) {
+    if (envelope.isEndOfStream()
+      || envelope.isDrain()
+      || messageType == MessageType.END_OF_STREAM
+      || messageType == MessageType.WATERMARK) {
+
       incomingMessageSsp = systemStreamPartitions
         .filter(ssp => ssp.getSystemStream.equals(incomingMessageSsp.getSystemStream)
           && ssp.getPartition.equals(incomingMessageSsp.getPartition))
         .toIterator.next()
-      debug("for watermark or end of stream envelope, found incoming ssp as {}" format incomingMessageSsp)
+      debug("for watermark or end-of-stream or drain envelope, found incoming ssp as {}".format(incomingMessageSsp))
     }
     incomingMessageSsp
   }

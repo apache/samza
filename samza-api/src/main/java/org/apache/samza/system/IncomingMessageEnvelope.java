@@ -132,7 +132,6 @@ public class IncomingMessageEnvelope {
     if (envelopeKeyorOffset == null) {
       return new SystemStreamPartition(systemStreamPartition, 0);
     }
-
     // modulo 31 first to best spread out the hashcode and then modulo elasticityFactor for actual keyBucket
     // Note: elasticityFactor <= 16 so modulo 31 is safe to do.
     int keyBucket = (Math.abs(envelopeKeyorOffset.hashCode()) % 31) % elasticityFactor;
@@ -162,6 +161,10 @@ public class IncomingMessageEnvelope {
     return END_OF_STREAM_OFFSET.equals(offset);
   }
 
+  public boolean isDrain() {
+    return message != null && DrainMessage.class.isAssignableFrom(message.getClass());
+  }
+
   /**
    * This method is deprecated in favor of WatermarkManager.buildEndOfStreamEnvelope(SystemStreamPartition ssp).
    *
@@ -170,6 +173,10 @@ public class IncomingMessageEnvelope {
    */
   public static IncomingMessageEnvelope buildEndOfStreamEnvelope(SystemStreamPartition ssp) {
     return new IncomingMessageEnvelope(ssp, END_OF_STREAM_OFFSET, null, new EndOfStreamMessage(null));
+  }
+
+  public static IncomingMessageEnvelope buildDrainMessage(SystemStreamPartition ssp, String runId) {
+    return new IncomingMessageEnvelope(ssp, null, null, new DrainMessage(runId));
   }
 
   public static IncomingMessageEnvelope buildWatermarkEnvelope(SystemStreamPartition ssp, long watermark) {

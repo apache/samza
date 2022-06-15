@@ -45,6 +45,7 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
@@ -119,6 +120,8 @@ public class ContainerStorageManager {
   private static final int SIDE_INPUT_SHUTDOWN_TIMEOUT_SECONDS = 60;
 
   private static final int RESTORE_THREAD_POOL_SHUTDOWN_TIMEOUT_SECONDS = 60;
+
+  private static final int DEFAULT_SIDE_INPUT_ELASTICITY_FACTOR = 1;
 
   /** Maps containing relevant per-task objects */
   private final Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics;
@@ -297,11 +300,13 @@ public class ContainerStorageManager {
       MessageChooser chooser = DefaultChooser.apply(inputStreamMetadata, new RoundRobinChooserFactory(), config,
           sideInputSystemConsumersMetrics.registry(), systemAdmins);
 
+      ApplicationConfig applicationConfig = new ApplicationConfig(config);
+
       sideInputSystemConsumers =
           new SystemConsumers(chooser, ScalaJavaUtil.toScalaMap(sideInputConsumers), systemAdmins, serdeManager,
               sideInputSystemConsumersMetrics, SystemConsumers.DEFAULT_NO_NEW_MESSAGES_TIMEOUT(), SystemConsumers.DEFAULT_DROP_SERIALIZATION_ERROR(),
               TaskConfig.DEFAULT_POLL_INTERVAL_MS, ScalaJavaUtil.toScalaFunction(() -> System.nanoTime()),
-              JobConfig.DEFAULT_JOB_ELASTICITY_FACTOR);
+              JobConfig.DEFAULT_JOB_ELASTICITY_FACTOR, applicationConfig.getRunId());
     }
 
   }
@@ -922,6 +927,8 @@ public class ContainerStorageManager {
         new SamzaContainerMetrics(SIDEINPUTS_METRICS_PREFIX + this.samzaContainerMetrics.source(),
             this.samzaContainerMetrics.registry(), SIDEINPUTS_METRICS_PREFIX);
 
+    ApplicationConfig applicationConfig = new ApplicationConfig(config);
+
     this.sideInputRunLoop = new RunLoop(sideInputTasks,
         null, // all operations are executed in the main runloop thread
         this.sideInputSystemConsumers,
@@ -934,7 +941,9 @@ public class ContainerStorageManager {
         taskConfig.getMaxIdleMs(),
         sideInputContainerMetrics,
         System::nanoTime,
-        false); // commit must be synchronous to ensure integrity of state flush
+        false,
+        DEFAULT_SIDE_INPUT_ELASTICITY_FACTOR,
+        applicationConfig.getRunId()); // commit must be synchronous to ensure integrity of state flush
 
     try {
       sideInputsExecutor.submit(() -> {
