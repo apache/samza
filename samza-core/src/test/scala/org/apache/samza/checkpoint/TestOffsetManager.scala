@@ -629,50 +629,69 @@ class TestOffsetManager {
   def testStartpointUpdate: Unit = {
     val taskName = new TaskName("c")
     val systemStream = new SystemStream("test-system", "test-stream")
-    val partition0 = new Partition(0)
-    val partition1 = new Partition(1)
-    val systemStreamPartition0 = new SystemStreamPartition(systemStream, partition0)
-    val systemStreamPartition1 = new SystemStreamPartition(systemStream, partition1)
+    val p0 = new Partition(0)
+    val p1 = new Partition(1)
+    val p2 = new Partition(2)
+    val ssp0 = new SystemStreamPartition(systemStream, p0)
+    val ssp1 = new SystemStreamPartition(systemStream, p1)
+    val ssp2 = new SystemStreamPartition(systemStream, p2)
 //    val unregisteredSystemStreamPartition = new SystemStreamPartition(systemStream3, partition)
     val testStreamMetadata = new SystemStreamMetadata(systemStream.getStream, Map(
-      partition0 -> new SystemStreamPartitionMetadata("0", "1", "2"),
-      partition1 -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
+      p0 -> new SystemStreamPartitionMetadata("0", "1", "2"),
+      p1 -> new SystemStreamPartitionMetadata("0", "1", "2"),
+      p2 -> new SystemStreamPartitionMetadata("0", "1", "2")).asJava)
     val systemStreamMetadata = Map(systemStream -> testStreamMetadata)
     val config = new MapConfig
-    val checkpointManager = getCheckpointManager1(new CheckpointV1(Map(systemStreamPartition0 -> "45", systemStreamPartition1 -> "100").asJava),
+    val checkpointManager = getCheckpointManager1(new CheckpointV1(Map(ssp0 -> "45", ssp1 -> "100", ssp1 -> "200").asJava),
       taskName)
     val startpointManagerUtil = getStartpointManagerUtil()
     val systemAdmins = mock(classOf[SystemAdmins])
     when(systemAdmins.getSystemAdmin(systemStream.getSystem)).thenReturn(getSystemAdmin)
     val offsetManager = OffsetManager(systemStreamMetadata, config, checkpointManager, startpointManagerUtil.getStartpointManager, systemAdmins, Map(), new OffsetManagerMetrics)
-    offsetManager.register(taskName, Set(systemStreamPartition0, systemStreamPartition1))
-    val startpoint0 = new StartpointOldest
-    val startpoint1 = new StartpointUpcoming
-    startpointManagerUtil.getStartpointManager.writeStartpoint(systemStreamPartition0, taskName, startpoint0)
-    startpointManagerUtil.getStartpointManager.writeStartpoint(systemStreamPartition1, taskName, startpoint1)
-    assertTrue(startpointManagerUtil.getStartpointManager.fanOut(asTaskToSSPMap(taskName, systemStreamPartition0, systemStreamPartition1)).keySet().contains(taskName))
+    offsetManager.register(taskName, Set(ssp0, ssp1, ssp2))
+    val startpoint0 = new StartpointUpcoming
+    val startpoint1 = new StartpointOldest
+    val startpoint2 = new StartpointOldest
+    startpointManagerUtil.getStartpointManager.writeStartpoint(ssp0, taskName, startpoint0)
+    startpointManagerUtil.getStartpointManager.writeStartpoint(ssp1, taskName, startpoint1)
+    startpointManagerUtil.getStartpointManager.writeStartpoint(ssp2, taskName, startpoint2)
+    assertTrue(startpointManagerUtil.getStartpointManager.fanOut(asTaskToSSPMap(taskName, ssp0, ssp1, ssp2)).keySet().contains(taskName))
     offsetManager.start
-    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition0))
-    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition1))
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp0))
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp1))
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp2))
 
     checkpoint(offsetManager, taskName)
     // Startpoint should not delete if the partition's processed offset is not updated
-    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition0))
-    assertEquals(Option(startpoint0), offsetManager.getStartpoint(taskName, systemStreamPartition0))
-    // Startpoint should not delete if the partition's processed offset is not updated
-    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition1))
-    assertEquals(Option(startpoint1), offsetManager.getStartpoint(taskName, systemStreamPartition1))
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp0))
+    assertEquals(Option(startpoint0), offsetManager.getStartpoint(taskName, ssp0))
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp1))
+    assertEquals(Option(startpoint1), offsetManager.getStartpoint(taskName, ssp1))
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp2))
+    assertEquals(Option(startpoint2), offsetManager.getStartpoint(taskName, ssp2))
 
-    offsetManager.update(taskName, systemStreamPartition0, "46")
+    offsetManager.update(taskName, ssp0, "46")
     checkpoint(offsetManager, taskName)
     // Startpoint should delete if the partition's processed offset is updated
-    assertFalse(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition0))
-    assertTrue(offsetManager.getStartpoint(taskName, systemStreamPartition0).isEmpty)
+    assertFalse(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp0))
+    assertTrue(offsetManager.getStartpoint(taskName, ssp0).isEmpty)
     // Startpoint should not delete if the partition's processed offset is not updated
-    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(systemStreamPartition1))
-    assertEquals(Option(startpoint1), offsetManager.getStartpoint(taskName, systemStreamPartition1))
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp1))
+    assertEquals(Option(startpoint1), offsetManager.getStartpoint(taskName, ssp1))
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp2))
+    assertEquals(Option(startpoint2), offsetManager.getStartpoint(taskName, ssp2))
 
-    offsetManager.update(taskName, systemStreamPartition1, "101")
+    // update the offset which is same with the last checkpoint offset
+    offsetManager.update(taskName, ssp1, "100")
+    checkpoint(offsetManager, taskName)
+    // Startpoint should delete if the partition's processed offset is updated
+    assertFalse(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp1))
+    assertTrue(offsetManager.getStartpoint(taskName, ssp1).isEmpty)
+    // Startpoint should not delete if the partition's processed offset is not updated
+    assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).containsKey(ssp2))
+    assertEquals(Option(startpoint2), offsetManager.getStartpoint(taskName, ssp2))
+
+    offsetManager.update(taskName, ssp2, "201")
     checkpoint(offsetManager, taskName)
     intercept[IllegalStateException] {
       // StartpointManager should stop after last fan out is removed
@@ -681,7 +700,7 @@ class TestOffsetManager {
     startpointManagerUtil.getStartpointManager.start
     // Startpoint should delete if the partition's processed offset is updated
     assertTrue(startpointManagerUtil.getStartpointManager.getFanOutForTask(taskName).isEmpty)
-    assertTrue(offsetManager.getStartpoint(taskName, systemStreamPartition1).isEmpty)
+    assertTrue(offsetManager.getStartpoint(taskName, ssp1).isEmpty)
     startpointManagerUtil.stop
   }
 

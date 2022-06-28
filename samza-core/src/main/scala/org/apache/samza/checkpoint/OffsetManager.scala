@@ -171,9 +171,9 @@ class OffsetManager(
   val lastProcessedOffsets = new ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, String]]()
 
   /**
-   * The snapshot of last processed offsets for each SystemStreamPartition during the start process
+   * The task's SSPs have received new messages and been updated the offsets
    */
-  val initialProcessedOffsets = mutable.Map[TaskName, mutable.Map[SystemStreamPartition, String]]()
+  val taskSSPsWithProcessedOffsetUpdated = new ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, Boolean]]()
 
   /**
    * Offsets to start reading from for each SystemStreamPartition. This
@@ -206,7 +206,6 @@ class OffsetManager(
     loadStartingOffsets
     loadStartpoints
     loadDefaults
-    recordInitialProcessedOffsets
 
     info("Successfully loaded last processed offsets: %s" format lastProcessedOffsets)
     info("Successfully loaded starting offsets: %s" format startingOffsets)
@@ -227,8 +226,15 @@ class OffsetManager(
       .toIterator.next()
 
     lastProcessedOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
-    if (offset != null && !offset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
-      lastProcessedOffsets.get(taskName).put(sspWithKeyBucket, offset)
+    taskSSPsWithProcessedOffsetUpdated.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, Boolean]())
+
+    if (offset != null) {
+      if (!offset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
+        lastProcessedOffsets.get(taskName).put(sspWithKeyBucket, offset)
+      }
+      // Record the spp that have received the new messages. The startpoint for each ssp should only be deleted when the
+      // ssp has received the new messages. More details in SAMZA-2749.
+      taskSSPsWithProcessedOffsetUpdated.get(taskName).putIfAbsent(sspWithKeyBucket, true)
     }
   }
 
@@ -400,9 +406,9 @@ class OffsetManager(
     }
 
     // delete corresponding startpoints after checkpoint is supposed to be committed
-    if (startpointManager != null && startpoints.contains(taskName)) {
-      val sspsWithProcessedOffsetUpdated = getSSPsWithProcessedOffsetUpdated(taskName, checkpoint)
-      startpointManager.removeFanOutForTaskSSPs(taskName, sspsWithProcessedOffsetUpdated.asJava)
+    if (startpointManager != null && startpoints.contains(taskName) && taskSSPsWithProcessedOffsetUpdated.containsKey(taskName)) {
+      val sspsWithProcessedOffsetUpdated = taskSSPsWithProcessedOffsetUpdated.get(taskName).keySet()
+      startpointManager.removeFanOutForTaskSSPs(taskName, sspsWithProcessedOffsetUpdated)
       // Remove the startpoints for the ssps that have received the updates of processed offsets. if all ssps of the
       // task have received the updates of processed offsets, remove the whole task's startpoints.
       startpoints.get(taskName) match {
@@ -424,23 +430,6 @@ class OffsetManager(
         startpointManager.stop
       }
     }
-  }
-
-  private def getSSPsWithProcessedOffsetUpdated(taskName: TaskName, checkpoint: Checkpoint): mutable.Set[SystemStreamPartition] = {
-    val sspWithProcessedOffsetUpdated = mutable.Set[SystemStreamPartition]()
-    val cpOffsets = checkpoint.getOffsets
-    if (cpOffsets != null) {
-      initialProcessedOffsets.get(taskName) match {
-        case Some(sspOffsets) =>
-          sspOffsets.foreach{case (ssp, offset) =>
-            if (cpOffsets.containsKey(ssp) && cpOffsets.get(ssp) != offset) {
-              sspWithProcessedOffsetUpdated += ssp
-            }
-          }
-        case None => {}
-      }
-    }
-    sspWithProcessedOffsetUpdated
   }
 
   def stop {
@@ -703,18 +692,6 @@ class OffsetManager(
             }
           }
         }
-      }
-    }
-  }
-
-  /**
-   * Get a snapshot of the existing processed offsets for all tasks during the start process. The intent of having this
-   * snapshot is to know if the partitions' offsets have been updated by comparing it with lastProcessedOffsets.
-   */
-  private def recordInitialProcessedOffsets: Unit = {
-    lastProcessedOffsets.asScala.foreach{case (taskName, sspOffsets) =>
-      sspOffsets.asScala.foreach{case (ssp, offset) =>
-        initialProcessedOffsets.getOrElseUpdate(taskName, mutable.Map[SystemStreamPartition, String]()) += ssp -> offset
       }
     }
   }
