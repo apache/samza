@@ -354,6 +354,7 @@ public class StartpointManager {
         fanOuts.entrySet().removeIf(e -> ssps.contains(e.getKey()));
         if (fanOuts.isEmpty()) {
           removeFanOutForTask(taskName);
+          LOG.debug("Deleted the fanned out startpoint for the task {}", taskName);
         } else {
           try {
             fanOutStore.put(toFanOutStoreKey(taskName), objectMapper.writeValueAsBytes(fanOutPerTask));
