@@ -317,15 +317,58 @@ public class StartpointManager {
    * @return fanned out Startpoints
    */
   public Map<SystemStreamPartition, Startpoint> getFanOutForTask(TaskName taskName) throws IOException {
+    return getStartpointFanOutPerTask(taskName)
+        .map(startpointFanOutPerTask -> ImmutableMap.copyOf(startpointFanOutPerTask.getFanOuts())).orElse(ImmutableMap.of());
+  }
+
+  private Optional<StartpointFanOutPerTask> getStartpointFanOutPerTask(TaskName taskName) throws IOException {
     Preconditions.checkState(!stopped, "Underlying metadata store not available");
     Preconditions.checkNotNull(taskName, "TaskName cannot be null");
 
     byte[] fanOutBytes = fanOutStore.get(toFanOutStoreKey(taskName));
     if (ArrayUtils.isEmpty(fanOutBytes)) {
-      return ImmutableMap.of();
+      return Optional.empty();
     }
-    StartpointFanOutPerTask startpointFanOutPerTask = objectMapper.readValue(fanOutBytes, StartpointFanOutPerTask.class);
-    return ImmutableMap.copyOf(startpointFanOutPerTask.getFanOuts());
+    return Optional.of(objectMapper.readValue(fanOutBytes, StartpointFanOutPerTask.class));
+  }
+
+  /**
+   * Remove the fanned out startpoints for the specified the system stream partitions of the given task. This method
+   * allows to partially remove the fanned out startpoints for the given task.
+   *
+   * Remove the whole task fan out from the store if the fan outs of all system stream partitions of the task are
+   * removed. No action takes if not any specify system stream partition
+   *
+   * @param taskName to (partially) remove the fanned out startpoints for
+   * @param ssps to remove the fanned out startpoints for
+   */
+  public void removeFanOutForTaskSSPs(TaskName taskName, Set<SystemStreamPartition> ssps) {
+    Preconditions.checkState(!stopped, "Underlying metadata store not available");
+    Preconditions.checkNotNull(taskName, "TaskName cannot be null");
+    if (ssps == null || ssps.isEmpty()) {
+      return;
+    }
+    try {
+      getStartpointFanOutPerTask(taskName).ifPresent(fanOutPerTask -> {
+        Map<SystemStreamPartition, Startpoint> fanOuts = fanOutPerTask.getFanOuts();
+        fanOuts.entrySet().removeIf(e -> ssps.contains(e.getKey()));
+        if (fanOuts.isEmpty()) {
+          removeFanOutForTask(taskName);
+          LOG.debug("Deleted the fanned out startpoints for the task {}", taskName);
+        } else {
+          try {
+            fanOutStore.put(toFanOutStoreKey(taskName), objectMapper.writeValueAsBytes(fanOutPerTask));
+          } catch (IOException e) {
+            LOG.error("Can't update the fanned out startpoints for task {}", taskName, e);
+            throw new SamzaException(e);
+          }
+          fanOutStore.flush();
+        }
+      });
+    } catch (IOException e) {
+      LOG.error("Can't get the fanned out startpoints for task {}", taskName, e);
+      throw new SamzaException(e);
+    }
   }
 
   /**

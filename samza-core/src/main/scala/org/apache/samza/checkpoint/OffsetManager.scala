@@ -171,6 +171,11 @@ class OffsetManager(
   val lastProcessedOffsets = new ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, String]]()
 
   /**
+   * The task's SSPs have received new messages and been updated the offsets
+   */
+  val taskSSPsWithProcessedOffsetUpdated = new ConcurrentHashMap[TaskName, ConcurrentHashMap[SystemStreamPartition, Boolean]]()
+
+  /**
    * Offsets to start reading from for each SystemStreamPartition. This
    * variable is populated after all checkpoints have been restored.
    */
@@ -221,8 +226,15 @@ class OffsetManager(
       .toIterator.next()
 
     lastProcessedOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
-    if (offset != null && !offset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
-      lastProcessedOffsets.get(taskName).put(sspWithKeyBucket, offset)
+    taskSSPsWithProcessedOffsetUpdated.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, Boolean]())
+
+    if (offset != null) {
+      if (!offset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
+        lastProcessedOffsets.get(taskName).put(sspWithKeyBucket, offset)
+      }
+      // Record the spp that have received the new messages. The startpoint for each ssp should only be deleted when the
+      // ssp has received the new messages. More details in SAMZA-2749.
+      taskSSPsWithProcessedOffsetUpdated.get(taskName).putIfAbsent(sspWithKeyBucket, true)
     }
   }
 
@@ -394,10 +406,24 @@ class OffsetManager(
     }
 
     // delete corresponding startpoints after checkpoint is supposed to be committed
-    if (startpointManager != null && startpoints.contains(taskName)) {
-      info("%d startpoint(s) for taskName: %s have been committed to the checkpoint." format (startpoints.get(taskName).size, taskName.getTaskName))
-      startpointManager.removeFanOutForTask(taskName)
-      startpoints -= taskName
+    if (startpointManager != null && startpoints.contains(taskName) && taskSSPsWithProcessedOffsetUpdated.containsKey(taskName)) {
+      val sspsWithProcessedOffsetUpdated = taskSSPsWithProcessedOffsetUpdated.get(taskName).keySet()
+      startpointManager.removeFanOutForTaskSSPs(taskName, sspsWithProcessedOffsetUpdated)
+      // Remove the startpoints for the ssps that have received the updates of processed offsets. if all ssps of the
+      // task have received the updates of processed offsets, remove the whole task's startpoints.
+      startpoints.get(taskName) match {
+        case Some(sspToStartpoint) => {
+          val newSspToStartpoint = sspToStartpoint.filterKeys(ssp => !sspsWithProcessedOffsetUpdated.contains(ssp)).toMap
+          if (newSspToStartpoint.isEmpty) {
+            startpoints -= taskName
+            info("All startpoints for the taskName: %s have been committed to the checkpoint." format(taskName))
+          } else {
+            startpoints += taskName -> newSspToStartpoint
+            debug("Updated the startpoints and the latest startpoints for the task %s: %s" format(taskName, newSspToStartpoint))
+          }
+        }
+        case None => {}
+      }
 
       if (startpoints.isEmpty) {
         info("All outstanding startpoints have been committed to the checkpoint.")
