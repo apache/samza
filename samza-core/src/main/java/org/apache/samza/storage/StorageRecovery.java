@@ -252,7 +252,7 @@ public class StorageRecovery {
               storeBaseDir,
               storeBaseDir,
               null,
-              new SystemClock());
+              SystemClock.instance());
       this.containerStorageManagers.put(containerModel.getId(), containerStorageManager);
     }
   }
