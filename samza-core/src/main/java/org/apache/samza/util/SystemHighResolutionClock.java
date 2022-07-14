@@ -26,7 +26,7 @@ package org.apache.samza.util;
 public class SystemHighResolutionClock implements HighResolutionClock {
   private static final SystemHighResolutionClock INSTANCE = new SystemHighResolutionClock();
 
-  private SystemHighResolutionClock () {}
+  private SystemHighResolutionClock() {}
 
   public static SystemHighResolutionClock instance() {
     return INSTANCE;

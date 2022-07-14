@@ -26,7 +26,7 @@ package org.apache.samza.util;
 public class SystemClock implements Clock {
   private static final SystemClock INSTANCE = new SystemClock();
 
-  private SystemClock () {}
+  private SystemClock() {}
 
   public static SystemClock instance() {
     return INSTANCE;
