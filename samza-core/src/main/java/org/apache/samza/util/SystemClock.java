@@ -17,16 +17,23 @@
  * under the License.
  */
 
-package org.apache.samza.util
+package org.apache.samza.util;
 
 /**
  * Default implementation of the Clock interface, which uses the real
  * system clock.
  */
-class SystemClock extends Clock {
-  override def currentTimeMillis = System.currentTimeMillis
-}
+public class SystemClock implements Clock {
+  private static final SystemClock INSTANCE = new SystemClock();
 
-object SystemClock {
-  val instance = new SystemClock
+  private SystemClock() {}
+
+  public static SystemClock instance() {
+    return INSTANCE;
+  }
+
+  @Override
+  public long currentTimeMillis() {
+    return System.currentTimeMillis();
+  }
 }

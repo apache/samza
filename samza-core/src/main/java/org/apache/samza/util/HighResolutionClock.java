@@ -21,7 +21,7 @@ package org.apache.samza.util;
 
 /**
  * An object that can provide time points (useful for getting the elapsed time between two time
- * points) and can sleep for a specified period of time.
+ * points).
  * <p>
  * Instances of this interface must be thread-safe.
  */

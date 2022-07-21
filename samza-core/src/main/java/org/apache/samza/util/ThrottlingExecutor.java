@@ -38,7 +38,7 @@ public class ThrottlingExecutor implements Throttleable, Executor {
   private long pendingNanos;
 
   public ThrottlingExecutor(long maxDelayMillis) {
-    this(maxDelayMillis, new SystemHighResolutionClock());
+    this(maxDelayMillis, SystemHighResolutionClock.instance());
   }
 
   ThrottlingExecutor(long maxDelayMillis, HighResolutionClock clock) {

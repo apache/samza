@@ -42,7 +42,7 @@ public class ThrottlingScheduler implements Throttleable {
   public ThrottlingScheduler(long maxDelayMillis) {
     this.maxDelayNanos = TimeUnit.MILLISECONDS.toNanos(maxDelayMillis);
     this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-    this.clock = new SystemHighResolutionClock();
+    this.clock = SystemHighResolutionClock.instance();
   }
 
   ThrottlingScheduler(long maxDelayMillis, ScheduledExecutorService scheduledExecutorService,

@@ -220,7 +220,7 @@ public class TestKafkaSystemConsumer {
     Mockito.doNothing().when(consumer).seek(new TopicPartition(TEST_STREAM, 1), 1);
 
     KafkaSystemConsumer kafkaSystemConsumer = new KafkaSystemConsumer(consumer, TEST_SYSTEM, new MapConfig(), TEST_CLIENT_ID, kafkaConsumerProxyFactory,
-                                                                      kafkaSystemConsumerMetrics, new SystemClock());
+                                                                      kafkaSystemConsumerMetrics, SystemClock.instance());
     kafkaSystemConsumer.register(testSystemStreamPartition1, testOffset);
     kafkaSystemConsumer.register(testSystemStreamPartition2, testOffset);
 

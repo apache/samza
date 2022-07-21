@@ -19,7 +19,19 @@
 
 package org.apache.samza.util;
 
-class SystemHighResolutionClock implements HighResolutionClock {
+/**
+ * Default implementation of the HighResolutionClock interface, which uses the
+ * real system clock.
+ */
+public class SystemHighResolutionClock implements HighResolutionClock {
+  private static final SystemHighResolutionClock INSTANCE = new SystemHighResolutionClock();
+
+  private SystemHighResolutionClock() {}
+
+  public static SystemHighResolutionClock instance() {
+    return INSTANCE;
+  }
+
   @Override
   public long nanoTime() {
     return System.nanoTime();

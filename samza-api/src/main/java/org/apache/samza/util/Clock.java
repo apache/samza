@@ -20,8 +20,18 @@
 package org.apache.samza.util;
 
 /**
- * Mockable interface for tracking time.
+ * An object that can provide time points (useful for getting the elapsed time between two time
+ * points).
+ * <p>
+ * Instances of this interface must be thread-safe.
  */
 public interface Clock {
+  /**
+   * Returns a time point that can be used to calculate the difference in milliseconds with another
+   * time point. Resolution of the timer is platform dependent and not guaranteed to actually
+   * operate at millisecond precision.
+   *
+   * @return current time point in milliseconds
+   */
   long currentTimeMillis();
 }

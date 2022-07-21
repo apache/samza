@@ -543,7 +543,7 @@ object SamzaContainer extends Logging {
       loggedStorageBaseDir,
       nonLoggedStorageBaseDir,
       serdeManager,
-      new SystemClock)
+      SystemClock.instance())
 
     storeWatchPaths.addAll(containerStorageManager.getStoreDirectoryPaths)
 
@@ -576,7 +576,7 @@ object SamzaContainer extends Logging {
               taskInstanceMetrics.get(taskName).isDefined) taskInstanceMetrics.get(taskName).get.registry
             else new MetricsRegistryMap
           val taskBackupManager = factory.getBackupManager(jobContext, containerModel,
-            taskModel, commitThreadPool, taskMetricsRegistry, config, new SystemClock,
+            taskModel, commitThreadPool, taskMetricsRegistry, config, SystemClock.instance(),
             loggedStorageBaseDir, nonLoggedStorageBaseDir)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
         }
