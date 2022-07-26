@@ -37,7 +37,7 @@ GEM
     rb-fsevent (0.10.3)
     rb-inotify (0.9.10)
       ffi (>= 0.5.0, < 2)
-    redcarpet (3.4.0)
+    redcarpet (3.5.1)
     rouge (1.11.1)
     safe_yaml (1.0.4)
     sass (3.5.6)
@@ -53,7 +53,7 @@ DEPENDENCIES
   jekyll (= 3.4.5)
   json (= 2.1.0)
   pygments.rb (= 1.2.1)
-  redcarpet (= 3.4.0)
+  redcarpet (= 3.5.1)
 
 BUNDLED WITH
    1.16.1
