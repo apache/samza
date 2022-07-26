@@ -21,7 +21,7 @@ GEM
       sass (~> 3.4)
     jekyll-watch (1.5.0)
       listen (~> 3.0, < 3.1)
-    json (2.1.0)
+    json (2.3.0)
     kramdown (1.16.2)
     liquid (3.0.6)
     listen (3.0.8)
@@ -51,7 +51,7 @@ PLATFORMS
 
 DEPENDENCIES
   jekyll (= 3.4.5)
-  json (= 2.1.0)
+  json (= 2.3.0)
   pygments.rb (= 1.2.1)
   redcarpet (= 3.4.0)
 
