@@ -17,9 +17,6 @@
  * under the License.
  */
 
-import org.gradle.api.Plugin
-import org.gradle.api.Project
-import org.gradle.api.Task
 import org.gradle.api.internal.project.IsolatedAntBuilder
 
 apply plugin: RatPlugin
@@ -28,36 +25,19 @@ class RatTask extends DefaultTask {
   @Input
   List<String> excludes
 
-  def reportPath = 'build/rat'
-  def stylesheet = 'gradle/resources/rat-output-to-html.xsl'
-  def xmlReport = reportPath + '/rat-report.xml'
-  def htmlReport = reportPath + '/rat-report.html'
-  def textReport = reportPath + '/rat-report.txt'
-
-  def generateTextReport(File reportDir) {
-    def antBuilder = services.get(IsolatedAntBuilder)
-    def ratClasspath = project.configurations.rat
-    antBuilder.withClasspath(ratClasspath).execute {
-      ant.taskdef(resource: 'org/apache/rat/anttasks/antlib.xml')
-      ant.report(format: 'plain', reportFile: textReport) {
-        fileset(dir: ".") {
-          patternset {
-            excludes.each {
-              exclude(name: it)
-            }
-          }
-        }
-      }
-    }
-  }
+  def reportDir = project.file('build/rat')
+  def stylesheet = project.file('gradle/resources/rat-output-to-html.xsl').getAbsolutePath()
+  def xmlReport = new File(reportDir, 'rat-report.xml')
+  def htmlReport = new File(reportDir, 'rat-report.html')
 
   def generateXmlReport(File reportDir) {
     def antBuilder = services.get(IsolatedAntBuilder)
     def ratClasspath = project.configurations.rat
+    def projectPath = project.getRootDir().getAbsolutePath()
     antBuilder.withClasspath(ratClasspath).execute {
       ant.taskdef(resource: 'org/apache/rat/anttasks/antlib.xml')
       ant.report(format: 'xml', reportFile: xmlReport) {
-        fileset(dir: ".") {
+        fileset(dir: projectPath) {
           patternset {
             excludes.each {
               exclude(name: it)
@@ -98,26 +78,30 @@ class RatTask extends DefaultTask {
 
   @TaskAction
   def rat() {
-    File reportDir = new File(reportPath)
     if (!reportDir.exists()) {
       reportDir.mkdirs()
     }
-    generateXmlReport(reportDir)
-    generateHtmlReport()
-    generateTextReport()
-    printUnknownFiles()
+    def origEncoding = System.getProperty("file.encoding")
+    try {
+      System.setProperty("file.encoding", "UTF-8") //affects the output of the ant rat task
+      generateXmlReport(reportDir)
+      printUnknownFiles()
+      generateHtmlReport()
+    } finally {
+      System.setProperty("file.encoding", origEncoding)
+    }
   }
 }
 
 class RatPlugin implements Plugin<Project> {
   void apply(Project project) {
     configureDependencies(project)
-    project.plugins.apply(JavaBasePlugin);
+    project.plugins.apply(JavaPlugin);
     Task ratTask = project.task("rat",
         type: RatTask,
         group: 'Build',
         description: 'Runs Apache Rat checks.')
-    project.tasks[JavaBasePlugin.CHECK_TASK_NAME].dependsOn ratTask
+    project.tasks[JavaPlugin.TEST_TASK_NAME].dependsOn ratTask
   }
 
   void configureDependencies(final Project project) {
@@ -128,7 +112,7 @@ class RatPlugin implements Plugin<Project> {
       mavenCentral()
     }
     project.dependencies {
-      rat 'org.apache.rat:apache-rat-tasks:0.8'
+      rat 'org.apache.rat:apache-rat-tasks:0.12'
     }
   }
 }
