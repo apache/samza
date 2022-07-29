@@ -21,10 +21,12 @@ package org.apache.samza.operators.impl;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.operators.spec.BroadcastOperatorSpec;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.system.ControlMessage;
+import org.apache.samza.system.DrainMessage;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemStream;
@@ -40,11 +42,13 @@ class BroadcastOperatorImpl<M> extends OperatorImpl<M, Void> {
   private final BroadcastOperatorSpec<M> broadcastOpSpec;
   private final SystemStream systemStream;
   private final String taskName;
+  private final String runId;
 
   BroadcastOperatorImpl(BroadcastOperatorSpec<M> broadcastOpSpec, SystemStream systemStream, Context context) {
     this.broadcastOpSpec = broadcastOpSpec;
     this.systemStream = systemStream;
     this.taskName = context.getTaskContext().getTaskModel().getTaskName().getTaskName();
+    this.runId = new ApplicationConfig(context.getJobContext().getConfig()).getRunId();
   }
 
   @Override
@@ -70,6 +74,12 @@ class BroadcastOperatorImpl<M> extends OperatorImpl<M, Void> {
   @Override
   protected Collection<Void> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     sendControlMessage(new EndOfStreamMessage(taskName), collector);
+    return Collections.emptyList();
+  }
+
+  @Override
+  protected Collection<Void> handleDrain(MessageCollector collector, TaskCoordinator coordinator) {
+    sendControlMessage(new DrainMessage(taskName, runId), collector);
     return Collections.emptyList();
   }
 

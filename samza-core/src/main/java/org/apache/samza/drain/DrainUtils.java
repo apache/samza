@@ -47,23 +47,23 @@ public class DrainUtils {
    * Writes a {@link DrainNotification} to the underlying metastore. This method should be used by external controllers
    * to issue a DrainNotification to the JobCoordinator and Samza Containers.
    * @param metadataStore Metadata store to write drain notification to.
-   * @param deploymentId deploymentId for the DrainNotification
+   * @param runId runId for the DrainNotification
    *
    * @return generated uuid for the DrainNotification
    */
-  public static UUID writeDrainNotification(MetadataStore metadataStore, String deploymentId) {
+  public static UUID writeDrainNotification(MetadataStore metadataStore, String runId) {
     Preconditions.checkArgument(metadataStore != null, "MetadataStore cannot be null.");
-    Preconditions.checkArgument(!Strings.isNullOrEmpty(deploymentId), "deploymentId should be non-null.");
-    LOG.info("Attempting to write DrainNotification to metadata-store for the deployment ID {}", deploymentId);
+    Preconditions.checkArgument(!Strings.isNullOrEmpty(runId), "runId should be non-null.");
+    LOG.info("Attempting to write DrainNotification to metadata-store for the deployment ID {}", runId);
     final NamespaceAwareCoordinatorStreamStore drainMetadataStore =
         new NamespaceAwareCoordinatorStreamStore(metadataStore, DRAIN_METADATA_STORE_NAMESPACE);
     final ObjectMapper objectMapper = DrainNotificationObjectMapper.getObjectMapper();
     final UUID uuid = UUID.randomUUID();
-    final DrainNotification message = new DrainNotification(uuid, deploymentId);
+    final DrainNotification message = new DrainNotification(uuid, runId);
     try {
       drainMetadataStore.put(message.getUuid().toString(), objectMapper.writeValueAsBytes(message));
       drainMetadataStore.flush();
-      LOG.info("DrainNotification with id {} written to metadata-store for the deployment ID {}", uuid, deploymentId);
+      LOG.info("DrainNotification with id {} written to metadata-store for the deployment ID {}", uuid, runId);
     } catch (Exception ex) {
       throw new SamzaException(
           String.format("DrainNotification might have been not written to metastore %s", message), ex);
@@ -73,23 +73,23 @@ public class DrainUtils {
 
   /**
    * Cleans up DrainNotifications for the current deployment from the underlying metadata store.
-   * The current deploymentId is extracted from the config.
+   * The current runId is extracted from the config.
    *
    * @param metadataStore underlying metadata store
-   * @param config Config for the job. Used to extract the deploymentId of the job.
+   * @param config Config for the job. Used to extract the runId of the job.
    * */
   public static void cleanup(MetadataStore metadataStore, Config config) {
     Preconditions.checkArgument(metadataStore != null, "MetadataStore cannot be null.");
     Preconditions.checkNotNull(config, "Config parameter cannot be null.");
 
     final ApplicationConfig applicationConfig = new ApplicationConfig(config);
-    final String deploymentId = applicationConfig.getRunId();
+    final String runId = applicationConfig.getRunId();
     final ObjectMapper objectMapper = DrainNotificationObjectMapper.getObjectMapper();
     final NamespaceAwareCoordinatorStreamStore drainMetadataStore =
         new NamespaceAwareCoordinatorStreamStore(metadataStore, DRAIN_METADATA_STORE_NAMESPACE);
 
-    if (DrainMonitor.shouldDrain(drainMetadataStore, deploymentId)) {
-      LOG.info("Attempting to clean up DrainNotifications from the metadata-store for the current deployment {}", deploymentId);
+    if (DrainMonitor.shouldDrain(drainMetadataStore, runId)) {
+      LOG.info("Attempting to clean up DrainNotifications from the metadata-store for the current deployment {}", runId);
       drainMetadataStore.all()
           .values()
           .stream()
@@ -101,19 +101,19 @@ public class DrainUtils {
               throw new SamzaException(e);
             }
           })
-          .filter(notification -> deploymentId.equals(notification.getDeploymentId()))
+          .filter(notification -> runId.equals(notification.getRunId()))
           .forEach(notification -> drainMetadataStore.delete(notification.getUuid().toString()));
 
       drainMetadataStore.flush();
-      LOG.info("Successfully cleaned up DrainNotifications from the metadata-store for the current deployment {}", deploymentId);
+      LOG.info("Successfully cleaned up DrainNotifications from the metadata-store for the current deployment {}", runId);
     } else {
       LOG.info("No DrainNotification found in the metadata-store for the current deployment {}. No need to cleanup.",
-          deploymentId);
+          runId);
     }
   }
 
   /**
-   * Cleans up all DrainNotifications irrespective of the deploymentId.
+   * Cleans up all DrainNotifications irrespective of the runId.
    * */
   public static void cleanupAll(MetadataStore metadataStore) {
     Preconditions.checkArgument(metadataStore != null, "MetadataStore cannot be null.");

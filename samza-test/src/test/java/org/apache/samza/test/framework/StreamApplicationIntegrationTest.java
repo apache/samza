@@ -42,7 +42,7 @@ import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
 import org.apache.samza.table.Table;
-import org.apache.samza.test.controlmessages.TestData;
+import org.apache.samza.test.TestData;
 import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescriptor;
 import org.apache.samza.test.framework.system.descriptors.InMemoryOutputDescriptor;
 import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
@@ -53,7 +53,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.samza.test.controlmessages.TestData.PageView;
+import static org.apache.samza.test.TestData.PageView;
 
 public class StreamApplicationIntegrationTest {
   private static final Logger LOG = LoggerFactory.getLogger(StreamApplicationIntegrationTest.class);

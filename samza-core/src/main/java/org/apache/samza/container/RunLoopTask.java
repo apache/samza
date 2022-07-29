@@ -99,6 +99,15 @@ public interface RunLoopTask {
   void endOfStream(ReadableCoordinator coordinator);
 
   /**
+   * Called when all {@link SystemStreamPartition} processed by a task have drained. This is called only
+   * once per task. {@link RunLoop} will issue a shutdown request to the coordinator immediately following the
+   * invocation of this method.
+   *
+   * @param coordinator manages execution of tasks.
+   */
+  void drain(ReadableCoordinator coordinator);
+
+  /**
    * Indicates whether {@link #window} should be invoked on this task. If true, {@link RunLoop}
    * will schedule window to execute periodically according to its windowMs.
    *

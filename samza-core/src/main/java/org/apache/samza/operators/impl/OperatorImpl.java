@@ -1,4 +1,4 @@
-/*
+  /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -39,6 +39,7 @@ import org.apache.samza.operators.functions.ScheduledFunction;
 import org.apache.samza.operators.functions.WatermarkFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.scheduler.CallbackScheduler;
+import org.apache.samza.system.DrainMessage;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
@@ -86,6 +87,8 @@ public abstract class OperatorImpl<M, RM> {
   private TaskModel taskModel;
   // end-of-stream states
   private EndOfStreamStates eosStates;
+  // drain states
+  private DrainStates drainStates;
   // watermark states
   private WatermarkStates watermarkStates;
   private CallbackScheduler callbackScheduler;
@@ -125,6 +128,7 @@ public abstract class OperatorImpl<M, RM> {
     this.taskName = taskContext.getTaskModel().getTaskName();
     this.eosStates = (EndOfStreamStates) internalTaskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) internalTaskContext.fetchObject(WatermarkStates.class.getName());
+    this.drainStates = (DrainStates) internalTaskContext.fetchObject(DrainStates.class.getName());
     this.controlMessageSender = new ControlMessageSender(internalTaskContext.getStreamMetadataCache());
     this.taskModel = taskContext.getTaskModel();
     this.callbackScheduler = taskContext.getCallbackScheduler();
@@ -359,6 +363,88 @@ public abstract class OperatorImpl<M, RM> {
    */
   protected Collection<RM> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     return Collections.emptyList();
+  }
+
+  /**
+   * This method is implemented when all input stream to this operation have encountered drain-and-stop control message.
+   * Inherited class should handle drain-and-stop by overriding this function.
+   * By default noop implementation is for in-memory operator to handle the drain-and-stop. Output operator need to
+   * override this to actually propagate drain-and-stop over the wire.
+   * @param collector message collector
+   * @param coordinator task coordinator
+   * @return results to be emitted when this operator reaches drain-and-stop
+   */
+  protected Collection<RM> handleDrain(MessageCollector collector, TaskCoordinator coordinator) {
+    return Collections.emptyList();
+  }
+
+  /**
+   * Aggregate {@link DrainMessage} from each ssp of the stream.
+   * Invoke {@link #onDrainOfStream(MessageCollector, TaskCoordinator)} if the stream reaches the end.
+   * @param drainMessage {@link DrainMessage} object
+   * @param ssp system stream partition
+   * @param collector message collector
+   * @param coordinator task coordinator
+   */
+  public final CompletionStage<Void> aggregateDrainMessages(DrainMessage drainMessage, SystemStreamPartition ssp,
+      MessageCollector collector, TaskCoordinator coordinator) {
+    LOG.info("Received drain message from task {} in {}", drainMessage.getTaskName(), ssp);
+    drainStates.update(drainMessage, ssp);
+
+    SystemStream stream = ssp.getSystemStream();
+    CompletionStage<Void> drainFuture = CompletableFuture.completedFuture(null);
+
+    if (drainStates.isDrained(stream)) {
+      LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
+      if (drainMessage.getTaskName() != null && shouldTaskBroadcastToOtherPartitions(ssp)) {
+        // This is the aggregation task, which already received all the eos messages from upstream
+        // broadcast the end-of-stream to all the peer partitions
+        // additionally if elasiticty is enabled
+        // then only one of the elastic tasks of the ssp will broadcast
+        controlMessageSender.broadcastToOtherPartitions(new DrainMessage(drainMessage.getRunId()), ssp, collector);
+      }
+
+      drainFuture = onDrainOfStream(collector, coordinator)
+          .thenAccept(result -> {
+            if (drainStates.areAllStreamsDrained()) {
+              // all input streams have been drained, shut down the task
+              LOG.info("All input streams have been drained for task {}", taskName.getTaskName());
+              coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
+            }
+          });
+    }
+
+    return drainFuture;
+  }
+
+
+  /**
+   * Invoke {@link #handleDrain(MessageCollector, TaskCoordinator)} if all the input streams to the current operator
+   * have encountered drain message.
+   * Propagate the drain to downstream operators.
+   * @param collector message collector
+   * @param coordinator task coordinator
+   */
+  private CompletionStage<Void> onDrainOfStream(MessageCollector collector, TaskCoordinator coordinator) {
+    CompletionStage<Void> drainFuture = CompletableFuture.completedFuture(null);
+
+    if (inputStreams.stream().allMatch(input -> drainStates.isDrained(input))) {
+      Collection<RM> results = handleDrain(collector, coordinator);
+
+      CompletionStage<Void> resultFuture = CompletableFuture.allOf(
+          results.stream()
+              .flatMap(r -> this.registeredOperators.stream()
+                  .map(op -> op.onMessageAsync(r, collector, coordinator)))
+              .toArray(CompletableFuture[]::new));
+
+      // propagate DrainMessage to downstream operators
+      drainFuture = resultFuture.thenCompose(x ->
+          CompletableFuture.allOf(this.registeredOperators.stream()
+              .map(op -> op.onDrainOfStream(collector, coordinator))
+              .toArray(CompletableFuture[]::new)));
+    }
+
+    return drainFuture;
   }
 
   /**

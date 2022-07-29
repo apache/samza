@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.samza.test.controlmessages;
+package org.apache.samza.test;
 
 import java.io.Serializable;
 import org.apache.samza.SamzaException;

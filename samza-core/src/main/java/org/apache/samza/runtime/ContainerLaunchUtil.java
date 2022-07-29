@@ -143,7 +143,8 @@ public class ContainerLaunchUtil {
       MetricsRegistryMap metricsRegistryMap = new MetricsRegistryMap();
 
       DrainMonitor drainMonitor = null;
-      if (new JobConfig(config).getDrainMonitorEnabled()) {
+      JobConfig jobConfig = new JobConfig(config);
+      if (jobConfig.getDrainMonitorEnabled()) {
         drainMonitor = new DrainMonitor(coordinatorStreamStore, config);
       }
 

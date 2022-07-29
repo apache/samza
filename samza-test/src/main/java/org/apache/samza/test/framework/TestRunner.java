@@ -20,6 +20,7 @@
 package org.apache.samza.test.framework;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import java.io.File;
 import java.time.Duration;
 import java.util.HashMap;
@@ -28,6 +29,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.samza.SamzaException;
@@ -93,10 +97,12 @@ public class TestRunner {
   private static final Logger LOG = LoggerFactory.getLogger(TestRunner.class);
   private static final String JOB_DEFAULT_SYSTEM = "default-samza-system";
   private static final String APP_NAME = "samza-test";
+  private static final long DEFAULT_DELAY_BETWEEN_MESSAGES = 0L;
 
   private Map<String, String> configs;
   private SamzaApplication app;
   private ExternalContext externalContext;
+  private InMemoryMetadataStoreFactory inMemoryMetadataStoreFactory;
   /*
    * inMemoryScope is a unique global key per TestRunner, this key when configured with {@link InMemorySystemDescriptor}
    * provides an isolated state to run with in memory system
@@ -201,6 +207,13 @@ public class TestRunner {
   }
 
   /**
+   * Get configs.
+   * */
+  public Config getConfig() {
+    return new MapConfig(configs);
+  }
+
+  /**
    * Passes the user provided external context to {@link LocalApplicationRunner}
    *
    * @param externalContext external context provided by user
@@ -209,6 +222,18 @@ public class TestRunner {
   public TestRunner addExternalContext(ExternalContext externalContext) {
     Preconditions.checkNotNull(externalContext);
     this.externalContext = externalContext;
+    return this;
+  }
+
+  /**
+   * Set an InMemory MetadataStoreFactory to be used by {@link LocalApplicationRunner}
+   *
+   * @param inMemoryMetadataStoreFactory InMemoryMetadataStoreFactory
+   * @return this {@link TestRunner}
+   */
+  public TestRunner setInMemoryMetadataFactory(InMemoryMetadataStoreFactory inMemoryMetadataStoreFactory) {
+    Preconditions.checkNotNull(inMemoryMetadataStoreFactory);
+    this.inMemoryMetadataStoreFactory = inMemoryMetadataStoreFactory;
     return this;
   }
 
@@ -224,10 +249,29 @@ public class TestRunner {
    */
   public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
       List<StreamMessageType> messages) {
+    return addInputStream(descriptor, messages, DEFAULT_DELAY_BETWEEN_MESSAGES);
+  }
+
+  /**
+   * Adds the provided input stream with mock data to the test application.The mock messages will be added one at a time
+   * with a delay between messages instead of adding all at once.
+   * Default configs and user added configs have
+   * a higher precedence over system and stream descriptor generated configs.
+   * @param descriptor describes the stream that is supposed to be input to Samza application
+   * @param messages map whose key is partitionId and value is messages in the partition. These message should always
+   *                 be deserialized
+   * @param delayBetweenMessagesInMillis delay between messages
+   * @param <StreamMessageType> message with null key or a KV {@link org.apache.samza.operators.KV}.
+   *                           A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
+   *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value is message
+   * @return this {@link TestRunner}
+   */
+  public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
+      List<StreamMessageType> messages, long delayBetweenMessagesInMillis) {
     Preconditions.checkNotNull(descriptor, messages);
-    Map<Integer, Iterable<StreamMessageType>> partitionData = new HashMap<Integer, Iterable<StreamMessageType>>();
+    Map<Integer, Iterable<StreamMessageType>> partitionData = new HashMap<>();
     partitionData.put(0, messages);
-    initializeInMemoryInputStream(descriptor, partitionData);
+    initializeInMemoryInputStream(descriptor, partitionData, delayBetweenMessagesInMillis);
     return this;
   }
 
@@ -244,10 +288,28 @@ public class TestRunner {
    */
   public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
       Map<Integer, ? extends Iterable<StreamMessageType>> messages) {
+    return addInputStream(descriptor, messages, DEFAULT_DELAY_BETWEEN_MESSAGES);
+  }
+
+  /**
+   * Adds the provided input stream with mock data to the test application. The mock messages will be added one at a time
+   * with a delay between messages instead of adding all at once. TestRunner will cycle through all partitions once to add
+   * a message each per partition. This will be repeated periodically till all messages are exhausted.
+   * Default configs and user added configs have a higher precedence over system and stream descriptor generated configs.
+   * @param descriptor describes the stream that is supposed to be input to Samza application
+   * @param messages map whose key is partitionId and value is messages in the partition. These message should always
+   *                 be deserialized
+   * @param delayBetweenMessagesInMillis delay bewtween messages.
+   * @param <StreamMessageType> message with null key or a KV {@link org.apache.samza.operators.KV}.
+   *                           A key of which represents key of {@link org.apache.samza.system.IncomingMessageEnvelope} or
+   *                           {@link org.apache.samza.system.OutgoingMessageEnvelope} and value is message
+   * @return this {@link TestRunner}
+   */
+  public <StreamMessageType> TestRunner addInputStream(InMemoryInputDescriptor descriptor,
+      Map<Integer, ? extends Iterable<StreamMessageType>> messages, long delayBetweenMessagesInMillis) {
     Preconditions.checkNotNull(descriptor, messages);
-    Map<Integer, Iterable<StreamMessageType>> partitionData = new HashMap<Integer, Iterable<StreamMessageType>>();
-    partitionData.putAll(messages);
-    initializeInMemoryInputStream(descriptor, partitionData);
+    Map<Integer, Iterable<StreamMessageType>> partitionData = new HashMap<>(messages);
+    initializeInMemoryInputStream(descriptor, partitionData, delayBetweenMessagesInMillis);
     return this;
   }
 
@@ -291,7 +353,10 @@ public class TestRunner {
     // Cleaning store directories to ensure current run does not pick up state from previous run
     deleteStoreDirectories();
     Config config = new MapConfig(JobPlanner.generateSingleJobConfig(configs));
-    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config, new InMemoryMetadataStoreFactory());
+    InMemoryMetadataStoreFactory metadataStoreFactory = inMemoryMetadataStoreFactory != null
+        ? inMemoryMetadataStoreFactory
+        : new InMemoryMetadataStoreFactory();
+    final LocalApplicationRunner runner = new LocalApplicationRunner(app, config, metadataStoreFactory);
     runner.run(externalContext);
     if (!runner.waitForFinish(timeout)) {
       throw new SamzaException("Timed out waiting for application to finish");
@@ -378,7 +443,7 @@ public class TestRunner {
    * @param descriptor describes a stream to initialize with the in memory system
    */
   private <StreamMessageType> void initializeInMemoryInputStream(InMemoryInputDescriptor<?> descriptor,
-      Map<Integer, Iterable<StreamMessageType>> partitionData) {
+      Map<Integer, Iterable<StreamMessageType>> partitionData, long delayInMillis) {
     String systemName = descriptor.getSystemName();
     String streamName = (String) descriptor.getPhysicalName().orElse(descriptor.getStreamId());
     if (this.app instanceof LegacyTaskApplication) {
@@ -402,19 +467,64 @@ public class TestRunner {
     factory.getAdmin(systemName, config).createStream(spec);
     InMemorySystemProducer producer = (InMemorySystemProducer) factory.getProducer(systemName, config, null);
     SystemStream sysStream = new SystemStream(systemName, streamName);
-    partitionData.forEach((partitionId, partition) -> {
-      partition.forEach(e -> {
-        Object key = e instanceof KV ? ((KV) e).getKey() : null;
-        Object value = e instanceof KV ? ((KV) e).getValue() : e;
-        if (value instanceof IncomingMessageEnvelope) {
-          producer.send((IncomingMessageEnvelope) value);
-        } else {
-          producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
-        }
+    if (delayInMillis > 0) {
+      delayedInitialization(partitionData, producer, sysStream, delayInMillis);
+    } else {
+      partitionData.forEach((partitionId, partition) -> {
+        partition.forEach(e -> {
+          Object key = e instanceof KV ? ((KV) e).getKey() : null;
+          Object value = e instanceof KV ? ((KV) e).getValue() : e;
+          if (value instanceof IncomingMessageEnvelope) {
+            producer.send((IncomingMessageEnvelope) value);
+          } else {
+            producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), key, value));
+          }
+        });
+        producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
+            new EndOfStreamMessage(null)));
       });
-      producer.send(systemName, new OutgoingMessageEnvelope(sysStream, Integer.valueOf(partitionId), null,
-          new EndOfStreamMessage(null)));
-    });
+    }
+  }
+
+  private <StreamMessageType> void delayedInitialization(Map<Integer, Iterable<StreamMessageType>> partitionData,
+      InMemorySystemProducer producer, SystemStream systemStream, long delayInMillis) {
+    final Set<Integer> endOfStreamPartitions = new HashSet<>();
+    final int numPartitions = partitionData.size();
+    Map<Integer, LinkedList<StreamMessageType>> messageQueuesByPartition = partitionData.entrySet()
+        .stream()
+        .collect(Collectors.toMap(
+          Map.Entry::getKey,
+          entry -> Lists.newLinkedList(entry.getValue())));
+
+    final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    executor.scheduleAtFixedRate(new Runnable() {
+      @Override
+      public void run() {
+        if (endOfStreamPartitions.size() == numPartitions) {
+          // shutdown scheduled executor as EOS is reached for all partitions
+          executor.shutdownNow();
+        } else {
+          messageQueuesByPartition.forEach((partitionId, messages) -> {
+            if (messages.isEmpty() && !endOfStreamPartitions.contains(partitionId)) {
+              // if end of input is reached, send EOS for the partition and add the partition to the EOS partition set
+              // to ensure we don't send EOS again for the partition
+              producer.send(systemStream.getSystem(),
+                  new OutgoingMessageEnvelope(systemStream, Integer.valueOf(partitionId), null, new EndOfStreamMessage(null)));
+              endOfStreamPartitions.add(partitionId);
+            } else if (!messages.isEmpty()) {
+              final StreamMessageType e = messageQueuesByPartition.get(partitionId).removeFirst();
+              final Object key = e instanceof KV ? ((KV) e).getKey() : null;
+              final Object value = e instanceof KV ? ((KV) e).getValue() : e;
+              if (value instanceof IncomingMessageEnvelope) {
+                producer.send((IncomingMessageEnvelope) value);
+              } else {
+                producer.send(systemStream.getSystem(), new OutgoingMessageEnvelope(systemStream, Integer.valueOf(partitionId), key, value));
+              }
+            }
+          });
+        }
+      }
+    }, 0L, delayInMillis, TimeUnit.MILLISECONDS);
   }
 
   private void deleteStoreDirectories() {

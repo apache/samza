@@ -166,8 +166,11 @@ public class JobConfig extends MapConfig {
 
   // Enable DrainMonitor in Samza Containers
   // Default is false for now. Will be turned on after testing
-  public static final String DRAIN_MONITOR_ENABLED = "samza.drain-monitor.enabled";
+  public static final String DRAIN_MONITOR_ENABLED = "job.drain-monitor.enabled";
   public static final boolean DRAIN_MONITOR_ENABLED_DEFAULT = false;
+
+  public static final String DRAIN_MONITOR_POLL_INTERVAL_MILLIS = "job.drain-monitor.poll.interval.ms";
+  public static final long DRAIN_MONITOR_POLL_INTERVAL_MILLIS_DEFAULT = 60_000;
 
   // Enable ClusterBasedJobCoordinator aka ApplicationMaster High Availability (AM-HA).
   // High availability allows new AM to establish connection with already running containers
@@ -477,6 +480,10 @@ public class JobConfig extends MapConfig {
 
   public boolean getDrainMonitorEnabled() {
     return getBoolean(DRAIN_MONITOR_ENABLED, DRAIN_MONITOR_ENABLED_DEFAULT);
+  }
+
+  public long getDrainMonitorPollIntervalMillis() {
+    return getLong(DRAIN_MONITOR_POLL_INTERVAL_MILLIS, DRAIN_MONITOR_POLL_INTERVAL_MILLIS_DEFAULT);
   }
 
   public long getContainerHeartbeatRetryCount() {

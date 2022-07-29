@@ -20,12 +20,14 @@ package org.apache.samza.operators.impl;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.operators.functions.MapFunction;
 import org.apache.samza.operators.spec.OperatorSpec;
 import org.apache.samza.operators.spec.PartitionByOperatorSpec;
 import org.apache.samza.system.ControlMessage;
+import org.apache.samza.system.DrainMessage;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.StreamMetadataCache;
@@ -48,6 +50,7 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   private final MapFunction<? super M, ? extends K> keyFunction;
   private final MapFunction<? super M, ? extends V> valueFunction;
   private final String taskName;
+  private final String runId;
   private final ControlMessageSender controlMessageSender;
 
   PartitionByOperatorImpl(PartitionByOperatorSpec<M, K, V> partitionByOpSpec,
@@ -57,6 +60,7 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
     this.keyFunction = partitionByOpSpec.getKeyFunction();
     this.valueFunction = partitionByOpSpec.getValueFunction();
     this.taskName = internalTaskContext.getContext().getTaskContext().getTaskModel().getTaskName().getTaskName();
+    this.runId = new ApplicationConfig(internalTaskContext.getContext().getJobContext().getConfig()).getRunId();
     StreamMetadataCache streamMetadataCache = internalTaskContext.getStreamMetadataCache();
     this.controlMessageSender = new ControlMessageSender(streamMetadataCache);
   }
@@ -91,6 +95,12 @@ class PartitionByOperatorImpl<M, K, V> extends OperatorImpl<M, Void> {
   @Override
   protected Collection<Void> handleEndOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     sendControlMessage(new EndOfStreamMessage(taskName), collector);
+    return Collections.emptyList();
+  }
+
+  @Override
+  protected Collection<Void> handleDrain(MessageCollector collector, TaskCoordinator coordinator) {
+    sendControlMessage(new DrainMessage(taskName, runId), collector);
     return Collections.emptyList();
   }
 

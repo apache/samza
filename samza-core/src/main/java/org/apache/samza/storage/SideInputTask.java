@@ -97,6 +97,11 @@ public class SideInputTask implements RunLoopTask {
   }
 
   @Override
+  public void drain(ReadableCoordinator coordinator) {
+    LOG.info("Task {} has drained", this.taskName);
+  }
+
+  @Override
   public boolean isWindowableTask() {
     return false;
   }

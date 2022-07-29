@@ -57,7 +57,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
   @Mock
   private var taskInstance: TaskInstance = null
   @Mock
-  private var runLoop: Runnable = null
+  private var runLoop: RunLoop = null
   @Mock
   private var systemAdmins: SystemAdmins = null
   @Mock

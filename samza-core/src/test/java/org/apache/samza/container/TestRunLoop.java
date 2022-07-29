@@ -20,8 +20,9 @@
 package org.apache.samza.container;
 
 import com.google.common.collect.ImmutableMap;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -49,6 +50,7 @@ import static org.mockito.Mockito.*;
 
 public class TestRunLoop {
   // Immutable objects shared by all test methods.
+  private final String runId = "foo";
   private final ExecutorService executor = null;
   private final SamzaContainerMetrics containerMetrics = new SamzaContainerMetrics("container", new MetricsRegistryMap(), "");
   private final long windowMs = -1;
@@ -60,13 +62,23 @@ public class TestRunLoop {
   private final Partition p1 = new Partition(1);
   private final TaskName taskName0 = new TaskName(p0.toString());
   private final TaskName taskName1 = new TaskName(p1.toString());
-  private final SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStream", p0);
-  private final SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStream", p1);
-  private final IncomingMessageEnvelope envelope00 = new IncomingMessageEnvelope(ssp0, "0", "key0", "value0");
-  private final IncomingMessageEnvelope envelope11 = new IncomingMessageEnvelope(ssp1, "1", "key1", "value1");
-  private final IncomingMessageEnvelope envelope01 = new IncomingMessageEnvelope(ssp0, "1", "key0", "value0");
-  private final IncomingMessageEnvelope ssp0EndOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp0);
-  private final IncomingMessageEnvelope ssp1EndOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(ssp1);
+  private final SystemStreamPartition sspA0 = new SystemStreamPartition("testSystem", "testStreamA", p0);
+  private final SystemStreamPartition sspA1 = new SystemStreamPartition("testSystem", "testStreamA", p1);
+  private final SystemStreamPartition sspB0 = new SystemStreamPartition("testSystem", "testStreamB", p0);
+  private final SystemStreamPartition sspB1 = new SystemStreamPartition("testSystem", "testStreamB", p1);
+  private final IncomingMessageEnvelope envelopeA00 = new IncomingMessageEnvelope(sspA0, "0", "key0", "value0");
+  private final IncomingMessageEnvelope envelopeA11 = new IncomingMessageEnvelope(sspA1, "1", "key1", "value1");
+  private final IncomingMessageEnvelope envelopeA01 = new IncomingMessageEnvelope(sspA0, "1", "key0", "value0");
+  private final IncomingMessageEnvelope envelopeB00 = new IncomingMessageEnvelope(sspB0, "0", "key0", "value0");
+  private final IncomingMessageEnvelope envelopeB11 = new IncomingMessageEnvelope(sspB1, "1", "key1", "value1");
+  private final IncomingMessageEnvelope sspA0EndOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(sspA0);
+  private final IncomingMessageEnvelope sspA1EndOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(sspA1);
+  private final IncomingMessageEnvelope sspB0EndOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(sspB0);
+  private final IncomingMessageEnvelope sspB1EndOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(sspB1);
+  private final IncomingMessageEnvelope sspA0Drain = IncomingMessageEnvelope.buildDrainMessage(sspA0, runId);
+  private final IncomingMessageEnvelope sspA1Drain = IncomingMessageEnvelope.buildDrainMessage(sspA1, runId);
+  private final IncomingMessageEnvelope sspB0Drain = IncomingMessageEnvelope.buildDrainMessage(sspB0, runId);
+  private final IncomingMessageEnvelope sspB1Drain = IncomingMessageEnvelope.buildDrainMessage(sspB1, runId);
 
   @Rule
   public Timeout maxTestDurationInSeconds = Timeout.seconds(120);
@@ -75,8 +87,8 @@ public class TestRunLoop {
   public void testProcessMultipleTasks() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
-    RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, sspA1);
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, task0);
@@ -84,12 +96,13 @@ public class TestRunLoop {
 
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope11).thenReturn(ssp0EndOfStream).thenReturn(ssp1EndOfStream).thenReturn(null);
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false, 1, "foo");
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA11).thenReturn(sspA0EndOfStream).thenReturn(
+        sspA1EndOfStream).thenReturn(null);
     runLoop.run();
 
-    verify(task0).process(eq(envelope00), any(), any());
-    verify(task1).process(eq(envelope11), any(), any());
+    verify(task0).process(eq(envelopeA00), any(), any());
+    verify(task1).process(eq(envelopeA11), any(), any());
 
     assertEquals(4L, containerMetrics.envelopes().getCount());
   }
@@ -97,9 +110,9 @@ public class TestRunLoop {
   @Test
   public void testProcessInOrder() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(ssp0EndOfStream).thenReturn(null);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA01).thenReturn(sspA0EndOfStream).thenReturn(null);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
 
     Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
     int maxMessagesInFlight = 1;
@@ -108,8 +121,8 @@ public class TestRunLoop {
     runLoop.run();
 
     InOrder inOrder = inOrder(task0);
-    inOrder.verify(task0).process(eq(envelope00), any(), any());
-    inOrder.verify(task0).process(eq(envelope01), any(), any());
+    inOrder.verify(task0).process(eq(envelopeA00), any(), any());
+    inOrder.verify(task0).process(eq(envelopeA01), any(), any());
   }
 
   @Test
@@ -119,7 +132,7 @@ public class TestRunLoop {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
     when(task0.offsetManager()).thenReturn(offsetManager);
     CountDownLatch firstMessageBarrier = new CountDownLatch(1);
     doAnswer(invocation -> {
@@ -134,7 +147,7 @@ public class TestRunLoop {
         return null;
       });
       return null;
-    }).when(task0).process(eq(envelope00), any(), any());
+    }).when(task0).process(eq(envelopeA00), any(), any());
 
     doAnswer(invocation -> {
       assertEquals(1, task0.metrics().messagesInFlight().getValue());
@@ -145,21 +158,21 @@ public class TestRunLoop {
       callback.complete();
       firstMessageBarrier.countDown();
       return null;
-    }).when(task0).process(eq(envelope01), any(), any());
+    }).when(task0).process(eq(envelopeA01), any(), any());
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, task0);
 
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
                                             callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(null);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA01).thenReturn(null);
     runLoop.run();
 
     InOrder inOrder = inOrder(task0);
-    inOrder.verify(task0).process(eq(envelope00), any(), any());
-    inOrder.verify(task0).process(eq(envelope01), any(), any());
+    inOrder.verify(task0).process(eq(envelopeA00), any(), any());
+    inOrder.verify(task0).process(eq(envelopeA01), any(), any());
 
-    verify(offsetManager).update(eq(taskName0), eq(ssp0), eq(envelope00.getOffset()));
+    verify(offsetManager).update(eq(taskName0), eq(sspA0), eq(envelopeA00.getOffset()));
 
     assertEquals(2L, containerMetrics.processes().getCount());
   }
@@ -168,9 +181,9 @@ public class TestRunLoop {
   public void testProcessElasticityEnabled() {
 
     TaskName taskName0 = new TaskName(p0.toString() + " 0");
-    SystemStreamPartition ssp = new SystemStreamPartition("testSystem", "testStream", p0);
-    SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStream", p0, 0);
-    SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStream", p0, 1);
+    SystemStreamPartition ssp = new SystemStreamPartition("testSystem", "testStreamA", p0);
+    SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStreamA", p0, 0);
+    SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStreamA", p0, 1);
 
     // create two IME such that one of their ssp keybucket maps to ssp0 and the other one maps to ssp1
     // task in the runloop should process only the first ime (aka the one whose ssp keybucket is ssp0)
@@ -197,12 +210,12 @@ public class TestRunLoop {
     }).when(task0).process(eq(envelope01), any(), any());
 
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(ssp0EndOfStream).thenReturn(null);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(sspA0EndOfStream).thenReturn(null);
 
     Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2);
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2, null);
     runLoop.run();
 
     verify(task0).process(eq(envelope00), any(), any());
@@ -216,9 +229,9 @@ public class TestRunLoop {
 
     TaskName taskName0 = new TaskName(p0.toString() + " 0");
     TaskName taskName1 = new TaskName(p0.toString() + " 1");
-    SystemStreamPartition ssp = new SystemStreamPartition("testSystem", "testStream", p0);
-    SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStream", p0, 0);
-    SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStream", p0, 1);
+    SystemStreamPartition ssp = new SystemStreamPartition("testSystem", "testStreamA", p0);
+    SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStreamA", p0, 0);
+    SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStreamA", p0, 1);
 
     // create EOS IME such that its ssp keybucket maps to ssp0 and not to ssp1
     // task in the runloop should give this ime to both it tasks
@@ -237,11 +250,103 @@ public class TestRunLoop {
     Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0, taskName1, task1);
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2);
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2, null);
     runLoop.run();
 
     verify(task0).endOfStream(any());
     verify(task1).endOfStream(any());
+  }
+
+  @Test
+  public void testDrainWithElasticityEnabled() {
+    TaskName taskName0 = new TaskName(p0.toString() + " 0");
+    TaskName taskName1 = new TaskName(p0.toString() + " 1");
+    SystemStreamPartition ssp = new SystemStreamPartition("testSystem", "testStreamA", p0);
+    SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStreamA", p0, 0);
+    SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStreamA", p0, 1);
+
+    // create EOS IME such that its ssp keybucket maps to ssp0 and not to ssp1
+    // task in the runloop should give this ime to both it tasks
+    IncomingMessageEnvelope envelopeDrain = spy(IncomingMessageEnvelope.buildDrainMessage(ssp, runId));
+    when(envelopeDrain.getSystemStreamPartition(2)).thenReturn(ssp0);
+
+    // two task in the run loop that processes ssp0 -> 0th keybucket of ssp and ssp1 -> 1st keybucket of ssp
+    // Drain ime should be given to both the tasks irrespective of the keybucket
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
+
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeDrain).thenReturn(null);
+
+    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0, taskName1, task1);
+    int maxMessagesInFlight = 1;
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2, runId);
+    runLoop.run();
+
+    verify(task0).drain(any());
+    verify(task1).drain(any());
+  }
+
+
+  @Test
+  public void testDrainForTasksWithSingleSSP() {
+    TaskName taskName0 = new TaskName(p0.toString() + " 0");
+    TaskName taskName1 = new TaskName(p1.toString() + " 1");
+
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, sspA1);
+
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+    // insert all envelopes followed by drain messages
+    when(consumerMultiplexer.choose(false))
+        .thenReturn(envelopeA00).thenReturn(envelopeA11)
+        .thenReturn(sspA0Drain).thenReturn(sspA1Drain);
+
+    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0, taskName1, task1);
+    int maxMessagesInFlight = 1;
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 1, runId);
+    runLoop.run();
+
+    // check if process was called once for each task
+    verify(task0, times(1)).process(any(), any(), any());
+    verify(task1, times(1)).process(any(), any(), any());
+    // check if drain was called once for each task followed by commit
+    verify(task0, times(1)).drain(any());
+    verify(task1, times(1)).drain(any());
+    verify(task0, times(1)).commit();
+    verify(task1, times(1)).commit();
+  }
+
+  @Test
+  public void testDrainForTasksWithMultipleSSP() {
+    TaskName taskName0 = new TaskName(p0.toString() + " 0");
+    TaskName taskName1 = new TaskName(p1.toString() + " 1");
+
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0, sspB0);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, sspA1, sspB1);
+
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+    // insert all envelopes followed by drain messages
+    when(consumerMultiplexer.choose(false))
+        .thenReturn(envelopeA00).thenReturn(envelopeA11).thenReturn(envelopeB00).thenReturn(envelopeB11)
+        .thenReturn(sspA0Drain).thenReturn(sspA1Drain).thenReturn(sspB0Drain).thenReturn(sspB1Drain);
+
+    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0, taskName1, task1);
+    int maxMessagesInFlight = 1;
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 1, runId);
+    runLoop.run();
+
+    // check if process was called twice for each task
+    verify(task0, times(2)).process(any(), any(), any());
+    verify(task1, times(2)).process(any(), any(), any());
+    // check if drain was called once for each task followed by commit
+    verify(task0, times(1)).drain(any());
+    verify(task1, times(1)).drain(any());
+    verify(task0, times(1)).commit();
+    verify(task1, times(1)).commit();
   }
 
   @Test
@@ -250,7 +355,7 @@ public class TestRunLoop {
 
     int maxMessagesInFlight = 1;
     long windowMs = 1;
-    RunLoopTask task = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task = getMockRunLoopTask(taskName0, sspA0);
     when(task.isWindowableTask()).thenReturn(true);
 
     final AtomicInteger windowCount = new AtomicInteger(0);
@@ -277,7 +382,7 @@ public class TestRunLoop {
   public void testCommitSingleTask() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
     doAnswer(invocation -> {
       ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
       TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
@@ -288,9 +393,9 @@ public class TestRunLoop {
 
       callback.complete();
       return null;
-    }).when(task0).process(eq(envelope00), any(), any());
+    }).when(task0).process(eq(envelopeA00), any(), any());
 
-    RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, sspA1);
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(this.taskName0, task0);
@@ -300,7 +405,7 @@ public class TestRunLoop {
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
                                             callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     //have a null message in between to make sure task0 finishes processing and invoke the commit
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope11).thenReturn(null);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA11).thenReturn(null);
 
     runLoop.run();
 
@@ -315,7 +420,7 @@ public class TestRunLoop {
   public void testCommitAllTasks() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
     doAnswer(invocation -> {
       ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
       TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
@@ -326,9 +431,9 @@ public class TestRunLoop {
 
       callback.complete();
       return null;
-    }).when(task0).process(eq(envelope00), any(), any());
+    }).when(task0).process(eq(envelopeA00), any(), any());
 
-    RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, sspA1);
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(this.taskName0, task0);
@@ -338,7 +443,7 @@ public class TestRunLoop {
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
         callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     //have a null message in between to make sure task0 finishes processing and invoke the commit
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope11).thenReturn(null);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA11).thenReturn(null);
 
     runLoop.run();
 
@@ -354,7 +459,7 @@ public class TestRunLoop {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 
     int maxMessagesInFlight = 1;
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
     doAnswer(invocation -> {
       ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
       TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
@@ -363,9 +468,9 @@ public class TestRunLoop {
       coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
       callback.complete();
       return null;
-    }).when(task0).process(eq(envelope00), any(), any());
+    }).when(task0).process(eq(envelopeA00), any(), any());
 
-    RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, sspA1);
     doAnswer(invocation -> {
       ReadableCoordinator coordinator = invocation.getArgumentAt(1, ReadableCoordinator.class);
       TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
@@ -374,7 +479,7 @@ public class TestRunLoop {
       coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
       callback.complete();
       return null;
-    }).when(task1).process(eq(envelope11), any(), any());
+    }).when(task1).process(eq(envelopeA11), any(), any());
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
     tasks.put(taskName0, task0);
@@ -383,7 +488,7 @@ public class TestRunLoop {
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
         callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     // consensus is reached after envelope1 is processed.
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope11).thenReturn(null);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA11).thenReturn(null);
     runLoop.run();
 
     verify(task0).process(any(), any(), any());
@@ -397,8 +502,8 @@ public class TestRunLoop {
   public void testEndOfStreamWithMultipleTasks() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
-    RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0, sspB0);
+    RunLoopTask task1 = getMockRunLoopTask(taskName1, sspA1, sspB1);
 
     Map<TaskName, RunLoopTask> tasks = new HashMap<>();
 
@@ -409,21 +514,27 @@ public class TestRunLoop {
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
         callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
     when(consumerMultiplexer.choose(false))
-      .thenReturn(envelope00)
-      .thenReturn(envelope11)
-      .thenReturn(ssp0EndOfStream)
-      .thenReturn(ssp1EndOfStream)
+      .thenReturn(envelopeA00)
+      .thenReturn(envelopeA11)
+      .thenReturn(envelopeB00)
+      .thenReturn(envelopeB11)
+      .thenReturn(sspA0EndOfStream)
+      .thenReturn(sspB0EndOfStream)
+      .thenReturn(sspB1EndOfStream)
+      .thenReturn(sspA1EndOfStream)
       .thenReturn(null);
 
     runLoop.run();
 
-    verify(task0).process(eq(envelope00), any(), any());
+    verify(task0).process(eq(envelopeA00), any(), any());
+    verify(task0).process(eq(envelopeB00), any(), any());
     verify(task0).endOfStream(any());
 
-    verify(task1).process(eq(envelope11), any(), any());
+    verify(task1).process(eq(envelopeA11), any(), any());
+    verify(task1).process(eq(envelopeB11), any(), any());
     verify(task1).endOfStream(any());
 
-    assertEquals(4L, containerMetrics.envelopes().getCount());
+    assertEquals(8L, containerMetrics.envelopes().getCount());
   }
 
   @Test
@@ -433,7 +544,7 @@ public class TestRunLoop {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
     when(task0.offsetManager()).thenReturn(offsetManager);
     CountDownLatch firstMessageBarrier = new CountDownLatch(2);
     doAnswer(invocation -> {
@@ -445,7 +556,7 @@ public class TestRunLoop {
         return null;
       });
       return null;
-    }).when(task0).process(eq(envelope00), any(), any());
+    }).when(task0).process(eq(envelopeA00), any(), any());
 
     doAnswer(invocation -> {
       assertEquals(1, task0.metrics().messagesInFlight().getValue());
@@ -455,7 +566,7 @@ public class TestRunLoop {
       callback.complete();
       firstMessageBarrier.countDown();
       return null;
-    }).when(task0).process(eq(envelope01), any(), any());
+    }).when(task0).process(eq(envelopeA01), any(), any());
 
     doAnswer(invocation -> {
       assertEquals(0, task0.metrics().messagesInFlight().getValue());
@@ -469,7 +580,7 @@ public class TestRunLoop {
 
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
                                             callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(ssp0EndOfStream)
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA01).thenReturn(sspA0EndOfStream)
         .thenAnswer(invocation -> {
           // this ensures that the end of stream message has passed through run loop BEFORE the last remaining in flight message completes
           firstMessageBarrier.countDown();
@@ -482,10 +593,67 @@ public class TestRunLoop {
   }
 
   @Test
+  public void testDrainWaitsForInFlightMessages() {
+    int maxMessagesInFlight = 2;
+    ExecutorService taskExecutor = Executors.newFixedThreadPool(1);
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+    OffsetManager offsetManager = mock(OffsetManager.class);
+
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
+    when(task0.offsetManager()).thenReturn(offsetManager);
+    CountDownLatch firstMessageBarrier = new CountDownLatch(2);
+    doAnswer(invocation -> {
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      taskExecutor.submit(() -> {
+        firstMessageBarrier.await();
+        callback.complete();
+        return null;
+      });
+      return null;
+    }).when(task0).process(eq(envelopeA00), any(), any());
+
+    doAnswer(invocation -> {
+      assertEquals(1, task0.metrics().messagesInFlight().getValue());
+
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      callback.complete();
+      firstMessageBarrier.countDown();
+      return null;
+    }).when(task0).process(eq(envelopeA01), any(), any());
+
+    doAnswer(invocation -> {
+      assertEquals(0, task0.metrics().messagesInFlight().getValue());
+      assertEquals(2, task0.metrics().asyncCallbackCompleted().getCount());
+
+      return null;
+    }).when(task0).drain(any());
+
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
+    tasks.put(taskName0, task0);
+
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false,
+        1, runId);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA01).thenReturn(sspA0Drain)
+        .thenAnswer(invocation -> {
+          // this ensures that the drain message has passed through run loop BEFORE the flight message
+          // completes
+          firstMessageBarrier.countDown();
+          return null;
+        });
+
+    runLoop.run();
+
+    verify(task0).drain(any());
+  }
+
+  @Test
   public void testEndOfStreamCommitBehavior() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
     doAnswer(invocation -> {
       ReadableCoordinator coordinator = invocation.getArgumentAt(0, ReadableCoordinator.class);
 
@@ -500,7 +668,7 @@ public class TestRunLoop {
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
                                             callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(ssp0EndOfStream).thenReturn(null);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(sspA0EndOfStream).thenReturn(null);
 
     runLoop.run();
 
@@ -511,13 +679,36 @@ public class TestRunLoop {
   }
 
   @Test
+  public void testDrainCommitBehavior() {
+    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
+
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
+    Map<TaskName, RunLoopTask> tasks = new HashMap<>();
+
+    tasks.put(taskName0, task0);
+
+    int maxMessagesInFlight = 1;
+    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false,
+        1, runId);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(sspA0Drain).thenReturn(null);
+
+    runLoop.run();
+
+    InOrder inOrder = inOrder(task0);
+
+    inOrder.verify(task0).drain(any());
+    inOrder.verify(task0).commit();
+  }
+
+  @Test
   public void testCommitWithMessageInFlightWhenAsyncCommitIsEnabled() {
     int maxMessagesInFlight = 2;
     ExecutorService taskExecutor = Executors.newFixedThreadPool(2);
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
     OffsetManager offsetManager = mock(OffsetManager.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
     when(task0.offsetManager()).thenReturn(offsetManager);
     CountDownLatch firstMessageBarrier = new CountDownLatch(1);
     doAnswer(invocation -> {
@@ -532,7 +723,7 @@ public class TestRunLoop {
         return null;
       });
       return null;
-    }).when(task0).process(eq(envelope00), any(), any());
+    }).when(task0).process(eq(envelopeA00), any(), any());
 
     CountDownLatch secondMessageBarrier = new CountDownLatch(1);
     doAnswer(invocation -> {
@@ -550,7 +741,7 @@ public class TestRunLoop {
         return null;
       });
       return null;
-    }).when(task0).process(eq(envelope01), any(), any());
+    }).when(task0).process(eq(envelopeA01), any(), any());
 
     doAnswer(invocation -> {
       assertEquals(1, task0.metrics().asyncCallbackCompleted().getCount());
@@ -565,12 +756,12 @@ public class TestRunLoop {
 
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
         callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, true);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelope00).thenReturn(envelope01).thenReturn(null);
+    when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA01).thenReturn(null);
     runLoop.run();
 
     InOrder inOrder = inOrder(task0);
-    inOrder.verify(task0).process(eq(envelope00), any(), any());
-    inOrder.verify(task0).process(eq(envelope01), any(), any());
+    inOrder.verify(task0).process(eq(envelopeA00), any(), any());
+    inOrder.verify(task0).process(eq(envelopeA01), any(), any());
     inOrder.verify(task0).commit();
   }
 
@@ -578,12 +769,12 @@ public class TestRunLoop {
   public void testExceptionIsPropagated() {
     SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
 
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
     doAnswer(invocation -> {
       TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
       callbackFactory.createCallback().failure(new Exception("Intentional failure"));
       return null;
-    }).when(task0).process(eq(envelope00), any(), any());
+    }).when(task0).process(eq(envelopeA00), any(), any());
 
     Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
 
@@ -592,16 +783,16 @@ public class TestRunLoop {
         callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false);
 
     when(consumerMultiplexer.choose(false))
-        .thenReturn(envelope00)
-        .thenReturn(ssp0EndOfStream)
+        .thenReturn(envelopeA00)
+        .thenReturn(sspA0EndOfStream)
         .thenReturn(null);
 
     runLoop.run();
   }
 
-  private RunLoopTask getMockRunLoopTask(TaskName taskName, SystemStreamPartition ssp0) {
+  private RunLoopTask getMockRunLoopTask(TaskName taskName, SystemStreamPartition ... ssps) {
     RunLoopTask task0 = mock(RunLoopTask.class);
-    when(task0.systemStreamPartitions()).thenReturn(Collections.singleton(ssp0));
+    when(task0.systemStreamPartitions()).thenReturn(new HashSet<>(Arrays.asList(ssps)));
     when(task0.metrics()).thenReturn(new TaskInstanceMetrics("test", new MetricsRegistryMap(), ""));
     when(task0.taskName()).thenReturn(taskName);
     return task0;

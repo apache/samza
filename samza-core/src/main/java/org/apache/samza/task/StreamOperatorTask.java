@@ -31,6 +31,7 @@ import org.apache.samza.operators.impl.OperatorImplGraph;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.MessageType;
+import org.apache.samza.system.DrainMessage;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.WatermarkMessage;
 import org.apache.samza.util.Clock;
@@ -127,6 +128,12 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
               EndOfStreamMessage eosMessage = (EndOfStreamMessage) ime.getMessage();
               processFuture =
                   inputOpImpl.aggregateEndOfStream(eosMessage, ime.getSystemStreamPartition(), collector, coordinator);
+              break;
+
+            case DRAIN:
+              DrainMessage drainMessage = (DrainMessage) ime.getMessage();
+              processFuture =
+                  inputOpImpl.aggregateDrainMessages(drainMessage, ime.getSystemStreamPartition(), collector, coordinator);
               break;
 
             case WATERMARK:

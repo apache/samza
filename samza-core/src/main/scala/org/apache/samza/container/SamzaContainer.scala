@@ -27,7 +27,6 @@ import java.util
 import java.util.concurrent._
 import java.util.function.Consumer
 import java.util.{Base64, Optional}
-import com.google.common.annotations.VisibleForTesting
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
@@ -426,6 +425,8 @@ object SamzaContainer extends Logging {
 
     val pollIntervalMs = taskConfig.getPollIntervalMs
 
+    val appConfig = new ApplicationConfig(config)
+
     val consumerMultiplexer = new SystemConsumers(
       chooser = chooser,
       consumers = consumers,
@@ -435,7 +436,8 @@ object SamzaContainer extends Logging {
       dropDeserializationError = dropDeserializationError,
       pollIntervalMs = pollIntervalMs,
       clock = () => clock.nanoTime(),
-      elasticityFactor = jobConfig.getElasticityFactor)
+      elasticityFactor = jobConfig.getElasticityFactor,
+      runId = appConfig.getRunId)
 
     val producerMultiplexer = new SystemProducers(
       producers = producers,
@@ -622,7 +624,7 @@ object SamzaContainer extends Logging {
 
     val maxThrottlingDelayMs = config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1))
 
-    val runLoop = RunLoopFactory.createRunLoop(
+    val runLoop: Runnable = RunLoopFactory.createRunLoop(
       taskInstances,
       consumerMultiplexer,
       taskThreadPool,
@@ -630,7 +632,8 @@ object SamzaContainer extends Logging {
       samzaContainerMetrics,
       taskConfig,
       clock,
-      jobConfig.getElasticityFactor)
+      jobConfig.getElasticityFactor,
+      appConfig.getRunId)
 
     val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
 
@@ -747,6 +750,7 @@ class SamzaContainer(
   def getStatus(): SamzaContainerStatus = status
 
   def drain() {
+    // set the SystemConsumers multiplexer and RunLoop in drain mode
     consumerMultiplexer.drain
   }
 

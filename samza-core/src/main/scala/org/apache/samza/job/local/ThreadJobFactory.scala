@@ -89,7 +89,7 @@ class ThreadJobFactory extends StreamJobFactory with Logging {
     }
     var drainMonitor: DrainMonitor = null
     if (jobConfig.getDrainMonitorEnabled()) {
-      drainMonitor = new DrainMonitor(coordinatorStreamStore, config)
+      drainMonitor = new DrainMonitor(coordinatorStreamStore, config, jobConfig.getDrainMonitorPollIntervalMillis)
     }
 
     val containerId = "0"

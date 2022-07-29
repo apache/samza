@@ -45,11 +45,11 @@ import org.junit.Test;
  * Tests for {@link DrainUtils}
  * */
 public class DrainUtilsTests {
-  private static final String TEST_DEPLOYMENT_ID = "foo";
+  private static final String TEST_RUN_ID = "foo";
   private static final Config CONFIG = new MapConfig(ImmutableMap.of(
       "job.name", "test-job",
       "job.coordinator.system", "test-kafka",
-      ApplicationConfig.APP_RUN_ID, TEST_DEPLOYMENT_ID));
+      ApplicationConfig.APP_RUN_ID, TEST_RUN_ID));
 
   private CoordinatorStreamStore coordinatorStreamStore;
 
@@ -68,17 +68,17 @@ public class DrainUtilsTests {
 
   @Test
   public void testWrites() {
-    String deploymentId1 = "foo1";
-    String deploymentId2 = "foo2";
-    String deploymentId3 = "foo3";
+    String runId1 = "foo1";
+    String runId2 = "foo2";
+    String runId3 = "foo3";
 
-    UUID uuid1 = DrainUtils.writeDrainNotification(coordinatorStreamStore, deploymentId1);
-    UUID uuid2 = DrainUtils.writeDrainNotification(coordinatorStreamStore, deploymentId2);
-    UUID uuid3 = DrainUtils.writeDrainNotification(coordinatorStreamStore, deploymentId3);
+    UUID uuid1 = DrainUtils.writeDrainNotification(coordinatorStreamStore, runId1);
+    UUID uuid2 = DrainUtils.writeDrainNotification(coordinatorStreamStore, runId2);
+    UUID uuid3 = DrainUtils.writeDrainNotification(coordinatorStreamStore, runId3);
 
-    DrainNotification expectedDrainNotification1 = new DrainNotification(uuid1, deploymentId1);
-    DrainNotification expectedDrainNotification2 = new DrainNotification(uuid2, deploymentId2);
-    DrainNotification expectedDrainNotification3 = new DrainNotification(uuid3, deploymentId3);
+    DrainNotification expectedDrainNotification1 = new DrainNotification(uuid1, runId1);
+    DrainNotification expectedDrainNotification2 = new DrainNotification(uuid2, runId2);
+    DrainNotification expectedDrainNotification3 = new DrainNotification(uuid3, runId3);
     Set<DrainNotification> expectedDrainNotifications = new HashSet<>(Arrays.asList(expectedDrainNotification1,
         expectedDrainNotification2, expectedDrainNotification3));
 
@@ -90,23 +90,23 @@ public class DrainUtilsTests {
 
   @Test
   public void testCleanup() {
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_DEPLOYMENT_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
     DrainUtils.cleanup(coordinatorStreamStore, CONFIG);
     final Optional<List<DrainNotification>> drainNotifications1 = readDrainNotificationMessages(coordinatorStreamStore);
     Assert.assertFalse(drainNotifications1.isPresent());
 
-    final String deploymentId = "bar";
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, deploymentId);
+    final String runId = "bar";
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, runId);
     DrainUtils.cleanup(coordinatorStreamStore, CONFIG);
     final Optional<List<DrainNotification>> drainNotifications2 = readDrainNotificationMessages(coordinatorStreamStore);
     Assert.assertTrue(drainNotifications2.isPresent());
-    Assert.assertEquals(deploymentId, drainNotifications2.get().get(0).getDeploymentId());
+    Assert.assertEquals(runId, drainNotifications2.get().get(0).getRunId());
   }
 
   @Test
   public void testCleanupAll() {
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_DEPLOYMENT_ID);
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_DEPLOYMENT_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
     DrainUtils.writeDrainNotification(coordinatorStreamStore, "bar");
     DrainUtils.cleanupAll(coordinatorStreamStore);
     final Optional<List<DrainNotification>> drainNotifications = readDrainNotificationMessages(coordinatorStreamStore);

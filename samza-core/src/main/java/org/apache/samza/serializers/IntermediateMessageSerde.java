@@ -22,6 +22,7 @@ package org.apache.samza.serializers;
 import java.util.Arrays;
 
 import org.apache.samza.SamzaException;
+import org.apache.samza.system.DrainMessage;
 import org.apache.samza.system.EndOfStreamMessage;
 import org.apache.samza.system.MessageType;
 import org.apache.samza.system.WatermarkMessage;
@@ -56,11 +57,13 @@ public class IntermediateMessageSerde implements Serde<Object> {
   private final Serde userMessageSerde;
   private final Serde<WatermarkMessage> watermarkSerde;
   private final Serde<EndOfStreamMessage> eosSerde;
+  private final Serde<DrainMessage> drainMessageSerde;
 
   public IntermediateMessageSerde(Serde userMessageSerde) {
     this.userMessageSerde = userMessageSerde;
     this.watermarkSerde = new JsonSerdeV2<>(WatermarkMessage.class);
     this.eosSerde = new JsonSerdeV2<>(EndOfStreamMessage.class);
+    this.drainMessageSerde = new JsonSerdeV2<>(DrainMessage.class);
   }
 
   @Override
@@ -93,6 +96,9 @@ public class IntermediateMessageSerde implements Serde<Object> {
         case END_OF_STREAM:
           object = eosSerde.fromBytes(data);
           break;
+        case DRAIN:
+          object = drainMessageSerde.fromBytes(data);
+          break;
         default:
           throw new UnsupportedOperationException(String.format("Message type %s is not supported", type.name()));
       }
@@ -117,6 +123,9 @@ public class IntermediateMessageSerde implements Serde<Object> {
         break;
       case END_OF_STREAM:
         data = eosSerde.toBytes((EndOfStreamMessage) object);
+        break;
+      case DRAIN:
+        data = drainMessageSerde.toBytes((DrainMessage) object);
         break;
       default:
         throw new SamzaException("Unknown message type: " + type.name());
