@@ -496,7 +496,8 @@ class OffsetManager(
 
     val checkpoint = checkpointManager.readLastCheckpoint(taskName)
 
-    if (!elasticityCheckpointsEnabled) {
+    val checkpointMap = checkpointManager.readAllCheckpoints()
+    if (!elasticityCheckpointsEnabled || !ElasticityUtils.wasElasticityEnabled(checkpointMap)) {
       if (checkpoint != null) {
         return Map(taskName -> checkpoint.getOffsets.asScala.toMap)
       } else {
@@ -506,7 +507,6 @@ class OffsetManager(
     }
     info("Elasticity checkpoints is enabled and there was elasticity enabled in one of the previous deploys." +
       "Last processed offsets computation at container start will use elasticity checkpoints if available.")
-    val checkpointMap = checkpointManager.readAllCheckpoints()
     Map(taskName -> ElasticityUtils.computeLastProcessedOffsetsFromCheckpointMap(taskName,
       systemStreamPartitions.get(taskName).get.asJava, checkpointMap, systemAdmins).asScala)
   }
