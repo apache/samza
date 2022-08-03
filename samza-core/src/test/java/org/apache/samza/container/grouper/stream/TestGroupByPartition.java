@@ -93,12 +93,12 @@ public class TestGroupByPartition {
     GroupByPartition grouper = new GroupByPartition(config);
     Map<TaskName, Set<SystemStreamPartition>> result = grouper.group(ImmutableSet.of(aa0, aa1, aa2, ab1, ab2, ac0));
     Map<TaskName, Set<SystemStreamPartition>> expectedResult = ImmutableMap.<TaskName, Set<SystemStreamPartition>>builder()
-        .put(new TaskName("Partition 0_0_2"), ImmutableSet.of(new SystemStreamPartition(aa0, 0), new SystemStreamPartition(ac0, 0)))
-        .put(new TaskName("Partition 0_1_2"), ImmutableSet.of(new SystemStreamPartition(aa0, 1), new SystemStreamPartition(ac0, 1)))
-        .put(new TaskName("Partition 1_0_2"), ImmutableSet.of(new SystemStreamPartition(aa1, 0), new SystemStreamPartition(ab1, 0)))
-        .put(new TaskName("Partition 1_1_2"), ImmutableSet.of(new SystemStreamPartition(aa1, 1), new SystemStreamPartition(ab1, 1)))
-        .put(new TaskName("Partition 2_0_2"), ImmutableSet.of(new SystemStreamPartition(aa2, 0), new SystemStreamPartition(ab2, 0)))
-        .put(new TaskName("Partition 2_1_2"), ImmutableSet.of(new SystemStreamPartition(aa2, 1), new SystemStreamPartition(ab2, 1)))
+        .put(new TaskName("Partition 0 0"), ImmutableSet.of(new SystemStreamPartition(aa0, 0), new SystemStreamPartition(ac0, 0)))
+        .put(new TaskName("Partition 0 1"), ImmutableSet.of(new SystemStreamPartition(aa0, 1), new SystemStreamPartition(ac0, 1)))
+        .put(new TaskName("Partition 1 0"), ImmutableSet.of(new SystemStreamPartition(aa1, 0), new SystemStreamPartition(ab1, 0)))
+        .put(new TaskName("Partition 1 1"), ImmutableSet.of(new SystemStreamPartition(aa1, 1), new SystemStreamPartition(ab1, 1)))
+        .put(new TaskName("Partition 2 0"), ImmutableSet.of(new SystemStreamPartition(aa2, 0), new SystemStreamPartition(ab2, 0)))
+        .put(new TaskName("Partition 2 1"), ImmutableSet.of(new SystemStreamPartition(aa2, 1), new SystemStreamPartition(ab2, 1)))
         .build();
 
     assertEquals(expectedResult, result);

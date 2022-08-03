@@ -64,7 +64,7 @@ public class GroupByPartition implements SystemStreamPartitionGrouper {
         int keyBucket = elasticityFactor == 1 ? -1 : i;
         String taskNameStr = elasticityFactor == 1 ?
             String.format("Partition %d", ssp.getPartition().getPartitionId()) :
-            String.format("Partition %d_%d_%d", ssp.getPartition().getPartitionId(), keyBucket, elasticityFactor);
+            String.format("Partition %d %d", ssp.getPartition().getPartitionId(), keyBucket);
         TaskName taskName = new TaskName(taskNameStr);
         SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, keyBucket);
         groupedMap.putIfAbsent(taskName, new HashSet<>());

@@ -63,8 +63,7 @@ public class GroupBySystemStreamPartition implements SystemStreamPartitionGroupe
         SystemStreamPartition sspWithKeyBucket = new SystemStreamPartition(ssp, keyBucket);
         HashSet<SystemStreamPartition> sspSet = new HashSet<SystemStreamPartition>();
         sspSet.add(sspWithKeyBucket);
-        String elasticitySuffix = elasticityFactor == 1 ? "" : String.format("_%d", elasticityFactor);
-        groupedMap.put(new TaskName(sspWithKeyBucket.toString() + elasticitySuffix), sspSet);
+        groupedMap.put(new TaskName(sspWithKeyBucket.toString()), sspSet);
       }
     }
 
