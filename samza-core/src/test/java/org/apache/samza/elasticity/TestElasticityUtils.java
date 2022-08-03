@@ -130,33 +130,6 @@ public class TestElasticityUtils {
         taskName, Collections.singleton(ssp0), checkpointMap, mockSystemAdmins);
     Assert.assertEquals("3", result.get(ssp0));
   }
-  @Test
-  public void testComputeLastProcessedOffsetsWithEdgeCases() {
-    TaskName taskName = new TaskName("Partition 0_0_2");
-    Map<TaskName, Checkpoint> checkpointMap = new HashMap<>();
-    SystemStreamPartition ssp0 = new SystemStreamPartition("systemA", "streamB", new Partition(0), 0);
-
-    SystemAdmin mockSystemAdmin = Mockito.mock(SystemAdmin.class);
-    SystemAdmins mockSystemAdmins = Mockito.mock(SystemAdmins.class);
-    Mockito.when(mockSystemAdmins.getSystemAdmin(ssp0.getSystem())).thenReturn(mockSystemAdmin);
-
-    // case 1: empty checkpoint map
-    Map<SystemStreamPartition, String> result = ElasticityUtils.computeLastProcessedOffsetsFromCheckpointMap(
-        taskName, Collections.singleton(ssp0), checkpointMap, mockSystemAdmins);
-    Assert.assertTrue("if given checkpoint map is empty, return empty last processed offsets map", result.isEmpty());
-
-    // case 2: null checkpoints given for some ancestor tasks
-    checkpointMap.put(new TaskName("Partition 0"), null);
-    result = ElasticityUtils.computeLastProcessedOffsetsFromCheckpointMap(
-        taskName, Collections.singleton(ssp0), checkpointMap, mockSystemAdmins);
-    Assert.assertTrue("if given checkpoint map has null checkpoint, return empty last processed offsets map", result.isEmpty());
-
-    // case 3: null checkpoints given for some descendant tasks
-    checkpointMap.put(new TaskName("Partition 0_0_4"), null);
-    result = ElasticityUtils.computeLastProcessedOffsetsFromCheckpointMap(
-        taskName, Collections.singleton(ssp0), checkpointMap, mockSystemAdmins);
-    Assert.assertTrue("if given checkpoint map has null checkpoint, return empty last processed offsets map", result.isEmpty());
-  }
 
   @Test
   public void testTaskIsGroupByPartitionOrGroupBySSP() {
