@@ -221,9 +221,7 @@ public class SamzaObjectMapper {
   public static class SystemStreamPartitionKeySerializer extends JsonSerializer<SystemStreamPartition> {
     @Override
     public void serialize(SystemStreamPartition ssp, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-      String sspString = ssp.getSystem() + "." + ssp.getStream() + "."
-          + String.valueOf(ssp.getPartition().getPartitionId()) + "."
-          + String.valueOf(ssp.getKeyBucket());
+      String sspString = ssp.getSystem() + "." + ssp.getStream() + "." + String.valueOf(ssp.getPartition().getPartitionId());
       jgen.writeFieldName(sspString);
     }
   }
@@ -232,16 +230,11 @@ public class SamzaObjectMapper {
     @Override
     public Object deserializeKey(String sspString, DeserializationContext ctxt) throws IOException {
       String[] parts = sspString.split("\\.");
-      if (parts.length < 3 || parts.length > 4) {
-        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition' "
-            + "or 'system.stream.partition.keyBucket");
+      if (parts.length < 3) {
+        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition");
       }
-      if (parts.length == 3) {
-        return new SystemStreamPartition(
-            new SystemStream(parts[0], parts[1]), new Partition(Integer.parseInt(parts[2])));
-      }
-      // else parts.length == 4 and the 4th part is the keyBucket
-      return new SystemStreamPartition(parts[0], parts[1], new Partition(Integer.parseInt(parts[2])), Integer.parseInt(parts[3]));
+      return new SystemStreamPartition(
+          new SystemStream(parts[0], parts[1]), new Partition(Integer.parseInt(parts[2])));
     }
   }
 
