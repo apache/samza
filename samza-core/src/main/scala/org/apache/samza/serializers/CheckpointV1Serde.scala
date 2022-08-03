@@ -55,7 +55,12 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
         require(partition != null, "Partition must be present in JSON-encoded SystemStreamPartition")
         val offset = sspInfo.get("offset")
         // allow null offsets, e.g. for changelog ssps
-        new SystemStreamPartition(system, stream, new Partition(partition.toInt)) -> offset
+        var keyBucket = sspInfo.get("keyBucket")
+        if (keyBucket == null) {
+          keyBucket = "-1"
+        }
+
+        new SystemStreamPartition(system, stream, new Partition(partition.toInt), keyBucket.toInt) -> offset
       }
 
       val cpMap = jMap.values.asScala.map(deserializeJSONMap).toMap
@@ -78,6 +83,7 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
         jMap.put("system", ssp.getSystemStream.getSystem)
         jMap.put("stream", ssp.getSystemStream.getStream)
         jMap.put("partition", ssp.getPartition.getPartitionId.toString)
+        jMap.put("keyBucket", ssp.getKeyBucket.toString)
         jMap.put("offset", offset)
 
         asMap.put(ssp.toString, jMap)
