@@ -215,26 +215,16 @@ class OffsetManager(
    * Set the last processed offset for a given SystemStreamPartition.
    */
   def update(taskName: TaskName, systemStreamPartition: SystemStreamPartition, offset: String) {
-    // without elasticity enabled, there is exactly one entry of an ssp in the systemStreamPartitions map for a taskName
-    // with elasticity enabled, there is exactly one of the keyBuckets of an ssp that a task consumes
-    // and hence exactly one entry of an ssp with keyBucket in in the systemStreamPartitions map for a taskName
-    // hence from the given ssp, find its sspWithKeybucket for the task and use that for updating lastProcessedOffsets
-    val sspWithKeyBucket = systemStreamPartitions.getOrElse(taskName,
-      throw new SamzaException("No SSPs registered for task: " + taskName))
-      .filter(ssp => ssp.getSystemStream.equals(systemStreamPartition.getSystemStream)
-        && ssp.getPartition.equals(systemStreamPartition.getPartition))
-      .toIterator.next()
-
     lastProcessedOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
     taskSSPsWithProcessedOffsetUpdated.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, Boolean]())
 
     if (offset != null) {
       if (!offset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
-        lastProcessedOffsets.get(taskName).put(sspWithKeyBucket, offset)
+        lastProcessedOffsets.get(taskName).put(systemStreamPartition, offset)
       }
       // Record the spp that have received the new messages. The startpoint for each ssp should only be deleted when the
       // ssp has received the new messages. More details in SAMZA-2749.
-      taskSSPsWithProcessedOffsetUpdated.get(taskName).putIfAbsent(sspWithKeyBucket, true)
+      taskSSPsWithProcessedOffsetUpdated.get(taskName).putIfAbsent(systemStreamPartition, true)
     }
   }
 
