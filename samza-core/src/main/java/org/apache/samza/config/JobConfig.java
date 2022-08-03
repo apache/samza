@@ -190,11 +190,6 @@ public class JobConfig extends MapConfig {
   public static final String CONTAINER_HEARTBEAT_MONITOR_ENABLED = "job.container.heartbeat.monitor.enabled";
   private static final boolean CONTAINER_HEARTBEAT_MONITOR_ENABLED_DEFAULT = true;
 
-  // if true, use checkpoints from previous deploys where elasticity was enabled
-  // set this to true if rolling back from elasticity to before elasticity.
-  public static final String JOB_ELASTICITY_CHECKPOINTS_ENABLED = "job.elasticity.checkpoints.enabled";
-  public static final boolean DEFAULT_JOB_ELASTICITY_CHECKPOINTS_ENABLED = false;
-
 
   // Enabled elasticity for the job
   // number of (elastic) tasks in the job will be old task count X elasticity factor
@@ -515,10 +510,6 @@ public class JobConfig extends MapConfig {
 
   public boolean getContainerHeartbeatMonitorEnabled() {
     return getBoolean(CONTAINER_HEARTBEAT_MONITOR_ENABLED, CONTAINER_HEARTBEAT_MONITOR_ENABLED_DEFAULT);
-  }
-
-  public boolean getElasticityCheckpointEnabled() {
-    return getBoolean(JOB_ELASTICITY_CHECKPOINTS_ENABLED, DEFAULT_JOB_ELASTICITY_CHECKPOINTS_ENABLED);
   }
 
   public boolean getElasticityEnabled() {
