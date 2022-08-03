@@ -46,7 +46,7 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
       val jMap = jsonMapper.readValue(bytes, classOf[util.HashMap[String, util.HashMap[String, String]]])
 
       def deserializeJSONMap(sspInfo:util.HashMap[String, String]) = {
-        require(sspInfo.size() == 4, "All JSON-encoded SystemStreamPartitions must have four keys")
+        require(sspInfo.size() >= 4, "All JSON-encoded SystemStreamPartitions must have atleast four keys")
         val system = sspInfo.get("system")
         require(system != null, "System must be present in JSON-encoded SystemStreamPartition")
         val stream = sspInfo.get("stream")
