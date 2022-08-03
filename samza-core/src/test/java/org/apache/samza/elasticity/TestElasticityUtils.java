@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.elasticity.util;
+package org.apache.samza.elasticity;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
@@ -191,32 +191,32 @@ public class TestElasticityUtils {
 
   @Test
   public void testGetElasticTaskNameParts() {
-    TaskNameComponents taskNameComponents = ElasticityUtils.getTaskNameParts(TASKNAME_GROUP_BY_PARTITION);
-    Assert.assertEquals(taskNameComponents.partition, 0);
-    Assert.assertEquals(taskNameComponents.keyBucket, TaskNameComponents.DEFAULT_KEY_BUCKET);
-    Assert.assertEquals(taskNameComponents.elasticityFactor, TaskNameComponents.DEFAULT_ELASTICITY_FACTOR);
+    ElasticTaskNameParts taskNameParts = ElasticityUtils.getTaskNameParts(TASKNAME_GROUP_BY_PARTITION);
+    Assert.assertEquals(taskNameParts.partition, 0);
+    Assert.assertEquals(taskNameParts.keyBucket, ElasticTaskNameParts.DEFAULT_KEY_BUCKET);
+    Assert.assertEquals(taskNameParts.elasticityFactor, ElasticTaskNameParts.DEFAULT_ELASTICITY_FACTOR);
 
-    taskNameComponents = ElasticityUtils.getTaskNameParts(ELASTIC_TASKNAME_GROUP_BY_PARTITION);
-    Assert.assertEquals(taskNameComponents.partition, 0);
-    Assert.assertEquals(taskNameComponents.keyBucket, 1);
-    Assert.assertEquals(taskNameComponents.elasticityFactor, 2);
+    taskNameParts = ElasticityUtils.getTaskNameParts(ELASTIC_TASKNAME_GROUP_BY_PARTITION);
+    Assert.assertEquals(taskNameParts.partition, 0);
+    Assert.assertEquals(taskNameParts.keyBucket, 1);
+    Assert.assertEquals(taskNameParts.elasticityFactor, 2);
 
-    taskNameComponents = ElasticityUtils.getTaskNameParts(TASKNAME_GROUP_BY_SSP);
-    Assert.assertEquals(taskNameComponents.system, "systemA");
-    Assert.assertEquals(taskNameComponents.stream, "streamB");
-    Assert.assertEquals(taskNameComponents.partition, 0);
-    Assert.assertEquals(taskNameComponents.keyBucket, TaskNameComponents.DEFAULT_KEY_BUCKET);
-    Assert.assertEquals(taskNameComponents.elasticityFactor, TaskNameComponents.DEFAULT_ELASTICITY_FACTOR);
+    taskNameParts = ElasticityUtils.getTaskNameParts(TASKNAME_GROUP_BY_SSP);
+    Assert.assertEquals(taskNameParts.system, "systemA");
+    Assert.assertEquals(taskNameParts.stream, "streamB");
+    Assert.assertEquals(taskNameParts.partition, 0);
+    Assert.assertEquals(taskNameParts.keyBucket, ElasticTaskNameParts.DEFAULT_KEY_BUCKET);
+    Assert.assertEquals(taskNameParts.elasticityFactor, ElasticTaskNameParts.DEFAULT_ELASTICITY_FACTOR);
 
-    taskNameComponents = ElasticityUtils.getTaskNameParts(ELASTIC_TASKNAME_GROUP_BY_SSP);
-    Assert.assertEquals(taskNameComponents.system, "systemA");
-    Assert.assertEquals(taskNameComponents.stream, "streamB");
-    Assert.assertEquals(taskNameComponents.partition, 0);
-    Assert.assertEquals(taskNameComponents.keyBucket, 1);
-    Assert.assertEquals(taskNameComponents.elasticityFactor, 2);
+    taskNameParts = ElasticityUtils.getTaskNameParts(ELASTIC_TASKNAME_GROUP_BY_SSP);
+    Assert.assertEquals(taskNameParts.system, "systemA");
+    Assert.assertEquals(taskNameParts.stream, "streamB");
+    Assert.assertEquals(taskNameParts.partition, 0);
+    Assert.assertEquals(taskNameParts.keyBucket, 1);
+    Assert.assertEquals(taskNameParts.elasticityFactor, 2);
 
-    taskNameComponents = ElasticityUtils.getTaskNameParts(new TaskName("FooBar"));
-    Assert.assertEquals(taskNameComponents.partition, TaskNameComponents.INVALID_PARTITION);
+    taskNameParts = ElasticityUtils.getTaskNameParts(new TaskName("FooBar"));
+    Assert.assertEquals(taskNameParts.partition, ElasticTaskNameParts.INVALID_PARTITION);
   }
 
   @Test
@@ -381,51 +381,6 @@ public class TestElasticityUtils {
     SystemStreamPartition ssp2 = new SystemStreamPartition("A", "B", new Partition(0));
     Assert.assertEquals(null, ElasticityUtils.getMaxOffsetForSSPInCheckpointSet(checkpointSet, ssp2, mockSystemAdmin));
     Assert.assertEquals(null, ElasticityUtils.getMinOffsetForSSPInCheckpointSet(checkpointSet, ssp2, mockSystemAdmin));
-  }
-
-  @Test
-  public void testWasElasticityEnabled() {
-    Checkpoint checkpoint1 = buildCheckpointV2(new SystemStreamPartition("A", "B", new Partition(0)), "1");
-    Checkpoint checkpoint2 = buildCheckpointV2(new SystemStreamPartition("A", "B", new Partition(1)), "2");
-    Checkpoint checkpoint3 = buildCheckpointV2(new SystemStreamPartition("A", "B", new Partition(0), 0), "3");
-    Checkpoint checkpoint4 = buildCheckpointV2(new SystemStreamPartition("A", "B", new Partition(0), 1), "4");
-
-    // case 0: empty checkpoint map
-    Assert.assertFalse(ElasticityUtils.wasElasticityEnabled(new HashMap<>()));
-
-    // case 1: no tasks with elasticity enabled in the checkpoint map
-    Map<TaskName, Checkpoint> checkpointMap1 = new HashMap<>();
-    checkpointMap1.put(new TaskName("Partition 0"), checkpoint1);
-    checkpointMap1.put(new TaskName("Partition 2"), checkpoint2);
-    Assert.assertFalse(ElasticityUtils.wasElasticityEnabled(checkpointMap1));
-
-    // case 2: tasks with no elasticity and tasks with elasticity both present in the checkpoint map
-    Map<TaskName, Checkpoint> checkpointMap2 = new HashMap<>();
-    checkpointMap2.put(new TaskName("Partition 0"), checkpoint1);
-    checkpointMap2.put(new TaskName("Partition 2"), checkpoint2);
-    checkpointMap2.put(new TaskName("Partition 0_0_2"), checkpoint3);
-    Assert.assertTrue(ElasticityUtils.wasElasticityEnabled(checkpointMap2));
-
-    // case 3: only tasks with elasticity present in the checkpoint map
-    Map<TaskName, Checkpoint> checkpointMap3 = new HashMap<>();
-    checkpointMap3.put(new TaskName("Partition 0_0_2"), checkpoint3);
-    checkpointMap3.put(new TaskName("Partition 0_1_2"), checkpoint4);
-    Assert.assertTrue(ElasticityUtils.wasElasticityEnabled(checkpointMap3));
-
-    // case 4: repeat same checks with GroupBySSP grouper tasks
-    Map<TaskName, Checkpoint> checkpointMap4 = new HashMap<>();
-    checkpointMap4.put(new TaskName("SystemStreamPartition [A, B, 0]"), checkpoint1);
-    checkpointMap4.put(new TaskName("SystemStreamPartition [A, B, 1]"), checkpoint2);
-    Assert.assertFalse(ElasticityUtils.wasElasticityEnabled(checkpointMap4));
-    checkpointMap4.put(new TaskName("SystemStreamPartition [A, B, 0, 0]_2"), checkpoint3);
-    checkpointMap4.put(new TaskName("SystemStreamPartition [A, B, 0, 1]_2"), checkpoint4);
-    Assert.assertTrue(ElasticityUtils.wasElasticityEnabled(checkpointMap4));
-
-    // case 5: repeat same checks with AllSspToSingleTask grouper tasks - no elasticity supported for this grouper
-    Map<TaskName, Checkpoint> checkpointMap5 = new HashMap<>();
-    checkpointMap5.put(new TaskName("Task-0"), checkpoint1);
-    checkpointMap5.put(new TaskName("Task-1"), checkpoint2);
-    Assert.assertFalse(ElasticityUtils.wasElasticityEnabled(checkpointMap5));
   }
 
   private static CheckpointV2 buildCheckpointV2(SystemStreamPartition ssp, String offset) {
