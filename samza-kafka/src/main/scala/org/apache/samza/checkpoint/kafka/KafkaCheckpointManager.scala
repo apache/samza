@@ -142,20 +142,21 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
     info(s"Reading checkpoint for taskName $taskName")
 
-    populateTaskNamesToCheckpointsMap()
+    if (taskNamesToCheckpoints == null) {
+      info("Reading checkpoints for the first time")
+      taskNamesToCheckpoints = readCheckpoints()
+      if (stopConsumerAfterFirstRead) {
+        info("Stopping system consumer")
+        systemConsumer.stop()
+      }
+    } else if (!stopConsumerAfterFirstRead) {
+      taskNamesToCheckpoints ++= readCheckpoints()
+    }
 
     val checkpoint: Checkpoint = taskNamesToCheckpoints.getOrElse(taskName, null)
 
     info(s"Got checkpoint state for taskName - $taskName: $checkpoint")
     checkpoint
-  }
-
-  /**
-   * @inheritdoc
-   */
-  override def readAllCheckpoints(): util.Map[TaskName, Checkpoint] = {
-    populateTaskNamesToCheckpointsMap()
-    scala.collection.JavaConverters.mapAsJavaMapConverter(taskNamesToCheckpoints).asJava
   }
 
   /**
@@ -407,19 +408,6 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       checkpointV2MsgSerde.fromBytes(checkpointMsgBytes)
     } else {
       throw new IllegalArgumentException("Unknown checkpoint key type: " + checkpointKey.getType)
-    }
-  }
-
-  private def populateTaskNamesToCheckpointsMap() = {
-    if (taskNamesToCheckpoints == null) {
-      info("Reading checkpoints for the first time")
-      taskNamesToCheckpoints = readCheckpoints()
-      if (stopConsumerAfterFirstRead) {
-        info("Stopping system consumer")
-        systemConsumer.stop()
-      }
-    } else if (!stopConsumerAfterFirstRead) {
-      taskNamesToCheckpoints ++= readCheckpoints()
     }
   }
 }

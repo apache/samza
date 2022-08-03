@@ -19,8 +19,6 @@
 
 package org.apache.samza.checkpoint;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.samza.container.TaskName;
 
 /**
@@ -68,15 +66,4 @@ public interface CheckpointManager {
    * Clear the checkpoints in the checkpoint stream.
    */
   default void clearCheckpoints() { }
-
-  /**
-   * Returns the last recorded checkpoint for all tasks present in the implementation-specific location.
-   * All tasks contains all the tasks within the current job model.
-   * All tasks also includes tasks which may have been part of the job model during a previous deploy.
-   * @return A Map of TaskName to Checkpoint object.
-   *         The Checkpoint object has the recorded offset data of the specified partition.
-   */
-  default Map<TaskName, Checkpoint> readAllCheckpoints() {
-    return new HashMap<>();
-  };
 }
