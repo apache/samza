@@ -226,7 +226,7 @@ class TaskInstance(
     // if elasticity is enabled aka elasticity factor > 1
     // then this TaskInstance processes only those envelopes whose key falls
     // within the keyBucket of the SSP assigned to the task.
-    val incomingMessageSsp = getIncomingMessageSSP(envelope)
+    val incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
 
     if (!ssp2CaughtupMapping.getOrElse(incomingMessageSsp,
       throw new SamzaException(incomingMessageSsp + " is not registered!"))) {
@@ -566,7 +566,7 @@ class TaskInstance(
     // if elasticity is enabled aka elasticity factor > 1
     // then this TaskInstance handles only those envelopes whose key falls
     // within the keyBucket of the SSP assigned to the task.
-    var incomingMessageSsp = getIncomingMessageSSP(envelope)
+    val incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
 
     if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(envelope.getOffset)) {
       ssp2CaughtupMapping(incomingMessageSsp) = true
@@ -628,29 +628,5 @@ class TaskInstance(
       throw new SamzaException("No offset defined for SystemStreamPartition: %s" format systemStreamPartition))
 
     startingOffset
-  }
-
-  private def getIncomingMessageSSP(envelope: IncomingMessageEnvelope): SystemStreamPartition = {
-    if (elasticityFactor <= 1) {
-      return envelope.getSystemStreamPartition
-    }
-    // if elasticityFactor > 1, find the SSP with keyBucket
-    var incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
-
-    // if envelope is end of stream or watermark or drain,
-    // it needs to be routed to all tasks consuming the ssp irresp of keyBucket
-    val messageType = MessageType.of(envelope.getMessage)
-    if (envelope.isEndOfStream()
-      || envelope.isDrain()
-      || messageType == MessageType.END_OF_STREAM
-      || messageType == MessageType.WATERMARK) {
-
-      incomingMessageSsp = systemStreamPartitions
-        .filter(ssp => ssp.getSystemStream.equals(incomingMessageSsp.getSystemStream)
-          && ssp.getPartition.equals(incomingMessageSsp.getPartition))
-        .toIterator.next()
-      debug("for watermark or end-of-stream or drain envelope, found incoming ssp as {}".format(incomingMessageSsp))
-    }
-    incomingMessageSsp
   }
 }

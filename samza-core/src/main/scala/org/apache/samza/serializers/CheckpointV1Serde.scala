@@ -40,7 +40,7 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
   // Serialize checkpoint as maps keyed by the SSP.toString() to the another map of the constituent SSP components
   // and offset. Jackson can't automatically serialize the SSP since it's not a POJO and this avoids
   // having to wrap it another class while maintaining readability.
-  // { "SSP.toString()" -> {"system": system, "stream": stream, "partition": partition, "keyBucket": keyBucket, "offset": offset)}
+  // { "SSP.toString()" -> {"system": system, "stream": stream, "partition": partition, "offset": offset)}
   def fromBytes(bytes: Array[Byte]): CheckpointV1 = {
     try {
       val jMap = jsonMapper.readValue(bytes, classOf[util.HashMap[String, util.HashMap[String, String]]])
@@ -55,6 +55,7 @@ class CheckpointV1Serde extends Serde[CheckpointV1] with Logging {
         require(partition != null, "Partition must be present in JSON-encoded SystemStreamPartition")
         val offset = sspInfo.get("offset")
         // allow null offsets, e.g. for changelog ssps
+
         new SystemStreamPartition(system, stream, new Partition(partition.toInt)) -> offset
       }
 

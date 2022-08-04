@@ -190,6 +190,7 @@ public class JobConfig extends MapConfig {
   public static final String CONTAINER_HEARTBEAT_MONITOR_ENABLED = "job.container.heartbeat.monitor.enabled";
   private static final boolean CONTAINER_HEARTBEAT_MONITOR_ENABLED_DEFAULT = true;
 
+
   // Enabled elasticity for the job
   // number of (elastic) tasks in the job will be old task count X elasticity factor
   public static final String JOB_ELASTICITY_FACTOR = "job.elasticity.factor";
@@ -517,8 +518,8 @@ public class JobConfig extends MapConfig {
 
   public int getElasticityFactor() {
     int elasticityFactor = getInt(JOB_ELASTICITY_FACTOR, DEFAULT_JOB_ELASTICITY_FACTOR);
-    if (elasticityFactor < 1 || elasticityFactor > 16) {
-      throw new ConfigException("Elasticity factor can not be less than 1 or greater than 16");
+    if (elasticityFactor < 1) {
+      throw new ConfigException("Elasticity factor can not be less than 1");
     }
     return elasticityFactor;
   }

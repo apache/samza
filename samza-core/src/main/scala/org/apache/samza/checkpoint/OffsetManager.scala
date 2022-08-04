@@ -22,13 +22,12 @@ package org.apache.samza.checkpoint
 import java.util
 import java.util.HashMap
 import java.util.concurrent.ConcurrentHashMap
+
 import org.apache.commons.lang3.StringUtils
 import org.apache.samza.SamzaException
 import org.apache.samza.annotation.InterfaceStability
-import org.apache.samza.checkpoint.OffsetManager.info
-import org.apache.samza.config.{Config, JobConfig, StreamConfig, SystemConfig}
+import org.apache.samza.config.{Config, StreamConfig, SystemConfig}
 import org.apache.samza.container.TaskName
-import org.apache.samza.elasticity.util.ElasticityUtils
 import org.apache.samza.startpoint.{Startpoint, StartpointManager}
 import org.apache.samza.system.SystemStreamMetadata.OffsetType
 import org.apache.samza.system._
@@ -106,9 +105,7 @@ object OffsetManager extends Logging {
           // Build OffsetSetting so we can create a map for OffsetManager.
           (systemStream, OffsetSetting(systemStreamMetadata, defaultOffsetType, resetOffset))
       }.toMap
-
-    new OffsetManager(offsetSettings, checkpointManager, startpointManager, systemAdmins, checkpointListeners,
-      offsetManagerMetrics)
+    new OffsetManager(offsetSettings, checkpointManager, startpointManager, systemAdmins, checkpointListeners, offsetManagerMetrics)
   }
 }
 
@@ -215,26 +212,16 @@ class OffsetManager(
    * Set the last processed offset for a given SystemStreamPartition.
    */
   def update(taskName: TaskName, systemStreamPartition: SystemStreamPartition, offset: String) {
-    // without elasticity enabled, there is exactly one entry of an ssp in the systemStreamPartitions map for a taskName
-    // with elasticity enabled, there is exactly one of the keyBuckets of an ssp that a task consumes
-    // and hence exactly one entry of an ssp with keyBucket in in the systemStreamPartitions map for a taskName
-    // hence from the given ssp, find its sspWithKeybucket for the task and use that for updating lastProcessedOffsets
-    val sspWithKeyBucket = systemStreamPartitions.getOrElse(taskName,
-      throw new SamzaException("No SSPs registered for task: " + taskName))
-      .filter(ssp => ssp.getSystemStream.equals(systemStreamPartition.getSystemStream)
-        && ssp.getPartition.equals(systemStreamPartition.getPartition))
-      .toIterator.next()
-
     lastProcessedOffsets.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, String]())
     taskSSPsWithProcessedOffsetUpdated.putIfAbsent(taskName, new ConcurrentHashMap[SystemStreamPartition, Boolean]())
 
     if (offset != null) {
       if (!offset.equals(IncomingMessageEnvelope.END_OF_STREAM_OFFSET)) {
-        lastProcessedOffsets.get(taskName).put(sspWithKeyBucket, offset)
+        lastProcessedOffsets.get(taskName).put(systemStreamPartition, offset)
       }
       // Record the spp that have received the new messages. The startpoint for each ssp should only be deleted when the
       // ssp has received the new messages. More details in SAMZA-2749.
-      taskSSPsWithProcessedOffsetUpdated.get(taskName).putIfAbsent(sspWithKeyBucket, true)
+      taskSSPsWithProcessedOffsetUpdated.get(taskName).putIfAbsent(systemStreamPartition, true)
     }
   }
 
@@ -500,19 +487,12 @@ class OffsetManager(
 
     val checkpoint = checkpointManager.readLastCheckpoint(taskName)
 
-    val checkpointMap = checkpointManager.readAllCheckpoints()
-    if (!ElasticityUtils.wasElasticityEnabled(checkpointMap)) {
-      if (checkpoint != null) {
-        return Map(taskName -> checkpoint.getOffsets.asScala.toMap)
-      } else {
-        info("Did not receive a checkpoint for taskName %s. Proceeding without a checkpoint." format taskName)
-        return Map(taskName -> Map())
-      }
+    if (checkpoint != null) {
+      Map(taskName -> checkpoint.getOffsets.asScala.toMap)
+    } else {
+      info("Did not receive a checkpoint for taskName %s. Proceeding without a checkpoint." format taskName)
+      Map(taskName -> Map())
     }
-    info("There was elasticity enabled in one of the previous deploys." +
-      "Last processed offsets computation at container start will use elasticity checkpoints if available.")
-    Map(taskName -> ElasticityUtils.computeLastProcessedOffsetsFromCheckpointMap(taskName,
-      systemStreamPartitions.get(taskName).get.asJava, checkpointMap, systemAdmins).asScala)
   }
 
   /**

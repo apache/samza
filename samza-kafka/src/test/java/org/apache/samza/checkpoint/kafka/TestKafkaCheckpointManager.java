@@ -386,25 +386,6 @@ public class TestKafkaCheckpointManager {
   }
 
   @Test
-  public void testReadAllCheckpoints() throws InterruptedException {
-    Config config = config(ImmutableMap.of(TaskConfig.CHECKPOINT_READ_VERSIONS, "1,2"));
-    setupSystemFactory(config);
-    CheckpointV2 checkpointV2ForTask0 = buildCheckpointV2(INPUT_SSP0, "0");
-    CheckpointV2 checkpointV2ForTask1 = buildCheckpointV2(INPUT_SSP0, "1");
-    List<IncomingMessageEnvelope> checkpointEnvelopes =
-        ImmutableList.of(
-            newCheckpointV2Envelope(TASK0, checkpointV2ForTask0, "0"),
-            newCheckpointV2Envelope(TASK1, checkpointV2ForTask1, "1")
-            );
-    setupConsumer(checkpointEnvelopes);
-    Map<TaskName, Checkpoint> checkpointMap = ImmutableMap.of(TASK0, checkpointV2ForTask0, TASK1, checkpointV2ForTask1);
-    KafkaCheckpointManager kafkaCheckpointManager = buildKafkaCheckpointManager(true, config);
-    kafkaCheckpointManager.register(TASK0);
-    Map<TaskName, Checkpoint> readCheckpoints = kafkaCheckpointManager.readAllCheckpoints();
-    assertEquals(checkpointMap, readCheckpoints);
-  }
-
-  @Test
   public void testWriteCheckpointV1() {
     setupSystemFactory(config());
     KafkaCheckpointManager kafkaCheckpointManager = buildKafkaCheckpointManager(true, config());

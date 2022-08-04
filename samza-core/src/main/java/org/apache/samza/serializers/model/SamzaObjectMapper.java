@@ -231,9 +231,10 @@ public class SamzaObjectMapper {
     public Object deserializeKey(String sspString, DeserializationContext ctxt) throws IOException {
       String[] parts = sspString.split("\\.");
       if (parts.length < 3) {
-        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition' ");
+        throw new IllegalArgumentException("System stream partition expected in format 'system.stream.partition");
       }
-      return new SystemStreamPartition(new SystemStream(parts[0], parts[1]), new Partition(Integer.parseInt(parts[2])));
+      return new SystemStreamPartition(
+          new SystemStream(parts[0], parts[1]), new Partition(Integer.parseInt(parts[2])));
     }
   }
 

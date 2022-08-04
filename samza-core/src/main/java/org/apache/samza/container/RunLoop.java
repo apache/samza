@@ -860,19 +860,8 @@ public class RunLoop implements Runnable, Throttleable {
         IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
 
         if (envelope.isEndOfStream()) {
-          if (elasticityFactor <= 1) {
-            SystemStreamPartition ssp = envelope.getSystemStreamPartition();
-            processingSspSet.remove(ssp);
-          } else {
-            // if envelope is end of stream, the ssp of envelope should be removed from task's processing set irresp of keyBucket
-            SystemStreamPartition sspOfEnvelope = envelope.getSystemStreamPartition();
-            Optional<SystemStreamPartition> ssp = processingSspSet.stream()
-                .filter(sspInSet -> sspInSet.getSystemStream().equals(sspOfEnvelope.getSystemStream())
-                    && sspInSet.getPartition().equals(sspOfEnvelope.getPartition()))
-                .findFirst();
-            ssp.ifPresent(processingSspSet::remove);
-            ssp.ifPresent(processingSspSetToDrain::remove);
-          }
+          SystemStreamPartition ssp = envelope.getSystemStreamPartition(elasticityFactor);
+          processingSspSet.remove(ssp);
           if (!hasIntermediateStreams) {
             pendingEnvelopeQueue.remove();
           }

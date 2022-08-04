@@ -162,7 +162,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(processesCounter).inc()
     verify(messagesActuallyProcessedCounter).inc()
 
-    // case 2: taskInstance processes the keyBucket=0 of the ssp and envelope is NOT from same keyBucket
+    // case 1: taskInstance processes the keyBucket=0 of the ssp and envelope is NOT from same keyBucket
     // taskInstance.process should throw the exception ssp is not registered.
     when(envelope.getSystemStreamPartition(2)).thenReturn(notProcessedSSPKeyBucket)
     val thrown = intercept[Exception] {
@@ -171,26 +171,6 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     assert(thrown.isInstanceOf[SamzaException])
     assert(thrown.getMessage.contains(notProcessedSSPKeyBucket.toString))
     assert(thrown.getMessage.contains("is not registered!"))
-
-    // case 3: taskInstance processes the keyBucket=0 of the ssp and envelope is watermark NOT from same keyBucket
-    // regular processing should happen as Watermark and end of stream should be processed by all tasks
-    val watermark = spy(IncomingMessageEnvelope.buildWatermarkEnvelope(SYSTEM_STREAM_PARTITION, 1234l))
-    when(watermark.getSystemStreamPartition(2)).thenReturn(notProcessedSSPKeyBucket)
-    this.taskInstance.process(watermark, coordinator, callbackFactory)
-    assertEquals(2, this.taskInstanceExceptionHandler.numTimesCalled) // case 1 and case 3
-    verify(this.task).processAsync(watermark, this.collector, coordinator, callback)
-    verify(processesCounter, times(3)).inc() // case 1, 2 and 3
-    verify(messagesActuallyProcessedCounter, times(2)).inc() // case 1 and 3
-
-    // case 4: taskInstance processes the keyBucket=0 of the ssp and envelope is EndOfStream NOT from same keyBucket
-    // regular processing should happen as Watermark and end of stream should be processed by all tasks
-    val endOfStream = spy(IncomingMessageEnvelope.buildEndOfStreamEnvelope(SYSTEM_STREAM_PARTITION))
-    when(endOfStream.getSystemStreamPartition(2)).thenReturn(notProcessedSSPKeyBucket)
-    this.taskInstance.process(endOfStream, coordinator, callbackFactory)
-    assertEquals(3, this.taskInstanceExceptionHandler.numTimesCalled) // case 1 and case 3 and case 4
-    verify(this.task).processAsync(endOfStream, this.collector, coordinator, callback)
-    verify(processesCounter, times(4)).inc() // case 1, 2, 3 and 4
-    verify(messagesActuallyProcessedCounter, times(3)).inc() // case 1 and 3 and 4
   }
 
   @Test
