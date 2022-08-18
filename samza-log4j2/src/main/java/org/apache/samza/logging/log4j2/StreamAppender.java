@@ -416,7 +416,7 @@ public class StreamAppender extends AbstractAppender {
    * Helper method to send a serialized log-event to the systemProducer, and increment respective methods.
    * @param logQueueEntry the serialized log-event to be sent to the systemProducer
    */
-  private void sendEventToSystemProducer(EncodedLogEvent logQueueEntry) {
+  protected void sendEventToSystemProducer(EncodedLogEvent logQueueEntry) {
     metrics.logMessagesBytesSent.inc(logQueueEntry.getEntryValueSize());
     metrics.logMessagesCountSent.inc();
     systemProducer.send(SOURCE, decorateLogEvent(logQueueEntry));
