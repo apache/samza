@@ -73,7 +73,7 @@ public class StreamAppender extends AbstractAppender {
   private final BlockingQueue<EncodedLogEvent> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
 
   private SystemStream systemStream = null;
-  private SystemProducer systemProducer = null;
+  protected SystemProducer systemProducer = null;
   private String key = null;
   private byte[] keyBytes; // Serialize the key once, since we will use it for every event.
   private String containerName = null;
