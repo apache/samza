@@ -19,12 +19,14 @@
 package org.apache.samza.rest;
 
 import java.util.Collection;
+
+import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.rest.resources.DefaultResourceFactory;
 import org.apache.samza.rest.resources.ResourceFactory;
 import org.apache.samza.util.ReflectionUtil;
-import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
+
 import org.glassfish.jersey.server.ResourceConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -19,6 +19,15 @@
 
 package org.apache.samza.system.hdfs.partitioner;
 
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
+import org.apache.samza.system.hdfs.reader.MultiFileHdfsReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -28,16 +37,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.annotation.Nullable;
-
-import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.samza.Partition;
-import org.apache.samza.SamzaException;
-import org.apache.samza.system.hdfs.reader.MultiFileHdfsReader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.apache.samza.system.SystemStreamMetadata.SystemStreamPartitionMetadata;
 import static org.apache.samza.system.hdfs.partitioner.FileSystemAdapter.FileMetadata;

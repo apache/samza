@@ -78,6 +78,8 @@ class TestSamzaYarnAppMasterLifecycle {
 
         override def setSchedulerResourceTypes(types: java.util.EnumSet[SchedulerResourceTypes]): Unit = {}
         override def getSchedulerResourceTypes: java.util.EnumSet[SchedulerResourceTypes] = null
+        override def getResourceProfiles(): java.util.Map[String,org.apache.hadoop.yarn.api.records.Resource] = ???
+        override def setResourceProfiles(x$1: java.util.Map[String,org.apache.hadoop.yarn.api.records.Resource]): Unit = ???
       }
     }
     override def unregisterApplicationMaster(appStatus: FinalApplicationStatus,

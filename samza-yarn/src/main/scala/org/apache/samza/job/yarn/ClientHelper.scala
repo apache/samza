@@ -19,7 +19,8 @@
 
 package org.apache.samza.job.yarn
 
-import org.apache.commons.lang.StringUtils
+
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.samza.config.{Config, JobConfig, YarnConfig}
 import org.apache.samza.coordinator.stream.CoordinatorStreamWriter
@@ -53,9 +54,9 @@ import org.apache.samza.job.ApplicationStatus.Running
 import org.apache.samza.job.ApplicationStatus.SuccessfulFinish
 import org.apache.samza.job.ApplicationStatus.UnsuccessfulFinish
 import org.apache.samza.util.Logging
+
 import java.io.IOException
 import java.nio.ByteBuffer
-
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.samza.webapp.ApplicationMasterRestClient
 
