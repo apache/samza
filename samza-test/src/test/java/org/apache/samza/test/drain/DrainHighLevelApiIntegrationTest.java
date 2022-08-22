@@ -49,6 +49,7 @@ import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescripto
 import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.test.table.TestTableData;
 import org.apache.samza.test.table.TestTableData.PageView;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -110,12 +111,18 @@ public class DrainHighLevelApiIntegrationTest {
     Config configFromRunner = testRunner.getConfig();
     MetadataStore metadataStore = metadataStoreFactory.getMetadataStore("NoOp", configFromRunner, new MetricsRegistryMap());
 
+    // Write configs to the coordinator stream here as neither the passthrough JC nor the StreamProcessor is writing
+    // configs to coordinator stream. RemoteApplicationRunner typically write the configs to the metadata store
+    // before starting the JC.
+    // We are doing this so that DrainUtils.writeDrainNotification can read app.run.id from the config
+    CoordinatorStreamUtil.writeConfigToCoordinatorStream(metadataStore, configFromRunner);
+
     // write drain message after a delay
     ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
     executorService.schedule(new Callable<String>() {
       @Override
       public String call() throws Exception {
-        UUID uuid = DrainUtils.writeDrainNotification(metadataStore, runId);
+        UUID uuid = DrainUtils.writeDrainNotification(metadataStore);
         return uuid.toString();
       }
     }, 2000L, TimeUnit.MILLISECONDS);

@@ -19,6 +19,7 @@
 package org.apache.samza.drain;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.util.UUID;
@@ -28,6 +29,7 @@ import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.coordinator.metadatastore.NamespaceAwareCoordinatorStreamStore;
 import org.apache.samza.metadatastore.MetadataStore;
+import org.apache.samza.util.CoordinatorStreamUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,13 +46,14 @@ public class DrainUtils {
   }
 
   /**
-   * Writes a {@link DrainNotification} to the underlying metastore. This method should be used by external controllers
-   * to issue a DrainNotification to the JobCoordinator and Samza Containers.
+   * Writes a {@link DrainNotification} for a given runId to the underlying metastore. This method should be used by
+   * external controllers to issue a DrainNotification to the JobCoordinator and Samza Containers.
    * @param metadataStore Metadata store to write drain notification to.
    * @param runId runId for the DrainNotification
    *
    * @return generated uuid for the DrainNotification
    */
+  @VisibleForTesting
   public static UUID writeDrainNotification(MetadataStore metadataStore, String runId) {
     Preconditions.checkArgument(metadataStore != null, "MetadataStore cannot be null.");
     Preconditions.checkArgument(!Strings.isNullOrEmpty(runId), "runId should be non-null.");
@@ -69,6 +72,26 @@ public class DrainUtils {
           String.format("DrainNotification might have been not written to metastore %s", message), ex);
     }
     return uuid;
+  }
+
+  /**
+   * Writes a {@link DrainNotification} to the underlying metastore. This method should be used by external controllers
+   * to issue a DrainNotification to the JobCoordinator and Samza Containers.
+   * @param metadataStore Metadata store to write drain notification to.
+   *
+   * @return generated uuid for the DrainNotification
+   */
+  public static UUID writeDrainNotification(MetadataStore metadataStore) {
+    Preconditions.checkArgument(metadataStore != null, "MetadataStore cannot be null.");
+    final Config config = CoordinatorStreamUtil.readConfigFromCoordinatorStream(metadataStore);
+    final ApplicationConfig applicationConfig = new ApplicationConfig(config);
+    final String runId = applicationConfig.getRunId();
+    if (Strings.isNullOrEmpty(runId)) {
+      throw new SamzaException("Unable to retrieve runId from metadata store. DrainNotification will not be "
+          + "written to the metadata store.");
+    }
+    LOG.info("Received runId {}", runId);
+    return writeDrainNotification(metadataStore, runId);
   }
 
   /**
