@@ -43,9 +43,6 @@ public class StreamAppenderMetrics extends MetricsBase {
   /** The number of log messages sent out to SystemProducer. */
   public final Counter logMessagesCountSent;
 
-  /** The number of log messages cannot be sent out due to record too large. */
-  public final Counter largeMessagesErrors;
-
   public StreamAppenderMetrics(String prefix, MetricsRegistry registry) {
     super(prefix + "-", registry);
     bufferFillPct = newGauge("buffer-fill-percent", 0);
@@ -54,6 +51,5 @@ public class StreamAppenderMetrics extends MetricsBase {
     logMessagesErrors = newCounter("log-messages-errors");
     logMessagesBytesSent = newCounter("log-messages-bytes-sent");
     logMessagesCountSent = newCounter("log-messages-count-sent");
-    largeMessagesErrors = newCounter("large-messages-errors");
   }
 }
