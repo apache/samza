@@ -240,7 +240,7 @@ public class DiagnosticsManager {
         if (!diagnosticsStreamMessage.isEmpty()) {
 
           systemProducer.send(DiagnosticsManager.class.getName(),
-              new OutgoingMessageEnvelope(diagnosticSystemStream, hostname, null,
+              new OutgoingMessageEnvelope(diagnosticSystemStream, null, null,
                   new MetricsSnapshotSerdeV2().toBytes(diagnosticsStreamMessage.convertToMetricsSnapshot())));
           systemProducer.flush(DiagnosticsManager.class.getName());
 
