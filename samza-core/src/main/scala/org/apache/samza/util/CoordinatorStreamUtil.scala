@@ -21,7 +21,6 @@
 package org.apache.samza.util
 
 import java.util
-
 import org.apache.samza.SamzaException
 import org.apache.samza.config._
 import org.apache.samza.coordinator.CoordinationConstants
@@ -169,6 +168,31 @@ object CoordinatorStreamUtil extends Logging {
       }
     }
     new MapConfig(configMap)
+  }
+
+  /**
+   * Writes config to the metadata store.
+   * @param metadataStore an instance of the instantiated {@link CoordinatorStreamStore}.
+   * @return the configuration read from the coordinator stream.
+   */
+  def writeConfigToCoordinatorStream(metadataStore: MetadataStore, config: Config): Unit = {
+    val coordinatorStream: NamespaceAwareCoordinatorStreamStore =
+      new NamespaceAwareCoordinatorStreamStore(metadataStore, SetConfig.TYPE)
+    val valueSerde: CoordinatorStreamValueSerde = new CoordinatorStreamValueSerde(SetConfig.TYPE)
+    config.entrySet().forEach((entry) => {
+      val key = entry.getKey
+      val value = entry.getValue
+      if (value == null) {
+        warn("Value for key: %s in config is null. Ignoring it." format key)
+      } else {
+        val valueBytes = valueSerde.toBytes(value)
+        if (valueBytes == null) {
+          warn("Deserialized value for key: %s in config is null. Ignoring it." format key)
+        } else {
+          coordinatorStream.put(key, valueBytes);
+        }
+      }
+    })
   }
 
   def writeConfigToCoordinatorStream(config: Config, resetJobConfig: Boolean = true) {

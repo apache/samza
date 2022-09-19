@@ -73,7 +73,7 @@ public class StreamAppender extends AbstractAppender {
   private final BlockingQueue<EncodedLogEvent> logQueue = new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
 
   private SystemStream systemStream = null;
-  private SystemProducer systemProducer = null;
+  protected SystemProducer systemProducer = null;
   private String key = null;
   private byte[] keyBytes; // Serialize the key once, since we will use it for every event.
   private String containerName = null;
@@ -416,7 +416,7 @@ public class StreamAppender extends AbstractAppender {
    * Helper method to send a serialized log-event to the systemProducer, and increment respective methods.
    * @param logQueueEntry the serialized log-event to be sent to the systemProducer
    */
-  private void sendEventToSystemProducer(EncodedLogEvent logQueueEntry) {
+  protected void sendEventToSystemProducer(EncodedLogEvent logQueueEntry) {
     metrics.logMessagesBytesSent.inc(logQueueEntry.getEntryValueSize());
     metrics.logMessagesCountSent.inc();
     systemProducer.send(SOURCE, decorateLogEvent(logQueueEntry));

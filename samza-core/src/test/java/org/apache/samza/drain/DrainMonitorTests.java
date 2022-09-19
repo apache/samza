@@ -114,7 +114,7 @@ public class DrainMonitorTests {
     final AtomicInteger numCallbacks = new AtomicInteger(0);
     final CountDownLatch latch = new CountDownLatch(1);
     // write drain before monitor start
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore);
     DrainMonitor drainMonitor = new DrainMonitor(coordinatorStreamStore, CONFIG);
     drainMonitor.registerDrainCallback(() -> {
       numCallbacks.incrementAndGet();
@@ -141,36 +141,12 @@ public class DrainMonitorTests {
       latch.countDown();
     });
     drainMonitor.start();
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore);
     if (!latch.await(2, TimeUnit.SECONDS)) {
       Assert.fail("Timed out waiting for drain callback to complete");
     }
     Assert.assertEquals(DrainMonitor.State.STOPPED, drainMonitor.getState());
     Assert.assertEquals(1, numCallbacks.get());
-  }
-
-  @Test
-  public void testCallbackNotCalledDueToMismatchedRunId() throws InterruptedException {
-    // The test fails due to timeout as the published DrainNotification's runId doesn't match runId
-    // in the config
-    exceptionRule.expect(AssertionError.class);
-    exceptionRule.expectMessage("Timed out waiting for drain callback to complete.");
-    final AtomicInteger numCallbacks = new AtomicInteger(0);
-    final CountDownLatch latch = new CountDownLatch(1);
-
-    DrainMonitor drainMonitor = new DrainMonitor(coordinatorStreamStore, CONFIG, 100L);
-
-    drainMonitor.registerDrainCallback(() -> {
-      numCallbacks.incrementAndGet();
-      latch.countDown();
-    });
-
-    drainMonitor.start();
-    final String mismatchedRunId = "bar";
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, mismatchedRunId);
-    if (!latch.await(2, TimeUnit.SECONDS)) {
-      Assert.fail("Timed out waiting for drain callback to complete.");
-    }
   }
 
   @Test
@@ -184,16 +160,9 @@ public class DrainMonitorTests {
 
   @Test
   public void testShouldDrain() {
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore);
     NamespaceAwareCoordinatorStreamStore drainStore =
         new NamespaceAwareCoordinatorStreamStore(coordinatorStreamStore, DrainUtils.DRAIN_METADATA_STORE_NAMESPACE);
     Assert.assertTrue(DrainMonitor.shouldDrain(drainStore, TEST_RUN_ID));
-
-    // Cleanup old drain message
-    DrainUtils.cleanup(coordinatorStreamStore, CONFIG);
-
-    final String mismatchedRunId = "bar";
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, mismatchedRunId);
-    Assert.assertFalse(DrainMonitor.shouldDrain(drainStore, TEST_RUN_ID));
   }
 }
