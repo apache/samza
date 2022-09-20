@@ -42,6 +42,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
@@ -57,6 +58,7 @@ import static org.powermock.api.mockito.PowerMockito.*;
  */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(CouchbaseBucketRegistry.class)
+@PowerMockIgnore("jdk.internal.reflect.*")
 public class TestCouchbaseTableReadFunction {
   private static final String DEFAULT_BUCKET_NAME = "default-bucket-name";
   private static final String DEFAULT_CLUSTER_NODE = "localhost";

@@ -28,9 +28,12 @@ After the bootstrap script has completed, the regular gradlew instructions below
 
 #### Scala and YARN
 
-Samza builds with [Scala](http://www.scala-lang.org/) 2.11 or 2.12 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.6.1, by default. Use the -PscalaSuffix switches to change Scala versions. Samza supports building Scala with 2.11 and 2.12.
+Samza builds with [Scala](http://www.scala-lang.org/) 2.11 or 2.12 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.10.1 or 3.3.4. Scala 2.12 and Yarn 2.10.1 are used by default. Use the -PscalaSuffix and -PyarnVersion switches to change Scala or Yarn versions. Samza supports building Scala with 2.11 and 2.12.
 
-    ./gradlew -PscalaSuffix=2.11 clean build
+    ./gradlew -PscalaSuffix=2.12 -PyarnVersion=2.10.1 clean build
+    ./gradlew -PscalaSuffix=2.12 -PyarnVersion=3.3.4 clean build
+
+Also, you can make use of `bin/check-all.sh` in order to test multiple variants of Java JDKs, Scala, and Yarn.
 
 ### Testing Samza
 

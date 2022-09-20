@@ -45,6 +45,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
@@ -65,6 +66,7 @@ import static org.mockito.Mockito.when;
  */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest(LogicalFilter.class)
+@PowerMockIgnore("jdk.internal.reflect.*")
 public class TestFilterTranslator extends TranslatorTestBase {
   private static final String LOGICAL_OP_ID = "sql0_filter_0";
 
