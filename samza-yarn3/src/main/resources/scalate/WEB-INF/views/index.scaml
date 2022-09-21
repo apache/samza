@@ -1,0 +1,239 @@
+-#
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-@ val state: org.apache.samza.job.yarn.YarnAppState
+-@ val samzaAppState: org.apache.samza.clustermanager.SamzaApplicationState
+-@ val config: scala.collection.immutable.TreeMap[String, String]
+-@ val rmHttpAddress: String
+-@ val jobName: String = config.get("job.name").getOrElse("MISSING JOB NAME")
+-@ val packagePath: String = config.get("yarn.package.path").getOrElse("MISSING PACKAGE PATH")
+-@ val username: String = org.apache.hadoop.security.UserGroupInformation.getCurrentUser.getShortUserName
+-@ val appMasterClasspath: String = scala.util.Properties.javaClassPath
+-@ val javaVmVersion: String = scala.util.Properties.javaVmVersion
+-@ val javaVmName: String = scala.util.Properties.javaVmName
+-@ val samzaVersion: String = classOf[org.apache.samza.util.Util].getPackage.getImplementationVersion
+- attributes("title") = jobName
+
+%div.col-xs-2.menu
+  %ul.nav.nav-pills.nav-stacked
+    %li.active
+      %a(href="#application-master" data-toggle="tab") Application Master
+    %li
+      %a(href="#containers" data-toggle="tab") Containers
+    %li
+      %a(href="#task-groups" data-toggle="tab") Task Groups
+    %li
+      %a(href="#config" data-toggle="tab") Config
+
+%div.col-xs-10
+  %div.page-header
+    %h1= jobName
+
+  %div.tab-content
+    %div.tab-pane.active#application-master
+      %h2 Application Master
+      %table.table.table-striped.table-bordered
+        %tbody
+          %tr
+            %td.key Hostname
+            %td
+              %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}")= state.nodeHost
+          %tr
+            %td.key User
+            %td= username
+          %tr
+            %td.key Tracking port
+            %td= state.trackingUrl.getPort.toString
+          %tr
+            %td.key RPC port
+            %td= state.rpcUrl.getPort.toString
+          %tr
+            %td.key Attempt ID
+            %td= state.appAttemptId
+          %tr
+            %td.key Application ID
+            %td= state.appAttemptId.getApplicationId
+          %tr
+            %td.key Application master classpath
+            %td
+              %div.value= appMasterClasspath
+          %tr
+            %td.key Package path
+            %td= packagePath
+          %tr
+            %td.key Java VM name
+            %td= javaVmName
+          %tr
+            %td.key Java VM version
+            %td= javaVmVersion
+          %tr
+            %td.key Samza version
+            %td= samzaVersion
+          %tr
+            %td.key Application master task ID
+            %td= state.taskId
+          %tr
+            %td.key Application master container
+            %td
+              %a(target="_blank" href="http://#{state.nodeHost}:#{state.nodeHttpPort.toString}/node/containerlogs/#{state.amContainerId.toString}/#{username}")= state.amContainerId.toString
+          %tr
+            %td.key JMX server url
+            %td= samzaAppState.jmxUrl
+          %tr
+            %td.key JMX server tunneling url
+            %td= samzaAppState.jmxTunnelingUrl
+
+    %div.tab-pane#containers
+      %h2 Containers
+      %table.table.table-bordered.table-striped
+        %tr
+          %tr
+            %td.key Completed
+            %td= samzaAppState.completedProcessors.toString
+          %tr
+            %td.key Needed
+            %td= samzaAppState.neededProcessors.toString
+          %tr
+            %td.key Failed
+            %td= samzaAppState.failedContainers.toString
+          %tr
+            %td.key Released
+            %td= samzaAppState.releasedContainers.toString
+
+      %h2 Running Containers
+      %table.table.table-striped.table-bordered.tablesorter#containers-table
+        %thead
+          %tr
+            %th Task Group
+            %th Container
+            %th Node
+            %th Start Time
+            %th Up Time
+            %th JMX access
+        %tbody
+          - for((processorId, container) <- state.runningProcessors.asScala)
+            %tr
+              %td #{processorId.toString}
+              %td
+                %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
+              %td
+                %a(target="_blank" href="http://#{container.nodeHttpAddress}")= container.nodeHttpAddress
+              %td
+                Start time: #{container.startTimeStr()}
+              %td
+                Up time: #{container.upTimeStr()}
+              %td
+                %a(target="_blank" href="#{state.coordinatorUrl.toString}locality?processorId=#{processorId.toString}") JMX
+
+      %h2 Failed Containers
+      %table.table.table-striped.table-bordered.tablesorter#containers-table
+        %thead
+          %tr
+            %th Container
+            %th Exit code
+            %th Message
+        %tbody
+          - for((containerId, containerStatus) <- state.failedContainersStatus.asScala)
+            %tr
+              %td
+                #{containerId}
+              %td
+                Exit code: #{containerStatus.getExitStatus}
+              %td
+                %div.value= containerStatus.getDiagnostics
+
+    %div.tab-pane#task-groups
+      %h2 Task Groups
+      %table.table.table-striped.table-bordered
+        %tbody
+          %tr
+            %td.key Total
+            %td= samzaAppState.processorCount.toString
+          %tr
+            %td.key Finished
+            %td= samzaAppState.finishedProcessors.toString
+
+      %h3 TaskName Assignment
+      %table.table.table-striped.table-bordered.tablesorter#taskids-table
+        %thead
+          %tr
+            %th Task Group ID
+            %th TaskName
+            %th SystemStreamPartitions
+            %th Container
+        %tbody
+          - for((processorId, container) <- state.runningProcessors.asScala)
+            - val containerModel = samzaAppState.jobModelManager.jobModel.getContainers.get(processorId)
+            - for((taskName, taskModel) <- containerModel.getTasks.asScala)
+              %tr
+                %td= processorId
+                %td= taskName
+                %td= taskModel.getSystemStreamPartitions.asScala.map(_.toString).toList.sorted.mkString(", ")
+                %td
+                  %a(target="_blank" href="http://#{container.nodeHttpAddress}/node/containerlogs/#{container.id.toString}/#{username}")= container.id.toString
+
+    %div.tab-pane#config
+      %h2 Config
+      %div.panel.panel-default
+        %div.panel-heading
+          %input.form-control#config-table-filter(type="text" placeholder="Type '/' to search")
+        %table.table.table-striped.table-bordered.tablesorter#config-table
+          %thead
+            %tr
+              %th Key
+              %th Value
+          %tbody.searchable
+            - for(entrySet <- config.asInstanceOf[Map[String, String]])
+              %tr
+                %td.key= entrySet.getKey
+                %td= entrySet.getValue
+
+    :javascript
+      $(document).ready(function() {
+        // Persist tabs.
+        if (location.hash !== '') {
+          $('a[href="' + location.hash + '"]').tab('show');
+        }
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+          return location.hash = $(e.target).attr('href').substr(1);
+        });
+
+        // Make tables sortable.
+        $('#containers-table').tablesorter();
+        $('#taskids-table').tablesorter();
+        $('#config-table').tablesorter();
+
+        // Type '/' to search.
+        $(document).keyup(function(e) {
+          if (e.keyCode == 191 && $('#config').is(':visible')) {
+            $('#config-table-filter').focus();
+          }
+        });
+
+        // Make config table searchable.
+        $('#config-table-filter').keyup(function(e) {
+          // Press ESC to exit search box.
+          if (e.keyCode == 27) {
+            $('#config-table-filter').blur();
+          }
+          var regex = new RegExp($(this).val(), 'i');
+          $('.searchable tr').hide();
+          $('.searchable tr').filter(function() {
+            return regex.test($(this).text());
+          }).show();
+        });
+      });

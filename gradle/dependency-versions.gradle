@@ -45,8 +45,6 @@
   rocksdbVersion = "7.0.3"
   scalaTestVersion = "3.0.1"
   slf4jVersion = "1.7.7"
-  yarnVersion = "2.10.1"
-  //yarnVersion = "3.3.4"
   zkClientVersion = "0.11"
   zookeeperVersion = "3.4.13"
   failsafeVersion = "2.4.0"
@@ -54,4 +52,5 @@
   jnaVersion = "4.5.1"
   couchbaseClientVersion = "2.7.2"
   couchbaseMockVersion = "1.5.22"
+  yarnVersionPrefix = yarnVersion.substring(0, yarnVersion.indexOf('.'))
 }

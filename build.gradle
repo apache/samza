@@ -34,6 +34,7 @@ allprojects {
 
 apply from: file("gradle/dependency-versions.gradle")
 apply from: file("gradle/dependency-versions-scala-" + scalaSuffix + ".gradle")
+apply from: file("gradle/dependency-versions-yarn-" + yarnVersionPrefix + ".gradle")
 apply from: file("gradle/release.gradle")
 apply from: file("gradle/rat.gradle")
 apply from: file('gradle/customize.gradle')
@@ -453,7 +454,7 @@ project(":samza-log4j2_$scalaSuffix") {
   }
 }
 
-project(":samza-yarn_$scalaSuffix") {
+project(":${yarnProject}_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'lesscss'
 
@@ -534,7 +535,7 @@ project(":samza-shell") {
     gradleShell project(":samza-core_$scalaSuffix")
     gradleShell project(":samza-kafka_$scalaSuffix")
     gradleShell project(":samza-test_$scalaSuffix")
-    gradleShell project(":samza-yarn_$scalaSuffix")
+    gradleShell project(":${yarnProject}_$scalaSuffix")
   }
 
   task shellTarGz(type: Tar) {
@@ -678,7 +679,7 @@ project(":samza-hdfs_$scalaSuffix") {
     // currently hdfs system producer/consumer do depend on yarn for two things:
     // 1. staging directory 2. security
     // SAMZA-1032 to solve the staging directory dependency
-    compile project(":samza-yarn_$scalaSuffix")
+    compile project(":${yarnProject}_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
       exclude module: 'servlet-api'
@@ -788,7 +789,7 @@ project(":samza-test_$scalaSuffix") {
     compile project(":samza-kafka_$scalaSuffix")
     compile project(":samza-sql_$scalaSuffix")
     runtime project(":samza-log4j2_$scalaSuffix")
-    runtime project(":samza-yarn_$scalaSuffix")
+    runtime project(":${yarnProject}_$scalaSuffix")
     runtime project(":samza-hdfs_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
