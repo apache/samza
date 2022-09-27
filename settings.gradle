@@ -40,14 +40,9 @@ def scalaModules = [
         'samza-sql-shell',
         'samza-tools',
         'samza-test',
+        'samza-yarn',
+        'samza-yarn3'
 ] as HashSet
-
-// Conditionally figure out which yarn version we want to use
-def yarnProject = "samza-yarn"
-if (yarnVersion.startsWith("3")) {
-  yarnProject = "samza-yarn3"
-}
-scalaModules.add(yarnProject)
 
 scalaModules.each {
   include it

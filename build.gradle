@@ -34,7 +34,6 @@ allprojects {
 
 apply from: file("gradle/dependency-versions.gradle")
 apply from: file("gradle/dependency-versions-scala-" + scalaSuffix + ".gradle")
-apply from: file("gradle/dependency-versions-yarn-" + yarnVersionPrefix + ".gradle")
 apply from: file("gradle/release.gradle")
 apply from: file("gradle/rat.gradle")
 apply from: file('gradle/customize.gradle')
@@ -454,7 +453,7 @@ project(":samza-log4j2_$scalaSuffix") {
   }
 }
 
-project(":${yarnProject}_$scalaSuffix") {
+project(":samza-yarn_$scalaSuffix") {
   apply plugin: 'scala'
   apply plugin: 'lesscss'
 
@@ -524,6 +523,76 @@ project(":${yarnProject}_$scalaSuffix") {
   jar.dependsOn("lesscss")
 }
 
+project(":samza-yarn3_$scalaSuffix") {
+  apply plugin: 'scala'
+  apply plugin: 'lesscss'
+
+  // Force scala joint compilation
+  sourceSets.main.scala.srcDir "src/main/java"
+  sourceSets.test.scala.srcDir "src/test/java"
+
+  // Disable the Javac compiler by forcing joint compilation by scalac. This is equivalent to setting
+  // tasks.compileTestJava.enabled = false
+  sourceSets.main.java.srcDirs = []
+  sourceSets.test.java.srcDirs = []
+
+  dependencies {
+    compile project(':samza-api')
+    compile project(":samza-core_$scalaSuffix")
+    compile "org.scala-lang:scala-library:$scalaVersion"
+    compile "org.scala-lang:scala-compiler:$scalaVersion"
+    compile "com.google.guava:guava:$guavaVersion"
+    compile "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
+    compile "commons-httpclient:commons-httpclient:$commonsHttpClientVersion"
+    compile "org.apache.httpcomponents:httpclient:$httpClientVersion"
+    compile("org.apache.hadoop:hadoop-yarn-api:$yarn3Version") {
+    }
+    compile("org.apache.hadoop:hadoop-yarn-common:$yarn3Version") {
+      exclude module: 'servlet-api'
+    }
+    compile("org.apache.hadoop:hadoop-yarn-client:$yarn3Version") {
+      exclude module: 'servlet-api'
+    }
+    compile("org.apache.hadoop:hadoop-common:$yarn3Version") {
+      exclude module: 'servlet-api'
+      // Exclude because YARN's 3.4.5 ZK version is incompatbile with Kafka's 3.3.4.
+      exclude module: 'zookeeper'
+    }
+    compile("org.apache.hadoop:hadoop-hdfs:$yarn3Version") {
+      exclude module: 'servlet-api'
+    }
+    compile("org.scalatra:scalatra_$scalaSuffix:$scalatraVersion") {
+      exclude module: 'scala-compiler'
+      exclude module: 'slf4j-api'
+    }
+    compile("org.scalatra:scalatra-scalate_$scalaSuffix:$scalatraVersion") {
+      exclude module: 'scala-compiler'
+      exclude module: 'slf4j-api'
+    }
+    compile "joda-time:joda-time:$jodaTimeVersion"
+    compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
+    testCompile "junit:junit:$junitVersion"
+    testCompile "org.mockito:mockito-core:$mockitoVersion"
+    testCompile project(":samza-core_$scalaSuffix").sourceSets.test.output
+    testCompile "org.scalatest:scalatest_$scalaSuffix:$scalaTestVersion"
+  }
+
+  repositories {
+    maven {
+      url "https://repo.typesafe.com/typesafe/releases"
+    }
+  }
+
+  lesscss {
+    source = fileTree('src/main/less') {
+      include 'main.less'
+    }
+    dest = "$buildDir/resources/main/scalate/css"
+  }
+
+  jar.dependsOn("lesscss")
+}
+
 project(":samza-shell") {
   apply plugin: 'java'
 
@@ -535,7 +604,7 @@ project(":samza-shell") {
     gradleShell project(":samza-core_$scalaSuffix")
     gradleShell project(":samza-kafka_$scalaSuffix")
     gradleShell project(":samza-test_$scalaSuffix")
-    gradleShell project(":${yarnProject}_$scalaSuffix")
+    gradleShell project(":samza-yarn_$scalaSuffix")
   }
 
   task shellTarGz(type: Tar) {
@@ -679,7 +748,7 @@ project(":samza-hdfs_$scalaSuffix") {
     // currently hdfs system producer/consumer do depend on yarn for two things:
     // 1. staging directory 2. security
     // SAMZA-1032 to solve the staging directory dependency
-    compile project(":${yarnProject}_$scalaSuffix")
+    compile project(":samza-yarn_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile("org.apache.hadoop:hadoop-hdfs:$yarnVersion") {
       exclude module: 'servlet-api'
@@ -789,7 +858,7 @@ project(":samza-test_$scalaSuffix") {
     compile project(":samza-kafka_$scalaSuffix")
     compile project(":samza-sql_$scalaSuffix")
     runtime project(":samza-log4j2_$scalaSuffix")
-    runtime project(":${yarnProject}_$scalaSuffix")
+    runtime project(":samza-yarn_$scalaSuffix")
     runtime project(":samza-hdfs_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
