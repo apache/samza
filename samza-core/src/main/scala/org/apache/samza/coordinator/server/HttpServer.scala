@@ -125,13 +125,26 @@ class HttpServer(
   }
 
   /**
-   * Returns the URL for the root of the HTTP server. This method
+   * Returns the URL for the root of the HTTP server. This URL is generated with host name.
    */
   def getUrl = {
     if (running) {
       val runningPort = server.getConnectors()(0).asInstanceOf[NetworkConnector].getLocalPort()
 
       new URL("http://" + Util.getLocalHost.getHostName + ":" + runningPort + rootPath)
+    } else {
+      throw new SamzaException("HttpServer is not currently running, so URLs are not available for it.")
+    }
+  }
+
+  /**
+    * Returns the URL for the root of the HTTP server. This URL is generated with host address.
+    */
+  def getIpUrl = {
+    if (running) {
+      val runningPort = server.getConnectors()(0).asInstanceOf[NetworkConnector].getLocalPort()
+
+      new URL("http://" + Util.getLocalHost.getHostAddress + ":" + runningPort + rootPath)
     } else {
       throw new SamzaException("HttpServer is not currently running, so URLs are not available for it.")
     }

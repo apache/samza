@@ -171,7 +171,11 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
             hostAffinityEnabled, jobConfig.getStandbyTasksEnabled(), localityManager, faultDomainManager, config);
 
     this.containerAllocator = new ContainerAllocator(this.clusterResourceManager, config, state, hostAffinityEnabled, this.containerManager);
-    this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    if (shouldStartAllocateThread()) {
+      this.allocatorThread = new Thread(this.containerAllocator, "Container Allocator Thread");
+    } else {
+      this.allocatorThread = null;
+    }
     this.restartContainers = restartContainers;
     LOG.info("Finished container process manager initialization.");
   }
@@ -203,15 +207,23 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
     LOG.info("Finished container process manager initialization");
   }
 
+  // In Kubernetes, the pod will be started by kubelet automatically once it is allocated, it does not need a
+  // separate thread to keep polling the allocated resources to start the container.
+  public boolean shouldStartAllocateThread() {
+    return !clusterResourceManager.getClass().getSimpleName().equals("KubeClusterResourceManager");
+  }
+
   public boolean shouldShutdown() {
     LOG.debug("ContainerProcessManager state: Completed containers: {}, Configured containers: {}, Are there too many failed containers: {}, Is allocator thread alive: {}",
-      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no", allocatorThread.isAlive() ? "yes" : "no");
+      state.completedProcessors.get(), state.processorCount, jobFailureCriteriaMet ? "yes" : "no", allocatorThread != null && allocatorThread.isAlive() ? "yes" : "no");
 
     if (exceptionOccurred != null) {
       LOG.error("Exception in container process manager", exceptionOccurred);
       throw new SamzaException(exceptionOccurred);
     }
-    return jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get() || !allocatorThread.isAlive();
+
+    boolean shouldShutdown = jobFailureCriteriaMet || state.completedProcessors.get() == state.processorCount.get();
+    return allocatorThread == null ? shouldShutdown : (shouldShutdown || !allocatorThread.isAlive());
   }
 
   public boolean isShutdownSuccessful() {
@@ -274,7 +286,9 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     // Start container allocator thread
     LOG.info("Starting the container allocator thread");
-    allocatorThread.start();
+    if (allocatorThread != null) {
+      allocatorThread.start();
+    }
     LOG.info("Starting the container process manager");
   }
 
@@ -283,12 +297,14 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
     // Shutdown allocator thread
     containerAllocator.stop();
-    try {
-      allocatorThread.join();
-      LOG.info("Stopped container allocator");
-    } catch (InterruptedException ie) {
-      LOG.error("Allocator thread join threw an interrupted exception", ie);
-      Thread.currentThread().interrupt();
+    if (allocatorThread != null) {
+      try {
+        allocatorThread.join();
+        LOG.info("Stopped container allocator");
+      } catch (InterruptedException ie) {
+        LOG.error("Allocator thread join threw an interrupted exception", ie);
+        Thread.currentThread().interrupt();
+      }
     }
 
     if (diagnosticsManager.isPresent()) {
