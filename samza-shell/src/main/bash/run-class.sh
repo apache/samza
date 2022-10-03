@@ -116,7 +116,7 @@ function check_and_enable_64_bit_mode {
 
 # Try and use the -XX:+PrintGCDateStamps jvm argument. Java11 will fail
 function check_and_enable_print_gc_datestamps {
-  `$JAVA -XX:+PrintGCDateStamps -version
+  `$JAVA -XX:+PrintGCDateStamps -version`
   if [ $? -eq 0 ] ; then
     JAVA_OPTS="$JAVA_OPTS -XX:+PrintGCDateStamps"
   fi
