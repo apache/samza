@@ -60,22 +60,22 @@ public class TestYarnFaultDomainManager {
 
   private final NodeReport nodeReport1 = createNodeReport(hostName1, 1, NodeState.RUNNING, "httpAddress1",
           rackName1, 1, 1, 2, 1, 2,
-          "", 60L);
+          "", 60L, null);
   private final NodeReport nodeReport2 = createNodeReport(hostName2, 1, NodeState.RUNNING, "httpAddress2",
           rackName2, 1, 1, 2, 1, 2,
-          "", 60L);
+          "", 60L, null);
   private final NodeReport nodeReport3 = createNodeReport(hostName3, 1, NodeState.RUNNING, "httpAddress3",
           rackName1, 1, 1, 2, 1, 2,
-          "", 60L);
+          "", 60L, null);
   private final NodeReport nodeReport4 = createNodeReport(hostName4, 1, NodeState.RUNNING, "httpAddress4",
           rackName2, 1, 1, 2, 1, 2,
-          "", 60L);
+          "", 60L, null);
   private final NodeReport nodeReport5 = createNodeReport(hostName5, 1, NodeState.RUNNING, "httpAddress5",
           rackName3, 1, 1, 2, 1, 2,
-          "", 60L);
+          "", 60L, null);
   private final NodeReport nodeReport6 = createNodeReport(hostName6, 1, NodeState.RUNNING, "httpAddress6",
           rackName1, 1, 1, 2, 1, 2,
-          "", 60L);
+          "", 60L, null);
 
   @Mock
   YarnClientImpl yarnClient;
@@ -182,17 +182,9 @@ public class TestYarnFaultDomainManager {
 
   private NodeReport createNodeReport(String host, int port, NodeState nodeState, String httpAddress, String rackName,
                                       int memoryUsed, int vcoresUsed, int totalMemory, int totalVcores, int numContainers,
-                                      String healthReport, long lastHealthReportTime) {
-    return NodeReport.newInstance(
-            NodeId.newInstance(host, port),
-            nodeState,
-            httpAddress,
-            rackName,
-            Resource.newInstance(memoryUsed, vcoresUsed),
-            Resource.newInstance(totalMemory, totalVcores),
-            numContainers,
-            healthReport,
-            lastHealthReportTime
-    );
+                                      String healthReport, long lastHealthReportTime, Set<String> nodeLabels) {
+    return NodeReport.newInstance(NodeId.newInstance(host, port), nodeState, httpAddress, rackName,
+            Resource.newInstance(memoryUsed, vcoresUsed), Resource.newInstance(totalMemory, totalVcores), numContainers,
+            healthReport, lastHealthReportTime, nodeLabels);
   }
 }
