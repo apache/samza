@@ -20,7 +20,8 @@
 include \
   'samza-api',
   'samza-sql',
-  'samza-shell'
+  'samza-shell',
+  'samza-shell-yarn3'
 
 def scalaModules = [
         'samza-aws',

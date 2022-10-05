@@ -660,6 +660,73 @@ project(":samza-shell") {
   }
 }
 
+project(":samza-shell-yarn3") {
+  apply plugin: 'java'
+
+  configurations {
+    gradleShell
+  }
+
+  dependencies {
+    gradleShell project(":samza-core_$scalaSuffix")
+    gradleShell project(":samza-kafka_$scalaSuffix")
+    gradleShell project(":samza-test_$scalaSuffix")
+    gradleShell project(":samza-yarn3_$scalaSuffix")
+  }
+
+  task shellTarGz(type: Tar) {
+    compression = Compression.GZIP
+    classifier = 'dist'
+    from 'src/main/bash'
+    from 'src/main/resources'
+    from 'src/main/visualizer'
+  }
+
+  artifacts {
+    archives(shellTarGz) {
+      name 'samza-shell-yarn3'
+      classifier 'dist'
+    }
+  }
+
+  // Usage: ./gradlew samza-shell:runJob \
+  //  -PconfigPath=/path/to/job/config.properties
+  task runJob(type:JavaExec) {
+    description 'To run a job (defined in a properties file)'
+    main = 'org.apache.samza.job.JobRunner'
+    classpath = configurations.gradleShell
+    if (project.hasProperty('configPath')) args += [
+            '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+            '--config', 'job.config.loader.properties.path=' + configPath]
+    jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
+  }
+
+  // Usage: ./gradlew samza-shell:checkpointTool \
+  //  -PconfigPath=/path/to/job/config.properties -PnewOffsets=/path/to/new/offsets.properties
+  task checkpointTool(type:JavaExec) {
+    description 'Command-line tool to inspect and manipulate the job’s checkpoint'
+    main = 'org.apache.samza.checkpoint.CheckpointTool'
+    classpath = configurations.gradleShell
+    if (project.hasProperty('configPath')) args += [
+            '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+            '--config', 'job.config.loader.properties.path=' + configPath]
+    if (project.hasProperty('newOffsets')) args += ['--new-offsets', newOffsets]
+    jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
+  }
+
+  // Usage: ./gradlew samza-shell:kvPerformanceTest
+  //  -PconfigPath=/path/to/job/config.properties
+  task kvPerformanceTest(type:JavaExec) {
+    description 'Command-line tool to run key-value performance tests'
+    main = 'org.apache.samza.test.performance.TestKeyValuePerformance'
+    classpath = configurations.gradleShell
+    if (project.hasProperty('configPath')) args += [
+            '--config', 'job.config.loader.factory=org.apache.samza.config.loaders.PropertiesConfigLoaderFactory',
+            '--config', 'job.config.loader.properties.path=' + configPath]
+    jvmArgs = ["-Dlog4j.configurationFile=file:src/main/resources/log4j2-console.xml"]
+  }
+}
+
 project(":samza-kv_$scalaSuffix") {
   apply plugin: 'scala'
 

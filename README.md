@@ -30,7 +30,8 @@ After the bootstrap script has completed, the regular gradlew instructions below
 
 This project is built with Java 8 and can run in a Java 8 runtime enviornment. Additionally, it also supports running in a Java 11 runtime environment. 
 If you intend to use Samza in a Java 11 runtime environment, it means you will also need to use YARN 3.3.4+ and in which case, you should also use 
-the `samza-yarn3` module (built with YARN 3.3.4) instead of the `samza-yarn` (built with YARN 2.10.1). 
+the `samza-yarn3` module (built with YARN 3.3.4) instead of the `samza-yarn` (built with YARN 2.10.1). There is also a `samza-shell-yarn3` that
+depends on the `samza-yarn3` module, so use that shell module if you intend on using Yarn 3.
 
 #### Scala and YARN
 
