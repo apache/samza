@@ -677,9 +677,9 @@ project(":samza-shell-yarn3") {
   task shellTarGz(type: Tar) {
     compression = Compression.GZIP
     classifier = 'dist'
-    from 'src/main/bash'
-    from 'src/main/resources'
-    from 'src/main/visualizer'
+    from(project(":samza-shell").file("./src/main/bash"))
+    from(project(":samza-shell").file("./src/main/resources"))
+    from(project(":samza-shell").file("./src/main/visualizer"))
   }
 
   artifacts {
