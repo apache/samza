@@ -20,7 +20,8 @@
 include \
   'samza-api',
   'samza-sql',
-  'samza-shell'
+  'samza-shell',
+  'samza-shell-yarn3'
 
 def scalaModules = [
         'samza-aws',
@@ -39,8 +40,9 @@ def scalaModules = [
         'samza-sql',
         'samza-sql-shell',
         'samza-tools',
-        'samza-yarn',
         'samza-test',
+        'samza-yarn',
+        'samza-yarn3'
 ] as HashSet
 
 scalaModules.each {

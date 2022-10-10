@@ -26,11 +26,28 @@ To build Samza from a source release, it is first necessary to download the grad
 
 After the bootstrap script has completed, the regular gradlew instructions below are available.
 
+### Java Version Support
+
+This project is built with Java 8 and can run in a Java 8 runtime enviornment. Additionally, it also supports running in a Java 11 runtime environment. 
+If you intend to use Samza in a Java 11 runtime environment, it means you will also need to use YARN 3.3.4+ and in which case, you should also use 
+the `samza-yarn3` module (built with YARN 3.3.4) instead of the `samza-yarn` (built with YARN 2.10.1). There is also a `samza-shell-yarn3` that
+depends on the `samza-yarn3` module, so use that shell module if you intend on using Yarn 3.
+
 #### Scala and YARN
 
-Samza builds with [Scala](http://www.scala-lang.org/) 2.11 or 2.12 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.6.1, by default. Use the -PscalaSuffix switches to change Scala versions. Samza supports building Scala with 2.11 and 2.12.
+Samza builds with [Scala](http://www.scala-lang.org/) 2.11 or 2.12 and [YARN](http://hadoop.apache.org/docs/current/hadoop-yarn/hadoop-yarn-site/YARN.html) 2.10.1, by default. 
+Use the -PscalaSuffix switches to change Scala versions. Samza supports building Scala with 2.11 and 2.12 and provides a YARN 2 module (`samze-yarn`) and a YARN 3 module (`samza-yarn3`).
 
-    ./gradlew -PscalaSuffix=2.11 clean build
+NOTE: Some modules currently do **not** officially support Java 11 Runtime and are still using the YARN 2.10.1 dependency:
+* `samza-yarn`
+* `samza-shell`
+* `samza-test`
+* `samza-hdfs`
+
+
+    ./gradlew -PscalaSuffix=2.12 clean build 
+
+Also, you can make use of `bin/check-all.sh` in order to test multiple variants of Java JDKs, Scala, and Yarn.
 
 ### Testing Samza
 

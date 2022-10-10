@@ -19,7 +19,8 @@
 package org.apache.samza.rest.proxy.task;
 
 import com.google.common.base.Preconditions;
-import org.apache.commons.lang.StringUtils;
+
+import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ConfigFactory;
 import org.apache.samza.rest.proxy.installation.InstallationFinder;

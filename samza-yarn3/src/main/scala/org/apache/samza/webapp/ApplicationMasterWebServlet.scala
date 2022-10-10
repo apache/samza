@@ -1,0 +1,47 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+package org.apache.samza.webapp
+
+import org.apache.samza.clustermanager.SamzaApplicationState
+import org.scalatra._
+import scalate.ScalateSupport
+import org.apache.samza.job.yarn.YarnAppState
+import org.apache.samza.config.Config
+import scala.collection.JavaConverters._
+import scala.collection.immutable.TreeMap
+import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.webapp.util.WebAppUtils
+
+class ApplicationMasterWebServlet(samzaConfig: Config, samzaAppState: SamzaApplicationState, state: YarnAppState) extends ScalatraServlet with ScalateSupport {
+  val yarnConfig = new YarnConfiguration
+
+  before() {
+    contentType = "text/html"
+  }
+
+  // Due to AMHA, the uptime and start time of containers (within state) from previous attempt is reset to the time the new AM becomes alive.
+  get("/") {
+    layoutTemplate("/WEB-INF/views/index.scaml",
+      "config" -> TreeMap(samzaConfig.sanitize.asScala.toMap.toArray: _*),
+      "state" -> state,
+      "samzaAppState" -> samzaAppState,
+      "rmHttpAddress" -> WebAppUtils.getRMWebAppURLWithScheme(yarnConfig))
+  }
+}

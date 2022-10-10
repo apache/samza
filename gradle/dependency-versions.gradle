@@ -53,4 +53,5 @@
   jnaVersion = "4.5.1"
   couchbaseClientVersion = "2.7.2"
   couchbaseMockVersion = "1.5.22"
+  yarn3Version = "3.3.4"
 }

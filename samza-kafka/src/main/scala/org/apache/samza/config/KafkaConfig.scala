@@ -366,16 +366,14 @@ class KafkaConfig(config: Config) extends ScalaMapConfig(config) {
     val properties = new Properties()
 
     if (isStreamMode) {
-      properties.putAll(ImmutableMap.of(
-        "cleanup.policy", "compact",
-        "segment.bytes", String.valueOf(segmentBytes),
-        "max.message.bytes", String.valueOf(maxMessageBytes)))
+      properties.put("cleanup.policy", "compact")
+      properties.put("segment.bytes", String.valueOf(segmentBytes))
+      properties.put("max.message.bytes", String.valueOf(maxMessageBytes))
     } else {
-      properties.putAll(ImmutableMap.of(
-        "cleanup.policy", "compact,delete",
-        "retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH),
-        "segment.bytes", String.valueOf(segmentBytes),
-        "max.message.bytes", String.valueOf(maxMessageBytes)))
+      properties.put("cleanup.policy", "compact,delete")
+      properties.put("retention.ms", String.valueOf(KafkaConfig.DEFAULT_RETENTION_MS_FOR_BATCH))
+      properties.put("segment.bytes", String.valueOf(segmentBytes))
+      properties.put("max.message.bytes", String.valueOf(maxMessageBytes))
     }
     properties
   }
