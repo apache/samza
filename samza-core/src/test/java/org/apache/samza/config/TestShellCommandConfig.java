@@ -22,8 +22,7 @@ import java.util.Optional;
 import com.google.common.collect.ImmutableMap;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 
 
 public class TestShellCommandConfig {
@@ -79,6 +78,66 @@ public class TestShellCommandConfig {
         ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "true", JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB,
             "1024", "task.opts", "-Dproperty=value")));
     assertEquals(Optional.of("-Dproperty=value -Xmx1024m"), shellCommandConfig.getTaskOpts());
+  }
+
+  @Test
+  public void testGetWorkerOptsAutosizingDisabled() {
+    ShellCommandConfig shellCommandConfig = new ShellCommandConfig(new MapConfig(
+        ImmutableMap.of(JobConfig.JOB_AUTOSIZING_WORKER_MAX_HEAP_MB,
+            "1024", "worker.opts", "-Xmx10m -Dproperty=value")));
+
+    String workerOpts = shellCommandConfig.getWorkerOpts()
+        .orElse(null);
+    String expectedOpts = "-Xmx10m -Dproperty=value";
+
+    assertNotNull(workerOpts);
+    assertEquals(expectedOpts, workerOpts);
+  }
+
+  @Test
+  public void testGetWorkerOptsAutosizingEnabled() {
+    ShellCommandConfig shellCommandConfig = new ShellCommandConfig(new MapConfig(
+        ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "true", JobConfig.JOB_AUTOSIZING_WORKER_MAX_HEAP_MB,
+            "1024", "worker.opts", "-Xmx10m -Dproperty=value")));
+
+    String workerOpts = shellCommandConfig.getWorkerOpts()
+        .orElse(null);
+    String expectedOpts = "-Xmx1024m -Dproperty=value";
+
+    assertNotNull(workerOpts);
+    assertEquals(expectedOpts, workerOpts);
+  }
+
+  @Test
+  public void testGetFinalJvmOptionsAutosizingDisabled() {
+    ShellCommandConfig shellCommandConfig =
+        new ShellCommandConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "false")));
+    String jvmOptions = "";
+    String expectedJvmOptions = "";
+
+    // no override passed
+    assertEquals(expectedJvmOptions, shellCommandConfig.getFinalJvmOptions(jvmOptions, ""));
+
+    // ignore override since autosizing is disabled
+    assertEquals(expectedJvmOptions, shellCommandConfig.getFinalJvmOptions(jvmOptions, "2048"));
+  }
+
+  @Test
+  public void testGetFinalJvmOptionsAutosizingEnabled() {
+    ShellCommandConfig shellCommandConfig =
+        new ShellCommandConfig(new MapConfig(ImmutableMap.of(JobConfig.JOB_AUTOSIZING_ENABLED, "true")));
+    String jvmOptions = "-Xmx1024m";
+    String expectedJvmOptions = "-Xmx1024m";
+    assertEquals(expectedJvmOptions, shellCommandConfig.getFinalJvmOptions(jvmOptions, ""));
+
+    // override should take effect with autosizing enabled
+    expectedJvmOptions = "-Xmx2048m";
+    assertEquals(expectedJvmOptions, shellCommandConfig.getFinalJvmOptions(jvmOptions, "2048"));
+
+    // override should take effect even if xmx is not set
+    jvmOptions = "-Dproperty=value";
+    expectedJvmOptions = "-Dproperty=value -Xmx2048m";
+    assertEquals(expectedJvmOptions, shellCommandConfig.getFinalJvmOptions(jvmOptions, "2048"));
   }
 
   @Test
