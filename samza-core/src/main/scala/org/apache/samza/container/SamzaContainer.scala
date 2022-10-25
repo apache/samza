@@ -35,7 +35,7 @@ import org.apache.samza.clustermanager.StandbyTaskUtil
 import org.apache.samza.config.{StreamConfig, _}
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
-import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
+import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatistics, SystemStatisticsMonitor}
 import org.apache.samza.context._
 import org.apache.samza.diagnostics.DiagnosticsManager
 import org.apache.samza.drain.DrainMonitor.DrainCallback

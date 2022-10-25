@@ -23,7 +23,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.container.host.ProcessCPUStatistics;
 import org.apache.samza.container.host.SystemMemoryStatistics;
+import org.apache.samza.container.host.SystemStatistics;
 import org.apache.samza.container.host.SystemStatisticsMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,15 +45,26 @@ public class SamzaContainerMonitorListener implements SystemStatisticsMonitor.Li
   }
 
   @Override
-  public void onUpdate(SystemMemoryStatistics sample) {
+  public void onUpdate(SystemStatistics sample) {
+    // update cpu metric
+    ProcessCPUStatistics cpuSample = sample.getCpuStatistics();
+    if (Objects.nonNull(cpuSample)) {
+      double cpuUsage = cpuSample.getProcessCPUUsagePercentage();
+      LOGGER.debug("Container total cpu usage: " + cpuUsage);
+      containerMetrics.totalProcessCpuUsage().set(cpuUsage);
+    }
+
     // update memory metric
-    long physicalMemoryBytes = sample.getPhysicalMemoryBytes();
-    float physicalMemoryMb = physicalMemoryBytes / (1024.0F * 1024.0F);
-    float memoryUtilization = physicalMemoryMb / containerMemoryMb;
-    LOGGER.debug("Container physical memory utilization (mb): " + physicalMemoryMb);
-    LOGGER.debug("Container physical memory utilization: " + memoryUtilization);
-    containerMetrics.physicalMemoryMb().set(physicalMemoryMb);
-    containerMetrics.physicalMemoryUtilization().set(memoryUtilization);
+    SystemMemoryStatistics memorySample = sample.getMemoryStatistics();
+    if (Objects.nonNull(memorySample)) {
+      long physicalMemoryBytes = memorySample.getPhysicalMemoryBytes();
+      float physicalMemoryMb = physicalMemoryBytes / (1024.0F * 1024.0F);
+      float memoryUtilization = physicalMemoryMb / containerMemoryMb;
+      LOGGER.debug("Container physical memory utilization (mb): " + physicalMemoryMb);
+      LOGGER.debug("Container physical memory utilization: " + memoryUtilization);
+      containerMetrics.physicalMemoryMb().set(physicalMemoryMb);
+      containerMetrics.physicalMemoryUtilization().set(memoryUtilization);
+    }
 
     // update thread related metrics
     if (Objects.nonNull(taskThreadPool) && taskThreadPool instanceof ThreadPoolExecutor) {

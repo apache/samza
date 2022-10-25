@@ -31,8 +31,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * An implementation of {@link SystemStatisticsMonitor} for unix and mac platforms. Users can implement their own
- * ways of getting {@link SystemMemoryStatistics} and provide a {@link SystemStatisticsGetter} implementation. The default
- * behavior is to rely on unix commands like ps to obtain {@link SystemMemoryStatistics}
+ * ways of getting {@link SystemStatistics} and provide a {@link SystemStatisticsGetter} implementation. The default
+ * behavior is to rely on unix commands like ps to obtain {@link SystemMemoryStatistics} and rely on ohsi framework to
+ * obtain {@link ProcessCPUStatistics}
  *
  * All callback invocations are from the same thread - hence, are guaranteed to be serialized. An exception thrown
  * from a callback will suppress all subsequent callbacks. If the execution of a
@@ -78,7 +79,7 @@ public class StatisticsMonitorImpl implements SystemStatisticsMonitor {
    *
    */
   public StatisticsMonitorImpl() {
-    this(60000, new PosixCommandBasedStatisticsGetter());
+    this(60000, new DefaultSystemStatisticsGetter());
   }
 
   /**
@@ -117,23 +118,23 @@ public class StatisticsMonitorImpl implements SystemStatisticsMonitor {
   }
 
   private void sampleStatistics() {
-    SystemMemoryStatistics statistics = null;
+    SystemMemoryStatistics memoryStatistics = null;
+    ProcessCPUStatistics cpuStatistics = null;
     try {
-      statistics = statisticsGetter.getSystemMemoryStatistics();
+      memoryStatistics = statisticsGetter.getSystemMemoryStatistics();
+      cpuStatistics = statisticsGetter.getProcessCPUStatistics();
     } catch (Throwable e) {
       LOG.error("Error during obtaining statistics: ", e);
     }
-
+    SystemStatistics systemStatistics = new SystemStatistics(cpuStatistics, memoryStatistics);
     for (Listener listener : listenerSet.keySet()) {
-      if (statistics != null) {
-        try {
-          // catch all exceptions to shield one listener from exceptions thrown by others.
-          listener.onUpdate(statistics);
-        } catch (Throwable e) {
-          // delete this listener so that it does not receive future callbacks.
-          listenerSet.remove(listener);
-          LOG.error("Listener threw an exception: ", e);
-        }
+      try {
+        // catch all exceptions to shield one listener from exceptions thrown by others.
+        listener.onUpdate(systemStatistics);
+      } catch (Throwable e) {
+        // delete this listener so that it does not receive future callbacks.
+        listenerSet.remove(listener);
+        LOG.error("Listener threw an exception: ", e);
       }
     }
   }

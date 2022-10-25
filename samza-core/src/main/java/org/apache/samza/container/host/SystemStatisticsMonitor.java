@@ -54,7 +54,7 @@ public interface SystemStatisticsMonitor {
      *
      * @param sample the currently sampled statistic.
      */
-    void onUpdate(SystemMemoryStatistics sample);
+    void onUpdate(SystemStatistics sample);
   }
 
 }

@@ -50,8 +50,9 @@
   zookeeperVersion = "3.6.3"
   failsafeVersion = "2.4.0"
   jlineVersion = "3.8.2"
-  jnaVersion = "4.5.1"
+  jnaVersion = "5.12.1"
   couchbaseClientVersion = "2.7.2"
   couchbaseMockVersion = "1.5.22"
   yarn3Version = "3.3.4"
+  oshiVersion = "6.3.0"
 }

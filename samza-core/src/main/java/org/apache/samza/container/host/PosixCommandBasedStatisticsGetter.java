@@ -21,6 +21,7 @@ package org.apache.samza.container.host;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.commons.lang3.NotImplementedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,5 +85,11 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
       log.warn("Error when running ps: ", e);
       return null;
     }
+  }
+
+  @Override
+  public ProcessCPUStatistics getProcessCPUStatistics() {
+    throw new NotImplementedException(
+        "No appropriate Posix command available for getting recent CPU usage information. For example, the CPU information exposed by ps command 'ps -o %cpu= -p <PID>' represents the percentage of time spent running during the entire lifetime of a process not for the recent CPU usage");
   }
 }
