@@ -77,6 +77,7 @@ public class ShellCommandConfig extends MapConfig {
 
   public static final String COMMAND_SHELL_EXECUTE = "task.execute";
   public static final String TASK_JVM_OPTS = "task.opts";
+  public static final String WORKER_JVM_OPTS = "worker.opts";
   public static final String TASK_JAVA_HOME = "task.java.home";
 
   /**
@@ -111,6 +112,10 @@ public class ShellCommandConfig extends MapConfig {
       }
     }
     return jvmOpts;
+  }
+
+  public Optional<String> getWorkerOpts() {
+    return Optional.ofNullable(get(ShellCommandConfig.WORKER_JVM_OPTS));
   }
 
   public Optional<String> getJavaHome() {
