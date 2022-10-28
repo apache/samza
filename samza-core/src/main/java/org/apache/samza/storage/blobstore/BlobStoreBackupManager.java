@@ -50,6 +50,7 @@ import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
+import org.apache.samza.storage.blobstore.metrics.BlobStoreManagerMetrics;
 import org.apache.samza.storage.blobstore.util.BlobStoreUtil;
 import org.apache.samza.storage.blobstore.util.DirDiffUtil;
 import org.apache.samza.util.Clock;
@@ -76,6 +77,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
   private final BlobStoreManager blobStoreManager;
   private final BlobStoreUtil blobStoreUtil;
   private final BlobStoreBackupManagerMetrics metrics;
+  private final BlobStoreManagerMetrics blobStoreManagerMetrics;
 
   /**
    * Map of store name to a Pair of blob id of {@link SnapshotIndex} and the corresponding {@link SnapshotIndex} from
@@ -101,8 +103,9 @@ public class BlobStoreBackupManager implements TaskBackupManager {
       prevStoreSnapshotIndexesFuture;
 
   public BlobStoreBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
-      ExecutorService backupExecutor, BlobStoreBackupManagerMetrics blobStoreTaskBackupMetrics, Config config,
-      Clock clock, File loggedStoreBaseDir, StorageManagerUtil storageManagerUtil, BlobStoreManager blobStoreManager) {
+      ExecutorService backupExecutor, BlobStoreManagerMetrics blobStoreTaskManagerMetrics,
+      BlobStoreBackupManagerMetrics blobStoreTaskBackupMetrics,  Config config, Clock clock, File loggedStoreBaseDir,
+      StorageManagerUtil storageManagerUtil, BlobStoreManager blobStoreManager) {
     this.jobModel = jobModel;
     this.jobName = new JobConfig(config).getName().get();
     this.jobId = new JobConfig(config).getJobId();
@@ -122,6 +125,8 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     this.prevStoreSnapshotIndexesFuture = CompletableFuture.completedFuture(ImmutableMap.of());
     this.metrics = blobStoreTaskBackupMetrics;
     metrics.initStoreMetrics(storesToBackup);
+    this.blobStoreManagerMetrics = blobStoreTaskManagerMetrics;
+    blobStoreTaskManagerMetrics.initStoreMetrics(storesToBackup);
   }
 
   @Override
@@ -332,7 +337,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
   @VisibleForTesting
   protected BlobStoreUtil createBlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
       BlobStoreBackupManagerMetrics metrics) {
-    return new BlobStoreUtil(blobStoreManager, executor, metrics, null);
+    return new BlobStoreUtil(blobStoreManager, executor, blobStoreManagerMetrics, metrics, null);
   }
 
   private void updateStoreDiffMetrics(String storeName, DirDiff.Stats stats) {

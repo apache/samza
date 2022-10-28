@@ -19,6 +19,8 @@
 
 package org.apache.samza.util;
 
+import java.util.concurrent.CompletionException;
+import java.util.function.BiPredicate;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 
@@ -118,7 +120,7 @@ public class FutureUtil {
    * Returned future completes exceptionally if any of the futures complete with a non-ignored error.
    */
   public static <K, V> CompletableFuture<Map<K, V>> toFutureOfMap(
-      Predicate<Throwable> ignoreError, Map<K, CompletableFuture<V>> keyToValueFutures) {
+      BiPredicate<K, Throwable> ignoreError, Map<K, CompletableFuture<V>> keyToValueFutures) {
     CompletableFuture<Void> allEntriesFuture =
         CompletableFuture.allOf(keyToValueFutures.values().toArray(new CompletableFuture[]{}));
 
@@ -130,7 +132,7 @@ public class FutureUtil {
           V value = entry.getValue().join();
           successfulResults.put(key, value);
         } catch (Throwable th) {
-          if (ignoreError.test(th)) {
+          if (ignoreError.test(key, th)) {
             // else ignore and continue
             LOG.warn("Ignoring value future completion error for key: {}", key, th);
           } else {

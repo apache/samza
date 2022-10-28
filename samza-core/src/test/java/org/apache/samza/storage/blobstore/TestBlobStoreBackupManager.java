@@ -64,6 +64,7 @@ import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
+import org.apache.samza.storage.blobstore.metrics.BlobStoreManagerMetrics;
 import org.apache.samza.storage.blobstore.util.BlobStoreTestUtil;
 import org.apache.samza.storage.blobstore.util.BlobStoreUtil;
 import org.apache.samza.storage.blobstore.util.DirDiffUtil;
@@ -108,6 +109,7 @@ public class TestBlobStoreBackupManager {
   private final Gauge<AtomicLong> atomicLongGauge = mock(Gauge.class);
 
   private BlobStoreBackupManager blobStoreBackupManager;
+  private BlobStoreManagerMetrics blobStoreTaskManagerMetrics;
   private BlobStoreBackupManagerMetrics blobStoreTaskBackupMetrics;
 
   // Remote and local snapshot definitions
@@ -147,10 +149,12 @@ public class TestBlobStoreBackupManager {
     when(atomicLongGauge.getValue()).thenReturn(new AtomicLong());
     when(metricsRegistry.newTimer(anyString(), anyString())).thenReturn(timer);
     blobStoreTaskBackupMetrics = new BlobStoreBackupManagerMetrics(metricsRegistry);
+    blobStoreTaskManagerMetrics = new BlobStoreManagerMetrics(metricsRegistry);
+
 
     blobStoreBackupManager =
         new MockBlobStoreBackupManager(jobModel, containerModel, taskModel, mockExecutor,
-            blobStoreTaskBackupMetrics, config,
+            blobStoreTaskManagerMetrics, blobStoreTaskBackupMetrics, config,
             Files.createTempDirectory("logged-store-").toFile(), storageManagerUtil, blobStoreManager);
   }
 
@@ -524,10 +528,11 @@ public class TestBlobStoreBackupManager {
   private class MockBlobStoreBackupManager extends BlobStoreBackupManager {
 
     public MockBlobStoreBackupManager(JobModel jobModel, ContainerModel containerModel, TaskModel taskModel,
-        ExecutorService backupExecutor, BlobStoreBackupManagerMetrics blobStoreTaskBackupMetrics, Config config,
+        ExecutorService backupExecutor, BlobStoreManagerMetrics blobStoreManagerMetrics,
+        BlobStoreBackupManagerMetrics blobStoreTaskBackupMetrics, Config config,
         File loggedStoreBaseDir, StorageManagerUtil storageManagerUtil,
         BlobStoreManager blobStoreManager) {
-      super(jobModel, containerModel, taskModel, backupExecutor, blobStoreTaskBackupMetrics, config, clock,
+      super(jobModel, containerModel, taskModel, backupExecutor, blobStoreManagerMetrics, blobStoreTaskBackupMetrics, config, clock,
           loggedStoreBaseDir, storageManagerUtil, blobStoreManager);
     }
 

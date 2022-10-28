@@ -44,6 +44,7 @@ import org.apache.samza.storage.StorageManagerUtil;
 import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
+import org.apache.samza.storage.blobstore.metrics.BlobStoreManagerMetrics;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
 import org.apache.samza.storage.blobstore.util.BlobStoreTestUtil;
 import org.apache.samza.storage.blobstore.util.BlobStoreUtil;
@@ -175,8 +176,9 @@ public class TestBlobStoreRestoreManager {
     String jobName = "testJobName";
     String jobId = "testJobId";
     TaskName taskName = mock(TaskName.class);
-    BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
-    metrics.initStoreMetrics(ImmutableList.of("storeName"));
+    BlobStoreManagerMetrics blobStoreManagerMetrics = new BlobStoreManagerMetrics(new MetricsRegistryMap());
+    BlobStoreRestoreManagerMetrics blobStoreRestoreManagerMetrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
+    blobStoreRestoreManagerMetrics.initStoreMetrics(ImmutableList.of("storeName"));
     Set<String> storesToRestore = ImmutableSet.of("storeName");
     SnapshotIndex snapshotIndex = mock(SnapshotIndex.class);
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
@@ -206,7 +208,7 @@ public class TestBlobStoreRestoreManager {
     when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
-        loggedBaseDir.toFile(), storageConfig, metrics,
+        loggedBaseDir.toFile(), storageConfig, blobStoreManagerMetrics, blobStoreRestoreManagerMetrics,
         storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
@@ -221,8 +223,9 @@ public class TestBlobStoreRestoreManager {
     String jobName = "testJobName";
     String jobId = "testJobId";
     TaskName taskName = mock(TaskName.class);
-    BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
-    metrics.initStoreMetrics(ImmutableList.of("storeName"));
+    BlobStoreManagerMetrics blobStoreManagerMetrics = new BlobStoreManagerMetrics(new MetricsRegistryMap());
+    BlobStoreRestoreManagerMetrics blobStoreRestoreManagerMetrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
+    blobStoreRestoreManagerMetrics.initStoreMetrics(ImmutableList.of("storeName"));
     Set<String> storesToRestore = ImmutableSet.of("storeName");
     SnapshotIndex snapshotIndex = mock(SnapshotIndex.class);
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
@@ -258,7 +261,7 @@ public class TestBlobStoreRestoreManager {
         .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
-        loggedBaseDir.toFile(), storageConfig, metrics,
+        loggedBaseDir.toFile(), storageConfig, blobStoreManagerMetrics, blobStoreRestoreManagerMetrics,
         storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
@@ -273,8 +276,9 @@ public class TestBlobStoreRestoreManager {
     String jobName = "testJobName";
     String jobId = "testJobId";
     TaskName taskName = mock(TaskName.class);
-    BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
-    metrics.initStoreMetrics(ImmutableList.of("storeName"));
+    BlobStoreManagerMetrics blobStoreManagerMetrics = new BlobStoreManagerMetrics(new MetricsRegistryMap());
+    BlobStoreRestoreManagerMetrics blobStoreRestoreManagerMetrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
+    blobStoreRestoreManagerMetrics.initStoreMetrics(ImmutableList.of("storeName"));
     Set<String> storesToRestore = ImmutableSet.of("storeName");
     SnapshotIndex snapshotIndex = mock(SnapshotIndex.class);
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
@@ -314,7 +318,7 @@ public class TestBlobStoreRestoreManager {
         .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
-        loggedBaseDir.toFile(), storageConfig, metrics,
+        loggedBaseDir.toFile(), storageConfig, blobStoreManagerMetrics, blobStoreRestoreManagerMetrics,
         storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that the store directory restore was not called (should have restored from checkpoint dir)
@@ -331,8 +335,9 @@ public class TestBlobStoreRestoreManager {
     String jobName = "testJobName";
     String jobId = "testJobId";
     TaskName taskName = mock(TaskName.class);
-    BlobStoreRestoreManagerMetrics metrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
-    metrics.initStoreMetrics(ImmutableList.of("newStoreName"));
+    BlobStoreManagerMetrics blobStoreManagerMetrics = new BlobStoreManagerMetrics(new MetricsRegistryMap());
+    BlobStoreRestoreManagerMetrics blobStoreRestoreManagerMetrics = new BlobStoreRestoreManagerMetrics(new MetricsRegistryMap());
+    blobStoreRestoreManagerMetrics.initStoreMetrics(ImmutableList.of("newStoreName"));
     Set<String> storesToRestore = ImmutableSet.of("newStoreName"); // new store in config
     SnapshotIndex snapshotIndex = mock(SnapshotIndex.class);
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes = mock(Map.class);
@@ -351,7 +356,7 @@ public class TestBlobStoreRestoreManager {
     DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
-        loggedBaseDir.toFile(), storageConfig, metrics,
+        loggedBaseDir.toFile(), storageConfig, blobStoreManagerMetrics, blobStoreRestoreManagerMetrics,
         storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that we checked the previously checkpointed SCMs.
