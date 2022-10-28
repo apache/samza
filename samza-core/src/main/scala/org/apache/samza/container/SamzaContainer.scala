@@ -635,20 +635,9 @@ object SamzaContainer extends Logging {
       jobConfig.getElasticityFactor,
       appConfig.getRunId)
 
-    val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
-
-    val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
-    memoryStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
-      override def onUpdate(sample: SystemMemoryStatistics): Unit = {
-        val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
-        val physicalMemoryMb : Float = physicalMemoryBytes / (1024.0F * 1024.0F)
-        val memoryUtilization : Float = physicalMemoryMb.toFloat / containerMemoryMb
-        logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
-        logger.debug("Container physical memory utilization: " + memoryUtilization)
-        samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
-        samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization);
-      }
-    })
+    val systemStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
+    systemStatisticsMonitor.registerListener(
+      new SamzaContainerMonitorListener(config, samzaContainerMetrics, taskThreadPool))
 
     val diskQuotaBytes = config.getLong("container.disk.quota.bytes", Long.MaxValue)
     samzaContainerMetrics.diskQuotaBytes.set(diskQuotaBytes)
@@ -693,7 +682,7 @@ object SamzaContainer extends Logging {
       reporters = reporters,
       jvm = jvm,
       diskSpaceMonitor = diskSpaceMonitor,
-      hostStatisticsMonitor = memoryStatisticsMonitor,
+      hostStatisticsMonitor = systemStatisticsMonitor,
       taskThreadPool = taskThreadPool,
       commitThreadPool = commitThreadPool,
       timerExecutor = timerExecutor,
