@@ -568,7 +568,8 @@ class TaskInstance(
     // within the keyBucket of the SSP assigned to the task.
     val incomingMessageSsp = envelope.getSystemStreamPartition(elasticityFactor)
 
-    if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(envelope.getOffset)) {
+    if (IncomingMessageEnvelope.END_OF_STREAM_OFFSET.equals(envelope.getOffset)
+      || envelope.isDrain) {
       ssp2CaughtupMapping(incomingMessageSsp) = true
     } else {
       systemAdmins match {

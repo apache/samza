@@ -42,7 +42,8 @@ public class RunLoopFactory {
       TaskConfig taskConfig,
       HighResolutionClock clock,
       int elasticityFactor,
-      String runId) {
+      String runId,
+      boolean isHighLevelApiJob) {
 
     long taskWindowMs = taskConfig.getWindowMs();
 
@@ -84,6 +85,7 @@ public class RunLoopFactory {
       clock,
       isAsyncCommitEnabled,
       elasticityFactor,
-      runId);
+      runId,
+      isHighLevelApiJob);
   }
 }

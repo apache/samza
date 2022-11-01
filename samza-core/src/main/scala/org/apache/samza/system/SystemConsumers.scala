@@ -219,6 +219,10 @@ class SystemConsumers (
 
     chooser.start
 
+    // SystemConsumers could be set to drain mode prior to start if a drain message was encountered on container start
+    if (isDraining) {
+      writeDrainControlMessageToSspQueue()
+    }
 
     started = true
 
@@ -243,8 +247,9 @@ class SystemConsumers (
     if (!isDraining) {
       isDraining = true;
       info("SystemConsumers is set to drain mode.")
-      consumers.values.foreach(_.stop)
-      writeDrainControlMessageToSspQueue()
+      if (started) {
+        writeDrainControlMessageToSspQueue()
+      }
     }
   }
 

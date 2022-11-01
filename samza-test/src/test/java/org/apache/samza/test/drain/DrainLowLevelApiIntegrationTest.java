@@ -29,6 +29,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import net.jcip.annotations.NotThreadSafe;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
 import org.apache.samza.config.ApplicationConfig;
@@ -55,7 +56,7 @@ import org.apache.samza.test.framework.system.descriptors.InMemoryInputDescripto
 import org.apache.samza.test.framework.system.descriptors.InMemorySystemDescriptor;
 import org.apache.samza.test.table.TestTableData;
 import org.apache.samza.util.CoordinatorStreamUtil;
-import org.junit.Ignore;
+import org.junit.FixMethodOrder;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -63,10 +64,12 @@ import static org.junit.Assert.*;
 
 /**
  * End to end integration test to check drain functionality with samza low-level API.
+ * Tests have been annotated with @Ignore as they seem to timeout on the build system.
  * */
+@NotThreadSafe
+@FixMethodOrder
 public class DrainLowLevelApiIntegrationTest {
   private static final List<TestTableData.PageView> RECEIVED = new ArrayList<>();
-
   private static Integer drainCounter = 0;
   private static Integer eosCounter = 0;
 
@@ -109,32 +112,37 @@ public class DrainLowLevelApiIntegrationTest {
     }
   }
 
-  // The test can be occasionally flaky, so we set Ignore annotation
-  // Remove ignore annotation and run the test as follows:
-  // ./gradlew :samza-test:test --tests org.apache.samza.test.drain.DrainLowLevelApiIntegrationTest -PscalaSuffix=2.12
-  @Ignore
+  /**
+   * This test will test drain and consumption of some messages from the in-memory topic.
+   * In order to simulate the real-world behaviour of drain, the test adds messages to the in-memory topic buffer in
+   * a delayed fashion instead of all at once. The test then writes the drain notification message to the in-memory
+   * metadata store to drain and stop the pipeline. This write is done shortly after the pipeline starts and before all
+   * the messages are written to the topic's buffer. As a result, the total count of the processed messages will be less
+   * than the expected count of messages.
+   * */
   @Test
-  public void testPipeline() {
-    int numPageViews = 40;
+  public void testDrain() {
+    int numPageViews = 200;
+    int numPartitions = 4;
+    long delayBetweenMessagesInMillis = 500L;
+    long drainTriggerDelay = 5000L;
+    String runId = "DrainTestId";
+
     InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
     InMemoryInputDescriptor<TestTableData.PageView> inputDescriptor = isd.getInputDescriptor("PageView", new NoOpSerde<>());
     InMemoryMetadataStoreFactory metadataStoreFactory = new InMemoryMetadataStoreFactory();
 
-    String runId = "DrainTestId";
     Map<String, String> customConfig = ImmutableMap.of(
         ApplicationConfig.APP_RUN_ID, runId,
         JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100",
         JobConfig.DRAIN_MONITOR_ENABLED, "true");
 
     // Create a TestRunner
-    // Set a InMemoryMetadataFactory. We will use this factory in the test to create a metadata store and
-    // write drain message to it
-    // Mock data comprises of 40 messages across 4 partitions. TestRunner adds a 1 second delay between messages
-    // per partition when writing messages to the InputStream
+    // Set a InMemoryMetadataFactory.This factory is shared between TestRunner and DrainUtils's write drain method
     TestRunner testRunner = TestRunner.of(new PageViewEventCountLowLevelApplication())
         .setInMemoryMetadataFactory(metadataStoreFactory)
         .addConfig(customConfig)
-        .addInputStream(inputDescriptor, TestTableData.generatePartitionedPageViews(numPageViews, 4), 1000L);
+        .addInputStream(inputDescriptor, TestTableData.generatePartitionedPageViews(numPageViews, numPartitions), delayBetweenMessagesInMillis);
 
     Config configFromRunner = testRunner.getConfig();
     MetadataStore
@@ -146,7 +154,7 @@ public class DrainLowLevelApiIntegrationTest {
     // We are doing this so that DrainUtils.writeDrainNotification can read app.run.id from the config
     CoordinatorStreamUtil.writeConfigToCoordinatorStream(metadataStore, configFromRunner);
 
-    // write drain message after a delay
+    // Trigger drain after a delay
     ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
     executorService.schedule(new Callable<String>() {
       @Override
@@ -154,10 +162,59 @@ public class DrainLowLevelApiIntegrationTest {
         UUID uuid = DrainUtils.writeDrainNotification(metadataStore);
         return uuid.toString();
       }
-    }, 2000L, TimeUnit.MILLISECONDS);
+    }, drainTriggerDelay, TimeUnit.MILLISECONDS);
 
-    testRunner.run(Duration.ofSeconds(25));
+    testRunner.run(Duration.ofSeconds(40));
 
     assertTrue(RECEIVED.size() < numPageViews && RECEIVED.size() > 0);
+    RECEIVED.clear();
+    clearMetadataStore(metadataStore);
+  }
+
+  @Test
+  public void testDrainOnContainerStart() {
+    int numPageViews = 200;
+    int numPartitions = 4;
+    long delayBetweenMessagesInMillis = 500L;
+    String runId = "DrainTestId";
+
+    InMemorySystemDescriptor isd = new InMemorySystemDescriptor("test");
+    InMemoryInputDescriptor<TestTableData.PageView> inputDescriptor = isd.getInputDescriptor("PageView", new NoOpSerde<>());
+    InMemoryMetadataStoreFactory metadataStoreFactory = new InMemoryMetadataStoreFactory();
+
+    Map<String, String> customConfig = ImmutableMap.of(
+        ApplicationConfig.APP_RUN_ID, runId,
+        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100",
+        JobConfig.DRAIN_MONITOR_ENABLED, "true");
+
+    // Create a TestRunner
+    // Set a InMemoryMetadataFactory.This factory is shared between TestRunner and DrainUtils's write drain method
+    TestRunner testRunner = TestRunner.of(new PageViewEventCountLowLevelApplication())
+        .setInMemoryMetadataFactory(metadataStoreFactory)
+        .addConfig(customConfig)
+        .addInputStream(inputDescriptor, TestTableData.generatePartitionedPageViews(numPageViews, numPartitions), delayBetweenMessagesInMillis);
+
+    Config configFromRunner = testRunner.getConfig();
+    MetadataStore
+        metadataStore = metadataStoreFactory.getMetadataStore("NoOp", configFromRunner, new MetricsRegistryMap());
+
+    // Write configs to the coordinator stream here as neither the passthrough JC nor the StreamProcessor is writing
+    // configs to coordinator stream. RemoteApplicationRunner typically write the configs to the metadata store
+    // before starting the JC.
+    // We are doing this so that DrainUtils.writeDrainNotification can read app.run.id from the config
+    CoordinatorStreamUtil.writeConfigToCoordinatorStream(metadataStore, configFromRunner);
+
+    // write on the test thread to ensure that drain notification is available on container start
+    DrainUtils.writeDrainNotification(metadataStore);
+
+    testRunner.run(Duration.ofSeconds(40));
+
+    assertEquals(RECEIVED.size(), 0);
+    RECEIVED.clear();
+    clearMetadataStore(metadataStore);
+  }
+
+  private static void clearMetadataStore(MetadataStore store) {
+    store.all().keySet().forEach(store::delete);
   }
 }

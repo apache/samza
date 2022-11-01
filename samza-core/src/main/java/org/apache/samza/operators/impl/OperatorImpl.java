@@ -129,6 +129,7 @@ public abstract class OperatorImpl<M, RM> {
     this.eosStates = (EndOfStreamStates) internalTaskContext.fetchObject(EndOfStreamStates.class.getName());
     this.watermarkStates = (WatermarkStates) internalTaskContext.fetchObject(WatermarkStates.class.getName());
     this.drainStates = (DrainStates) internalTaskContext.fetchObject(DrainStates.class.getName());
+
     this.controlMessageSender = new ControlMessageSender(internalTaskContext.getStreamMetadataCache());
     this.taskModel = taskContext.getTaskModel();
     this.callbackScheduler = taskContext.getCallbackScheduler();
@@ -366,13 +367,13 @@ public abstract class OperatorImpl<M, RM> {
   }
 
   /**
-   * This method is implemented when all input stream to this operation have encountered drain-and-stop control message.
-   * Inherited class should handle drain-and-stop by overriding this function.
-   * By default noop implementation is for in-memory operator to handle the drain-and-stop. Output operator need to
-   * override this to actually propagate drain-and-stop over the wire.
+   * This method is implemented when all input stream to this operation have encountered drain control message.
+   * Inherited operator implementation should handle drain by overriding this function.
+   * By default, noop implementation is for in-memory operator to handle the drain. Output operator need to
+   * override this to actually propagate drain control message over the wire.
    * @param collector message collector
    * @param coordinator task coordinator
-   * @return results to be emitted when this operator reaches drain-and-stop
+   * @return results to be emitted when this operator encounters drain control message
    */
   protected Collection<RM> handleDrain(MessageCollector collector, TaskCoordinator coordinator) {
     return Collections.emptyList();
@@ -395,20 +396,19 @@ public abstract class OperatorImpl<M, RM> {
     CompletionStage<Void> drainFuture = CompletableFuture.completedFuture(null);
 
     if (drainStates.isDrained(stream)) {
-      LOG.info("Input {} reaches the end for task {}", stream.toString(), taskName.getTaskName());
-      if (drainMessage.getTaskName() != null && shouldTaskBroadcastToOtherPartitions(ssp)) {
-        // This is the aggregation task, which already received all the eos messages from upstream
-        // broadcast the end-of-stream to all the peer partitions
-        // additionally if elasiticty is enabled
-        // then only one of the elastic tasks of the ssp will broadcast
+      LOG.info("Input {} is drained for task {}", stream.toString(), taskName.getTaskName());
+      if (drainMessage.getTaskName() != null) {
+        // This is the aggregation task which already received all the drain messages from upstream.
+        // Broadcast the drain messages to all the peer partitions.
         controlMessageSender.broadcastToOtherPartitions(new DrainMessage(drainMessage.getRunId()), ssp, collector);
       }
 
       drainFuture = onDrainOfStream(collector, coordinator)
           .thenAccept(result -> {
             if (drainStates.areAllStreamsDrained()) {
-              // all input streams have been drained, shut down the task
-              LOG.info("All input streams have been drained for task {}", taskName.getTaskName());
+              // All input streams have been drained, shut down the task
+              LOG.info("All input streams have been drained for task {}. Requesting shutdown.", taskName.getTaskName());
+              coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
               coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
             }
           });
@@ -427,10 +427,8 @@ public abstract class OperatorImpl<M, RM> {
    */
   private CompletionStage<Void> onDrainOfStream(MessageCollector collector, TaskCoordinator coordinator) {
     CompletionStage<Void> drainFuture = CompletableFuture.completedFuture(null);
-
     if (inputStreams.stream().allMatch(input -> drainStates.isDrained(input))) {
       Collection<RM> results = handleDrain(collector, coordinator);
-
       CompletionStage<Void> resultFuture = CompletableFuture.allOf(
           results.stream()
               .flatMap(r -> this.registeredOperators.stream()
