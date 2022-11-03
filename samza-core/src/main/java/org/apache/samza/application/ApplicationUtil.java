@@ -18,18 +18,22 @@
  */
 package org.apache.samza.application;
 
+import com.google.common.base.Strings;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.TaskConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
  * Util class to create {@link SamzaApplication} from the configuration.
  */
 public class ApplicationUtil {
+  private static final Logger LOG = LoggerFactory.getLogger(ApplicationUtil.class);
 
   /**
    * Creates the {@link SamzaApplication} object from the task or application class name specified in {@code config}
@@ -38,6 +42,7 @@ public class ApplicationUtil {
    * @return the {@link SamzaApplication} object
    */
   public static SamzaApplication fromConfig(Config config) {
+
     String appClassName = new ApplicationConfig(config).getAppClass();
     if (StringUtils.isNotBlank(appClassName)) {
       // app.class is configured
@@ -59,5 +64,26 @@ public class ApplicationUtil {
       throw new ConfigException("Legacy task applications must set a non-empty task.class in configuration.");
     }
     return new LegacyTaskApplication(taskClassOption.get());
+  }
+
+  /**
+   * Determines if the job is a Samza high-level job.
+   * High-level job implements StreamApplication.
+   * @param config config
+   * */
+  public static boolean isHighLevelApiJob(Config config) {
+    final ApplicationConfig applicationConfig = new ApplicationConfig(config);
+    final String appClass = applicationConfig.getAppClass();
+    if (!Strings.isNullOrEmpty(appClass)) {
+      try {
+        return StreamApplication.class.isAssignableFrom(Class.forName(appClass));
+      } catch (ClassNotFoundException e) {
+        LOG.debug("Error while determining if the job is a high level API job", e);
+        return false;
+      }
+    } else {
+      LOG.warn("Config {} is empty or null. Cannot determine if the job is a high-level API job", ApplicationConfig.APP_CLASS);
+      return false;
+    }
   }
 }

@@ -96,7 +96,7 @@ public class TestRunLoop {
 
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false, 1, "foo");
+        callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false, 1, "foo", false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA11).thenReturn(sspA0EndOfStream).thenReturn(
         sspA1EndOfStream).thenReturn(null);
     runLoop.run();
@@ -215,7 +215,7 @@ public class TestRunLoop {
     Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2, null);
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2, null, false);
     runLoop.run();
 
     verify(task0).process(eq(envelope00), any(), any());
@@ -223,38 +223,6 @@ public class TestRunLoop {
     assertEquals(2, containerMetrics.envelopes().getCount()); // envelop00 and end of stream
     assertEquals(1, containerMetrics.processes().getCount()); // only envelope00 and not envelope01 and not end of stream
   }
-
-  @Test
-  public void testDrainWithElasticityEnabled() {
-    TaskName taskName0 = new TaskName(p0.toString() + " 0");
-    TaskName taskName1 = new TaskName(p0.toString() + " 1");
-    SystemStreamPartition ssp = new SystemStreamPartition("testSystem", "testStreamA", p0);
-    SystemStreamPartition ssp0 = new SystemStreamPartition("testSystem", "testStreamA", p0, 0);
-    SystemStreamPartition ssp1 = new SystemStreamPartition("testSystem", "testStreamA", p0, 1);
-
-    // create EOS IME such that its ssp keybucket maps to ssp0 and not to ssp1
-    // task in the runloop should give this ime to both it tasks
-    IncomingMessageEnvelope envelopeDrain = spy(IncomingMessageEnvelope.buildDrainMessage(ssp, runId));
-    when(envelopeDrain.getSystemStreamPartition(2)).thenReturn(ssp0);
-
-    // two task in the run loop that processes ssp0 -> 0th keybucket of ssp and ssp1 -> 1st keybucket of ssp
-    // Drain ime should be given to both the tasks irrespective of the keybucket
-    RunLoopTask task0 = getMockRunLoopTask(taskName0, ssp0);
-    RunLoopTask task1 = getMockRunLoopTask(taskName1, ssp1);
-
-    SystemConsumers consumerMultiplexer = mock(SystemConsumers.class);
-    when(consumerMultiplexer.choose(false)).thenReturn(envelopeDrain).thenReturn(null);
-
-    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0, taskName1, task1);
-    int maxMessagesInFlight = 1;
-    RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 2, runId);
-    runLoop.run();
-
-    verify(task0).drain(any());
-    verify(task1).drain(any());
-  }
-
 
   @Test
   public void testDrainForTasksWithSingleSSP() {
@@ -273,7 +241,7 @@ public class TestRunLoop {
     Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0, taskName1, task1);
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 1, runId);
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 1, runId, false);
     runLoop.run();
 
     // check if process was called once for each task
@@ -303,7 +271,7 @@ public class TestRunLoop {
     Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0, taskName1, task1);
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
-        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 1, runId);
+        callbackTimeoutMs, maxThrottlingDelayMs, 0, containerMetrics, () -> 0L, false, 1, runId, false);
     runLoop.run();
 
     // check if process was called twice for each task
@@ -602,7 +570,7 @@ public class TestRunLoop {
 
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
         callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false,
-        1, runId);
+        1, runId, false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(envelopeA01).thenReturn(sspA0Drain)
         .thenAnswer(invocation -> {
           // this ensures that the drain message has passed through run loop BEFORE the flight message
@@ -657,7 +625,7 @@ public class TestRunLoop {
     int maxMessagesInFlight = 1;
     RunLoop runLoop = new RunLoop(tasks, executor, consumerMultiplexer, maxMessagesInFlight, windowMs, commitMs,
         callbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, () -> 0L, false,
-        1, runId);
+        1, runId, false);
     when(consumerMultiplexer.choose(false)).thenReturn(envelopeA00).thenReturn(sspA0Drain).thenReturn(null);
 
     runLoop.run();

@@ -29,6 +29,7 @@ import java.util.function.Consumer
 import java.util.{Base64, Optional}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.SamzaException
+import org.apache.samza.application.ApplicationUtil
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.clustermanager.StandbyTaskUtil
 import org.apache.samza.config.{StreamConfig, _}
@@ -624,6 +625,8 @@ object SamzaContainer extends Logging {
 
     val maxThrottlingDelayMs = config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1))
 
+    val isHighLevelApiJob = ApplicationUtil.isHighLevelApiJob(config)
+
     val runLoop: Runnable = RunLoopFactory.createRunLoop(
       taskInstances,
       consumerMultiplexer,
@@ -633,7 +636,8 @@ object SamzaContainer extends Logging {
       taskConfig,
       clock,
       jobConfig.getElasticityFactor,
-      appConfig.getRunId)
+      appConfig.getRunId,
+      isHighLevelApiJob)
 
     val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
 
