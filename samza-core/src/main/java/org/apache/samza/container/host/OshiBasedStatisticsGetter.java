@@ -50,7 +50,7 @@ public class OshiBasedStatisticsGetter implements SystemStatisticsGetter {
 
   @VisibleForTesting
   OshiBasedStatisticsGetter(SystemInfo si) {
-    this(si.getOperatingSystem(), si.getHardware().getProcessor().getPhysicalProcessorCount());
+    this(si.getOperatingSystem(), si.getHardware().getProcessor().getLogicalProcessorCount());
   }
 
   @VisibleForTesting
