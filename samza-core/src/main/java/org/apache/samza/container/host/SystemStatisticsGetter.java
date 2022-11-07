@@ -32,7 +32,8 @@ public interface SystemStatisticsGetter {
   SystemMemoryStatistics getSystemMemoryStatistics();
 
   /**
-   * Returns the {@link ProcessCPUStatistics} for the current Samza container process(includes its child processes)
+   * Returns the {@link ProcessCPUStatistics} for the current Samza container process(includes its child processes). A
+   * 'null' value is returned if no statistics are available.
    *
    * @return {@link ProcessCPUStatistics} for the Samza container process
    */
