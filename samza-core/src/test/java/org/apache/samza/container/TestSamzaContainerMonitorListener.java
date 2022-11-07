@@ -22,7 +22,9 @@ import java.util.Collections;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.host.ProcessCPUStatistics;
 import org.apache.samza.container.host.SystemMemoryStatistics;
+import org.apache.samza.container.host.SystemStatistics;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,10 +38,15 @@ import static org.mockito.Mockito.*;
 public class TestSamzaContainerMonitorListener {
 
   @Mock
-  private SystemMemoryStatistics sample;
+  private ProcessCPUStatistics cpuSample;
+  @Mock
+  private SystemMemoryStatistics memorySample;
   @Mock
   private ThreadPoolExecutor taskThreadPool;
 
+  private SystemStatistics sample;
+
+  private final double cpuUsage = 30.0;
   private final int containerMemoryMb = 2048;
   private final long physicalMemoryBytes = 1024000L;
   private final int activeThreadCount = 2;
@@ -54,15 +61,18 @@ public class TestSamzaContainerMonitorListener {
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
-    when(sample.getPhysicalMemoryBytes()).thenReturn(physicalMemoryBytes);
+    when(cpuSample.getProcessCPUUsagePercentage()).thenReturn(cpuUsage);
+    when(memorySample.getPhysicalMemoryBytes()).thenReturn(physicalMemoryBytes);
     when(taskThreadPool.getActiveCount()).thenReturn(activeThreadCount);
 
+    sample = new SystemStatistics(cpuSample, memorySample);
     samzaContainerMonitorListener = new SamzaContainerMonitorListener(config, containerMetrics, taskThreadPool);
   }
 
   @Test
   public void testOnUpdate() {
     samzaContainerMonitorListener.onUpdate(sample);
+    assertEquals(cpuUsage, containerMetrics.totalProcessCpuUsage().getValue());
     float physicalMemoryMb = physicalMemoryBytes / 1024.0F / 1024.0F;
     assertEquals(physicalMemoryMb, containerMetrics.physicalMemoryMb().getValue());
     assertEquals(physicalMemoryMb / containerMemoryMb, containerMetrics.physicalMemoryUtilization().getValue());
