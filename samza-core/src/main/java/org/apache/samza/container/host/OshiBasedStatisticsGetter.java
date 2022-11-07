@@ -40,7 +40,7 @@ import oshi.software.os.OperatingSystem;
  */
 @NotThreadSafe
 public class OshiBasedStatisticsGetter implements SystemStatisticsGetter {
-  private static final Logger logger = LoggerFactory.getLogger(OshiBasedStatisticsGetter.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(OshiBasedStatisticsGetter.class);
   // the snapshots of current JVM process and its child processes
   private final Map<Integer, OSProcess> previousProcessSnapshots = new HashMap<>();
 
@@ -75,7 +75,7 @@ public class OshiBasedStatisticsGetter implements SystemStatisticsGetter {
       refreshProcessSnapshots(currentProcessAndChildProcesses);
       return new ProcessCPUStatistics(100d * totalCPUUsage / cpuCount);
     } catch (Exception e) {
-      logger.warn("Error when running oshi: ", e);
+      LOGGER.warn("Error when running oshi: ", e);
       return null;
     }
   }
