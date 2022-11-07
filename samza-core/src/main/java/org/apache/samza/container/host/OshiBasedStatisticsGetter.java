@@ -23,15 +23,20 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.lang3.NotImplementedException;
 import oshi.SystemInfo;
+import oshi.annotation.concurrent.NotThreadSafe;
 import oshi.software.os.OSProcess;
 import oshi.software.os.OperatingSystem;
 
 
 /**
  * An implementation of {@link SystemStatisticsGetter} that relies on using oshi framework(https://www.oshi.ooo/)
+ *
+ * This class captures the recent cpu usage percentage(in the [0, 100] interval) used by the Samza container process and
+ * its child processes. It gets CPU usage of this process since a previous snapshot of the same process, the snapshot is
+ * triggered by last poll, have polling interval of at least a few seconds is recommended.
  */
+@NotThreadSafe
 public class OshiBasedStatisticsGetter implements SystemStatisticsGetter {
   // the snapshots of current JVM process and its child processes
   private final Map<Integer, OSProcess> previousProcessSnapshots = new HashMap<>();
@@ -56,7 +61,7 @@ public class OshiBasedStatisticsGetter implements SystemStatisticsGetter {
 
   @Override
   public SystemMemoryStatistics getSystemMemoryStatistics() {
-    throw new NotImplementedException("Not implemented");
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override

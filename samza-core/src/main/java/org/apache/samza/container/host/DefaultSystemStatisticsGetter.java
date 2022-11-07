@@ -26,7 +26,6 @@ import com.google.common.annotations.VisibleForTesting;
  * and {@link OshiBasedStatisticsGetter} implementations
  */
 public class DefaultSystemStatisticsGetter implements SystemStatisticsGetter {
-
   private final OshiBasedStatisticsGetter oshiBasedStatisticsGetter;
   private final PosixCommandBasedStatisticsGetter posixCommandBasedStatisticsGetter;
 

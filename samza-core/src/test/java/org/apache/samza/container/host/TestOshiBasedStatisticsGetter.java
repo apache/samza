@@ -19,7 +19,6 @@
 package org.apache.samza.container.host;
 
 import com.google.common.collect.Lists;
-import org.apache.commons.lang3.NotImplementedException;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -32,7 +31,6 @@ import static org.mockito.Mockito.*;
 
 
 public class TestOshiBasedStatisticsGetter {
-
   @Mock
   private OperatingSystem os;
   @Mock
@@ -91,7 +89,7 @@ public class TestOshiBasedStatisticsGetter {
         oshiBasedStatisticsGetter.getProcessCPUStatistics());
   }
 
-  @Test(expected = NotImplementedException.class)
+  @Test(expected = UnsupportedOperationException.class)
   public void testGetSystemMemoryStatistics() {
     oshiBasedStatisticsGetter.getSystemMemoryStatistics();
   }
