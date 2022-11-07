@@ -18,7 +18,7 @@
  */
 package org.apache.samza.container.host;
 
-import junit.framework.Assert;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -27,22 +27,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.fail;
 
+
 public class TestStatisticsMonitorImpl {
 
   @Test
-  public void testPhysicalMemoryReporting() throws Exception {
+  public void testSystemStatisticsReporting() throws Exception {
     final int numSamplesToCollect = 5;
     final CountDownLatch latch = new CountDownLatch(numSamplesToCollect);
 
-    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10, new PosixCommandBasedStatisticsGetter());
+    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10, new DefaultSystemStatisticsGetter());
     monitor.start();
 
     boolean result = monitor.registerListener(new SystemStatisticsMonitor.Listener() {
 
       @Override
-      public void onUpdate(SystemMemoryStatistics sample) {
+      public void onUpdate(SystemStatistics sample) {
+        SystemMemoryStatistics memorySample = sample.getMemoryStatistics();
         // assert memory is greater than 10 bytes, as a sanity check
-        Assert.assertTrue(sample.getPhysicalMemoryBytes() > 10);
+        Assert.assertTrue(memorySample.getPhysicalMemoryBytes() > 10);
+        ProcessCPUStatistics cpuSample = sample.getCpuStatistics();
+        // assert cpu usage is greater than 0, as a sanity check
+        Assert.assertTrue(cpuSample.getProcessCPUUsagePercentage() > 0);
         latch.countDown();
       }
     });
@@ -57,12 +62,11 @@ public class TestStatisticsMonitorImpl {
     // assert that attempting to register a listener after monitor stop results in failure of registration
     boolean registrationFailsAfterStop = monitor.registerListener(new SystemStatisticsMonitor.Listener() {
       @Override
-      public void onUpdate(SystemMemoryStatistics sample) {
+      public void onUpdate(SystemStatistics sample) {
       }
     });
     Assert.assertFalse(registrationFailsAfterStop);
   }
-
 
   @Test
   public void testStopBehavior() throws Exception {
@@ -71,14 +75,15 @@ public class TestStatisticsMonitorImpl {
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicInteger numCallbacks = new AtomicInteger(0);
 
-    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10, new PosixCommandBasedStatisticsGetter());
+    final StatisticsMonitorImpl monitor = new StatisticsMonitorImpl(10, new DefaultSystemStatisticsGetter());
 
     monitor.start();
     monitor.registerListener(new SystemStatisticsMonitor.Listener() {
 
       @Override
-      public void onUpdate(SystemMemoryStatistics sample) {
-        Assert.assertTrue(sample.getPhysicalMemoryBytes() > 10);
+      public void onUpdate(SystemStatistics sample) {
+        SystemMemoryStatistics memorySample = sample.getMemoryStatistics();
+        Assert.assertTrue(memorySample.getPhysicalMemoryBytes() > 10);
         if (numCallbacks.incrementAndGet() == numSamplesToCollect) {
           //monitor.stop() is invoked from the same thread. So, there's no race between a stop() call and the
           //callback invocation for the next sample.
@@ -94,6 +99,4 @@ public class TestStatisticsMonitorImpl {
     // Ensure that we only receive as many callbacks
     Assert.assertEquals(numCallbacks.get(), numSamplesToCollect);
   }
-
-
 }
