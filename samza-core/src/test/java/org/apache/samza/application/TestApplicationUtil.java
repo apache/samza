@@ -30,7 +30,7 @@ import org.apache.samza.config.TaskConfig;
 import org.apache.samza.task.MockStreamTask;
 import org.junit.Test;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 
 /**
@@ -84,6 +84,19 @@ public class TestApplicationUtil {
   public void testNoAppClassNoTaskClass() {
     Map<String, String> configMap = new HashMap<>();
     ApplicationUtil.fromConfig(new MapConfig(configMap));
+  }
+
+  @Test
+  public void testIsHighLevelJob() {
+    final Map<String, String> configMap = new HashMap<>();
+    configMap.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.HIGH_LEVEL.name());
+    assertTrue(ApplicationUtil.isHighLevelApiJob(new MapConfig(configMap)));
+
+    configMap.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.LOW_LEVEL.name());
+    assertFalse(ApplicationUtil.isHighLevelApiJob(new MapConfig(configMap)));
+
+    configMap.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.LEGACY.name());
+    assertFalse(ApplicationUtil.isHighLevelApiJob(new MapConfig(configMap)));
   }
 
   /**

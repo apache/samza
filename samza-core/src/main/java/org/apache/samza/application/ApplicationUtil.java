@@ -18,7 +18,6 @@
  */
 package org.apache.samza.application;
 
-import com.google.common.base.Strings;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.config.ApplicationConfig;
@@ -68,22 +67,10 @@ public class ApplicationUtil {
 
   /**
    * Determines if the job is a Samza high-level job.
-   * High-level job implements StreamApplication.
    * @param config config
    * */
   public static boolean isHighLevelApiJob(Config config) {
     final ApplicationConfig applicationConfig = new ApplicationConfig(config);
-    final String appClass = applicationConfig.getAppClass();
-    if (!Strings.isNullOrEmpty(appClass)) {
-      try {
-        return StreamApplication.class.isAssignableFrom(Class.forName(appClass));
-      } catch (ClassNotFoundException e) {
-        LOG.debug("Error while determining if the job is a high level API job", e);
-        return false;
-      }
-    } else {
-      LOG.warn("Config {} is empty or null. Cannot determine if the job is a high-level API job", ApplicationConfig.APP_CLASS);
-      return false;
-    }
+    return applicationConfig.getAppApiType() == ApplicationApiType.HIGH_LEVEL;
   }
 }
