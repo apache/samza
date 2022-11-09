@@ -69,6 +69,12 @@ public class RunLoopFactory {
 
     log.info("Got current run Id: {}.", runId);
 
+    if (isHighLevelApiJob) {
+      log.info("The application uses high-level API.");
+    } else {
+      log.info("The application doesn't use high-level API.");
+    }
+
     log.info("Run loop in asynchronous mode.");
 
     return new RunLoop(
