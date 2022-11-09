@@ -78,6 +78,7 @@ public class RunLoop implements Runnable, Throttleable {
   private final long windowMs;
   private final long commitMs;
   private final long callbackTimeoutMs;
+  private final long drainCallbackTimeoutMs;
   private final long maxIdleMs;
   private final SamzaContainerMetrics containerMetrics;
   private final ScheduledExecutorService workerTimer;
@@ -90,7 +91,6 @@ public class RunLoop implements Runnable, Throttleable {
   private volatile boolean runLoopResumedSinceLastChecked;
   private final int elasticityFactor;
   private final String runId;
-
   private final boolean isHighLevelApiJob;
   private boolean isDraining = false;
 
@@ -101,13 +101,14 @@ public class RunLoop implements Runnable, Throttleable {
       long windowMs,
       long commitMs,
       long callbackTimeoutMs,
+      long drainCallbackTimeoutMs,
       long maxThrottlingDelayMs,
       long maxIdleMs,
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled) {
     this(runLoopTasks, threadPool, consumerMultiplexer, maxConcurrency, windowMs, commitMs, callbackTimeoutMs,
-        maxThrottlingDelayMs, maxIdleMs, containerMetrics, clock, isAsyncCommitEnabled, 1, null, false);
+        drainCallbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, clock, isAsyncCommitEnabled, 1, null, false);
   }
 
   public RunLoop(Map<TaskName, RunLoopTask> runLoopTasks,
@@ -117,6 +118,7 @@ public class RunLoop implements Runnable, Throttleable {
       long windowMs,
       long commitMs,
       long callbackTimeoutMs,
+      long drainCallbackTimeoutMs,
       long maxThrottlingDelayMs,
       long maxIdleMs,
       SamzaContainerMetrics containerMetrics,
@@ -133,6 +135,7 @@ public class RunLoop implements Runnable, Throttleable {
     this.commitMs = commitMs;
     this.maxConcurrency = maxConcurrency;
     this.callbackTimeoutMs = callbackTimeoutMs;
+    this.drainCallbackTimeoutMs = drainCallbackTimeoutMs;
     this.maxIdleMs = maxIdleMs;
     this.callbackTimer = (callbackTimeoutMs > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
     this.callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
@@ -624,7 +627,9 @@ public class RunLoop implements Runnable, Throttleable {
         public TaskCallback createCallback() {
           state.startProcess();
           containerMetrics.processes().inc();
-          return callbackManager.createCallback(task.taskName(), envelope, coordinator);
+          return isDraining && (envelope.isDrain() || envelope.isWatermark())
+              ? callbackManager.createCallbackForDrain(task.taskName(), envelope, coordinator, drainCallbackTimeoutMs)
+              : callbackManager.createCallback(task.taskName(), envelope, coordinator);
         }
       };
 

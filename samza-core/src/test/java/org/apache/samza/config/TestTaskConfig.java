@@ -205,6 +205,15 @@ public class TestTaskConfig {
   }
 
   @Test
+  public void testGetDrainCallbackTimeoutMs() {
+    Config config = new MapConfig(ImmutableMap.of(TaskConfig.DRAIN_CALLBACK_TIMEOUT_MS, "100"));
+    assertEquals(100, new TaskConfig(config).getDrainCallbackTimeoutMs());
+
+    // config not specified
+    assertEquals(TaskConfig.DEFAULT_DRAIN_CALLBACK_TIMEOUT_MS, new TaskConfig(new MapConfig()).getDrainCallbackTimeoutMs());
+  }
+
+  @Test
   public void testGetAsyncCommit() {
     Config config = new MapConfig(ImmutableMap.of(TaskConfig.ASYNC_COMMIT, "true"));
     assertTrue(new TaskConfig(config).getAsyncCommit());

@@ -62,6 +62,9 @@ public class RunLoopFactory {
     long callbackTimeout = taskConfig.getCallbackTimeoutMs();
     log.info("Got callbackTimeout: {}.", callbackTimeout);
 
+    long drainCallbackTimeout = taskConfig.getDrainCallbackTimeoutMs();
+    log.info("Got callback timeout for drain: {}.", callbackTimeout);
+
     long maxIdleMs = taskConfig.getMaxIdleMs();
     log.info("Got maxIdleMs: {}.", maxIdleMs);
 
@@ -85,6 +88,7 @@ public class RunLoopFactory {
       taskWindowMs,
       taskCommitMs,
       callbackTimeout,
+      drainCallbackTimeout,
       maxThrottlingDelayMs,
       maxIdleMs,
       containerMetrics,
