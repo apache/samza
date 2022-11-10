@@ -90,6 +90,13 @@ public class TaskConfig extends MapConfig {
   // timeout for triggering a callback
   public static final String CALLBACK_TIMEOUT_MS = "task.callback.timeout.ms";
   static final long DEFAULT_CALLBACK_TIMEOUT_MS = -1L;
+
+  // timeout for triggering a callback during drain
+  public static final String DRAIN_CALLBACK_TIMEOUT_MS = "task.callback.drain.timeout.ms";
+
+  // default timeout for triggering a callback during drain
+  static final long DEFAULT_DRAIN_CALLBACK_TIMEOUT_MS = -1L;
+
   // enable async commit
   public static final String ASYNC_COMMIT = "task.async.commit";
   // maximum time to wait for a task worker to complete when there are no new messages to handle
@@ -222,6 +229,10 @@ public class TaskConfig extends MapConfig {
 
   public long getCallbackTimeoutMs() {
     return getLong(CALLBACK_TIMEOUT_MS, DEFAULT_CALLBACK_TIMEOUT_MS);
+  }
+
+  public long getDrainCallbackTimeoutMs() {
+    return getLong(DRAIN_CALLBACK_TIMEOUT_MS, DEFAULT_DRAIN_CALLBACK_TIMEOUT_MS);
   }
 
   public boolean getAsyncCommit() {

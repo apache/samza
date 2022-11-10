@@ -26,6 +26,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.util.HighResolutionClock;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -40,7 +41,10 @@ public class TestTaskCallbackManager {
 
   @Before
   public void setup() {
-    TaskInstanceMetrics metrics = new TaskInstanceMetrics("Partition 0", new MetricsRegistryMap(), "");
+    final TaskInstanceMetrics metrics = new TaskInstanceMetrics("Partition 0", new MetricsRegistryMap(), "");
+    final long timeout = -1L;
+    final int maxConcurrency = 2;
+    final HighResolutionClock highResolutionClock = System::nanoTime;
     listener = new TaskCallbackListener() {
       @Override
       public void onComplete(TaskCallback callback) {
@@ -49,7 +53,7 @@ public class TestTaskCallbackManager {
       public void onFailure(TaskCallback callback, Throwable t) {
       }
     };
-    callbackManager = new TaskCallbackManager(listener, null, -1, 2, () -> System.nanoTime());
+    callbackManager = new TaskCallbackManager(listener, null, timeout, maxConcurrency, highResolutionClock);
   }
 
   @Test
@@ -58,6 +62,15 @@ public class TestTaskCallbackManager {
     assertTrue(callback.matchSeqNum(0));
 
     callback = callbackManager.createCallback(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null);
+    assertTrue(callback.matchSeqNum(1));
+  }
+
+  @Test
+  public void testCreateDrainCallback() {
+    TaskCallbackImpl callback = callbackManager.createCallbackForDrain(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null, -1);
+    assertTrue(callback.matchSeqNum(0));
+
+    callback = callbackManager.createCallbackForDrain(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null, -1);
     assertTrue(callback.matchSeqNum(1));
   }
 

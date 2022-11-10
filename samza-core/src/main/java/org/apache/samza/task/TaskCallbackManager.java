@@ -92,9 +92,36 @@ public class TaskCallbackManager {
     this.clock = clock;
   }
 
+  /**
+   * Creates a task callback.
+   * @param taskName task name
+   * @param envelope incoming envelope
+   * @param coordinator coordinator
+   * */
   public TaskCallbackImpl createCallback(TaskName taskName,
       IncomingMessageEnvelope envelope,
       ReadableCoordinator coordinator) {
+    return createCallback(taskName, envelope, coordinator, timeout);
+  }
+
+  /**
+   * Creates a task callback.
+   * @param taskName task name
+   * @param envelope incoming envelope
+   * @param coordinator coordinator
+   * @param drainTimeout timeout for processing drain messages.
+   * */
+  public TaskCallbackImpl createCallbackForDrain(TaskName taskName,
+      IncomingMessageEnvelope envelope,
+      ReadableCoordinator coordinator,
+      long drainTimeout) {
+    return createCallback(taskName, envelope, coordinator, drainTimeout);
+  }
+
+  private TaskCallbackImpl createCallback(TaskName taskName,
+      IncomingMessageEnvelope envelope,
+      ReadableCoordinator coordinator,
+      long callbackTimeout) {
     final TaskCallbackImpl callback =
         new TaskCallbackImpl(listener, taskName, envelope, coordinator, seqNum++, clock.nanoTime());
     if (timer != null) {
@@ -106,7 +133,8 @@ public class TaskCallbackManager {
           callback.failure(new SamzaException(msg));
         }
       };
-      ScheduledFuture scheduledFuture = timer.schedule(timerTask, timeout, TimeUnit.MILLISECONDS);
+
+      final ScheduledFuture scheduledFuture = timer.schedule(timerTask, callbackTimeout, TimeUnit.MILLISECONDS);
       callback.setScheduledFuture(scheduledFuture);
     }
 
