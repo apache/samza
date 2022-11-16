@@ -69,45 +69,43 @@ public class DrainUtilsTests {
   @Test
   public void testWrites() {
     String runId1 = "foo1";
-    String runId2 = "foo2";
-    String runId3 = "foo3";
 
-    UUID uuid1 = DrainUtils.writeDrainNotification(coordinatorStreamStore, runId1);
-    UUID uuid2 = DrainUtils.writeDrainNotification(coordinatorStreamStore, runId2);
-    UUID uuid3 = DrainUtils.writeDrainNotification(coordinatorStreamStore, runId3);
+    DrainNotification drainNotification1 = DrainNotification.create(UUID.randomUUID(), runId1);
+    UUID uuid1 = DrainUtils.writeDrainNotification(coordinatorStreamStore, drainNotification1);
 
-    DrainNotification expectedDrainNotification1 = new DrainNotification(uuid1, runId1);
-    DrainNotification expectedDrainNotification2 = new DrainNotification(uuid2, runId2);
-    DrainNotification expectedDrainNotification3 = new DrainNotification(uuid3, runId3);
-    Set<DrainNotification> expectedDrainNotifications = new HashSet<>(Arrays.asList(expectedDrainNotification1,
-        expectedDrainNotification2, expectedDrainNotification3));
+    DrainNotification expectedDrainNotification1 = DrainNotification.create(uuid1, runId1);
+    Set<DrainNotification> expectedDrainNotifications = new HashSet<>(Arrays.asList(expectedDrainNotification1));
 
     Optional<List<DrainNotification>> drainNotifications = readDrainNotificationMessages(coordinatorStreamStore);
     Assert.assertTrue(drainNotifications.isPresent());
-    Assert.assertEquals(3, drainNotifications.get().size());
+    Assert.assertEquals(1, drainNotifications.get().size());
     Assert.assertEquals(expectedDrainNotifications, new HashSet<>(drainNotifications.get()));
   }
 
   @Test
   public void testCleanup() {
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
+    DrainNotification drainNotification1 = DrainNotification.create(UUID.randomUUID(), TEST_RUN_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, drainNotification1);
     DrainUtils.cleanup(coordinatorStreamStore, CONFIG);
     final Optional<List<DrainNotification>> drainNotifications1 = readDrainNotificationMessages(coordinatorStreamStore);
     Assert.assertFalse(drainNotifications1.isPresent());
 
-    final String runId = "bar";
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, runId);
+    final String runId2 = "bar";
+    DrainNotification drainNotification2 = DrainNotification.create(UUID.randomUUID(), runId2);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, drainNotification2);
     DrainUtils.cleanup(coordinatorStreamStore, CONFIG);
     final Optional<List<DrainNotification>> drainNotifications2 = readDrainNotificationMessages(coordinatorStreamStore);
     Assert.assertTrue(drainNotifications2.isPresent());
-    Assert.assertEquals(runId, drainNotifications2.get().get(0).getRunId());
+    Assert.assertEquals(runId2, drainNotifications2.get().get(0).getRunId());
   }
 
   @Test
   public void testCleanupAll() {
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, TEST_RUN_ID);
-    DrainUtils.writeDrainNotification(coordinatorStreamStore, "bar");
+    DrainNotification drainNotification1 = DrainNotification.create(UUID.randomUUID(), TEST_RUN_ID);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, drainNotification1);
+    final String runId2 = "bar";
+    DrainNotification drainNotification2 = DrainNotification.create(UUID.randomUUID(), runId2);
+    DrainUtils.writeDrainNotification(coordinatorStreamStore, drainNotification2);
     DrainUtils.cleanupAll(coordinatorStreamStore);
     final Optional<List<DrainNotification>> drainNotifications = readDrainNotificationMessages(coordinatorStreamStore);
     Assert.assertFalse(drainNotifications.isPresent());
