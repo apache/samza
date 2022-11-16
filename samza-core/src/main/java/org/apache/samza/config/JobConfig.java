@@ -165,9 +165,8 @@ public class JobConfig extends MapConfig {
   private static final String JOB_STARTPOINT_ENABLED = "job.startpoint.enabled";
 
   // Enable DrainMonitor in Samza Containers
-  // Default is false for now. Will be turned on after testing
   public static final String DRAIN_MONITOR_ENABLED = "job.drain-monitor.enabled";
-  public static final boolean DRAIN_MONITOR_ENABLED_DEFAULT = false;
+  public static final boolean DRAIN_MONITOR_ENABLED_DEFAULT = true;
 
   public static final String DRAIN_MONITOR_POLL_INTERVAL_MILLIS = "job.drain-monitor.poll.interval.ms";
   public static final long DRAIN_MONITOR_POLL_INTERVAL_MILLIS_DEFAULT = 60_000;

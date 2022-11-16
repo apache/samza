@@ -130,8 +130,7 @@ public class DrainHighLevelApiIntegrationTest {
 
     Map<String, String> customConfig = ImmutableMap.of(
         ApplicationConfig.APP_RUN_ID, runId,
-        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100",
-        JobConfig.DRAIN_MONITOR_ENABLED, "true");
+        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100");
 
     // Create a TestRunner
     // Set a InMemoryMetadataFactory.This factory is shared between TestRunner and DrainUtils's write drain method
@@ -180,8 +179,7 @@ public class DrainHighLevelApiIntegrationTest {
 
     Map<String, String> customConfig = ImmutableMap.of(
         ApplicationConfig.APP_RUN_ID, runId,
-        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100",
-        JobConfig.DRAIN_MONITOR_ENABLED, "true");
+        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100");
 
     // Create a TestRunner
     // Set a InMemoryMetadataFactory.This factory is shared between TestRunner and DrainUtils's write drain method
@@ -233,8 +231,7 @@ public class DrainHighLevelApiIntegrationTest {
 
     Map<String, String> customConfig = ImmutableMap.of(
         ApplicationConfig.APP_RUN_ID, runId,
-        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100",
-        JobConfig.DRAIN_MONITOR_ENABLED, "true");
+        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100");
 
     // Create a TestRunner
     // Set a InMemoryMetadataFactory.This factory is shared between TestRunner and DrainUtils's write drain method
@@ -276,8 +273,7 @@ public class DrainHighLevelApiIntegrationTest {
 
     Map<String, String> customConfig = ImmutableMap.of(
         ApplicationConfig.APP_RUN_ID, runId,
-        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100",
-        JobConfig.DRAIN_MONITOR_ENABLED, "true");
+        JobConfig.DRAIN_MONITOR_POLL_INTERVAL_MILLIS, "100");
 
     // Create a TestRunner
     // Set a InMemoryMetadataFactory.This factory is shared between TestRunner and DrainUtils's write drain method
