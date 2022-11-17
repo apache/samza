@@ -18,24 +18,14 @@
  */
 package org.apache.samza.drain;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.util.UUID;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
-
 /**
- * Tests for {@link DrainNotificationObjectMapper}
+ * Defines the type of drain operation.
  * */
-public class DrainNotificationObjectMapperTests {
-  @Test
-  public void testDrainNotificationSerde() throws IOException {
-    UUID uuid = UUID.randomUUID();
-    DrainNotification originalMessage = DrainNotification.create(uuid, "foobar");
-    ObjectMapper objectMapper = DrainNotificationObjectMapper.getObjectMapper();
-    byte[] bytes = objectMapper.writeValueAsBytes(originalMessage);
-    DrainNotification deserializedMessage = objectMapper.readValue(bytes, DrainNotification.class);
-    assertEquals(originalMessage, deserializedMessage);
-  }
+public enum DrainMode {
+  /**
+   * This mode signifies the default behavior of the drain operation.
+   * All intermediate streams and any samza managed state will be drained and the pipeline will be gracefully shutdown
+   * as a result. User state will not be drained.
+   * */
+  DEFAULT
 }

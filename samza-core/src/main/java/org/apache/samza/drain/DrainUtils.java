@@ -46,35 +46,6 @@ public class DrainUtils {
   }
 
   /**
-   * Writes a {@link DrainNotification} for a given runId to the underlying metastore. This method should be used by
-   * external controllers to issue a DrainNotification to the JobCoordinator and Samza Containers.
-   * @param metadataStore Metadata store to write drain notification to.
-   * @param runId runId for the DrainNotification
-   *
-   * @return generated uuid for the DrainNotification
-   */
-  @VisibleForTesting
-  public static UUID writeDrainNotification(MetadataStore metadataStore, String runId) {
-    Preconditions.checkArgument(metadataStore != null, "MetadataStore cannot be null.");
-    Preconditions.checkArgument(!Strings.isNullOrEmpty(runId), "runId should be non-null.");
-    LOG.info("Attempting to write DrainNotification to metadata-store for the deployment ID {}", runId);
-    final NamespaceAwareCoordinatorStreamStore drainMetadataStore =
-        new NamespaceAwareCoordinatorStreamStore(metadataStore, DRAIN_METADATA_STORE_NAMESPACE);
-    final ObjectMapper objectMapper = DrainNotificationObjectMapper.getObjectMapper();
-    final UUID uuid = UUID.randomUUID();
-    final DrainNotification message = new DrainNotification(uuid, runId);
-    try {
-      drainMetadataStore.put(message.getUuid().toString(), objectMapper.writeValueAsBytes(message));
-      drainMetadataStore.flush();
-      LOG.info("DrainNotification with id {} written to metadata-store for the deployment ID {}", uuid, runId);
-    } catch (Exception ex) {
-      throw new SamzaException(
-          String.format("DrainNotification might have been not written to metastore %s", message), ex);
-    }
-    return uuid;
-  }
-
-  /**
    * Writes a {@link DrainNotification} to the underlying metastore. This method should be used by external controllers
    * to issue a DrainNotification to the JobCoordinator and Samza Containers.
    * @param metadataStore Metadata store to write drain notification to.
@@ -91,7 +62,31 @@ public class DrainUtils {
           + "written to the metadata store.");
     }
     LOG.info("Received runId {}", runId);
-    return writeDrainNotification(metadataStore, runId);
+    LOG.info("Attempting to write DrainNotification to metadata-store for the deployment ID {}", runId);
+    final UUID uuid = UUID.randomUUID();
+    final DrainNotification message = DrainNotification.create(uuid, runId);
+    return writeDrainNotification(metadataStore, message);
+  }
+
+  /**
+   * Writes a {@link DrainNotification} to an underlying metadata store.
+   * */
+  @VisibleForTesting
+  static UUID writeDrainNotification(MetadataStore metadataStore, DrainNotification drainNotification) {
+    Preconditions.checkArgument(metadataStore != null, "MetadataStore cannot be null.");
+    Preconditions.checkArgument(drainNotification != null, "DrainNotification cannot be null.");
+    final NamespaceAwareCoordinatorStreamStore drainMetadataStore =
+        new NamespaceAwareCoordinatorStreamStore(metadataStore, DRAIN_METADATA_STORE_NAMESPACE);
+    final ObjectMapper objectMapper = DrainNotificationObjectMapper.getObjectMapper();
+    try {
+      drainMetadataStore.put(drainNotification.getUuid().toString(), objectMapper.writeValueAsBytes(drainNotification));
+      drainMetadataStore.flush();
+      LOG.info("DrainNotification with id {} written to metadata-store for the deployment ID {}", drainNotification.getUuid(), drainNotification.getUuid());
+    } catch (Exception ex) {
+      throw new SamzaException(
+          String.format("DrainNotification might have been not written to metastore %s", drainNotification), ex);
+    }
+    return drainNotification.getUuid();
   }
 
   /**
