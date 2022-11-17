@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import com.google.common.collect.ImmutableMap;
@@ -373,6 +375,73 @@ public class TestStreamAppender {
       assertTrue("Message mismatch at index " + i,
           new String((byte[]) MockSystemProducer.messagesReceived.get(i)).contains(asJsonMessageSegment(messages.get(i))));
     }
+  }
+
+  @Test
+  public void testLogConcurrently() throws InterruptedException {
+    System.setProperty("samza.container.name", "samza-container-1");
+
+    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
+    startAndAttachAppender(streamAppender);
+    List<String> messages = new ArrayList<>();
+    for (int i = 0; i < 100; i++) {
+      messages.add("testing" + i);
+    }
+    logConcurrentlyAndVerifyMessages(messages);
+    streamAppender.stop();
+  }
+
+  @Test
+  public void testLogRecursively() throws InterruptedException {
+    System.setProperty("samza.container.name", "samza-container-1");
+
+    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
+    startAndAttachAppender(streamAppender);
+    List<String> messages = Lists.newArrayList("testing1", "testing2");
+    logRecursivelyAndVerifyMessages(messages);
+    streamAppender.stop();
+  }
+
+  private void logConcurrentlyAndVerifyMessages(List<String> messages) throws InterruptedException {
+    // Set up latch
+    final CountDownLatch allMessagesSent = new CountDownLatch(messages.size());
+    MockSystemProducer.listeners.add((source, envelope) -> allMessagesSent.countDown());
+    ExecutorService service = Executors.newFixedThreadPool(10);
+
+    // Log the messages concurrently
+    for (String message : messages) {
+      service.submit(() -> {
+        LOG.info(message);
+      });
+    }
+    // Wait for messages
+    assertTrue("Timeout while waiting for StreamAppender to send all messages. Count: " + allMessagesSent.getCount(),
+        allMessagesSent.await(60, TimeUnit.SECONDS));
+
+    // MockSystemProducer.messagesReceived is not thread safe, verify allMessagesSent CountDownLatch instead
+    assertEquals(0, allMessagesSent.getCount());
+    service.shutdown();
+  }
+
+  private void logRecursivelyAndVerifyMessages(List<String> messages) throws InterruptedException {
+    // Set up latch
+    final CountDownLatch allMessagesSent = new CountDownLatch(messages.size());
+    MockSystemProducer.listeners.add((source, envelope) -> {
+      LOG.info("system producer invoked");
+      allMessagesSent.countDown();
+    });
+    // Log the messages
+    messages.forEach(LOG::info);
+    // Wait for messages
+    assertTrue("Timeout while waiting for StreamAppender to send all messages. Count: " + allMessagesSent.getCount(),
+        allMessagesSent.await(60, TimeUnit.SECONDS));
+
+    // Verify
+    assertEquals(messages.size(), MockSystemProducer.messagesReceived.size());
   }
 
   private static Config baseConfig() {

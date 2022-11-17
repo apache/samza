@@ -28,9 +28,6 @@ public class StreamAppenderMetrics extends MetricsBase {
   /** The percentage of the log queue capacity that is currently filled with messages from 0 to 100. */
   public final Gauge<Integer> bufferFillPct;
 
-  /** The number of recursive calls to the StreamAppender. These events will not be logged. */
-  public final Counter recursiveCalls;
-
   /** The number of log messages dropped e.g. because of buffer overflow. Does not include recursive calls. */
   public final Counter logMessagesDropped;
 
@@ -46,7 +43,6 @@ public class StreamAppenderMetrics extends MetricsBase {
   public StreamAppenderMetrics(String prefix, MetricsRegistry registry) {
     super(prefix + "-", registry);
     bufferFillPct = newGauge("buffer-fill-percent", 0);
-    recursiveCalls = newCounter("recursive-calls");
     logMessagesDropped = newCounter("log-messages-dropped");
     logMessagesErrors = newCounter("log-messages-errors");
     logMessagesBytesSent = newCounter("log-messages-bytes-sent");
