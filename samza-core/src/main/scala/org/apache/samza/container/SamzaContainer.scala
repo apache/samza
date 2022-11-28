@@ -572,6 +572,7 @@ object SamzaContainer extends Logging {
       info ("Got task side input SSPs: %s" format taskSideInputSSPs)
 
       val taskBackupManagerMap = new util.HashMap[String, TaskBackupManager]()
+      val systemAdminsMap = systemAdmins.getSystemAdmins
       stateStorageBackendBackupFactories.asJava.forEach(new Consumer[StateBackendFactory] {
         override def accept(factory: StateBackendFactory): Unit = {
           val taskMetricsRegistry =
@@ -579,7 +580,7 @@ object SamzaContainer extends Logging {
               taskInstanceMetrics.get(taskName).isDefined) taskInstanceMetrics.get(taskName).get.registry
             else new MetricsRegistryMap
           val taskBackupManager = factory.getBackupManager(jobContext, containerModel,
-            taskModel, commitThreadPool, taskMetricsRegistry, config, SystemClock.instance(),
+            taskModel, systemAdminsMap, commitThreadPool, taskMetricsRegistry, config, SystemClock.instance,
             loggedStorageBaseDir, nonLoggedStorageBaseDir)
           taskBackupManagerMap.put(factory.getClass.getName, taskBackupManager)
         }

@@ -21,6 +21,7 @@ package org.apache.samza.storage.blobstore;
 
 import com.google.common.base.Preconditions;
 import java.io.File;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import org.apache.commons.lang3.StringUtils;
@@ -41,6 +42,7 @@ import org.apache.samza.storage.TaskBackupManager;
 import org.apache.samza.storage.TaskRestoreManager;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
+import org.apache.samza.system.SystemAdmin;
 import org.apache.samza.util.Clock;
 import org.apache.samza.util.ReflectionUtil;
 
@@ -51,6 +53,7 @@ public class BlobStoreStateBackendFactory implements StateBackendFactory {
       JobContext jobContext,
       ContainerModel containerModel,
       TaskModel taskModel,
+      Map<String, SystemAdmin> systemNameSystemAdminsMap,
       ExecutorService backupExecutor,
       MetricsRegistry metricsRegistry,
       Config config,
