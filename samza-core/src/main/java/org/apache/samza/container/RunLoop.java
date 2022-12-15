@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -79,6 +78,7 @@ public class RunLoop implements Runnable, Throttleable {
   private final long windowMs;
   private final long commitMs;
   private final long callbackTimeoutMs;
+  private final long drainCallbackTimeoutMs;
   private final long maxIdleMs;
   private final SamzaContainerMetrics containerMetrics;
   private final ScheduledExecutorService workerTimer;
@@ -91,6 +91,7 @@ public class RunLoop implements Runnable, Throttleable {
   private volatile boolean runLoopResumedSinceLastChecked;
   private final int elasticityFactor;
   private final String runId;
+  private final boolean isHighLevelApiJob;
   private boolean isDraining = false;
 
   public RunLoop(Map<TaskName, RunLoopTask> runLoopTasks,
@@ -100,13 +101,14 @@ public class RunLoop implements Runnable, Throttleable {
       long windowMs,
       long commitMs,
       long callbackTimeoutMs,
+      long drainCallbackTimeoutMs,
       long maxThrottlingDelayMs,
       long maxIdleMs,
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled) {
     this(runLoopTasks, threadPool, consumerMultiplexer, maxConcurrency, windowMs, commitMs, callbackTimeoutMs,
-        maxThrottlingDelayMs, maxIdleMs, containerMetrics, clock, isAsyncCommitEnabled, 1, null);
+        drainCallbackTimeoutMs, maxThrottlingDelayMs, maxIdleMs, containerMetrics, clock, isAsyncCommitEnabled, 1, null, false);
   }
 
   public RunLoop(Map<TaskName, RunLoopTask> runLoopTasks,
@@ -116,13 +118,15 @@ public class RunLoop implements Runnable, Throttleable {
       long windowMs,
       long commitMs,
       long callbackTimeoutMs,
+      long drainCallbackTimeoutMs,
       long maxThrottlingDelayMs,
       long maxIdleMs,
       SamzaContainerMetrics containerMetrics,
       HighResolutionClock clock,
       boolean isAsyncCommitEnabled,
       int elasticityFactor,
-      String runId) {
+      String runId,
+      boolean isHighLevelApiJob) {
 
     this.threadPool = threadPool;
     this.consumerMultiplexer = consumerMultiplexer;
@@ -131,6 +135,7 @@ public class RunLoop implements Runnable, Throttleable {
     this.commitMs = commitMs;
     this.maxConcurrency = maxConcurrency;
     this.callbackTimeoutMs = callbackTimeoutMs;
+    this.drainCallbackTimeoutMs = drainCallbackTimeoutMs;
     this.maxIdleMs = maxIdleMs;
     this.callbackTimer = (callbackTimeoutMs > 0) ? Executors.newSingleThreadScheduledExecutor() : null;
     this.callbackExecutor = new ThrottlingScheduler(maxThrottlingDelayMs);
@@ -141,23 +146,26 @@ public class RunLoop implements Runnable, Throttleable {
     // assign runId before creating workers. As the inner AsyncTaskWorker class is not static, it relies on
     // the outer class fields to be init first
     this.runId = runId;
+    this.isHighLevelApiJob = isHighLevelApiJob;
+    this.isAsyncCommitEnabled = isAsyncCommitEnabled;
+    this.elasticityFactor = elasticityFactor;
+
     Map<TaskName, AsyncTaskWorker>  workers = new HashMap<>();
     for (RunLoopTask task : runLoopTasks.values()) {
       workers.put(task.taskName(), new AsyncTaskWorker(task));
     }
     // Partions and tasks assigned to the container will not change during the run loop life time
     this.sspToTaskWorkerMapping = Collections.unmodifiableMap(getSspToAsyncTaskWorkerMap(runLoopTasks, workers));
-
     this.taskWorkers = Collections.unmodifiableList(new ArrayList<>(workers.values()));
-    this.isAsyncCommitEnabled = isAsyncCommitEnabled;
-    this.elasticityFactor = elasticityFactor;
   }
 
   /**
    * Sets the RunLoop to drain mode.
    * */
   private void drain() {
+    log.info("Setting the RunLoop to drain mode.");
     isDraining = true;
+    log.debug("Disabling async commit when the pipeline is draining.");
     isAsyncCommitEnabled = false;
   }
 
@@ -480,7 +488,7 @@ public class RunLoop implements Runnable, Throttleable {
       this.task = task;
       this.callbackManager = new TaskCallbackManager(this, callbackTimer, callbackTimeoutMs, maxConcurrency, clock);
       Set<SystemStreamPartition> sspSet = getWorkingSSPSet(task);
-      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet, !task.intermediateStreams().isEmpty(),
+      this.state = new AsyncTaskState(task.taskName(), task.metrics(), sspSet, !task.intermediateStreams().isEmpty(), isHighLevelApiJob,
           runId);
     }
 
@@ -619,7 +627,9 @@ public class RunLoop implements Runnable, Throttleable {
         public TaskCallback createCallback() {
           state.startProcess();
           containerMetrics.processes().inc();
-          return callbackManager.createCallback(task.taskName(), envelope, coordinator);
+          return isDraining && (envelope.isDrain() || envelope.isWatermark())
+              ? callbackManager.createCallbackForDrain(task.taskName(), envelope, coordinator, drainCallbackTimeoutMs)
+              : callbackManager.createCallback(task.taskName(), envelope, coordinator);
         }
       };
 
@@ -841,16 +851,18 @@ public class RunLoop implements Runnable, Throttleable {
     private final TaskName taskName;
     private final TaskInstanceMetrics taskMetrics;
     private final boolean hasIntermediateStreams;
+    private final boolean isHighLevelApiJob;
     private final String runId;
 
     AsyncTaskState(TaskName taskName, TaskInstanceMetrics taskMetrics, Set<SystemStreamPartition> sspSet,
-        boolean hasIntermediateStreams, String runId) {
+        boolean hasIntermediateStreams, boolean isHighLevelApiJob, String runId) {
       this.taskName = taskName;
       this.taskMetrics = taskMetrics;
       this.pendingEnvelopeQueue = new ArrayDeque<>();
       this.processingSspSet = sspSet;
       this.processingSspSetToDrain = new HashSet<>(sspSet);
       this.hasIntermediateStreams = hasIntermediateStreams;
+      this.isHighLevelApiJob = isHighLevelApiJob;
       this.runId = runId;
     }
 
@@ -875,50 +887,39 @@ public class RunLoop implements Runnable, Throttleable {
         return false;
       }
 
-      if (!pendingEnvelopeQueue.isEmpty()) {
-        PendingEnvelope pendingEnvelope = pendingEnvelopeQueue.peek();
-        IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
+      if (pendingEnvelopeQueue.size() > 0) {
+        final PendingEnvelope pendingEnvelope = pendingEnvelopeQueue.peek();
+        final IncomingMessageEnvelope envelope = pendingEnvelope.envelope;
 
         if (envelope.isDrain()) {
           final DrainMessage message = (DrainMessage) envelope.getMessage();
           if (!message.getRunId().equals(runId)) {
-            // Removing the drain message from the pending queue as it doesn't match with the current runId
-            // Removing it will ensure that it is not picked up by process()
-            pendingEnvelopeQueue.remove();
+            // Removing the drain message from the pending queue as it doesn't match with the current deployment
+            final PendingEnvelope discardedDrainMessage = pendingEnvelopeQueue.remove();
+            consumerMultiplexer.tryUpdate(discardedDrainMessage.envelope.getSystemStreamPartition());
           } else {
+            // Found drain message matching the current deployment
+
             // set the RunLoop to drain mode
             if (!isDraining) {
               drain();
             }
 
-            if (elasticityFactor <= 1) {
-              SystemStreamPartition ssp = envelope.getSystemStreamPartition();
-              processingSspSetToDrain.remove(ssp);
-            } else {
-              // SystemConsumers will write only one envelope (enclosing DrainMessage) per SSP in its buffer.
-              // This envelope doesn't have keybucket info it's SSP. With elasticity, the same SSP can be processed by
-              // multiple tasks. Therefore, if envelope contains drain message, the ssp of envelope should be removed
-              // from task's processing set irrespective of keyBucket.
-              SystemStreamPartition sspOfEnvelope = envelope.getSystemStreamPartition();
-              Optional<SystemStreamPartition> ssp = processingSspSetToDrain.stream()
-                  .filter(sspInSet -> sspInSet.getSystemStream().equals(sspOfEnvelope.getSystemStream())
-                      && sspInSet.getPartition().equals(sspOfEnvelope.getPartition()))
-                  .findFirst();
-              ssp.ifPresent(processingSspSetToDrain::remove);
-            }
+            if (!isHighLevelApiJob) {
+              // The flow below only applies to samza low-level API
 
-            if (!hasIntermediateStreams) {
-              // Don't remove from the pending queue as we want the DAG to pick up Drain message and propagate it to
-              // intermediate streams
+              // For high-level API, we do not remove the message from pending queue.
+              // It will be picked by the process flow instead of drain flow, as we want the drain control message
+              // to be processed by the High-level API Operator DAG.
+
+              processingSspSetToDrain.remove(envelope.getSystemStreamPartition());
               pendingEnvelopeQueue.remove();
             }
           }
         }
-        return processingSspSetToDrain.isEmpty();
       }
-      // if no messages are in the queue, the task has probably already drained or there are no messages from
-      // the chooser
-      return false;
+
+      return processingSspSetToDrain.isEmpty();
     }
 
     /**

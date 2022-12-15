@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -68,6 +69,7 @@ public class DrainNotificationObjectMapper {
       Map<String, Object> drainMessageMap = new HashMap<>();
       drainMessageMap.put("uuid", value.getUuid().toString());
       drainMessageMap.put("runId", value.getRunId());
+      drainMessageMap.put("drainMode", value.getDrainMode().toString());
       jsonGenerator.writeObject(drainMessageMap);
     }
   }
@@ -80,7 +82,8 @@ public class DrainNotificationObjectMapper {
       JsonNode node = oc.readTree(jsonParser);
       UUID uuid = UUID.fromString(node.get("uuid").textValue());
       String runId = node.get("runId").textValue();
-      return new DrainNotification(uuid, runId);
+      DrainMode drainMode = DrainMode.valueOf(node.get("drainMode").textValue().toUpperCase(Locale.ROOT));
+      return new DrainNotification(uuid, runId, drainMode);
     }
   }
 }

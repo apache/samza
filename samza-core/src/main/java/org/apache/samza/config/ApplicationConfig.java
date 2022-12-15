@@ -18,9 +18,9 @@
  */
 package org.apache.samza.config;
 
+import org.apache.samza.application.ApplicationApiType;
 import org.apache.samza.clustermanager.DefaultApplicationMain;
 import org.apache.samza.runtime.UUIDGenerator;
-
 
 /**
  * Accessors for configs associated with Application scope
@@ -60,7 +60,7 @@ public class ApplicationConfig extends MapConfig {
   public static final String APP_MAIN_CLASS = "app.main.class";
   public static final String APP_MAIN_ARGS = "app.main.args";
   public static final String APP_RUNNER_CLASS = "app.runner.class";
-
+  public static final String APP_API_TYPE = "app.api.type";
   private static final String DEFAULT_APP_RUNNER = "org.apache.samza.runtime.RemoteApplicationRunner";
 
   public ApplicationConfig(Config config) {
@@ -109,5 +109,9 @@ public class ApplicationConfig extends MapConfig {
 
   public String getAppRunnerClass() {
     return get(APP_RUNNER_CLASS, DEFAULT_APP_RUNNER);
+  }
+
+  public ApplicationApiType getAppApiType() {
+    return ApplicationApiType.valueOf(get(APP_API_TYPE, ApplicationApiType.HIGH_LEVEL.name()).toUpperCase());
   }
 }

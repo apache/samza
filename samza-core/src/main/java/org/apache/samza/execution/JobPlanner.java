@@ -18,21 +18,27 @@
  */
 package org.apache.samza.execution;
 
+import com.google.common.base.Strings;
 import java.io.File;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationApiType;
+import org.apache.samza.application.StreamApplication;
+import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.ApplicationDescriptor;
 import org.apache.samza.application.descriptors.ApplicationDescriptorImpl;
 import org.apache.samza.application.LegacyTaskApplication;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.ConfigException;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.config.ShellCommandConfig;
@@ -95,6 +101,23 @@ public abstract class JobPlanner {
     // Container Placements to identify a deployment of Samza
     if (StringUtils.isNoneEmpty(runId)) {
       generatedConfig.put(ApplicationConfig.APP_RUN_ID, runId);
+    }
+
+    // Assign app.api.type config
+    if (StreamApplication.class.isAssignableFrom(appDesc.getAppClass())) {
+      generatedConfig.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.HIGH_LEVEL.name());
+    } else if (TaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
+      generatedConfig.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.LOW_LEVEL.name());
+    } else if (LegacyTaskApplication.class.isAssignableFrom(appDesc.getAppClass())) {
+      generatedConfig.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.LEGACY.name());
+    } else {
+      final TaskConfig taskConfig = new TaskConfig(userConfig);
+      final Optional<String> taskClassOption = taskConfig.getTaskClass();
+      if (!taskClassOption.isPresent() || Strings.isNullOrEmpty(taskClassOption.get())) {
+        // no task.class defined either. This is wrong.
+        throw new ConfigException("Legacy task applications must set a non-empty task.class in configuration.");
+      }
+      generatedConfig.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.LEGACY.name());
     }
 
     // merge user-provided configuration with generated configuration. generated configuration has lower priority.

@@ -49,6 +49,7 @@ class SamzaContainerMetrics(
   val executorWorkFactor = newGauge("executor-work-factor", 1.0)
   val physicalMemoryMb = newGauge("physical-memory-mb", 0.0F)
   val physicalMemoryUtilization = newGauge("physical-memory-utilization", 0.0F)
+  val totalProcessCpuUsage = newGauge("total-process-cpu-usage", 0.0)
   val containerThreadPoolSize = newGauge("container-thread-pool-size", 0L)
   val containerActiveThreads = newGauge("container-active-threads", 0L)
 

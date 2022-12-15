@@ -29,12 +29,13 @@ import java.util.function.Consumer
 import java.util.{Base64, Optional}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.SamzaException
+import org.apache.samza.application.ApplicationUtil
 import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.clustermanager.StandbyTaskUtil
 import org.apache.samza.config.{StreamConfig, _}
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
 import org.apache.samza.container.disk.{DiskQuotaPolicyFactory, DiskSpaceMonitor, NoThrottlingDiskQuotaPolicyFactory, PollingScanDiskSpaceMonitor}
-import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatisticsMonitor}
+import org.apache.samza.container.host.{StatisticsMonitorImpl, SystemMemoryStatistics, SystemStatistics, SystemStatisticsMonitor}
 import org.apache.samza.context._
 import org.apache.samza.diagnostics.DiagnosticsManager
 import org.apache.samza.drain.DrainMonitor.DrainCallback
@@ -625,6 +626,8 @@ object SamzaContainer extends Logging {
 
     val maxThrottlingDelayMs = config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1))
 
+    val isHighLevelApiJob = ApplicationUtil.isHighLevelApiJob(config)
+
     val runLoop: Runnable = RunLoopFactory.createRunLoop(
       taskInstances,
       consumerMultiplexer,
@@ -634,22 +637,12 @@ object SamzaContainer extends Logging {
       taskConfig,
       clock,
       jobConfig.getElasticityFactor,
-      appConfig.getRunId)
+      appConfig.getRunId,
+      isHighLevelApiJob)
 
-    val containerMemoryMb : Int = new ClusterManagerConfig(config).getContainerMemoryMb
-
-    val memoryStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
-    memoryStatisticsMonitor.registerListener(new SystemStatisticsMonitor.Listener {
-      override def onUpdate(sample: SystemMemoryStatistics): Unit = {
-        val physicalMemoryBytes : Long = sample.getPhysicalMemoryBytes
-        val physicalMemoryMb : Float = physicalMemoryBytes / (1024.0F * 1024.0F)
-        val memoryUtilization : Float = physicalMemoryMb.toFloat / containerMemoryMb
-        logger.debug("Container physical memory utilization (mb): " + physicalMemoryMb)
-        logger.debug("Container physical memory utilization: " + memoryUtilization)
-        samzaContainerMetrics.physicalMemoryMb.set(physicalMemoryMb)
-        samzaContainerMetrics.physicalMemoryUtilization.set(memoryUtilization);
-      }
-    })
+    val systemStatisticsMonitor : SystemStatisticsMonitor = new StatisticsMonitorImpl()
+    systemStatisticsMonitor.registerListener(
+      new SamzaContainerMonitorListener(config, samzaContainerMetrics, taskThreadPool))
 
     val diskQuotaBytes = config.getLong("container.disk.quota.bytes", Long.MaxValue)
     samzaContainerMetrics.diskQuotaBytes.set(diskQuotaBytes)
@@ -694,7 +687,7 @@ object SamzaContainer extends Logging {
       reporters = reporters,
       jvm = jvm,
       diskSpaceMonitor = diskSpaceMonitor,
-      hostStatisticsMonitor = memoryStatisticsMonitor,
+      hostStatisticsMonitor = systemStatisticsMonitor,
       taskThreadPool = taskThreadPool,
       commitThreadPool = commitThreadPool,
       timerExecutor = timerExecutor,

@@ -42,6 +42,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.samza.SamzaException;
+import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointV2;
@@ -440,6 +441,11 @@ public class ContainerStorageManager {
 
     backendFactoryStoreNames.forEach((factoryName, storeNames) -> {
       StateBackendFactory factory = factories.get(factoryName);
+      if (factory == null) {
+        throw new SamzaException(
+            String.format("Required restore state backend factory: %s not found in configured factories %s",
+                factoryName, String.join(", ", factories.keySet())));
+      }
       KafkaChangelogRestoreParams kafkaChangelogRestoreParams = new KafkaChangelogRestoreParams(storeConsumers,
           inMemoryStores.get(taskName), systemAdmins.getSystemAdmins(), storageEngineFactories, serdes,
           taskInstanceCollectors.get(taskName));
@@ -927,7 +933,7 @@ public class ContainerStorageManager {
         new SamzaContainerMetrics(SIDEINPUTS_METRICS_PREFIX + this.samzaContainerMetrics.source(),
             this.samzaContainerMetrics.registry(), SIDEINPUTS_METRICS_PREFIX);
 
-    ApplicationConfig applicationConfig = new ApplicationConfig(config);
+    final ApplicationConfig applicationConfig = new ApplicationConfig(config);
 
     this.sideInputRunLoop = new RunLoop(sideInputTasks,
         null, // all operations are executed in the main runloop thread
@@ -936,6 +942,7 @@ public class ContainerStorageManager {
         -1, // no windowing
         taskConfig.getCommitMs(),
         taskConfig.getCallbackTimeoutMs(),
+        taskConfig.getDrainCallbackTimeoutMs(),
         // TODO consolidate these container configs SAMZA-2275
         this.config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1)),
         taskConfig.getMaxIdleMs(),
@@ -943,7 +950,9 @@ public class ContainerStorageManager {
         System::nanoTime,
         false,
         DEFAULT_SIDE_INPUT_ELASTICITY_FACTOR,
-        applicationConfig.getRunId()); // commit must be synchronous to ensure integrity of state flush
+        applicationConfig.getRunId(),
+        ApplicationUtil.isHighLevelApiJob(config)
+        ); // commit must be synchronous to ensure integrity of state flush
 
     try {
       sideInputsExecutor.submit(() -> {

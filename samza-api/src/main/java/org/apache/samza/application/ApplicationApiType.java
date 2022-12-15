@@ -16,26 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.samza.drain;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
-import java.util.UUID;
-import org.junit.Test;
-
-import static org.junit.Assert.assertEquals;
+package org.apache.samza.application;
 
 /**
- * Tests for {@link DrainNotificationObjectMapper}
+ * Enum to denote the possible API types for a samza application.
  * */
-public class DrainNotificationObjectMapperTests {
-  @Test
-  public void testDrainNotificationSerde() throws IOException {
-    UUID uuid = UUID.randomUUID();
-    DrainNotification originalMessage = DrainNotification.create(uuid, "foobar");
-    ObjectMapper objectMapper = DrainNotificationObjectMapper.getObjectMapper();
-    byte[] bytes = objectMapper.writeValueAsBytes(originalMessage);
-    DrainNotification deserializedMessage = objectMapper.readValue(bytes, DrainNotification.class);
-    assertEquals(originalMessage, deserializedMessage);
-  }
+public enum ApplicationApiType {
+  /**
+   * Defined using {@link StreamApplication}
+   * */
+  HIGH_LEVEL,
+  /**
+   * Defined using {@link TaskApplication}
+   * */
+  LOW_LEVEL,
+  /**
+   * Defined using defined using task.class config.
+   * */
+  LEGACY
 }

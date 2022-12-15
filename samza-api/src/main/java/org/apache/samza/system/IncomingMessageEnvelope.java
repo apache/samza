@@ -163,6 +163,10 @@ public class IncomingMessageEnvelope {
     return message != null && DrainMessage.class.isAssignableFrom(message.getClass());
   }
 
+  public boolean isWatermark() {
+    return message != null && WatermarkMessage.class.isAssignableFrom(message.getClass());
+  }
+
   /**
    * This method is deprecated in favor of WatermarkManager.buildEndOfStreamEnvelope(SystemStreamPartition ssp).
    *

@@ -67,6 +67,8 @@ class ControlMessageSender {
     int currentPartition = ssp.getPartition().getPartitionId();
     for (int i = 0; i < partitionCount; i++) {
       if (i != currentPartition) {
+        LOG.debug(String.format("Broadcast %s message from task %s to %s partition %d for aggregation",
+            MessageType.of(message).name(), message.getTaskName(), systemStream, i));
         OutgoingMessageEnvelope envelopeOut = new OutgoingMessageEnvelope(systemStream, i, null, message);
         collector.send(envelopeOut);
       }

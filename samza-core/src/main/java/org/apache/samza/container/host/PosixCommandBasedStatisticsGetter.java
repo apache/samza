@@ -18,15 +18,14 @@
  */
 package org.apache.samza.container.host;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 
 /**
  * An implementation of {@link SystemStatisticsGetter} that relies on using Posix commands like ps.
@@ -84,5 +83,11 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
       log.warn("Error when running ps: ", e);
       return null;
     }
+  }
+
+  @Override
+  public ProcessCPUStatistics getProcessCPUStatistics() {
+    throw new UnsupportedOperationException(
+        "No appropriate Posix command available for getting recent CPU usage information. For example, the CPU information exposed by ps command 'ps -o %cpu= -p <PID>' represents the percentage of time spent running during the entire lifetime of a process not for the recent CPU usage");
   }
 }

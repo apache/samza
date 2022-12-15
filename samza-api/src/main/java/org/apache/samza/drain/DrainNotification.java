@@ -19,11 +19,11 @@
 package org.apache.samza.drain;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import java.util.UUID;
 
 /**
- * DrainNotification is a custom message is used by an external controller to trigger Drain.
- * The message is written in the metadata store using {@link DrainUtils}.
+ * DrainNotification is a custom message used by an external controller to trigger Drain.
  * */
 public class DrainNotification {
   /**
@@ -35,9 +35,23 @@ public class DrainNotification {
    */
   private final String runId;
 
-  public DrainNotification(UUID uuid, String runId) {
+  /***/
+  private final DrainMode drainMode;
+
+  public DrainNotification(UUID uuid, String runId, DrainMode drainMode) {
+    Preconditions.checkNotNull(uuid);
+    Preconditions.checkNotNull(runId);
+    Preconditions.checkNotNull(drainMode);
     this.uuid = uuid;
     this.runId = runId;
+    this.drainMode = drainMode;
+  }
+
+  /**
+   * Creates a DrainNotification in {@link DrainMode#DEFAULT} mode.
+   * */
+  public static DrainNotification create(UUID uuid, String runId) {
+    return new DrainNotification(uuid, runId, DrainMode.DEFAULT);
   }
 
   public UUID getUuid() {
@@ -48,11 +62,16 @@ public class DrainNotification {
     return runId;
   }
 
+  public DrainMode getDrainMode() {
+    return drainMode;
+  }
+
   @Override
   public String toString() {
     final StringBuilder sb = new StringBuilder("DrainMessage{");
     sb.append(" UUID: ").append(uuid);
-    sb.append(", runId: '").append(runId).append('\'');
+    sb.append(", runId: ").append(runId);
+    sb.append(", drainMode: ");
     sb.append('}');
     return sb.toString();
   }
@@ -67,11 +86,12 @@ public class DrainNotification {
     }
     DrainNotification that = (DrainNotification) o;
     return Objects.equal(uuid, that.uuid)
-        && Objects.equal(runId, that.runId);
+        && Objects.equal(runId, that.runId)
+        && Objects.equal(drainMode, that.drainMode);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(uuid, runId);
+    return Objects.hashCode(uuid, runId, drainMode);
   }
 }

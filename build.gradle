@@ -192,6 +192,9 @@ project(":samza-core_$scalaSuffix") {
     compile "org.scala-lang:scala-library:$scalaVersion"
     compile "org.slf4j:slf4j-api:$slf4jVersion"
     compile "net.jodah:failsafe:$failsafeVersion"
+    compile "com.github.oshi:oshi-core:$oshiVersion"
+    compile "net.java.dev.jna:jna:$jnaVersion"
+    compile "net.java.dev.jna:jna-platform:$jnaVersion"
     testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
