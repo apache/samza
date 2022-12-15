@@ -441,6 +441,11 @@ public class ContainerStorageManager {
 
     backendFactoryStoreNames.forEach((factoryName, storeNames) -> {
       StateBackendFactory factory = factories.get(factoryName);
+      if (factory == null) {
+        throw new SamzaException(
+            String.format("Required restore state backend factory: %s not found in configured factories %s",
+                factoryName, String.join(", ", factories.keySet())));
+      }
       KafkaChangelogRestoreParams kafkaChangelogRestoreParams = new KafkaChangelogRestoreParams(storeConsumers,
           inMemoryStores.get(taskName), systemAdmins.getSystemAdmins(), storageEngineFactories, serdes,
           taskInstanceCollectors.get(taskName));
