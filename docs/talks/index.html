@@ -21,7 +21,7 @@ title: Samza Talks
 -->
 
 <div class="talks" data-plugin="paginate" data-max-posts="2" data-previous=".paginate-previous--talk" data-next=".paginate-next--talk" data-pagination=".pagination--talk">
-    {% assign sorted = (site.talks | sort: 'date') | reverse %}
+    {% assign sorted = site.talks | sort: 'date' | reverse %}
     {% for talk in sorted %}
         {% if talk.exclude_from_loop %}
             {% continue %}

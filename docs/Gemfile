@@ -17,7 +17,8 @@
 
 source 'https://rubygems.org'
 
-gem 'jekyll', '3.4.5'
-gem 'json', '2.1.0'
-gem 'redcarpet', '3.4.0'
-gem 'pygments.rb', '1.2.1'
+gem 'jekyll', '4.3.1'
+gem 'json', '2.6.3'
+gem 'rouge', '4.0.0'
+gem 'kramdown','2.4.0'
+gem 'kramdown-parser-gfm' , '1.1.0'
