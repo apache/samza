@@ -141,6 +141,49 @@ subprojects {
   }
 }
 
+project(":docs") {
+  apply plugin: "com.github.jruby-gradle.base"
+  apply plugin: 'java'
+
+  repositories {
+    ruby.gems()
+    mavenCentral()
+  }
+
+  jruby {
+      jrubyVersion = '9.4.0.0'
+  }
+
+  dependencies {
+      gems "rubygems:jekyll:4.3.1"
+      gems "rubygems:http_parser.rb:0.6.0"
+      gems "rubygems:webrick:1.7.0"
+      gems "rubygems:json:2.6.3"
+      gems "rubygems:rouge:4.0.0"
+      gems "rubygems:kramdown:2.4.0"
+      gems "rubygems:kramdown-parser-gfm:1.1.0"
+  }
+
+  task jekyllServe(type: com.github.jrubygradle.JRubyExec) {
+      def baseurl = ""
+      script "jekyll"
+      scriptArgs "serve", "--watch", "--source", "$projectDir" , "--destination", "$projectDir/_site", "--trace", "--baseurl", "$baseurl"
+  }
+
+  task jekyllBuild(type: com.github.jrubygradle.JRubyExec) {
+      script "jekyll"
+      scriptArgs "build", "$projectDir", "-d", "$projectDir/_site"
+  }
+
+  task generateVersionedContent(type: Exec) {
+      commandLine "$projectDir/_docs/local-site-test.sh"
+  }
+
+  task runGradleTest {
+      dependsOn jekyllBuild
+  }
+}
+
 project(':samza-api') {
   apply plugin: 'java'
 
