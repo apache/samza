@@ -147,7 +147,6 @@ project(":docs") {
 
   repositories {
     ruby.gems()
-    mavenCentral()
   }
 
   jruby {
@@ -164,23 +163,15 @@ project(":docs") {
       gems "rubygems:kramdown-parser-gfm:1.1.0"
   }
 
-  task jekyllServe(type: com.github.jrubygradle.JRubyExec) {
-      def baseurl = ""
-      script "jekyll"
-      scriptArgs "serve", "--watch", "--source", "$projectDir" , "--destination", "$projectDir/_site", "--trace", "--baseurl", "$baseurl"
-  }
-
   task jekyllBuild(type: com.github.jrubygradle.JRubyExec) {
       script "jekyll"
       scriptArgs "build", "$projectDir", "-d", "$projectDir/_site"
   }
 
-  task generateVersionedContent(type: Exec) {
-      commandLine "$projectDir/_docs/local-site-test.sh"
-  }
-
-  task runGradleTest {
-      dependsOn jekyllBuild
+  task jekyllServe(type: com.github.jrubygradle.JRubyExec) {
+      def baseurl = ""
+      script "jekyll"
+      scriptArgs "serve", "--watch", "--source", "$projectDir" , "--destination", "$projectDir/_site", "--trace", "--baseurl", "$baseurl", "--incremental"
   }
 }
 
