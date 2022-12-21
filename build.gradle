@@ -1012,3 +1012,4 @@ project(":samza-test_$scalaSuffix") {
 wrapper {
   gradleVersion = project.gradleVersion
 }
+
