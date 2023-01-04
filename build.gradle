@@ -156,6 +156,7 @@ project(":docs") {
   }
 
   dependencies {
+      gems "rubygems:jekyll-sass-converter:2.2.0"
       gems "rubygems:jekyll:4.3.1"
       gems "rubygems:http_parser.rb:0.6.0"
       gems "rubygems:webrick:1.7.0"
