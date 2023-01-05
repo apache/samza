@@ -171,11 +171,18 @@ project(":docs") {
       scriptArgs "build", "$projectDir", "-d", "$projectDir/_site"
   }
 
-  task jekyllServe(type: com.github.jrubygradle.JRubyExec) {
+  task jekyllServeLocal(type: com.github.jrubygradle.JRubyExec) {
       def baseurl = ""
       script "jekyll"
-      scriptArgs "serve", "--watch", "--source", "$projectDir" , "--destination", "$projectDir/_site", "--trace", "--baseurl", "$baseurl", "--incremental"
+      scriptArgs "serve", "--watch", "--source", "$projectDir" , "--destination", "$projectDir/_site", "--trace", "--baseurl", "$baseurl"
   }
+
+  task jekyllServePublic(type: com.github.jrubygradle.JRubyExec) {
+      def baseurl = ""
+      script "jekyll"
+      scriptArgs "serve", "--watch", "--source", "$projectDir" , "--destination", "$projectDir/_site", "--trace", "--baseurl", "$baseurl", "--host", "0.0.0.0"
+  }
+
 }
 
 project(':samza-api') {

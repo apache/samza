@@ -24,9 +24,14 @@ To compile the website in the _site directory, execute:
 
 To serve the website on [localhost:4000](http://localhost:4000/), run the following:
 
-    ./gradlew docs:jekyllServe
+    ./gradlew docs:jekyllServeLocal
 
-Note: this task does not end as it's waiting on Jekyll to exit.  You will need to cntl-c jekyllServe to stop the task.
+To serve the website on so its visible to other hosts on port 4000, run the following:
+
+    ./gradlew docs:jekyllServePublic
+
+The jekyllServe* tasks do not end as they will wait for Jekyll to exit.  You will need to cntl-c jekyllServeLocal or JekyllServePublic to stop the task.
+
 
 ## Versioning
 
