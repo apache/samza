@@ -152,7 +152,7 @@ project(":docs") {
   }
 
   jruby {
-      jrubyVersion = '9.4.0.0'
+      jrubyVersion = '9.3.9.0'
   }
 
   dependencies {
@@ -161,7 +161,7 @@ project(":docs") {
       gems "rubygems:http_parser.rb:0.6.0"
       gems "rubygems:webrick:1.7.0"
       gems "rubygems:json:2.6.3"
-      gems "rubygems:rouge:4.0.0"
+      gems "rubygems:rouge:3.30.0"
       gems "rubygems:kramdown:2.4.0"
       gems "rubygems:kramdown-parser-gfm:1.1.0"
   }
