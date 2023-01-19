@@ -1,0 +1,47 @@
+---
+layout: blog
+title: Announcing the release of Apache Samza 1.8.0
+icon: git-pull-request
+authors:
+    - name: Ajo Thomas
+      website:
+      image:
+excerpt_separator: <!--more-->
+---
+
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+# **Announcing the release of Apache Samza 1.8.0**
+
+<!--more-->
+
+We are thrilled to announce the release of Apache Samza 1.8.0
+
+### Key Features:
+Below is a list of key features that we intend to include in this release:
+- [SEP-31](https://cwiki.apache.org/confluence/display/SAMZA/SEP-31%3A+Pipeline+Drain-+Support+the+ability+to+drain+pipelines+to+allow+incompatible+intermediate+schema+changes): Pipeline Drain- Support the ability to drain pipelines to allow incompatible intermediate schema changes
+- [SAMZA-2757](https://issues.apache.org/jira/browse/SAMZA-2757): Make Samza Compatible with Java 11
+
+Full list of the Jira tickets addressed in this release can be found [here](https://issues.apache.org/jira/browse/SAMZA-2744?jql=project%20%3D%20SAMZA%20AND%20fixVersion%20%3D%201.8)
+
+#### Upgrade Instructions
+For applications that are on version 1.6 & below, please see instructions for 1.7.0 upgrade.
+For applications that are already on Samza 1.7.0, updating your dependencies to use Samza 1.8.0 should be sufficient to upgrade.
+
+### Sources downloads
+A source download of Samza 1.8.0 is available [here](https://dist.apache.org/repos/dist/release/samza/1.8.0/), and is also available in Apache’s Maven repository. See Samza’s download [page](https://samza.apache.org/startup/download/) for details and Samza’s feature preview for new features.
