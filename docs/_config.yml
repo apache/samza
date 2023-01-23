@@ -16,10 +16,10 @@
 # under the License.
 permalink: /:categories/:title
 name: Samza
-highlighter: pygments
-markdown: redcarpet
+highlighter: rouge
+markdown: kramdown
 exclude: ['_notes']
-redcarpet:
+kramdown:
   extensions: ['with_toc_data', 'smart', 'strikethrough', 'tables']
 exclude: [_docs]
 baseurl: http://samza.apache.org

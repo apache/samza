@@ -18,6 +18,8 @@ dashboard-deployable.tgz
 deployable.tar
 dist-dashboard
 docs/_site
+docs/.jekyll-cache
+docs/.jekyll-metadata
 .gradle
 build
 **/bin

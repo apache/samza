@@ -16,30 +16,28 @@
 -->
 ## Setup
 
-Samza's documentation uses Jekyll to build a website out of markdown pages. Prerequisites:
+Samza's documentation uses Jekyll to build a website out of markdown pages. Jekyll dependencies are now managed with Gradle.
 
-1. You need [Ruby](https://www.ruby-lang.org/) installed on your machine (run `ruby --version` to check)
-2. Install [Bundler](http://bundler.io/) by running `sudo gem install bundler`
-3. To install Jekyll and its dependencies, change to the `docs` directory and run `bundle install`
+To compile the website in the _site directory, execute:
 
-To serve the website on [localhost:4000](http://localhost:4000/) (run from the `docs` directory):
+    ./gradlew docs:jekyllBuild
 
-    bundle exec jekyll serve --watch --baseurl ""
+To serve the website on [localhost:4000](http://localhost:4000/), run the following:
 
-To compile the website in the \_site directory, execute:
+    ./gradlew docs:jekyllServeLocal
 
-    bundle exec jekyll build
+To serve the website on so its visible to other hosts on port 4000, run the following:
 
-To test the site, run:
+    ./gradlew docs:jekyllServePublic
 
-    bundle exec jekyll serve --watch --baseurl ""
-(add --host 0.0.0.0 if you want it to be visible from other hosts)
+The jekyllServe* tasks do not end as they will wait for Jekyll to exit.  You will need to cntl-c jekyllServeLocal or JekyllServePublic to stop the task.
+
 
 ## Versioning
 
 If you're working with versioned content (anything in the learn or img directories), you'll also need to run a script that generates the appropriate directories:
 
-      _docs/local-site-test.sh
+    _docs/local-site-test.sh
 
 Run this script after starting the site server with the `serve` command above. Otherwise, you may see some errors when trying to view versioned content.
 In addition, the local-site-test.sh script must be run every time a change is made to versioned content locally in order to trigger a refresh with Jekyll.

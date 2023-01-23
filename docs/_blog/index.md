@@ -22,7 +22,7 @@ exclude_from_loop: true
 
 <div class="news_cards">
 
-  {% assign sorted = (site.blog | sort: 'date') | reverse %}
+  {% assign sorted = site.blog | sort: 'date' | reverse %}
 
   {% for post in sorted %}
 

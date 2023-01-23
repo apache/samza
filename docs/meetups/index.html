@@ -21,7 +21,7 @@ title: Samza Meetups
 -->
 
 <div class="meetups" data-plugin="paginate" data-max-posts="2" data-previous=".paginate-previous--meetup" data-next=".paginate-next--meetup" data-pagination=".pagination--meetup">
-    {% assign sorted = (site.meetups | sort: 'date') | reverse %}
+    {% assign sorted = site.meetups | sort: 'date' | reverse %}
     {% for meetup in sorted %}
         {% if meetup.exclude_from_loop or meetup.date == site.time %}
             {% continue %}
