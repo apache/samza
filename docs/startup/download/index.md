@@ -31,6 +31,8 @@ Starting from 2016, Samza will begin requiring JDK8 or higher. Please see [this 
 
  Samza tools package contains command line tools that user can run to use Samza and it's input/output systems.
 
+ * [samza-tools_2.12-1.8.0.tgz](http://www-us.apache.org/dist/samza/1.8.0/samza-tools_2.12-1.8.0.tgz)
+ * [samza-tools_2.12-1.7.0.tgz](http://www-us.apache.org/dist/samza/1.7.0/samza-tools_2.12-1.7.0.tgz)
  * [samza-tools_2.11-1.6.0.tgz](http://www-us.apache.org/dist/samza/1.6.0/samza-tools_2.11-1.6.0.tgz)
  * [samza-tools_2.11-1.5.1.tgz](http://www-us.apache.org/dist/samza/1.5.1/samza-tools_2.11-1.5.1.tgz)
  * [samza-tools_2.11-1.5.0.tgz](http://www-us.apache.org/dist/samza/1.5.0/samza-tools_2.11-1.5.0.tgz)
@@ -44,6 +46,8 @@ Starting from 2016, Samza will begin requiring JDK8 or higher. Please see [this 
 
 ### Source Releases
 
+ * [samza-sources-1.8.0.tgz](http://www.apache.org/dyn/closer.lua/samza/1.8._0)
+ * [samza-sources-1.7.0.tgz](http://www.apache.org/dyn/closer.lua/samza/1.7.0)
  * [samza-sources-1.6.0.tgz](http://www.apache.org/dyn/closer.lua/samza/1.6.0)
  * [samza-sources-1.5.1.tgz](http://www.apache.org/dyn/closer.lua/samza/1.5.1)
  * [samza-sources-1.5.0.tgz](http://www.apache.org/dyn/closer.lua/samza/1.5.0)

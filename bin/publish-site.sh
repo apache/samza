@@ -32,15 +32,16 @@ if test -z "$COMMENT" || test -z "$USER"; then
   exit 0
 fi
 
-echo "Using uer: $USER"
+echo "Using user: $USER"
 echo "Using comment: $COMMENT"
 echo "Generating javadocs."
 $BASE_DIR/bin/generate-javadocs.sh
 
 echo "Building site."
-cd $DOCS_DIR
-bundle exec jekyll build
+cd "$BASE_DIR"
+./gradlew docs:jekyllbuild
 
+cd "$DOCS_DIR"
 echo "Replacing version"
 ./_docs/replace-versioned.sh
 
