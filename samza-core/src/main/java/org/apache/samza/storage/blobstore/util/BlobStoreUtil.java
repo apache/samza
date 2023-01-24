@@ -53,6 +53,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.storage.blobstore.BlobStoreManager;
 import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
 import org.apache.samza.storage.blobstore.Metadata;
@@ -82,14 +83,16 @@ public class BlobStoreUtil {
 
   private final BlobStoreManager blobStoreManager;
   private final ExecutorService executor;
+  private final BlobStoreConfig blobStoreConfig;
   private final BlobStoreBackupManagerMetrics backupMetrics;
   private final BlobStoreRestoreManagerMetrics restoreMetrics;
   private final SnapshotIndexSerde snapshotIndexSerde;
 
-  public BlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
+  public BlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor, BlobStoreConfig blobStoreConfig,
       BlobStoreBackupManagerMetrics backupMetrics, BlobStoreRestoreManagerMetrics restoreMetrics) {
     this.blobStoreManager = blobStoreManager;
     this.executor = executor;
+    this.blobStoreConfig = blobStoreConfig;
     this.backupMetrics = backupMetrics;
     this.restoreMetrics = restoreMetrics;
     this.snapshotIndexSerde = new SnapshotIndexSerde();
@@ -183,7 +186,7 @@ public class BlobStoreUtil {
       ByteArrayOutputStream indexBlobStream = new ByteArrayOutputStream(); // no need to close ByteArrayOutputStream
       return blobStoreManager.get(blobId, indexBlobStream, metadata).toCompletableFuture()
           .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor);
-    }, isCauseNonRetriable(), executor);
+    }, isCauseNonRetriable(), executor, blobStoreConfig);
   }
 
   /**
@@ -201,7 +204,7 @@ public class BlobStoreUtil {
           snapshotMetadata.getJobName(), snapshotMetadata.getJobId(), snapshotMetadata.getTaskName(),
           snapshotMetadata.getStoreName());
       return blobStoreManager.put(inputStream, metadata).toCompletableFuture();
-    }, isCauseNonRetriable(), executor);
+    }, isCauseNonRetriable(), executor, blobStoreConfig);
   }
 
   /**
@@ -217,7 +220,7 @@ public class BlobStoreUtil {
     LOG.debug("Deleting SnapshotIndex blob: {} from blob store", snapshotIndexBlobId);
     String opName = "deleteSnapshotIndexBlob: " + snapshotIndexBlobId;
     return FutureUtil.executeAsyncWithRetries(opName, () ->
-        blobStoreManager.delete(snapshotIndexBlobId, metadata).toCompletableFuture(), isCauseNonRetriable(), executor);
+        blobStoreManager.delete(snapshotIndexBlobId, metadata).toCompletableFuture(), isCauseNonRetriable(), executor, blobStoreConfig);
   }
 
   /**
@@ -250,7 +253,7 @@ public class BlobStoreUtil {
       String opName = "restoreFile: " + fileToRestore.getAbsolutePath();
       CompletableFuture<Void> fileRestoreFuture =
           FutureUtil.executeAsyncWithRetries(opName, () -> getFile(fileBlobs, fileToRestore, requestMetadata),
-              isCauseNonRetriable(), executor);
+              isCauseNonRetriable(), executor, blobStoreConfig);
       downloadFutures.add(fileRestoreFuture);
     }
 
@@ -522,7 +525,7 @@ public class BlobStoreUtil {
       return fileBlobFuture;
     };
 
-    return FutureUtil.executeAsyncWithRetries(opName, fileUploadAction, isCauseNonRetriable(), executor)
+    return FutureUtil.executeAsyncWithRetries(opName, fileUploadAction, isCauseNonRetriable(), executor, blobStoreConfig)
         .whenComplete((res, ex) -> {
           if (backupMetrics != null) {
             backupMetrics.avgFileUploadNs.update(System.nanoTime() - putFileStartTime);
@@ -552,7 +555,7 @@ public class BlobStoreUtil {
       Supplier<CompletionStage<Void>> fileDeletionAction = () ->
           blobStoreManager.delete(fileBlob.getBlobId(), metadata).toCompletableFuture();
       CompletableFuture<Void> fileDeletionFuture =
-          FutureUtil.executeAsyncWithRetries(opName, fileDeletionAction, isCauseNonRetriable(), executor);
+          FutureUtil.executeAsyncWithRetries(opName, fileDeletionAction, isCauseNonRetriable(), executor, blobStoreConfig);
       deleteFutures.add(fileDeletionFuture);
     }
 
@@ -589,7 +592,7 @@ public class BlobStoreUtil {
         Supplier<CompletionStage<Void>> ttlRemovalAction = () ->
             blobStoreManager.removeTTL(fileBlob.getBlobId(), requestMetadata).toCompletableFuture();
         CompletableFuture<Void> ttlRemovalFuture =
-            FutureUtil.executeAsyncWithRetries(opname, ttlRemovalAction, isCauseNonRetriable(), executor);
+            FutureUtil.executeAsyncWithRetries(opname, ttlRemovalAction, isCauseNonRetriable(), executor, blobStoreConfig);
         updateTTLsFuture.add(ttlRemovalFuture);
       }
     }
@@ -613,13 +616,13 @@ public class BlobStoreUtil {
     Supplier<CompletionStage<Void>> removeDirIndexTTLAction =
       () -> removeTTL(snapshotIndex.getDirIndex(), metadata).toCompletableFuture();
     CompletableFuture<Void> dirIndexTTLRemovalFuture =
-        FutureUtil.executeAsyncWithRetries(opName, removeDirIndexTTLAction, isCauseNonRetriable(), executor);
+        FutureUtil.executeAsyncWithRetries(opName, removeDirIndexTTLAction, isCauseNonRetriable(), executor, blobStoreConfig);
 
     return dirIndexTTLRemovalFuture.thenComposeAsync(aVoid -> {
       String op2Name = "removeTTL for indexBlobId: " + indexBlobId;
       Supplier<CompletionStage<Void>> removeIndexBlobTTLAction =
         () -> blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
-      return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor);
+      return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor, blobStoreConfig);
     }, executor);
   }
 

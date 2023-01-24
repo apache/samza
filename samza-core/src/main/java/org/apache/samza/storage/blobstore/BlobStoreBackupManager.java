@@ -37,6 +37,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
@@ -69,6 +70,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
   private final TaskModel taskModel;
   private final String taskName;
   private final Config config;
+  private final BlobStoreConfig blobStoreConfig;
   private final Clock clock;
   private final StorageManagerUtil storageManagerUtil;
   private final List<String> storesToBackup;
@@ -111,6 +113,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     this.taskName = taskModel.getTaskName().getTaskName();
     this.executor = backupExecutor;
     this.config = config;
+    this.blobStoreConfig = new BlobStoreConfig(config);
     this.clock = clock;
     this.storageManagerUtil = storageManagerUtil;
     StorageConfig storageConfig = new StorageConfig(config);
@@ -118,7 +121,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
         storageConfig.getPersistentStoresWithBackupFactory(BlobStoreStateBackendFactory.class.getName());
     this.loggedStoreBaseDir = loggedStoreBaseDir;
     this.blobStoreManager = blobStoreManager;
-    this.blobStoreUtil = createBlobStoreUtil(blobStoreManager, executor, blobStoreTaskBackupMetrics);
+    this.blobStoreUtil = createBlobStoreUtil(blobStoreManager, executor, blobStoreConfig, blobStoreTaskBackupMetrics);
     this.prevStoreSnapshotIndexesFuture = CompletableFuture.completedFuture(ImmutableMap.of());
     this.metrics = blobStoreTaskBackupMetrics;
     metrics.initStoreMetrics(storesToBackup);
@@ -331,8 +334,8 @@ public class BlobStoreBackupManager implements TaskBackupManager {
 
   @VisibleForTesting
   protected BlobStoreUtil createBlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
-      BlobStoreBackupManagerMetrics metrics) {
-    return new BlobStoreUtil(blobStoreManager, executor, metrics, null);
+      BlobStoreConfig blobStoreConfig, BlobStoreBackupManagerMetrics metrics) {
+    return new BlobStoreUtil(blobStoreManager, executor, blobStoreConfig, metrics, null);
   }
 
   private void updateStoreDiffMetrics(String storeName, DirDiff.Stats stats) {

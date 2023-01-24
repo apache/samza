@@ -36,6 +36,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.samza.config.BlobStoreConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -143,16 +144,16 @@ public class FutureUtil {
   }
 
   public static <T> CompletableFuture<T> executeAsyncWithRetries(String opName,
-      Supplier<? extends CompletionStage<T>> action,
-      Predicate<? extends Throwable> abortRetries,
-      ExecutorService executor) {
-    Duration maxDuration = Duration.ofMinutes(10);
+      Supplier<? extends CompletionStage<T>> action, Predicate<? extends Throwable> abortRetries,
+      ExecutorService executor, BlobStoreConfig blobStoreConfig) {
+    Duration maxDuration = Duration.ofMinutes(blobStoreConfig.getBlobStoreRetryPolicyMaxRetriesDurationMillis());
 
-    RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
-        .withMaxRetries(-1) // Sets maximum retry to unlimited from default of 3 attempts. Retries are now limited by max duration and not retry counts.
-        .withBackoff(100, 312500, ChronoUnit.MILLIS, 5) // 100 ms, 500 ms, 2500 ms, 12.5 s, 1.05 min, 5.20 min, 5.20 min
-        .withMaxDuration(maxDuration)
-        .abortOn(abortRetries) // stop retrying if predicate returns true
+    RetryPolicy<Object> retryPolicy = new RetryPolicy<>().withMaxRetries(
+            blobStoreConfig.getBlobStoreRetryPolicyMaxRetries()) // Sets maximum retry to unlimited from default of 3 attempts. Retries are now limited by max duration and not retry counts.
+        .withBackoff(blobStoreConfig.getBlobStoreRetryPolicyBackoffDelayMillis(),
+            blobStoreConfig.getBlobStoreRetryPolicyBackoffMaxDelayMillis(), ChronoUnit.MILLIS,
+            blobStoreConfig.getBlobStoreRetryPolicyBackoffDelayFactor()) // 100 ms, 500 ms, 2500 ms, 12.5 s, 1.05 min, 5.20 min, 5.20 min
+        .withMaxDuration(maxDuration).abortOn(abortRetries) // stop retrying if predicate returns true
         .onRetry(e -> LOG.warn("Action: {} attempt: {} completed with error {} ms after start. Retrying up to {} ms.",
             opName, e.getAttemptCount(), e.getElapsedTime().toMillis(), maxDuration.toMillis(), e.getLastFailure()));
 

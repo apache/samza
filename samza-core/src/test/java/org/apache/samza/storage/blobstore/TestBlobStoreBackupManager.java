@@ -46,6 +46,7 @@ import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.container.TaskName;
@@ -533,7 +534,7 @@ public class TestBlobStoreBackupManager {
 
     @Override
     protected BlobStoreUtil createBlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
-        BlobStoreBackupManagerMetrics metrics) {
+        BlobStoreConfig blobStoreConfig, BlobStoreBackupManagerMetrics metrics) {
       return blobStoreUtil;
     }
   }
