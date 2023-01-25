@@ -18,7 +18,7 @@
  */
 package org.apache.samza.zk;
 
-import org.I0Itec.zkclient.exception.ZkInterruptedException;
+import org.apache.helix.zookeeper.zkclient.exception.ZkInterruptedException;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.coordinator.ClusterMembership;
 import org.apache.samza.coordinator.CoordinationUtils;

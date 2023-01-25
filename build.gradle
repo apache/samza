@@ -220,11 +220,12 @@ project(":samza-core_$scalaSuffix") {
 
   dependencies {
     compile project(':samza-api')
-    compile("com.101tec:zkclient:$zkClientVersion") {
+    compile("org.apache.helix:zookeeper-api:1.1.0") {
       exclude module: 'junit:junit'
       // exclude the slf4j implementation since it should be up to the application to choose the logging implementation
       exclude group: 'org.slf4j', module: 'slf4j-log4j12'
     }
+    compile 'org.xerial.snappy:snappy-java:1.1.8.4'
     compile "com.google.guava:guava:$guavaVersion"
     compile "net.sf.jopt-simple:jopt-simple:$joptSimpleVersion"
     compile "org.apache.commons:commons-collections4:$apacheCommonsCollections4Version"
@@ -434,7 +435,8 @@ project(":samza-kafka_$scalaSuffix") {
     compile project(':samza-api')
     compile project(":samza-core_$scalaSuffix")
     compile "org.scala-lang:scala-library:$scalaVersion"
-    compile "com.101tec:zkclient:$zkClientVersion"
+    compile "org.apache.helix:zookeeper-api:1.1.0"
+    compile 'org.xerial.snappy:snappy-java:1.1.8.4'
     compile "org.apache.zookeeper:zookeeper:$zookeeperVersion"
     compile "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
     compile "org.apache.kafka:kafka_$scalaSuffix:$kafkaVersion"
@@ -981,7 +983,8 @@ project(":samza-test_$scalaSuffix") {
     compile "junit:junit:$junitVersion"
     compile "org.hamcrest:hamcrest-all:$hamcrestVersion"
     testCompile "org.apache.kafka:kafka_$scalaSuffix:$kafkaVersion:test"
-    testCompile "com.101tec:zkclient:$zkClientVersion"
+    testCompile "org.apache.helix:zookeeper-api:1.1.0"
+    testCompile 'org.xerial.snappy:snappy-java:1.1.8.4'
     testCompile project(":samza-kafka_$scalaSuffix")
     testCompile "org.apache.kafka:kafka_$scalaSuffix:$kafkaVersion:test"
     testCompile "org.apache.kafka:kafka-clients:$kafkaVersion:test"

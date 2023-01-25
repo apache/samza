@@ -23,9 +23,9 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.I0Itec.zkclient.IZkDataListener;
-import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.exception.ZkNodeExistsException;
+import org.apache.helix.zookeeper.zkclient.IZkDataListener;
+import org.apache.helix.zookeeper.impl.client.ZkClient;
+import org.apache.helix.zookeeper.zkclient.exception.ZkNodeExistsException;
 import org.apache.samza.SamzaException;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.apache.samza.util.NoOpMetricsRegistry;
@@ -147,17 +147,17 @@ public class TestZkLeaderElector {
 
     // Processor-1
     ZkUtils zkUtils1 = getZkUtilsWithNewClient();
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1, null);
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
     leaderElector1.setLeaderElectorListener(() -> isLeader1.res = true);
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient();
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2, null);
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
     leaderElector2.setLeaderElectorListener(() -> isLeader2.res = true);
 
     // Processor-3
     ZkUtils zkUtils3 = getZkUtilsWithNewClient();
-    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3, null);
+    ZkLeaderElector leaderElector3 = new ZkLeaderElector("3", zkUtils3);
     leaderElector3.setLeaderElectorListener(() -> isLeader3.res = true);
 
     Assert.assertEquals(0, testZkUtils.getSortedActiveProcessorsZnodes().size());
@@ -409,12 +409,12 @@ public class TestZkLeaderElector {
     // Processor-1
 
     ZkUtils zkUtils1 = getZkUtilsWithNewClient();
-    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1, null);
+    ZkLeaderElector leaderElector1 = new ZkLeaderElector("1", zkUtils1);
     leaderElector1.setLeaderElectorListener(() -> isLeader1.res = true);
 
     // Processor-2
     ZkUtils zkUtils2 = getZkUtilsWithNewClient();
-    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2, null);
+    ZkLeaderElector leaderElector2 = new ZkLeaderElector("2", zkUtils2);
     leaderElector2.setLeaderElectorListener(() -> isLeader2.res = true);
 
     // Before Leader Election

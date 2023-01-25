@@ -27,7 +27,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
-import org.I0Itec.zkclient.ZkClient;
+import org.apache.helix.zookeeper.impl.client.ZkClient;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;

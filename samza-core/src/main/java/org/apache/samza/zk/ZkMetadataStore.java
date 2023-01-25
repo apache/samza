@@ -27,14 +27,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.CRC32;
-import org.I0Itec.zkclient.serialize.BytesPushThroughSerializer;
+import org.apache.helix.zookeeper.zkclient.serialize.BytesPushThroughSerializer;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metadatastore.MetadataStore;
 import org.apache.samza.SamzaException;
-import org.I0Itec.zkclient.ZkClient;
+import org.apache.helix.zookeeper.impl.client.ZkClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

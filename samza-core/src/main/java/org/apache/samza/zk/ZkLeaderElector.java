@@ -26,12 +26,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.I0Itec.zkclient.IZkDataListener;
+import org.apache.helix.zookeeper.zkclient.IZkDataListener;
 import org.apache.samza.SamzaException;
 import org.apache.samza.coordinator.LeaderElectorListener;
 import org.apache.samza.coordinator.LeaderElector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
 
 /**
  * <p>
@@ -69,6 +71,7 @@ public class ZkLeaderElector implements LeaderElector {
   @VisibleForTesting
   public ZkLeaderElector(String processorIdStr,
                          ZkUtils zkUtils,
+                         @Nonnull
                          IZkDataListener previousProcessorChangeListener) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;

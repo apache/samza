@@ -18,7 +18,7 @@
  */
 package org.apache.samza.zk;
 
-import org.I0Itec.zkclient.ZkClient;
+import org.apache.helix.zookeeper.impl.client.ZkClient;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.apache.samza.util.NoOpMetricsRegistry;

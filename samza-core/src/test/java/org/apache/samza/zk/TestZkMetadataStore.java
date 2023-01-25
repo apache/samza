@@ -41,7 +41,13 @@ public class TestZkMetadataStore {
 
   private static final Random RANDOM = new Random();
 
-  private static final int VALUE_SIZE_IN_BYTES = 1024  * 1024 * 10; // 10 MB
+  // In 101tec version, this constant was 1024 * 1024 * 10
+  // The limit changed to 1024 * 1000 after helix migration.
+  // A larger number would throw an exception.
+  // See: https://github.com/apache/helix/blob/654636e54268907deb2e12d32913455cc543b436/zookeeper-api/src/main/java/org/apache/helix/zookeeper/zkclient/ZkClient.java#L2386
+  // The limit can be set through a system property, but not in unit tests.
+  // https://github.com/apache/helix/blob/654636e54268907deb2e12d32913455cc543b436/zookeeper-api/src/main/java/org/apache/helix/zookeeper/zkclient/ZkClient.java#L106
+  private static final int VALUE_SIZE_IN_BYTES = 512000;
 
   private static EmbeddedZookeeper zkServer;
 
