@@ -34,7 +34,7 @@ public class BlobStoreConfig extends MapConfig {
   // -1 for RetryPolicy means unlimited retries. Retry is limited by max retry duration, rather than count of retries.
   public static final int DEFAULT_BLOB_STORE_RETRY_POLICY_MAX_RETRIES = -1;
   public static final String BLOB_STORE_RETRY_POLICY_MAX_RETRIES_DURATION_MILLIS = PREFIX + "retry.policy.max.retires.duration.millis";
-  public static final long DEFAULT_BLOB_STORE_RETRY_POLICY_MAX_RETRIES_DURATION_MILLIS = 10*60*1000; // 10 mins
+  public static final long DEFAULT_BLOB_STORE_RETRY_POLICY_MAX_RETRIES_DURATION_MILLIS = 10 * 60 * 1000; // 10 mins
   public static final String BLOB_STORE_RETRY_POLICY_BACKOFF_DELAY_MILLIS = PREFIX + "retry.policy.backoff.delay.millis";
   public static final long DEFAULT_BLOB_STORE_RETRY_POLICY_BACKOFF_DELAY_MILLIS = 100;
   public static final String BLOB_STORE_RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS = PREFIX + "retry.policy.backoff.max.delay.millis";

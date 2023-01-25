@@ -160,8 +160,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @VisibleForTesting
   protected BlobStoreUtil createBlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
-      BlobStoreConfig blobStoreConfig,BlobStoreRestoreManagerMetrics metrics) {
-    return new BlobStoreUtil(blobStoreManager, executor, blobStoreConfig,null, metrics);
+      BlobStoreConfig blobStoreConfig, BlobStoreRestoreManagerMetrics metrics) {
+    return new BlobStoreUtil(blobStoreManager, executor, blobStoreConfig, null, metrics);
   }
 
   /**
