@@ -33,8 +33,6 @@ import org.apache.samza.coordinator.LeaderElector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
-
 /**
  * <p>
  * An implementation of Leader Elector using Zookeeper.
@@ -71,7 +69,6 @@ public class ZkLeaderElector implements LeaderElector {
   @VisibleForTesting
   public ZkLeaderElector(String processorIdStr,
                          ZkUtils zkUtils,
-                         @Nonnull
                          IZkDataListener previousProcessorChangeListener) {
     this.processorIdStr = processorIdStr;
     this.zkUtils = zkUtils;
