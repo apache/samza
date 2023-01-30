@@ -19,6 +19,8 @@
 
 package org.apache.samza.logging.log4j2;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.samza.system.StreamSpec;
@@ -30,6 +32,7 @@ import org.apache.samza.system.SystemStreamPartition;
 
 public class MockSystemAdmin implements SystemAdmin {
   public static StreamSpec createdStreamSpec = null;
+  public static List<MockSystemAdmin.MockSystemAdminListener> listeners = new ArrayList<>();
 
   @Override
   public void start() {
@@ -59,6 +62,7 @@ public class MockSystemAdmin implements SystemAdmin {
   @Override
   public boolean createStream(StreamSpec streamSpec) {
     createdStreamSpec = streamSpec;
+    listeners.forEach(listener -> listener.onCreate(streamSpec));
     return true;
   }
 
@@ -70,5 +74,9 @@ public class MockSystemAdmin implements SystemAdmin {
   @Override
   public boolean clearStream(StreamSpec streamSpec) {
     return false;
+  }
+
+  public interface MockSystemAdminListener {
+    void onCreate(StreamSpec streamSpec);
   }
 }

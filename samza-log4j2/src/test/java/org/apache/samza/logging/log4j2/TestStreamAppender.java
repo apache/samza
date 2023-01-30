@@ -58,6 +58,8 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import static java.lang.Thread.sleep;
+import static org.apache.samza.logging.log4j2.StreamAppender.SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -406,6 +408,46 @@ public class TestStreamAppender {
     streamAppender.stop();
   }
 
+  @Test
+  public void testSetupStreamTimeout() throws InterruptedException {
+    System.setProperty("samza.container.name", "samza-container-1");
+    MapConfig mapConfig = new MapConfig(new ImmutableMap.Builder<String, String>()
+        .put("task.log4j.create.stream.enabled", "true") // Enable explicit stream creation
+        .put("job.name", "log4jTest")
+        .put("job.id", "1")
+        .put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName())
+        .put("task.log4j.system", "mock")
+        .put("job.container.count", "4")
+        .build());
+    when(this.loggingContextHolder.getConfig()).thenReturn(mapConfig);
+    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
+    startAndAttachAppender(streamAppender);
+    SetupSystemTimeoutAndVerifyMessages(SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS);
+    streamAppender.stop();
+  }
+
+  @Test
+  public void testSetupStreamNoTimeout() throws InterruptedException {
+    System.setProperty("samza.container.name", "samza-container-2");
+    MapConfig mapConfig = new MapConfig(new ImmutableMap.Builder<String, String>()
+        .put("task.log4j.create.stream.enabled", "true") // Enable explicit stream creation
+        .put("job.name", "log4jTest")
+        .put("job.id", "1")
+        .put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName())
+        .put("task.log4j.system", "mock")
+        .put("job.container.count", "4")
+        .build());
+    when(this.loggingContextHolder.getConfig()).thenReturn(mapConfig);
+    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
+    startAndAttachAppender(streamAppender);
+    SetupSystemTimeoutAndVerifyMessages(SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS / 2);
+    streamAppender.stop();
+  }
+
   private void logConcurrentlyAndVerifyMessages(List<String> messages) throws InterruptedException {
     // Set up latch
     final CountDownLatch allMessagesSent = new CountDownLatch(messages.size());
@@ -442,6 +484,36 @@ public class TestStreamAppender {
 
     // Verify
     assertEquals(messages.size(), MockSystemProducer.messagesReceived.size());
+  }
+
+  private void SetupSystemTimeoutAndVerifyMessages(long setUpSystemTime) throws InterruptedException {
+    MockSystemProducer.listeners.clear();
+    MockSystemAdmin.listeners.clear();
+    List<String> messages = Lists.newArrayList("testing1", "testing2");
+    // Set up latch
+    final CountDownLatch allMessagesSent = new CountDownLatch(messages.size());
+    MockSystemProducer.listeners.add((source, envelope) -> allMessagesSent.countDown());
+    MockSystemAdmin.listeners.add(streamSpec -> {
+      try {
+        // mock setUpSystem time during createStream() call
+        sleep(setUpSystemTime);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    });
+    ExecutorService service0 = Executors.newFixedThreadPool(1);
+    ExecutorService service1 = Executors.newFixedThreadPool(1);
+    // Log the messages with two threads
+    service0.submit(()->LOG.info(messages.get(0)));
+    service1.submit(()->LOG.info(messages.get(1)));
+    // Wait for messages
+    allMessagesSent.await(setUpSystemTime * 4, TimeUnit.MILLISECONDS);
+    // If the setUpSystem time out, verify only one message sent. otherwise, verify two messages sent
+    if (setUpSystemTime >= SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS) {
+      assertEquals(messages.size() - 1, MockSystemProducer.messagesReceived.size());
+    } else {
+      assertEquals(messages.size(), MockSystemProducer.messagesReceived.size());
+    }
   }
 
   private static Config baseConfig() {
