@@ -19,7 +19,7 @@
 package org.apache.samza.zk;
 
 import com.google.common.collect.ImmutableList;
-import org.I0Itec.zkclient.ZkClient;
+import org.apache.helix.zookeeper.impl.client.ZkClient;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.samza.config.ZkConfig;
 import org.apache.samza.testUtils.EmbeddedZookeeper;

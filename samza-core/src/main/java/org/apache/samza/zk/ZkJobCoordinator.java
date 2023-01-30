@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.I0Itec.zkclient.IZkStateListener;
+import org.apache.helix.zookeeper.zkclient.IZkStateListener;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -804,7 +804,6 @@ public class ZkJobCoordinator implements JobCoordinator {
       }
     }
 
-    @Override
     public void handleNewSession() {
       zkSessionMetrics.zkNewSessions.inc();
       LOG.info("Got new session created event for processor=" + processorId);
@@ -812,6 +811,12 @@ public class ZkJobCoordinator implements JobCoordinator {
       LOG.info("register zk controller for the new session");
       leaderElector.tryBecomeLeader();
       zkUtils.subscribeToJobModelVersionChange(new ZkJobModelVersionChangeHandler(zkUtils));
+    }
+
+    @Override
+    public void handleNewSession(final String sessionId) {
+      LOG.info("Handling new session with sessionId=" + sessionId);
+      handleNewSession();
     }
 
     @Override

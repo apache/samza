@@ -20,8 +20,8 @@
 package org.apache.samza.zk;
 
 import com.google.common.base.Strings;
-import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
+import org.apache.helix.zookeeper.impl.client.ZkClient;
+import org.apache.helix.zookeeper.zkclient.ZkConnection;
 import org.apache.samza.SamzaException;
 import org.apache.samza.testUtils.EmbeddedZookeeper;
 import org.junit.AfterClass;

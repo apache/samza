@@ -19,8 +19,8 @@
 package org.apache.samza.zk;
 
 import java.io.UnsupportedEncodingException;
-import org.I0Itec.zkclient.exception.ZkMarshallingError;
-import org.I0Itec.zkclient.serialize.ZkSerializer;
+import org.apache.helix.zookeeper.zkclient.exception.ZkMarshallingError;
+import org.apache.helix.zookeeper.zkclient.serialize.ZkSerializer;
 
 
 public class ZkStringSerializer implements ZkSerializer {

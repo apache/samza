@@ -30,11 +30,11 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.BooleanSupplier;
 import com.google.common.collect.ImmutableList;
-import org.I0Itec.zkclient.IZkDataListener;
-import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.ZkConnection;
-import org.I0Itec.zkclient.exception.ZkInterruptedException;
-import org.I0Itec.zkclient.exception.ZkNodeExistsException;
+import org.apache.helix.zookeeper.zkclient.IZkDataListener;
+import org.apache.helix.zookeeper.impl.client.ZkClient;
+import org.apache.helix.zookeeper.zkclient.ZkConnection;
+import org.apache.helix.zookeeper.zkclient.exception.ZkInterruptedException;
+import org.apache.helix.zookeeper.zkclient.exception.ZkNodeExistsException;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.MapConfig;
@@ -52,6 +52,10 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.rules.Timeout;
 import org.mockito.Mockito;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 public class TestZkUtils {
   private static EmbeddedZookeeper zkServer = null;
@@ -522,7 +526,7 @@ public class TestZkUtils {
 
   @Test
   public void testCloseShouldRetryOnceOnInterruptedException() {
-    ZkClient zkClient = Mockito.mock(ZkClient.class);
+    ZkClient zkClient = mock(ZkClient.class);
     ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
 
     Mockito.doThrow(new ZkInterruptedException(new InterruptedException()))
@@ -538,7 +542,7 @@ public class TestZkUtils {
   public void testCloseShouldTearDownZkConnectionOnInterruptedException() throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     // Establish connection with the zookeeper server.
-    ZkClient zkClient = new ZkClient("127.0.0.1:" + zkServer.getPort());
+    ZkClient zkClient = mock(ZkClient.class);
     ZkUtils zkUtils = new ZkUtils(KEY_BUILDER, zkClient, CONNECTION_TIMEOUT_MS, SESSION_TIMEOUT_MS, new NoOpMetricsRegistry());
 
     Thread threadToInterrupt = new Thread(() -> {
@@ -552,14 +556,9 @@ public class TestZkUtils {
 
     threadToInterrupt.start();
 
-    Field field = ZkClient.class.getDeclaredField("_closed");
-    field.setAccessible(true);
-
-    Assert.assertFalse(field.getBoolean(zkClient));
-
     threadToInterrupt.interrupt();
     threadToInterrupt.join();
 
-    Assert.assertTrue(field.getBoolean(zkClient));
+    verify(zkClient, times(1)).close();
   }
 }
