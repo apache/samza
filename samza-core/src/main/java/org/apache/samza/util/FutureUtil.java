@@ -36,7 +36,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.samza.config.BlobStoreConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
