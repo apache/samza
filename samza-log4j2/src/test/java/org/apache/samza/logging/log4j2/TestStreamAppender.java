@@ -424,7 +424,7 @@ public class TestStreamAppender {
     StreamAppender streamAppender =
         new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
     startAndAttachAppender(streamAppender);
-    SetupSystemTimeoutAndVerifyMessages(SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS);
+    setupSystemTimeoutAndVerifyMessages(SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS * 2);
     streamAppender.stop();
   }
 
@@ -444,7 +444,27 @@ public class TestStreamAppender {
     StreamAppender streamAppender =
         new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
     startAndAttachAppender(streamAppender);
-    SetupSystemTimeoutAndVerifyMessages(SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS / 2);
+    setupSystemTimeoutAndVerifyMessages(SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS / 2);
+    streamAppender.stop();
+  }
+
+  @Test
+  public void testSetupStreamException() throws InterruptedException {
+    System.setProperty("samza.container.name", "samza-container-2");
+    MapConfig mapConfig = new MapConfig(new ImmutableMap.Builder<String, String>()
+        .put("task.log4j.create.stream.enabled", "true") // Enable explicit stream creation
+        .put("job.name", "log4jTest")
+        .put("job.id", "1")
+        .put("systems.mock.samza.factory", MockSystemFactory.class.getCanonicalName())
+        .put("task.log4j.system", "mock")
+        .put("job.container.count", "4")
+        .build());
+    when(this.loggingContextHolder.getConfig()).thenReturn(mapConfig);
+    PatternLayout layout = PatternLayout.newBuilder().withPattern("%m").build();
+    StreamAppender streamAppender =
+        new StreamAppender("testName", null, layout, false, true, null, this.loggingContextHolder);
+    startAndAttachAppender(streamAppender);
+    setupSystemExceptionAndVerifyMessages();
     streamAppender.stop();
   }
 
@@ -486,8 +506,9 @@ public class TestStreamAppender {
     assertEquals(messages.size(), MockSystemProducer.messagesReceived.size());
   }
 
-  private void SetupSystemTimeoutAndVerifyMessages(long setUpSystemTime) throws InterruptedException {
+  private void setupSystemTimeoutAndVerifyMessages(long setUpSystemTime) throws InterruptedException {
     MockSystemProducer.listeners.clear();
+    MockSystemProducer.messagesReceived.clear();
     MockSystemAdmin.listeners.clear();
     List<String> messages = Lists.newArrayList("testing1", "testing2");
     // Set up latch
@@ -495,17 +516,15 @@ public class TestStreamAppender {
     MockSystemProducer.listeners.add((source, envelope) -> allMessagesSent.countDown());
     MockSystemAdmin.listeners.add(streamSpec -> {
       try {
+        // This log should not be sent to system producer as it is logged recursively
+        LOG.info("setting up stream");
         // mock setUpSystem time during createStream() call
         sleep(setUpSystemTime);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }
     });
-    ExecutorService service0 = Executors.newFixedThreadPool(1);
-    ExecutorService service1 = Executors.newFixedThreadPool(1);
-    // Log the messages with two threads
-    service0.submit(()->LOG.info(messages.get(0)));
-    service1.submit(()->LOG.info(messages.get(1)));
+    logMessagesConcurrentlyWithRandomOrder(messages);
     // Wait for messages
     allMessagesSent.await(setUpSystemTime * 4, TimeUnit.MILLISECONDS);
     // If the setUpSystem time out, verify only one message sent. otherwise, verify two messages sent
@@ -513,6 +532,48 @@ public class TestStreamAppender {
       assertEquals(messages.size() - 1, MockSystemProducer.messagesReceived.size());
     } else {
       assertEquals(messages.size(), MockSystemProducer.messagesReceived.size());
+    }
+  }
+
+  private void setupSystemExceptionAndVerifyMessages() throws InterruptedException {
+    MockSystemProducer.listeners.clear();
+    MockSystemProducer.messagesReceived.clear();
+    MockSystemAdmin.listeners.clear();
+    List<String> messages = Lists.newArrayList("testing1", "testing2");
+    // Set up latch
+    final CountDownLatch allMessagesSent = new CountDownLatch(messages.size());
+    MockSystemProducer.listeners.add((source, envelope) -> allMessagesSent.countDown());
+    MockSystemAdmin.listeners.add(streamSpec -> {
+      // This log should not be sent to system producer as it is logged recursively
+      LOG.info("setting up stream");
+      throw new RuntimeException("Exception during setting up stream");
+    });
+    logMessagesConcurrentlyWithRandomOrder(messages);
+    // Wait for messages
+    allMessagesSent.await(SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS * 2, TimeUnit.MILLISECONDS);
+    // verify no messages sent
+    assertEquals(0, MockSystemProducer.messagesReceived.size());
+  }
+
+  private void logMessagesConcurrentlyWithRandomOrder(List<String> messages) {
+    List<ExecutorService> executorServices = new ArrayList<>();
+    for (int i = 0; i < messages.size(); i++) {
+      executorServices.add(Executors.newFixedThreadPool(1));
+    }
+    for (int i = 0; i < messages.size(); i++) {
+      // Log the messages with multiple threads, ensure that each message will be handled by one thread.
+      // the threads will sleep a random time so the logging order is random
+      // The sleep time should be Incomparable smaller than SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS to make sure that the threads
+      // do try to acquire the lock of setUpSystem concurrently
+      String message = messages.get(i);
+      executorServices.get(i).submit(() -> {
+        try {
+          sleep((long) (Math.random() * SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS / 20));
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+        LOG.info(message);
+      });
     }
   }
 
