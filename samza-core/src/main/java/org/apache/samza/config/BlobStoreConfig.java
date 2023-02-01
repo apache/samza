@@ -45,7 +45,7 @@ public class BlobStoreConfig extends MapConfig {
   public static final String RETRY_POLICY_BACKOFF_DELAY_FACTOR = RETRY_POLICY_PREFIX + "backoff.delay.factor";
   public static final int DEFAULT_RETRY_POLICY_BACKOFF_DELAY_FACTOR = 5;
   public static final String RETRY_POLICY_JITTER_FACTOR =  RETRY_POLICY_PREFIX + "jitter.factor";
-  // random retry delay between -100 to 100 millisecond
+  // random retry delay between -0.1*retry-delay to 0.1*retry-delay
   public static final double DEFAULT_RETRY_POLICY_JITTER_FACTOR = 0.1;
 
   public BlobStoreConfig(Config config) {
@@ -60,34 +60,14 @@ public class BlobStoreConfig extends MapConfig {
     return get(BLOB_STORE_ADMIN_FACTORY);
   }
 
-  public int getRetryPolicyMaxRetries() {
-    return getInt(RETRY_POLICY_MAX_RETRIES, DEFAULT_RETRY_POLICY_MAX_RETRIES);
-  }
-
-  public long getRetryPolicyMaxRetriesDurationMillis() {
-    return getLong(RETRY_POLICY_MAX_RETRY_DURATION_MILLIS, DEFAULT_RETRY_POLICY_MAX_RETRY_DURATION_MILLIS);
-  }
-
-  public long getRetryPolicyBackoffDelayMillis() {
-    return getLong(RETRY_POLICY_BACKOFF_DELAY_MILLIS, DEFAULT_RETRY_POLICY_BACKOFF_DELAY_MILLIS);
-  }
-
-  public long getRetryPolicyBackoffMaxDelayMillis() {
-    return getLong(RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS, DEFAULT_RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS);
-  }
-
-  public int getRetryPolicyBackoffDelayFactor() {
-    return getInt(RETRY_POLICY_BACKOFF_DELAY_FACTOR, DEFAULT_RETRY_POLICY_BACKOFF_DELAY_FACTOR);
-  }
-
-  public double getRetryPolicyJitterFactor() {
-    return getDouble(RETRY_POLICY_JITTER_FACTOR, DEFAULT_RETRY_POLICY_JITTER_FACTOR);
-  }
-
   public RetryPolicyConfig getRetryPolicyConfig() {
-    RetryPolicyConfig retryPolicyConfig = new RetryPolicyConfig(getRetryPolicyMaxRetries(),
-        getRetryPolicyMaxRetriesDurationMillis(), getRetryPolicyJitterFactor(), getRetryPolicyBackoffDelayMillis(),
-        getRetryPolicyBackoffMaxDelayMillis(), getRetryPolicyBackoffDelayFactor(), ChronoUnit.MILLIS);
+    RetryPolicyConfig retryPolicyConfig =
+        new RetryPolicyConfig(getInt(RETRY_POLICY_MAX_RETRIES, DEFAULT_RETRY_POLICY_MAX_RETRIES),
+            getLong(RETRY_POLICY_MAX_RETRY_DURATION_MILLIS, DEFAULT_RETRY_POLICY_MAX_RETRY_DURATION_MILLIS),
+            getDouble(RETRY_POLICY_JITTER_FACTOR, DEFAULT_RETRY_POLICY_JITTER_FACTOR),
+            getLong(RETRY_POLICY_BACKOFF_DELAY_MILLIS, DEFAULT_RETRY_POLICY_BACKOFF_DELAY_MILLIS),
+            getLong(RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS, DEFAULT_RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS),
+            getInt(RETRY_POLICY_BACKOFF_DELAY_FACTOR, DEFAULT_RETRY_POLICY_BACKOFF_DELAY_FACTOR), ChronoUnit.MILLIS);
     return retryPolicyConfig;
   }
 }
