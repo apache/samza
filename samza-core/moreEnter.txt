@@ -1,5 +1,0 @@
-first line 
-second line 
-third line 
-other lines 
-This is a new line
