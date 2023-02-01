@@ -19,11 +19,9 @@
 
 package org.apache.samza.util;
 
+import java.time.Duration;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
-
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -143,31 +141,21 @@ public class FutureUtil {
 
   public static <T> CompletableFuture<T> executeAsyncWithRetries(String opName,
       Supplier<? extends CompletionStage<T>> action, Predicate<? extends Throwable> abortRetries,
-      ExecutorService executor) {
-    Duration maxDuration = Duration.ofMinutes(10);
+      ExecutorService executor, RetryPolicyConfig retryPolicyConfig) {
 
     RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
-        .withMaxRetries(-1) // Sets maximum retry to unlimited from default of 3 attempts. Retries are now limited by max duration and not retry counts.
-        .withBackoff(100, 312500, ChronoUnit.MILLIS, 5) // 100 ms, 500 ms, 2500 ms, 12.5 s, 1.05 min, 5.20 min, 5.20 min
-        .withMaxDuration(maxDuration)
-        .withJitter(Duration.ofMillis(100))
-        .abortOn(abortRetries) // stop retrying if predicate returns true
+        .withMaxRetries(retryPolicyConfig.getMaxRetries())
+        .withBackoff(retryPolicyConfig.getBackoffDelay(),
+            retryPolicyConfig.getBackoffMaxDelay(), retryPolicyConfig.getUnit(),
+            retryPolicyConfig.getBackoffDelayFactor())
+        .withMaxDuration(Duration.ofMillis(retryPolicyConfig.getMaxDuration()))
+        .withJitter(retryPolicyConfig.getJitterFactor())
+        .abortOn(abortRetries)
         .onRetry(e -> LOG.warn("Action: {} attempt: {} completed with error {} ms after start. Retrying up to {} ms.",
-            opName, e.getAttemptCount(), e.getElapsedTime().toMillis(), maxDuration.toMillis(), e.getLastFailure()));
+            opName, e.getAttemptCount(), e.getElapsedTime().toMillis(), retryPolicyConfig.getMaxDuration(),
+            e.getLastFailure()));;
 
-    return executeAsyncWithRetries(opName, action, abortRetries, executor, retryPolicy);
-  }
-
-  public static <T> CompletableFuture<T> executeAsyncWithRetries(String opName,
-      Supplier<? extends CompletionStage<T>> action, Predicate<? extends Throwable> abortRetries,
-      ExecutorService executor, RetryPolicy<Object> retryPolicy) {
-
-    RetryPolicy<Object> retryPolicyWithLog = retryPolicy.abortOn(abortRetries)
-        .onRetry(e -> LOG.warn("Action: {} attempt: {} completed with error {} ms after start. Retrying up to {} ms.",
-            opName, e.getAttemptCount(), e.getElapsedTime().toMillis(), retryPolicy.getMaxDuration().toMillis(),
-            e.getLastFailure()));
-
-    return Failsafe.with(retryPolicyWithLog).with(executor).getStageAsync(action::get);
+    return Failsafe.with(retryPolicy).with(executor).getStageAsync(action::get);
   }
 
   public static <T> CompletableFuture<T> failedFuture(Throwable t) {

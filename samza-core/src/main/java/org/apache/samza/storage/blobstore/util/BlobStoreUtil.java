@@ -31,8 +31,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -50,7 +48,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
-import net.jodah.failsafe.RetryPolicy;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
@@ -73,6 +70,7 @@ import org.apache.samza.storage.blobstore.index.serde.SnapshotIndexSerde;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
 import org.apache.samza.util.FutureUtil;
+import org.apache.samza.util.RetryPolicyConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,7 +88,7 @@ public class BlobStoreUtil {
   private final BlobStoreBackupManagerMetrics backupMetrics;
   private final BlobStoreRestoreManagerMetrics restoreMetrics;
   private final SnapshotIndexSerde snapshotIndexSerde;
-  private final RetryPolicy<Object> retryPolicy;
+  private final RetryPolicyConfig retryPolicyConfig;
 
   public BlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor, BlobStoreConfig blobStoreConfig,
       BlobStoreBackupManagerMetrics backupMetrics, BlobStoreRestoreManagerMetrics restoreMetrics) {
@@ -100,7 +98,7 @@ public class BlobStoreUtil {
     this.backupMetrics = backupMetrics;
     this.restoreMetrics = restoreMetrics;
     this.snapshotIndexSerde = new SnapshotIndexSerde();
-    this.retryPolicy = buildRetryPolicyFromConfig();
+    this.retryPolicyConfig = this.blobStoreConfig.getRetryPolicyConfig();
   }
 
   /**
@@ -191,7 +189,7 @@ public class BlobStoreUtil {
       ByteArrayOutputStream indexBlobStream = new ByteArrayOutputStream(); // no need to close ByteArrayOutputStream
       return blobStoreManager.get(blobId, indexBlobStream, metadata).toCompletableFuture()
           .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor);
-    }, isCauseNonRetriable(), executor, retryPolicy);
+    }, isCauseNonRetriable(), executor, retryPolicyConfig);
   }
 
   /**
@@ -209,7 +207,7 @@ public class BlobStoreUtil {
           snapshotMetadata.getJobName(), snapshotMetadata.getJobId(), snapshotMetadata.getTaskName(),
           snapshotMetadata.getStoreName());
       return blobStoreManager.put(inputStream, metadata).toCompletableFuture();
-    }, isCauseNonRetriable(), executor, retryPolicy);
+    }, isCauseNonRetriable(), executor, retryPolicyConfig);
   }
 
   /**
@@ -225,7 +223,7 @@ public class BlobStoreUtil {
     LOG.debug("Deleting SnapshotIndex blob: {} from blob store", snapshotIndexBlobId);
     String opName = "deleteSnapshotIndexBlob: " + snapshotIndexBlobId;
     return FutureUtil.executeAsyncWithRetries(opName, () ->
-        blobStoreManager.delete(snapshotIndexBlobId, metadata).toCompletableFuture(), isCauseNonRetriable(), executor, retryPolicy);
+        blobStoreManager.delete(snapshotIndexBlobId, metadata).toCompletableFuture(), isCauseNonRetriable(), executor, retryPolicyConfig);
   }
 
   /**
@@ -258,7 +256,7 @@ public class BlobStoreUtil {
       String opName = "restoreFile: " + fileToRestore.getAbsolutePath();
       CompletableFuture<Void> fileRestoreFuture =
           FutureUtil.executeAsyncWithRetries(opName, () -> getFile(fileBlobs, fileToRestore, requestMetadata),
-              isCauseNonRetriable(), executor, retryPolicy);
+              isCauseNonRetriable(), executor, retryPolicyConfig);
       downloadFutures.add(fileRestoreFuture);
     }
 
@@ -530,7 +528,7 @@ public class BlobStoreUtil {
       return fileBlobFuture;
     };
 
-    return FutureUtil.executeAsyncWithRetries(opName, fileUploadAction, isCauseNonRetriable(), executor, retryPolicy)
+    return FutureUtil.executeAsyncWithRetries(opName, fileUploadAction, isCauseNonRetriable(), executor, retryPolicyConfig)
         .whenComplete((res, ex) -> {
           if (backupMetrics != null) {
             backupMetrics.avgFileUploadNs.update(System.nanoTime() - putFileStartTime);
@@ -560,7 +558,7 @@ public class BlobStoreUtil {
       Supplier<CompletionStage<Void>> fileDeletionAction = () ->
           blobStoreManager.delete(fileBlob.getBlobId(), metadata).toCompletableFuture();
       CompletableFuture<Void> fileDeletionFuture =
-          FutureUtil.executeAsyncWithRetries(opName, fileDeletionAction, isCauseNonRetriable(), executor, retryPolicy);
+          FutureUtil.executeAsyncWithRetries(opName, fileDeletionAction, isCauseNonRetriable(), executor, retryPolicyConfig);
       deleteFutures.add(fileDeletionFuture);
     }
 
@@ -597,7 +595,7 @@ public class BlobStoreUtil {
         Supplier<CompletionStage<Void>> ttlRemovalAction = () ->
             blobStoreManager.removeTTL(fileBlob.getBlobId(), requestMetadata).toCompletableFuture();
         CompletableFuture<Void> ttlRemovalFuture =
-            FutureUtil.executeAsyncWithRetries(opname, ttlRemovalAction, isCauseNonRetriable(), executor, retryPolicy);
+            FutureUtil.executeAsyncWithRetries(opname, ttlRemovalAction, isCauseNonRetriable(), executor, retryPolicyConfig);
         updateTTLsFuture.add(ttlRemovalFuture);
       }
     }
@@ -621,13 +619,13 @@ public class BlobStoreUtil {
     Supplier<CompletionStage<Void>> removeDirIndexTTLAction =
       () -> removeTTL(snapshotIndex.getDirIndex(), metadata).toCompletableFuture();
     CompletableFuture<Void> dirIndexTTLRemovalFuture =
-        FutureUtil.executeAsyncWithRetries(opName, removeDirIndexTTLAction, isCauseNonRetriable(), executor, retryPolicy);
+        FutureUtil.executeAsyncWithRetries(opName, removeDirIndexTTLAction, isCauseNonRetriable(), executor, retryPolicyConfig);
 
     return dirIndexTTLRemovalFuture.thenComposeAsync(aVoid -> {
       String op2Name = "removeTTL for indexBlobId: " + indexBlobId;
       Supplier<CompletionStage<Void>> removeIndexBlobTTLAction =
         () -> blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
-      return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor, retryPolicy);
+      return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor, retryPolicyConfig);
     }, executor);
   }
 
@@ -636,16 +634,5 @@ public class BlobStoreUtil {
       Throwable unwrapped = FutureUtil.unwrapExceptions(CompletionException.class, throwable);
       return unwrapped != null && !RetriableException.class.isAssignableFrom(unwrapped.getClass());
     };
-  }
-
-  private RetryPolicy<Object> buildRetryPolicyFromConfig() {
-    RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
-        .withMaxRetries(blobStoreConfig.getRetryPolicyMaxRetries())
-        .withBackoff(blobStoreConfig.getRetryPolicyBackoffDelayMillis(),
-            blobStoreConfig.getRetryPolicyBackoffMaxDelayMillis(), ChronoUnit.MILLIS,
-            blobStoreConfig.getRetryPolicyBackoffDelayFactor())
-        .withMaxDuration(Duration.ofMinutes(blobStoreConfig.getRetryPolicyMaxRetriesDurationMillis()))
-        .withJitter(Duration.ofMillis(blobStoreConfig.getRetryPolicyJitterFactorMillis()));
-    return retryPolicy;
   }
 }

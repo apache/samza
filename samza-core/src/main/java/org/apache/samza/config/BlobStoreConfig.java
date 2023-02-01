@@ -19,6 +19,10 @@
 
 package org.apache.samza.config;
 
+import java.time.temporal.ChronoUnit;
+import org.apache.samza.util.RetryPolicyConfig;
+
+
 /**
  * Config related helper methods for BlobStore.
  */
@@ -33,16 +37,16 @@ public class BlobStoreConfig extends MapConfig {
   // -1 for RetryPolicy means unlimited retries. Retry is limited by max retry duration, rather than count of retries.
   public static final int DEFAULT_RETRY_POLICY_MAX_RETRIES = -1;
   public static final String RETRY_POLICY_MAX_RETRY_DURATION_MILLIS = RETRY_POLICY_PREFIX + "max.retry.duration.millis";
-  public static final long DEFAULT_RETRY_POLICY_MAX_RETRY_DURATION_MILLIS = 10 * 60 * 1000; // 10 mins
+  public static final long DEFAULT_RETRY_POLICY_MAX_RETRY_DURATION_MILLIS = 15 * 60 * 1000; // 15 mins
   public static final String RETRY_POLICY_BACKOFF_DELAY_MILLIS = RETRY_POLICY_PREFIX + "backoff.delay.millis";
   public static final long DEFAULT_RETRY_POLICY_BACKOFF_DELAY_MILLIS = 100;
   public static final String RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS = RETRY_POLICY_PREFIX + "backoff.max.delay.millis";
   public static final long DEFAULT_RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS = 312500;
   public static final String RETRY_POLICY_BACKOFF_DELAY_FACTOR = RETRY_POLICY_PREFIX + "backoff.delay.factor";
   public static final int DEFAULT_RETRY_POLICY_BACKOFF_DELAY_FACTOR = 5;
-  public static final String RETRY_POLICY_JITTER_FACTOR_MILLIS =  RETRY_POLICY_PREFIX + "jitter.factor.millis";
+  public static final String RETRY_POLICY_JITTER_FACTOR =  RETRY_POLICY_PREFIX + "jitter.factor";
   // random retry delay between -100 to 100 millisecond
-  public static final long DEFAULT_RETRY_POLICY_JITTER_FACTOR_MILLIS = 100;
+  public static final double DEFAULT_RETRY_POLICY_JITTER_FACTOR = 0.1;
 
   public BlobStoreConfig(Config config) {
     super(config);
@@ -76,7 +80,14 @@ public class BlobStoreConfig extends MapConfig {
     return getInt(RETRY_POLICY_BACKOFF_DELAY_FACTOR, DEFAULT_RETRY_POLICY_BACKOFF_DELAY_FACTOR);
   }
 
-  public long getRetryPolicyJitterFactorMillis() {
-    return getLong(RETRY_POLICY_JITTER_FACTOR_MILLIS, DEFAULT_RETRY_POLICY_JITTER_FACTOR_MILLIS);
+  public double getRetryPolicyJitterFactor() {
+    return getDouble(RETRY_POLICY_JITTER_FACTOR, DEFAULT_RETRY_POLICY_JITTER_FACTOR);
+  }
+
+  public RetryPolicyConfig getRetryPolicyConfig() {
+    RetryPolicyConfig retryPolicyConfig = new RetryPolicyConfig(getRetryPolicyMaxRetries(),
+        getRetryPolicyMaxRetriesDurationMillis(), getRetryPolicyJitterFactor(), getRetryPolicyBackoffDelayMillis(),
+        getRetryPolicyBackoffMaxDelayMillis(), getRetryPolicyBackoffDelayFactor(), ChronoUnit.MILLIS);
+    return retryPolicyConfig;
   }
 }
