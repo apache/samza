@@ -107,7 +107,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
     this.blobStoreConfig = new BlobStoreConfig(config);
     this.storageManagerUtil = storageManagerUtil;
     this.blobStoreManager = blobStoreManager;
-    this.blobStoreUtil = createBlobStoreUtil(blobStoreManager, executor, metrics);
+    this.blobStoreUtil = createBlobStoreUtil(blobStoreManager, executor, blobStoreConfig, metrics);
     this.dirDiffUtil = new DirDiffUtil();
     this.prevStoreSnapshotIndexes = new HashMap<>();
     this.loggedBaseDir = loggedBaseDir;
@@ -160,8 +160,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @VisibleForTesting
   protected BlobStoreUtil createBlobStoreUtil(BlobStoreManager blobStoreManager, ExecutorService executor,
-      BlobStoreRestoreManagerMetrics metrics) {
-    return new BlobStoreUtil(blobStoreManager, executor, null, metrics);
+      BlobStoreConfig blobStoreConfig, BlobStoreRestoreManagerMetrics metrics) {
+    return new BlobStoreUtil(blobStoreManager, executor, blobStoreConfig, null, metrics);
   }
 
   /**

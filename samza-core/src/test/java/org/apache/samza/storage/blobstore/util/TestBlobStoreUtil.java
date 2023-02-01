@@ -62,6 +62,8 @@ import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.config.BlobStoreConfig;
+import org.apache.samza.config.MapConfig;
 import org.apache.samza.storage.blobstore.BlobStoreManager;
 import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
 import org.apache.samza.storage.blobstore.Metadata;
@@ -93,6 +95,7 @@ public class TestBlobStoreUtil {
   private final String jobId = "jobId";
   private final String taskName = "taskName";
   private final String storeName = "storeName";
+  private final BlobStoreConfig blobStoreConfig = new BlobStoreConfig(new MapConfig());
   private final Metadata metadata =
       new Metadata("payload-path", Optional.empty(), jobName, jobId, taskName, storeName);
 
@@ -132,7 +135,7 @@ public class TestBlobStoreUtil {
         });
 
     // Execute
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     CompletionStage<DirIndex> dirIndexFuture = blobStoreUtil.putDir(dirDiff, snapshotMetadata);
     DirIndex dirIndex = null;
     try {
@@ -185,7 +188,7 @@ public class TestBlobStoreUtil {
         });
 
     // Execute
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     CompletionStage<DirIndex> dirIndexFuture = blobStoreUtil.putDir(dirDiff, snapshotMetadata);
     try {
       // should be already complete. if not, future composition in putDir is broken.
@@ -232,7 +235,7 @@ public class TestBlobStoreUtil {
         });
 
     // Execute
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     CompletionStage<DirIndex> dirIndexFuture = blobStoreUtil.putDir(dirDiff, snapshotMetadata);
     try {
       // should be already complete. if not, future composition in putDir is broken.
@@ -268,7 +271,7 @@ public class TestBlobStoreUtil {
     DirDiff dirDiff = DirDiffUtil.getDirDiff(localSnapshotDir.toFile(), remoteSnapshotDir,
       (localFile, remoteFile) -> localFile.getName().equals(remoteFile.getFileName()));
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     when(blobStoreManager.put(any(InputStream.class), any(Metadata.class)))
         .thenReturn(CompletableFuture.completedFuture("blobId"));
     CompletionStage<DirIndex> dirIndexFuture = blobStoreUtil.putDir(dirDiff, snapshotMetadata);
@@ -321,7 +324,7 @@ public class TestBlobStoreUtil {
     DirDiff dirDiff = DirDiffUtil.getDirDiff(localSnapshotDir.toFile(), remoteSnapshotDir,
       (localFile, remoteFile) -> localFile.getName().equals(remoteFile.getFileName()));
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     when(blobStoreManager.put(any(InputStream.class), any(Metadata.class)))
         .thenReturn(CompletableFuture.completedFuture("blobId"));
     CompletionStage<DirIndex> dirIndexFuture = blobStoreUtil.putDir(dirDiff, snapshotMetadata);
@@ -381,7 +384,7 @@ public class TestBlobStoreUtil {
     DirDiff dirDiff = DirDiffUtil.getDirDiff(localSnapshotDir.toFile(), remoteSnapshotDir,
       (localFile, remoteFile) -> localFile.getName().equals(remoteFile.getFileName()));
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     when(blobStoreManager.put(any(InputStream.class), any(Metadata.class)))
         .thenReturn(CompletableFuture.completedFuture("blobId"));
     CompletionStage<DirIndex> dirIndexFuture = blobStoreUtil.putDir(dirDiff, snapshotMetadata);
@@ -453,7 +456,7 @@ public class TestBlobStoreUtil {
           return CompletableFuture.completedFuture(fileName);
         });
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     CompletionStage<DirIndex> dirIndexFuture = blobStoreUtil.putDir(dirDiff, snapshotMetadata);
     DirIndex dirIndex = null;
     try {
@@ -506,7 +509,7 @@ public class TestBlobStoreUtil {
         return CompletableFuture.completedFuture("blobId");
       });
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
 
     CompletionStage<FileIndex> fileIndexFuture = blobStoreUtil.putFile(path.toFile(), snapshotMetadata);
     FileIndex fileIndex = null;
@@ -619,7 +622,7 @@ public class TestBlobStoreUtil {
         return CompletableFuture.completedFuture(null);
       });
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
 
     assertTrue(
@@ -677,7 +680,7 @@ public class TestBlobStoreUtil {
         return CompletableFuture.completedFuture(null); // success
       });
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
 
     assertTrue(
@@ -730,7 +733,7 @@ public class TestBlobStoreUtil {
           return CompletableFuture.completedFuture(null);
         });
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     try {
       blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
       fail("Should have failed on non-retriable errors during file restore");
@@ -782,7 +785,7 @@ public class TestBlobStoreUtil {
       });
 
     Path restoreDirBasePath = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX);
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), dirIndex, metadata).join();
 
     assertTrue(new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), dirIndex));
@@ -795,7 +798,7 @@ public class TestBlobStoreUtil {
   @Test
   public void testGetSSIReturnsEmptyMapForNullCheckpoint() {
     BlobStoreUtil blobStoreUtil =
-        new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), null, null);
+        new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
         blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", null, new HashSet<>());
     assertTrue(snapshotIndexes.isEmpty());
@@ -805,7 +808,7 @@ public class TestBlobStoreUtil {
     Checkpoint mockCheckpoint = mock(Checkpoint.class);
     when(mockCheckpoint.getVersion()).thenReturn((short) 1);
     BlobStoreUtil blobStoreUtil =
-        new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), null, null);
+        new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> prevSnapshotIndexes =
         blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
     assertEquals(prevSnapshotIndexes.size(), 0);
@@ -819,7 +822,7 @@ public class TestBlobStoreUtil {
         ImmutableMap.of("com.OtherStateBackendFactory", ImmutableMap.of("storeName", "otherSCM")));
 
     BlobStoreUtil blobStoreUtil =
-        new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), null, null);
+        new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
         blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
     assertTrue(snapshotIndexes.isEmpty());
@@ -833,7 +836,7 @@ public class TestBlobStoreUtil {
         ImmutableMap.of(BlobStoreStateBackendFactory.class.getName(), ImmutableMap.of()));
 
     BlobStoreUtil blobStoreUtil =
-        new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), null, null);
+        new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
         blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
     assertTrue(snapshotIndexes.isEmpty());
@@ -981,7 +984,7 @@ public class TestBlobStoreUtil {
           return FutureUtil.failedFuture(new RetriableException()); // retriable error
         }).thenAnswer((Answer<CompletionStage<String>>) invocation -> CompletableFuture.completedFuture("blobId"));
 
-    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, null, null);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(blobStoreManager, EXECUTOR, blobStoreConfig, null, null);
 
     blobStoreUtil.putFile(path.toFile(), snapshotMetadata).join();
     // Verify put operation is retried 4 times
