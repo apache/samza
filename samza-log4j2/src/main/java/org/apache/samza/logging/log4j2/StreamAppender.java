@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
@@ -88,6 +90,8 @@ public class StreamAppender extends AbstractAppender {
   protected volatile boolean systemInitialized = false;
   protected StreamAppenderMetrics metrics;
   protected long queueTimeoutS = DEFAULT_QUEUE_TIMEOUT_S;
+  protected Lock setUpSystemLock = new ReentrantLock();
+  protected static final long SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS = 10000;
 
   /**
    * Constructor is protected so that this class can be extended.
@@ -186,13 +190,20 @@ public class StreamAppender extends AbstractAppender {
       if (!systemInitialized) {
         // configs are needed to set up producer system, so check that before actually initializing
         if (this.loggingContextHolder.getConfig() != null) {
-          synchronized (this) {
-            if (!systemInitialized) {
-              setupSystem();
-              systemInitialized = true;
+          if (setUpSystemLock.tryLock(SET_UP_SYSTEM_TIMEOUT_MILLI_SECONDS, TimeUnit.MILLISECONDS)) {
+            try {
+              if (!systemInitialized) {
+                setupSystem();
+                systemInitialized = true;
+              }
+              handleEvent(event);
+            } finally {
+              setUpSystemLock.unlock();
             }
+          } else {
+            // skip sending the log to the stream if setupStream timeout in 10s
+            System.out.println("Waiting for another thread to setupStream before log can be handled");
           }
-          handleEvent(event);
         } else {
           // skip sending the log to the stream if initialization can't happen yet
           System.out.println("Waiting for config to become available before log can be handled");
