@@ -153,7 +153,7 @@ public class FutureUtil {
         .abortOn(abortRetries)
         .onRetry(e -> LOG.warn("Action: {} attempt: {} completed with error {} ms after start. Retrying up to {} ms.",
             opName, e.getAttemptCount(), e.getElapsedTime().toMillis(), retryPolicyConfig.getMaxDuration(),
-            e.getLastFailure()));;
+            e.getLastFailure()));
 
     return Failsafe.with(retryPolicy).with(executor).getStageAsync(action::get);
   }
