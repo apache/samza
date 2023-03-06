@@ -22,6 +22,7 @@ package org.apache.samza.config;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -99,7 +100,8 @@ public class StorageConfig extends MapConfig {
 
   public List<String> getStoreNames() {
     Config subConfig = subset(STORE_PREFIX, true);
-    List<String> storeNames = new ArrayList<>();
+    // side input store configs can contain both the store factory and side input processor factory configs. dedup.
+    Set<String> storeNames = new HashSet<>();
     for (String key : subConfig.keySet()) {
       if (key.endsWith(SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX)) {
         storeNames.add(key.substring(0, key.length() - SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX.length()));
@@ -107,7 +109,7 @@ public class StorageConfig extends MapConfig {
         storeNames.add(key.substring(0, key.length() - FACTORY_SUFFIX.length()));
       }
     }
-    return storeNames;
+    return new ArrayList<>(storeNames);
   }
 
   public Map<String, SystemStream> getStoreChangelogs() {
