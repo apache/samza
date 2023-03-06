@@ -107,30 +107,33 @@ public class BlobStoreBackupManagerMetrics {
   }
 
   public void initStoreMetrics(Collection<String> storeNames) {
+    // MetricRegistryMap#newGauge overwrites existing gauge, while newTimer retains and returns existing timer.
+    // For now, use computeIfAbsent instead of putIfAbsent to avoid overwriting old gauges and returning
+    // a new untracked one. Also to keep usage consistent b/w gauges and timers.
     for (String storeName: storeNames) {
-      storeDirDiffNs.putIfAbsent(storeName,
-          metricsRegistry.newTimer(GROUP, String.format("%s-dir-diff-ns", storeName)));
-      storeUploadNs.putIfAbsent(storeName,
-          metricsRegistry.newTimer(GROUP, String.format("%s-upload-ns", storeName)));
+      storeDirDiffNs.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newTimer(GROUP, String.format("%s-dir-diff-ns", kStoreName)));
+      storeUploadNs.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newTimer(GROUP, String.format("%s-upload-ns", kStoreName)));
 
-      storeFilesToUpload.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-files-to-upload", storeName), 0L));
-      storeFilesToRetain.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-files-to-retain", storeName), 0L));
-      storeFilesToRemove.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-files-to-remove", storeName), 0L));
-      storeSubDirsToUpload.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-sub-dirs-to-upload", storeName), 0L));
-      storeSubDirsToRetain.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-sub-dirs-to-retain", storeName), 0L));
-      storeSubDirsToRemove.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-sub-dirs-to-remove", storeName), 0L));
-      storeBytesToUpload.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-bytes-to-upload", storeName), 0L));
-      storeBytesToRetain.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-bytes-to-retain", storeName), 0L));
-      storeBytesToRemove.putIfAbsent(storeName,
-          metricsRegistry.newGauge(GROUP, String.format("%s-bytes-to-remove", storeName), 0L));
+      storeFilesToUpload.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-files-to-upload", kStoreName), 0L));
+      storeFilesToRetain.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-files-to-retain", kStoreName), 0L));
+      storeFilesToRemove.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-files-to-remove", kStoreName), 0L));
+      storeSubDirsToUpload.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-sub-dirs-to-upload", kStoreName), 0L));
+      storeSubDirsToRetain.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-sub-dirs-to-retain", kStoreName), 0L));
+      storeSubDirsToRemove.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-sub-dirs-to-remove", kStoreName), 0L));
+      storeBytesToUpload.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-bytes-to-upload", kStoreName), 0L));
+      storeBytesToRetain.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-bytes-to-retain", kStoreName), 0L));
+      storeBytesToRemove.computeIfAbsent(storeName,
+        kStoreName -> metricsRegistry.newGauge(GROUP, String.format("%s-bytes-to-remove", kStoreName), 0L));
     }
   }
 }

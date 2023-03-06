@@ -65,6 +65,34 @@ public class TestStorageConfig {
         ImmutableMap.of(String.format(FACTORY, STORE_NAME0), "store0.factory.class",
             String.format(StorageConfig.SIDE_INPUTS_PROCESSOR_FACTORY, STORE_NAME1), "store1.factory.class")));
 
+    actual = config.getStoreNames();
+
+    assertEquals(2, actual.size());
+    assertEquals(expectedStoreNames, ImmutableSet.copyOf(actual));
+  }
+
+  @Test
+  public void testGetStoreNamesDoesNotReturnDuplicatesForSideInputs() {
+    // empty config, so no stores
+    assertEquals(Collections.emptyList(), new StorageConfig(new MapConfig()).getStoreNames());
+
+    Set<String> expectedStoreNames = ImmutableSet.of(STORE_NAME0, STORE_NAME1);
+    // has stores
+    StorageConfig storageConfig = new StorageConfig(new MapConfig(
+        ImmutableMap.of(String.format(StorageConfig.FACTORY, STORE_NAME0), "store0.factory.class",
+            String.format(StorageConfig.FACTORY, STORE_NAME1), "store1.factory.class",
+            String.format(StorageConfig.SIDE_INPUTS_PROCESSOR_FACTORY, STORE_NAME1), "store1.side.inputs.processor")));
+
+    List<String> actual = storageConfig.getStoreNames();
+    // ordering shouldn't matter
+    assertEquals(2, actual.size());
+    assertEquals(expectedStoreNames, ImmutableSet.copyOf(actual));
+
+    //has side input stores
+    StorageConfig config = new StorageConfig(new MapConfig(
+        ImmutableMap.of(String.format(FACTORY, STORE_NAME0), "store0.factory.class",
+            String.format(StorageConfig.SIDE_INPUTS_PROCESSOR_FACTORY, STORE_NAME1), "store1.factory.class")));
+
     actual = storageConfig.getStoreNames();
 
     assertEquals(2, actual.size());
@@ -504,8 +532,8 @@ public class TestStorageConfig {
     assertEquals(ImmutableSet.of(KAFKA_STATE_BACKEND_FACTORY), new StorageConfig(new MapConfig(configMap)).getBackupFactories());
     assertEquals(DEFAULT_BACKUP_FACTORIES, new StorageConfig(new MapConfig(configMap)).getStoreBackupFactories(storeName));
     assertEquals(DEFAULT_BACKUP_FACTORIES, new StorageConfig(new MapConfig(configMap)).getStoreBackupFactories(storeName2));
-    assertEquals(ImmutableList.of(storeName2, storeName),
-        new StorageConfig(new MapConfig(configMap)).getStoresWithBackupFactory(KAFKA_STATE_BACKEND_FACTORY));
+    assertEquals(ImmutableSet.of(storeName2, storeName),
+        ImmutableSet.copyOf(new StorageConfig(new MapConfig(configMap)).getStoresWithBackupFactory(KAFKA_STATE_BACKEND_FACTORY)));
 
     // job restore manager config set should override to job backend factory
     String jobBackupFactory1 = "jobBackendBackupFactory1";
@@ -514,16 +542,16 @@ public class TestStorageConfig {
     configMap.put(JOB_BACKUP_FACTORIES, jobBackupFactoryOverride);
     assertEquals(ImmutableSet.of(jobBackupFactory1, jobBackupFactory2),
         new StorageConfig(new MapConfig(configMap)).getBackupFactories());
-    assertEquals(ImmutableList.of(jobBackupFactory1, jobBackupFactory2),
-        new StorageConfig(new MapConfig(configMap)).getStoreBackupFactories(storeName));
-    assertEquals(ImmutableList.of(jobBackupFactory1, jobBackupFactory2),
-        new StorageConfig(new MapConfig(configMap)).getStoreBackupFactories(storeName2));
+    assertEquals(ImmutableSet.of(jobBackupFactory1, jobBackupFactory2),
+        ImmutableSet.copyOf(new StorageConfig(new MapConfig(configMap)).getStoreBackupFactories(storeName)));
+    assertEquals(ImmutableSet.of(jobBackupFactory1, jobBackupFactory2),
+        ImmutableSet.copyOf(new StorageConfig(new MapConfig(configMap)).getStoreBackupFactories(storeName2)));
     assertEquals(Collections.emptyList(),
         new StorageConfig(new MapConfig(configMap)).getStoresWithBackupFactory(KAFKA_STATE_BACKEND_FACTORY));
-    assertEquals(ImmutableList.of(storeName2, storeName),
-        new StorageConfig(new MapConfig(configMap)).getStoresWithBackupFactory(jobBackupFactory1));
-    assertEquals(ImmutableList.of(storeName2, storeName),
-        new StorageConfig(new MapConfig(configMap)).getStoresWithBackupFactory(jobBackupFactory2));
+    assertEquals(ImmutableSet.of(storeName2, storeName),
+        ImmutableSet.copyOf(new StorageConfig(new MapConfig(configMap)).getStoresWithBackupFactory(jobBackupFactory1)));
+    assertEquals(ImmutableSet.of(storeName2, storeName),
+        ImmutableSet.copyOf(new StorageConfig(new MapConfig(configMap)).getStoresWithBackupFactory(jobBackupFactory2)));
 
     // store specific restore managers set
     String storeBackupFactory1 = "storeBackendBackupFactory1";

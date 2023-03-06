@@ -133,7 +133,7 @@ public class TaskStorageCommitManager {
     // state backend factory -> store Name -> state checkpoint marker
     Map<String, Map<String, String>> stateBackendToStoreSCMs = new HashMap<>();
 
-    // for each configured state backend factory, backup the state for all stores in this task.
+    // for each configured state backend factory, snapshot the state for all stores in this task.
     stateBackendToBackupManager.forEach((stateBackendFactoryName, backupManager) -> {
       Map<String, String> snapshotSCMs = backupManager.snapshot(checkpointId);
       LOG.debug("Created snapshot for taskName: {}, checkpoint id: {}, state backend: {}. Snapshot SCMs: {}",

@@ -21,6 +21,8 @@ package org.apache.samza.storage.blobstore;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
@@ -73,7 +76,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
   private final BlobStoreConfig blobStoreConfig;
   private final Clock clock;
   private final StorageManagerUtil storageManagerUtil;
-  private final List<String> storesToBackup;
+  private final Set<String> storesToBackup;
   private final File loggedStoreBaseDir;
   private final BlobStoreManager blobStoreManager;
   private final BlobStoreUtil blobStoreUtil;
@@ -117,8 +120,8 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     this.clock = clock;
     this.storageManagerUtil = storageManagerUtil;
     StorageConfig storageConfig = new StorageConfig(config);
-    this.storesToBackup =
-        storageConfig.getPersistentStoresWithBackupFactory(BlobStoreStateBackendFactory.class.getName());
+    this.storesToBackup = ImmutableSet.copyOf(
+        storageConfig.getPersistentStoresWithBackupFactory(BlobStoreStateBackendFactory.class.getName()));
     this.loggedStoreBaseDir = loggedStoreBaseDir;
     this.blobStoreManager = blobStoreManager;
     this.blobStoreUtil = createBlobStoreUtil(blobStoreManager, executor, blobStoreConfig, blobStoreTaskBackupMetrics);
