@@ -393,15 +393,14 @@ public class TestContainerStorageManager {
 
     CheckpointV1 checkpointV1 = mock(CheckpointV1.class);
     when(checkpointV1.getVersion()).thenReturn((short) 1);
-    Map<String, Set<String>> factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(checkpointV1, storeNames, mockConfig);
+    Map<String, Set<String>> factoriesToStores =
+        ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, checkpointV1, mockConfig);
 
     Assert.assertEquals(1, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName1", "storeName2"),
         factoriesToStores.get(StorageConfig.KAFKA_STATE_BACKEND_FACTORY));
 
-    factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(null, storeNames, mockConfig);
+    factoriesToStores = ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, null, mockConfig);
 
     Assert.assertEquals(2, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName0"),
@@ -437,8 +436,8 @@ public class TestContainerStorageManager {
             "factory1", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", ""),
             "factory2", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", "")));
 
-    Map<String, Set<String>> factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    Map<String, Set<String>> factoriesToStores =
+        ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, checkpointV2, mockConfig);
     Assert.assertEquals(2, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName0"),
         factoriesToStores.get("factory0"));
@@ -448,8 +447,7 @@ public class TestContainerStorageManager {
     when(checkpointV2.getStateCheckpointMarkers())
         .thenReturn(ImmutableMap.of(
             "factory2", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", "")));
-    factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    factoriesToStores = ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, checkpointV2, mockConfig);
     Assert.assertEquals(1, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName1", "storeName0"),
         factoriesToStores.get("factory2"));
@@ -458,8 +456,7 @@ public class TestContainerStorageManager {
         .thenReturn(ImmutableMap.of(
             "factory1", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", ""),
             "factory2", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", "")));
-    factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    factoriesToStores = ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, checkpointV2, mockConfig);
     Assert.assertEquals(2, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName0"),
         factoriesToStores.get("factory1"));
@@ -470,8 +467,7 @@ public class TestContainerStorageManager {
         .thenReturn(ImmutableMap.of(
             "factory1", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", ""),
             "factory2", ImmutableMap.of("storeName0", "", "storeName2", "")));
-    factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    factoriesToStores = ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, checkpointV2, mockConfig);
     Assert.assertEquals(1, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName0", "storeName1"),
         factoriesToStores.get("factory1"));
@@ -479,16 +475,14 @@ public class TestContainerStorageManager {
     when(checkpointV2.getStateCheckpointMarkers())
         .thenReturn(ImmutableMap.of(
             "factory1", ImmutableMap.of("storeName0", "", "storeName1", "", "storeName2", "")));
-    factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    factoriesToStores = ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, checkpointV2, mockConfig);
     Assert.assertEquals(1, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName0", "storeName1"),
         factoriesToStores.get("factory1"));
 
     when(checkpointV2.getStateCheckpointMarkers())
         .thenReturn(Collections.emptyMap());
-    factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    factoriesToStores = ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, checkpointV2, mockConfig);
     Assert.assertEquals(2, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName0"),
         factoriesToStores.get("factory0"));
@@ -500,8 +494,7 @@ public class TestContainerStorageManager {
             "factory0", ImmutableMap.of("storeName1", "", "storeName2", ""),
             "factory1", ImmutableMap.of("storeName1", "", "storeName2", ""),
             "factory2", ImmutableMap.of("storeName0", "", "storeName2", "")));
-    factoriesToStores = this.containerStorageManager
-        .getBackendFactoryStoreNames(checkpointV2, storeNames, mockConfig);
+    factoriesToStores = ContainerStorageManagerUtil.getBackendFactoryStoreNames(storeNames, checkpointV2, mockConfig);
     Assert.assertEquals(2, factoriesToStores.size());
     Assert.assertEquals(ImmutableSet.of("storeName1"),
         factoriesToStores.get("factory1"));
@@ -512,8 +505,8 @@ public class TestContainerStorageManager {
   @Test
   public void getActiveTaskChangelogSystemStreams() {
     Map<String, SystemStream> storeToChangelogSystemStreams =
-        containerStorageManager.getActiveTaskChangelogSystemStreams(testContext.standbyContainerModel,
-            testContext.storesToSystemStreams);
+        ContainerStorageManagerUtil.getActiveTaskChangelogSystemStreams(testContext.storesToSystemStreams, testContext.standbyContainerModel
+        );
 
     assertEquals("Standby container should have no active change log", Collections.emptyMap(),
         storeToChangelogSystemStreams);
@@ -523,8 +516,8 @@ public class TestContainerStorageManager {
   public void getActiveTaskChangelogSystemStreamsForActiveAndStandbyContainer() {
     Map<String, SystemStream> expectedStoreToChangelogSystemStreams =
         testContext.storesToSystemStreams;
-    Map<String, SystemStream> storeToChangelogSystemStreams = containerStorageManager.getActiveTaskChangelogSystemStreams(
-        testContext.activeAndStandbyContainerModel, testContext.storesToSystemStreams);
+    Map<String, SystemStream> storeToChangelogSystemStreams = ContainerStorageManagerUtil.getActiveTaskChangelogSystemStreams(
+        testContext.storesToSystemStreams, testContext.activeAndStandbyContainerModel);
 
     assertEquals("Active and standby container model should have non empty store to changelog mapping",
         expectedStoreToChangelogSystemStreams, storeToChangelogSystemStreams);
@@ -534,8 +527,8 @@ public class TestContainerStorageManager {
   public void getActiveTaskChangelogSystemStreamsForStandbyContainer() {
     Map<String, SystemStream> expectedStoreToChangelogSystemStreams =
         testContext.storesToSystemStreams;
-    Map<String, SystemStream> storeToChangelogSystemStreams = containerStorageManager.getActiveTaskChangelogSystemStreams(
-        testContext.activeContainerModel, testContext.storesToSystemStreams);
+    Map<String, SystemStream> storeToChangelogSystemStreams = ContainerStorageManagerUtil.getActiveTaskChangelogSystemStreams(
+        testContext.storesToSystemStreams, testContext.activeContainerModel);
 
     assertEquals("Active container model should have non empty store to changelog mapping",
         expectedStoreToChangelogSystemStreams, storeToChangelogSystemStreams);
@@ -545,8 +538,8 @@ public class TestContainerStorageManager {
   public void getSideInputStoresForActiveContainer() {
     Set<String> expectedSideInputStores = testContext.activeStores;
     Set<String> actualSideInputStores =
-        containerStorageManager.getSideInputStores(testContext.activeContainerModel,
-            testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams);
+        ContainerStorageManagerUtil.getSideInputStoreNames(testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams, testContext.activeContainerModel
+        );
 
     assertEquals("Mismatch in stores", expectedSideInputStores, actualSideInputStores);
   }
@@ -555,8 +548,8 @@ public class TestContainerStorageManager {
   public void getSideInputStoresForStandbyContainer() {
     final Set<String> expectedSideInputStores = testContext.standbyStores;
     Set<String> actualSideInputStores =
-        containerStorageManager.getSideInputStores(testContext.standbyContainerModel,
-            testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams);
+        ContainerStorageManagerUtil.getSideInputStoreNames(testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams, testContext.standbyContainerModel
+        );
 
     assertEquals("Mismatch in side input stores", expectedSideInputStores, actualSideInputStores);
   }
@@ -565,8 +558,8 @@ public class TestContainerStorageManager {
   public void getTaskSideInputSSPsForActiveContainer() {
     Map<TaskName, Map<String, Set<SystemStreamPartition>>> expectedSideInputSSPs = testContext.activeSideInputSSPs;
     Map<TaskName, Map<String, Set<SystemStreamPartition>>> actualSideInputSSPs =
-        containerStorageManager.getTaskSideInputSSPs(testContext.activeContainerModel,
-            Collections.emptyMap(), testContext.storesToSystemStreams);
+        SideInputsManager.getTaskSideInputSSPs(Collections.emptyMap(), testContext.storesToSystemStreams, testContext.activeContainerModel
+        );
 
     assertEquals("Mismatch in task name --> store --> SSP mapping", expectedSideInputSSPs, actualSideInputSSPs);
   }
@@ -575,8 +568,8 @@ public class TestContainerStorageManager {
   public void getTaskSideInputSSPsForStandbyContainerWithSideInput() {
     Map<TaskName, Map<String, Set<SystemStreamPartition>>> expectedSideInputSSPs = testContext.standbyWithSideInputSSPs;
     Map<TaskName, Map<String, Set<SystemStreamPartition>>> actualSideInputSSPs =
-        containerStorageManager.getTaskSideInputSSPs(testContext.standbyContainerModelWithSideInputs,
-            testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams);
+        SideInputsManager.getTaskSideInputSSPs(testContext.sideInputStoresToSystemStreams, testContext.storesToSystemStreams, testContext.standbyContainerModelWithSideInputs
+        );
 
     assertEquals("Mismatch in task name --> store --> SSP mapping", expectedSideInputSSPs, actualSideInputSSPs);
   }
@@ -585,8 +578,8 @@ public class TestContainerStorageManager {
   public void getTaskSideInputSSPsForStandbyContainerWithoutSideInputs() {
     Map<TaskName, Map<String, Set<SystemStreamPartition>>> expectedSideInputSSPs = testContext.standbyChangelogSSPs;
     Map<TaskName, Map<String, Set<SystemStreamPartition>>> actualSideInputSSPs =
-        containerStorageManager.getTaskSideInputSSPs(testContext.standbyContainerModel,
-            Collections.emptyMap(), testContext.storesToSystemStreams);
+        SideInputsManager.getTaskSideInputSSPs(Collections.emptyMap(), testContext.storesToSystemStreams, testContext.standbyContainerModel
+        );
 
     assertEquals("Mismatch in task name --> store --> SSP mapping", expectedSideInputSSPs, actualSideInputSSPs);
   }
