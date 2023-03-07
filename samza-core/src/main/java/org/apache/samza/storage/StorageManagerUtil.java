@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
@@ -379,11 +380,13 @@ public class StorageManagerUtil {
       String taskStoreName = getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode).getName();
 
       if (storeDir.exists()) { // new store or no local state
-        List<File> checkpointDirs = Files.list(storeDir.toPath())
+        try (Stream<Path> stream = Files.list(storeDir.toPath())) {
+            List<File> checkpointDirs = stream
             .map(Path::toFile)
             .filter(file -> file.getName().contains(taskStoreName + "-"))
             .collect(Collectors.toList());
-        return checkpointDirs;
+            return checkpointDirs;
+        }
       } else {
         return Collections.emptyList();
       }

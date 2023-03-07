@@ -64,6 +64,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 /**
@@ -203,8 +204,8 @@ public class SamzaExecutor implements SqlExecutor {
   public NonQueryResult executeNonQuery(ExecutionContext context, File sqlFile) throws ExecutorException {
     LOG.info("Sql file path: " + sqlFile.getPath());
     List<String> executedStmts;
-    try {
-      executedStmts = Files.lines(Paths.get(sqlFile.getPath())).collect(Collectors.toList());
+    try (Stream<String> stream = Files.lines(Paths.get(sqlFile.getPath()))) {
+      executedStmts = stream.collect(Collectors.toList());
     } catch (IOException e) {
       throw new ExecutorException(e);
     }
