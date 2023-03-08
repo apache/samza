@@ -197,9 +197,11 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
       File storeBaseDir = isLogged ? this.loggedStoreBaseDirectory : this.nonLoggedStoreBaseDirectory;
       File storeDirectory = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskModel.getTaskName(),
           taskModel.getTaskMode());
-      StorageEngine engine = ContainerStorageManager.createStore(storeName, storeDirectory, taskModel, jobContext, containerContext,
-          storageEngineFactories, serdes, metricsRegistry, messageCollector,
-          StorageEngineFactory.StoreMode.BulkLoad, this.storeChangelogs, this.config);
+      StorageEngine engine = ContainerStorageManagerUtil.createStore(storeName, storeDirectory,
+          StorageEngineFactory.StoreMode.BulkLoad, storageEngineFactories, this.storeChangelogs,
+          taskModel, jobContext, containerContext,
+          serdes, metricsRegistry, messageCollector,
+          this.config);
       storageEngines.put(storeName, engine);
     });
     return storageEngines;
