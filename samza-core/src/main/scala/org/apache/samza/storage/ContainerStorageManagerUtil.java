@@ -68,7 +68,7 @@ public class ContainerStorageManagerUtil {
   public static Map<TaskName, Map<String, StorageEngine>> createTaskStores(Set<String> storesToCreate,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Set<String> sideInputStoreNames,
-      Map<String, SystemStream> changelogSystemStreams,
+      Map<String, SystemStream> activeTaskChangelogSystemStreams,
       Set<Path> storeDirectoryPaths,
       ContainerModel containerModel, JobContext jobContext, ContainerContext containerContext,
       Map<String, Serde<Object>> serdes,
@@ -91,7 +91,7 @@ public class ContainerStorageManagerUtil {
       for (String storeName : storesToCreate) {
         List<String> storeBackupManagers = storageConfig.getStoreBackupFactories(storeName);
         // A store is considered durable if it is backed by a changelog or another backupManager factory
-        boolean isDurable = changelogSystemStreams.containsKey(storeName) || !storeBackupManagers.isEmpty();
+        boolean isDurable = activeTaskChangelogSystemStreams.containsKey(storeName) || !storeBackupManagers.isEmpty();
         boolean isSideInput = sideInputStoreNames.contains(storeName);
         // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
         // for non logged stores
@@ -103,17 +103,21 @@ public class ContainerStorageManagerUtil {
         // if taskInstanceMetrics are specified use those for store metrics,
         // otherwise (in case of StorageRecovery) use a blank MetricsRegistryMap
         MetricsRegistry storeMetricsRegistry =
-            taskInstanceMetrics.get(taskName) != null ? taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
+            taskInstanceMetrics.get(taskName) != null ?
+                taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
 
         StorageEngine storageEngine =
-            createStore(storeName, storeDirectory, StorageEngineFactory.StoreMode.ReadWrite, storageEngineFactories, changelogSystemStreams, taskModel, jobContext, containerContext,
+            createStore(storeName, storeDirectory, StorageEngineFactory.StoreMode.ReadWrite,
+                storageEngineFactories, activeTaskChangelogSystemStreams,
+                taskModel, jobContext, containerContext,
                 serdes, storeMetricsRegistry, taskInstanceCollectors.get(taskName),
                 config);
 
         // add created store to map
         taskStores.get(taskName).put(storeName, storageEngine);
 
-        LOG.info("Created task store {} in read-write mode for task {} in path {}", storeName, taskName, storeDirectory.getAbsolutePath());
+        LOG.info("Created task store {} in read-write mode for task {} in path {}",
+            storeName, taskName, storeDirectory.getAbsolutePath());
       }
     }
     return taskStores;
@@ -156,7 +160,7 @@ public class ContainerStorageManagerUtil {
   }
 
   public static Map<TaskName, Map<String, StorageEngine>> createInMemoryStores(
-      Map<String, SystemStream> changelogSystemStreams,
+      Map<String, SystemStream> activeTaskChangelogSystemStreams,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Set<String> sideInputStoreNames,
       Set<Path> storeDirectoryPaths,
@@ -176,7 +180,9 @@ public class ContainerStorageManagerUtil {
         })
         .collect(Collectors.toSet());
     return ContainerStorageManagerUtil.createTaskStores(
-        inMemoryStoreNames, storageEngineFactories, sideInputStoreNames, changelogSystemStreams, storeDirectoryPaths, containerModel, jobContext, containerContext, serdes,
+        inMemoryStoreNames, storageEngineFactories, sideInputStoreNames,
+        activeTaskChangelogSystemStreams, storeDirectoryPaths,
+        containerModel, jobContext, containerContext, serdes,
         taskInstanceMetrics, taskInstanceCollectors, storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config);
   }
@@ -200,7 +206,8 @@ public class ContainerStorageManagerUtil {
 
     // Populate the map of storeName to its relevant systemConsumer
     for (String storeName : activeTaskChangelogSystemStreams.keySet()) {
-      storeConsumers.put(storeName, systemNameToSystemConsumers.get(activeTaskChangelogSystemStreams.get(storeName).getSystem()));
+      storeConsumers.put(storeName,
+          systemNameToSystemConsumers.get(activeTaskChangelogSystemStreams.get(storeName).getSystem()));
     }
     return storeConsumers;
   }
@@ -257,8 +264,9 @@ public class ContainerStorageManagerUtil {
       KafkaChangelogRestoreParams kafkaChangelogRestoreParams = new KafkaChangelogRestoreParams(storeConsumers,
           inMemoryStores.get(taskName), systemAdmins.getSystemAdmins(), storageEngineFactories, serdes,
           taskInstanceCollectors.get(taskName));
-      TaskRestoreManager restoreManager = factory.getRestoreManager(jobContext, containerContext, taskModel, restoreExecutor,
-          taskMetricsRegistry, storeNames, config, clock, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory,
+      TaskRestoreManager restoreManager = factory.getRestoreManager(jobContext, containerContext, taskModel,
+          restoreExecutor, taskMetricsRegistry, storeNames, config, clock,
+          loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory,
           kafkaChangelogRestoreParams);
 
       backendFactoryRestoreManagers.put(factoryName, restoreManager);
@@ -275,7 +283,8 @@ public class ContainerStorageManagerUtil {
    * @param containerModel the container's model
    * @return A map of storeName to changelogSSPs across all active tasks, assuming no two stores have the same changelogSSP
    */
-  public static Map<String, SystemStream> getActiveTaskChangelogSystemStreams(Map<String, SystemStream> changelogSystemStreams, ContainerModel containerModel) {
+  public static Map<String, SystemStream> getActiveTaskChangelogSystemStreams(
+      Map<String, SystemStream> changelogSystemStreams, ContainerModel containerModel) {
     if (MapUtils.invertMap(changelogSystemStreams).size() != changelogSystemStreams.size()) {
       throw new SamzaException("Two stores cannot have the same changelog system-stream");
     }

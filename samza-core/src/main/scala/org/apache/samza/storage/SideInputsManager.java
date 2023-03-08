@@ -117,6 +117,7 @@ public class SideInputsManager {
   public SideInputsManager(Map<String, Set<SystemStream>> sideInputSystemStreams,
       Map<String, SystemFactory> systemFactories,
       Map<String, SystemStream> changelogSystemStreams,
+      Map<String, SystemStream> activeTaskChangelogSystemStreams,
       Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Set<Path> storeDirectoryPaths,
       ContainerModel containerModel, JobContext jobContext, ContainerContext containerContext,
@@ -144,12 +145,15 @@ public class SideInputsManager {
     this.config = config;
 
     // create side input taskStores for all tasks in the containerModel and each store in storageEngineFactories
-    this.sideInputStores = ContainerStorageManagerUtil.createTaskStores(sideInputStoreNames, storageEngineFactories, sideInputStoreNames, changelogSystemStreams, storeDirectoryPaths, containerModel,
+    this.sideInputStores = ContainerStorageManagerUtil.createTaskStores(sideInputStoreNames, storageEngineFactories,
+        sideInputStoreNames, activeTaskChangelogSystemStreams, storeDirectoryPaths, containerModel,
         jobContext, containerContext, serdes, taskInstanceMetrics, taskInstanceCollectors,
         storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config);
 
-    this.sspSideInputHandlers = createSideInputHandlers(hasSideInputs, sideInputStores, taskSideInputStoreSSPs, sideInputTaskLatches, taskInstanceMetrics, containerModel, streamMetadataCache, systemAdmins, serdes, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock
+    this.sspSideInputHandlers = createSideInputHandlers(hasSideInputs, sideInputStores, taskSideInputStoreSSPs,
+        sideInputTaskLatches, taskInstanceMetrics, containerModel, streamMetadataCache, systemAdmins, serdes,
+        loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock
     );
 
     // create SystemConsumers for consuming from taskSideInputSSPs, if sideInputs are being used
@@ -309,6 +313,8 @@ public class SideInputsManager {
   }
 
   public void shutdown() {
+    this.shouldShutdown = true;
+
     // stop all side input consumers and stores
     if (this.hasSideInputs) {
       this.sideInputRunLoop.shutdown();
@@ -442,8 +448,10 @@ public class SideInputsManager {
           String sideInputsProcessorFactoryClassName = config.getSideInputsProcessorFactory(storeName).get();
           SideInputsProcessorFactory sideInputsProcessorFactory =
               ReflectionUtil.getObj(sideInputsProcessorFactoryClassName, SideInputsProcessorFactory.class);
-          sideInputsProcessor = sideInputsProcessorFactory.getSideInputsProcessor(config, taskInstanceMetrics.get(taskName).registry());
-          LOG.info("Using side-inputs-processor from factory: {} for store: {}, task: {}", config.getSideInputsProcessorFactory(storeName).get(), storeName, taskName);
+          sideInputsProcessor = sideInputsProcessorFactory.getSideInputsProcessor(
+              config, taskInstanceMetrics.get(taskName).registry());
+          LOG.info("Using side-inputs-processor from factory: {} for store: {}, task: {}",
+              config.getSideInputsProcessorFactory(storeName).get(), storeName, taskName);
 
         } else {
           // if this is a active-task with a side-input store but no sideinput-processor-factory defined in config, we rely on upstream validations to fail the deploy

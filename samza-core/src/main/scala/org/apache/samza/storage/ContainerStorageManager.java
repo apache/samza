@@ -92,6 +92,7 @@ public class ContainerStorageManager {
 
   private final Map<String, SystemConsumer> storeConsumers; // Mapping from store name to SystemConsumers
   private final Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories; // Map of storageEngineFactories indexed by store name
+  private final Map<String, SystemStream> changelogSystemStreams;
   private final Map<String, SystemStream> activeTaskChangelogSystemStreams; // Map of changelog system-streams indexed by store name
   private final Map<String, Serde<Object>> serdes; // Map of Serde objects indexed by serde name (specified in config)
   private final SerdeManager serdeManager;
@@ -149,6 +150,7 @@ public class ContainerStorageManager {
     this.containerModel = containerModel;
     this.streamMetadataCache = streamMetadataCache;
     this.systemAdmins = systemAdmins;
+    this.changelogSystemStreams = changelogSystemStreams;
     this.sideInputSystemStreams = sideInputSystemStreams;
     this.storageEngineFactories = storageEngineFactories;
     this.systemFactories = systemFactories;
@@ -219,8 +221,12 @@ public class ContainerStorageManager {
 
     // create and restore side input stores
     this.sideInputsManager = new SideInputsManager(
-        sideInputSystemStreams, systemFactories, activeTaskChangelogSystemStreams, storageEngineFactories, storeDirectoryPaths, containerModel, jobContext, containerContext, samzaContainerMetrics, taskInstanceMetrics, taskInstanceCollectors, streamMetadataCache, systemAdmins, serdeManager,
-        serdes,
+        sideInputSystemStreams, systemFactories,
+        changelogSystemStreams, activeTaskChangelogSystemStreams,
+        storageEngineFactories, storeDirectoryPaths,
+        containerModel, jobContext, containerContext,
+        samzaContainerMetrics, taskInstanceMetrics, taskInstanceCollectors,
+        streamMetadataCache, systemAdmins, serdeManager, serdes,
         storageManagerUtil, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock
     );
 
