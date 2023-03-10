@@ -172,8 +172,8 @@ public class ContainerStorageManager {
     this.activeTaskChangelogSystemStreams =
         ContainerStorageManagerUtil.getActiveTaskChangelogSystemStreams(changelogSystemStreams, containerModel);
 
-    LOG.info("Starting with changelogSystemStreams = {} sideInputSystemStreams = {}",
-        this.activeTaskChangelogSystemStreams, sideInputSystemStreams);
+    LOG.info("Starting with changelogSystemStreams = {} activeTaskChangelogSystemStreams = {} sideInputSystemStreams = {}",
+        changelogSystemStreams, activeTaskChangelogSystemStreams, sideInputSystemStreams);
 
     if (loggedStoreBaseDirectory != null && loggedStoreBaseDirectory.equals(nonLoggedStoreBaseDirectory)) {
       LOG.warn("Logged and non-logged store base directory are configured to same path: {}. It is recommended to configure"
@@ -183,15 +183,17 @@ public class ContainerStorageManager {
 
     this.storeDirectoryPaths = new HashSet<>();
 
-    this.inMemoryStores = ContainerStorageManagerUtil.createInMemoryStores(changelogSystemStreams, storageEngineFactories, sideInputStoreNames, storeDirectoryPaths, containerModel,
-        jobContext, containerContext, taskInstanceMetrics, taskInstanceCollectors, serdes, storageManagerUtil, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config
-    );
+    this.inMemoryStores = ContainerStorageManagerUtil.createInMemoryStores(
+        activeTaskChangelogSystemStreams, storageEngineFactories, sideInputStoreNames,
+        storeDirectoryPaths, containerModel, jobContext, containerContext,
+        taskInstanceMetrics, taskInstanceCollectors, serdes, storageManagerUtil,
+        loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config);
 
     // Refactor Note (prateekm): in previous version, there's a subtle difference between 'this.changelogSystemStreams'
     // (which is actually activeTaskChangelogSystemStreams) vs the passed in changelogSystemStreams.
     // create a map from storeNames to changelog system consumers (1 per system in activeTaskChangelogSystemStreams)
-    this.storeConsumers = ContainerStorageManagerUtil.createStoreChangelogConsumers(activeTaskChangelogSystemStreams,
-        systemFactories, samzaContainerMetrics.registry(), config);
+    this.storeConsumers = ContainerStorageManagerUtil.createStoreChangelogConsumers(
+        activeTaskChangelogSystemStreams, systemFactories, samzaContainerMetrics.registry(), config);
 
     JobConfig jobConfig = new JobConfig(config);
     int restoreThreadPoolSize =
@@ -226,9 +228,8 @@ public class ContainerStorageManager {
         storageEngineFactories, storeDirectoryPaths,
         containerModel, jobContext, containerContext,
         samzaContainerMetrics, taskInstanceMetrics, taskInstanceCollectors,
-        streamMetadataCache, systemAdmins, serdeManager, serdes,
-        storageManagerUtil, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock
-    );
+        streamMetadataCache, systemAdmins, serdeManager, serdes, storageManagerUtil,
+        loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock);
 
     // blocks until initial side inputs restore is complete
     sideInputsManager.start();
@@ -270,12 +271,16 @@ public class ContainerStorageManager {
       }
       taskCheckpoints.put(taskName, taskCheckpoint);
       Map<String, Set<String>> backendFactoryStoreNames =
-          ContainerStorageManagerUtil.getBackendFactoryStoreNames(nonSideInputStoreNames, taskCheckpoint,
-              new StorageConfig(config));
+          ContainerStorageManagerUtil.getBackendFactoryStoreNames(
+              nonSideInputStoreNames, taskCheckpoint, new StorageConfig(config));
       Map<String, TaskRestoreManager> taskStoreRestoreManagers =
-          ContainerStorageManagerUtil.createTaskRestoreManagers(taskName, backendFactoryStoreNames, restoreStateBackendFactories,
-              storageEngineFactories, storeConsumers, inMemoryStores, systemAdmins, restoreExecutor, taskModel, jobContext, containerContext, samzaContainerMetrics, taskInstanceMetrics, taskInstanceCollectors, serdes, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock
-          );
+          ContainerStorageManagerUtil.createTaskRestoreManagers(
+              taskName, backendFactoryStoreNames, restoreStateBackendFactories,
+              storageEngineFactories, storeConsumers,
+              inMemoryStores, systemAdmins, restoreExecutor,
+              taskModel, jobContext, containerContext,
+              samzaContainerMetrics, taskInstanceMetrics, taskInstanceCollectors, serdes,
+              loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock);
       taskRestoreManagers.put(taskName, taskStoreRestoreManagers);
     });
 
@@ -356,9 +361,11 @@ public class ContainerStorageManager {
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::stop);
 
     // Now create persistent non side input stores in read-write mode, leave non-persistent stores as-is
-    this.taskStores = ContainerStorageManagerUtil.createTaskStores(nonSideInputStoreNames, this.storageEngineFactories, this.sideInputStoreNames, this.activeTaskChangelogSystemStreams, this.storeDirectoryPaths, this.containerModel,
-        this.jobContext, this.containerContext, this.serdes, this.taskInstanceMetrics,
-        this.taskInstanceCollectors, this.storageManagerUtil,
+    this.taskStores = ContainerStorageManagerUtil.createTaskStores(
+        nonSideInputStoreNames, this.storageEngineFactories, this.sideInputStoreNames,
+        this.activeTaskChangelogSystemStreams, this.storeDirectoryPaths,
+        this.containerModel, this.jobContext, this.containerContext,
+        this.serdes, this.taskInstanceMetrics, this.taskInstanceCollectors, this.storageManagerUtil,
         this.loggedStoreBaseDirectory, this.nonLoggedStoreBaseDirectory, this.config);
 
     // Add in memory stores

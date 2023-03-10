@@ -199,9 +199,8 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
           taskModel.getTaskMode());
       StorageEngine engine = ContainerStorageManagerUtil.createStore(storeName, storeDirectory,
           StorageEngineFactory.StoreMode.BulkLoad, storageEngineFactories, this.storeChangelogs,
-          taskModel, jobContext, containerContext,
-          serdes, metricsRegistry, messageCollector,
-          this.config);
+          taskModel, jobContext, containerContext, serdes,
+          metricsRegistry, messageCollector, this.config);
       storageEngines.put(storeName, engine);
     });
     return storageEngines;
