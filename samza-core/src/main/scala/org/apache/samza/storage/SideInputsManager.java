@@ -145,10 +145,11 @@ public class SideInputsManager {
     this.config = config;
 
     // create side input taskStores for all tasks in the containerModel and each store in storageEngineFactories
-    this.sideInputStores = ContainerStorageManagerUtil.createTaskStores(sideInputStoreNames, storageEngineFactories,
-        sideInputStoreNames, activeTaskChangelogSystemStreams, storeDirectoryPaths, containerModel,
-        jobContext, containerContext, serdes, taskInstanceMetrics, taskInstanceCollectors,
-        storageManagerUtil,
+    this.sideInputStores = ContainerStorageManagerUtil.createTaskStores(
+        sideInputStoreNames, storageEngineFactories, sideInputStoreNames,
+        activeTaskChangelogSystemStreams, storeDirectoryPaths,
+        containerModel, jobContext, containerContext, serdes,
+        taskInstanceMetrics, taskInstanceCollectors, storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config);
 
     this.sspSideInputHandlers = createSideInputHandlers(hasSideInputs, sideInputStores, taskSideInputStoreSSPs,
@@ -379,8 +380,8 @@ public class SideInputsManager {
       Config config, Clock clock) {
     // creating sideInput store processors, one per store per task
     Map<TaskName, Map<String, SideInputsProcessor>> taskSideInputProcessors =
-        createSideInputProcessors(taskInstanceMetrics, taskSideInputStoreSSPs, containerModel, serdes, new StorageConfig(config)
-        );
+        createSideInputProcessors(taskInstanceMetrics, taskSideInputStoreSSPs,
+            containerModel, serdes, new StorageConfig(config));
 
     Map<SystemStreamPartition, TaskSideInputHandler> handlers = new HashMap<>();
 
@@ -454,7 +455,8 @@ public class SideInputsManager {
               config.getSideInputsProcessorFactory(storeName).get(), storeName, taskName);
 
         } else {
-          // if this is a active-task with a side-input store but no sideinput-processor-factory defined in config, we rely on upstream validations to fail the deploy
+          // if this is a active-task with a side-input store but no sideinput-processor-factory defined in config,
+          // we rely on upstream validations to fail the deploy
 
           // if this is a standby-task and the store is a non-side-input changelog store
           // we creating identity sideInputProcessor for stores of standbyTasks
