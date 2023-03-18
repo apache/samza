@@ -149,7 +149,7 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
 
     SamzaApplication app =  new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
         ImmutableSet.of(STORE_1_NAME, STORE_2_NAME),
-        ImmutableMap.of(STORE_1_NAME, STORE_2_CHANGELOG, STORE_2_NAME, STORE_2_CHANGELOG),
+        ImmutableMap.of(STORE_1_NAME, STORE_1_CHANGELOG, STORE_2_NAME, STORE_2_CHANGELOG),
         Optional.empty(), Optional.empty(), Optional.empty());
 
     // run the application

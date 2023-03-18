@@ -48,6 +48,7 @@ import org.apache.samza.config.StorageConfig;
 import org.apache.samza.config.TaskConfig;
 import org.apache.samza.storage.MyStatefulApplication;
 import org.apache.samza.storage.SideInputsProcessor;
+import org.apache.samza.storage.StorageManagerUtil;
 import org.apache.samza.storage.blobstore.Metadata;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.serde.SnapshotIndexSerde;
@@ -127,12 +128,13 @@ public class BlobStoreStateBackendIntegrationTest extends StreamApplicationInteg
   public void testStopAndRestart() {
     List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
     initialRun(inputMessagesOnInitialRun);
-    Pair<String, SnapshotIndex> lastSnapshot = verifyLedger(STORE_NAME, Optional.empty(), hostAffinity);
+    Pair<String, SnapshotIndex> lastSnapshot =
+        verifyLedger(STORE_NAME, Optional.empty(), hostAffinity, false, false);
 
     // verifies transactional state too
     List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
     secondRun(expectedInitialStoreContentsOnSecondRun, CONFIGS);
-    verifyLedger(STORE_NAME, Optional.of(lastSnapshot), hostAffinity);
+    verifyLedger(STORE_NAME, Optional.of(lastSnapshot), hostAffinity, false, false);
   }
 
   @Test
@@ -140,14 +142,17 @@ public class BlobStoreStateBackendIntegrationTest extends StreamApplicationInteg
     List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
     List<String> sideInputMessagesOnInitialRun = Arrays.asList("10", "20", "30", "40", "50", "60", "70", "80", "90");
     initialRunWithSideInputs(inputMessagesOnInitialRun, sideInputMessagesOnInitialRun, CONFIGS);
-    Pair<String, SnapshotIndex> lastRegularSnapshot = verifyLedger(STORE_NAME, Optional.empty(), hostAffinity);
-    Pair<String, SnapshotIndex> lastSideInputSnapshot = verifyLedger(SIDE_INPUT_STORE_NAME, Optional.empty(), hostAffinity);
+    Pair<String, SnapshotIndex> lastRegularSnapshot =
+        verifyLedger(STORE_NAME, Optional.empty(), hostAffinity, false, false);
+    Pair<String, SnapshotIndex> lastSideInputSnapshot =
+        verifyLedger(SIDE_INPUT_STORE_NAME, Optional.empty(), hostAffinity, true,
+            false /* no side input offsets file will be present during initial restore */);
 
     // verifies transactional state too
     List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
     secondRunWithSideInputs(expectedInitialStoreContentsOnSecondRun, CONFIGS);
-    verifyLedger(STORE_NAME, Optional.of(lastRegularSnapshot), hostAffinity);
-    verifyLedger(SIDE_INPUT_STORE_NAME, Optional.of(lastSideInputSnapshot), hostAffinity);
+    verifyLedger(STORE_NAME, Optional.of(lastRegularSnapshot), hostAffinity, false, false);
+    verifyLedger(SIDE_INPUT_STORE_NAME, Optional.of(lastSideInputSnapshot), hostAffinity, true, true);
   }
 
   private void initialRun(List<String> inputMessages) {
@@ -268,7 +273,7 @@ public class BlobStoreStateBackendIntegrationTest extends StreamApplicationInteg
    */
   private static Pair<String, SnapshotIndex> verifyLedger(String storeName,
       Optional<Pair<String, SnapshotIndex>> startingSnapshot,
-      boolean hostAffinity) {
+      boolean hostAffinity, boolean verifySideInputOffsetsUploaded, boolean verifySideInputOffsetsRestored) {
     Path ledgerLocation = Paths.get(BLOB_STORE_LEDGER_DIR);
     try {
       File filesAddedLedger = Paths.get(ledgerLocation.toString(), TestBlobStoreManager.LEDGER_FILES_ADDED).toFile();
@@ -309,6 +314,15 @@ public class BlobStoreStateBackendIntegrationTest extends StreamApplicationInteg
       // i.e., net remaining files (files added - files deleted) = files present in last snapshot + snapshot file itself.
       assertEquals(Sets.difference(filesAdded, filesDeleted),
           Sets.union(filesPresentInLastSnapshot, Collections.singleton(lastFileAdded)));
+
+      // 4. test that the files restored/added for side input stores contains side input offsets file
+      if (verifySideInputOffsetsUploaded) {
+        assertTrue(filesAdded.stream().anyMatch(f -> f.contains(StorageManagerUtil.SIDE_INPUT_OFFSET_FILE_NAME_LEGACY)));
+      }
+
+      if (!hostAffinity && verifySideInputOffsetsRestored) { // only read / restored if no host affinity
+        assertTrue(filesRead.stream().anyMatch(f -> f.contains(StorageManagerUtil.SIDE_INPUT_OFFSET_FILE_NAME_LEGACY)));
+      }
 
       return Pair.of(lastFileAdded, lastSnapshotIndex);
     } catch (IOException e) {
