@@ -22,6 +22,8 @@ package org.apache.samza.storage.kv;
 import com.google.common.collect.ImmutableList;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
@@ -29,6 +31,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.application.SamzaApplication;
@@ -144,10 +147,10 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
       Assert.assertEquals(inputMessages, readInputMessages);
     }
 
-    SamzaApplication app =  new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, ImmutableMap.of(
-        STORE_1_NAME, STORE_1_CHANGELOG,
-        STORE_2_NAME, STORE_2_CHANGELOG
-    ));
+    SamzaApplication app =  new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
+        ImmutableSet.of(STORE_1_NAME, STORE_2_NAME),
+        ImmutableMap.of(STORE_1_NAME, STORE_2_CHANGELOG, STORE_2_NAME, STORE_2_CHANGELOG),
+        Optional.empty(), Optional.empty(), Optional.empty());
 
     // run the application
     RunApplicationContext context = runApplication(app, APP_NAME, CONFIGS);
@@ -178,10 +181,10 @@ public class TransactionalStateMultiStoreIntegrationTest extends StreamApplicati
     List<String> inputMessages = Arrays.asList("4", "5", "5", ":shutdown");
     inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
 
-    SamzaApplication app =  new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, ImmutableMap.of(
-        STORE_1_NAME, changelogTopic,
-        STORE_2_NAME, STORE_2_CHANGELOG
-    ));
+    SamzaApplication app =  new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
+        ImmutableSet.of(STORE_1_NAME, STORE_2_NAME),
+        ImmutableMap.of(STORE_1_NAME, changelogTopic, STORE_2_NAME, STORE_2_CHANGELOG),
+        Optional.empty(), Optional.empty(), Optional.empty());
     // run the application
     RunApplicationContext context = runApplication(app, APP_NAME, CONFIGS);
 

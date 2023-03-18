@@ -51,6 +51,7 @@ import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeManager;
+import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
@@ -270,12 +271,30 @@ public class ContainerStorageManager {
         LOG.info("Obtained checkpoint: {} for state restore for taskName: {}", taskCheckpoint, taskName);
       }
       taskCheckpoints.put(taskName, taskCheckpoint);
-      Map<String, Set<String>> backendFactoryStoreNames =
+
+      Map<String, Set<String>> backendFactoryToStoreNames =
           ContainerStorageManagerUtil.getBackendFactoryStoreNames(
               nonSideInputStoreNames, taskCheckpoint, new StorageConfig(config));
+
+      Map<String, Set<String>> backendFactoryToSideInputStoreNames =
+          ContainerStorageManagerUtil.getBackendFactoryStoreNames(
+              sideInputStoreNames, taskCheckpoint, new StorageConfig(config));
+
+      // include side input stores for (initial bulk) restore if backed up using blob store state backend
+      String blobStoreStateBackendFactory = BlobStoreStateBackendFactory.class.getName();
+      if (backendFactoryToSideInputStoreNames.containsKey(blobStoreStateBackendFactory)) {
+        Set<String> sideInputStoreNames = backendFactoryToSideInputStoreNames.get(blobStoreStateBackendFactory);
+
+        if (backendFactoryToStoreNames.containsKey(blobStoreStateBackendFactory)) {
+          backendFactoryToStoreNames.get(blobStoreStateBackendFactory).addAll(sideInputStoreNames);
+        } else {
+          backendFactoryToStoreNames.put(blobStoreStateBackendFactory, sideInputStoreNames);
+        }
+      }
+
       Map<String, TaskRestoreManager> taskStoreRestoreManagers =
           ContainerStorageManagerUtil.createTaskRestoreManagers(
-              taskName, backendFactoryStoreNames, restoreStateBackendFactories,
+              taskName, backendFactoryToStoreNames, restoreStateBackendFactories,
               storageEngineFactories, storeConsumers,
               inMemoryStores, systemAdmins, restoreExecutor,
               taskModel, jobContext, containerContext,

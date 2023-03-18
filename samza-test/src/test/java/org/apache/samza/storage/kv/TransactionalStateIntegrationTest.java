@@ -20,6 +20,7 @@
 package org.apache.samza.storage.kv;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.io.File;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.config.JobConfig;
@@ -138,7 +140,9 @@ public class TransactionalStateIntegrationTest extends StreamApplicationIntegrat
 
     // run the application
     RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, Collections.singletonMap(STORE_NAME, CHANGELOG_TOPIC)),
+        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
+            ImmutableSet.of(STORE_NAME), Collections.singletonMap(STORE_NAME, CHANGELOG_TOPIC),
+            Optional.empty(), Optional.empty(), Optional.empty()),
         "myApp", CONFIGS);
 
     // wait for the application to finish
@@ -169,7 +173,9 @@ public class TransactionalStateIntegrationTest extends StreamApplicationIntegrat
 
     // run the application
     RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, Collections.singletonMap(STORE_NAME, changelogTopic)),
+        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
+            ImmutableSet.of(STORE_NAME), Collections.singletonMap(STORE_NAME, changelogTopic),
+            Optional.empty(), Optional.empty(), Optional.empty()),
         "myApp", overriddenConfigs);
 
     // wait for the application to finish

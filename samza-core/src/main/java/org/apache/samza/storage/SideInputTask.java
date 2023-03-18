@@ -30,6 +30,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.ReadableCoordinator;
 import org.apache.samza.task.TaskCallback;
 import org.apache.samza.task.TaskCallbackFactory;
+import org.apache.samza.task.TaskCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,16 +45,19 @@ public class SideInputTask implements RunLoopTask {
   private final Set<SystemStreamPartition> taskSSPs;
   private final TaskSideInputHandler taskSideInputHandler;
   private final TaskInstanceMetrics metrics;
+  private final long commitMs;
 
   public SideInputTask(
       TaskName taskName,
       Set<SystemStreamPartition> taskSSPs,
       TaskSideInputHandler taskSideInputHandler,
-      TaskInstanceMetrics metrics) {
+      TaskInstanceMetrics metrics,
+      long commitMs) {
     this.taskName = taskName;
     this.taskSSPs = taskSSPs;
     this.taskSideInputHandler = taskSideInputHandler;
     this.metrics = metrics;
+    this.commitMs = commitMs;
   }
 
   @Override
@@ -69,6 +73,10 @@ public class SideInputTask implements RunLoopTask {
     try {
       this.taskSideInputHandler.process(envelope);
       this.metrics.messagesActuallyProcessed().inc();
+      if (commitMs <= 0) {
+        // commit every message. useful for integration tests. not desirable for regular use.
+        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+      }
       callback.complete();
     } catch (Exception e) {
       callback.failure(e);

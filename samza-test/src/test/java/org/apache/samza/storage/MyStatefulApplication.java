@@ -19,11 +19,14 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
@@ -64,12 +67,23 @@ public class MyStatefulApplication implements TaskApplication {
   private static boolean crashedOnce = false;
   private final String inputSystem;
   private final String inputTopic;
-  private final Map<String, String> storeToChangelog;
+  private final Set<String> storeNames;
+  private final Map<String, String> storeNamesToChangelog;
+  private final Optional<String> sideInputStoreName;
+  private final Optional<String> sideInputTopic;
+  private final Optional<SideInputsProcessor> sideInputProcessor;
 
-  public MyStatefulApplication(String inputSystem, String inputTopic, Map<String, String> storeToChangelog) {
+  public MyStatefulApplication(String inputSystem, String inputTopic,
+      Set<String> storeNames, Map<String, String> storeNamesToChangelog,
+      Optional<String> sideInputStoreName, Optional<String> sideInputTopic,
+      Optional<SideInputsProcessor> sideInputProcessor) {
     this.inputSystem = inputSystem;
     this.inputTopic = inputTopic;
-    this.storeToChangelog = storeToChangelog;
+    this.storeNames = storeNames;
+    this.storeNamesToChangelog = storeNamesToChangelog;
+    this.sideInputStoreName = sideInputStoreName;
+    this.sideInputTopic = sideInputTopic;
+    this.sideInputProcessor = sideInputProcessor;
   }
 
   @Override
@@ -81,14 +95,28 @@ public class MyStatefulApplication implements TaskApplication {
 
     TaskApplicationDescriptor desc = appDescriptor
         .withInputStream(isd)
-        .withTaskFactory((StreamTaskFactory) () -> new MyTask(storeToChangelog.keySet()));
+        .withTaskFactory((StreamTaskFactory) () -> new MyTask(storeNames));
 
-    storeToChangelog.forEach((storeName, changelogTopic) -> {
-      RocksDbTableDescriptor<String, String> td = new RocksDbTableDescriptor<>(storeName, serde)
-          .withChangelogStream(changelogTopic)
-          .withChangelogReplicationFactor(1);
+    storeNames.forEach(storeName -> {
+      RocksDbTableDescriptor<String, String> td;
+      if (storeNamesToChangelog.containsKey(storeName)) {
+        String changelogTopic = storeNamesToChangelog.get(storeName);
+        td = new RocksDbTableDescriptor<>(storeName, serde)
+            .withChangelogStream(changelogTopic)
+            .withChangelogReplicationFactor(1);
+      } else {
+        td = new RocksDbTableDescriptor<>(storeName, serde);
+      }
       desc.withTable(td);
     });
+
+    if (sideInputStoreName.isPresent()) {
+      RocksDbTableDescriptor<String, String> sideInputStoreTd =
+          new RocksDbTableDescriptor<>(sideInputStoreName.get(), serde)
+              .withSideInputs(ImmutableList.of(sideInputTopic.get()))
+              .withSideInputsProcessor(sideInputProcessor.get());
+      desc.withTable(sideInputStoreTd);
+    }
   }
 
   public static void resetTestState() {
