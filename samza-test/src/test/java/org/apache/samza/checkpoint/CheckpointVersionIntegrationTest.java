@@ -140,6 +140,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     RunApplicationContext context = runApplication(
         new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
             ImmutableSet.of(STORE_NAME), Collections.singletonMap(STORE_NAME, CHANGELOG_TOPIC),
+            Collections.emptySet(), Collections.emptyMap(),
             Optional.empty(), Optional.empty(), Optional.empty()),
         "myApp", configs);
 
@@ -170,6 +171,7 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
     RunApplicationContext context = runApplication(
         new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
             ImmutableSet.of(STORE_NAME), Collections.singletonMap(STORE_NAME, changelogTopic),
+            Collections.emptySet(), Collections.emptyMap(),
             Optional.empty(), Optional.empty(), Optional.empty()),
         "myApp", overriddenConfigs);
 

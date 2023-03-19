@@ -379,9 +379,13 @@ public class ContainerStorageManager {
     // Stop each store consumer once
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::stop);
 
-    // Now create persistent non side input stores in read-write mode, leave non-persistent stores as-is
+    // Now create persistent non-side-input stores in read-write mode, leave non-persistent and side-input stores as-is
+    Set<String> inMemoryStoreNames =
+        ContainerStorageManagerUtil.getInMemoryStoreNames(this.storageEngineFactories, this.config);
+    Set<String> storesToCreate = nonSideInputStoreNames.stream()
+        .filter(s -> !inMemoryStoreNames.contains(s)).collect(Collectors.toSet());
     this.taskStores = ContainerStorageManagerUtil.createTaskStores(
-        nonSideInputStoreNames, this.storageEngineFactories, this.sideInputStoreNames,
+        storesToCreate, this.storageEngineFactories, this.sideInputStoreNames,
         this.activeTaskChangelogSystemStreams, this.storeDirectoryPaths,
         this.containerModel, this.jobContext, this.containerContext,
         this.serdes, this.taskInstanceMetrics, this.taskInstanceCollectors, this.storageManagerUtil,

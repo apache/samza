@@ -178,9 +178,10 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
   public void close() {
     TaskName taskName = taskModel.getTaskName();
     storeEngines.forEach((storeName, storeEngine) -> {
-      if (storeEngine.getStoreProperties().isPersistedToDisk())
+      if (storeEngine.getStoreProperties().isPersistedToDisk()) {
         storeEngine.stop();
-      LOG.info("Stopped persistent store: {} in task: {}", storeName, taskName);
+        LOG.info("Stopped persistent store: {} in task: {}", storeName, taskName);
+      }
     });
   }
 
@@ -192,7 +193,7 @@ public class TransactionalStateTaskRestoreManager implements TaskRestoreManager 
     // Put non persisted stores
     nonPersistedStores.forEach(storageEngines::put);
     // Create persisted stores
-    storeNames.forEach(storeName -> {
+    storeNames.stream().filter(s -> !nonPersistedStores.containsKey(s)).forEach(storeName -> {
       boolean isLogged = this.storeChangelogs.containsKey(storeName);
       File storeBaseDir = isLogged ? this.loggedStoreBaseDirectory : this.nonLoggedStoreBaseDirectory;
       File storeDirectory = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskModel.getTaskName(),

@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage.kv;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
@@ -28,6 +29,7 @@ import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -39,7 +41,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.JobCoordinatorConfig;
@@ -53,10 +54,8 @@ import org.apache.samza.storage.blobstore.Metadata;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.serde.SnapshotIndexSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
-import org.apache.samza.test.framework.StreamApplicationIntegrationTestHarness;
 import org.apache.samza.test.util.TestBlobStoreManager;
 import org.apache.samza.util.FileUtil;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,19 +68,21 @@ import static org.junit.Assert.assertTrue;
 
 
 @RunWith(value = Parameterized.class)
-public class BlobStoreStateBackendIntegrationTest extends StreamApplicationIntegrationTestHarness {
+public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegrationTest {
   @Parameterized.Parameters(name = "hostAffinity={0}")
   public static Collection<Boolean> data() {
     return Arrays.asList(true, false);
   }
 
-  private static final Logger LOG = LoggerFactory.getLogger(BlobStoreStateBackendIntegrationTest.class);
-
+  private static final String INPUT_SYSTEM = "kafka";
   private static final String INPUT_TOPIC = "inputTopic";
   private static final String SIDE_INPUT_TOPIC = "sideInputTopic";
-  private static final String INPUT_SYSTEM = "kafka";
-  private static final String STORE_NAME = "regularStore";
+
+  private static final String REGULAR_STORE_NAME = "regularStore";
+  private static final String IN_MEMORY_STORE_NAME = "inMemoryStore";
   private static final String SIDE_INPUT_STORE_NAME = "sideInputStore";
+
+  private static final String IN_MEMORY_STORE_CHANGELOG_TOPIC = "inMemoryStoreChangelog";
 
   private static final String LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "logged-store").getAbsolutePath();
   private static final String BLOB_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "blob-store").getAbsolutePath();
@@ -91,18 +92,28 @@ public class BlobStoreStateBackendIntegrationTest extends StreamApplicationInteg
       put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
       put(JobConfig.PROCESSOR_ID, "0");
       put(TaskConfig.GROUPER_FACTORY, "org.apache.samza.container.grouper.task.GroupByContainerIdsFactory");
+
       put(TaskConfig.CHECKPOINT_READ_VERSIONS, "2, 1");
       put(TaskConfig.CHECKPOINT_WRITE_VERSIONS, "1, 2");
       put(TaskConfig.CHECKPOINT_MANAGER_FACTORY, "org.apache.samza.checkpoint.kafka.KafkaCheckpointManagerFactory");
+      put(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR(), "1");
+
       put(TaskConfig.COMMIT_MS, "-1"); // manual commit only
+      put(TaskConfig.COMMIT_MAX_DELAY_MS, "0"); // Ensure no commits are skipped due to in progress commits
+
+      // override store level state backend for in memory stores to use Kafka changelogs
+      put(String.format(StorageConfig.STORE_BACKUP_FACTORIES, IN_MEMORY_STORE_NAME),
+          "org.apache.samza.storage.KafkaChangelogStateBackendFactory");
+      put(String.format(StorageConfig.STORE_RESTORE_FACTORIES, IN_MEMORY_STORE_NAME),
+          "org.apache.samza.storage.KafkaChangelogStateBackendFactory");
+
       put(StorageConfig.JOB_BACKUP_FACTORIES, "org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory");
       put(StorageConfig.JOB_RESTORE_FACTORIES, "org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory");
       put(BlobStoreConfig.BLOB_STORE_MANAGER_FACTORY, "org.apache.samza.test.util.TestBlobStoreManagerFactory");
+
       put(JobConfig.JOB_LOGGED_STORE_BASE_DIR, LOGGED_STORE_BASE_DIR);
       put(TestBlobStoreManager.BLOB_STORE_BASE_DIR, BLOB_STORE_BASE_DIR);
       put(TestBlobStoreManager.BLOB_STORE_LEDGER_DIR, BLOB_STORE_LEDGER_DIR);
-      put(KafkaConfig.CHECKPOINT_REPLICATION_FACTOR(), "1");
-      put(TaskConfig.COMMIT_MAX_DELAY_MS, "0"); // Ensure no commits are skipped due to in progress commits
     } };
 
   private final boolean hostAffinity;
@@ -127,143 +138,57 @@ public class BlobStoreStateBackendIntegrationTest extends StreamApplicationInteg
   @Test
   public void testStopAndRestart() {
     List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
-    initialRun(inputMessagesOnInitialRun);
-    Pair<String, SnapshotIndex> lastSnapshot =
-        verifyLedger(STORE_NAME, Optional.empty(), hostAffinity, false, false);
+    List<String> sideInputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "4", "5", "6");
+    initialRun(
+        INPUT_SYSTEM,
+        INPUT_TOPIC,
+        SIDE_INPUT_TOPIC,
+        inputMessagesOnInitialRun,
+        sideInputMessagesOnInitialRun,
+        ImmutableSet.of(REGULAR_STORE_NAME),
+        Collections.emptyMap(),
+        ImmutableSet.of(IN_MEMORY_STORE_NAME),
+        ImmutableMap.of(IN_MEMORY_STORE_NAME, IN_MEMORY_STORE_CHANGELOG_TOPIC),
+        SIDE_INPUT_STORE_NAME,
+        Collections.emptyList(),
+        CONFIGS);
 
-    // verifies transactional state too
-    List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
-    secondRun(expectedInitialStoreContentsOnSecondRun, CONFIGS);
-    verifyLedger(STORE_NAME, Optional.of(lastSnapshot), hostAffinity, false, false);
-  }
-
-  @Test
-  public void testStopAndRestartWithSideInputStore() {
-    List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
-    List<String> sideInputMessagesOnInitialRun = Arrays.asList("10", "20", "30", "40", "50", "60", "70", "80", "90");
-    initialRunWithSideInputs(inputMessagesOnInitialRun, sideInputMessagesOnInitialRun, CONFIGS);
     Pair<String, SnapshotIndex> lastRegularSnapshot =
-        verifyLedger(STORE_NAME, Optional.empty(), hostAffinity, false, false);
+        verifyLedger(REGULAR_STORE_NAME, Optional.empty(), hostAffinity, false, false);
     Pair<String, SnapshotIndex> lastSideInputSnapshot =
         verifyLedger(SIDE_INPUT_STORE_NAME, Optional.empty(), hostAffinity, true,
             false /* no side input offsets file will be present during initial restore */);
 
     // verifies transactional state too
+    List<String> inputMessagesBeforeSecondRun = Arrays.asList("4", "5", "5", ":shutdown");
+    List<String> sideInputMessagesBeforeSecondRun = Arrays.asList("7", "8", "9");
     List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
-    secondRunWithSideInputs(expectedInitialStoreContentsOnSecondRun, CONFIGS);
-    verifyLedger(STORE_NAME, Optional.of(lastRegularSnapshot), hostAffinity, false, false);
+    // verifies that in-memory stores backed by changelogs work correctly
+    // (requires overriding store level state backends explicitly)
+    List<String> expectedInitialInMemoryStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
+    List<String> expectedInitialSideInputStoreContentsOnSecondRun = new ArrayList<>(sideInputMessagesOnInitialRun);
+    expectedInitialSideInputStoreContentsOnSecondRun.addAll(sideInputMessagesBeforeSecondRun);
+    secondRun(
+        hostAffinity,
+        LOGGED_STORE_BASE_DIR,
+        INPUT_SYSTEM,
+        INPUT_TOPIC,
+        SIDE_INPUT_TOPIC,
+        inputMessagesBeforeSecondRun,
+        sideInputMessagesBeforeSecondRun,
+        ImmutableSet.of(REGULAR_STORE_NAME),
+        Collections.emptyMap(),
+        ImmutableSet.of(IN_MEMORY_STORE_NAME),
+        ImmutableMap.of(IN_MEMORY_STORE_NAME, IN_MEMORY_STORE_CHANGELOG_TOPIC),
+        SIDE_INPUT_STORE_NAME,
+        Collections.emptyList(),
+        expectedInitialStoreContentsOnSecondRun,
+        expectedInitialInMemoryStoreContentsOnSecondRun,
+        expectedInitialSideInputStoreContentsOnSecondRun,
+        CONFIGS);
+
+    verifyLedger(REGULAR_STORE_NAME, Optional.of(lastRegularSnapshot), hostAffinity, false, false);
     verifyLedger(SIDE_INPUT_STORE_NAME, Optional.of(lastSideInputSnapshot), hostAffinity, true, true);
-  }
-
-  private void initialRun(List<String> inputMessages) {
-    // create input topic and produce the first batch of input messages
-    createTopic(INPUT_TOPIC, 1);
-    inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
-
-    // verify that the input messages were produced successfully
-    if (inputMessages.size() > 0) {
-      List<ConsumerRecord<String, String>> inputRecords =
-          consumeMessages(INPUT_TOPIC, inputMessages.size());
-      List<String> readInputMessages = inputRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
-      Assert.assertEquals(inputMessages, readInputMessages);
-    }
-
-    // run the application
-    RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
-            ImmutableSet.of(STORE_NAME), Collections.emptyMap(),
-            Optional.empty(), Optional.empty(), Optional.empty()),
-        "myApp", CONFIGS);
-
-    // wait for the application to finish
-    context.getRunner().waitForFinish();
-
-    LOG.info("Finished initial run");
-  }
-
-  private void secondRun(List<String> expectedInitialStoreContents, Map<String, String> overriddenConfigs) {
-    // clear the local store directory
-    if (!hostAffinity) {
-      new FileUtil().rm(new File(LOGGED_STORE_BASE_DIR));
-    }
-
-    // produce the second batch of input messages
-
-    List<String> inputMessages = Arrays.asList("4", "5", "5", ":shutdown");
-    inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
-
-    // run the application
-    RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
-            ImmutableSet.of(STORE_NAME), Collections.emptyMap(),
-            Optional.empty(), Optional.empty(), Optional.empty()),
-        "myApp", overriddenConfigs);
-
-    // wait for the application to finish
-    context.getRunner().waitForFinish();
-
-    // verify the store contents during startup (this is after changelog verification to ensure init has completed)
-    Assert.assertEquals(expectedInitialStoreContents, MyStatefulApplication.getInitialStoreContents().get(STORE_NAME));
-  }
-
-  private void initialRunWithSideInputs(List<String> inputMessages, List<String> sideInputMessages, Map<String, String> configs) {
-    // create input topic and produce the first batch of input messages
-    createTopic(INPUT_TOPIC, 1);
-    createTopic(SIDE_INPUT_TOPIC, 1);
-    inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
-    sideInputMessages.forEach(m -> produceMessage(SIDE_INPUT_TOPIC, 0, m, m));
-
-    // verify that the input messages were produced successfully
-    if (inputMessages.size() > 0) {
-      List<ConsumerRecord<String, String>> inputRecords =
-          consumeMessages(INPUT_TOPIC, inputMessages.size());
-      List<String> readInputMessages = inputRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
-      Assert.assertEquals(inputMessages, readInputMessages);
-    }
-
-    if (sideInputMessages.size() > 0) {
-      List<ConsumerRecord<String, String>> sideInputRecords =
-          consumeMessages(SIDE_INPUT_TOPIC, sideInputMessages.size());
-      List<String> readSideInputMessages = sideInputRecords.stream().map(ConsumerRecord::value).collect(Collectors.toList());
-      Assert.assertEquals(sideInputMessages, readSideInputMessages);
-    }
-
-    // run the application
-    RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
-            ImmutableSet.of(STORE_NAME), Collections.emptyMap(),
-            Optional.of(SIDE_INPUT_STORE_NAME), Optional.of(SIDE_INPUT_TOPIC), Optional.of(new MySideInputProcessor())),
-        "myApp", configs);
-
-    // wait for the application to finish
-    context.getRunner().waitForFinish();
-
-    LOG.info("Finished initial run");
-  }
-
-  private void secondRunWithSideInputs(List<String> expectedInitialStoreContents, Map<String, String> configs) {
-    // clear the local store directory
-    if (!hostAffinity) {
-      new FileUtil().rm(new File(LOGGED_STORE_BASE_DIR));
-    }
-
-    // produce the second batch of input messages
-
-    List<String> inputMessages = Arrays.asList("4", "5", "5", ":shutdown");
-    inputMessages.forEach(m -> produceMessage(INPUT_TOPIC, 0, m, m));
-
-    // run the application
-    RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
-            ImmutableSet.of(STORE_NAME), Collections.emptyMap(),
-            Optional.of(SIDE_INPUT_STORE_NAME), Optional.of(SIDE_INPUT_TOPIC), Optional.of(new MySideInputProcessor())),
-        "myApp", configs);
-
-    // wait for the application to finish
-    context.getRunner().waitForFinish();
-
-    // verify the store contents during startup
-    Assert.assertEquals(expectedInitialStoreContents, MyStatefulApplication.getInitialStoreContents().get(STORE_NAME));
   }
 
   /**
