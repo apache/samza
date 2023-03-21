@@ -19,12 +19,15 @@
 
 package org.apache.samza.checkpoint;
 
+import com.google.common.collect.ImmutableSet;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.samza.config.JobConfig;
@@ -135,7 +138,11 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
 
     // run the application
     RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, Collections.singletonMap(STORE_NAME, CHANGELOG_TOPIC)), "myApp", configs);
+        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
+            ImmutableSet.of(STORE_NAME), Collections.singletonMap(STORE_NAME, CHANGELOG_TOPIC),
+            Collections.emptySet(), Collections.emptyMap(),
+            Optional.empty(), Optional.empty(), Optional.empty()),
+        "myApp", configs);
 
     // wait for the application to finish
     context.getRunner().waitForFinish();
@@ -162,7 +169,11 @@ public class CheckpointVersionIntegrationTest extends StreamApplicationIntegrati
 
     // run the application
     RunApplicationContext context = runApplication(
-        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC, Collections.singletonMap(STORE_NAME, changelogTopic)), "myApp", overriddenConfigs);
+        new MyStatefulApplication(INPUT_SYSTEM, INPUT_TOPIC,
+            ImmutableSet.of(STORE_NAME), Collections.singletonMap(STORE_NAME, changelogTopic),
+            Collections.emptySet(), Collections.emptyMap(),
+            Optional.empty(), Optional.empty(), Optional.empty()),
+        "myApp", overriddenConfigs);
 
     // wait for the application to finish
     context.getRunner().waitForFinish();

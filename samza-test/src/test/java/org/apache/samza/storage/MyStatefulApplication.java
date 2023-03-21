@@ -19,11 +19,14 @@
 
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.samza.application.TaskApplication;
 import org.apache.samza.application.descriptors.TaskApplicationDescriptor;
@@ -34,6 +37,7 @@ import org.apache.samza.serializers.StringSerde;
 import org.apache.samza.storage.kv.KeyValueIterator;
 import org.apache.samza.storage.kv.KeyValueStore;
 import org.apache.samza.storage.kv.descriptors.RocksDbTableDescriptor;
+import org.apache.samza.storage.kv.inmemory.descriptors.InMemoryTableDescriptor;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.system.kafka.descriptors.KafkaInputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
@@ -61,15 +65,34 @@ public class MyStatefulApplication implements TaskApplication {
   public static final Logger LOG = LoggerFactory.getLogger(MyStatefulApplication.class);
 
   private static Map<String, List<String>> initialStoreContents = new HashMap<>();
+  private static Map<String, List<String>> initialInMemoryStoreContents = new HashMap<>();
+  private static Map<String, List<String>> initialSideInputStoreContents = new HashMap<>();
   private static boolean crashedOnce = false;
+
   private final String inputSystem;
   private final String inputTopic;
-  private final Map<String, String> storeToChangelog;
+  private final Set<String> storeNames;
+  private final Map<String, String> storeNamesToChangelog;
+  private final Set<String> inMemoryStoreNames;
+  private final Map<String, String> inMemoryStoreNamesToChangelog;
+  private final Optional<String> sideInputStoreName;
+  private final Optional<String> sideInputTopic;
+  private final Optional<SideInputsProcessor> sideInputProcessor;
 
-  public MyStatefulApplication(String inputSystem, String inputTopic, Map<String, String> storeToChangelog) {
+  public MyStatefulApplication(String inputSystem, String inputTopic,
+      Set<String> storeNames, Map<String, String> storeNamesToChangelog,
+      Set<String> inMemoryStoreNames, Map<String, String> inMemoryStoreNamesToChangelog,
+      Optional<String> sideInputStoreName, Optional<String> sideInputTopic,
+      Optional<SideInputsProcessor> sideInputProcessor) {
     this.inputSystem = inputSystem;
     this.inputTopic = inputTopic;
-    this.storeToChangelog = storeToChangelog;
+    this.storeNames = storeNames;
+    this.storeNamesToChangelog = storeNamesToChangelog;
+    this.inMemoryStoreNames = inMemoryStoreNames;
+    this.inMemoryStoreNamesToChangelog = inMemoryStoreNamesToChangelog;
+    this.sideInputStoreName = sideInputStoreName;
+    this.sideInputTopic = sideInputTopic;
+    this.sideInputProcessor = sideInputProcessor;
   }
 
   @Override
@@ -81,18 +104,46 @@ public class MyStatefulApplication implements TaskApplication {
 
     TaskApplicationDescriptor desc = appDescriptor
         .withInputStream(isd)
-        .withTaskFactory((StreamTaskFactory) () -> new MyTask(storeToChangelog.keySet()));
+        .withTaskFactory((StreamTaskFactory) () -> new MyTask(storeNames, inMemoryStoreNames, sideInputStoreName));
 
-    storeToChangelog.forEach((storeName, changelogTopic) -> {
-      RocksDbTableDescriptor<String, String> td = new RocksDbTableDescriptor<>(storeName, serde)
-          .withChangelogStream(changelogTopic)
-          .withChangelogReplicationFactor(1);
+    inMemoryStoreNames.forEach(storeName -> {
+      InMemoryTableDescriptor<String, String> imtd;
+      if (inMemoryStoreNamesToChangelog.containsKey(storeName)) {
+        imtd = new InMemoryTableDescriptor<>(storeName, serde)
+            .withChangelogStream(inMemoryStoreNamesToChangelog.get(storeName));
+      } else {
+        imtd = new InMemoryTableDescriptor<>(storeName, serde);
+      }
+
+      desc.withTable(imtd);
+    });
+
+    storeNames.forEach(storeName -> {
+      RocksDbTableDescriptor<String, String> td;
+      if (storeNamesToChangelog.containsKey(storeName)) {
+        String changelogTopic = storeNamesToChangelog.get(storeName);
+        td = new RocksDbTableDescriptor<>(storeName, serde)
+            .withChangelogStream(changelogTopic)
+            .withChangelogReplicationFactor(1);
+      } else {
+        td = new RocksDbTableDescriptor<>(storeName, serde);
+      }
       desc.withTable(td);
     });
+
+    if (sideInputStoreName.isPresent()) {
+      RocksDbTableDescriptor<String, String> sideInputStoreTd =
+          new RocksDbTableDescriptor<>(sideInputStoreName.get(), serde)
+              .withSideInputs(ImmutableList.of(sideInputTopic.get()))
+              .withSideInputsProcessor(sideInputProcessor.get());
+      desc.withTable(sideInputStoreTd);
+    }
   }
 
   public static void resetTestState() {
     initialStoreContents = new HashMap<>();
+    initialInMemoryStoreContents = new HashMap<>();
+    initialSideInputStoreContents = new HashMap<>();
     crashedOnce = false;
   }
 
@@ -100,27 +151,64 @@ public class MyStatefulApplication implements TaskApplication {
     return initialStoreContents;
   }
 
+  public static Map<String, List<String>> getInitialInMemoryStoreContents() {
+    return initialInMemoryStoreContents;
+  }
+
+  public static Map<String, List<String>> getInitialSideInputStoreContents() {
+    return initialSideInputStoreContents;
+  }
+
   static class MyTask implements StreamTask, InitableTask {
     private final Set<KeyValueStore<String, String>> stores = new HashSet<>();
     private final Set<String> storeNames;
+    private final Set<String> inMemoryStoreNames;
+    private final Optional<String> sideInputStoreName;
 
-    MyTask(Set<String> storeNames) {
+    MyTask(Set<String> storeNames, Set<String> inMemoryStoreNames, Optional<String> sideInputStoreName) {
       this.storeNames = storeNames;
+      this.inMemoryStoreNames = inMemoryStoreNames;
+      this.sideInputStoreName = sideInputStoreName;
     }
 
     @Override
     public void init(Context context) {
       storeNames.forEach(storeName -> {
         KeyValueStore<String, String> store = (KeyValueStore<String, String>) context.getTaskContext().getStore(storeName);
-        stores.add(store);
+        stores.add(store); // any input messages will be written to all 'stores'
         KeyValueIterator<String, String> storeEntries = store.all();
-        List<String> storeInitialChangelog = new ArrayList<>();
+        List<String> storeInitialContents = new ArrayList<>();
         while (storeEntries.hasNext()) {
-          storeInitialChangelog.add(storeEntries.next().getValue());
+          storeInitialContents.add(storeEntries.next().getValue());
         }
-        initialStoreContents.put(storeName, storeInitialChangelog);
+        initialStoreContents.put(storeName, storeInitialContents);
         storeEntries.close();
       });
+
+      inMemoryStoreNames.forEach(storeName -> {
+        KeyValueStore<String, String> store =
+            (KeyValueStore<String, String>) context.getTaskContext().getStore(storeName);
+        stores.add(store); // any input messages will be written to all 'stores'.
+        KeyValueIterator<String, String> storeEntries = store.all();
+        List<String> storeInitialContents = new ArrayList<>();
+        while (storeEntries.hasNext()) {
+          storeInitialContents.add(storeEntries.next().getValue());
+        }
+        initialInMemoryStoreContents.put(storeName, storeInitialContents);
+        storeEntries.close();
+      });
+
+      if (sideInputStoreName.isPresent()) {
+        KeyValueStore<String, String> sideInputStore =
+            (KeyValueStore<String, String>) context.getTaskContext().getStore(sideInputStoreName.get());
+        KeyValueIterator<String, String> sideInputStoreEntries = sideInputStore.all();
+        List<String> sideInputStoreInitialContents = new ArrayList<>();
+        while (sideInputStoreEntries.hasNext()) {
+          sideInputStoreInitialContents.add(sideInputStoreEntries.next().getValue());
+        }
+        initialSideInputStoreContents.put(sideInputStoreName.get(), sideInputStoreInitialContents);
+        sideInputStoreEntries.close();
+      }
     }
 
     @Override

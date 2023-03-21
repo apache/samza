@@ -35,7 +35,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
+import org.apache.commons.io.FileUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointV2;
@@ -68,6 +70,19 @@ public class StorageManagerUtil {
   private static final ObjectWriter SSP_OFFSET_OBJECT_WRITER = OBJECT_MAPPER.writerFor(OFFSETS_TYPE_REFERENCE);
   private static final String SST_FILE_SUFFIX = ".sst";
   private static final CheckpointV2Serde CHECKPOINT_V2_SERDE = new CheckpointV2Serde();
+
+  /**
+   * Unlike checkpoint or offset files, side input offset file can have multiple writers / readers,
+   * since they are written during SideInputTask commit and copied to store checkpoint directory
+   * by TaskStorageCommitManager during regular TaskInstance commit (these commits are on separate run loops).
+   *
+   * We use a (process-wide) semaphore to ensure that such write and copy operations are thread-safe.
+   *
+   * To avoid deadlocks between the two run loops, the semaphore should be acquired and released within
+   * the same method call, and any such methods should not call each other while holding a permit.
+   * We use a Semaphore instead of a ReentrantLock to make such cases easier to detect.
+   */
+  private static final Semaphore SIDE_INPUT_OFFSET_FILE_SEMAPHORE = new Semaphore(1);
 
   /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
@@ -125,7 +140,6 @@ public class StorageManagerUtil {
       // if neither exists, we use 0L (the default return value of lastModified() when file does not exist
       File offsetFileRefNew = new File(storeDir, OFFSET_FILE_NAME_NEW);
       File offsetFileRefLegacy = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
-      File sideInputOffsetFileRefLegacy = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
       File checkpointV2File = new File(storeDir, CHECKPOINT_FILE_NAME);
 
       if (checkpointV2File.exists()) {
@@ -134,8 +148,18 @@ public class StorageManagerUtil {
         offsetFileLastModifiedTime = offsetFileRefNew.lastModified();
       } else if (!isSideInput && offsetFileRefLegacy.exists()) {
         offsetFileLastModifiedTime = offsetFileRefLegacy.lastModified();
-      } else if (isSideInput && sideInputOffsetFileRefLegacy.exists()) {
-        offsetFileLastModifiedTime = sideInputOffsetFileRefLegacy.lastModified();
+      } else if (isSideInput) {
+        try {
+          SIDE_INPUT_OFFSET_FILE_SEMAPHORE.acquireUninterruptibly();
+          File sideInputOffsetFileRefLegacy = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
+          if (sideInputOffsetFileRefLegacy.exists()) {
+            offsetFileLastModifiedTime = sideInputOffsetFileRefLegacy.lastModified();
+          } else {
+            offsetFileLastModifiedTime = 0L;
+          }
+        } finally {
+          SIDE_INPUT_OFFSET_FILE_SEMAPHORE.release();
+        }
       } else {
         offsetFileLastModifiedTime = 0L;
       }
@@ -223,9 +247,14 @@ public class StorageManagerUtil {
 
     // Now we write the old format offset file, which are different for store-offset and side-inputs
     if (isSideInput) {
-      offsetFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
-      fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
-      fileUtil.writeWithChecksum(offsetFile, fileContents);
+      SIDE_INPUT_OFFSET_FILE_SEMAPHORE.acquireUninterruptibly();
+      try {
+        offsetFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
+        fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
+        fileUtil.writeWithChecksum(offsetFile, fileContents);
+      } finally {
+        SIDE_INPUT_OFFSET_FILE_SEMAPHORE.release();
+      }
     } else {
       offsetFile = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
       fileUtil.writeWithChecksum(offsetFile, offsets.entrySet().iterator().next().getValue());
@@ -243,6 +272,32 @@ public class StorageManagerUtil {
     byte[] fileContents = CHECKPOINT_V2_SERDE.toBytes(checkpoint);
     FileUtil fileUtil = new FileUtil();
     fileUtil.writeWithChecksum(offsetFile, new String(fileContents));
+  }
+
+  public void copySideInputOffsetFileToCheckpointDir(File storeBaseDir,
+      TaskName taskName, String storeName, TaskMode taskMode, CheckpointId checkpointId) {
+    File storeDir = getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode);
+    File checkpointDir = new File(getStoreCheckpointDir(storeDir, checkpointId));
+
+    SIDE_INPUT_OFFSET_FILE_SEMAPHORE.acquireUninterruptibly();
+    try {
+      File storeSideInputOffsetsFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
+      File checkpointDirSideInputOffsetsFile = new File(checkpointDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
+      if (storeSideInputOffsetsFile.exists()) {
+        FileUtils.copyFile(storeSideInputOffsetsFile, checkpointDirSideInputOffsetsFile);
+      } else {
+        LOG.info("Did not find the file to copy: {} for taskName: {} taskMode: {} storeName: {} checkpointId: {}",
+            SIDE_INPUT_OFFSET_FILE_NAME_LEGACY, taskName, taskMode, storeName, checkpointId);
+      }
+    } catch (IOException e) {
+      String msg = String.format(
+          "Error copying %s file to checkpoint dir for taskName: %s taskMode: %s storeName: %s checkpointId: %s",
+          SIDE_INPUT_OFFSET_FILE_NAME_LEGACY, taskName, taskMode, storeName, checkpointId);
+      LOG.error(msg, e);
+      throw new SamzaException(msg, e);
+    } finally {
+      SIDE_INPUT_OFFSET_FILE_SEMAPHORE.release();
+    }
   }
 
   /**
@@ -286,7 +341,6 @@ public class StorageManagerUtil {
 
     File offsetFileRefNew = new File(storagePartitionDir, OFFSET_FILE_NAME_NEW);
     File offsetFileRefLegacy = new File(storagePartitionDir, OFFSET_FILE_NAME_LEGACY);
-    File sideInputOffsetFileRefLegacy = new File(storagePartitionDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
 
     // First we check if the new offset file exists, if it does we read offsets from it regardless of old or new format,
     // if it doesn't exist, we check if the store is non-sideInput and legacy-offset file exists, if so we read offsets
@@ -296,8 +350,18 @@ public class StorageManagerUtil {
       return readOffsetFile(storagePartitionDir, offsetFileRefNew.getName(), storeSSPs);
     } else if (!isSideInput && offsetFileRefLegacy.exists()) {
       return readOffsetFile(storagePartitionDir, offsetFileRefLegacy.getName(), storeSSPs);
-    } else if (isSideInput && sideInputOffsetFileRefLegacy.exists()) {
-      return readOffsetFile(storagePartitionDir, sideInputOffsetFileRefLegacy.getName(), storeSSPs);
+    } else if (isSideInput) {
+      Map<SystemStreamPartition, String> result = new HashMap<>();
+      SIDE_INPUT_OFFSET_FILE_SEMAPHORE.acquireUninterruptibly();
+      try {
+        File sideInputOffsetFileRefLegacy = new File(storagePartitionDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
+        if (sideInputOffsetFileRefLegacy.exists()) {
+          result = readOffsetFile(storagePartitionDir, sideInputOffsetFileRefLegacy.getName(), storeSSPs);
+        }
+      } finally {
+        SIDE_INPUT_OFFSET_FILE_SEMAPHORE.release();
+      }
+      return result;
     } else {
       return new HashMap<>();
     }

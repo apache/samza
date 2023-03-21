@@ -171,20 +171,26 @@ public class ContainerStorageManagerUtil {
       StorageManagerUtil storageManagerUtil,
       File loggedStoreBaseDirectory, File nonLoggedStoreBaseDirectory,
       Config config) {
-    StorageConfig storageConfig = new StorageConfig(config);
-    Set<String> inMemoryStoreNames = storageEngineFactories.keySet().stream()
-        .filter(storeName -> {
-          Optional<String> storeFactory = storageConfig.getStorageFactoryClassName(storeName);
-          return storeFactory.isPresent() && storeFactory.get()
-              .equals(StorageConfig.INMEMORY_KV_STORAGE_ENGINE_FACTORY);
-        })
-        .collect(Collectors.toSet());
+    Set<String> inMemoryStoreNames = getInMemoryStoreNames(storageEngineFactories, config);
     return ContainerStorageManagerUtil.createTaskStores(
         inMemoryStoreNames, storageEngineFactories, sideInputStoreNames,
         activeTaskChangelogSystemStreams, storeDirectoryPaths,
         containerModel, jobContext, containerContext, serdes,
         taskInstanceMetrics, taskInstanceCollectors, storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config);
+  }
+
+  public static Set<String> getInMemoryStoreNames(
+      Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Config config) {
+    StorageConfig storageConfig = new StorageConfig(config);
+    return storageEngineFactories.keySet().stream()
+        .filter(storeName -> {
+          Optional<String> storeFactory = storageConfig.getStorageFactoryClassName(storeName);
+          return storeFactory.isPresent() && storeFactory.get()
+              .equals(StorageConfig.INMEMORY_KV_STORAGE_ENGINE_FACTORY);
+        })
+        .collect(Collectors.toSet());
   }
 
   /**
@@ -308,7 +314,10 @@ public class ContainerStorageManagerUtil {
   }
 
   /**
-   * Return a map of backend factory names to set of stores that should be restored using it
+   * Returns a map of backend factory names to subset of provided storeNames that should be restored using it.
+   * For CheckpointV1, only includes stores that should be restored using a configured changelog.
+   * For CheckpointV2, associates stores with the highest precedence configured restore factory that has a SCM in
+   * the checkpoint, or the highest precedence restore factory configured if there are no SCMs in the checkpoint.
    */
   public static Map<String, Set<String>> getBackendFactoryStoreNames(
       Set<String> storeNames, Checkpoint checkpoint, StorageConfig storageConfig) {
@@ -327,8 +336,8 @@ public class ContainerStorageManagerUtil {
         Set<String> nonChangelogStores = storeNames.stream()
             .filter(storeName -> !changelogStores.contains(storeName))
             .collect(Collectors.toSet());
-        LOG.info("non-Side input stores: {}, do not have a configured store changelogs for checkpoint V1,"
-                + "restore for the store will be skipped",
+        LOG.info("Stores: {}, do not have a configured store changelogs for checkpoint V1,"
+                + "changelog restore for the store will be skipped.",
             nonChangelogStores);
       }
     } else if (checkpoint == null ||  checkpoint.getVersion() == 2) {
@@ -342,8 +351,8 @@ public class ContainerStorageManagerUtil {
 
         if (storeFactories.isEmpty()) {
           // If the restore factory is not configured for the store and the store does not have a changelog topic
-          LOG.info("non-Side input store: {}, does not have a configured restore factories nor store changelogs,"
-                  + "restore for the store will be skipped",
+          LOG.info("Store: {} does not have a configured restore factory or a changelog topic, "
+                  + "restore for the store will be skipped.",
               storeName);
         } else {
           // Search the ordered list for the first matched state backend factory in the checkpoint
@@ -359,8 +368,8 @@ public class ContainerStorageManagerUtil {
           } else { // Restore factories configured but no checkpoints found
             // Use first configured restore factory
             factoryName = storeFactories.get(0);
-            LOG.warn("No matching checkpoints found for configured factories: {}, " +
-                "defaulting to using the first configured factory with no checkpoints", storeFactories);
+            LOG.warn("No matching SCMs found for configured restore factories: {} for storeName: {}, " +
+                "defaulting to using the first configured factory with no SCM.", storeFactories, storeName);
           }
           if (!backendFactoryStoreNames.containsKey(factoryName)) {
             backendFactoryStoreNames.put(factoryName, new HashSet<>());

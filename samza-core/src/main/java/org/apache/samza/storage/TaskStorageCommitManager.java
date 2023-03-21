@@ -23,12 +23,14 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.commons.io.FileUtils;
@@ -42,6 +44,7 @@ import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
 import org.apache.samza.checkpoint.kafka.KafkaChangelogSSPOffset;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.TaskInstanceMetrics;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
@@ -63,6 +66,7 @@ public class TaskStorageCommitManager {
   private final ContainerStorageManager containerStorageManager;
   private final Map<String, TaskBackupManager> stateBackendToBackupManager;
   private final Partition taskChangelogPartition;
+  private final StorageConfig config;
   private final StorageManagerUtil storageManagerUtil;
   private final ExecutorService backupExecutor;
   private final File durableStoreBaseDir;
@@ -81,6 +85,7 @@ public class TaskStorageCommitManager {
     this.stateBackendToBackupManager = stateBackendToBackupManager;
     this.taskChangelogPartition = changelogPartition;
     this.checkpointManager = checkpointManager;
+    this.config = new StorageConfig(config);
     this.backupExecutor = backupExecutor;
     this.durableStoreBaseDir = durableStoreBaseDir;
     this.storeChangelogs = storeChangelogs;
@@ -122,7 +127,15 @@ public class TaskStorageCommitManager {
     storageEngines.forEach((storeName, storageEngine) -> {
       if (storageEngine.getStoreProperties().isPersistedToDisk() &&
           storageEngine.getStoreProperties().isDurableStore()) {
-        storageEngine.checkpoint(checkpointId);
+        Optional<Path> checkpointDir = storageEngine.checkpoint(checkpointId);
+
+        // if checkpoint is for a side input store
+        if (checkpointDir.isPresent() && !config.getSideInputs(storeName).isEmpty()) {
+          storageManagerUtil.copySideInputOffsetFileToCheckpointDir(
+              durableStoreBaseDir, taskName, storeName, TaskMode.Active, checkpointId);
+          LOG.debug("Copied side input offsets file to checkpoint dir for taskName: {} storeName: {} checkpointId: {}",
+              taskName, storeName, checkpointId);
+        }
       }
     });
     long checkpointNs = System.nanoTime() - checkpointStartNs;

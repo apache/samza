@@ -30,6 +30,7 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.ReadableCoordinator;
 import org.apache.samza.task.TaskCallback;
 import org.apache.samza.task.TaskCallbackFactory;
+import org.apache.samza.task.TaskCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,16 +45,20 @@ public class SideInputTask implements RunLoopTask {
   private final Set<SystemStreamPartition> taskSSPs;
   private final TaskSideInputHandler taskSideInputHandler;
   private final TaskInstanceMetrics metrics;
+  private final long commitMs;
+  private volatile boolean loggedManualCommitWarning = false;
 
   public SideInputTask(
       TaskName taskName,
       Set<SystemStreamPartition> taskSSPs,
       TaskSideInputHandler taskSideInputHandler,
-      TaskInstanceMetrics metrics) {
+      TaskInstanceMetrics metrics,
+      long commitMs) {
     this.taskName = taskName;
     this.taskSSPs = taskSSPs;
     this.taskSideInputHandler = taskSideInputHandler;
     this.metrics = metrics;
+    this.commitMs = commitMs;
   }
 
   @Override
@@ -69,6 +74,14 @@ public class SideInputTask implements RunLoopTask {
     try {
       this.taskSideInputHandler.process(envelope);
       this.metrics.messagesActuallyProcessed().inc();
+      if (commitMs <= 0 && !loggedManualCommitWarning) {
+        loggedManualCommitWarning = true; // log warning once
+        LOG.warn("Manual commit is enabled (task.commit.ms < 0). " +
+            "Side input task will request a commit after processing every message. " +
+            "This will incur a significant performance penalty and is not recommended.");
+        // commit every message. useful for integration tests. not desirable for regular use.
+        coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
+      }
       callback.complete();
     } catch (Exception e) {
       callback.failure(e);

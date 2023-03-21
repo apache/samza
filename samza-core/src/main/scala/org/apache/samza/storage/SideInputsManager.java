@@ -222,7 +222,8 @@ public class SideInputsManager {
           sideInputTaskMetrics.put(taskName, sideInputMetrics);
 
           RunLoopTask sideInputTask = new SideInputTask(taskName, taskSSPs,
-              taskSideInputHandlers.get(taskName), sideInputTaskMetrics.get(taskName));
+              taskSideInputHandlers.get(taskName), sideInputTaskMetrics.get(taskName),
+              new TaskConfig(config).getCommitMs());
           sideInputTasks.put(taskName, sideInputTask);
         }
       });
