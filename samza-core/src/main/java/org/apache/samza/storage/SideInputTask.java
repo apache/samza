@@ -46,6 +46,7 @@ public class SideInputTask implements RunLoopTask {
   private final TaskSideInputHandler taskSideInputHandler;
   private final TaskInstanceMetrics metrics;
   private final long commitMs;
+  private volatile boolean loggedManualCommitWarning = false;
 
   public SideInputTask(
       TaskName taskName,
@@ -73,7 +74,11 @@ public class SideInputTask implements RunLoopTask {
     try {
       this.taskSideInputHandler.process(envelope);
       this.metrics.messagesActuallyProcessed().inc();
-      if (commitMs <= 0) {
+      if (commitMs <= 0 && !loggedManualCommitWarning) {
+        loggedManualCommitWarning = true; // log warning once
+        LOG.warn("Manual commit is enabled (task.commit.ms < 0). " +
+            "Side input task will request a commit after processing every message. " +
+            "This will incur a significant performance penalty and is not recommended.");
         // commit every message. useful for integration tests. not desirable for regular use.
         coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
       }

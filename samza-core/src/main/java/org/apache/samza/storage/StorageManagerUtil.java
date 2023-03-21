@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -72,11 +73,18 @@ public class StorageManagerUtil {
   private static final String SST_FILE_SUFFIX = ".sst";
   private static final CheckpointV2Serde CHECKPOINT_V2_SERDE = new CheckpointV2Serde();
 
-  // Unlike checkpoint or offset files, side input offset file can have multiple writers / readers,
-  // since they are written during SideInputTask commit and copied to store checkpoint directory
-  // by TaskStorageCommitManager during regular TaskInstance commit (these commits are on separate run loops).
-  // We use a (process-wide) lock to ensure that such write and copy operations are thread-safe.
-  private static final Lock SIDE_INPUT_OFFSET_FILE_LOCK = new ReentrantLock();
+  /**
+   * Unlike checkpoint or offset files, side input offset file can have multiple writers / readers,
+   * since they are written during SideInputTask commit and copied to store checkpoint directory
+   * by TaskStorageCommitManager during regular TaskInstance commit (these commits are on separate run loops).
+   *
+   * We use a (process-wide) semaphore to ensure that such write and copy operations are thread-safe.
+   *
+   * To avoid deadlocks between the two run loops, the semaphore should be acquired and released within
+   * the same method call, and any such methods should not call each other while holding a permit.
+   * We use a Semaphore instead of a ReentrantLock to make such cases easier to detect.
+   */
+  private static final Semaphore SIDE_INPUT_OFFSET_FILE_SEMAPHORE = new Semaphore(1);
 
   /**
    * Fetch the starting offset for the input {@link SystemStreamPartition}
@@ -143,8 +151,8 @@ public class StorageManagerUtil {
       } else if (!isSideInput && offsetFileRefLegacy.exists()) {
         offsetFileLastModifiedTime = offsetFileRefLegacy.lastModified();
       } else if (isSideInput) {
-        SIDE_INPUT_OFFSET_FILE_LOCK.lock();
         try {
+          SIDE_INPUT_OFFSET_FILE_SEMAPHORE.acquireUninterruptibly();
           File sideInputOffsetFileRefLegacy = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
           if (sideInputOffsetFileRefLegacy.exists()) {
             offsetFileLastModifiedTime = sideInputOffsetFileRefLegacy.lastModified();
@@ -152,7 +160,7 @@ public class StorageManagerUtil {
             offsetFileLastModifiedTime = 0L;
           }
         } finally {
-          SIDE_INPUT_OFFSET_FILE_LOCK.unlock();
+          SIDE_INPUT_OFFSET_FILE_SEMAPHORE.release();
         }
       } else {
         offsetFileLastModifiedTime = 0L;
@@ -241,13 +249,13 @@ public class StorageManagerUtil {
 
     // Now we write the old format offset file, which are different for store-offset and side-inputs
     if (isSideInput) {
-      SIDE_INPUT_OFFSET_FILE_LOCK.lock();
+      SIDE_INPUT_OFFSET_FILE_SEMAPHORE.acquireUninterruptibly();
       try {
         offsetFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
         fileContents = SSP_OFFSET_OBJECT_WRITER.writeValueAsString(offsets);
         fileUtil.writeWithChecksum(offsetFile, fileContents);
       } finally {
-        SIDE_INPUT_OFFSET_FILE_LOCK.unlock();
+        SIDE_INPUT_OFFSET_FILE_SEMAPHORE.release();
       }
     } else {
       offsetFile = new File(storeDir, OFFSET_FILE_NAME_LEGACY);
@@ -273,7 +281,7 @@ public class StorageManagerUtil {
     File storeDir = getTaskStoreDir(storeBaseDir, storeName, taskName, taskMode);
     File checkpointDir = new File(getStoreCheckpointDir(storeDir, checkpointId));
 
-    SIDE_INPUT_OFFSET_FILE_LOCK.lock();
+    SIDE_INPUT_OFFSET_FILE_SEMAPHORE.acquireUninterruptibly();
     try {
       File storeSideInputOffsetsFile = new File(storeDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
       File checkpointDirSideInputOffsetsFile = new File(checkpointDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
@@ -290,7 +298,7 @@ public class StorageManagerUtil {
       LOG.error(msg, e);
       throw new SamzaException(msg, e);
     } finally {
-      SIDE_INPUT_OFFSET_FILE_LOCK.unlock();
+      SIDE_INPUT_OFFSET_FILE_SEMAPHORE.release();
     }
   }
 
@@ -346,14 +354,14 @@ public class StorageManagerUtil {
       return readOffsetFile(storagePartitionDir, offsetFileRefLegacy.getName(), storeSSPs);
     } else if (isSideInput) {
       Map<SystemStreamPartition, String> result = new HashMap<>();
-      SIDE_INPUT_OFFSET_FILE_LOCK.lock();
+      SIDE_INPUT_OFFSET_FILE_SEMAPHORE.acquireUninterruptibly();
       try {
         File sideInputOffsetFileRefLegacy = new File(storagePartitionDir, SIDE_INPUT_OFFSET_FILE_NAME_LEGACY);
         if (sideInputOffsetFileRefLegacy.exists()) {
           result = readOffsetFile(storagePartitionDir, sideInputOffsetFileRefLegacy.getName(), storeSSPs);
         }
       } finally {
-        SIDE_INPUT_OFFSET_FILE_LOCK.unlock();
+        SIDE_INPUT_OFFSET_FILE_SEMAPHORE.release();
       }
       return result;
     } else {
