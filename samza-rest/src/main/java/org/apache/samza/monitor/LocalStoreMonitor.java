@@ -25,8 +25,8 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.io.file.PathUtils;
 import org.apache.commons.io.filefilter.DirectoryFileFilter;
-import org.apache.commons.io.FileUtils;
 import org.apache.samza.container.TaskName;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.rest.model.JobStatus;
@@ -162,7 +162,9 @@ public class LocalStoreMonitor implements Monitor {
     if (!offsetFile.exists()) {
       LOG.info("Deleting the task store: {}, since it has no offset file.", taskStorePath);
       long taskStoreSizeInBytes = taskStoreDir.getTotalSpace();
-      FileUtils.deleteDirectory(taskStoreDir);
+      if (taskStoreDir.exists() && taskStoreDir.isDirectory()) {
+        PathUtils.deleteDirectory(taskStoreDir.toPath());
+      }
       localStoreMonitorMetrics.diskSpaceFreedInBytes.inc(taskStoreSizeInBytes);
       localStoreMonitorMetrics.noOfDeletedTaskPartitionStores.inc();
     } else if ((CLOCK.currentTimeMillis() - offsetFile.lastModified()) >= config.getOffsetFileTTL()) {

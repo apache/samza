@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -39,7 +40,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.file.PathUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
@@ -266,7 +267,9 @@ public class TestBlobStoreBackupManager {
     // cleanup
     checkpointDirsToClean.forEach(path -> {
       try {
-        FileUtils.deleteDirectory(new File(path));
+        if (Files.exists(Paths.get(path)) && Files.isDirectory(Paths.get(path))) {
+          PathUtils.deleteDirectory(Paths.get(path));
+        }
       } catch (IOException exception) {
         Assert.fail("Failed to cleanup temporary checkpoint dirs.");
       }
@@ -369,7 +372,9 @@ public class TestBlobStoreBackupManager {
     // cleanup
     checkpointDirsToClean.forEach(path -> {
       try {
-        FileUtils.deleteDirectory(new File(path));
+        if (Files.exists(Paths.get(path)) && Files.isDirectory(Paths.get(path))) {
+          PathUtils.deleteDirectory(Paths.get(path));
+        }
       } catch (IOException exception) {
         Assert.fail("Failed to cleanup temporary checkpoint dirs.");
       }
