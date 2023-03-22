@@ -35,7 +35,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.file.PathUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
@@ -247,7 +247,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       try {
         LOG.debug("Deleting local store directory: {}. Will be restored from local store checkpoint directory " +
             "or remote snapshot.", storeDir);
-        FileUtils.deleteDirectory(storeDir);
+        if (storeDir.exists() && storeDir.isDirectory()) {
+          PathUtils.deleteDirectory(storeDir.toPath());
+        }
       } catch (IOException e) {
         throw new SamzaException(String.format("Error deleting store directory: %s", storeDir), e);
       }
@@ -356,7 +358,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
           loggedBaseDir, storeName, taskName, TaskMode.Active);
       for (File checkpointDir: checkpointDirs) {
         LOG.debug("Deleting local store checkpoint directory: {} before restore.", checkpointDir);
-        FileUtils.deleteDirectory(checkpointDir);
+        if (checkpointDir.exists() && checkpointDir.isDirectory()) {
+          PathUtils.deleteDirectory(checkpointDir.toPath());
+        }
       }
     } catch (Exception e) {
       throw new SamzaException(

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.file.PathUtils;
 import org.apache.samza.config.MapConfig;
 import org.apache.samza.rest.model.JobStatus;
 import org.apache.samza.rest.model.Task;
@@ -97,7 +98,9 @@ public class TestLocalStoreMonitor {
   public void cleanUp() {
     // Clean up the entire temp local store directory and all files underneath it.
     try {
-      FileUtils.deleteDirectory(localStoreDir);
+      if (localStoreDir.exists() && localStoreDir.isDirectory()) {
+        PathUtils.deleteDirectory(localStoreDir.toPath());
+      }
     } catch (IOException e) {
       // Happens when task store can't be deleted after test finishes.
       LOG.error("Deletion of directory: {} resulted in the exception: {}.", new Object[]{localStoreDir, e});
@@ -133,7 +136,9 @@ public class TestLocalStoreMonitor {
     assertTrue("Inactive task store directory should not exist.", !inActiveTaskDir.exists());
     assertEquals(taskStoreSize + inActiveTaskDirSize, localStoreMonitorMetrics.diskSpaceFreedInBytes.getCount());
     assertEquals(2, localStoreMonitorMetrics.noOfDeletedTaskPartitionStores.getCount());
-    FileUtils.deleteDirectory(inActiveStoreDir);
+    if (inActiveStoreDir.exists() && inActiveStoreDir.isDirectory()) {
+      PathUtils.deleteDirectory(inActiveStoreDir.toPath());
+    }
   }
 
   @Test
@@ -192,7 +197,9 @@ public class TestLocalStoreMonitor {
 
     // Non failing job directory should be cleaned up.
     assertTrue("Task store directory should not exist.", !taskStoreDir.exists());
-    FileUtils.deleteDirectory(testFailingJobDir);
+    if (testFailingJobDir.exists() && testFailingJobDir.isDirectory()) {
+      PathUtils.deleteDirectory(testFailingJobDir.toPath());
+    }
   }
 
   private static File createOffsetFile(File taskStoreDir) throws Exception {

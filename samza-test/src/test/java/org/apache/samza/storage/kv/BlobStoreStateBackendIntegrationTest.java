@@ -82,8 +82,16 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
 
   private static final String IN_MEMORY_STORE_CHANGELOG_TOPIC = "inMemoryStoreChangelog";
 
-  private static final String LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "logged-store").getAbsolutePath();
-  private static final String BLOB_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "blob-store").getAbsolutePath();
+  private static final String LOGGED_STORE_BASE_DIR;
+  private static final String BLOB_STORE_BASE_DIR;
+  static {
+    try {
+      LOGGED_STORE_BASE_DIR = Files.createTempDirectory("logged-store-").toString();
+      BLOB_STORE_BASE_DIR = Files.createTempDirectory("blob-store-").toString();
+    } catch (Exception e) {
+      throw new RuntimeException("Error creating temp directory.", e);
+    }
+  }
   private static final String BLOB_STORE_LEDGER_DIR = new File(BLOB_STORE_BASE_DIR, "ledger").getAbsolutePath();
 
   private static final Map<String, String> CONFIGS = new HashMap<String, String>() { {

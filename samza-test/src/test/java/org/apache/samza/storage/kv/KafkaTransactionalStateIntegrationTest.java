@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,7 +61,14 @@ public class KafkaTransactionalStateIntegrationTest extends BaseStateBackendInte
   private static final String IN_MEMORY_STORE_CHANGELOG_TOPIC = "inMemoryStoreChangelog";
   private static final String SIDE_INPUT_STORE_NAME = "sideInputStore";
 
-  private static final String LOGGED_STORE_BASE_DIR = new File(System.getProperty("java.io.tmpdir"), "logged-store").getAbsolutePath();
+  private static final String LOGGED_STORE_BASE_DIR;
+  static {
+    try {
+      LOGGED_STORE_BASE_DIR = Files.createTempDirectory("logged-store-").toString();
+    } catch (Exception e) {
+      throw new RuntimeException("Error creating temp directory.", e);
+    }
+  }
 
   private static final Map<String, String> CONFIGS = new HashMap<String, String>() { {
       put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");

@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.file.PathUtils;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -286,7 +286,9 @@ public class TaskStorageCommitManager {
             for (File checkpointDir : checkpointDirs) {
               if (!checkpointDir.getName().contains(latestCheckpointId.serialize())) {
                 try {
-                  FileUtils.deleteDirectory(checkpointDir);
+                  if (checkpointDir.exists() && checkpointDir.isDirectory()) {
+                    PathUtils.deleteDirectory(checkpointDir.toPath());
+                  }
                 } catch (IOException e) {
                   throw new SamzaException(
                       String.format("Unable to delete checkpoint directory: %s", checkpointDir.getName()), e);
