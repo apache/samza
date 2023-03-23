@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFileAttributes;
+import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -159,17 +160,27 @@ public class DirDiffUtil {
           throw new RuntimeException(String.format("Error reading attributes for file: %s", localFile.getAbsolutePath()));
         }
 
+        Set<PosixFilePermission> remoteFilePermissions =
+            PosixFilePermissions.fromString(remoteFileMetadata.getPermissions());
+
         // Don't compare file timestamps. The ctime of a local file just restored will be different than the
         // remote file, and will cause the file to be uploaded again during the first commit after restore.
-
         boolean areSameFiles =
             localFileAttrs.size() == remoteFileMetadata.getSize() &&
                 localFileAttrs.group().getName().equals(remoteFileMetadata.getGroup()) &&
-                localFileAttrs.owner().getName().equals(remoteFileMetadata.getOwner()) &&
-                PosixFilePermissions.toString(localFileAttrs.permissions()).equals(remoteFileMetadata.getPermissions());
+                localFileAttrs.owner().getName().equals(remoteFileMetadata.getOwner());
+
+        // only verify permissions for file owner
+        areSameFiles = areSameFiles &&
+            localFileAttrs.permissions().contains(PosixFilePermission.OWNER_READ) ==
+                remoteFilePermissions.contains(PosixFilePermission.OWNER_READ) &&
+            localFileAttrs.permissions().contains(PosixFilePermission.OWNER_WRITE) ==
+                remoteFilePermissions.contains(PosixFilePermission.OWNER_WRITE) &&
+            localFileAttrs.permissions().contains(PosixFilePermission.OWNER_EXECUTE) ==
+                remoteFilePermissions.contains(PosixFilePermission.OWNER_EXECUTE);
 
         if (!areSameFiles) {
-          LOG.debug("Local file: {} and remote file: {} are not same. " +
+          LOG.warn("Local file: {} and remote file: {} are not same. " +
                   "Local file attributes: {}. Remote file attributes: {}.",
               localFile.getAbsolutePath(), remoteFile.getFileName(),
               fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
@@ -200,7 +211,7 @@ public class DirDiffUtil {
 
             boolean areSameChecksum = localFileChecksum == remoteFile.getChecksum();
             if (!areSameChecksum) {
-              LOG.debug("Local file: {} and remote file: {} are not same. " +
+              LOG.warn("Local file: {} and remote file: {} are not same. " +
                       "Local checksum: {}. Remote checksum: {}",
                   localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
             } else {
