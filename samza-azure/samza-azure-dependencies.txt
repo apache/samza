@@ -1,0 +1,1138 @@
+
+------------------------------------------------------------
+Project ':samza-azure_2.12'
+------------------------------------------------------------
+
+annotationProcessor - Annotation processors and their dependencies for source set 'main'.
+No dependencies
+
+apiElements - API elements for main. (n)
+No dependencies
+
+archives - Configuration for archive artifacts. (n)
+No dependencies
+
+checkstyle - The Checkstyle libraries to be used for this project.
+\--- com.puppycrawl.tools:checkstyle:6.11.2
+     +--- org.apache.commons:commons-lang3:3.4
+     +--- antlr:antlr:2.7.7
+     +--- org.antlr:antlr4-runtime:4.5.1-1
+     +--- commons-beanutils:commons-beanutils:1.9.2
+     |    \--- commons-collections:commons-collections:3.2.1
+     +--- commons-cli:commons-cli:1.3.1
+     \--- com.google.guava:guava:18.0
+
+compileClasspath - Compile classpath for source set 'main'.
++--- com.azure:azure-storage-blob:12.14.0
+|    +--- com.azure:azure-core:1.20.0
+|    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.12.4 -> 2.13.3
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3
+|    |    |         +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.3 (c)
+|    |    |         \--- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.3 (c)
+|    |    +--- com.fasterxml.jackson.core:jackson-core:2.12.4 -> 2.13.3
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    |    +--- org.codehaus.woodstox:stax2-api:4.2.1
+|    |    |    +--- com.fasterxml.woodstox:woodstox-core:6.2.7
+|    |    |    |    \--- org.codehaus.woodstox:stax2-api:4.2.1
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    +--- io.projectreactor:reactor-core:3.4.9
+|    |    |    \--- org.reactivestreams:reactive-streams:1.0.3
+|    |    \--- io.netty:netty-tcnative-boringssl-static:2.0.40.Final
+|    +--- com.azure:azure-core-http-netty:1.11.0
+|    |    +--- com.azure:azure-core:1.20.0 (*)
+|    |    +--- io.netty:netty-handler:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-resolver:4.1.67.Final
+|    |    |    |    \--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final
+|    |    |    |    \--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    |    \--- io.netty:netty-resolver:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec:4.1.67.Final
+|    |    |         +--- io.netty:netty-common:4.1.67.Final
+|    |    |         +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |         \--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    +--- io.netty:netty-handler-proxy:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec-socks:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    |    \--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec-http:4.1.67.Final
+|    |    |         +--- io.netty:netty-common:4.1.67.Final
+|    |    |         +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |         +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |         +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |         \--- io.netty:netty-handler:4.1.67.Final (*)
+|    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    +--- io.netty:netty-codec-http:4.1.67.Final (*)
+|    |    +--- io.netty:netty-codec-http2:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-handler:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec-http:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-unix-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-epoll:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport-native-unix-common:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-kqueue:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport-native-unix-common:4.1.67.Final (*)
+|    |    \--- io.projectreactor.netty:reactor-netty:1.0.10
+|    |         +--- io.projectreactor.netty:reactor-netty-core:1.0.10
+|    |         |    +--- io.netty:netty-handler:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-handler-proxy:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns:4.1.66.Final
+|    |         |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    +--- io.netty:netty-buffer:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-resolver:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-transport:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-codec:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-codec-dns:4.1.66.Final
+|    |         |    |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    |    +--- io.netty:netty-buffer:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    |    +--- io.netty:netty-transport:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    |    \--- io.netty:netty-codec:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    \--- io.netty:netty-handler:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns-native-macos:4.1.66.Final
+|    |         |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    +--- io.netty:netty-resolver-dns:4.1.66.Final (*)
+|    |         |    |    \--- io.netty:netty-transport-native-unix-common:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-transport-native-epoll:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    \--- io.projectreactor:reactor-core:3.4.9 (*)
+|    |         \--- io.projectreactor.netty:reactor-netty-http:1.0.10
+|    |              +--- io.netty:netty-codec-http:4.1.66.Final -> 4.1.67.Final (*)
+|    |              +--- io.netty:netty-codec-http2:4.1.66.Final -> 4.1.67.Final (*)
+|    |              +--- io.netty:netty-resolver-dns:4.1.66.Final (*)
+|    |              +--- io.netty:netty-resolver-dns-native-macos:4.1.66.Final (*)
+|    |              +--- io.netty:netty-transport-native-epoll:4.1.66.Final -> 4.1.67.Final (*)
+|    |              +--- io.projectreactor.netty:reactor-netty-core:1.0.10 (*)
+|    |              \--- io.projectreactor:reactor-core:3.4.9 (*)
+|    +--- com.azure:azure-storage-common:12.13.0
+|    |    +--- com.azure:azure-core:1.20.0 (*)
+|    |    \--- com.azure:azure-core-http-netty:1.11.0 (*)
+|    \--- com.azure:azure-storage-internal-avro:12.1.0
+|         +--- com.azure:azure-core:1.20.0 (*)
+|         +--- com.azure:azure-core-http-netty:1.11.0 (*)
+|         \--- com.azure:azure-storage-common:12.13.0 (*)
++--- com.azure:azure-identity:1.3.6
+|    +--- com.azure:azure-core:1.20.0 (*)
+|    +--- com.azure:azure-core-http-netty:1.11.0 (*)
+|    +--- com.microsoft.azure:msal4j:1.11.0
+|    |    +--- com.nimbusds:oauth2-oidc-sdk:9.7
+|    |    |    +--- com.github.stephenc.jcip:jcip-annotations:1.0-1
+|    |    |    +--- com.nimbusds:content-type:2.1
+|    |    |    +--- net.minidev:json-smart:[1.3.3,2.4.7] -> 2.4.7
+|    |    |    |    \--- net.minidev:accessors-smart:2.4.7
+|    |    |    |         \--- org.ow2.asm:asm:9.1
+|    |    |    +--- com.nimbusds:lang-tag:1.5
+|    |    |    \--- com.nimbusds:nimbus-jose-jwt:9.9.3
+|    |    |         \--- com.github.stephenc.jcip:jcip-annotations:1.0-1
+|    |    +--- org.slf4j:slf4j-api:1.7.28 -> 2.0.3
+|    |    \--- com.fasterxml.jackson.core:jackson-databind:2.12.1 -> 2.13.3 (*)
+|    +--- com.microsoft.azure:msal4j-persistence-extension:1.1.0
+|    |    +--- com.microsoft.azure:msal4j:1.4.0 -> 1.11.0 (*)
+|    |    +--- net.java.dev.jna:jna:5.5.0 -> 5.12.1
+|    |    +--- net.java.dev.jna:jna-platform:5.5.0 -> 5.12.1
+|    |    |    \--- net.java.dev.jna:jna:5.12.1
+|    |    \--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    +--- net.java.dev.jna:jna-platform:5.6.0 -> 5.12.1 (*)
+|    \--- net.minidev:json-smart:2.4.7 (*)
++--- com.microsoft.azure:azure-storage:5.3.1
+|    +--- com.fasterxml.jackson.core:jackson-core:2.6.0 -> 2.13.3 (*)
+|    +--- org.slf4j:slf4j-api:1.7.12 -> 2.0.3
+|    +--- org.apache.commons:commons-lang3:3.4 -> 3.11
+|    \--- com.microsoft.azure:azure-keyvault-core:0.8.0
+|         \--- org.apache.commons:commons-lang3:3.4 -> 3.11
++--- com.microsoft.azure:azure-eventhubs:1.0.1
+|    +--- org.apache.qpid:proton-j:0.25.0
+|    \--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
++--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
++--- io.dropwizard.metrics:metrics-core:3.1.2 -> 4.1.14
+|    \--- org.slf4j:slf4j-api:1.7.30 -> 2.0.3
++--- org.apache.avro:avro:1.7.7
+|    +--- org.codehaus.jackson:jackson-core-asl:1.9.13
+|    +--- org.codehaus.jackson:jackson-mapper-asl:1.9.13
+|    |    \--- org.codehaus.jackson:jackson-core-asl:1.9.13
+|    +--- com.thoughtworks.paranamer:paranamer:2.3
+|    +--- org.xerial.snappy:snappy-java:1.0.5 -> 1.1.8.4
+|    +--- org.apache.commons:commons-compress:1.4.1
+|    |    \--- org.tukaani:xz:1.0
+|    \--- org.slf4j:slf4j-api:1.6.4 -> 2.0.3
++--- project :samza-api
+|    +--- org.apache.commons:commons-lang3:3.11
+|    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    +--- com.google.guava:guava:30.1-jre -> 31.1-jre
+|    |    +--- com.google.guava:failureaccess:1.0.1
+|    |    +--- com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
+|    |    +--- com.google.code.findbugs:jsr305:3.0.2
+|    |    +--- org.checkerframework:checker-qual:3.12.0
+|    |    +--- com.google.errorprone:error_prone_annotations:2.11.0
+|    |    \--- com.google.j2objc:j2objc-annotations:1.3
+|    +--- com.google.code.gson:gson:2.8.6
+|    +--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    \--- io.dropwizard.metrics:metrics-core:3.1.2 -> 4.1.14 (*)
++--- project :samza-core_2.12
+|    +--- project :samza-api (*)
+|    +--- org.apache.helix:zookeeper-api:1.1.0
+|    |    +--- org.apache.helix:metrics-common:1.1.0
+|    |    |    +--- io.dropwizard.metrics:metrics-core:4.1.14 (*)
+|    |    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    |    \--- org.apache.logging.log4j:log4j-slf4j-impl:2.17.1
+|    |    |         +--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
+|    |    |         \--- org.apache.logging.log4j:log4j-api:2.17.1
+|    |    +--- org.apache.helix:metadata-store-directory-common:1.1.0
+|    |    |    +--- org.apache.httpcomponents:httpclient:4.5.8 -> 4.5.13
+|    |    |    |    +--- org.apache.httpcomponents:httpcore:4.4.13
+|    |    |    |    +--- commons-logging:commons-logging:1.2
+|    |    |    |    \--- commons-codec:commons-codec:1.11 -> 1.14
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.6.1 -> 2.13.3 (*)
+|    |    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    |    +--- org.apache.logging.log4j:log4j-slf4j-impl:2.17.1 (*)
+|    |    |    +--- org.apache.commons:commons-lang3:3.8.1 -> 3.11
+|    |    |    +--- com.google.guava:guava:31.1-jre (*)
+|    |    |    \--- org.yaml:snakeyaml:1.30
+|    |    +--- org.apache.zookeeper:zookeeper:3.6.3
+|    |    |    +--- org.apache.zookeeper:zookeeper-jute:3.6.3
+|    |    |    |    \--- org.apache.yetus:audience-annotations:0.5.0
+|    |    |    +--- org.apache.yetus:audience-annotations:0.5.0
+|    |    |    +--- io.netty:netty-handler:4.1.63.Final -> 4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport-native-epoll:4.1.63.Final -> 4.1.67.Final (*)
+|    |    |    \--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
+|    |    +--- org.apache.httpcomponents:httpclient:4.5.13 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.6.1 -> 2.13.3 (*)
+|    |    +--- commons-codec:commons-codec:1.14
+|    |    \--- javax.annotation:javax.annotation-api:1.3.2
+|    +--- org.xerial.snappy:snappy-java:1.1.8.4
+|    +--- com.google.guava:guava:30.1-jre -> 31.1-jre (*)
+|    +--- net.sf.jopt-simple:jopt-simple:5.0.4
+|    +--- org.apache.commons:commons-collections4:4.4
+|    +--- org.apache.commons:commons-lang3:3.11
+|    +--- commons-io:commons-io:2.8.0
+|    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    +--- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.3
+|    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    +--- org.eclipse.jetty:jetty-webapp:9.4.48.v20220622
+|    |    +--- org.eclipse.jetty:jetty-xml:9.4.48.v20220622
+|    |    |    \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |    \--- org.eclipse.jetty:jetty-servlet:9.4.48.v20220622
+|    |         +--- org.eclipse.jetty:jetty-security:9.4.48.v20220622
+|    |         |    \--- org.eclipse.jetty:jetty-server:9.4.48.v20220622
+|    |         |         +--- javax.servlet:javax.servlet-api:3.1.0
+|    |         |         +--- org.eclipse.jetty:jetty-http:9.4.48.v20220622
+|    |         |         |    +--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |         |         |    \--- org.eclipse.jetty:jetty-io:9.4.48.v20220622
+|    |         |         |         \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |         |         \--- org.eclipse.jetty:jetty-io:9.4.48.v20220622 (*)
+|    |         \--- org.eclipse.jetty:jetty-util-ajax:9.4.48.v20220622
+|    |              \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    +--- org.scala-lang:scala-library:2.12.11
+|    +--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    +--- net.jodah:failsafe:2.4.0
+|    +--- com.github.oshi:oshi-core:6.3.0
+|    |    +--- net.java.dev.jna:jna:5.12.1
+|    |    +--- net.java.dev.jna:jna-platform:5.12.1 (*)
+|    |    \--- org.slf4j:slf4j-api:2.0.3
+|    +--- net.java.dev.jna:jna:5.12.1
+|    \--- net.java.dev.jna:jna-platform:5.12.1 (*)
+\--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+
+compileOnly - Compile only dependencies for source set 'main'. (n)
+No dependencies
+
+default - Configuration for default artifacts. (n)
+No dependencies
+
+implementation - Implementation only dependencies for source set 'main'. (n)
+No dependencies
+
+jacocoAgent - The Jacoco agent to use to get coverage data.
+\--- org.jacoco:org.jacoco.agent:0.8.6
+
+jacocoAnt - The Jacoco ant tasks to use to get execute Gradle tasks.
+\--- org.jacoco:org.jacoco.ant:0.8.6
+     +--- org.jacoco:org.jacoco.core:0.8.6
+     |    +--- org.ow2.asm:asm:8.0.1
+     |    +--- org.ow2.asm:asm-commons:8.0.1
+     |    |    +--- org.ow2.asm:asm:8.0.1
+     |    |    +--- org.ow2.asm:asm-tree:8.0.1
+     |    |    |    \--- org.ow2.asm:asm:8.0.1
+     |    |    \--- org.ow2.asm:asm-analysis:8.0.1
+     |    |         \--- org.ow2.asm:asm-tree:8.0.1 (*)
+     |    \--- org.ow2.asm:asm-tree:8.0.1 (*)
+     +--- org.jacoco:org.jacoco.report:0.8.6
+     |    \--- org.jacoco:org.jacoco.core:0.8.6 (*)
+     \--- org.jacoco:org.jacoco.agent:0.8.6
+
+runtimeClasspath - Runtime classpath of source set 'main'.
++--- com.azure:azure-storage-blob:12.14.0
+|    +--- com.azure:azure-core:1.20.0
+|    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.12.4 -> 2.13.3
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3
+|    |    |         +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.3 (c)
+|    |    |         \--- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.3 (c)
+|    |    +--- com.fasterxml.jackson.core:jackson-core:2.12.4 -> 2.13.3
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    |    +--- org.codehaus.woodstox:stax2-api:4.2.1
+|    |    |    +--- com.fasterxml.woodstox:woodstox-core:6.2.7
+|    |    |    |    \--- org.codehaus.woodstox:stax2-api:4.2.1
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    +--- io.projectreactor:reactor-core:3.4.9
+|    |    |    \--- org.reactivestreams:reactive-streams:1.0.3
+|    |    \--- io.netty:netty-tcnative-boringssl-static:2.0.40.Final
+|    +--- com.azure:azure-core-http-netty:1.11.0
+|    |    +--- com.azure:azure-core:1.20.0 (*)
+|    |    +--- io.netty:netty-handler:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-resolver:4.1.67.Final
+|    |    |    |    \--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final
+|    |    |    |    \--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    |    \--- io.netty:netty-resolver:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec:4.1.67.Final
+|    |    |         +--- io.netty:netty-common:4.1.67.Final
+|    |    |         +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |         \--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    +--- io.netty:netty-handler-proxy:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec-socks:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    |    \--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec-http:4.1.67.Final
+|    |    |         +--- io.netty:netty-common:4.1.67.Final
+|    |    |         +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |         +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |         +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |         \--- io.netty:netty-handler:4.1.67.Final (*)
+|    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    +--- io.netty:netty-codec-http:4.1.67.Final (*)
+|    |    +--- io.netty:netty-codec-http2:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-handler:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec-http:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-unix-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-epoll:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport-native-unix-common:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-kqueue:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport-native-unix-common:4.1.67.Final (*)
+|    |    \--- io.projectreactor.netty:reactor-netty:1.0.10
+|    |         +--- io.projectreactor.netty:reactor-netty-core:1.0.10
+|    |         |    +--- io.netty:netty-handler:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-handler-proxy:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns:4.1.66.Final
+|    |         |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    +--- io.netty:netty-buffer:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-resolver:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-transport:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-codec:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-codec-dns:4.1.66.Final
+|    |         |    |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    |    +--- io.netty:netty-buffer:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    |    +--- io.netty:netty-transport:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    |    \--- io.netty:netty-codec:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    \--- io.netty:netty-handler:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns-native-macos:4.1.66.Final
+|    |         |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    +--- io.netty:netty-resolver-dns:4.1.66.Final (*)
+|    |         |    |    \--- io.netty:netty-transport-native-unix-common:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-transport-native-epoll:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    \--- io.projectreactor:reactor-core:3.4.9 (*)
+|    |         +--- io.projectreactor.netty:reactor-netty-http:1.0.10
+|    |         |    +--- io.netty:netty-codec-http:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-codec-http2:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns:4.1.66.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns-native-macos:4.1.66.Final (*)
+|    |         |    +--- io.netty:netty-transport-native-epoll:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.projectreactor.netty:reactor-netty-core:1.0.10 (*)
+|    |         |    \--- io.projectreactor:reactor-core:3.4.9 (*)
+|    |         \--- io.projectreactor.netty:reactor-netty-http-brave:1.0.10
+|    |              +--- io.projectreactor.netty:reactor-netty-http:1.0.10 (*)
+|    |              \--- io.zipkin.brave:brave-instrumentation-http:5.13.3
+|    |                   \--- io.zipkin.brave:brave:5.13.3
+|    |                        \--- io.zipkin.reporter2:zipkin-reporter-brave:2.16.3
+|    |                             \--- io.zipkin.reporter2:zipkin-reporter:2.16.3
+|    |                                  \--- io.zipkin.zipkin2:zipkin:2.23.2
+|    +--- com.azure:azure-storage-common:12.13.0
+|    |    +--- com.azure:azure-core:1.20.0 (*)
+|    |    \--- com.azure:azure-core-http-netty:1.11.0 (*)
+|    \--- com.azure:azure-storage-internal-avro:12.1.0
+|         +--- com.azure:azure-core:1.20.0 (*)
+|         +--- com.azure:azure-core-http-netty:1.11.0 (*)
+|         \--- com.azure:azure-storage-common:12.13.0 (*)
++--- com.azure:azure-identity:1.3.6
+|    +--- com.azure:azure-core:1.20.0 (*)
+|    +--- com.azure:azure-core-http-netty:1.11.0 (*)
+|    +--- com.microsoft.azure:msal4j:1.11.0
+|    |    +--- com.nimbusds:oauth2-oidc-sdk:9.7
+|    |    |    +--- com.github.stephenc.jcip:jcip-annotations:1.0-1
+|    |    |    +--- com.nimbusds:content-type:2.1
+|    |    |    +--- net.minidev:json-smart:[1.3.3,2.4.7] -> 2.4.7
+|    |    |    |    \--- net.minidev:accessors-smart:2.4.7
+|    |    |    |         \--- org.ow2.asm:asm:9.1
+|    |    |    +--- com.nimbusds:lang-tag:1.5
+|    |    |    \--- com.nimbusds:nimbus-jose-jwt:9.9.3
+|    |    |         \--- com.github.stephenc.jcip:jcip-annotations:1.0-1
+|    |    +--- org.slf4j:slf4j-api:1.7.28 -> 2.0.3
+|    |    \--- com.fasterxml.jackson.core:jackson-databind:2.12.1 -> 2.13.3 (*)
+|    +--- com.microsoft.azure:msal4j-persistence-extension:1.1.0
+|    |    +--- com.microsoft.azure:msal4j:1.4.0 -> 1.11.0 (*)
+|    |    +--- net.java.dev.jna:jna:5.5.0 -> 5.12.1
+|    |    +--- net.java.dev.jna:jna-platform:5.5.0 -> 5.12.1
+|    |    |    \--- net.java.dev.jna:jna:5.12.1
+|    |    \--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    +--- net.java.dev.jna:jna-platform:5.6.0 -> 5.12.1 (*)
+|    \--- net.minidev:json-smart:2.4.7 (*)
++--- com.microsoft.azure:azure-storage:5.3.1
+|    +--- com.fasterxml.jackson.core:jackson-core:2.6.0 -> 2.13.3 (*)
+|    +--- org.slf4j:slf4j-api:1.7.12 -> 2.0.3
+|    +--- org.apache.commons:commons-lang3:3.4 -> 3.11
+|    \--- com.microsoft.azure:azure-keyvault-core:0.8.0
+|         \--- org.apache.commons:commons-lang3:3.4 -> 3.11
++--- com.microsoft.azure:azure-eventhubs:1.0.1
+|    +--- org.apache.qpid:proton-j:0.25.0
+|    \--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
++--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
++--- io.dropwizard.metrics:metrics-core:3.1.2 -> 4.1.14
+|    \--- org.slf4j:slf4j-api:1.7.30 -> 2.0.3
++--- org.apache.avro:avro:1.7.7
+|    +--- org.codehaus.jackson:jackson-core-asl:1.9.13
+|    +--- org.codehaus.jackson:jackson-mapper-asl:1.9.13
+|    |    \--- org.codehaus.jackson:jackson-core-asl:1.9.13
+|    +--- com.thoughtworks.paranamer:paranamer:2.3
+|    +--- org.xerial.snappy:snappy-java:1.0.5 -> 1.1.8.4
+|    +--- org.apache.commons:commons-compress:1.4.1
+|    |    \--- org.tukaani:xz:1.0
+|    \--- org.slf4j:slf4j-api:1.6.4 -> 2.0.3
++--- project :samza-api
+|    +--- org.apache.commons:commons-lang3:3.11
+|    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    +--- com.google.guava:guava:30.1-jre -> 31.1-jre
+|    |    +--- com.google.guava:failureaccess:1.0.1
+|    |    +--- com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
+|    |    +--- com.google.code.findbugs:jsr305:3.0.2
+|    |    +--- org.checkerframework:checker-qual:3.12.0
+|    |    +--- com.google.errorprone:error_prone_annotations:2.11.0
+|    |    \--- com.google.j2objc:j2objc-annotations:1.3
+|    +--- com.google.code.gson:gson:2.8.6
+|    +--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    \--- io.dropwizard.metrics:metrics-core:3.1.2 -> 4.1.14 (*)
++--- project :samza-core_2.12
+|    +--- project :samza-api (*)
+|    +--- org.apache.helix:zookeeper-api:1.1.0
+|    |    +--- org.apache.helix:metrics-common:1.1.0
+|    |    |    +--- io.dropwizard.metrics:metrics-core:4.1.14 (*)
+|    |    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    |    \--- org.apache.logging.log4j:log4j-slf4j-impl:2.17.1
+|    |    |         +--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
+|    |    |         +--- org.apache.logging.log4j:log4j-api:2.17.1
+|    |    |         \--- org.apache.logging.log4j:log4j-core:2.17.1
+|    |    |              \--- org.apache.logging.log4j:log4j-api:2.17.1
+|    |    +--- org.apache.helix:metadata-store-directory-common:1.1.0
+|    |    |    +--- org.apache.httpcomponents:httpclient:4.5.8 -> 4.5.13
+|    |    |    |    +--- org.apache.httpcomponents:httpcore:4.4.13
+|    |    |    |    +--- commons-logging:commons-logging:1.2
+|    |    |    |    \--- commons-codec:commons-codec:1.11 -> 1.14
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.6.1 -> 2.13.3 (*)
+|    |    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    |    +--- org.apache.logging.log4j:log4j-slf4j-impl:2.17.1 (*)
+|    |    |    +--- org.apache.commons:commons-lang3:3.8.1 -> 3.11
+|    |    |    +--- com.google.guava:guava:31.1-jre (*)
+|    |    |    \--- org.yaml:snakeyaml:1.30
+|    |    +--- org.apache.zookeeper:zookeeper:3.6.3
+|    |    |    +--- org.apache.zookeeper:zookeeper-jute:3.6.3
+|    |    |    |    \--- org.apache.yetus:audience-annotations:0.5.0
+|    |    |    +--- org.apache.yetus:audience-annotations:0.5.0
+|    |    |    +--- io.netty:netty-handler:4.1.63.Final -> 4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport-native-epoll:4.1.63.Final -> 4.1.67.Final (*)
+|    |    |    \--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
+|    |    +--- org.apache.httpcomponents:httpclient:4.5.13 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.6.1 -> 2.13.3 (*)
+|    |    +--- commons-codec:commons-codec:1.14
+|    |    \--- javax.annotation:javax.annotation-api:1.3.2
+|    +--- org.xerial.snappy:snappy-java:1.1.8.4
+|    +--- com.google.guava:guava:30.1-jre -> 31.1-jre (*)
+|    +--- net.sf.jopt-simple:jopt-simple:5.0.4
+|    +--- org.apache.commons:commons-collections4:4.4
+|    +--- org.apache.commons:commons-lang3:3.11
+|    +--- commons-io:commons-io:2.8.0
+|    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    +--- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.3
+|    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    +--- org.eclipse.jetty:jetty-webapp:9.4.48.v20220622
+|    |    +--- org.eclipse.jetty:jetty-xml:9.4.48.v20220622
+|    |    |    \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |    \--- org.eclipse.jetty:jetty-servlet:9.4.48.v20220622
+|    |         +--- org.eclipse.jetty:jetty-security:9.4.48.v20220622
+|    |         |    \--- org.eclipse.jetty:jetty-server:9.4.48.v20220622
+|    |         |         +--- javax.servlet:javax.servlet-api:3.1.0
+|    |         |         +--- org.eclipse.jetty:jetty-http:9.4.48.v20220622
+|    |         |         |    +--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |         |         |    \--- org.eclipse.jetty:jetty-io:9.4.48.v20220622
+|    |         |         |         \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |         |         \--- org.eclipse.jetty:jetty-io:9.4.48.v20220622 (*)
+|    |         \--- org.eclipse.jetty:jetty-util-ajax:9.4.48.v20220622
+|    |              \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    +--- org.scala-lang:scala-library:2.12.11
+|    +--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    +--- net.jodah:failsafe:2.4.0
+|    +--- com.github.oshi:oshi-core:6.3.0
+|    |    +--- net.java.dev.jna:jna:5.12.1
+|    |    +--- net.java.dev.jna:jna-platform:5.12.1 (*)
+|    |    \--- org.slf4j:slf4j-api:2.0.3
+|    +--- net.java.dev.jna:jna:5.12.1
+|    \--- net.java.dev.jna:jna-platform:5.12.1 (*)
+\--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+
+runtimeElements - Elements of runtime for main. (n)
+No dependencies
+
+runtimeOnly - Runtime only dependencies for source set 'main'. (n)
+No dependencies
+
+signatures
+No dependencies
+
+testAnnotationProcessor - Annotation processors and their dependencies for source set 'test'.
+No dependencies
+
+testCompileClasspath - Compile classpath for source set 'test'.
++--- com.azure:azure-storage-blob:12.14.0
+|    +--- com.azure:azure-core:1.20.0
+|    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.12.4 -> 2.13.3
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3
+|    |    |         +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.3 (c)
+|    |    |         \--- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.3 (c)
+|    |    +--- com.fasterxml.jackson.core:jackson-core:2.12.4 -> 2.13.3
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    |    +--- org.codehaus.woodstox:stax2-api:4.2.1
+|    |    |    +--- com.fasterxml.woodstox:woodstox-core:6.2.7
+|    |    |    |    \--- org.codehaus.woodstox:stax2-api:4.2.1
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    +--- io.projectreactor:reactor-core:3.4.9
+|    |    |    \--- org.reactivestreams:reactive-streams:1.0.3
+|    |    \--- io.netty:netty-tcnative-boringssl-static:2.0.40.Final
+|    +--- com.azure:azure-core-http-netty:1.11.0
+|    |    +--- com.azure:azure-core:1.20.0 (*)
+|    |    +--- io.netty:netty-handler:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-resolver:4.1.67.Final
+|    |    |    |    \--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final
+|    |    |    |    \--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    |    \--- io.netty:netty-resolver:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec:4.1.67.Final
+|    |    |         +--- io.netty:netty-common:4.1.67.Final
+|    |    |         +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |         \--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    +--- io.netty:netty-handler-proxy:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec-socks:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    |    \--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec-http:4.1.67.Final
+|    |    |         +--- io.netty:netty-common:4.1.67.Final
+|    |    |         +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |         +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |         +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |         \--- io.netty:netty-handler:4.1.67.Final (*)
+|    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    +--- io.netty:netty-codec-http:4.1.67.Final (*)
+|    |    +--- io.netty:netty-codec-http2:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-handler:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec-http:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-unix-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-epoll:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport-native-unix-common:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-kqueue:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport-native-unix-common:4.1.67.Final (*)
+|    |    \--- io.projectreactor.netty:reactor-netty:1.0.10
+|    |         +--- io.projectreactor.netty:reactor-netty-core:1.0.10
+|    |         |    +--- io.netty:netty-handler:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-handler-proxy:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns:4.1.66.Final
+|    |         |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    +--- io.netty:netty-buffer:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-resolver:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-transport:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-codec:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-codec-dns:4.1.66.Final
+|    |         |    |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    |    +--- io.netty:netty-buffer:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    |    +--- io.netty:netty-transport:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    |    \--- io.netty:netty-codec:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    \--- io.netty:netty-handler:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns-native-macos:4.1.66.Final
+|    |         |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    +--- io.netty:netty-resolver-dns:4.1.66.Final (*)
+|    |         |    |    \--- io.netty:netty-transport-native-unix-common:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-transport-native-epoll:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    \--- io.projectreactor:reactor-core:3.4.9 (*)
+|    |         \--- io.projectreactor.netty:reactor-netty-http:1.0.10
+|    |              +--- io.netty:netty-codec-http:4.1.66.Final -> 4.1.67.Final (*)
+|    |              +--- io.netty:netty-codec-http2:4.1.66.Final -> 4.1.67.Final (*)
+|    |              +--- io.netty:netty-resolver-dns:4.1.66.Final (*)
+|    |              +--- io.netty:netty-resolver-dns-native-macos:4.1.66.Final (*)
+|    |              +--- io.netty:netty-transport-native-epoll:4.1.66.Final -> 4.1.67.Final (*)
+|    |              +--- io.projectreactor.netty:reactor-netty-core:1.0.10 (*)
+|    |              \--- io.projectreactor:reactor-core:3.4.9 (*)
+|    +--- com.azure:azure-storage-common:12.13.0
+|    |    +--- com.azure:azure-core:1.20.0 (*)
+|    |    \--- com.azure:azure-core-http-netty:1.11.0 (*)
+|    \--- com.azure:azure-storage-internal-avro:12.1.0
+|         +--- com.azure:azure-core:1.20.0 (*)
+|         +--- com.azure:azure-core-http-netty:1.11.0 (*)
+|         \--- com.azure:azure-storage-common:12.13.0 (*)
++--- com.azure:azure-identity:1.3.6
+|    +--- com.azure:azure-core:1.20.0 (*)
+|    +--- com.azure:azure-core-http-netty:1.11.0 (*)
+|    +--- com.microsoft.azure:msal4j:1.11.0
+|    |    +--- com.nimbusds:oauth2-oidc-sdk:9.7
+|    |    |    +--- com.github.stephenc.jcip:jcip-annotations:1.0-1
+|    |    |    +--- com.nimbusds:content-type:2.1
+|    |    |    +--- net.minidev:json-smart:[1.3.3,2.4.7] -> 2.4.7
+|    |    |    |    \--- net.minidev:accessors-smart:2.4.7
+|    |    |    |         \--- org.ow2.asm:asm:9.1
+|    |    |    +--- com.nimbusds:lang-tag:1.5
+|    |    |    \--- com.nimbusds:nimbus-jose-jwt:9.9.3
+|    |    |         \--- com.github.stephenc.jcip:jcip-annotations:1.0-1
+|    |    +--- org.slf4j:slf4j-api:1.7.28 -> 2.0.3
+|    |    \--- com.fasterxml.jackson.core:jackson-databind:2.12.1 -> 2.13.3 (*)
+|    +--- com.microsoft.azure:msal4j-persistence-extension:1.1.0
+|    |    +--- com.microsoft.azure:msal4j:1.4.0 -> 1.11.0 (*)
+|    |    +--- net.java.dev.jna:jna:5.5.0 -> 5.12.1
+|    |    +--- net.java.dev.jna:jna-platform:5.5.0 -> 5.12.1
+|    |    |    \--- net.java.dev.jna:jna:5.12.1
+|    |    \--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    +--- net.java.dev.jna:jna-platform:5.6.0 -> 5.12.1 (*)
+|    \--- net.minidev:json-smart:2.4.7 (*)
++--- com.microsoft.azure:azure-storage:5.3.1
+|    +--- com.fasterxml.jackson.core:jackson-core:2.6.0 -> 2.13.3 (*)
+|    +--- org.slf4j:slf4j-api:1.7.12 -> 2.0.3
+|    +--- org.apache.commons:commons-lang3:3.4 -> 3.11
+|    \--- com.microsoft.azure:azure-keyvault-core:0.8.0
+|         \--- org.apache.commons:commons-lang3:3.4 -> 3.11
++--- com.microsoft.azure:azure-eventhubs:1.0.1
+|    +--- org.apache.qpid:proton-j:0.25.0
+|    \--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
++--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
++--- io.dropwizard.metrics:metrics-core:3.1.2 -> 4.1.14
+|    \--- org.slf4j:slf4j-api:1.7.30 -> 2.0.3
++--- org.apache.avro:avro:1.7.7
+|    +--- org.codehaus.jackson:jackson-core-asl:1.9.13
+|    +--- org.codehaus.jackson:jackson-mapper-asl:1.9.13
+|    |    \--- org.codehaus.jackson:jackson-core-asl:1.9.13
+|    +--- com.thoughtworks.paranamer:paranamer:2.3
+|    +--- org.xerial.snappy:snappy-java:1.0.5 -> 1.1.8.4
+|    +--- org.apache.commons:commons-compress:1.4.1
+|    |    \--- org.tukaani:xz:1.0
+|    \--- org.slf4j:slf4j-api:1.6.4 -> 2.0.3
++--- project :samza-api
+|    +--- org.apache.commons:commons-lang3:3.11
+|    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    +--- com.google.guava:guava:30.1-jre -> 31.1-jre
+|    |    +--- com.google.guava:failureaccess:1.0.1
+|    |    +--- com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
+|    |    +--- com.google.code.findbugs:jsr305:3.0.2
+|    |    +--- org.checkerframework:checker-qual:3.12.0
+|    |    +--- com.google.errorprone:error_prone_annotations:2.11.0
+|    |    \--- com.google.j2objc:j2objc-annotations:1.3
+|    +--- com.google.code.gson:gson:2.8.6
+|    +--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    \--- io.dropwizard.metrics:metrics-core:3.1.2 -> 4.1.14 (*)
++--- project :samza-core_2.12
+|    +--- project :samza-api (*)
+|    +--- org.apache.helix:zookeeper-api:1.1.0
+|    |    +--- org.apache.helix:metrics-common:1.1.0
+|    |    |    +--- io.dropwizard.metrics:metrics-core:4.1.14 (*)
+|    |    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    |    \--- org.apache.logging.log4j:log4j-slf4j-impl:2.17.1
+|    |    |         +--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
+|    |    |         \--- org.apache.logging.log4j:log4j-api:2.17.1
+|    |    +--- org.apache.helix:metadata-store-directory-common:1.1.0
+|    |    |    +--- org.apache.httpcomponents:httpclient:4.5.8 -> 4.5.13
+|    |    |    |    +--- org.apache.httpcomponents:httpcore:4.4.13
+|    |    |    |    +--- commons-logging:commons-logging:1.2
+|    |    |    |    \--- commons-codec:commons-codec:1.11 -> 1.14
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.6.1 -> 2.13.3 (*)
+|    |    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    |    +--- org.apache.logging.log4j:log4j-slf4j-impl:2.17.1 (*)
+|    |    |    +--- org.apache.commons:commons-lang3:3.8.1 -> 3.11
+|    |    |    +--- com.google.guava:guava:31.1-jre (*)
+|    |    |    \--- org.yaml:snakeyaml:1.30
+|    |    +--- org.apache.zookeeper:zookeeper:3.6.3
+|    |    |    +--- org.apache.zookeeper:zookeeper-jute:3.6.3
+|    |    |    |    \--- org.apache.yetus:audience-annotations:0.5.0
+|    |    |    +--- org.apache.yetus:audience-annotations:0.5.0
+|    |    |    +--- io.netty:netty-handler:4.1.63.Final -> 4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport-native-epoll:4.1.63.Final -> 4.1.67.Final (*)
+|    |    |    \--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
+|    |    +--- org.apache.httpcomponents:httpclient:4.5.13 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.6.1 -> 2.13.3 (*)
+|    |    +--- commons-codec:commons-codec:1.14
+|    |    \--- javax.annotation:javax.annotation-api:1.3.2
+|    +--- org.xerial.snappy:snappy-java:1.1.8.4
+|    +--- com.google.guava:guava:30.1-jre -> 31.1-jre (*)
+|    +--- net.sf.jopt-simple:jopt-simple:5.0.4
+|    +--- org.apache.commons:commons-collections4:4.4
+|    +--- org.apache.commons:commons-lang3:3.11
+|    +--- commons-io:commons-io:2.8.0
+|    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    +--- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.3
+|    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    +--- org.eclipse.jetty:jetty-webapp:9.4.48.v20220622
+|    |    +--- org.eclipse.jetty:jetty-xml:9.4.48.v20220622
+|    |    |    \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |    \--- org.eclipse.jetty:jetty-servlet:9.4.48.v20220622
+|    |         +--- org.eclipse.jetty:jetty-security:9.4.48.v20220622
+|    |         |    \--- org.eclipse.jetty:jetty-server:9.4.48.v20220622
+|    |         |         +--- javax.servlet:javax.servlet-api:3.1.0
+|    |         |         +--- org.eclipse.jetty:jetty-http:9.4.48.v20220622
+|    |         |         |    +--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |         |         |    \--- org.eclipse.jetty:jetty-io:9.4.48.v20220622
+|    |         |         |         \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |         |         \--- org.eclipse.jetty:jetty-io:9.4.48.v20220622 (*)
+|    |         \--- org.eclipse.jetty:jetty-util-ajax:9.4.48.v20220622
+|    |              \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    +--- org.scala-lang:scala-library:2.12.11
+|    +--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    +--- net.jodah:failsafe:2.4.0
+|    +--- com.github.oshi:oshi-core:6.3.0
+|    |    +--- net.java.dev.jna:jna:5.12.1
+|    |    +--- net.java.dev.jna:jna-platform:5.12.1 (*)
+|    |    \--- org.slf4j:slf4j-api:2.0.3
+|    +--- net.java.dev.jna:jna:5.12.1
+|    \--- net.java.dev.jna:jna-platform:5.12.1 (*)
++--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
++--- junit:junit:4.12
+|    \--- org.hamcrest:hamcrest-core:1.3
++--- org.mockito:mockito-core:1.10.19
++--- org.powermock:powermock-api-mockito:1.6.6
+|    +--- org.mockito:mockito-core:1.10.19
+|    +--- org.hamcrest:hamcrest-core:1.3
+|    \--- org.powermock:powermock-api-mockito-common:1.6.6
+|         +--- org.hamcrest:hamcrest-core:1.3
+|         \--- org.powermock:powermock-api-support:1.6.6
+|              +--- org.powermock:powermock-core:1.6.6
+|              |    +--- org.powermock:powermock-reflect:1.6.6
+|              |    |    \--- org.objenesis:objenesis:2.4
+|              |    \--- org.javassist:javassist:3.21.0-GA
+|              \--- org.powermock:powermock-reflect:1.6.6 (*)
++--- org.powermock:powermock-core:1.6.6 (*)
+\--- org.powermock:powermock-module-junit4:1.6.6
+     +--- junit:junit:4.12 (*)
+     \--- org.powermock:powermock-module-junit4-common:1.6.6
+          +--- junit:junit:4.12 (*)
+          +--- org.powermock:powermock-core:1.6.6 (*)
+          \--- org.powermock:powermock-reflect:1.6.6 (*)
+
+testCompileOnly - Compile only dependencies for source set 'test'. (n)
+No dependencies
+
+testImplementation - Implementation only dependencies for source set 'test'. (n)
+No dependencies
+
+testRuntimeClasspath - Runtime classpath of source set 'test'.
++--- com.azure:azure-storage-blob:12.14.0
+|    +--- com.azure:azure-core:1.20.0
+|    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.12.4 -> 2.13.3
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3
+|    |    |         +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.13.3 (c)
+|    |    |         +--- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.3 (c)
+|    |    |         \--- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.3 (c)
+|    |    +--- com.fasterxml.jackson.core:jackson-core:2.12.4 -> 2.13.3
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.12.4 -> 2.13.3
+|    |    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-annotations:2.13.3 (*)
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    |    +--- org.codehaus.woodstox:stax2-api:4.2.1
+|    |    |    +--- com.fasterxml.woodstox:woodstox-core:6.2.7
+|    |    |    |    \--- org.codehaus.woodstox:stax2-api:4.2.1
+|    |    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    +--- io.projectreactor:reactor-core:3.4.9
+|    |    |    \--- org.reactivestreams:reactive-streams:1.0.3
+|    |    \--- io.netty:netty-tcnative-boringssl-static:2.0.40.Final
+|    +--- com.azure:azure-core-http-netty:1.11.0
+|    |    +--- com.azure:azure-core:1.20.0 (*)
+|    |    +--- io.netty:netty-handler:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-resolver:4.1.67.Final
+|    |    |    |    \--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final
+|    |    |    |    \--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    |    \--- io.netty:netty-resolver:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec:4.1.67.Final
+|    |    |         +--- io.netty:netty-common:4.1.67.Final
+|    |    |         +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |         \--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    +--- io.netty:netty-handler-proxy:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec-socks:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    |    \--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec-http:4.1.67.Final
+|    |    |         +--- io.netty:netty-common:4.1.67.Final
+|    |    |         +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |         +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |         +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |         \--- io.netty:netty-handler:4.1.67.Final (*)
+|    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    +--- io.netty:netty-codec-http:4.1.67.Final (*)
+|    |    +--- io.netty:netty-codec-http2:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-codec:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-handler:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-codec-http:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-unix-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-epoll:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport-native-unix-common:4.1.67.Final (*)
+|    |    +--- io.netty:netty-transport-native-kqueue:4.1.67.Final
+|    |    |    +--- io.netty:netty-common:4.1.67.Final
+|    |    |    +--- io.netty:netty-buffer:4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport:4.1.67.Final (*)
+|    |    |    \--- io.netty:netty-transport-native-unix-common:4.1.67.Final (*)
+|    |    \--- io.projectreactor.netty:reactor-netty:1.0.10
+|    |         +--- io.projectreactor.netty:reactor-netty-core:1.0.10
+|    |         |    +--- io.netty:netty-handler:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-handler-proxy:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns:4.1.66.Final
+|    |         |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    +--- io.netty:netty-buffer:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-resolver:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-transport:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-codec:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    +--- io.netty:netty-codec-dns:4.1.66.Final
+|    |         |    |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    |    +--- io.netty:netty-buffer:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    |    +--- io.netty:netty-transport:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    |    \--- io.netty:netty-codec:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    |    \--- io.netty:netty-handler:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns-native-macos:4.1.66.Final
+|    |         |    |    +--- io.netty:netty-common:4.1.66.Final -> 4.1.67.Final
+|    |         |    |    +--- io.netty:netty-resolver-dns:4.1.66.Final (*)
+|    |         |    |    \--- io.netty:netty-transport-native-unix-common:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-transport-native-epoll:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    \--- io.projectreactor:reactor-core:3.4.9 (*)
+|    |         +--- io.projectreactor.netty:reactor-netty-http:1.0.10
+|    |         |    +--- io.netty:netty-codec-http:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-codec-http2:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns:4.1.66.Final (*)
+|    |         |    +--- io.netty:netty-resolver-dns-native-macos:4.1.66.Final (*)
+|    |         |    +--- io.netty:netty-transport-native-epoll:4.1.66.Final -> 4.1.67.Final (*)
+|    |         |    +--- io.projectreactor.netty:reactor-netty-core:1.0.10 (*)
+|    |         |    \--- io.projectreactor:reactor-core:3.4.9 (*)
+|    |         \--- io.projectreactor.netty:reactor-netty-http-brave:1.0.10
+|    |              +--- io.projectreactor.netty:reactor-netty-http:1.0.10 (*)
+|    |              \--- io.zipkin.brave:brave-instrumentation-http:5.13.3
+|    |                   \--- io.zipkin.brave:brave:5.13.3
+|    |                        \--- io.zipkin.reporter2:zipkin-reporter-brave:2.16.3
+|    |                             \--- io.zipkin.reporter2:zipkin-reporter:2.16.3
+|    |                                  \--- io.zipkin.zipkin2:zipkin:2.23.2
+|    +--- com.azure:azure-storage-common:12.13.0
+|    |    +--- com.azure:azure-core:1.20.0 (*)
+|    |    \--- com.azure:azure-core-http-netty:1.11.0 (*)
+|    \--- com.azure:azure-storage-internal-avro:12.1.0
+|         +--- com.azure:azure-core:1.20.0 (*)
+|         +--- com.azure:azure-core-http-netty:1.11.0 (*)
+|         \--- com.azure:azure-storage-common:12.13.0 (*)
++--- com.azure:azure-identity:1.3.6
+|    +--- com.azure:azure-core:1.20.0 (*)
+|    +--- com.azure:azure-core-http-netty:1.11.0 (*)
+|    +--- com.microsoft.azure:msal4j:1.11.0
+|    |    +--- com.nimbusds:oauth2-oidc-sdk:9.7
+|    |    |    +--- com.github.stephenc.jcip:jcip-annotations:1.0-1
+|    |    |    +--- com.nimbusds:content-type:2.1
+|    |    |    +--- net.minidev:json-smart:[1.3.3,2.4.7] -> 2.4.7
+|    |    |    |    \--- net.minidev:accessors-smart:2.4.7
+|    |    |    |         \--- org.ow2.asm:asm:9.1
+|    |    |    +--- com.nimbusds:lang-tag:1.5
+|    |    |    \--- com.nimbusds:nimbus-jose-jwt:9.9.3
+|    |    |         \--- com.github.stephenc.jcip:jcip-annotations:1.0-1
+|    |    +--- org.slf4j:slf4j-api:1.7.28 -> 2.0.3
+|    |    \--- com.fasterxml.jackson.core:jackson-databind:2.12.1 -> 2.13.3 (*)
+|    +--- com.microsoft.azure:msal4j-persistence-extension:1.1.0
+|    |    +--- com.microsoft.azure:msal4j:1.4.0 -> 1.11.0 (*)
+|    |    +--- net.java.dev.jna:jna:5.5.0 -> 5.12.1
+|    |    +--- net.java.dev.jna:jna-platform:5.5.0 -> 5.12.1
+|    |    |    \--- net.java.dev.jna:jna:5.12.1
+|    |    \--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    +--- net.java.dev.jna:jna-platform:5.6.0 -> 5.12.1 (*)
+|    \--- net.minidev:json-smart:2.4.7 (*)
++--- com.microsoft.azure:azure-storage:5.3.1
+|    +--- com.fasterxml.jackson.core:jackson-core:2.6.0 -> 2.13.3 (*)
+|    +--- org.slf4j:slf4j-api:1.7.12 -> 2.0.3
+|    +--- org.apache.commons:commons-lang3:3.4 -> 3.11
+|    \--- com.microsoft.azure:azure-keyvault-core:0.8.0
+|         \--- org.apache.commons:commons-lang3:3.4 -> 3.11
++--- com.microsoft.azure:azure-eventhubs:1.0.1
+|    +--- org.apache.qpid:proton-j:0.25.0
+|    \--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
++--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
++--- io.dropwizard.metrics:metrics-core:3.1.2 -> 4.1.14
+|    \--- org.slf4j:slf4j-api:1.7.30 -> 2.0.3
++--- org.apache.avro:avro:1.7.7
+|    +--- org.codehaus.jackson:jackson-core-asl:1.9.13
+|    +--- org.codehaus.jackson:jackson-mapper-asl:1.9.13
+|    |    \--- org.codehaus.jackson:jackson-core-asl:1.9.13
+|    +--- com.thoughtworks.paranamer:paranamer:2.3
+|    +--- org.xerial.snappy:snappy-java:1.0.5 -> 1.1.8.4
+|    +--- org.apache.commons:commons-compress:1.4.1
+|    |    \--- org.tukaani:xz:1.0
+|    \--- org.slf4j:slf4j-api:1.6.4 -> 2.0.3
++--- project :samza-api
+|    +--- org.apache.commons:commons-lang3:3.11
+|    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    +--- com.google.guava:guava:30.1-jre -> 31.1-jre
+|    |    +--- com.google.guava:failureaccess:1.0.1
+|    |    +--- com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava
+|    |    +--- com.google.code.findbugs:jsr305:3.0.2
+|    |    +--- org.checkerframework:checker-qual:3.12.0
+|    |    +--- com.google.errorprone:error_prone_annotations:2.11.0
+|    |    \--- com.google.j2objc:j2objc-annotations:1.3
+|    +--- com.google.code.gson:gson:2.8.6
+|    +--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    \--- io.dropwizard.metrics:metrics-core:3.1.2 -> 4.1.14 (*)
++--- project :samza-core_2.12
+|    +--- project :samza-api (*)
+|    +--- org.apache.helix:zookeeper-api:1.1.0
+|    |    +--- org.apache.helix:metrics-common:1.1.0
+|    |    |    +--- io.dropwizard.metrics:metrics-core:4.1.14 (*)
+|    |    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    |    \--- org.apache.logging.log4j:log4j-slf4j-impl:2.17.1
+|    |    |         +--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
+|    |    |         +--- org.apache.logging.log4j:log4j-api:2.17.1
+|    |    |         \--- org.apache.logging.log4j:log4j-core:2.17.1
+|    |    |              \--- org.apache.logging.log4j:log4j-api:2.17.1
+|    |    +--- org.apache.helix:metadata-store-directory-common:1.1.0
+|    |    |    +--- org.apache.httpcomponents:httpclient:4.5.8 -> 4.5.13
+|    |    |    |    +--- org.apache.httpcomponents:httpcore:4.4.13
+|    |    |    |    +--- commons-logging:commons-logging:1.2
+|    |    |    |    \--- commons-codec:commons-codec:1.11 -> 1.14
+|    |    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.6.1 -> 2.13.3 (*)
+|    |    |    +--- org.slf4j:slf4j-api:1.7.32 -> 2.0.3
+|    |    |    +--- org.apache.logging.log4j:log4j-slf4j-impl:2.17.1 (*)
+|    |    |    +--- org.apache.commons:commons-lang3:3.8.1 -> 3.11
+|    |    |    +--- com.google.guava:guava:31.1-jre (*)
+|    |    |    \--- org.yaml:snakeyaml:1.30
+|    |    +--- org.apache.zookeeper:zookeeper:3.6.3
+|    |    |    +--- org.apache.zookeeper:zookeeper-jute:3.6.3
+|    |    |    |    \--- org.apache.yetus:audience-annotations:0.5.0
+|    |    |    +--- org.apache.yetus:audience-annotations:0.5.0
+|    |    |    +--- io.netty:netty-handler:4.1.63.Final -> 4.1.67.Final (*)
+|    |    |    +--- io.netty:netty-transport-native-epoll:4.1.63.Final -> 4.1.67.Final (*)
+|    |    |    \--- org.slf4j:slf4j-api:1.7.25 -> 2.0.3
+|    |    +--- org.apache.httpcomponents:httpclient:4.5.13 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.12.6.1 -> 2.13.3 (*)
+|    |    +--- commons-codec:commons-codec:1.14
+|    |    \--- javax.annotation:javax.annotation-api:1.3.2
+|    +--- org.xerial.snappy:snappy-java:1.1.8.4
+|    +--- com.google.guava:guava:30.1-jre -> 31.1-jre (*)
+|    +--- net.sf.jopt-simple:jopt-simple:5.0.4
+|    +--- org.apache.commons:commons-collections4:4.4
+|    +--- org.apache.commons:commons-lang3:3.11
+|    +--- commons-io:commons-io:2.8.0
+|    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    +--- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.13.3
+|    |    +--- com.fasterxml.jackson.core:jackson-core:2.13.3 (*)
+|    |    +--- com.fasterxml.jackson.core:jackson-databind:2.13.3 (*)
+|    |    \--- com.fasterxml.jackson:jackson-bom:2.13.3 (*)
+|    +--- org.eclipse.jetty:jetty-webapp:9.4.48.v20220622
+|    |    +--- org.eclipse.jetty:jetty-xml:9.4.48.v20220622
+|    |    |    \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |    \--- org.eclipse.jetty:jetty-servlet:9.4.48.v20220622
+|    |         +--- org.eclipse.jetty:jetty-security:9.4.48.v20220622
+|    |         |    \--- org.eclipse.jetty:jetty-server:9.4.48.v20220622
+|    |         |         +--- javax.servlet:javax.servlet-api:3.1.0
+|    |         |         +--- org.eclipse.jetty:jetty-http:9.4.48.v20220622
+|    |         |         |    +--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |         |         |    \--- org.eclipse.jetty:jetty-io:9.4.48.v20220622
+|    |         |         |         \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    |         |         \--- org.eclipse.jetty:jetty-io:9.4.48.v20220622 (*)
+|    |         \--- org.eclipse.jetty:jetty-util-ajax:9.4.48.v20220622
+|    |              \--- org.eclipse.jetty:jetty-util:9.4.48.v20220622
+|    +--- org.scala-lang:scala-library:2.12.11
+|    +--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
+|    +--- net.jodah:failsafe:2.4.0
+|    +--- com.github.oshi:oshi-core:6.3.0
+|    |    +--- net.java.dev.jna:jna:5.12.1
+|    |    +--- net.java.dev.jna:jna-platform:5.12.1 (*)
+|    |    \--- org.slf4j:slf4j-api:2.0.3
+|    +--- net.java.dev.jna:jna:5.12.1
+|    \--- net.java.dev.jna:jna-platform:5.12.1 (*)
++--- org.slf4j:slf4j-api:1.7.7 -> 2.0.3
++--- junit:junit:4.12
+|    \--- org.hamcrest:hamcrest-core:1.3
++--- org.mockito:mockito-core:1.10.19
+|    +--- org.hamcrest:hamcrest-core:1.1 -> 1.3
+|    \--- org.objenesis:objenesis:2.1 -> 2.4
++--- org.powermock:powermock-api-mockito:1.6.6
+|    +--- org.mockito:mockito-core:1.10.19 (*)
+|    +--- org.hamcrest:hamcrest-core:1.3
+|    \--- org.powermock:powermock-api-mockito-common:1.6.6
+|         +--- org.hamcrest:hamcrest-core:1.3
+|         \--- org.powermock:powermock-api-support:1.6.6
+|              +--- org.powermock:powermock-core:1.6.6
+|              |    +--- org.powermock:powermock-reflect:1.6.6
+|              |    |    \--- org.objenesis:objenesis:2.4
+|              |    \--- org.javassist:javassist:3.21.0-GA
+|              \--- org.powermock:powermock-reflect:1.6.6 (*)
++--- org.powermock:powermock-core:1.6.6 (*)
+\--- org.powermock:powermock-module-junit4:1.6.6
+     +--- junit:junit:4.12 (*)
+     \--- org.powermock:powermock-module-junit4-common:1.6.6
+          +--- junit:junit:4.12 (*)
+          +--- org.powermock:powermock-core:1.6.6 (*)
+          \--- org.powermock:powermock-reflect:1.6.6 (*)
+
+testRuntimeOnly - Runtime only dependencies for source set 'test'. (n)
+No dependencies
+
+(c) - dependency constraint
+(*) - dependencies omitted (listed previously)
+
+A web-based, searchable dependency report is available by adding the --scan option.
