@@ -38,7 +38,9 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericContainer;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
@@ -60,11 +62,12 @@ import org.slf4j.LoggerFactory;
  * This byte[] is passed on to {@link org.apache.samza.system.azureblob.avro.AzureBlobOutputStream}.
  * AzureBlobOutputStream in turn uploads data to Storage as a blob.
  *
- * It also accepts encoded records as byte[] as long as the first OutgoingMessageEnvelope this writer receives
- * is a decoded record from which to get the schema and record type (GenericRecord vs SpecificRecord).
+ * It also accepts encoded records as avro fixed types or byte[] as long as the first OutgoingMessageEnvelope
+ * this writer receives is an avro type from which to get the schema and message. IndexedRecords of type SpecificRecord
+ * encode messages using SpecificDatumWriter, otherwise they are written using GenericDatumWriter.
  * The subsequent encoded records are written directly to AzureBlobOutputStream without checking if they conform
- * to the schema. It is the responsibility of the user to ensure this. Failing to do so may result in an
- * unreadable avro blob.
+ * to the schema or compatible with the writer. It is the responsibility of the user to ensure this. Failing to do so
+ * may result in an unreadable avro blob.
  *
  * It expects all OutgoingMessageEnvelopes to be of the same schema.
  * To handle schema evolution (sending envelopes of different schema), this writer has to be closed and a new writer
@@ -138,10 +141,12 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
 
   /**
    * This method expects the {@link org.apache.samza.system.OutgoingMessageEnvelope}
-   * to contain a message which is a {@link org.apache.avro.generic.IndexedRecord} or an encoded record aka byte[].
-   * If the record is already encoded, it will directly write the byte[] to the output stream without checking if it conforms to schema.
+   * to contain a message which is either a subtype of {@link org.apache.avro.generic.GenericContainer} or avro encoded data aka byte[].
+   * The subtypes are one of {@link org.apache.avro.generic.GenericFixed} or {@link org.apache.avro.generic.IndexedRecord}, both of
+   * which include the schema and data. If the record is already encoded, {@link org.apache.avro.generic.GenericFixed} or byte[],
+   * it will directly write the byte[] to the output stream without checking if it conforms to schema.
    * Else, it encodes the record and writes to output stream.
-   * However, the first envelope should always be a record and not a byte[].
+   * However, the first envelope should always be either a GenericFixed or an IndexedRecord and not a byte[] to set the schema.
    * If the blocksize threshold crosses, it will upload the output stream contents as a block.
    * If the number of records in current blob or size of current blob exceed limits then a new blob is created.
    * Multi-threading and thread-safety:
@@ -151,7 +156,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
    *  restricts access to the shared objects through the synchronized block.
    *  Concurrent access to shared objects is controlled through a common lock and synchronized block and hence ensures
    *  thread safety.
-   * @param ome - OutgoingMessageEnvelope that contains the IndexedRecord (GenericRecord or SpecificRecord) or an encoded record as byte[]
+   * @param ome - OutgoingMessageEnvelope that contains the GenericContainer (GenericFixed, GenericRecord or SpecificRecord) or an encoded record as byte[]
    * @throws IOException when
    *       - OutgoingMessageEnvelope's message is not an IndexedRecord or
    *       - underlying dataFileWriter.append fails
@@ -159,13 +164,17 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
    */
   @Override
   public void write(OutgoingMessageEnvelope ome) throws IOException {
-    Optional<IndexedRecord> optionalIndexedRecord;
+    Optional<GenericContainer> optionalGenericContainer;
     byte[] encodedRecord;
-    if (ome.getMessage() instanceof IndexedRecord) {
-      optionalIndexedRecord = Optional.of((IndexedRecord) ome.getMessage());
+    if (ome.getMessage() instanceof GenericFixed) {
+      GenericFixed fixed = (GenericFixed) ome.getMessage();
+      optionalGenericContainer = Optional.of(fixed);
+      encodedRecord = fixed.bytes();
+    } else if (ome.getMessage() instanceof IndexedRecord) {
+      optionalGenericContainer = Optional.of((IndexedRecord) ome.getMessage());
       encodedRecord = encodeRecord((IndexedRecord) ome.getMessage());
     } else if (ome.getMessage() instanceof byte[]) {
-      optionalIndexedRecord = Optional.empty();
+      optionalGenericContainer = Optional.empty();
       encodedRecord = (byte[]) ome.getMessage();
     } else {
       throw new IllegalArgumentException("AzureBlobAvroWriter only supports IndexedRecord and byte[].");
@@ -174,7 +183,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     synchronized (currentDataFileWriterLock) {
       // if currentBlobWriterComponents is null, then it is the first blob of this AzureBlobAvroWriter object
       if (currentBlobWriterComponents == null || willCurrentBlobExceedSize(encodedRecord) || willCurrentBlobExceedRecordLimit()) {
-        startNextBlob(optionalIndexedRecord);
+        startNextBlob(optionalGenericContainer);
       }
       currentBlobWriterComponents.dataFileWriter.appendEncoded(ByteBuffer.wrap(encodedRecord));
       recordsInCurrentBlob++;
@@ -296,7 +305,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     }
   }
 
-  private void startNextBlob(Optional<IndexedRecord> optionalIndexedRecord) throws IOException {
+  private void startNextBlob(Optional<GenericContainer> optionalGenericContainer) throws IOException {
     if (currentBlobWriterComponents != null) {
       LOG.info("Starting new blob as current blob size is "
           + currentBlobWriterComponents.azureBlobOutputStream.getSize()
@@ -310,10 +319,10 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     // datumWriter is null when AzureBlobAvroWriter is created but has not yet received a message.
     // optionalIndexedRecord is the first message in this case.
     if (datumWriter == null) {
-      if (optionalIndexedRecord.isPresent()) {
-        IndexedRecord record = optionalIndexedRecord.get();
-        schema = record.getSchema();
-        if (record instanceof SpecificRecord) {
+      if (optionalGenericContainer.isPresent()) {
+        GenericContainer container = optionalGenericContainer.get();
+        schema = container.getSchema();
+        if (container instanceof SpecificRecord) {
           datumWriter = new SpecificDatumWriter<>(schema);
         } else {
           datumWriter = new GenericDatumWriter<>(schema);

@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.io.BinaryEncoder;
@@ -125,6 +126,26 @@ public class TestAzureBlobAvroWriter {
     public void put(String key, Object value) {}
   }
 
+  // GenericFixed type is schema and encoded message
+  private class GenericFixedEvent implements org.apache.avro.generic.GenericFixed {
+    private final GenericRecordEvent _record = new GenericRecordEvent();
+    private final byte[] _bytes;
+
+    GenericFixedEvent(byte[] encoded) {
+      _bytes = encoded;
+    }
+
+    @Override
+    public byte[] bytes() {
+      return _bytes;
+    }
+
+    @Override
+    public Schema getSchema() {
+      return _record.getSchema();
+    }
+  }
+
   private OutgoingMessageEnvelope createOME(String streamName) {
     SystemStream systemStream = new SystemStream(SYSTEM_NAME, streamName);
     SpecificRecord record = new SpecificRecordEvent();
@@ -135,6 +156,12 @@ public class TestAzureBlobAvroWriter {
     SystemStream systemStream = new SystemStream(SYSTEM_NAME, streamName);
     GenericRecord record = new GenericRecordEvent();
     return new OutgoingMessageEnvelope(systemStream, record);
+  }
+
+  private OutgoingMessageEnvelope createOMEGenericFixed(String streamName, byte[] encoded) {
+    SystemStream systemStream = new SystemStream(SYSTEM_NAME, streamName);
+    GenericFixed fixed = new GenericFixedEvent(encoded);
+    return new OutgoingMessageEnvelope(systemStream, fixed);
   }
 
   @Before
@@ -162,6 +189,17 @@ public class TestAzureBlobAvroWriter {
     int numberOfMessages = 10;
     for (int i = 0; i < numberOfMessages; ++i) {
       azureBlobAvroWriter.write(ome);
+    }
+    verify(mockDataFileWriter, times(numberOfMessages)).appendEncoded(ByteBuffer.wrap(encodedRecord));
+    verify(mockAzureBlobOutputStream, times(numberOfMessages)).incrementNumberOfRecordsInBlob();
+  }
+
+  @Test
+  public void testWriteGenericFixed() throws Exception {
+    OutgoingMessageEnvelope omeGenericFixed = createOMEGenericFixed("Topic1", encodedRecord);
+    int numberOfMessages = 10;
+    for (int i = 0; i < numberOfMessages; ++i) {
+      azureBlobAvroWriter.write(omeGenericFixed);
     }
     verify(mockDataFileWriter, times(numberOfMessages)).appendEncoded(ByteBuffer.wrap(encodedRecord));
     verify(mockAzureBlobOutputStream, times(numberOfMessages)).incrementNumberOfRecordsInBlob();
