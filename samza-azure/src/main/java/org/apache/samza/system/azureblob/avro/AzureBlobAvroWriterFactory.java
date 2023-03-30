@@ -19,6 +19,7 @@
 
 package org.apache.samza.system.azureblob.avro;
 
+import org.apache.samza.system.azureblob.AzureBlobConfig;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriter;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterFactory;
@@ -35,13 +36,29 @@ public class AzureBlobAvroWriterFactory implements AzureBlobWriterFactory {
   /**
    * {@inheritDoc}
    */
+  @Deprecated
+  @Override
   public AzureBlobWriter getWriterInstance(BlobContainerAsyncClient containerAsyncClient, String blobURL,
       Executor blobUploadThreadPool, AzureBlobWriterMetrics metrics,
       BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
       long maxBlobSize, long maxMessagesPerBlob) throws IOException {
+    return getWriterInstance(containerAsyncClient, blobURL, blobUploadThreadPool, metrics,
+        blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName, maxBlockFlushThresholdSize, flushTimeoutMs,
+        compression, useRandomStringInBlobName, maxBlobSize, maxMessagesPerBlob, AzureBlobConfig.SYSTEM_INIT_BUFFER_SIZE_DEFAULT);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public AzureBlobWriter getWriterInstance(BlobContainerAsyncClient containerAsyncClient, String blobURL,
+      Executor blobUploadThreadPool, AzureBlobWriterMetrics metrics,
+      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
+      int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
+      long maxBlobSize, long maxMessagesPerBlob, int initBufferSize) throws IOException {
     return new AzureBlobAvroWriter(containerAsyncClient, blobURL, blobUploadThreadPool, metrics,
           blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName, maxBlockFlushThresholdSize, flushTimeoutMs,
-          compression, useRandomStringInBlobName, maxBlobSize, maxMessagesPerBlob);
+          compression, useRandomStringInBlobName, maxBlobSize, maxMessagesPerBlob, initBufferSize);
   }
 }

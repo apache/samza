@@ -41,9 +41,30 @@ public interface AzureBlobWriterFactory {
    * @return AzureBlobWriter instance
    * @throws IOException if writer creation fails
    */
+  @Deprecated
   AzureBlobWriter getWriterInstance(BlobContainerAsyncClient containerAsyncClient, String blobURL,
       Executor blobUploadThreadPool, AzureBlobWriterMetrics metrics,
       BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
       long maxBlobSize, long maxMessagesPerBlob) throws IOException;
+
+  /**
+   * creates an instance of AzureBlobWriter.
+   * @param containerAsyncClient Azure container client
+   * @param blobURL Azure blob url
+   * @param blobUploadThreadPool thread pool to be used by writer for uploading
+   * @param metrics metrics to measure the number of bytes written by writer
+   * @param blobMetadataGeneratorFactory factory to get generator for metadata properties for a blob
+   * @param streamName name of the stream that this AzureBlobWriter is associated with
+   * @param maxBlockFlushThresholdSize threshold at which to upload
+   * @param flushTimeoutMs timeout after which the flush is abandoned
+   * @param initBufferSize initial size of in-memory buffer(s)
+   * @return AzureBlobWriter instance
+   * @throws IOException if writer creation fails
+   */
+  AzureBlobWriter getWriterInstance(BlobContainerAsyncClient containerAsyncClient, String blobURL,
+      Executor blobUploadThreadPool, AzureBlobWriterMetrics metrics,
+      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
+      int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
+      long maxBlobSize, long maxMessagesPerBlob, int initBufferSize) throws IOException;
 }

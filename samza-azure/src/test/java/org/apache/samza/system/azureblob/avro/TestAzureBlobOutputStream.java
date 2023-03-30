@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
 import org.apache.samza.AzureException;
+import org.apache.samza.system.azureblob.AzureBlobConfig;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
@@ -75,6 +76,7 @@ public class TestAzureBlobOutputStream {
   private ThreadPoolExecutor threadPool;
   private ByteArrayOutputStream mockByteArrayOutputStream;
   private static final int THRESHOLD = 100;
+  private static final int INIT_SIZE = AzureBlobConfig.SYSTEM_INIT_BUFFER_SIZE_DEFAULT;
   private BlockBlobAsyncClient mockBlobAsyncClient;
   private AzureBlobOutputStream azureBlobOutputStream;
   private static final String RANDOM_STRING = "roZzozzLiR7GCEjcB0UsRUNgBAip8cSLGXQSo3RQvbIDoxOaaRs4hrec2s5rMPWgTPRY4UnE959worEtyhRjwUFnRnVuNFZ554yuPQCbI69qFkQX7MmrB4blmpSnFeGjWKjFjIRLFNVSsQBYMkr5jT4T83uVtuGumsjACVrpcilihdd194H8Y71rQcrXZoTQtw5OvmPicbwptawpHoRNzHihyaDVYgAs0dQbvVEu1gitKpamzYdMLFtc5h8PFZSVEB";
@@ -98,7 +100,7 @@ public class TestAzureBlobOutputStream {
         TimeUnit.SECONDS, new LinkedBlockingDeque<Runnable>());
 
 
-    mockByteArrayOutputStream = spy(new ByteArrayOutputStream(THRESHOLD));
+    mockByteArrayOutputStream = spy(new ByteArrayOutputStream(INIT_SIZE));
 
     mockBlobAsyncClient = PowerMockito.mock(BlockBlobAsyncClient.class);
 

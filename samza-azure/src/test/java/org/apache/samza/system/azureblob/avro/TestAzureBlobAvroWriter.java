@@ -22,6 +22,7 @@ package org.apache.samza.system.azureblob.avro;
 import com.azure.storage.blob.BlobAsyncClient;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
+import org.apache.samza.system.azureblob.AzureBlobConfig;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.compression.CompressionFactory;
 import org.apache.samza.system.azureblob.compression.CompressionType;
@@ -88,6 +89,7 @@ public class TestAzureBlobAvroWriter {
   private static final String VALUE = "FAKE_VALUE";
   private static final String SYSTEM_NAME = "FAKE_SYSTEM";
   private static final int THRESHOLD = 100;
+  private static final int INIT_SIZE = AzureBlobConfig.SYSTEM_INIT_BUFFER_SIZE_DEFAULT;;
 
   private class SpecificRecordEvent extends org.apache.avro.specific.SpecificRecordBase
       implements org.apache.avro.specific.SpecificRecord {
@@ -154,7 +156,7 @@ public class TestAzureBlobAvroWriter {
         spy(new AzureBlobAvroWriter(mockContainerAsyncClient, mock(AzureBlobWriterMetrics.class), threadPool, THRESHOLD,
             60000, "test", mockDataFileWriter, mockAzureBlobOutputStream, mockBlockBlobAsyncClient,
             blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-            Long.MAX_VALUE, Long.MAX_VALUE, mockCompression, false)); // keeping blob size and number of records unlimited
+            Long.MAX_VALUE, Long.MAX_VALUE, mockCompression, false, INIT_SIZE)); // keeping blob size and number of records unlimited
     doReturn(encodedRecord).when(azureBlobAvroWriter).encodeRecord((IndexedRecord) ome.getMessage());
   }
   @Test
@@ -198,7 +200,7 @@ public class TestAzureBlobAvroWriter {
         spy(new AzureBlobAvroWriter(PowerMockito.mock(BlobContainerAsyncClient.class), mock(AzureBlobWriterMetrics.class),
             threadPool, THRESHOLD, 60000, "test",
             null, null, null, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-            1000, 100, mockCompression, false));
+            1000, 100, mockCompression, false, INIT_SIZE));
     OutgoingMessageEnvelope omeEncoded = new OutgoingMessageEnvelope(new SystemStream(SYSTEM_NAME, "Topic1"), new byte[100]);
     azureBlobAvroWriter.write(omeEncoded);
   }
@@ -251,7 +253,7 @@ public class TestAzureBlobAvroWriter {
         spy(new AzureBlobAvroWriter(PowerMockito.mock(BlobContainerAsyncClient.class), mock(AzureBlobWriterMetrics.class), threadPool, THRESHOLD,
             60000, "test", null, null, null,
             blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-            Long.MAX_VALUE, Long.MAX_VALUE, mockCompression, false)); // keeping blob size and number of records unlimited
+            Long.MAX_VALUE, Long.MAX_VALUE, mockCompression, false, INIT_SIZE)); // keeping blob size and number of records unlimited
     when(azureBlobAvroWriter.encodeRecord((IndexedRecord) ome.getMessage())).thenThrow(IllegalStateException.class);
     azureBlobAvroWriter.flush(); // No NPE because has null check for currentBlobWriterComponents
   }
@@ -266,7 +268,7 @@ public class TestAzureBlobAvroWriter {
     azureBlobAvroWriter = spy(new AzureBlobAvroWriter(mockContainerClient,
         mockMetrics, threadPool, THRESHOLD, 60000, blobUrlPrefix,
         null, null, null, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-        maxBlobSize, 10, mockCompression, true));
+        maxBlobSize, 10, mockCompression, true, INIT_SIZE));
 
     DataFileWriter mockDataFileWriter1 = mock(DataFileWriter.class);
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter1);
@@ -279,7 +281,7 @@ public class TestAzureBlobAvroWriter {
     AzureBlobOutputStream mockAzureBlobOutputStream1 = mock(AzureBlobOutputStream.class);
     PowerMockito.whenNew(AzureBlobOutputStream.class).withArguments(mockBlockBlobAsyncClient1, threadPool,
         mockMetrics, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-        (long) 60000, THRESHOLD, mockCompression).thenReturn(mockAzureBlobOutputStream1);
+        (long) 60000, THRESHOLD, mockCompression, INIT_SIZE).thenReturn(mockAzureBlobOutputStream1);
     when(mockAzureBlobOutputStream1.getSize()).thenReturn((long) maxBlobSize - 1);
 
     // first OME creates the first blob
@@ -297,7 +299,7 @@ public class TestAzureBlobAvroWriter {
     AzureBlobOutputStream mockAzureBlobOutputStream2 = mock(AzureBlobOutputStream.class);
     PowerMockito.whenNew(AzureBlobOutputStream.class).withArguments(mockBlockBlobAsyncClient2, threadPool,
         mockMetrics, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-        (long) 60000, THRESHOLD, mockCompression).thenReturn(mockAzureBlobOutputStream2);
+        (long) 60000, THRESHOLD, mockCompression, INIT_SIZE).thenReturn(mockAzureBlobOutputStream2);
     when(mockAzureBlobOutputStream2.getSize()).thenReturn((long) maxBlobSize - 1);
 
     // Second OME creates the second blob because maxBlobSize is 1000 and mockAzureBlobOutputStream.getSize is 999.
@@ -329,7 +331,7 @@ public class TestAzureBlobAvroWriter {
     azureBlobAvroWriter = spy(new AzureBlobAvroWriter(mockContainerClient,
         mockMetrics, threadPool, THRESHOLD, 60000, blobUrlPrefix,
         null, null, null, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-        maxBlobSize, maxRecordsPerBlob, mockCompression, true));
+        maxBlobSize, maxRecordsPerBlob, mockCompression, true, INIT_SIZE));
 
     DataFileWriter mockDataFileWriter1 = mock(DataFileWriter.class);
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter1);
@@ -342,7 +344,7 @@ public class TestAzureBlobAvroWriter {
     AzureBlobOutputStream mockAzureBlobOutputStream1 = mock(AzureBlobOutputStream.class);
     PowerMockito.whenNew(AzureBlobOutputStream.class).withArguments(mockBlockBlobAsyncClient1, threadPool,
         mockMetrics, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-        (long) 60000, THRESHOLD, mockCompression).thenReturn(mockAzureBlobOutputStream1);
+        (long) 60000, THRESHOLD, mockCompression, INIT_SIZE).thenReturn(mockAzureBlobOutputStream1);
     when(mockAzureBlobOutputStream1.getSize()).thenReturn((long) 1);
 
     // first OME creates the first blob and 11th OME (ome2) creates the second blob.
@@ -363,7 +365,7 @@ public class TestAzureBlobAvroWriter {
     AzureBlobOutputStream mockAzureBlobOutputStream2 = mock(AzureBlobOutputStream.class);
     PowerMockito.whenNew(AzureBlobOutputStream.class).withArguments(mockBlockBlobAsyncClient2, threadPool,
         mockMetrics, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-        (long) 60000, THRESHOLD, mockCompression).thenReturn(mockAzureBlobOutputStream2);
+        (long) 60000, THRESHOLD, mockCompression, INIT_SIZE).thenReturn(mockAzureBlobOutputStream2);
     when(mockAzureBlobOutputStream2.getSize()).thenReturn((long) 1);
 
     azureBlobAvroWriter.write(ome2);
@@ -392,7 +394,7 @@ public class TestAzureBlobAvroWriter {
     azureBlobAvroWriter = spy(new AzureBlobAvroWriter(mockContainerClient,
         mock(AzureBlobWriterMetrics.class), threadPool, THRESHOLD, 60000, blobUrlPrefix,
         mockDataFileWriter, mockAzureBlobOutputStream, mockBlockBlobAsyncClient, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-        maxBlobSize, maxRecordsPerBlob, mockCompression, false));
+        maxBlobSize, maxRecordsPerBlob, mockCompression, false, INIT_SIZE));
 
     DataFileWriter<IndexedRecord> mockDataFileWriter2 = mock(DataFileWriter.class);
     AzureBlobOutputStream mockAzureBlobOutputStream2 = mock(AzureBlobOutputStream.class);
@@ -419,7 +421,7 @@ public class TestAzureBlobAvroWriter {
         mock(AzureBlobWriterMetrics.class), threadPool, THRESHOLD,
         60000, "test", mockDataFileWriter, mockAzureBlobOutputStream, mockBlockBlobAsyncClient,
         blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
-        Long.MAX_VALUE, Long.MAX_VALUE, mockCompression, false));
+        Long.MAX_VALUE, Long.MAX_VALUE, mockCompression, false, INIT_SIZE));
     IndexedRecord record = new GenericRecordEvent();
     Assert.assertTrue(Arrays.equals(encodeRecord(record), azureBlobAvroWriter.encodeRecord(record)));
   }
@@ -489,6 +491,11 @@ public class TestAzureBlobAvroWriter {
     verify(mockDataFileWriter, times(2)).flush();
     verify(mockDataFileWriter).close();
     verify(mockAzureBlobOutputStream, times(20)).incrementNumberOfRecordsInBlob();
+  }
+
+  @Test
+  public void testInitBufferSize() {
+
   }
 
   private byte[] encodeRecord(IndexedRecord record) throws Exception {
