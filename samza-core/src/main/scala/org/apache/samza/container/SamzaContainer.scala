@@ -154,10 +154,10 @@ object SamzaContainer extends Logging {
 
     info("Setting up Samza container: %s" format containerName)
 
-    startupLog("Samza container PID: %s" format containerPID)
+    info("Samza container PID: %s" format containerPID)
     println("Container PID: %s" format containerPID)
-    startupLog("Using configuration: %s" format config)
-    startupLog("Using container model: %s" format containerModel)
+    info("Using configuration: %s" format config)
+    info("Using container model: %s" format containerModel)
 
     val samzaContainerMetrics = new SamzaContainerMetrics(containerName, registry)
     val systemProducersMetrics = new SystemProducersMetrics(registry)
