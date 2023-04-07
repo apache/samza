@@ -1077,18 +1077,6 @@ class SamzaContainer(
       }
     }
 
-    if (commitThreadPool != null) {
-      info("Shutting down task commit thread pool")
-      try {
-        commitThreadPool.shutdown()
-        if(!commitThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
-          commitThreadPool.shutdownNow()
-        }
-      } catch {
-        case e: Exception => error(e.getMessage, e)
-      }
-    }
-
     if (timerExecutor != null) {
       info("Shutting down timer executor")
       try {
@@ -1102,6 +1090,18 @@ class SamzaContainer(
     }
 
     taskInstances.values.foreach(_.shutdownTask)
+
+    if (commitThreadPool != null) {
+      info("Shutting down task commit thread pool")
+      try {
+        commitThreadPool.shutdown()
+        if(!commitThreadPool.awaitTermination(shutdownMs, TimeUnit.MILLISECONDS)) {
+          commitThreadPool.shutdownNow()
+        }
+      } catch {
+        case e: Exception => error(e.getMessage, e)
+      }
+    }
   }
 
   def shutdownStores {

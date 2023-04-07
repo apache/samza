@@ -106,6 +106,7 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
 
       put(TaskConfig.COMMIT_MS, "-1"); // manual commit only
       put(TaskConfig.COMMIT_MAX_DELAY_MS, "0"); // Ensure no commits are skipped due to in progress commits
+      put(TaskConfig.TASK_SHUTDOWN_MS, "10000"); // wait for pending commits to complete.
 
       // override store level state backend for in memory stores to use Kafka changelogs
       put(String.format(StorageConfig.STORE_BACKUP_FACTORIES, IN_MEMORY_STORE_NAME),

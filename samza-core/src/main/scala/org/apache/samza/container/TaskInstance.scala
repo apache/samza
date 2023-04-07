@@ -523,19 +523,28 @@ class TaskInstance(
   }
 
   def shutdownTask {
+    // wait for in-flight commits to complete
+    val numTasksInContainer = containerContext.getContainerModel.getTasks.size()
+    val waitTimeMillis = taskConfig.getShutdownMs / numTasksInContainer
+    val acquired = commitInProgress.tryAcquire(waitTimeMillis, TimeUnit.MILLISECONDS)
+    if (!acquired) {
+      info("Pending commit did not complete within %d ms. Proceeding with shutdown." format waitTimeMillis)
+    }
+
     if (commitManager != null) {
       debug("Shutting down commit manager for taskName: %s" format taskName)
       commitManager.close()
     } else {
       debug("Skipping commit manager shutdown for taskName: %s" format taskName)
     }
+
     applicationTaskContextOption.foreach(applicationTaskContext => {
       debug("Stopping application-defined task context for taskName: %s" format taskName)
       applicationTaskContext.stop()
     })
+
     if (task.isInstanceOf[ClosableTask]) {
       debug("Shutting down stream task for taskName: %s" format taskName)
-
       task.asInstanceOf[ClosableTask].close
     } else {
       debug("Skipping stream task shutdown for taskName: %s" format taskName)
