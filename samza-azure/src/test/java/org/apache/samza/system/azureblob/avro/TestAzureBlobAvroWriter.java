@@ -89,7 +89,7 @@ public class TestAzureBlobAvroWriter {
   private static final String VALUE = "FAKE_VALUE";
   private static final String SYSTEM_NAME = "FAKE_SYSTEM";
   private static final int THRESHOLD = 100;
-  private static final int INIT_SIZE = AzureBlobConfig.SYSTEM_INIT_BUFFER_SIZE_DEFAULT;;
+  private static final int INIT_SIZE = AzureBlobConfig.SYSTEM_INIT_BUFFER_SIZE_DEFAULT;
 
   private class SpecificRecordEvent extends org.apache.avro.specific.SpecificRecordBase
       implements org.apache.avro.specific.SpecificRecord {
