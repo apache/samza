@@ -106,7 +106,8 @@ public class CoordinatorStreamStore implements MetadataStore {
   @Override
   public void init() {
     if (isInitialized.compareAndSet(false, true)) {
-      LOG.info("Starting the coordinator stream system consumer with config: {}.", config);
+      LOG.info("Starting the coordinator stream system consumer.");
+      LOG.debug("Starting the coordinator stream system consumer with config: {}", config);
       registerConsumer();
       systemConsumer.start();
       systemProducer.register(SOURCE);
@@ -114,7 +115,7 @@ public class CoordinatorStreamStore implements MetadataStore {
       iterator = new SystemStreamPartitionIterator(systemConsumer, coordinatorSystemStreamPartition);
       readMessagesFromCoordinatorStream();
     } else {
-      LOG.info("Store had already been initialized. Skipping.", coordinatorSystemStreamPartition);
+      LOG.info("Store had already been initialized. Skipping.");
     }
   }
 
@@ -169,7 +170,7 @@ public class CoordinatorStreamStore implements MetadataStore {
   @Override
   public void close() {
     try {
-      LOG.info("Stopping the coordinator stream system consumer.", config);
+      LOG.info("Stopping the coordinator stream system consumer.");
       systemAdmin.stop();
       systemProducer.stop();
       systemConsumer.stop();

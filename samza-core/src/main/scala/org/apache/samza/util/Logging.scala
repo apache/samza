@@ -25,15 +25,6 @@ trait Logging {
   val loggerName = this.getClass.getName
   lazy val logger = LoggerFactory.getLogger(loggerName)
 
-  val startupLoggerName = "STARTUP_LOGGER"
-  lazy val startupLogger = LoggerFactory.getLogger(startupLoggerName)
-
-  def startupLog(message: => Any): Unit = {
-    logger.info(message.toString)
-    startupLogger.info(message.toString)
-  }
-
-
   def trace(message: => Any): Unit = {
     if (logger.isTraceEnabled()) {
       logger.trace(message.toString)
