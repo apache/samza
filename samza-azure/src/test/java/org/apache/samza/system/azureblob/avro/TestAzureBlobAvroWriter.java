@@ -128,21 +128,21 @@ public class TestAzureBlobAvroWriter {
 
   // GenericFixed type is schema and encoded message
   private class GenericFixedEvent implements org.apache.avro.generic.GenericFixed {
-    private final GenericRecordEvent _record = new GenericRecordEvent();
-    private final byte[] _bytes;
+    private final GenericRecordEvent record = new GenericRecordEvent();
+    private final byte[] bytes;
 
     GenericFixedEvent(byte[] encoded) {
-      _bytes = encoded;
+      bytes = encoded;
     }
 
     @Override
     public byte[] bytes() {
-      return _bytes;
+      return bytes;
     }
 
     @Override
     public Schema getSchema() {
-      return _record.getSchema();
+      return record.getSchema();
     }
   }
 
