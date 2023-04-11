@@ -176,13 +176,10 @@ public class AzureBlobConfig extends MapConfig {
     return getInt(String.format(SYSTEM_MAX_FLUSH_THRESHOLD_SIZE, systemName), SYSTEM_MAX_FLUSH_THRESHOLD_SIZE_DEFAULT);
   }
 
+  // return larger of config value or DEFAULT and smaller of MaxFlushThresholdSize
   public int getInitBufferSizeBytes(String systemName) {
     int init = getInt(String.format(SYSTEM_INIT_BUFFER_SIZE, systemName), SYSTEM_INIT_BUFFER_SIZE_DEFAULT);
-    if (init < SYSTEM_MAX_FLUSH_THRESHOLD_SIZE_DEFAULT) {
-      return getMaxFlushThresholdSize(systemName);
-    }
-
-    return Math.min(init, getMaxFlushThresholdSize(systemName));
+    return Math.min(Math.max(init, SYSTEM_INIT_BUFFER_SIZE_DEFAULT), getMaxFlushThresholdSize(systemName));
   }
 
   public int getAzureBlobThreadPoolCount(String systemName) {
