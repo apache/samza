@@ -187,7 +187,7 @@ public class EventHubConfig extends MapConfig {
 
   /**
    * Get the number of client threads, This is used to create the ThreadPool executor that is passed to the
-   * {@link EventHubClient#create}
+   * {@link EventHubClient#createFromConnectionStringSync}
    * @param systemName Name of the system.
    * @return Num of client threads to use.
    */
