@@ -23,6 +23,7 @@ import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import org.apache.samza.AzureException;
+import org.apache.samza.system.azureblob.AzureBlobConfig;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
 import java.io.ByteArrayOutputStream;
@@ -113,7 +114,7 @@ public class AzureBlobOutputStream extends OutputStream {
       long flushTimeoutMs, int maxBlockFlushThresholdSize, Compression compression) {
     this(blobAsyncClient, blobThreadPool, metrics, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName,
         flushTimeoutMs, maxBlockFlushThresholdSize,
-        new ByteArrayOutputStream(maxBlockFlushThresholdSize), compression);
+        new ByteArrayOutputStream(AzureBlobConfig.SYSTEM_INIT_BUFFER_SIZE_DEFAULT), compression);
   }
 
   /**

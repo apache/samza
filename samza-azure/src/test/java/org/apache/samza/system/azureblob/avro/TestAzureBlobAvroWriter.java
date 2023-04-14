@@ -493,11 +493,6 @@ public class TestAzureBlobAvroWriter {
     verify(mockAzureBlobOutputStream, times(20)).incrementNumberOfRecordsInBlob();
   }
 
-  @Test
-  public void testInitBufferSize() {
-
-  }
-
   private byte[] encodeRecord(IndexedRecord record) throws Exception {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     Schema schema = record.getSchema();
