@@ -71,7 +71,8 @@ import org.slf4j.LoggerFactory;
  *
  * It expects all OutgoingMessageEnvelopes to be of the same schema.
  * To handle schema evolution (sending envelopes of different schema), this writer has to be closed and a new writer
- * has to be created. The first envelope of the new writer should contain a valid record to get schema from.
+ * has to be created. The first envelope of the new writer should contain a valid record to get schema from, i.e. any
+ * subclass of {@link GenericContainer}.
  * If used by AzureBlobSystemProducer, this is done through systemProducer.flush(source).
  *
  * Once closed this object can not be used.
@@ -91,15 +92,17 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
   // However, taking the overhead to be capped at 1MB to ensure enough room if the default values are increased.
   static final long DATAFILEWRITER_OVERHEAD = 1000000; // 1MB
 
-  // currentBlobWriterComponents == null only for the first blob immediately after this AzureBlobAvroWriter object has been created.
-  // rest of this object's lifecycle, currentBlobWriterComponents is not null.
+  // currentBlobWriterComponents == null until schema is set. Once set, for the rest of this object's lifecycle,
+  // currentBlobWriterComponents is not null.
   private BlobWriterComponents currentBlobWriterComponents = null;
   private final List<BlobWriterComponents> allBlobWriterComponents = new ArrayList<>();
+  // The AzureBlobAvroWriter instance must have a Schema before any data can be published. Both the schema and
+  // datumWriter are null when this object is created. And both are set from the first schema received in the
+  // OutgoingMessageEnvelope. The Schema can be set from any subclass of GenericContainer, eg. IndexedRecord,
+  // SpecificRecord, or GenericFixed.
+  // Once set, for the rest of this object's lifecycle, schema and datumWriter are not null.
   private Schema schema = null;
-  // datumWriter == null only for the first blob immediately after this AzureBlobAvroWriter object has been created.
-  // It is created from the schema taken from the first OutgoingMessageEnvelope. Hence the first OME has to be a decoded avro record.
-  // For rest of this object's lifecycle, datumWriter is not null.
-  private DatumWriter<IndexedRecord> datumWriter = null;
+  private DatumWriter<Object> datumWriter = null;
   private volatile boolean isClosed = false;
 
   private final Executor blobThreadPool;
@@ -238,7 +241,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
   @VisibleForTesting
   AzureBlobAvroWriter(BlobContainerAsyncClient containerAsyncClient, AzureBlobWriterMetrics metrics,
       Executor blobThreadPool, int maxBlockFlushThresholdSize, int flushTimeoutMs, String blobURLPrefix,
-      DataFileWriter<IndexedRecord> dataFileWriter,
+      DataFileWriter<Object> dataFileWriter,
       AzureBlobOutputStream azureBlobOutputStream, BlockBlobAsyncClient blockBlobAsyncClient,
       BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       long maxBlobSize, long maxRecordsPerBlob, Compression compression, boolean useRandomStringInBlobName) {
@@ -343,7 +346,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
     LOG.info("Creating new blob: {}", blobURL);
     BlockBlobAsyncClient blockBlobAsyncClient = containerAsyncClient.getBlobAsyncClient(blobURL).getBlockBlobAsyncClient();
 
-    DataFileWriter<IndexedRecord> dataFileWriter = new DataFileWriter<>(datumWriter);
+    DataFileWriter<Object> dataFileWriter = new DataFileWriter<>(datumWriter);
     AzureBlobOutputStream azureBlobOutputStream;
     try {
       azureBlobOutputStream = new AzureBlobOutputStream(blockBlobAsyncClient, blobThreadPool, metrics,
@@ -373,7 +376,7 @@ public class AzureBlobAvroWriter implements AzureBlobWriter {
    * - including Avro's DataFileWriter, AzureBlobOutputStream and Azure's BlockBlobAsyncClient
    */
   private class BlobWriterComponents {
-    final DataFileWriter<IndexedRecord> dataFileWriter;
+    final DataFileWriter<Object> dataFileWriter;
     final AzureBlobOutputStream azureBlobOutputStream;
     final BlockBlobAsyncClient blockBlobAsyncClient;
 

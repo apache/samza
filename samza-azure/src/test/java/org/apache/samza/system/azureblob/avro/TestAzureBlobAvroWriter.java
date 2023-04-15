@@ -78,7 +78,7 @@ public class TestAzureBlobAvroWriter {
   private OutgoingMessageEnvelope ome;
   private byte[] encodedRecord;
   private AzureBlobAvroWriter azureBlobAvroWriter;
-  private DataFileWriter mockDataFileWriter;
+  private DataFileWriter<Object> mockDataFileWriter;
   private AzureBlobOutputStream mockAzureBlobOutputStream;
   private BlockBlobAsyncClient mockBlockBlobAsyncClient;
   private Compression mockCompression;
@@ -171,7 +171,7 @@ public class TestAzureBlobAvroWriter {
 
     encodedRecord = new byte[100];
     BlobContainerAsyncClient mockContainerAsyncClient = PowerMockito.mock(BlobContainerAsyncClient.class);
-    mockDataFileWriter = mock(DataFileWriter.class);
+    mockDataFileWriter = (DataFileWriter<Object>) mock(DataFileWriter.class);
     mockAzureBlobOutputStream = mock(AzureBlobOutputStream.class);
     mockBlockBlobAsyncClient = PowerMockito.mock(BlockBlobAsyncClient.class);
     when(mockBlockBlobAsyncClient.getBlobUrl()).thenReturn("https://samza.blob.core.windows.net/fake-blob-url");
@@ -306,7 +306,7 @@ public class TestAzureBlobAvroWriter {
         null, null, null, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
         maxBlobSize, 10, mockCompression, true));
 
-    DataFileWriter mockDataFileWriter1 = mock(DataFileWriter.class);
+    DataFileWriter<Object> mockDataFileWriter1 = (DataFileWriter<Object>) mock(DataFileWriter.class);
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter1);
 
     BlobAsyncClient mockBlobAsyncClient1 = mock(BlobAsyncClient.class);
@@ -324,7 +324,7 @@ public class TestAzureBlobAvroWriter {
     azureBlobAvroWriter.write(ome);
 
     OutgoingMessageEnvelope ome2 = createOME("Topic2");
-    DataFileWriter mockDataFileWriter2 = mock(DataFileWriter.class);
+    DataFileWriter<Object> mockDataFileWriter2 = (DataFileWriter<Object>) mock(DataFileWriter.class);
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter2);
 
     BlobAsyncClient mockBlobAsyncClient2 = mock(BlobAsyncClient.class);
@@ -369,7 +369,7 @@ public class TestAzureBlobAvroWriter {
         null, null, null, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
         maxBlobSize, maxRecordsPerBlob, mockCompression, true));
 
-    DataFileWriter mockDataFileWriter1 = mock(DataFileWriter.class);
+    DataFileWriter<Object> mockDataFileWriter1 = (DataFileWriter<Object>) mock(DataFileWriter.class);
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter1);
 
     BlobAsyncClient mockBlobAsyncClient1 = mock(BlobAsyncClient.class);
@@ -390,7 +390,7 @@ public class TestAzureBlobAvroWriter {
     }
 
     OutgoingMessageEnvelope ome2 = createOME("Topic2");
-    DataFileWriter mockDataFileWriter2 = mock(DataFileWriter.class);
+    DataFileWriter<Object> mockDataFileWriter2 = (DataFileWriter<Object>) mock(DataFileWriter.class);
     PowerMockito.whenNew(DataFileWriter.class).withAnyArguments().thenReturn(mockDataFileWriter2);
 
     BlobAsyncClient mockBlobAsyncClient2 = mock(BlobAsyncClient.class);
@@ -432,7 +432,7 @@ public class TestAzureBlobAvroWriter {
         mockDataFileWriter, mockAzureBlobOutputStream, mockBlockBlobAsyncClient, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, STREAM_NAME,
         maxBlobSize, maxRecordsPerBlob, mockCompression, false));
 
-    DataFileWriter<IndexedRecord> mockDataFileWriter2 = mock(DataFileWriter.class);
+    DataFileWriter<Object> mockDataFileWriter2 = mock(DataFileWriter.class);
     AzureBlobOutputStream mockAzureBlobOutputStream2 = mock(AzureBlobOutputStream.class);
 
     when(mockAzureBlobOutputStream.getSize()).thenReturn((long) 1);
