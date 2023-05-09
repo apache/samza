@@ -9,11 +9,7 @@ import org.apache.samza.config.Config;
 
 
 /**
- * Automatic workaround for go/zk_tls.
- *
- * To override, please use application.cfg. For example,
- *   <property name="job.coordinator.zookeeper.client.secure" value="false"/>
- *   <property name="job.coordinator.zookeeper.ssl.keyStore.location" value="./var/identity.p12"/>
+  Reads the configs to set zookeeper environment variables for TLS.
  */
 public class ZkSystemEnvironmentSetter {
 
