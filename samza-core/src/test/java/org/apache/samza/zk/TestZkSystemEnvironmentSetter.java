@@ -30,7 +30,7 @@ import static org.junit.Assert.*;
 
 public class TestZkSystemEnvironmentSetter {
   @Test
-  public void testDefaultConfig(){
+  public void testDefaultConfig() {
     Map<String, String> configMap= new HashMap<>();
     configMap.put("samza.system.zookeeper.client.secure", "true");
     configMap.put("samza.system.zookeeper.clientCnxnSocket", "org.apache.zookeeper.ClientCnxnSocketNetty");
