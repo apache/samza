@@ -53,6 +53,7 @@ public class ZkJobCoordinatorFactory implements JobCoordinatorFactory {
   }
 
   private ZkUtils getZkUtils(Config config, MetricsRegistry metricsRegistry, String coordinatorZkBasePath) {
+    ZkSystemEnvironmentSetter.setZkEnvironment(config);
     ZkConfig zkConfig = new ZkConfig(config);
     ZkKeyBuilder keyBuilder = new ZkKeyBuilder(coordinatorZkBasePath);
     ZkClient zkClient = ZkCoordinationUtilsFactory
