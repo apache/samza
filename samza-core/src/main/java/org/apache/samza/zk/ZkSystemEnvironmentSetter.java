@@ -17,7 +17,7 @@ import org.apache.samza.config.Config;
  */
 public class ZkSystemEnvironmentSetter {
 
-  private static final String SAMZA_PREFIX = "samza.";
+  private static final String SAMZA_PREFIX = "samza.system.";
   private static final String ZOOKEEPER_CLIENT_SECURE = "zookeeper.client.secure";
   public static final String ZOOKEEPER_CLIENT_CNXN_SOCKET = "zookeeper.clientCnxnSocket";
   public static final String ZOOKEEPER_SSL_KEY_STORE_LOCATION = "zookeeper.ssl.keyStore.location";

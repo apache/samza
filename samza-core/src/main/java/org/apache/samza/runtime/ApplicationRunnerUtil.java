@@ -22,6 +22,7 @@ package org.apache.samza.runtime;
 import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.Config;
 import org.apache.samza.util.ConfigUtil;
+import org.apache.samza.zk.ZkSystemEnvironmentSetter;
 
 
 /**
@@ -40,6 +41,7 @@ public class ApplicationRunnerUtil {
    */
   public static ApplicationRunner invoke(Config originalConfig, ApplicationRunnerOperation op) {
     Config config = ConfigUtil.rewriteConfig(originalConfig);
+    ZkSystemEnvironmentSetter.setZkEnvironment(config);
 
     ApplicationRunner appRunner =
         ApplicationRunners.getApplicationRunner(ApplicationUtil.fromConfig(config), config);
