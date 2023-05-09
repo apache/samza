@@ -28,7 +28,9 @@ import org.apache.samza.config.Config;
 
 
 /**
-  Reads the configs to set zookeeper environment variables for TLS.
+ * Reads the configs to set zookeeper environment variables for TLS.
+ * 
+ * See https://cwiki.apache.org/confluence/display/zookeeper/zookeeper+ssl+user+guide
  */
 public class ZkSystemEnvironmentSetter {
 
