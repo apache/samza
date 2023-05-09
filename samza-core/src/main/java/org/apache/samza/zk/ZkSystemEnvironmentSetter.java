@@ -34,13 +34,13 @@ public class ZkSystemEnvironmentSetter {
 
   private static final String SAMZA_PREFIX = "samza.system.";
   private static final String ZOOKEEPER_CLIENT_SECURE = "zookeeper.client.secure";
-  public static final String ZOOKEEPER_CLIENT_CNXN_SOCKET = "zookeeper.clientCnxnSocket";
-  public static final String ZOOKEEPER_SSL_KEY_STORE_LOCATION = "zookeeper.ssl.keyStore.location";
-  public static final String ZOOKEEPER_SSL_KEY_STORE_PASSWORD = "zookeeper.ssl.keyStore.password";
-  public static final String ZOOKEEPER_SSL_KEY_STORE_TYPE = "zookeeper.ssl.keyStore.type";
-  public static final String ZOOKEEPER_SSL_TRUST_STORE_LOCATION = "zookeeper.ssl.trustStore.location";
-  public static final String ZOOKEEPER_SSL_TRUST_STORE_PASSWORD = "zookeeper.ssl.trustStore.password";
-  public static final String ZOOKEEPER_SSL_TRUST_STORE_TYPE = "zookeeper.ssl.trustStore.type";
+  private static final String ZOOKEEPER_CLIENT_CNXN_SOCKET = "zookeeper.clientCnxnSocket";
+  private static final String ZOOKEEPER_SSL_KEY_STORE_LOCATION = "zookeeper.ssl.keyStore.location";
+  private static final String ZOOKEEPER_SSL_KEY_STORE_PASSWORD = "zookeeper.ssl.keyStore.password";
+  private static final String ZOOKEEPER_SSL_KEY_STORE_TYPE = "zookeeper.ssl.keyStore.type";
+  private static final String ZOOKEEPER_SSL_TRUST_STORE_LOCATION = "zookeeper.ssl.trustStore.location";
+  private static final String ZOOKEEPER_SSL_TRUST_STORE_PASSWORD = "zookeeper.ssl.trustStore.password";
+  private static final String ZOOKEEPER_SSL_TRUST_STORE_TYPE = "zookeeper.ssl.trustStore.type";
 
 
   private static final List<String> ZOOKEEPER_SSL_KEYS = ImmutableList.of(
