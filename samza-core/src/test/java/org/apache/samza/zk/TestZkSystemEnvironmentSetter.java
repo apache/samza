@@ -19,19 +19,46 @@
 
 package org.apache.samza.zk;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
 
 
 public class TestZkSystemEnvironmentSetter {
+
+  private byte[] originalProperties;
+
+  @Before
+  public void before() throws Throwable {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    System.getProperties().store(baos, "");
+    baos.close();
+    originalProperties = baos.toByteArray();
+  }
+
+  @After
+  public void after() {
+    try (ByteArrayInputStream bais = new ByteArrayInputStream(originalProperties)) {
+      System.getProperties().clear();
+      System.getProperties().load(bais);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   @Test
-  public void testDefaultConfig() {
-    Map<String, String> configMap= new HashMap<>();
+  public void testConfig() {
+    Map<String, String> configMap = new HashMap<>();
     configMap.put("samza.system.zookeeper.client.secure", "true");
     configMap.put("samza.system.zookeeper.clientCnxnSocket", "org.apache.zookeeper.ClientCnxnSocketNetty");
     configMap.put("samza.system.zookeeper.ssl.keyStore.location", "keyStoreLocation");
@@ -51,5 +78,39 @@ public class TestZkSystemEnvironmentSetter {
     assertEquals(System.getProperty("zookeeper.ssl.trustStore.location"), "trustStoreLocation");
     assertEquals(System.getProperty("zookeeper.ssl.trustStore.password"), "trustStorePassword");
     assertEquals(System.getProperty("zookeeper.ssl.trustStore.type"), "JKS");
+
+    System.clearProperty("zookeeper.client.secure");
+    System.clearProperty("zookeeper.clientCnxnSocket");
+    System.clearProperty("zookeeper.ssl.keyStore.location");
+    System.clearProperty("zookeeper.ssl.keyStore.password");
+    System.clearProperty("zookeeper.ssl.keyStore.type");
+    System.clearProperty("zookeeper.ssl.trustStore.location");
+    System.clearProperty("zookeeper.ssl.trustStore.password");
+    System.clearProperty("zookeeper.ssl.trustStore.type");
   }
+
+  @Test
+  public void testEmptyConfig() {
+    Config config = new MapConfig(Collections.emptyMap());
+
+    ZkSystemEnvironmentSetter.setZkEnvironment(config);
+    assertEquals(System.getProperty("zookeeper.client.secure"), null);
+    assertEquals(System.getProperty("zookeeper.clientCnxnSocket"), null);
+    assertEquals(System.getProperty("zookeeper.ssl.keyStore.location"), null);
+    assertEquals(System.getProperty("zookeeper.ssl.keyStore.password"), null);
+    assertEquals(System.getProperty("zookeeper.ssl.keyStore.type"), null);
+    assertEquals(System.getProperty("zookeeper.ssl.trustStore.location"), null);
+    assertEquals(System.getProperty("zookeeper.ssl.trustStore.password"), null);
+    assertEquals(System.getProperty("zookeeper.ssl.trustStore.type"), null);
+
+    System.clearProperty("zookeeper.client.secure");
+    System.clearProperty("zookeeper.clientCnxnSocket");
+    System.clearProperty("zookeeper.ssl.keyStore.location");
+    System.clearProperty("zookeeper.ssl.keyStore.password");
+    System.clearProperty("zookeeper.ssl.keyStore.type");
+    System.clearProperty("zookeeper.ssl.trustStore.location");
+    System.clearProperty("zookeeper.ssl.trustStore.password");
+    System.clearProperty("zookeeper.ssl.trustStore.type");
+  }
+
 }

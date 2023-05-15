@@ -20,16 +20,13 @@
 package org.apache.samza.zk;
 
 import com.google.common.collect.ImmutableList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import org.apache.samza.config.Config;
 
 
 /**
  * Reads the configs to set zookeeper environment variables for TLS.
- * 
+ *
  * See https://cwiki.apache.org/confluence/display/zookeeper/zookeeper+ssl+user+guide
  */
 public class ZkSystemEnvironmentSetter {
@@ -55,19 +52,12 @@ public class ZkSystemEnvironmentSetter {
     ZOOKEEPER_SSL_TRUST_STORE_PASSWORD,
     ZOOKEEPER_SSL_TRUST_STORE_TYPE);
 
-  private ZkSystemEnvironmentSetter(){}
+  private ZkSystemEnvironmentSetter() {
+  }
 
   public static void setZkEnvironment(Config config) {
-    Map<String, String> zookeeperSettings = new HashMap<>();
-    for(String key: ZOOKEEPER_SSL_KEYS){
-      Optional<String> override =
-          Optional.ofNullable(config.get(SAMZA_PREFIX + key));
-      if(override.isPresent()) {
-        zookeeperSettings.put(key, override.get());
-      }
-    }
-
-    zookeeperSettings.entrySet().stream()
-        .forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
+    ZOOKEEPER_SSL_KEYS.stream()
+        .filter(key -> config.containsKey(SAMZA_PREFIX + key))
+        .forEach(key -> System.setProperty(key, config.get(SAMZA_PREFIX + key)));
   }
 }
