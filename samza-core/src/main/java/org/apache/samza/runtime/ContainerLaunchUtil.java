@@ -54,6 +54,7 @@ import org.apache.samza.task.TaskFactory;
 import org.apache.samza.task.TaskFactoryUtil;
 import org.apache.samza.util.DiagnosticsUtil;
 import org.apache.samza.util.ScalaJavaUtil;
+import org.apache.samza.zk.ZkSystemEnvironmentSetter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -96,6 +97,8 @@ public class ContainerLaunchUtil {
     MDC.put("jobName", jobName);
     MDC.put("jobId", jobId);
     LoggingContextHolder.INSTANCE.setConfig(jobModel.getConfig());
+    // Setup Zk Environment
+    ZkSystemEnvironmentSetter.setZkEnvironment(config);
 
     DiagnosticsUtil.writeMetadataFile(jobName, jobId, containerId, executionEnvContainerId, config);
     run(appDesc, jobName, jobId, containerId, executionEnvContainerId, samzaEpochId, jobModel, config,
