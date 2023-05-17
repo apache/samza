@@ -56,6 +56,9 @@ public class ZkSystemEnvironmentSetter {
   }
 
   public static void setZkEnvironment(Config config) {
+    System.setProperty(ZOOKEEPER_CLIENT_CNXN_SOCKET, "org.apache.zookeeper.ClientCnxnSocketNetty");
+    System.setProperty(ZOOKEEPER_SSL_KEY_STORE_TYPE, "PKCS12");
+    System.setProperty(ZOOKEEPER_SSL_TRUST_STORE_TYPE, "JKS");
     ZOOKEEPER_SSL_KEYS.stream()
         .filter(key -> config.containsKey(SAMZA_PREFIX + key))
         .forEach(key -> System.setProperty(key, config.get(SAMZA_PREFIX + key)));
