@@ -484,7 +484,7 @@ object SamzaContainer extends Logging {
       new ThreadFactoryBuilder().setNameFormat("Samza Task Commit Thread-%d").setDaemon(true).build())
 
     val taskModels = containerModel.getTasks.values.asScala
-    val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry)
+    val containerContext = new ContainerContextImpl(containerModel, samzaContainerMetrics.registry, taskThreadPool)
     val applicationContainerContextOption = applicationContainerContextFactoryOption
       .map(_.create(externalContextOption.orNull, jobContext, containerContext))
 

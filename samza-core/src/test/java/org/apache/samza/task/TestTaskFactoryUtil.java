@@ -93,19 +93,6 @@ public class TestTaskFactoryUtil {
     assertEquals(retFactory, mockAsyncStreamFactory);
   }
 
-  @Test
-  public void testFinalizeTaskFactoryForStreamOperatorTask() {
-    TaskFactory mockFactory = mock(StreamOperatorTaskFactory.class);
-    StreamOperatorTask mockStreamOperatorTask = mock(StreamOperatorTask.class);
-    when(mockFactory.createInstance())
-        .thenReturn(mockStreamOperatorTask);
-
-    ExecutorService mockThreadPool = mock(ExecutorService.class);
-    TaskFactory finalizedFactory = TaskFactoryUtil.finalizeTaskFactory(mockFactory, mockThreadPool);
-    finalizedFactory.createInstance();
-    verify(mockStreamOperatorTask, times(1)).setTaskThreadPool(eq(mockThreadPool));
-  }
-
   // test getTaskFactory with StreamApplicationDescriptor
   @Test
   public void testGetTaskFactoryWithStreamAppDescriptor() {
@@ -113,8 +100,8 @@ public class TestTaskFactoryUtil {
     OperatorSpecGraph mockSpecGraph = mock(OperatorSpecGraph.class);
     when(mockStreamApp.getOperatorSpecGraph()).thenReturn(mockSpecGraph);
     TaskFactory streamTaskFactory = TaskFactoryUtil.getTaskFactory(mockStreamApp);
-    assertTrue(streamTaskFactory instanceof StreamOperatorTaskFactory);
-    AsyncStreamTask streamTask = ((StreamOperatorTaskFactory) streamTaskFactory).createInstance();
+    assertTrue(streamTaskFactory instanceof AsyncStreamTaskFactory);
+    AsyncStreamTask streamTask = ((AsyncStreamTaskFactory) streamTaskFactory).createInstance();
     assertTrue(streamTask instanceof StreamOperatorTask);
     verify(mockSpecGraph).clone();
   }

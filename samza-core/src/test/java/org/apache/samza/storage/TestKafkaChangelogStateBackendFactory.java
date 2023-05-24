@@ -58,7 +58,7 @@ public class TestKafkaChangelogStateBackendFactory {
         new SystemStreamPartition("changelogSystem0", "store0-changelog", new Partition(11)),
         new SystemStreamPartition("changelogSystem1", "store1-changelog", new Partition(11)));
     Assert.assertEquals(expected, factory.getChangelogSSPForContainer(changeLogSystemStreams,
-        new ContainerContextImpl(containerModel, null)));
+        new ContainerContextImpl(containerModel, null, null)));
   }
 
   @Test
@@ -75,6 +75,6 @@ public class TestKafkaChangelogStateBackendFactory {
     ContainerModel containerModel = new ContainerModel("processorId",
         ImmutableMap.of(taskName0, taskModel0, taskName1, taskModel1));
     Assert.assertEquals(Collections.emptySet(), factory.getChangelogSSPForContainer(Collections.emptyMap(),
-        new ContainerContextImpl(containerModel, null)));
+        new ContainerContextImpl(containerModel, null, null)));
   }
 }

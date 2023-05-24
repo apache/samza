@@ -18,6 +18,7 @@
  */
 package org.apache.samza.context;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.metrics.MetricsRegistry;
 
@@ -26,9 +27,13 @@ public class ContainerContextImpl implements ContainerContext {
   private final ContainerModel containerModel;
   private final MetricsRegistry containerMetricsRegistry;
 
-  public ContainerContextImpl(ContainerModel containerModel, MetricsRegistry containerMetricsRegistry) {
+  private final ExecutorService containerThreadPool;
+
+  public ContainerContextImpl(ContainerModel containerModel, MetricsRegistry containerMetricsRegistry,
+      ExecutorService containerThreadPool) {
     this.containerModel = containerModel;
     this.containerMetricsRegistry = containerMetricsRegistry;
+    this.containerThreadPool = containerThreadPool;
   }
 
   @Override
@@ -39,5 +44,10 @@ public class ContainerContextImpl implements ContainerContext {
   @Override
   public MetricsRegistry getContainerMetricsRegistry() {
     return this.containerMetricsRegistry;
+  }
+
+  @Override
+  public ExecutorService getContainerThreadPool() {
+    return this.containerThreadPool;
   }
 }

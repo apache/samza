@@ -18,6 +18,7 @@
  */
 package org.apache.samza.context;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -44,4 +45,6 @@ public interface ContainerContext {
    * @return the {@link MetricsRegistry} for this container
    */
   MetricsRegistry getContainerMetricsRegistry();
+
+  ExecutorService getContainerThreadPool();
 }

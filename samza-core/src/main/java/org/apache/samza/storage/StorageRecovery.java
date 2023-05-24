@@ -229,7 +229,7 @@ public class StorageRecovery {
         .getCheckpointManager(new MetricsRegistryMap()).orElse(null);
 
     for (ContainerModel containerModel : containers.values()) {
-      ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap());
+      ContainerContext containerContext = new ContainerContextImpl(containerModel, new MetricsRegistryMap(), null);
 
       ContainerStorageManager containerStorageManager =
           new ContainerStorageManager(

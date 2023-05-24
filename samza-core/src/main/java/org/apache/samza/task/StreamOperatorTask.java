@@ -93,6 +93,11 @@ public class StreamOperatorTask implements AsyncStreamTask, InitableTask, Window
   public final void init(Context context) throws Exception {
     // create the operator impl DAG corresponding to the logical operator spec DAG
     this.operatorImplGraph = new OperatorImplGraph(specGraph, context, clock);
+    /*
+     * TODO: Consolidate the thread pool used by OperatorImpl and StreamOperatorTask. For now, we need to keep the
+     * existing behavior. The refactor however is to clean up the DI which is one step towards consolidation
+     */
+    this.taskThreadPool = context.getContainerContext().getContainerThreadPool();
   }
 
   /**
