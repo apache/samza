@@ -19,7 +19,18 @@
 package org.apache.samza.testUtils;
 
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.system.IncomingMessageEnvelope;
+import org.apache.samza.task.MessageCollector;
+import org.apache.samza.task.StreamOperatorTask;
+import org.apache.samza.task.TaskCallback;
+import org.apache.samza.task.TaskCoordinator;
+
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
+
 
 public class StreamTestUtils {
 
@@ -35,5 +46,19 @@ public class StreamTestUtils {
       String streamId, String systemName, String physicalName) {
     configs.put(String.format(StreamConfig.SYSTEM_FOR_STREAM_ID, streamId), systemName);
     configs.put(String.format(StreamConfig.PHYSICAL_NAME_FOR_STREAM_ID, streamId), physicalName);
+  }
+
+  public static void processSync(StreamOperatorTask task, IncomingMessageEnvelope ime, MessageCollector collector,
+      TaskCoordinator coordinator, TaskCallback callback) {
+    final CountDownLatch latch = new CountDownLatch(1);
+    doAnswer(invocation -> {
+      latch.countDown();
+      return null;
+    }).when(callback).complete();
+    task.processAsync(ime, collector, coordinator, callback);
+    try {
+      latch.await(1000, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+    }
   }
 }

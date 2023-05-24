@@ -18,6 +18,7 @@
  */
 package org.apache.samza.task;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -25,12 +26,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.TaskName;
 import org.apache.samza.util.ReflectionUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
-import static org.apache.samza.config.JobConfig.JOB_CONTAINER_THREAD_POOL_SIZE;
-import static org.apache.samza.config.JobConfig.JOB_CONTAINER_TASK_EXECUTOR_FACTORY;
+import static org.apache.samza.config.JobConfig.*;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 
 /**
@@ -49,7 +52,7 @@ public class TestDefaultTaskExecutorFactory {
 
     ExecutorService executor = factory.getTaskExecutor(config);
 
-    Assert.assertEquals(poolSize, ((ThreadPoolExecutor) executor).getCorePoolSize());
+    assertEquals(poolSize, ((ThreadPoolExecutor) executor).getCorePoolSize());
   }
 
   @Test
@@ -62,6 +65,36 @@ public class TestDefaultTaskExecutorFactory {
     TaskExecutorFactory taskExecutorFactory = ReflectionUtil.getObj(taskExecutorFactoryClassName, TaskExecutorFactory.class);
 
     Assert.assertTrue(taskExecutorFactory instanceof MockTaskExecutorFactory);
+  }
+
+  @Test
+  public void getOperatorTaskFactoryWithContainerThreadPoolGreaterThanOne() {
+    DefaultTaskExecutorFactory factory = new DefaultTaskExecutorFactory();
+    int poolSize = 5;
+    Map<String, String> config = ImmutableMap.of(JOB_CONTAINER_THREAD_POOL_SIZE, Integer.toString(poolSize));
+
+    ExecutorService operatorExecutor = factory.getOperatorExecutor(mock(TaskName.class), new MapConfig(config));
+    assertEquals(poolSize, ((ThreadPoolExecutor) operatorExecutor).getCorePoolSize());
+  }
+
+  @Test
+  public void getOperatorTaskFactoryWithThreadContainerPoolLessThanOne() {
+    DefaultTaskExecutorFactory factory = new DefaultTaskExecutorFactory();
+    Map<String, String> config = ImmutableMap.of(JOB_CONTAINER_THREAD_POOL_SIZE, "-1");
+
+    ExecutorService operatorExecutor = factory.getOperatorExecutor(mock(TaskName.class), new MapConfig(config));
+    assertFalse(operatorExecutor instanceof ThreadPoolExecutor);
+  }
+
+  @Test
+  public void getOperatorTaskFactoryForSameTask() {
+    DefaultTaskExecutorFactory factory = new DefaultTaskExecutorFactory();
+    TaskName taskName = mock(TaskName.class);
+    Map<String, String> config = ImmutableMap.of(JOB_CONTAINER_THREAD_POOL_SIZE, "0");
+
+    ExecutorService taskExecutor = factory.getOperatorExecutor(taskName, new MapConfig(config));
+    assertEquals("Expected same executor instance to be returned for the same task within a JVM instance", taskExecutor,
+        factory.getOperatorExecutor(taskName, new MapConfig(config)));
   }
 
   public static class MockTaskExecutorFactory implements TaskExecutorFactory {

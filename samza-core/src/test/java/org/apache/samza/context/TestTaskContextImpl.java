@@ -62,7 +62,7 @@ public class TestTaskContextImpl {
     MockitoAnnotations.initMocks(this);
     taskContext =
         new TaskContextImpl(taskModel, taskMetricsRegistry, keyValueStoreProvider, tableManager, callbackScheduler,
-            offsetManager, null, null, null);
+            offsetManager, null, null, null, null);
     when(this.taskModel.getTaskName()).thenReturn(TASK_NAME);
   }
 
@@ -95,6 +95,4 @@ public class TestTaskContextImpl {
     taskContext.setStartingOffset(ssp, "123");
     verify(offsetManager).setStartingOffset(TASK_NAME, ssp, "123");
   }
-
-
 }

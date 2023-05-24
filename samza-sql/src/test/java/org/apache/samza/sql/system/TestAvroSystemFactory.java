@@ -75,7 +75,7 @@ public class TestAvroSystemFactory implements SystemFactory {
   public static final int NULL_RECORD_FREQUENCY = 5;
 
 
-  public static List<OutgoingMessageEnvelope> messages = new ArrayList<>();
+  public static volatile List<OutgoingMessageEnvelope> messages = new ArrayList<>();
 
   public static List<String> getPageKeyProfileNameJoin(int numMessages) {
     return IntStream.range(0, numMessages)

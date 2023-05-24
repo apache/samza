@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import java.util.concurrent.Executors;
 import org.apache.samza.Partition;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
 import org.apache.samza.config.Config;
@@ -97,6 +98,7 @@ public class TestOperatorImplGraph {
     when(taskModel.getTaskName()).thenReturn(new TaskName("task 0"));
     when(this.context.getTaskContext().getTaskModel()).thenReturn(taskModel);
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(this.context.getTaskContext().getOperatorExecutor()).thenReturn(Executors.newSingleThreadExecutor());
     when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
   }
 

@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import org.apache.samza.Partition;
 import org.apache.samza.application.StreamApplication;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
@@ -69,10 +70,9 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.apache.samza.testUtils.StreamTestUtils.*;
+import static org.mockito.Mockito.*;
+
 
 public class TestWindowOperator {
   private final TaskCoordinator taskCoordinator = mock(TaskCoordinator.class);
@@ -102,6 +102,7 @@ public class TestWindowOperator {
     when(((TaskContextImpl) this.context.getTaskContext()).getSspsExcludingSideInputs()).thenReturn(
         ImmutableSet.of(ssp));
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(this.context.getTaskContext().getOperatorExecutor()).thenReturn(Executors.newSingleThreadExecutor());
     when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(this.context.getTaskContext().getStore("jobName-jobId-window-w1"))
         .thenReturn(new TestInMemoryStore<>(storeKeySerde, storeValSerde));
@@ -118,7 +119,7 @@ public class TestWindowOperator {
     task.init(this.context);
     MessageCollector messageCollector =
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
-    integers.forEach(n -> task.processAsync(new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
+    integers.forEach(n -> processSync(task,  new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
     testClock.advanceTime(Duration.ofSeconds(1));
 
     task.window(messageCollector, taskCoordinator);
@@ -154,7 +155,7 @@ public class TestWindowOperator {
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     Assert.assertEquals(windowPanes.size(), 0);
 
-    integers.forEach(n -> task.processAsync(new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
+    integers.forEach(n -> processSync(task,  new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
     Assert.assertEquals(windowPanes.size(), 0);
 
     testClock.advanceTime(Duration.ofSeconds(1));
@@ -178,7 +179,7 @@ public class TestWindowOperator {
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(this.context);
     MessageCollector messageCollector = envelope -> windowPanes.add((WindowPane<Integer, Integer>) envelope.getMessage());
-    integers.forEach(n -> task.processAsync(new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
+    integers.forEach(n -> processSync(task,  new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
     testClock.advanceTime(Duration.ofSeconds(1));
 
     task.window(messageCollector, taskCoordinator);
@@ -201,7 +202,7 @@ public class TestWindowOperator {
 
     MessageCollector messageCollector =
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
-    integers.forEach(n -> task.processAsync(new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
+    integers.forEach(n -> processSync(task,  new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
 
@@ -229,8 +230,8 @@ public class TestWindowOperator {
     task.init(this.context);
     MessageCollector messageCollector =
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
 
@@ -238,10 +239,10 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "1");
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
 
-    task.processAsync(new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(3), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(3), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(3), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(3), messageCollector, taskCoordinator, taskCallback);
 
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
@@ -254,8 +255,8 @@ public class TestWindowOperator {
     Assert.assertEquals((windowPanes.get(1).getMessage()).size(), 2);
     Assert.assertEquals((windowPanes.get(2).getMessage()).size(), 2);
 
-    task.processAsync(new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
 
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
@@ -277,15 +278,15 @@ public class TestWindowOperator {
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
     task.init(this.context);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     testClock.advanceTime(Duration.ofSeconds(1));
 
-    task.processAsync(new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
 
-    task.processAsync(new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(2), messageCollector, taskCoordinator, taskCallback);
 
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
@@ -308,16 +309,16 @@ public class TestWindowOperator {
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     MessageCollector messageCollector =
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     Assert.assertEquals(windowPanes.size(), 1);
     Assert.assertEquals(windowPanes.get(0).getKey().getPaneId(), "0");
     Assert.assertEquals(windowPanes.get(0).getKey().getKey(), new Integer(1));
     Assert.assertEquals(windowPanes.get(0).getFiringType(), FiringType.EARLY);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
 
     Assert.assertEquals(windowPanes.size(), 1);
 
@@ -329,7 +330,7 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "0");
     Assert.assertEquals(windowPanes.get(1).getFiringType(), FiringType.DEFAULT);
 
-    task.processAsync(new IntegerEnvelope(3), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(3), messageCollector, taskCoordinator, taskCallback);
     testClock.advanceTime(Duration.ofSeconds(1));
     task.window(messageCollector, taskCoordinator);
 
@@ -352,8 +353,8 @@ public class TestWindowOperator {
     List<WindowPane<Integer, Collection<IntegerEnvelope>>> windowPanes = new ArrayList<>();
     MessageCollector messageCollector =
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     //assert that the count trigger fired
     Assert.assertEquals(windowPanes.size(), 1);
 
@@ -363,9 +364,9 @@ public class TestWindowOperator {
     //assert that the triggering of the count trigger cancelled the inner timeSinceFirstMessage trigger
     Assert.assertEquals(windowPanes.size(), 1);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
 
     //advance timer by 500 more millis to enable the default trigger
     testClock.advanceTime(Duration.ofMillis(500));
@@ -378,7 +379,7 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.get(1).getKey().getPaneId(), "0");
     Assert.assertEquals((windowPanes.get(1).getMessage()).size(), 5);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
 
     //advance timer by 500 millis to enable the inner timeSinceFirstMessage trigger
     testClock.advanceTime(Duration.ofMillis(500));
@@ -412,24 +413,24 @@ public class TestWindowOperator {
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(this.context);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     //assert that the count trigger fired
     Assert.assertEquals(windowPanes.size(), 1);
 
     //advance the timer to enable the potential triggering of the inner timeSinceFirstMessage trigger
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     testClock.advanceTime(Duration.ofMillis(500));
     //assert that the triggering of the count trigger cancelled the inner timeSinceFirstMessage trigger
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 2);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     Assert.assertEquals(windowPanes.size(), 3);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     //advance timer by 500 more millis to enable the default trigger
     testClock.advanceTime(Duration.ofMillis(500));
     task.window(messageCollector, taskCoordinator);
@@ -453,7 +454,7 @@ public class TestWindowOperator {
     Assert.assertEquals(windowPanes.size(), 0);
 
     List<Integer> integerList = ImmutableList.of(1, 2, 1, 2, 1);
-    integerList.forEach(n -> task.processAsync(new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
+    integerList.forEach(n -> processSync(task, new IntegerEnvelope(n), messageCollector, taskCoordinator, taskCallback));
 
     // early triggers should emit (1,2) and (1,2) in the same window.
     Assert.assertEquals(windowPanes.size(), 2);
@@ -463,7 +464,7 @@ public class TestWindowOperator {
 
     final IncomingMessageEnvelope endOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(
         new SystemStreamPartition("kafka", "integers", new Partition(0)));
-    task.processAsync(endOfStream, messageCollector, taskCoordinator, taskCallback);
+    processSync(task, endOfStream, messageCollector, taskCoordinator, taskCallback);
 
     // end of stream flushes the last entry (1)
     Assert.assertEquals(windowPanes.size(), 3);
@@ -484,27 +485,26 @@ public class TestWindowOperator {
     MessageCollector messageCollector =
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
     testClock.advanceTime(1000);
     task.window(messageCollector, taskCoordinator);
     Assert.assertEquals(windowPanes.size(), 1);
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task, new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
 
     final IncomingMessageEnvelope endOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(
         new SystemStreamPartition("kafka", "integers", new Partition(0)));
-    task.processAsync(endOfStream, messageCollector, taskCoordinator, taskCallback);
-    Assert.assertEquals(windowPanes.size(), 2);
-    Assert.assertEquals(windowPanes.get(0).getMessage().size(), 2);
+    processSync(task, endOfStream, messageCollector, taskCoordinator, taskCallback);
+    Assert.assertEquals(2, windowPanes.size());
+    Assert.assertEquals(2, windowPanes.get(0).getMessage().size());
     verify(taskCoordinator, times(1)).commit(TaskCoordinator.RequestScope.CURRENT_TASK);
     verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
   }
 
   @Test
   public void testEndOfStreamFlushesWithNoTriggerFirings() throws Exception {
-
     OperatorSpecGraph sgb =
         this.getKeyedSessionWindowStreamGraph(AccumulationMode.DISCARDING, Duration.ofMillis(500)).getOperatorSpecGraph();
     TestClock testClock = new TestClock();
@@ -512,19 +512,20 @@ public class TestWindowOperator {
     StreamOperatorTask task = new StreamOperatorTask(sgb, testClock);
     task.init(this.context);
 
+
     MessageCollector messageCollector =
       envelope -> windowPanes.add((WindowPane<Integer, Collection<IntegerEnvelope>>) envelope.getMessage());
 
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
-    task.processAsync(new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
+    processSync(task,  new IntegerEnvelope(1), messageCollector, taskCoordinator, taskCallback);
 
     final IncomingMessageEnvelope endOfStream = IncomingMessageEnvelope.buildEndOfStreamEnvelope(
         new SystemStreamPartition("kafka", "integers", new Partition(0)));
-    task.processAsync(endOfStream, messageCollector, taskCoordinator, taskCallback);
-    Assert.assertEquals(windowPanes.size(), 1);
-    Assert.assertEquals(windowPanes.get(0).getMessage().size(), 4);
+    processSync(task,  endOfStream, messageCollector, taskCoordinator, taskCallback);
+    Assert.assertEquals(1, windowPanes.size());
+    Assert.assertEquals(4, windowPanes.get(0).getMessage().size());
     verify(taskCoordinator, times(1)).commit(TaskCoordinator.RequestScope.CURRENT_TASK);
     verify(taskCoordinator, times(1)).shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
   }
