@@ -20,6 +20,8 @@
 package org.apache.samza.storage.blobstore.util;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -268,10 +270,11 @@ public class DirDiffUtil {
         .map(DirIndex::getDirName)
         .collect(Collectors.toCollection(HashSet::new));
 
-    // TODO MED shesharm: this compares each file in directory 3 times. Categorize files in one traversal instead.
-    List<File> filesToUpload = getNewFilesToUpload(remoteSnapshotFiles, localSnapshotFiles, areSameFile);
-    List<FileIndex> filesToRetain = getFilesToRetain(remoteSnapshotFiles, localSnapshotFiles, areSameFile);
-    List<FileIndex> filesToRemove = getFilesToRemove(remoteSnapshotFiles, localSnapshotFiles, areSameFile);
+    Supplier<BiPredicate<File, FileIndex>> memoizedAreSameFile = Suppliers.memoize(() -> areSameFile);
+    // Memoize areSameFile to avoid repeated calls to sun.nio.fs group/owner methods which can be expensive
+    List<File> filesToUpload = getNewFilesToUpload(remoteSnapshotFiles, localSnapshotFiles, memoizedAreSameFile.get());
+    List<FileIndex> filesToRetain = getFilesToRetain(remoteSnapshotFiles, localSnapshotFiles, memoizedAreSameFile.get());
+    List<FileIndex> filesToRemove = getFilesToRemove(remoteSnapshotFiles, localSnapshotFiles, memoizedAreSameFile.get());
 
     for (File localSnapshotSubDir: localSnapshotSubDirs) {
       if (!remoteSnapshotSubDirNames.contains(localSnapshotSubDir.getName())) {
