@@ -22,6 +22,7 @@ package org.apache.samza.storage.blobstore.util;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.Sets;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -270,11 +271,35 @@ public class DirDiffUtil {
         .map(DirIndex::getDirName)
         .collect(Collectors.toCollection(HashSet::new));
 
-    Supplier<BiPredicate<File, FileIndex>> memoizedAreSameFile = Suppliers.memoize(() -> areSameFile);
-    // Memoize areSameFile to avoid repeated calls to sun.nio.fs group/owner methods which can be expensive
-    List<File> filesToUpload = getNewFilesToUpload(remoteSnapshotFiles, localSnapshotFiles, memoizedAreSameFile.get());
-    List<FileIndex> filesToRetain = getFilesToRetain(remoteSnapshotFiles, localSnapshotFiles, memoizedAreSameFile.get());
-    List<FileIndex> filesToRemove = getFilesToRemove(remoteSnapshotFiles, localSnapshotFiles, memoizedAreSameFile.get());
+    List<File> filesToUpload = new ArrayList<>();
+    List<FileIndex> filesToRetain = new ArrayList<>();
+    List<FileIndex> filesToRemove = new ArrayList<>();
+
+    Map<String, FileIndex> remoteFiles = remoteSnapshotFiles.stream()
+        .collect(Collectors.toMap(FileIndex::getFileName, Function.identity()));
+
+    Map<String, File> localFiles = localSnapshotFiles.stream()
+        .collect(Collectors.toMap(File::getName, Function.identity()));
+
+    for(String file : Sets.union(remoteFiles.keySet(), localFiles.keySet())) {
+      if(localFiles.containsKey(file)) {
+        if(remoteFiles.containsKey(file)) {
+          if(areSameFile.test(localFiles.get(file), remoteFiles.get(file))) {
+            // Files are the same locally and remotely, Retain
+            filesToRetain.add(remoteFiles.get(file));
+          } else {
+            // Files are not the same, Upload
+            filesToUpload.add(localFiles.get(file));
+          }
+        } else {
+          // File exists locally, but not remotely, Upload
+          filesToUpload.add(localFiles.get(file));
+        }
+      } else if (remoteFiles.containsKey(file)) {
+        // File exists remotely, but not locally.  Remove
+        filesToRemove.add(remoteFiles.get(file));
+      }
+    }
 
     for (File localSnapshotSubDir: localSnapshotSubDirs) {
       if (!remoteSnapshotSubDirNames.contains(localSnapshotSubDir.getName())) {
@@ -330,78 +355,6 @@ public class DirDiffUtil {
 
     return new DirDiff(localSubDir.getName(), filesAdded, Collections.emptyList(), Collections.emptyList(),
         subDirsAdded, Collections.emptyList(), Collections.emptyList());
-  }
-
-  /**
-   * Returns a list of files uploaded in remote checkpoint that are not present in new local snapshot and needs to be
-   * deleted/reclaimed from remote store.
-   */
-  private static List<FileIndex> getFilesToRemove(
-      List<FileIndex> remoteSnapshotFiles, List<File> localSnapshotFiles,
-      BiPredicate<File, FileIndex> areSameFile) {
-    List<FileIndex> filesToRemove = new ArrayList<>();
-
-    Map<String, File> localFiles = localSnapshotFiles.stream()
-        .collect(Collectors.toMap(File::getName, Function.identity()));
-
-    for (FileIndex remoteFile : remoteSnapshotFiles) {
-      String remoteFileName = remoteFile.getFileName();
-      if (!localFiles.containsKey(remoteFileName) ||
-          !areSameFile.test(localFiles.get(remoteFileName), remoteFile)) {
-        LOG.debug("File {} only present in remote snapshot or is not the same as local file.", remoteFile.getFileName());
-        filesToRemove.add(remoteFile);
-      }
-    }
-
-    return filesToRemove;
-  }
-
-  /**
-   * Returns a list of files to be uploaded to remote store that are part of new snapshot created locally.
-   */
-  private static List<File> getNewFilesToUpload(
-      List<FileIndex> remoteSnapshotFiles, List<File> localSnapshotFiles,
-      BiPredicate<File, FileIndex> areSameFile) {
-    List<File> filesToUpload = new ArrayList<>();
-
-    Map<String, FileIndex> remoteFiles = remoteSnapshotFiles.stream()
-        .collect(Collectors.toMap(FileIndex::getFileName, Function.identity()));
-
-    for (File localFile: localSnapshotFiles) {
-      String localFileName = localFile.getName();
-      if (!remoteFiles.containsKey(localFileName) ||
-          !areSameFile.test(localFile, remoteFiles.get(localFileName))) {
-        LOG.debug("File {} only present in local snapshot or is not the same as remote file.", localFile.getPath());
-        filesToUpload.add(localFile);
-      }
-    }
-
-    return filesToUpload;
-  }
-
-  /**
-   * Returns a list of common files between local and remote snapshot. These files are reused from prev remote snapshot
-   * and do not need to be uploaded again.
-   */
-  private static List<FileIndex> getFilesToRetain(
-      List<FileIndex> remoteSnapshotFiles, List<File> localSnapshotFiles,
-      BiPredicate<File, FileIndex> areSameFile) {
-    List<FileIndex> filesToRetain = new ArrayList<>();
-
-    Map<String, File> localFiles = localSnapshotFiles.stream()
-        .collect(Collectors.toMap(File::getName, Function.identity()));
-
-    for (FileIndex remoteFile : remoteSnapshotFiles) {
-      String remoteFileName = remoteFile.getFileName();
-      if (localFiles.containsKey(remoteFileName) &&
-          areSameFile.test(localFiles.get(remoteFileName), remoteFile)) {
-        String localFilePath = localFiles.get(remoteFileName).getPath();
-        LOG.debug("File {} present in both local and remote snapshot and is the same.", localFilePath);
-        filesToRetain.add(remoteFile);
-      }
-    }
-
-    return filesToRetain;
   }
 
   private static String fileAttributesToString(PosixFileAttributes fileAttributes) {
