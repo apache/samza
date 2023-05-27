@@ -294,7 +294,7 @@ public class DirDiffUtil {
           filesToUpload.add(localFiles.get(file));
         }
       } else if (remoteFiles.containsKey(file)) {
-        // File exists remotely, but not locally.  Remove
+        // File exists remotely, but not locally,  Remove
         filesToRemove.add(remoteFiles.get(file));
       }
     }
