@@ -20,15 +20,19 @@
 package org.apache.samza.storage.blobstore.util;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.Sets;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.attribute.GroupPrincipal;
 import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserPrincipal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -141,6 +145,13 @@ public class DirDiffUtil {
     };
   }
 
+
+  private static BiPredicate<GroupPrincipal, String> _isSameGroup() {
+    return (a,b) -> a.getName().equals(b);
+  }
+  private static BiPredicate<UserPrincipal, String> _isSameOwner() {
+    return (a,b) -> a.getName().equals(b);
+  }
   /**
    * Bipredicate to test a local file in the filesystem and a remote file {@link FileIndex} and find out if they represent
    * the same file. Files with same attributes as well as content are same file. A SST file in a special case. They are
@@ -149,6 +160,17 @@ public class DirDiffUtil {
    * @return BiPredicate to test similarity of local and remote files
    */
   public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
+    return areSameFile(compareLargeFileChecksums,
+        Suppliers.memoize(DirDiffUtil::_isSameGroup),
+        Suppliers.memoize(DirDiffUtil::_isSameOwner));
+  }
+
+  /**
+   * Internal overload of areSameFile to take memoized suppliers for group/owner to cache values.
+   */
+  private static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums,
+      Supplier<BiPredicate<GroupPrincipal, String>> isSameGroup, Supplier<BiPredicate<UserPrincipal, String>> isSameOwner) {
+
     return (localFile, remoteFile) -> {
       if (localFile.getName().equals(remoteFile.getFileName())) {
         FileMetadata remoteFileMetadata = remoteFile.getFileMetadata();
@@ -168,8 +190,8 @@ public class DirDiffUtil {
         // remote file, and will cause the file to be uploaded again during the first commit after restore.
         boolean areSameFiles =
             localFileAttrs.size() == remoteFileMetadata.getSize() &&
-                localFileAttrs.group().getName().equals(remoteFileMetadata.getGroup()) &&
-                localFileAttrs.owner().getName().equals(remoteFileMetadata.getOwner());
+                isSameGroup.get().test(localFileAttrs.group(), remoteFileMetadata.getGroup()) &&
+                isSameOwner.get().test(localFileAttrs.owner(), remoteFileMetadata.getOwner());
 
         // only verify permissions for file owner
         areSameFiles = areSameFiles &&
@@ -181,25 +203,28 @@ public class DirDiffUtil {
                 remoteFilePermissions.contains(PosixFilePermission.OWNER_EXECUTE);
 
         if (!areSameFiles) {
-          LOG.warn("Local file: {} and remote file: {} are not same. " +
-                  "Local file attributes: {}. Remote file attributes: {}.",
-              localFile.getAbsolutePath(), remoteFile.getFileName(),
-              fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
+          if(LOG.isWarnEnabled()) {
+            LOG.warn("Local file: {} and remote file: {} are not same. "
+                    + "Local file attributes: {}. Remote file attributes: {}.", localFile.getAbsolutePath(), remoteFile.getFileName(),
+                fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
+          }
           return false;
         } else {
-          LOG.trace("Local file: {}. Remote file: {}. " +
-                  "Local file attributes: {}. Remote file attributes: {}.",
-              localFile.getAbsolutePath(), remoteFile.getFileName(),
-              fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
+          if(LOG.isTraceEnabled()) {
+            LOG.trace("Local file: {}. Remote file: {}. " + "Local file attributes: {}. Remote file attributes: {}.",
+                localFile.getAbsolutePath(), remoteFile.getFileName(), fileAttributesToString(localFileAttrs),
+                remoteFile.getFileMetadata().toString());
+          }
         }
 
         boolean isLargeFile = localFileAttrs.size() > 1024 * 1024;
         if (!compareLargeFileChecksums && isLargeFile) {
           // Since RocksDB SST files are immutable after creation, we can skip the expensive checksum computations
           // which requires reading the entire file.
-          LOG.debug("Local file: {} and remote file: {} are same. " +
-                  "Skipping checksum calculation for large file of size: {}.",
-              localFile.getAbsolutePath(), remoteFile.getFileName(), localFileAttrs.size());
+          if(LOG.isDebugEnabled()) {
+            LOG.debug("Local file: {} and remote file: {} are same. "
+                + "Skipping checksum calculation for large file of size: {}.", localFile.getAbsolutePath(), remoteFile.getFileName(), localFileAttrs.size());
+          }
           return true;
         } else {
           try {
@@ -212,12 +237,15 @@ public class DirDiffUtil {
 
             boolean areSameChecksum = localFileChecksum == remoteFile.getChecksum();
             if (!areSameChecksum) {
-              LOG.warn("Local file: {} and remote file: {} are not same. " +
-                      "Local checksum: {}. Remote checksum: {}",
-                  localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
+              if(LOG.isWarnEnabled()) {
+                LOG.warn("Local file: {} and remote file: {} are not same. " + "Local checksum: {}. Remote checksum: {}",
+                    localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
+              }
             } else {
-              LOG.debug("Local file: {} and remote file: {} are same. Local checksum: {}. Remote checksum: {}",
-                  localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
+              if(LOG.isDebugEnabled()) {
+                LOG.debug("Local file: {} and remote file: {} are same. Local checksum: {}. Remote checksum: {}",
+                    localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
+              }
             }
             return areSameChecksum;
           } catch (IOException e) {
@@ -279,6 +307,7 @@ public class DirDiffUtil {
     Map<String, File> localFiles = localSnapshotFiles.stream()
         .collect(Collectors.toMap(File::getName, Function.identity()));
 
+    Map<Integer, String> uidMap = new HashMap<Integer, String>();
     for(String file : Sets.union(remoteFiles.keySet(), localFiles.keySet())) {
       if(localFiles.containsKey(file)) {
         if(remoteFiles.containsKey(file)) {
