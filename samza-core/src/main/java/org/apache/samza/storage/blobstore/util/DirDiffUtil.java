@@ -161,15 +161,15 @@ public class DirDiffUtil {
    */
   public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
     return areSameFile(compareLargeFileChecksums,
-        Suppliers.memoize(DirDiffUtil::_isSameGroup),
-        Suppliers.memoize(DirDiffUtil::_isSameOwner));
+        Suppliers.memoize(DirDiffUtil::_isSameGroup).get(),
+        Suppliers.memoize(DirDiffUtil::_isSameOwner).get());
   }
 
   /**
    * Internal overload of areSameFile to take memoized suppliers for group/owner to cache values.
    */
   private static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums,
-      Supplier<BiPredicate<GroupPrincipal, String>> isSameGroup, Supplier<BiPredicate<UserPrincipal, String>> isSameOwner) {
+      BiPredicate<GroupPrincipal, String> isSameGroup, BiPredicate<UserPrincipal, String> isSameOwner) {
 
     return (localFile, remoteFile) -> {
       if (localFile.getName().equals(remoteFile.getFileName())) {
@@ -190,8 +190,8 @@ public class DirDiffUtil {
         // remote file, and will cause the file to be uploaded again during the first commit after restore.
         boolean areSameFiles =
             localFileAttrs.size() == remoteFileMetadata.getSize() &&
-                isSameGroup.get().test(localFileAttrs.group(), remoteFileMetadata.getGroup()) &&
-                isSameOwner.get().test(localFileAttrs.owner(), remoteFileMetadata.getOwner());
+                isSameGroup.test(localFileAttrs.group(), remoteFileMetadata.getGroup()) &&
+                isSameOwner.test(localFileAttrs.owner(), remoteFileMetadata.getOwner());
 
         // only verify permissions for file owner
         areSameFiles = areSameFiles &&
