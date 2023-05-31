@@ -141,6 +141,35 @@ public class DirDiffUtil {
     };
   }
 
+  private static String getCachedGroupName(Map<String, String> cache, File file, PosixFileAttributes attributes)
+      throws IOException {
+    String gid = String.valueOf(Files.getAttribute(file.toPath(), "unix:gid"));
+    String value = cache.get(gid);
+    if(value == null) {
+      if(cache.size() < 10) {
+        value = attributes.group().getName();
+        cache.put(gid, value);
+      }
+    }
+    return value;
+  }
+  private static String getCachedOwnerName(Map<String, String> cache, File file, PosixFileAttributes attributes)
+      throws IOException {
+    String uid = String.valueOf(Files.getAttribute(file.toPath(), "unix:uid"));
+    String value = cache.get(uid);
+    if(value == null) {
+      if(cache.size() < 10) {
+        value = attributes.owner().getName();
+        cache.put(uid, value);
+      }
+    }
+    return value;
+  }
+
+  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
+    return areSameFile(compareLargeFileChecksums, new HashMap<>(), new HashMap<>());
+  }
+
   /**
    * Bipredicate to test a local file in the filesystem and a remote file {@link FileIndex} and find out if they represent
    * the same file. Files with same attributes as well as content are same file. A SST file in a special case. They are
@@ -148,14 +177,22 @@ public class DirDiffUtil {
    * @param compareLargeFileChecksums whether to compare checksums for large files (&gt; 1 MB).
    * @return BiPredicate to test similarity of local and remote files
    */
-  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
+  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums,
+    Map<String, String> groupCache, Map<String, String> ownerCache) {
     return (localFile, remoteFile) -> {
       if (localFile.getName().equals(remoteFile.getFileName())) {
         FileMetadata remoteFileMetadata = remoteFile.getFileMetadata();
 
-        PosixFileAttributes localFileAttrs = null;
+        boolean areSameFiles = false;
+        PosixFileAttributes localFileAttrs;
         try {
           localFileAttrs = Files.readAttributes(localFile.toPath(), PosixFileAttributes.class);
+
+          // Don't compare file timestamps. The ctime of a local file just restored will be different than the
+          // remote file, and will cause the file to be uploaded again during the first commit after restore.
+          areSameFiles = localFileAttrs.size() == remoteFileMetadata.getSize() &&
+              getCachedGroupName(groupCache, localFile, localFileAttrs).equals(remoteFileMetadata.getGroup()) &&
+              getCachedOwnerName(ownerCache, localFile, localFileAttrs).equals(remoteFileMetadata.getOwner());
         } catch (IOException e) {
           LOG.error("Error reading attributes for file: {}", localFile.getAbsolutePath());
           throw new RuntimeException(String.format("Error reading attributes for file: %s", localFile.getAbsolutePath()));
@@ -163,13 +200,6 @@ public class DirDiffUtil {
 
         Set<PosixFilePermission> remoteFilePermissions =
             PosixFilePermissions.fromString(remoteFileMetadata.getPermissions());
-
-        // Don't compare file timestamps. The ctime of a local file just restored will be different than the
-        // remote file, and will cause the file to be uploaded again during the first commit after restore.
-        boolean areSameFiles =
-            localFileAttrs.size() == remoteFileMetadata.getSize() &&
-                localFileAttrs.group().getName().equals(remoteFileMetadata.getGroup()) &&
-                localFileAttrs.owner().getName().equals(remoteFileMetadata.getOwner());
 
         // only verify permissions for file owner
         areSameFiles = areSameFiles &&
