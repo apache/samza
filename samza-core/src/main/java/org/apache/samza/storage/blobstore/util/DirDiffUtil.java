@@ -213,16 +213,18 @@ public class DirDiffUtil {
                 remoteFilePermissions.contains(PosixFilePermission.OWNER_EXECUTE);
 
         if (!areSameFiles) {
-          LOG.warn("Local file: {} and remote file: {} are not same. " +
-                  "Local file attributes: {}. Remote file attributes: {}.",
-              localFile.getAbsolutePath(), remoteFile.getFileName(),
-              fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
+          if(LOG.isWarnEnabled()) {
+            LOG.warn("Local file: {} and remote file: {} are not same. "
+                    + "Local file attributes: {}. Remote file attributes: {}.", localFile.getAbsolutePath(), remoteFile.getFileName(),
+                fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
+          }
           return false;
         } else {
-          LOG.trace("Local file: {}. Remote file: {}. " +
-                  "Local file attributes: {}. Remote file attributes: {}.",
-              localFile.getAbsolutePath(), remoteFile.getFileName(),
-              fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
+          if(LOG.isTraceEnabled()) {
+            LOG.trace("Local file: {}. Remote file: {}. " + "Local file attributes: {}. Remote file attributes: {}.",
+                localFile.getAbsolutePath(), remoteFile.getFileName(), fileAttributesToString(localFileAttrs),
+                remoteFile.getFileMetadata().toString());
+          }
         }
 
         boolean isLargeFile = localFileAttrs.size() > 1024 * 1024;
