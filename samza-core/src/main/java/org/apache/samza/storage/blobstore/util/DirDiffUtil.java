@@ -19,6 +19,7 @@
 
 package org.apache.samza.storage.blobstore.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import java.io.File;
@@ -58,7 +59,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DirDiffUtil {
   private static final Logger LOG = LoggerFactory.getLogger(DirDiffUtil.class);
-
+  public static final int CACHE_SIZE = 10;
   /**
    * Checks if a local directory and a remote directory are identical. Local and remote directories are identical iff:
    * 1. The local directory has exactly the same set of files as the remote directory, and the files are themselves
@@ -141,26 +142,26 @@ public class DirDiffUtil {
     };
   }
 
-  private static String getCachedGroupName(Map<String, String> cache, File file, PosixFileAttributes attributes)
+  @VisibleForTesting
+  public static String getCachedGroupName(Map<String, String> cache, String id, PosixFileAttributes attributes)
       throws IOException {
-    String gid = String.valueOf(Files.getAttribute(file.toPath(), "unix:gid"));
-    String value = cache.get(gid);
+    String value = cache.get(id);
     if(value == null) {
-      if(cache.size() < 10) {
-        value = attributes.group().getName();
-        cache.put(gid, value);
+      value = attributes.group().getName();
+      if(cache.size() < CACHE_SIZE) {
+        cache.put(id, value);
       }
     }
     return value;
   }
-  private static String getCachedOwnerName(Map<String, String> cache, File file, PosixFileAttributes attributes)
+  @VisibleForTesting
+  public static String getCachedOwnerName(Map<String, String> cache, String id, PosixFileAttributes attributes)
       throws IOException {
-    String uid = String.valueOf(Files.getAttribute(file.toPath(), "unix:uid"));
-    String value = cache.get(uid);
+    String value = cache.get(id);
     if(value == null) {
-      if(cache.size() < 10) {
-        value = attributes.owner().getName();
-        cache.put(uid, value);
+      value = attributes.owner().getName();
+      if(cache.size() < CACHE_SIZE) {
+        cache.put(id, value);
       }
     }
     return value;
@@ -191,8 +192,9 @@ public class DirDiffUtil {
           // Don't compare file timestamps. The ctime of a local file just restored will be different than the
           // remote file, and will cause the file to be uploaded again during the first commit after restore.
           areSameFiles = localFileAttrs.size() == remoteFileMetadata.getSize() &&
-              getCachedGroupName(groupCache, localFile, localFileAttrs).equals(remoteFileMetadata.getGroup()) &&
-              getCachedOwnerName(ownerCache, localFile, localFileAttrs).equals(remoteFileMetadata.getOwner());
+              getCachedGroupName(groupCache, String.valueOf(Files.getAttribute(localFile.toPath(), "unix:gid")), localFileAttrs).equals(remoteFileMetadata.getGroup()) &&
+              getCachedOwnerName(ownerCache, String.valueOf(Files.getAttribute(localFile.toPath(), "unix:uid")), localFileAttrs).equals(remoteFileMetadata.getOwner());
+
         } catch (IOException e) {
           LOG.error("Error reading attributes for file: {}", localFile.getAbsolutePath());
           throw new RuntimeException(String.format("Error reading attributes for file: %s", localFile.getAbsolutePath()));
