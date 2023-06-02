@@ -58,11 +58,37 @@ public class FileMetadata {
     this.permissions = permissions;
   }
 
+  private static String lastGroupName = null;
+  private static String lastOwnerName = null;
+  private static Integer lastGroupId = null;
+  private static Integer lastOwnerId = null;
   public static FileMetadata fromFile(File file) throws IOException {
     PosixFileAttributes attributes = Files.readAttributes(file.toPath(), PosixFileAttributes.class);
 
+    String ownerName;
+    String groupName;
+
+    Integer groupId = (Integer)Files.getAttribute(file.toPath(), "unix:gid");
+    Integer ownerId = (Integer)Files.getAttribute(file.toPath(), "unix:uid");
+
+    if(lastGroupId != null && lastGroupId.equals(groupId)) {
+      groupName = lastGroupName;
+    } else {
+      groupName = attributes.group().getName();
+      lastGroupName = groupName;
+      lastGroupId = groupId;
+    }
+
+    if(lastOwnerId != null && lastGroupId.equals(ownerId)) {
+      ownerName = lastOwnerName;
+    } else {
+      ownerName = attributes.owner().getName();
+      lastOwnerName = ownerName;
+      lastOwnerId = ownerId;
+    }
+
     return new FileMetadata(attributes.creationTime().toMillis(), attributes.lastModifiedTime().toMillis(),
-        attributes.size(), attributes.owner().toString(), attributes.group().toString(),
+        attributes.size(), ownerName, groupName,
         PosixFilePermissions.toString(attributes.permissions()));
   }
 
