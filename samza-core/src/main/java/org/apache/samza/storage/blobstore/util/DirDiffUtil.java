@@ -321,7 +321,8 @@ public class DirDiffUtil {
             // Files are the same locally and remotely, Retain
             filesToRetain.add(remoteFiles.get(file));
           } else {
-            // Files are not the same, Upload
+            // Files are not the same, remove and upload
+            filesToRemove.add(remoteFiles.get(file));
             filesToUpload.add(localFiles.get(file));
           }
         } else {
