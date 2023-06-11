@@ -21,6 +21,8 @@ package org.apache.samza.storage.blobstore.util;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Sets;
 import java.io.File;
 import java.io.FileInputStream;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -142,33 +145,10 @@ public class DirDiffUtil {
     };
   }
 
-  @VisibleForTesting
-  public static String getCachedGroupName(Map<String, String> cache, String id, PosixFileAttributes attributes)
-      throws IOException {
-    String value = cache.get(id);
-    if(value == null) {
-      value = attributes.group().getName();
-      if(cache.size() < CACHE_SIZE) {
-        cache.put(id, value);
-      }
-    }
-    return value;
-  }
-  @VisibleForTesting
-  public static String getCachedOwnerName(Map<String, String> cache, String id, PosixFileAttributes attributes)
-      throws IOException {
-    String value = cache.get(id);
-    if(value == null) {
-      value = attributes.owner().getName();
-      if(cache.size() < CACHE_SIZE) {
-        cache.put(id, value);
-      }
-    }
-    return value;
-  }
-
   public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
-    return areSameFile(compareLargeFileChecksums, new HashMap<>(), new HashMap<>());
+    return areSameFile(compareLargeFileChecksums,
+        CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build(),
+        CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build());
   }
 
   /**
@@ -179,7 +159,7 @@ public class DirDiffUtil {
    * @return BiPredicate to test similarity of local and remote files
    */
   public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums,
-    Map<String, String> groupCache, Map<String, String> ownerCache) {
+      Cache<String, String> groupCache, Cache<String, String> ownerCache) {
     return (localFile, remoteFile) -> {
       if (localFile.getName().equals(remoteFile.getFileName())) {
         FileMetadata remoteFileMetadata = remoteFile.getFileMetadata();
@@ -192,10 +172,12 @@ public class DirDiffUtil {
           // Don't compare file timestamps. The ctime of a local file just restored will be different than the
           // remote file, and will cause the file to be uploaded again during the first commit after restore.
           areSameFiles = localFileAttrs.size() == remoteFileMetadata.getSize() &&
-              getCachedGroupName(groupCache, String.valueOf(Files.getAttribute(localFile.toPath(), "unix:gid")), localFileAttrs).equals(remoteFileMetadata.getGroup()) &&
-              getCachedOwnerName(ownerCache, String.valueOf(Files.getAttribute(localFile.toPath(), "unix:uid")), localFileAttrs).equals(remoteFileMetadata.getOwner());
+              groupCache.get(String.valueOf(Files.getAttribute(localFile.toPath(), "unix:gid")),
+                  () -> localFileAttrs.group().getName()).equals(remoteFileMetadata.getGroup()) &&
+              ownerCache.get(String.valueOf(Files.getAttribute(localFile.toPath(), "unix:uid")),
+                  () -> localFileAttrs.owner().getName()).equals(remoteFileMetadata.getOwner());
 
-        } catch (IOException e) {
+        } catch (IOException | ExecutionException e) {
           LOG.error("Error reading attributes for file: {}", localFile.getAbsolutePath());
           throw new RuntimeException(String.format("Error reading attributes for file: %s", localFile.getAbsolutePath()));
         }
