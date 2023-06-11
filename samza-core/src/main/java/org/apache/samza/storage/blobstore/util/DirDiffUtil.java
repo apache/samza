@@ -18,8 +18,6 @@
  */
 
 package org.apache.samza.storage.blobstore.util;
-
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
