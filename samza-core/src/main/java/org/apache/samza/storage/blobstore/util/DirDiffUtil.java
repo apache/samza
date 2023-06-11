@@ -162,7 +162,7 @@ public class DirDiffUtil {
       if (localFile.getName().equals(remoteFile.getFileName())) {
         FileMetadata remoteFileMetadata = remoteFile.getFileMetadata();
 
-        boolean areSameFiles = false;
+        boolean areSameFiles;
         PosixFileAttributes localFileAttrs;
         try {
           localFileAttrs = Files.readAttributes(localFile.toPath(), PosixFileAttributes.class);
@@ -293,7 +293,6 @@ public class DirDiffUtil {
     Map<String, File> localFiles = localSnapshotFiles.stream()
         .collect(Collectors.toMap(File::getName, Function.identity()));
 
-    Map<Integer, String> uidMap = new HashMap<Integer, String>();
     for(String file : Sets.union(remoteFiles.keySet(), localFiles.keySet())) {
       if(localFiles.containsKey(file)) {
         if(remoteFiles.containsKey(file)) {
