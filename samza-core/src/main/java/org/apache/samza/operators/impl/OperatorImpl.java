@@ -94,7 +94,7 @@ public abstract class OperatorImpl<M, RM> {
   private CallbackScheduler callbackScheduler;
   private ControlMessageSender controlMessageSender;
   private int elasticityFactor;
-  private ExecutorService operatorThreadPool;
+  private ExecutorService operatorExecutor;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -137,7 +137,7 @@ public abstract class OperatorImpl<M, RM> {
     this.callbackScheduler = taskContext.getCallbackScheduler();
     handleInit(context);
     this.elasticityFactor = new JobConfig(config).getElasticityFactor();
-    this.operatorThreadPool = context.getTaskContext().getOperatorExecutor();
+    this.operatorExecutor = context.getTaskContext().getOperatorExecutor();
 
     initialized = true;
   }
@@ -200,13 +200,13 @@ public abstract class OperatorImpl<M, RM> {
           .flatMap(r -> this.registeredOperators.stream()
             .map(op -> op.onMessageAsync(r, collector, coordinator)))
           .toArray(CompletableFuture[]::new));
-    }, operatorThreadPool);
+    }, operatorExecutor);
 
     WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
     if (watermarkFn != null) {
       // check whether there is new watermark emitted from the user function
       Long outputWm = watermarkFn.getOutputWatermark();
-      return result.thenComposeAsync(ignored -> propagateWatermark(outputWm, collector, coordinator), operatorThreadPool);
+      return result.thenComposeAsync(ignored -> propagateWatermark(outputWm, collector, coordinator), operatorExecutor);
     }
 
     return result;
@@ -249,7 +249,7 @@ public abstract class OperatorImpl<M, RM> {
         CompletableFuture.allOf(this.registeredOperators
             .stream()
             .map(op -> op.onTimer(collector, coordinator))
-            .toArray(CompletableFuture[]::new)), operatorThreadPool);
+            .toArray(CompletableFuture[]::new)), operatorExecutor);
   }
 
   /**
@@ -323,7 +323,7 @@ public abstract class OperatorImpl<M, RM> {
               coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
               coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
             }
-          }, operatorThreadPool);
+          }, operatorExecutor);
     }
 
     return endOfStreamFuture;
@@ -350,7 +350,7 @@ public abstract class OperatorImpl<M, RM> {
       endOfStreamFuture = resultFuture.thenComposeAsync(x ->
           CompletableFuture.allOf(this.registeredOperators.stream()
               .map(op -> op.onEndOfStream(collector, coordinator))
-              .toArray(CompletableFuture[]::new)), operatorThreadPool);
+              .toArray(CompletableFuture[]::new)), operatorExecutor);
     }
 
     return endOfStreamFuture;
@@ -414,7 +414,7 @@ public abstract class OperatorImpl<M, RM> {
               coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
               coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
             }
-          }, operatorThreadPool);
+          }, operatorExecutor);
     }
 
     return drainFuture;
@@ -442,7 +442,7 @@ public abstract class OperatorImpl<M, RM> {
       drainFuture = resultFuture.thenComposeAsync(x ->
           CompletableFuture.allOf(this.registeredOperators.stream()
               .map(op -> op.onDrainOfStream(collector, coordinator))
-              .toArray(CompletableFuture[]::new)), operatorThreadPool);
+              .toArray(CompletableFuture[]::new)), operatorExecutor);
     }
 
     return drainFuture;
@@ -475,7 +475,7 @@ public abstract class OperatorImpl<M, RM> {
       }
       // populate the watermark through the dag
       watermarkFuture = onWatermark(watermark, collector, coordinator)
-          .thenAcceptAsync(ignored -> watermarkStates.updateAggregateMetric(ssp, watermark), operatorThreadPool);
+          .thenAcceptAsync(ignored -> watermarkStates.updateAggregateMetric(ssp, watermark), operatorExecutor);
     }
 
     return watermarkFuture;
@@ -531,7 +531,7 @@ public abstract class OperatorImpl<M, RM> {
       }
 
       watermarkFuture = watermarkFuture.thenComposeAsync(res -> propagateWatermark(outputWm, collector, coordinator),
-          operatorThreadPool);
+          operatorExecutor);
     }
 
     return watermarkFuture;

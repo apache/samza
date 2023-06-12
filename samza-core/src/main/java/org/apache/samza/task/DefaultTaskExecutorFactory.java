@@ -61,18 +61,18 @@ public class DefaultTaskExecutorFactory implements TaskExecutorFactory {
   public ExecutorService getOperatorExecutor(TaskName taskName, Config config) {
     ExecutorService taskExecutor = TASK_EXECUTORS.computeIfAbsent(taskName, key -> {
       final int threadPoolSize = new JobConfig(config).getThreadPoolSize();
-      ExecutorService operatorThreadPool;
+      ExecutorService operatorExecutor;
 
       if (threadPoolSize > 1) {
         LOG.info("Using container thread pool as operator thread pool for task {}", key.getTaskName());
-        operatorThreadPool = getTaskExecutor(config);
+        operatorExecutor = getTaskExecutor(config);
       } else {
         LOG.info("Using single threaded thread pool as operator thread pool for task {}", key.getTaskName());
-        operatorThreadPool = Executors.newSingleThreadExecutor(
+        operatorExecutor = Executors.newSingleThreadExecutor(
             new ThreadFactoryBuilder().setNameFormat("Samza " + key.getTaskName() + " Thread-%d").build());
       }
 
-      return operatorThreadPool;
+      return operatorExecutor;
     });
 
     return taskExecutor;

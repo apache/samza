@@ -112,7 +112,7 @@ public interface TaskContext {
 
   /**
    * Gets the operator {@link ExecutorService} for this container.
-   * @return the {@link ExecutorService} used by the operator for this container
+   * @return the {@link ExecutorService} used by the operator for this task
    */
   default ExecutorService getOperatorExecutor() {
     throw new UnsupportedOperationException("Operator executor not available in the context");

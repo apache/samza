@@ -41,7 +41,7 @@ public interface TaskExecutorFactory {
    * of synchronous operators in the application DAG. In case of asynchronous operators, typically the operator invocation
    * happens on one thread while completion of the callback happens on another thread. When the CompletionStage completes normally,
    * the subsequent DAG or hand-off code is executed on the operator thread pool.
-   * <b>Note:</b>It is upto the implementors of the factory to share the executor across tasks vs provide isolated executors
+   * <b>Note:</b>It is up to the implementors of the factory to share the executor across tasks vs provide isolated executors
    * per task. While the above determines fairness and contention between tasks, within a task
    * there are no fairness guarantees on how the chained futures of sub-DAG stages are executed nor any guarantees on
    * the order of tasks executed. The behavior is controlled by Java's implementation of CompletionStage and
