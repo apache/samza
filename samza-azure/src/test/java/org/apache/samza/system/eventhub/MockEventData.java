@@ -71,4 +71,34 @@ public class MockEventData implements EventData {
   public EventData.SystemProperties getSystemProperties() {
     return overridedSystemProperties;
   }
+
+  @Override
+  public void setSystemProperties(SystemProperties props) {
+    this.overridedSystemProperties = props;
+  }
+
+  @Override
+  public int compareTo(EventData that) {
+    return Long.compare(
+        this.getSystemProperties().getSequenceNumber(),
+        that.getSystemProperties().getSequenceNumber()
+    );
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof MockEventData)) {
+      return false;
+    }
+    MockEventData that = (MockEventData) o;
+    return Objects.equals(eventData, that.eventData);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(eventData);
+  }
 }

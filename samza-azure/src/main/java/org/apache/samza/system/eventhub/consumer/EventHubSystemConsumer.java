@@ -26,6 +26,7 @@ import com.microsoft.azure.eventhubs.EventHubException;
 import com.microsoft.azure.eventhubs.EventPosition;
 import com.microsoft.azure.eventhubs.PartitionReceiveHandler;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
+import com.microsoft.azure.eventhubs.ReceiverOptions;
 import com.microsoft.azure.eventhubs.impl.ClientConstants;
 import java.time.Duration;
 import java.time.Instant;
@@ -280,12 +281,12 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
         } else {
           // EventHub will return the first message AFTER the offset that was specified in the fetch request.
           // If no such offset exists Eventhub will return an error.
+          ReceiverOptions receiverOptions = new ReceiverOptions();
+          receiverOptions.setPrefetchCount(prefetchCount);
           receiver = eventHubClientManager.getEventHubClient()
               .createReceiver(consumerGroup, partitionId.toString(),
                   EventPosition.fromOffset(offset, /* inclusiveFlag */false)).get(DEFAULT_EVENTHUB_CREATE_RECEIVER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         }
-
-        receiver.setPrefetchCount(prefetchCount);
 
         PartitionReceiveHandler handler =
             new PartitionReceiverHandlerImpl(ssp, eventReadRates.get(streamId), eventByteReadRates.get(streamId),
@@ -375,11 +376,11 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       streamPartitionReceivers.get(ssp).close().get(DEFAULT_SHUTDOWN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
 
       // Recreate receiver
+      ReceiverOptions receiverOptions = new ReceiverOptions();
+      receiverOptions.setPrefetchCount(prefetchCount);
       PartitionReceiver receiver = eventHubClientManager.getEventHubClient()
           .createReceiverSync(consumerGroup, partitionId.toString(),
-              EventPosition.fromOffset(offset, !offset.equals(EventHubSystemConsumer.START_OF_STREAM)));
-
-      receiver.setPrefetchCount(prefetchCount);
+              EventPosition.fromOffset(offset, !offset.equals(EventHubSystemConsumer.START_OF_STREAM)), receiverOptions);
 
       // Timeout for EventHubClient receive
       receiver.setReceiveTimeout(DEFAULT_EVENTHUB_RECEIVER_TIMEOUT);

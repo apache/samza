@@ -102,7 +102,7 @@ public class EventHubConsoleConsumer {
         .setSasKeyName(keyName)
         .setSasKey(token);
 
-    EventHubClient client = EventHubClient.createSync(connStr.toString(), Executors.newFixedThreadPool(10));
+    EventHubClient client = EventHubClient.createFromConnectionStringSync(connStr.toString(), Executors.newScheduledThreadPool(10));
 
     EventHubRuntimeInformation runTimeInfo = client.getRuntimeInformation().get();
     int numPartitions = runTimeInfo.getPartitionCount();
