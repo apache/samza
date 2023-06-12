@@ -23,7 +23,6 @@ import com.azure.storage.blob.specialized.BlockBlobAsyncClient;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import org.apache.samza.AzureException;
-import org.apache.samza.system.azureblob.AzureBlobConfig;
 import org.apache.samza.system.azureblob.compression.Compression;
 import org.apache.samza.system.azureblob.producer.AzureBlobWriterMetrics;
 import java.io.ByteArrayOutputStream;
@@ -95,27 +94,6 @@ public class AzureBlobOutputStream extends OutputStream {
   private final BlobMetadataGeneratorFactory blobMetadataGeneratorFactory;
   private final Config blobMetadataGeneratorConfig;
   private String streamName;
-
-  /**
-   *
-   * @param blobAsyncClient Client to communicate with Azure Blob Storage.
-   * @param blobThreadPool threads to be used for uploading blocks to Azure Blob Storage.
-   * @param metrics needed for emitting metrics about bytes written, blocks uploaded, blobs committed.
-   * @param blobMetadataGeneratorFactory impl of {@link org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory}
-   *                                   to be used for generating metadata properties for a blob
-   * @param streamName name of the stream to which the blob generated corresponds to. Used in metadata properties.
-   * @param flushTimeoutMs timeout for uploading a block
-   * @param maxBlockFlushThresholdSize max block size
-   * @param compression type of compression to be used before uploading a block
-   */
-  @Deprecated
-  public AzureBlobOutputStream(BlockBlobAsyncClient blobAsyncClient, Executor blobThreadPool, AzureBlobWriterMetrics metrics,
-      BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
-      long flushTimeoutMs, int maxBlockFlushThresholdSize, Compression compression) {
-    this(blobAsyncClient, blobThreadPool, metrics, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName,
-        flushTimeoutMs, maxBlockFlushThresholdSize,
-        new ByteArrayOutputStream(AzureBlobConfig.SYSTEM_INIT_BUFFER_SIZE_DEFAULT), compression);
-  }
 
   /**
    *
