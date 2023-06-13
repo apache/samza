@@ -34,14 +34,10 @@ public class TestDirDiffUtilAreSameFile
   private PosixFileAttributes localFileAttrs = null;
   private FileMetadata remoteFileMetadata = null;
   private long localContentLength = 0;
-  private Cache<String, String> cacheGroup;
-  private Cache<String, String> cacheOwner;
 
   @Before
   public void testSetup() throws Exception {
-    cacheGroup = CacheBuilder.newBuilder().maximumSize(DirDiffUtil.CACHE_SIZE).build();
-    cacheOwner = CacheBuilder.newBuilder().maximumSize(DirDiffUtil.CACHE_SIZE).build();
-    areSameFile = DirDiffUtil.areSameFile(false, cacheGroup, cacheOwner);
+    areSameFile = DirDiffUtil.areSameFile(false);
     createFile(SMALL_FILE);
   }
 
@@ -171,16 +167,5 @@ public class TestDirDiffUtilAreSameFile
     createFile(LARGE_FILE);
     remoteFile = new FileIndex(localFile.getName(), new ArrayList<>(), remoteFileMetadata, localChecksum + 1);
     Assert.assertTrue(areSameFile.test(localFile, remoteFile));
-  }
-
-  @Test
-  public void testAreSameFile_cacheSingleGroupOwner() {
-    for(int i=0; i < 20; i++) {
-      for (int j = 0; j < 2; j++) {
-        Assert.assertTrue(areSameFile.test(localFile, remoteFile));
-      }
-    }
-    Assert.assertEquals(1, cacheGroup.size());
-    Assert.assertEquals(1, cacheOwner.size());
   }
 }

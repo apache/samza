@@ -143,12 +143,6 @@ public class DirDiffUtil {
     };
   }
 
-  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
-    return areSameFile(compareLargeFileChecksums,
-        CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build(),
-        CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build());
-  }
-
   /**
    * Bipredicate to test a local file in the filesystem and a remote file {@link FileIndex} and find out if they represent
    * the same file. Files with same attributes as well as content are same file. A SST file in a special case. They are
@@ -156,11 +150,13 @@ public class DirDiffUtil {
    * @param compareLargeFileChecksums whether to compare checksums for large files (&gt; 1 MB).
    * @return BiPredicate to test similarity of local and remote files
    */
-  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums,
-      Cache<String, String> groupCache, Cache<String, String> ownerCache) {
+  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
     return (localFile, remoteFile) -> {
       if (localFile.getName().equals(remoteFile.getFileName())) {
         FileMetadata remoteFileMetadata = remoteFile.getFileMetadata();
+
+        Cache<String, String> groupCache = CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build();
+        Cache<String, String> ownerCache = CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build();
 
         boolean areSameFiles;
         PosixFileAttributes localFileAttrs;
@@ -267,6 +263,9 @@ public class DirDiffUtil {
     List<DirDiff> subDirsAdded = new ArrayList<>();
     List<DirDiff> subDirsRetained = new ArrayList<>();
     List<DirIndex> subDirsRemoved = new ArrayList<>();
+    List<File> filesToUpload = new ArrayList<>();
+    List<FileIndex> filesToRetain = new ArrayList<>();
+    List<FileIndex> filesToRemove = new ArrayList<>();
 
     // list files returns empty list if local snapshot directory is empty
     List<File> localSnapshotFiles = Arrays.asList(Objects.requireNonNull(localSnapshotDir.listFiles(File::isFile)));
@@ -282,10 +281,6 @@ public class DirDiffUtil {
     Set<String> remoteSnapshotSubDirNames = remoteSnapshotSubDirs.stream()
         .map(DirIndex::getDirName)
         .collect(Collectors.toCollection(HashSet::new));
-
-    List<File> filesToUpload = new ArrayList<>();
-    List<FileIndex> filesToRetain = new ArrayList<>();
-    List<FileIndex> filesToRemove = new ArrayList<>();
 
     Map<String, FileIndex> remoteFiles = remoteSnapshotFiles.stream()
         .collect(Collectors.toMap(FileIndex::getFileName, Function.identity()));
