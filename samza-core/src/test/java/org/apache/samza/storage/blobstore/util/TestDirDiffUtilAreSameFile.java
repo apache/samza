@@ -1,4 +1,4 @@
-/*
+/* 
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,8 +19,6 @@
 
 package org.apache.samza.storage.blobstore.util;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -39,9 +37,7 @@ import org.apache.samza.storage.blobstore.index.FileMetadata;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TestDirDiffUtilAreSameFile
-
-{
+public class TestDirDiffUtilAreSameFile {
   public static final int SMALL_FILE = 100;
   public static final int LARGE_FILE = 1024 * 1024 + 1;
   private BiPredicate<File, FileIndex> areSameFile = null;
@@ -64,9 +60,9 @@ public class TestDirDiffUtilAreSameFile
     localFile = File.createTempFile("temp", null);
     final String data = "a";
     CRC32 crc32 = new CRC32();
-    try(FileWriter writer = new FileWriter(localFile);
+    try (FileWriter writer = new FileWriter(localFile);
         BufferedWriter bw = new BufferedWriter(writer)) {
-      for(int i =0; i < fileSize; i++) {
+      for (int i = 0; i < fileSize; i++) {
         crc32.update(data.getBytes(StandardCharsets.UTF_8));
         bw.write(data);
       }
@@ -76,7 +72,7 @@ public class TestDirDiffUtilAreSameFile
 
     localFileAttrs = Files.readAttributes(localFile.toPath(), PosixFileAttributes.class);
 
-    remoteFileMetadata = new FileMetadata(0,0,
+    remoteFileMetadata = new FileMetadata(0, 0,
         localContentLength,
         localFileAttrs.owner().getName(),
         localFileAttrs.group().getName(),
@@ -105,7 +101,7 @@ public class TestDirDiffUtilAreSameFile
 
   @Test
   public void testAreSameFile_DifferentSize() {
-    remoteFileMetadata = new FileMetadata(0,0,
+    remoteFileMetadata = new FileMetadata(0, 0,
         localContentLength + 1,
         localFileAttrs.owner().getName(),
         localFileAttrs.group().getName(),
@@ -116,7 +112,7 @@ public class TestDirDiffUtilAreSameFile
 
   @Test
   public void testAreSameFile_DifferentOwner() {
-    remoteFileMetadata = new FileMetadata(0,0,
+    remoteFileMetadata = new FileMetadata(0, 0,
         localContentLength,
         localFileAttrs.owner().getName() + "_different",
         localFileAttrs.group().getName(),
@@ -127,7 +123,7 @@ public class TestDirDiffUtilAreSameFile
 
   @Test
   public void testAreSameFile_DifferentGroup() {
-    remoteFileMetadata = new FileMetadata(0,0,
+    remoteFileMetadata = new FileMetadata(0, 0,
         localContentLength,
         localFileAttrs.owner().getName(),
         localFileAttrs.group().getName() + "_different",
@@ -140,7 +136,7 @@ public class TestDirDiffUtilAreSameFile
   public void testAreSameFile_DifferentOwnerRead() {
     Set<PosixFilePermission> remoteFilePermissions = localFileAttrs.permissions();
     remoteFilePermissions.remove(PosixFilePermission.OWNER_READ);
-    remoteFileMetadata = new FileMetadata(0,0,
+    remoteFileMetadata = new FileMetadata(0, 0,
         localContentLength,
         localFileAttrs.owner().getName(),
         localFileAttrs.group().getName(),
@@ -153,7 +149,7 @@ public class TestDirDiffUtilAreSameFile
   public void testAreSameFile_DifferentOwnerWrite() {
     Set<PosixFilePermission> remoteFilePermissions = localFileAttrs.permissions();
     remoteFilePermissions.remove(PosixFilePermission.OWNER_WRITE);
-    remoteFileMetadata = new FileMetadata(0,0,
+    remoteFileMetadata = new FileMetadata(0, 0,
         localContentLength,
         localFileAttrs.owner().getName(),
         localFileAttrs.group().getName(),
@@ -166,7 +162,7 @@ public class TestDirDiffUtilAreSameFile
   public void testAreSameFile_DifferentOwnerExecute() {
     Set<PosixFilePermission> remoteFilePermissions = localFileAttrs.permissions();
     remoteFilePermissions.add(PosixFilePermission.OWNER_EXECUTE);
-    remoteFileMetadata = new FileMetadata(0,0,
+    remoteFileMetadata = new FileMetadata(0, 0,
         localContentLength,
         localFileAttrs.owner().getName(),
         localFileAttrs.group().getName(),

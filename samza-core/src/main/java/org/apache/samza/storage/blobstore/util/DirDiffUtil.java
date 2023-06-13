@@ -169,9 +169,9 @@ public class DirDiffUtil {
           // remote file, and will cause the file to be uploaded again during the first commit after restore.
           areSameFiles = localFileAttrs.size() == remoteFileMetadata.getSize() &&
               groupCache.get(String.valueOf(Files.getAttribute(localFile.toPath(), "unix:gid")),
-                  () -> localFileAttrs.group().getName()).equals(remoteFileMetadata.getGroup()) &&
+                () -> localFileAttrs.group().getName()).equals(remoteFileMetadata.getGroup()) &&
               ownerCache.get(String.valueOf(Files.getAttribute(localFile.toPath(), "unix:uid")),
-                  () -> localFileAttrs.owner().getName()).equals(remoteFileMetadata.getOwner());
+                () -> localFileAttrs.owner().getName()).equals(remoteFileMetadata.getOwner());
 
         } catch (IOException | ExecutionException e) {
           LOG.error("Error reading attributes for file: {}", localFile.getAbsolutePath());
@@ -191,14 +191,14 @@ public class DirDiffUtil {
                 remoteFilePermissions.contains(PosixFilePermission.OWNER_EXECUTE);
 
         if (!areSameFiles) {
-          if(LOG.isWarnEnabled()) {
+          if (LOG.isWarnEnabled()) {
             LOG.warn("Local file: {} and remote file: {} are not same. "
                     + "Local file attributes: {}. Remote file attributes: {}.", localFile.getAbsolutePath(), remoteFile.getFileName(),
                 fileAttributesToString(localFileAttrs), remoteFile.getFileMetadata().toString());
           }
           return false;
         } else {
-          if(LOG.isTraceEnabled()) {
+          if (LOG.isTraceEnabled()) {
             LOG.trace("Local file: {}. Remote file: {}. " + "Local file attributes: {}. Remote file attributes: {}.",
                 localFile.getAbsolutePath(), remoteFile.getFileName(), fileAttributesToString(localFileAttrs),
                 remoteFile.getFileMetadata().toString());
@@ -290,10 +290,10 @@ public class DirDiffUtil {
     Map<String, File> localFiles = localSnapshotFiles.stream()
         .collect(Collectors.toMap(File::getName, Function.identity()));
 
-    for(String file : Sets.union(remoteFiles.keySet(), localFiles.keySet())) {
-      if(localFiles.containsKey(file)) {
-        if(remoteFiles.containsKey(file)) {
-          if(areSameFile.test(localFiles.get(file), remoteFiles.get(file))) {
+    for (String file : Sets.union(remoteFiles.keySet(), localFiles.keySet())) {
+      if (localFiles.containsKey(file)) {
+        if (remoteFiles.containsKey(file)) {
+          if (areSameFile.test(localFiles.get(file), remoteFiles.get(file))) {
             // Files are the same locally and remotely, Retain
             filesToRetain.add(remoteFiles.get(file));
           } else {
