@@ -18,6 +18,7 @@
  */
 package org.apache.samza.context;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.checkpoint.OffsetManager;
 import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskModel;
@@ -55,6 +56,8 @@ public class TaskContextImpl implements TaskContext {
   private final StreamMetadataCache streamMetadataCache;
   private final Set<SystemStreamPartition> sspsExcludingSideInputs;
 
+  private final ExecutorService operatorExecutor;
+
   public TaskContextImpl(TaskModel taskModel,
       MetricsRegistry taskMetricsRegistry,
       Function<String, KeyValueStore> keyValueStoreProvider,
@@ -63,7 +66,8 @@ public class TaskContextImpl implements TaskContext {
       OffsetManager offsetManager,
       JobModel jobModel,
       StreamMetadataCache streamMetadataCache,
-      Set<SystemStreamPartition> sspsExcludingSideInputs) {
+      Set<SystemStreamPartition> sspsExcludingSideInputs,
+      ExecutorService operatorExecutor) {
     this.taskModel = taskModel;
     this.taskMetricsRegistry = taskMetricsRegistry;
     this.keyValueStoreProvider = keyValueStoreProvider;
@@ -73,6 +77,7 @@ public class TaskContextImpl implements TaskContext {
     this.jobModel = jobModel;
     this.streamMetadataCache = streamMetadataCache;
     this.sspsExcludingSideInputs = sspsExcludingSideInputs;
+    this.operatorExecutor = operatorExecutor;
   }
 
   @Override
@@ -113,6 +118,11 @@ public class TaskContextImpl implements TaskContext {
   @Override
   public void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset) {
     this.offsetManager.setStartingOffset(this.taskModel.getTaskName(), systemStreamPartition, offset);
+  }
+
+  @Override
+  public ExecutorService getOperatorExecutor() {
+    return this.operatorExecutor;
   }
 
   public JobModel getJobModel() {

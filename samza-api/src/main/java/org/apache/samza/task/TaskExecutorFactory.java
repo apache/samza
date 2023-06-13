@@ -19,12 +19,15 @@
 package org.apache.samza.task;
 
 import java.util.concurrent.ExecutorService;
+import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.config.Config;
+import org.apache.samza.container.TaskName;
 
 
 /**
  * Factory for creating the executor used when running tasks in multi-thread mode.
  */
+@InterfaceStability.Unstable
 public interface TaskExecutorFactory {
 
   /**
@@ -32,4 +35,23 @@ public interface TaskExecutorFactory {
    * @return task executor
    */
   ExecutorService getTaskExecutor(Config config);
+
+  /**
+   * Operator thread pool is asynchronous execution facility used to execute hand-off between operators and sub-DAG in case
+   * of synchronous operators in the application DAG. In case of asynchronous operators, typically the operator invocation
+   * happens on one thread while completion of the callback happens on another thread. When the CompletionStage completes normally,
+   * the subsequent DAG or hand-off code is executed on the operator thread pool.
+   * <b>Note:</b>It is up to the implementors of the factory to share the executor across tasks vs provide isolated executors
+   * per task. While the above determines fairness and contention between tasks, within a task
+   * there are no fairness guarantees on how the chained futures of sub-DAG stages are executed nor any guarantees on
+   * the order of tasks executed. The behavior is controlled by Java's implementation of CompletionStage and
+   * CompletableFuture which determines what thread and how tasks post completion of futures execute.
+   *
+   * @param taskName name of the task
+   * @param config application configuration
+   * @return an {@link ExecutorService} to run samza operator related tasks
+   */
+  default ExecutorService getOperatorExecutor(TaskName taskName, Config config) {
+    return getTaskExecutor(config);
+  }
 }

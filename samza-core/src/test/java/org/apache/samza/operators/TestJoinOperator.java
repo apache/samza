@@ -19,6 +19,7 @@
 package org.apache.samza.operators;
 
 import com.google.common.collect.ImmutableSet;
+import java.util.concurrent.Executors;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
 import org.apache.samza.application.descriptors.StreamApplicationDescriptorImpl;
@@ -57,14 +58,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.samza.testUtils.StreamTestUtils.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+
 
 public class TestJoinOperator {
   private static final Duration JOIN_TTL = Duration.ofMinutes(10);
@@ -81,9 +81,9 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to first stream
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     // push messages to second stream with same keys
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     int outputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(110, outputSum);
@@ -120,7 +120,7 @@ public class TestJoinOperator {
     MessageCollector messageCollector = mock(MessageCollector.class);
 
     // push messages to first stream
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     // close should not be called till now
     sot.close();
@@ -139,9 +139,9 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to second stream
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     // push messages to first stream with same keys
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     int outputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(110, outputSum);
@@ -155,9 +155,9 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to first stream
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     // push messages to second stream with different keys
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n + 100, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n + 100, n), messageCollector, taskCoordinator, taskCallback));
 
     assertTrue(output.isEmpty());
   }
@@ -170,9 +170,9 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to second stream
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     // push messages to first stream with different keys
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n + 100, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n + 100, n), messageCollector, taskCoordinator, taskCallback));
 
     assertTrue(output.isEmpty());
   }
@@ -185,11 +185,11 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to first stream
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     // push messages to first stream again with same keys but different values
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, 2 * n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, 2 * n), messageCollector, taskCoordinator, taskCallback));
     // push messages to second stream with same key
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     int outputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(165, outputSum); // should use latest messages in the first stream
@@ -203,11 +203,11 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to second stream
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     // push messages to second stream again with same keys but different values
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, 2 * n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, 2 * n), messageCollector, taskCoordinator, taskCallback));
     // push messages to first stream with same key
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     int outputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(165, outputSum); // should use latest messages in the second stream
@@ -221,9 +221,9 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to first stream
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     // push messages to second stream with same key
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     int outputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(110, outputSum);
@@ -231,7 +231,7 @@ public class TestJoinOperator {
     output.clear();
 
     // push messages to first stream with same keys once again.
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     int newOutputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(110, newOutputSum); // should produce the same output as before
   }
@@ -244,9 +244,9 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to first stream
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     // push messages to second stream with same key
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     int outputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(110, outputSum);
@@ -254,7 +254,7 @@ public class TestJoinOperator {
     output.clear();
 
     // push messages to second stream with same keys once again.
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
     int newOutputSum = output.stream().reduce(0, (s, m) -> s + m);
     assertEquals(110, newOutputSum); // should produce the same output as before
   }
@@ -268,13 +268,13 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to first stream
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     testClock.advanceTime(JOIN_TTL.plus(Duration.ofMinutes(1))); // 1 minute after ttl
     sot.window(messageCollector, taskCoordinator); // should expire first stream messages
 
     // push messages to second stream with same key
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     assertTrue(output.isEmpty());
   }
@@ -288,13 +288,13 @@ public class TestJoinOperator {
     MessageCollector messageCollector = envelope -> output.add((Integer) envelope.getMessage());
 
     // push messages to second stream
-    numbers.forEach(n -> sot.processAsync(new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new SecondStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     testClock.advanceTime(JOIN_TTL.plus(Duration.ofMinutes(1))); // 1 minute after ttl
     sot.window(messageCollector, taskCoordinator); // should expire second stream messages
 
     // push messages to first stream with same key
-    numbers.forEach(n -> sot.processAsync(new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
+    numbers.forEach(n -> processSync(sot, new FirstStreamIME(n, n), messageCollector, taskCoordinator, taskCallback));
 
     assertTrue(output.isEmpty());
   }
@@ -313,6 +313,7 @@ public class TestJoinOperator {
             new SystemStreamPartition("insystem", "instream2", new Partition(0))));
     when(context.getTaskContext().getTaskModel()).thenReturn(taskModel);
     when(context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(context.getTaskContext().getOperatorExecutor()).thenReturn(Executors.newSingleThreadExecutor());
     when(context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     // need to return different stores for left and right side
     IntegerSerde integerSerde = new IntegerSerde();

@@ -25,7 +25,7 @@ import java.util.concurrent.{CompletableFuture, ExecutorService, ScheduledExecut
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
 import org.apache.samza.checkpoint.{CheckpointId, CheckpointV1, CheckpointV2, OffsetManager}
-import org.apache.samza.config.{Config, StreamConfig, TaskConfig}
+import org.apache.samza.config.{Config, JobConfig, StreamConfig, TaskConfig}
 import org.apache.samza.context._
 import org.apache.samza.job.model.{JobModel, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
@@ -35,7 +35,7 @@ import org.apache.samza.system._
 import org.apache.samza.table.TableManager
 import org.apache.samza.task._
 import org.apache.samza.util.ScalaJavaUtil.JavaOptionals.toRichOptional
-import org.apache.samza.util.{Logging, ScalaJavaUtil}
+import org.apache.samza.util.{Logging, ReflectionUtil, ScalaJavaUtil}
 
 import java.util
 import java.util.concurrent.atomic.AtomicReference
@@ -89,8 +89,14 @@ class TaskInstance(
         null
       }
     })
-  private val taskContext = new TaskContextImpl(taskModel, metrics.registry, kvStoreSupplier, tableManager,
-    new CallbackSchedulerImpl(epochTimeScheduler), offsetManager, jobModel, streamMetadataCache, systemStreamPartitions)
+  private val taskContext = {
+    val jobConfig = new JobConfig(jobContext.getConfig)
+    val taskExecutorFactory = ReflectionUtil.getObj(jobConfig.getTaskExecutorFactory, classOf[TaskExecutorFactory])
+
+    new TaskContextImpl(taskModel, metrics.registry, kvStoreSupplier, tableManager,
+      new CallbackSchedulerImpl(epochTimeScheduler), offsetManager, jobModel, streamMetadataCache,
+      systemStreamPartitions, taskExecutorFactory.getOperatorExecutor(taskName, jobContext.getConfig))
+  }
   // need separate field for this instead of using it through Context, since Context throws an exception if it is null
   private val applicationTaskContextOption = applicationTaskContextFactoryOption
     .map(_.create(externalContextOption.orNull, jobContext, containerContext, taskContext,

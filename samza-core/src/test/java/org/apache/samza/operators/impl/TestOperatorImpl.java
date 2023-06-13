@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executors;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.context.MockContext;
@@ -66,6 +67,7 @@ public class TestOperatorImpl {
     when(this.internalTaskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
     when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
     when(this.context.getTaskContext().getTaskModel()).thenReturn(mock(TaskModel.class));
+    when(this.context.getTaskContext().getOperatorExecutor()).thenReturn(Executors.newSingleThreadExecutor());
     when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
   }
 
@@ -185,7 +187,8 @@ public class TestOperatorImpl {
     // send a timer tick to this operator
     MessageCollector mockCollector = mock(MessageCollector.class);
     TaskCoordinator mockCoordinator = mock(TaskCoordinator.class);
-    opImpl.onTimer(mockCollector, mockCoordinator);
+    CompletionStage<?> future = opImpl.onTimer(mockCollector, mockCoordinator);
+    future.toCompletableFuture().join();
 
     // verify that it propagates its handleTimer results to next operators
     verify(mockNextOpImpl1, times(1)).handleMessageAsync(mockTestOpImplOutput, mockCollector, mockCoordinator);

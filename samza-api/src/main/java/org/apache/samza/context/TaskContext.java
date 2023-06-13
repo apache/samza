@@ -18,6 +18,7 @@
  */
 package org.apache.samza.context;
 
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.annotation.InterfaceStability;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.MetricsRegistry;
@@ -108,4 +109,12 @@ public interface TaskContext {
    */
   @InterfaceStability.Evolving
   void setStartingOffset(SystemStreamPartition systemStreamPartition, String offset);
+
+  /**
+   * Gets the operator {@link ExecutorService} for this container.
+   * @return the {@link ExecutorService} used by the operator for this task
+   */
+  default ExecutorService getOperatorExecutor() {
+    throw new UnsupportedOperationException("Operator executor not available in the context");
+  }
 }

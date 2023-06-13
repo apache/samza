@@ -21,6 +21,7 @@ package org.apache.samza.operators.impl;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -65,7 +66,6 @@ import java.util.Set;
 public abstract class OperatorImpl<M, RM> {
   private static final Logger LOG = LoggerFactory.getLogger(OperatorImpl.class);
   private static final String METRICS_GROUP = OperatorImpl.class.getName();
-
   private boolean initialized;
   private boolean closed;
   private HighResolutionClock highResClock;
@@ -94,6 +94,7 @@ public abstract class OperatorImpl<M, RM> {
   private CallbackScheduler callbackScheduler;
   private ControlMessageSender controlMessageSender;
   private int elasticityFactor;
+  private ExecutorService operatorExecutor;
 
   /**
    * Initialize this {@link OperatorImpl} and its user-defined functions.
@@ -102,6 +103,7 @@ public abstract class OperatorImpl<M, RM> {
    */
   public final void init(InternalTaskContext internalTaskContext) {
     final Context context = internalTaskContext.getContext();
+    final Config config = context.getJobContext().getConfig();
 
     String opId = getOpImplId();
 
@@ -113,7 +115,7 @@ public abstract class OperatorImpl<M, RM> {
       throw new IllegalStateException(String.format("Attempted to initialize Operator %s after it was closed.", opId));
     }
 
-    this.highResClock = createHighResClock(context.getJobContext().getConfig());
+    this.highResClock = createHighResClock(config);
     registeredOperators = new LinkedHashSet<>();
     prevOperators = new LinkedHashSet<>();
     inputStreams = new LinkedHashSet<>();
@@ -134,7 +136,8 @@ public abstract class OperatorImpl<M, RM> {
     this.taskModel = taskContext.getTaskModel();
     this.callbackScheduler = taskContext.getCallbackScheduler();
     handleInit(context);
-    this.elasticityFactor = new JobConfig(context.getJobContext().getConfig()).getElasticityFactor();
+    this.elasticityFactor = new JobConfig(config).getElasticityFactor();
+    this.operatorExecutor = context.getTaskContext().getOperatorExecutor();
 
     initialized = true;
   }
@@ -189,7 +192,7 @@ public abstract class OperatorImpl<M, RM> {
               getOpImplId(), getOperatorSpec().getSourceLocation(), expectedType, actualType), e);
     }
 
-    CompletionStage<Void> result = completableResultsFuture.thenCompose(results -> {
+    CompletionStage<Void> result = completableResultsFuture.thenComposeAsync(results -> {
       long endNs = this.highResClock.nanoTime();
       this.handleMessageNs.update(endNs - startNs);
 
@@ -197,13 +200,13 @@ public abstract class OperatorImpl<M, RM> {
           .flatMap(r -> this.registeredOperators.stream()
             .map(op -> op.onMessageAsync(r, collector, coordinator)))
           .toArray(CompletableFuture[]::new));
-    });
+    }, operatorExecutor);
 
     WatermarkFunction watermarkFn = getOperatorSpec().getWatermarkFn();
     if (watermarkFn != null) {
       // check whether there is new watermark emitted from the user function
       Long outputWm = watermarkFn.getOutputWatermark();
-      return result.thenCompose(ignored -> propagateWatermark(outputWm, collector, coordinator));
+      return result.thenComposeAsync(ignored -> propagateWatermark(outputWm, collector, coordinator), operatorExecutor);
     }
 
     return result;
@@ -242,11 +245,11 @@ public abstract class OperatorImpl<M, RM> {
                 .map(op -> op.onMessageAsync(r, collector, coordinator)))
             .toArray(CompletableFuture[]::new));
 
-    return resultFuture.thenCompose(x ->
+    return resultFuture.thenComposeAsync(x ->
         CompletableFuture.allOf(this.registeredOperators
             .stream()
             .map(op -> op.onTimer(collector, coordinator))
-            .toArray(CompletableFuture[]::new)));
+            .toArray(CompletableFuture[]::new)), operatorExecutor);
   }
 
   /**
@@ -313,14 +316,14 @@ public abstract class OperatorImpl<M, RM> {
 
       // populate the end-of-stream through the dag
       endOfStreamFuture = onEndOfStream(collector, coordinator)
-          .thenAccept(result -> {
+          .thenAcceptAsync(result -> {
             if (eosStates.allEndOfStream()) {
               // all inputs have been end-of-stream, shut down the task
               LOG.info("All input streams have reached the end for task {}", taskName.getTaskName());
               coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
               coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
             }
-          });
+          }, operatorExecutor);
     }
 
     return endOfStreamFuture;
@@ -344,10 +347,10 @@ public abstract class OperatorImpl<M, RM> {
                   .map(op -> op.onMessageAsync(r, collector, coordinator)))
               .toArray(CompletableFuture[]::new));
 
-      endOfStreamFuture = resultFuture.thenCompose(x ->
+      endOfStreamFuture = resultFuture.thenComposeAsync(x ->
           CompletableFuture.allOf(this.registeredOperators.stream()
               .map(op -> op.onEndOfStream(collector, coordinator))
-              .toArray(CompletableFuture[]::new)));
+              .toArray(CompletableFuture[]::new)), operatorExecutor);
     }
 
     return endOfStreamFuture;
@@ -404,14 +407,14 @@ public abstract class OperatorImpl<M, RM> {
       }
 
       drainFuture = onDrainOfStream(collector, coordinator)
-          .thenAccept(result -> {
+          .thenAcceptAsync(result -> {
             if (drainStates.areAllStreamsDrained()) {
               // All input streams have been drained, shut down the task
               LOG.info("All input streams have been drained for task {}. Requesting shutdown.", taskName.getTaskName());
               coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
               coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
             }
-          });
+          }, operatorExecutor);
     }
 
     return drainFuture;
@@ -436,10 +439,10 @@ public abstract class OperatorImpl<M, RM> {
               .toArray(CompletableFuture[]::new));
 
       // propagate DrainMessage to downstream operators
-      drainFuture = resultFuture.thenCompose(x ->
+      drainFuture = resultFuture.thenComposeAsync(x ->
           CompletableFuture.allOf(this.registeredOperators.stream()
               .map(op -> op.onDrainOfStream(collector, coordinator))
-              .toArray(CompletableFuture[]::new)));
+              .toArray(CompletableFuture[]::new)), operatorExecutor);
     }
 
     return drainFuture;
@@ -472,7 +475,7 @@ public abstract class OperatorImpl<M, RM> {
       }
       // populate the watermark through the dag
       watermarkFuture = onWatermark(watermark, collector, coordinator)
-          .thenAccept(ignored -> watermarkStates.updateAggregateMetric(ssp, watermark));
+          .thenAcceptAsync(ignored -> watermarkStates.updateAggregateMetric(ssp, watermark), operatorExecutor);
     }
 
     return watermarkFuture;
@@ -527,7 +530,8 @@ public abstract class OperatorImpl<M, RM> {
                 .toArray(CompletableFuture[]::new));
       }
 
-      watermarkFuture = watermarkFuture.thenCompose(res -> propagateWatermark(outputWm, collector, coordinator));
+      watermarkFuture = watermarkFuture.thenComposeAsync(res -> propagateWatermark(outputWm, collector, coordinator),
+          operatorExecutor);
     }
 
     return watermarkFuture;
