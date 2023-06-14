@@ -138,7 +138,7 @@ public class MockEventHubClientManagerFactory extends EventHubClientManagerFacto
                 return CompletableFuture.completedFuture(mockPartitionReceiver);
               });
 
-        PowerMockito.when(mockEventHubClient.createReceiver(anyString(), anyString(), anyObject()))
+        PowerMockito.when(mockEventHubClient.createReceiver(anyString(), anyString(), anyObject(), anyObject()))
               .then((Answer<CompletableFuture<PartitionReceiver>>) invocationOnMock -> {
                 String partitionId = invocationOnMock.getArgumentAt(1, String.class);
                 EventPosition offset = invocationOnMock.getArgumentAt(2, EventPosition.class);

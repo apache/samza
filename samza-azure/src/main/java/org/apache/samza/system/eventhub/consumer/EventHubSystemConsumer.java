@@ -283,9 +283,10 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
           // If no such offset exists Eventhub will return an error.
           ReceiverOptions receiverOptions = new ReceiverOptions();
           receiverOptions.setPrefetchCount(prefetchCount);
+          EventPosition position = EventPosition.fromOffset(offset, /* inclusiveFlag */false);
           receiver = eventHubClientManager.getEventHubClient()
-              .createReceiver(consumerGroup, partitionId.toString(),
-                  EventPosition.fromOffset(offset, /* inclusiveFlag */false)).get(DEFAULT_EVENTHUB_CREATE_RECEIVER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+              .createReceiver(consumerGroup, partitionId.toString(), position, receiverOptions)
+              .get(DEFAULT_EVENTHUB_CREATE_RECEIVER_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
         }
 
         PartitionReceiveHandler handler =
@@ -378,9 +379,9 @@ public class EventHubSystemConsumer extends BlockingEnvelopeMap {
       // Recreate receiver
       ReceiverOptions receiverOptions = new ReceiverOptions();
       receiverOptions.setPrefetchCount(prefetchCount);
+      EventPosition position = EventPosition.fromOffset(offset, !offset.equals(EventHubSystemConsumer.START_OF_STREAM));
       PartitionReceiver receiver = eventHubClientManager.getEventHubClient()
-          .createReceiverSync(consumerGroup, partitionId.toString(),
-              EventPosition.fromOffset(offset, !offset.equals(EventHubSystemConsumer.START_OF_STREAM)), receiverOptions);
+          .createReceiverSync(consumerGroup, partitionId.toString(), position, receiverOptions);
 
       // Timeout for EventHubClient receive
       receiver.setReceiveTimeout(DEFAULT_EVENTHUB_RECEIVER_TIMEOUT);
