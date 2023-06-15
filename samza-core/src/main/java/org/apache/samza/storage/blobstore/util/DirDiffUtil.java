@@ -151,14 +151,15 @@ public class DirDiffUtil {
    * @return BiPredicate to test similarity of local and remote files
    */
   public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
+
+    // Cache owner/group names to reduce calls to sun.nio.fs.UnixFileAttributes.group
+    Cache<String, String> groupCache = CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build();
+    // Cache owner/group names to reduce calls to sun.nio.fs.UnixFileAttributes.owner
+    Cache<String, String> ownerCache = CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build();
+
     return (localFile, remoteFile) -> {
       if (localFile.getName().equals(remoteFile.getFileName())) {
         FileMetadata remoteFileMetadata = remoteFile.getFileMetadata();
-
-        // Cache owner/group names to reduce calls to sun.nio.fs.UnixFileAttributes.group
-        Cache<String, String> groupCache = CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build();
-        // Cache owner/group names to reduce calls to sun.nio.fs.UnixFileAttributes.owner
-        Cache<String, String> ownerCache = CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build();
 
         boolean areSameFiles;
         PosixFileAttributes localFileAttrs;
