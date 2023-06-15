@@ -23,19 +23,27 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
-import java.nio.file.attribute.PosixFileAttributes;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.Path;
+import java.nio.file.attribute.*;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.zip.CRC32;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import junit.framework.Assert;
 import org.apache.samza.storage.blobstore.index.FileIndex;
 import org.apache.samza.storage.blobstore.index.FileMetadata;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
+
+import static org.mockito.Mockito.*;
 
 public class TestDirDiffUtilAreSameFile {
   public static final int SMALL_FILE = 100;
@@ -182,5 +190,62 @@ public class TestDirDiffUtilAreSameFile {
     createFile(LARGE_FILE);
     remoteFile = new FileIndex(localFile.getName(), new ArrayList<>(), remoteFileMetadata, localChecksum + 1);
     Assert.assertTrue(areSameFile.test(localFile, remoteFile));
+  }
+
+  @Test
+  public void testAreSameFile_Cache() throws Exception {
+    createFile(LARGE_FILE);
+
+    for (int i = 0; i < 5; i++) {
+      BiPredicate<File, FileIndex> areSameFile = DirDiffUtil.areSameFile(false);
+      for (int j = 0; j < 20; j++) {
+        localFile = mock(File.class);
+        when(localFile.getName()).thenReturn("name");
+
+        Path path = mock(Path.class);
+        when(localFile.toPath()).thenReturn(path);
+
+        FileSystem fileSystem = mock(FileSystem.class);
+        when(path.getFileSystem()).thenReturn(fileSystem);
+
+        FileSystemProvider fileSystemProvider = mock(FileSystemProvider.class);
+        PosixFileAttributes localFileAttributes = mock(PosixFileAttributes.class);
+        when(localFileAttributes.size()).thenReturn(Long.valueOf(LARGE_FILE));
+
+        Map<String, Object> filePropMap = ImmutableMap.of("gid", j % 4,
+                "uid", j % 2);
+        when(fileSystemProvider.readAttributes(Mockito.any(Path.class),
+                Mockito.any(String.class), Mockito.anyVararg())).thenReturn(filePropMap);
+        when(fileSystemProvider.readAttributes(Mockito.any(Path.class),
+                (Class<BasicFileAttributes>) Mockito.any())).thenReturn(localFileAttributes);
+
+        UserPrincipal userPrincipal = mock(UserPrincipal.class);
+        when(userPrincipal.getName()).thenReturn("owner");
+
+        GroupPrincipal groupPrincipal = mock(GroupPrincipal.class);
+        when(groupPrincipal.getName()).thenReturn("group");
+
+        when(localFileAttributes.owner()).thenReturn(userPrincipal);
+        when(localFileAttributes.group()).thenReturn(groupPrincipal);
+
+        Set<PosixFilePermission> permissions = ImmutableSet.of();
+        when(localFileAttributes.permissions()).thenReturn(permissions);
+        when(fileSystem.provider()).thenReturn(fileSystemProvider);
+
+        remoteFile = mock(FileIndex.class);
+        when(remoteFile.getFileName()).thenReturn("name");
+        FileMetadata remoteFileMetadata = mock(FileMetadata.class);
+        when(remoteFileMetadata.getSize()).thenReturn(Long.valueOf(LARGE_FILE));
+        when(remoteFileMetadata.getGroup()).thenReturn("group");
+        when(remoteFileMetadata.getOwner()).thenReturn("owner");
+        when(remoteFileMetadata.getPermissions()).thenReturn("---------");
+        when(remoteFile.getFileMetadata()).thenReturn(remoteFileMetadata);
+
+        Assert.assertTrue(areSameFile.test(localFile, remoteFile));
+
+        Mockito.verify(localFileAttributes, times(j > 3 ? 0 : 1)).group();
+        Mockito.verify(localFileAttributes, times(j > 1 ? 0 : 1)).owner();
+      }
+    }
   }
 }
