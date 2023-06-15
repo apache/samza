@@ -212,8 +212,8 @@ public class TestDirDiffUtilAreSameFile {
         PosixFileAttributes localFileAttributes = mock(PosixFileAttributes.class);
         when(localFileAttributes.size()).thenReturn(Long.valueOf(LARGE_FILE));
 
-        Map<String, Object> filePropMap = ImmutableMap.of("gid", (i * 100 + j) % 4,
-                "uid", (i * 100 + j) % 2);
+        Map<String, Object> filePropMap = ImmutableMap.of("gid", j % 4,
+                "uid", j % 2);
         when(fileSystemProvider.readAttributes(Mockito.any(Path.class),
                 Mockito.any(String.class), Mockito.anyVararg())).thenReturn(filePropMap);
         when(fileSystemProvider.readAttributes(Mockito.any(Path.class),
