@@ -38,6 +38,7 @@ public interface AzureBlobWriterFactory {
    * @param streamName name of the stream that this AzureBlobWriter is associated with
    * @param maxBlockFlushThresholdSize threshold at which to upload
    * @param flushTimeoutMs timeout after which the flush is abandoned
+   * @param initBufferSize initial size of in-memory buffer(s)
    * @return AzureBlobWriter instance
    * @throws IOException if writer creation fails
    */
@@ -45,5 +46,5 @@ public interface AzureBlobWriterFactory {
       Executor blobUploadThreadPool, AzureBlobWriterMetrics metrics,
       BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
-      long maxBlobSize, long maxMessagesPerBlob) throws IOException;
+      long maxBlobSize, long maxMessagesPerBlob, int initBufferSize) throws IOException;
 }

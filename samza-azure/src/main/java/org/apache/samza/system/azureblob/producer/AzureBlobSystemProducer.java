@@ -499,7 +499,8 @@ public class AzureBlobSystemProducer implements SystemProducer {
           CompressionFactory.getInstance().getCompression(config.getCompressionType(systemName)),
           config.getSuffixRandomStringToBlobName(systemName),
           config.getMaxBlobSize(systemName),
-          config.getMaxMessagesPerBlob(systemName));
+          config.getMaxMessagesPerBlob(systemName),
+          config.getInitBufferSizeBytes(systemName));
     } catch (Exception e) {
       throw new RuntimeException("Failed to create a writer for the producer.", e);
     }

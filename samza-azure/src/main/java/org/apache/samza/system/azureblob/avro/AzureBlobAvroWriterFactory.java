@@ -35,13 +35,14 @@ public class AzureBlobAvroWriterFactory implements AzureBlobWriterFactory {
   /**
    * {@inheritDoc}
    */
+  @Override
   public AzureBlobWriter getWriterInstance(BlobContainerAsyncClient containerAsyncClient, String blobURL,
       Executor blobUploadThreadPool, AzureBlobWriterMetrics metrics,
       BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
       int maxBlockFlushThresholdSize, long flushTimeoutMs, Compression compression, boolean useRandomStringInBlobName,
-      long maxBlobSize, long maxMessagesPerBlob) throws IOException {
+      long maxBlobSize, long maxMessagesPerBlob, int initBufferSize) throws IOException {
     return new AzureBlobAvroWriter(containerAsyncClient, blobURL, blobUploadThreadPool, metrics,
           blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName, maxBlockFlushThresholdSize, flushTimeoutMs,
-          compression, useRandomStringInBlobName, maxBlobSize, maxMessagesPerBlob);
+          compression, useRandomStringInBlobName, maxBlobSize, maxMessagesPerBlob, initBufferSize);
   }
 }

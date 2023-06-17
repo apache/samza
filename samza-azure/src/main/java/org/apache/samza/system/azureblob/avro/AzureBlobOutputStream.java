@@ -51,7 +51,8 @@ import reactor.core.scheduler.Schedulers;
 
 /**
  * This class extends {@link java.io.OutputStream} and uses {@link java.io.ByteArrayOutputStream}
- * for caching the write calls till upload is not called.
+ * for caching the write calls till upload is not called. The initialization size of the
+ * underlying {@link java.io.ByteArrayOutputStream} can be set by the caller or from config.
  *
  * It asynchronously uploads the blocks and waits on them to finish at close.
  * The blob is persisted at close.
@@ -105,13 +106,13 @@ public class AzureBlobOutputStream extends OutputStream {
    * @param flushTimeoutMs timeout for uploading a block
    * @param maxBlockFlushThresholdSize max block size
    * @param compression type of compression to be used before uploading a block
+   * @param initBufferSize initial size of {@link ByteArrayOutputStream}
    */
   public AzureBlobOutputStream(BlockBlobAsyncClient blobAsyncClient, Executor blobThreadPool, AzureBlobWriterMetrics metrics,
       BlobMetadataGeneratorFactory blobMetadataGeneratorFactory, Config blobMetadataGeneratorConfig, String streamName,
-      long flushTimeoutMs, int maxBlockFlushThresholdSize, Compression compression) {
+      long flushTimeoutMs, int maxBlockFlushThresholdSize, Compression compression, int initBufferSize) {
     this(blobAsyncClient, blobThreadPool, metrics, blobMetadataGeneratorFactory, blobMetadataGeneratorConfig, streamName,
-        flushTimeoutMs, maxBlockFlushThresholdSize,
-        new ByteArrayOutputStream(maxBlockFlushThresholdSize), compression);
+        flushTimeoutMs, maxBlockFlushThresholdSize, new ByteArrayOutputStream(initBufferSize), compression);
   }
 
   /**

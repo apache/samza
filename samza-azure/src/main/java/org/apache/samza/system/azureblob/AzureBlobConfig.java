@@ -80,6 +80,12 @@ public class AzureBlobConfig extends MapConfig {
   public static final String SYSTEM_MAX_FLUSH_THRESHOLD_SIZE = SYSTEM_AZUREBLOB_PREFIX + "maxFlushThresholdSize";
   private static final int SYSTEM_MAX_FLUSH_THRESHOLD_SIZE_DEFAULT = 10485760;
 
+  // initialization size of in-memory OutputStream
+  // This value should be between SYSTEM_INIT_BUFFER_SIZE_DEFAULT and getMaxFlushThresholdSize() exclusive.
+  public static final String SYSTEM_INIT_BUFFER_SIZE = SYSTEM_AZUREBLOB_PREFIX + "initBufferSize.bytes";
+  // re-use size for parameterless constructor java.io.ByteArrayOutputStream()
+  public static final int SYSTEM_INIT_BUFFER_SIZE_DEFAULT = 32;
+
   // maximum size of uncompressed blob in bytes
   public static final String SYSTEM_MAX_BLOB_SIZE = SYSTEM_AZUREBLOB_PREFIX + "maxBlobSize";
   private static final long SYSTEM_MAX_BLOB_SIZE_DEFAULT = Long.MAX_VALUE; // unlimited
@@ -168,6 +174,12 @@ public class AzureBlobConfig extends MapConfig {
 
   public int getMaxFlushThresholdSize(String systemName) {
     return getInt(String.format(SYSTEM_MAX_FLUSH_THRESHOLD_SIZE, systemName), SYSTEM_MAX_FLUSH_THRESHOLD_SIZE_DEFAULT);
+  }
+
+  // return larger of config value or DEFAULT and smaller of MaxFlushThresholdSize
+  public int getInitBufferSizeBytes(String systemName) {
+    int init = getInt(String.format(SYSTEM_INIT_BUFFER_SIZE, systemName), SYSTEM_INIT_BUFFER_SIZE_DEFAULT);
+    return Math.min(Math.max(init, SYSTEM_INIT_BUFFER_SIZE_DEFAULT), getMaxFlushThresholdSize(systemName));
   }
 
   public int getAzureBlobThreadPoolCount(String systemName) {
