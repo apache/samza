@@ -51,7 +51,6 @@ buildCache {
 }
 
 include \
-  'docs',
   'samza-api',
   'samza-sql',
   'samza-shell',

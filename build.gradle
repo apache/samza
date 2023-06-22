@@ -143,47 +143,6 @@ subprojects {
   }
 }
 
-project(":docs") {
-  apply plugin: "com.github.jruby-gradle.base"
-  apply plugin: 'java'
-
-  repositories {
-    ruby.gems()
-  }
-
-  jruby {
-      jrubyVersion = '9.3.9.0'
-  }
-
-  dependencies {
-      gems "rubygems:jekyll-sass-converter:2.2.0"
-      gems "rubygems:jekyll:4.3.1"
-      gems "rubygems:http_parser.rb:0.6.0"
-      gems "rubygems:webrick:1.7.0"
-      gems "rubygems:json:2.6.3"
-      gems "rubygems:rouge:3.30.0"
-      gems "rubygems:kramdown:2.4.0"
-      gems "rubygems:kramdown-parser-gfm:1.1.0"
-  }
-
-  task jekyllBuild(type: com.github.jrubygradle.JRubyExec) {
-      script "jekyll"
-      scriptArgs "build", "$projectDir", "-d", "$projectDir/_site"
-  }
-
-  task jekyllServeLocal(type: com.github.jrubygradle.JRubyExec) {
-      def baseurl = ""
-      script "jekyll"
-      scriptArgs "serve", "--watch", "--source", "$projectDir" , "--destination", "$projectDir/_site", "--trace", "--baseurl", "$baseurl"
-  }
-
-  task jekyllServePublic(type: com.github.jrubygradle.JRubyExec) {
-      def baseurl = ""
-      script "jekyll"
-      scriptArgs "serve", "--watch", "--source", "$projectDir" , "--destination", "$projectDir/_site", "--trace", "--baseurl", "$baseurl", "--host", "0.0.0.0"
-  }
-
-}
 
 project(':samza-api') {
   apply plugin: 'java'
