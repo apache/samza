@@ -114,6 +114,11 @@ public class BlobStoreUtil {
    */
   public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(
       String jobName, String jobId, String taskName, Checkpoint checkpoint, Set<String> storesToBackupOrRestore) {
+    return getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToBackupOrRestore, false);
+  }
+
+  public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(String jobName, String jobId, String taskName,
+      Checkpoint checkpoint, Set<String> storesToBackupOrRestore, Boolean getDeletedSnapshotIndex) {
     //TODO MED shesharma document error handling (checkpoint ver, blob not found, getBlob)
     if (checkpoint == null) {
       LOG.debug("No previous checkpoint found for taskName: {}", taskName);
@@ -140,7 +145,7 @@ public class BlobStoreUtil {
             Metadata requestMetadata =
                 new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
             CompletableFuture<SnapshotIndex> snapshotIndexFuture =
-                getSnapshotIndex(snapshotIndexBlobId, requestMetadata).toCompletableFuture();
+                getSnapshotIndex(snapshotIndexBlobId, requestMetadata, getDeletedSnapshotIndex).toCompletableFuture();
             Pair<CompletableFuture<String>, CompletableFuture<SnapshotIndex>> pairOfFutures =
                 Pair.of(CompletableFuture.completedFuture(snapshotIndexBlobId), snapshotIndexFuture);
 
@@ -165,11 +170,9 @@ public class BlobStoreUtil {
       return FutureUtil.toFutureOfMap(t -> {
         Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class, t);
         if (unwrappedException instanceof DeletedException) {
-          LOG.warn("Ignoring already deleted snapshot index for taskName: {}", taskName, t);
-          return true;
-        } else {
-          return false;
+          LOG.warn("GetSnapshotIndex received DeletedException for taskName: {}", taskName, t);
         }
+        return false;
       }, storeSnapshotIndexFutures).join();
     } catch (Exception e) {
       throw new SamzaException(
@@ -183,11 +186,20 @@ public class BlobStoreUtil {
    * @return a Future containing the {@link SnapshotIndex}
    */
   public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata) {
+    return getSnapshotIndex(blobId, metadata, false);
+  }
+
+  /**
+   * GETs the {@link SnapshotIndex} from the blob store.
+   * @param blobId blob ID of the {@link SnapshotIndex} to get
+   * @return a Future containing the {@link SnapshotIndex}
+   */
+  public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata, Boolean getDeletedBlob) {
     Preconditions.checkState(StringUtils.isNotBlank(blobId));
     String opName = "getSnapshotIndex: " + blobId;
     return FutureUtil.executeAsyncWithRetries(opName, () -> {
       ByteArrayOutputStream indexBlobStream = new ByteArrayOutputStream(); // no need to close ByteArrayOutputStream
-      return blobStoreManager.get(blobId, indexBlobStream, metadata).toCompletableFuture()
+      return blobStoreManager.get(blobId, indexBlobStream, metadata, getDeletedBlob).toCompletableFuture()
           .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor);
     }, isCauseNonRetriable(), executor, retryPolicyConfig);
   }
@@ -232,6 +244,15 @@ public class BlobStoreUtil {
    * @return A future that completes when all the async downloads completes
    */
   public CompletableFuture<Void> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata) {
+    return restoreDir(baseDir, dirIndex, metadata, false);
+  }
+
+  /**
+   * Non-blocking restore of a {@link SnapshotIndex} to local store by downloading all the files and sub-dirs associated
+   * with this remote snapshot. getDeletedFiles flag sets whether to attempt a get for deletedFiles or not.
+   * @return A future that completes when all the async downloads completes
+   */
+  public CompletableFuture<Void> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata, Boolean getDeletedFiles) {
     LOG.debug("Restoring contents of directory: {} from remote snapshot.", baseDir);
 
     List<CompletableFuture<Void>> downloadFutures = new ArrayList<>();
@@ -255,7 +276,7 @@ public class BlobStoreUtil {
 
       String opName = "restoreFile: " + fileToRestore.getAbsolutePath();
       CompletableFuture<Void> fileRestoreFuture =
-          FutureUtil.executeAsyncWithRetries(opName, () -> getFile(fileBlobs, fileToRestore, requestMetadata),
+          FutureUtil.executeAsyncWithRetries(opName, () -> getFile(fileBlobs, fileToRestore, requestMetadata, getDeletedFiles),
               isCauseNonRetriable(), executor, retryPolicyConfig);
       downloadFutures.add(fileRestoreFuture);
     }
@@ -397,10 +418,11 @@ public class BlobStoreUtil {
    * @param fileBlobs List of {@link FileBlob}s that constitute this file.
    * @param fileToRestore File pointing to the local path where the file will be restored.
    * @param requestMetadata {@link Metadata} associated with this request
+   * @param getDeletedFiles Flag that indicates whether to try to get Deleted (but not yet compacted) files.
    * @return a future that completes when the file is downloaded and written or if an exception occurs.
    */
   @VisibleForTesting
-  CompletableFuture<Void> getFile(List<FileBlob> fileBlobs, File fileToRestore, Metadata requestMetadata) {
+  CompletableFuture<Void> getFile(List<FileBlob> fileBlobs, File fileToRestore, Metadata requestMetadata, Boolean getDeletedFiles) {
     FileOutputStream outputStream = null;
     try {
       long restoreFileStartTime = System.nanoTime();
@@ -424,7 +446,7 @@ public class BlobStoreUtil {
         resultFuture = resultFuture.thenComposeAsync(v -> {
           LOG.debug("Starting restore for file: {} with blob id: {} at offset: {}", fileToRestore, fileBlob.getBlobId(),
               fileBlob.getOffset());
-          return blobStoreManager.get(fileBlob.getBlobId(), finalOutputStream, requestMetadata);
+          return blobStoreManager.get(fileBlob.getBlobId(), finalOutputStream, requestMetadata, getDeletedFiles);
         }, executor);
       }
 

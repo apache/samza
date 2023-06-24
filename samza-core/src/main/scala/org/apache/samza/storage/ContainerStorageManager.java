@@ -22,14 +22,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -48,7 +46,6 @@ import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskMode;
-import org.apache.samza.metrics.Gauge;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeManager;
 import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
@@ -263,6 +260,7 @@ public class ContainerStorageManager {
     // Obtain the checkpoints for each task
     Map<TaskName, Map<String, TaskRestoreManager>> taskRestoreManagers = new HashMap<>();
     Map<TaskName, Checkpoint> taskCheckpoints = new HashMap<>();
+    Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames = new HashMap<>();
     containerModel.getTasks().forEach((taskName, taskModel) -> {
       Checkpoint taskCheckpoint = null;
       if (checkpointManager != null && activeTasks.contains(taskName)) {
@@ -301,64 +299,20 @@ public class ContainerStorageManager {
               samzaContainerMetrics, taskInstanceMetrics, taskInstanceCollectors, serdes,
               loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock);
       taskRestoreManagers.put(taskName, taskStoreRestoreManagers);
+      taskBackendFactoryToStoreNames.put(taskName, backendFactoryToStoreNames);
     });
-
-    // Initialize each TaskStorageManager
-    taskRestoreManagers.forEach((taskName, restoreManagers) ->
-        restoreManagers.forEach((factoryName, taskRestoreManager) ->
-            taskRestoreManager.init(taskCheckpoints.get(taskName))
-        )
-    );
 
     // Start each store consumer once.
     // Note: These consumers are per system and only changelog system store consumers will be started.
-    // Some TaskRestoreManagers may not require the consumer to to be started, but due to the agnostic nature of
+    // Some TaskRestoreManagers may not require the consumer to be started, but due to the agnostic nature of
     // ContainerStorageManager we always start the changelog consumer here in case it is required
     this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);
 
-    List<Future<Void>> taskRestoreFutures = new ArrayList<>();
-
-    // Submit restore callable for each taskInstance
-    taskRestoreManagers.forEach((taskInstance, restoreManagersMap) -> {
-      // Submit for each restore factory
-      restoreManagersMap.forEach((factoryName, taskRestoreManager) -> {
-        long startTime = System.currentTimeMillis();
-        String taskName = taskInstance.getTaskName();
-        LOG.info("Starting restore for state for task: {}", taskName);
-        CompletableFuture<Void> restoreFuture = taskRestoreManager.restore().handle((res, ex) -> {
-          // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
-          // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
-          try {
-            taskRestoreManager.close();
-          } catch (Exception e) {
-            LOG.error("Error closing restore manager for task: {} after {} restore",
-                taskName, ex != null ? "unsuccessful" : "successful", e);
-            // ignore exception from close. container may still be be able to continue processing/backups
-            // if restore manager close fails.
-          }
-
-          long timeToRestore = System.currentTimeMillis() - startTime;
-          if (samzaContainerMetrics != null) {
-            Gauge taskGauge = samzaContainerMetrics.taskStoreRestorationMetrics().getOrDefault(taskInstance, null);
-
-            if (taskGauge != null) {
-              taskGauge.set(timeToRestore);
-            }
-          }
-
-          if (ex != null) {
-            // log and rethrow exception to communicate restore failure
-            String msg = String.format("Error restoring state for task: %s", taskName);
-            LOG.error(msg, ex);
-            throw new SamzaException(msg, ex); // wrap in unchecked exception to throw from lambda
-          } else {
-            return null;
-          }
-        });
-
-        taskRestoreFutures.add(restoreFuture);
-      });
-    });
+    // Init all taskRestores and if successful, create a future for restores for each task
+    List<Future<Void>> taskRestoreFutures =
+        ContainerStorageManagerUtil.initAndRestoreTaskInstances(taskRestoreManagers, samzaContainerMetrics,
+            checkpointManager, jobContext, containerModel, taskCheckpoints, taskBackendFactoryToStoreNames, config,
+            restoreExecutor, taskInstanceMetrics, loggedStoreBaseDirectory);
 
     // Loop-over the future list to wait for each restore to finish, catch any exceptions during restore and throw
     // as samza exceptions

@@ -18,8 +18,11 @@
  */
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableSet;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,13 +30,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
+import org.apache.samza.checkpoint.CheckpointId;
+import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointV2;
+import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.config.JobConfig;
 import org.apache.samza.config.StorageConfig;
 import org.apache.samza.container.SamzaContainerMetrics;
 import org.apache.samza.container.TaskInstanceMetrics;
@@ -43,9 +54,20 @@ import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
+import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.metrics.MetricsRegistryMap;
 import org.apache.samza.serializers.Serde;
+import org.apache.samza.storage.blobstore.BlobStoreBackupManager;
+import org.apache.samza.storage.blobstore.BlobStoreManager;
+import org.apache.samza.storage.blobstore.BlobStoreManagerFactory;
+import org.apache.samza.storage.blobstore.BlobStoreRestoreManager;
+import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
+import org.apache.samza.storage.blobstore.exceptions.DeletedException;
+import org.apache.samza.storage.blobstore.index.SnapshotIndex;
+import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
+import org.apache.samza.storage.blobstore.metrics.BlobStoreRestoreManagerMetrics;
+import org.apache.samza.storage.blobstore.util.BlobStoreUtil;
 import org.apache.samza.system.SystemAdmins;
 import org.apache.samza.system.SystemConsumer;
 import org.apache.samza.system.SystemFactory;
@@ -54,6 +76,9 @@ import org.apache.samza.system.SystemStreamPartition;
 import org.apache.samza.task.MessageCollector;
 import org.apache.samza.task.TaskInstanceCollector;
 import org.apache.samza.util.Clock;
+import org.apache.samza.util.FutureUtil;
+import org.apache.samza.util.ReflectionUtil;
+import org.apache.samza.util.SystemClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -410,5 +435,242 @@ public class ContainerStorageManagerUtil {
       sideInputStores.addAll(changelogSystemStreams.keySet());
     }
     return sideInputStores;
+  }
+
+  public static List<Future<Void>> initAndRestoreTaskInstances(Map<TaskName, Map<String, TaskRestoreManager>> taskRestoreManagers,
+      SamzaContainerMetrics samzaContainerMetrics, CheckpointManager checkpointManager, JobContext jobContext,
+      ContainerModel containerModel, Map<TaskName, Checkpoint> taskCheckpoints,
+      Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames, Config config, ExecutorService executor,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, File loggerStoreDir) {
+
+    // Initialize each TaskStorageManager.
+    taskRestoreManagers.forEach((taskName, restoreManagers) ->
+        restoreManagers.forEach((factoryName, taskRestoreManager) -> {
+      try {
+        taskRestoreManager.init(taskCheckpoints.get(taskName));
+      } catch (DeletedException ex) {
+        LOG.warn("Init for BlobStoreRestoreManager failed with DeletedException for task: {}, checkpoint: {}. "
+            + "Retying with getDeletedEnabled", taskName, taskCheckpoints.get(taskName));
+        if (taskRestoreManager instanceof BlobStoreRestoreManager) {
+
+          // try to get the deleted SnapshotIndexes, recreate new SnapshotIndex blobs and return a new StateCheckpointMarker
+          Map<String, String> newSCMs =
+              getAndRecreateDeletedSnapshotIndexBlob(checkpointManager, taskName, config, executor, taskInstanceMetrics);
+
+          // Write a new checkpoint with new snapshot index blobs
+          CheckpointId checkpointId = CheckpointId.create();
+          Checkpoint newCheckpoint = writeNewCheckpoint(taskName, checkpointId, newSCMs, checkpointManager);
+          //update TaskCheckpoints map with new checkpoint
+          taskCheckpoints.put(taskName, newCheckpoint);
+
+          // init again - if it fails again, do not reattempt
+          BlobStoreRestoreManager blobStoreRestoreManager = (BlobStoreRestoreManager) taskRestoreManager;
+          blobStoreRestoreManager.init(taskCheckpoints.get(taskName), true);
+        }
+      }
+    }));
+
+    return restoreAllTaskInstances(taskRestoreManagers, taskBackendFactoryToStoreNames, jobContext, containerModel,
+        samzaContainerMetrics, checkpointManager, config, taskInstanceMetrics, executor, loggerStoreDir);
+  }
+
+  private static Map<String, String> getAndRecreateDeletedSnapshotIndexBlob(CheckpointManager checkpointManager,
+      TaskName taskName, Config config, ExecutorService executor, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
+    Checkpoint oldCheckpoint = checkpointManager.readLastCheckpoint(taskName);
+
+    BlobStoreUtil blobStoreUtil =
+        new BlobStoreUtil(getBlobStoreManager(config, executor), executor, new BlobStoreConfig(config), null,
+            new BlobStoreRestoreManagerMetrics(taskInstanceMetrics.get(taskName).registry()));
+
+    // Get snapshot indexes with getDelete flag
+    Map<String, Pair<String, SnapshotIndex>> storeSnapshotIndexes =
+        blobStoreUtil.getStoreSnapshotIndexes(new JobConfig(config).getName().get(), new JobConfig(config).getJobId(),
+            taskName.getTaskName(), oldCheckpoint, ImmutableSet.copyOf(
+                new StorageConfig(config).getPersistentStoresWithBackupFactory(BlobStoreStateBackendFactory.class.getName())),
+            true);
+
+    Map<String, CompletableFuture<String>> storeNameSnapshotIndexFuture = new HashMap<>();
+    storeSnapshotIndexes.forEach((store, blobIdSnapshotIndexPair) -> {
+      SnapshotIndex snapshotIndex = blobIdSnapshotIndexPair.getRight();
+      storeNameSnapshotIndexFuture.put(store, blobStoreUtil.putSnapshotIndex(snapshotIndex));
+    });
+    return FutureUtil.toFutureOfMap(storeNameSnapshotIndexFuture).join();
+  }
+
+  /**
+   * Restores all TaskInstances and returns a future for each TaskInstance restore. If this restore fails with DeletedException
+   * it will retry the restore with getDeleted flag, get all the blobs, recreate a new checkpoint in blob store and
+   * write that checkpoint to checkpoint topic.
+   * @param taskRestoreManagers map of TaskName -> factory name -> TaskRestoreManager map.
+   */
+  public static List<Future<Void>> restoreAllTaskInstances(Map<TaskName, Map<String, TaskRestoreManager>> taskRestoreManagers,
+      Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames, JobContext jobContext, ContainerModel containerModel,
+      SamzaContainerMetrics samzaContainerMetrics, CheckpointManager checkpointManager, Config config,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, ExecutorService executor,
+      File loggedStoreDir) {
+
+    List<Future<Void>> taskRestoreFutures = new ArrayList<>();
+
+    // Submit restore callable for each taskInstance
+    taskRestoreManagers.forEach((taskInstanceName, restoreManagersMap) -> {
+      // Submit for each restore factory
+      restoreManagersMap.forEach((factoryName, taskRestoreManager) -> {
+        long startTime = System.currentTimeMillis();
+        String taskName = taskInstanceName.getTaskName();
+        LOG.info("Starting restore for state for task: {}", taskName);
+
+        CompletableFuture<Void> taskRestoreFuture = taskRestoreManager.restore().handle((res, ex) -> {
+          updateRestoreTime(startTime, samzaContainerMetrics, taskInstanceName);
+
+          if (ex != null) {
+            if (ex instanceof DeletedException) {
+              LOG.warn("Restore state for task: {} received DeletedException. Reattempting with getDeletedBlobs enabled",
+                  taskInstanceName.getTaskName());
+
+              // Try to restore with getDeleted flag
+              CompletableFuture<Void> future =
+                  attemptRestoreWithGetDeletedBlobs(taskInstanceName, checkpointManager, taskRestoreManager, config,
+                      taskInstanceMetrics, executor, taskBackendFactoryToStoreNames.get(taskInstanceName).get(factoryName),
+                      loggedStoreDir, jobContext, containerModel);
+              try {
+                if (future != null) {
+                  future.join();
+                }
+              } catch (Exception e) {
+                String msg = String.format("Unable to recover from DeletedException for task %s.", taskName);
+                throw new SamzaException(msg, e);
+              } finally {
+                updateRestoreTime(startTime, samzaContainerMetrics, taskInstanceName);
+              }
+            } else {
+              // log and rethrow exception to communicate restore failure
+              String msg = String.format("Error restoring state for task: %s", taskName);
+              LOG.error(msg, ex);
+              throw new SamzaException(msg, ex); // wrap in unchecked exception to throw from lambda
+            }
+          }
+
+          // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
+          // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
+          try {
+            taskRestoreManager.close();
+          } catch (Exception e) {
+            LOG.error("Error closing restore manager for task: {} after {} restore",
+                taskName, ex != null ? "unsuccessful" : "successful", e);
+            // ignore exception from close. container may still be able to continue processing/backups
+            // if restore manager close fails.
+          }
+          return null;
+        });
+        taskRestoreFutures.add(taskRestoreFuture);
+      });
+    });
+
+    return taskRestoreFutures;
+  }
+
+  public static CompletableFuture<Void> attemptRestoreWithGetDeletedBlobs(TaskName taskName,
+      CheckpointManager checkpointManager, TaskRestoreManager taskRestoreManager, Config config,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, ExecutorService executor, Set<String> storesToRestore,
+      File loggedStoreBaseDirectory, JobContext jobContext, ContainerModel containerModel) {
+
+    TaskModel taskModel = containerModel.getTasks().get(taskName);
+
+    // if taskInstanceMetrics are specified use those for store metrics,
+    // otherwise (in case of StorageRecovery) use a blank MetricsRegistryMap
+    MetricsRegistry metricsRegistry =
+        taskInstanceMetrics.get(taskName) != null ?
+            taskInstanceMetrics.get(taskName).registry() : new MetricsRegistryMap();
+
+    BlobStoreManager blobStoreManager = getBlobStoreManager(config, executor);
+
+    if (!(taskRestoreManager instanceof BlobStoreRestoreManager)) {
+      //this should not happen since DeletedException is thrown only from BlobStoreRestoreManager
+      LOG.warn("Won't reattempt restore for none blob store restore manager");
+      return null;
+    }
+
+    BlobStoreRestoreManager blobStoreRestoreManager = (BlobStoreRestoreManager) taskRestoreManager;
+
+    return blobStoreRestoreManager.restore(true).handle((r, e) -> {
+          if (e != null) {
+            // restore failing with DeletedException (or any other exception) for the second time. Fail.
+            throw new SamzaException(e);
+          } else {
+            // backup newly restored stores and recreate the checkpoint.
+            CheckpointId checkpointId = CheckpointId.create();
+
+            createCheckpointDirFromStoreDirCopy(taskName, taskModel, loggedStoreBaseDirectory, storesToRestore, checkpointId);
+
+            CompletableFuture<Map<String, String>> uploadFutures = backupStores(jobContext, containerModel, taskName,
+                config, checkpointId, loggedStoreBaseDirectory, blobStoreManager, metricsRegistry, executor);
+
+            uploadFutures.whenComplete((uploadSCMs, ex) -> {
+              if (ex != null) {
+                String msg = String.format("Upload after restore with deletedBlob failed for task %s", taskName);
+                throw new SamzaException(msg, ex);
+              }
+              writeNewCheckpoint(taskName, checkpointId, uploadSCMs, checkpointManager);
+            });
+            return null;
+          }
+        });
+  }
+
+  private static Checkpoint writeNewCheckpoint(TaskName taskName, CheckpointId checkpointId, Map<String, String> newSCMs,
+      CheckpointManager checkpointManager) {
+    CheckpointV2 oldCheckpoint = (CheckpointV2) checkpointManager.readLastCheckpoint(taskName); //TODO add check?
+    Map<SystemStreamPartition, String> checkpointOffsets = oldCheckpoint.getOffsets();
+    Map<String, Map<String, String>> stateCheckpointMarkers = oldCheckpoint.getStateCheckpointMarkers();
+    stateCheckpointMarkers.put(BlobStoreStateBackendFactory.class.getName(), newSCMs);
+    CheckpointV2 checkpointV2 = new CheckpointV2(checkpointId, checkpointOffsets, stateCheckpointMarkers);
+    checkpointManager.writeCheckpoint(taskName, checkpointV2); //TODO call flush on producer?
+    return checkpointV2;
+  }
+
+  private static CompletableFuture<Map<String, String>> backupStores(JobContext jobContext, ContainerModel containerModel,
+      TaskName taskName, Config config, CheckpointId checkpointId,File loggedStoreBaseDirectory,
+      BlobStoreManager blobStoreManager, MetricsRegistry metricsRegistry, ExecutorService executor) {
+    BlobStoreBackupManagerMetrics BlobStoreBackupManagerMetrics = new BlobStoreBackupManagerMetrics(metricsRegistry);
+    BlobStoreBackupManager blobStoreBackupManager =
+        new BlobStoreBackupManager(jobContext.getJobModel(), containerModel,
+            containerModel.getTasks().get(taskName), executor, BlobStoreBackupManagerMetrics, config,
+            SystemClock.instance(), loggedStoreBaseDirectory, new StorageManagerUtil(), blobStoreManager);
+    return blobStoreBackupManager.upload(checkpointId, new HashMap<>());
+  }
+
+  private static void createCheckpointDirFromStoreDirCopy(TaskName taskName, TaskModel taskModel,
+      File loggedStoreBaseDir, Set<String> storeName, CheckpointId checkpointId) {
+    StorageManagerUtil storageManagerUtil = new StorageManagerUtil();
+    for (String store: storeName) {
+      try {
+        File storeDirectory = storageManagerUtil.getTaskStoreDir(loggedStoreBaseDir, store, taskName,
+            taskModel.getTaskMode());
+        File checkpointDir = new File(storageManagerUtil.getStoreCheckpointDir(storeDirectory, checkpointId));
+        FileUtils.copyDirectory(storeDirectory, checkpointDir);
+      } catch (IOException exception) {
+        String msg = String.format("Unable to create a copy of store directory %s into checkpoint dir %s while "
+            + "attempting to recover from DeletedException", store, checkpointId);
+        throw new SamzaException(msg, exception);
+      }
+    }
+  }
+  private static BlobStoreManager getBlobStoreManager(Config config, ExecutorService executor) {
+    BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
+    String blobStoreManagerFactory = blobStoreConfig.getBlobStoreManagerFactory();
+    BlobStoreManagerFactory factory = ReflectionUtil.getObj(blobStoreManagerFactory, BlobStoreManagerFactory.class);
+    return factory.getRestoreBlobStoreManager(config, executor);
+  }
+
+  private static void updateRestoreTime(long startTime, SamzaContainerMetrics samzaContainerMetrics,
+      TaskName taskInstance) {
+    long timeToRestore = System.currentTimeMillis() - startTime;
+    if (samzaContainerMetrics != null) {
+      Gauge taskGauge = samzaContainerMetrics.taskStoreRestorationMetrics().getOrDefault(taskInstance, null);
+
+      if (taskGauge != null) {
+        taskGauge.set(timeToRestore);
+      }
+    }
   }
 }
