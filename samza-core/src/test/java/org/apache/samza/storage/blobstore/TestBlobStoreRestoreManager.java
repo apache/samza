@@ -201,7 +201,7 @@ public class TestBlobStoreRestoreManager {
     DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
     // return immediately without restoring.
-    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class)))
+    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean()))
         .thenReturn(CompletableFuture.completedFuture(null));
     when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
 
@@ -210,7 +210,7 @@ public class TestBlobStoreRestoreManager {
         storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
-    verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
+    verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean());
     // verify that the store directory was deleted prior to restore
     // (should still not exist at the end since restore is no-op)
     assertFalse(storeDir.toFile().exists());
@@ -254,7 +254,7 @@ public class TestBlobStoreRestoreManager {
 
     when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
     // return immediately without restoring.
-    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class)))
+    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
@@ -262,7 +262,7 @@ public class TestBlobStoreRestoreManager {
         storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
-    verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
+    verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean());
     // verify that the checkpoint directories were deleted prior to restore (should not exist at the end)
     assertFalse(storeCheckpointDir1.toFile().exists());
     assertFalse(storeCheckpointDir2.toFile().exists());

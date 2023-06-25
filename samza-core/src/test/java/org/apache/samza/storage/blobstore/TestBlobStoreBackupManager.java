@@ -292,7 +292,10 @@ public class TestBlobStoreBackupManager {
     Checkpoint checkpoint =
         new CheckpointV2(checkpointId, new HashMap<>(),
             ImmutableMap.of(BlobStoreStateBackendFactory.class.getName(), previousCheckpoints));
-    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
+    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class),
+        anySetOf(String.class))).thenCallRealMethod();
+    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class),
+        anySetOf(String.class), anyBoolean())).thenCallRealMethod();
     blobStoreBackupManager.init(checkpoint);
 
     // mock: set task store dir to return corresponding test local store and create checkpoint dir
