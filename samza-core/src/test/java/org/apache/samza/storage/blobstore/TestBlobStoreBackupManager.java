@@ -139,6 +139,12 @@ public class TestBlobStoreBackupManager {
           return CompletableFuture.completedFuture(testBlobStore.get(blobId));
         });
 
+    when(blobStoreUtil.getSnapshotIndex(captor.capture(), any(Metadata.class), anyBoolean()))
+        .then((Answer<CompletableFuture<SnapshotIndex>>) invocation -> {
+          String blobId = invocation.getArgumentAt(0, String.class);
+          return CompletableFuture.completedFuture(testBlobStore.get(blobId));
+        });
+
 //    doNothing().when(blobStoreManager).init();
     when(taskModel.getTaskName().getTaskName()).thenReturn(taskName);
     when(taskModel.getTaskMode()).thenReturn(TaskMode.Active);
