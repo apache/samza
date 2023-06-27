@@ -443,7 +443,7 @@ public class ContainerStorageManagerUtil {
       CheckpointManager checkpointManager, JobContext jobContext, ContainerModel containerModel,
       Map<TaskName, Checkpoint> taskCheckpoints, Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames,
       Config config, ExecutorService executor, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
-      File loggerStoreDir, Map<String , SystemConsumer> storeConsumers) {
+      File loggerStoreDir, Map<String, SystemConsumer> storeConsumers) {
 
     // Initialize each TaskStorageManager.
     taskRestoreManagers.forEach((taskName, restoreManagers) ->
