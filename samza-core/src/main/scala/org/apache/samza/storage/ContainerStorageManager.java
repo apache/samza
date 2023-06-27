@@ -302,17 +302,11 @@ public class ContainerStorageManager {
       taskBackendFactoryToStoreNames.put(taskName, backendFactoryToStoreNames);
     });
 
-    // Start each store consumer once.
-    // Note: These consumers are per system and only changelog system store consumers will be started.
-    // Some TaskRestoreManagers may not require the consumer to be started, but due to the agnostic nature of
-    // ContainerStorageManager we always start the changelog consumer here in case it is required
-    this.storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);
-
     // Init all taskRestores and if successful, create a future for restores for each task
     List<Future<Void>> taskRestoreFutures =
         ContainerStorageManagerUtil.initAndRestoreTaskInstances(taskRestoreManagers, samzaContainerMetrics,
             checkpointManager, jobContext, containerModel, taskCheckpoints, taskBackendFactoryToStoreNames, config,
-            restoreExecutor, taskInstanceMetrics, loggedStoreBaseDirectory);
+            restoreExecutor, taskInstanceMetrics, loggedStoreBaseDirectory, storeConsumers);
 
     // Loop-over the future list to wait for each restore to finish, catch any exceptions during restore and throw
     // as samza exceptions

@@ -443,7 +443,7 @@ public class ContainerStorageManagerUtil {
       CheckpointManager checkpointManager, JobContext jobContext, ContainerModel containerModel,
       Map<TaskName, Checkpoint> taskCheckpoints, Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames,
       Config config, ExecutorService executor, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
-      File loggerStoreDir) {
+      File loggerStoreDir, Map<String , SystemConsumer> storeConsumers) {
 
     // Initialize each TaskStorageManager.
     taskRestoreManagers.forEach((taskName, restoreManagers) ->
@@ -472,6 +472,12 @@ public class ContainerStorageManagerUtil {
             }
           }
         }));
+
+    // Start each store consumer once.
+    // Note: These consumers are per system and only changelog system store consumers will be started.
+    // Some TaskRestoreManagers may not require the consumer to be started, but due to the agnostic nature of
+    // ContainerStorageManager we always start the changelog consumer here in case it is required
+    storeConsumers.values().stream().distinct().forEach(SystemConsumer::start);
 
     return restoreAllTaskInstances(taskRestoreManagers, taskBackendFactoryToStoreNames, jobContext, containerModel,
         samzaContainerMetrics, checkpointManager, config, taskInstanceMetrics, executor, loggerStoreDir);
