@@ -108,7 +108,7 @@ public class TestApplicationMasterRestClient {
     assertTrue(metricsResult.containsKey(group));
 
     Map<String, Object> amMetricsGroup = metricsResult.get(group);
-    assertEquals(8, amMetricsGroup.size());
+    assertEquals(9, amMetricsGroup.size());
     assertEquals(samzaAppState.runningProcessors.size(),  amMetricsGroup.get("running-containers"));
     assertEquals(samzaAppState.neededProcessors.get(),    amMetricsGroup.get("needed-containers"));
     assertEquals(samzaAppState.completedProcessors.get(), amMetricsGroup.get("completed-containers"));
@@ -117,6 +117,7 @@ public class TestApplicationMasterRestClient {
     assertEquals(samzaAppState.processorCount.get(),      amMetricsGroup.get("container-count"));
     assertEquals(samzaAppState.jobHealthy.get() ? 1 : 0,  amMetricsGroup.get("job-healthy"));
     assertEquals(0, amMetricsGroup.get("container-from-previous-attempt"));
+    assertEquals(0, amMetricsGroup.get("allocated-containers-in-buffer"));
   }
 
   @Test
