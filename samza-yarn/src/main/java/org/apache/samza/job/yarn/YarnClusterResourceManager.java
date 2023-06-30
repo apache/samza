@@ -298,6 +298,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       }
       amClient.releaseAssignedContainer(container.getId());
       allocatedResources.remove(resource);
+      metrics.decrementAllocatedContainersInBuffer();
     }
   }
 
@@ -508,6 +509,7 @@ public class YarnClusterResourceManager extends ClusterResourceManager implement
       SamzaResource resource = new SamzaResource(numCores, memory, host, containerId);
       allocatedResources.put(resource, container);
       resources.add(resource);
+      metrics.incrementAllocatedContainersInBuffer();
     }
     clusterManagerCallback.onResourcesAvailable(resources);
   }

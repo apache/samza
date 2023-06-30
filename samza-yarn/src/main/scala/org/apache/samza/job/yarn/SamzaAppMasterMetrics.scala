@@ -42,11 +42,20 @@ class SamzaAppMasterMetrics(val config: Config,
 
   private val metricsConfig = new MetricsConfig(config)
   val containersFromPreviousAttempts = newGauge("container-from-previous-attempt", 0L)
+  val allocatedContainersInBuffer = newGauge("allocated-containers-in-buffer", 0L)
   val reporters = MetricsReporterLoader.getMetricsReporters(metricsConfig, SamzaAppMasterMetrics.sourceName).asScala
   reporters.values.foreach(_.register(SamzaAppMasterMetrics.sourceName, registry))
 
   def setContainersFromPreviousAttempts(containerCount: Int) {
     containersFromPreviousAttempts.set(containerCount)
+  }
+
+  def incrementAllocatedContainersInBuffer(): Unit = {
+    allocatedContainersInBuffer.set(allocatedContainersInBuffer.getValue + 1)
+  }
+
+  def decrementAllocatedContainersInBuffer(): Unit = {
+    allocatedContainersInBuffer.set(allocatedContainersInBuffer.getValue - 1)
   }
 
   def start() {
