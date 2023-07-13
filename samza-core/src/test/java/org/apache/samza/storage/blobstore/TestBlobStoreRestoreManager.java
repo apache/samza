@@ -88,16 +88,13 @@ public class TestBlobStoreRestoreManager {
     when(mockSnapshotIndex.getDirIndex()).thenReturn(dirIndex);
 
     BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
-    when(blobStoreUtil.cleanUpDir(any(DirIndex.class), any(Metadata.class))).thenReturn(CompletableFuture.completedFuture(null));
-    when(blobStoreUtil.deleteDir(any(DirIndex.class), any(Metadata.class))).thenReturn(CompletableFuture.completedFuture(null));
-    when(blobStoreUtil.deleteSnapshotIndexBlob(anyString(), any(Metadata.class))).thenReturn(CompletableFuture.completedFuture(null));
+    when(blobStoreUtil.cleanSnapshotIndex(anyString(), any(SnapshotIndex.class), any(Metadata.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.deleteUnusedStoresFromBlobStore(
         jobName, jobId, taskName, storageConfig, blobStoreConfig, initialStoreSnapshotIndexes, blobStoreUtil, EXECUTOR);
 
-    verify(blobStoreUtil, times(1)).cleanUpDir(eq(dirIndex), any(Metadata.class));
-    verify(blobStoreUtil, times(1)).deleteDir(eq(dirIndex), any(Metadata.class));
-    verify(blobStoreUtil, times(1)).deleteSnapshotIndexBlob(eq(blobId), any(Metadata.class));
+    verify(blobStoreUtil, times(1)).cleanSnapshotIndex(eq(blobId), any(SnapshotIndex.class), any(Metadata.class));
 
   }
 

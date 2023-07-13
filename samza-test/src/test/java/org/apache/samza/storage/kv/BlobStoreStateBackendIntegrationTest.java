@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.BlobStoreConfig;
@@ -242,18 +243,7 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
     List<String> expectedInitialSideInputStoreContentsOnSecondRun = new ArrayList<>(sideInputMessagesOnInitialRun);
     expectedInitialSideInputStoreContentsOnSecondRun.addAll(sideInputMessagesBeforeSecondRun);
 
-    try (DirectoryStream<Path> stream =
-        Files.newDirectoryStream(Paths.get(BLOB_STORE_BASE_DIR + "/myApp/1/Partition 0/regularStore/"), "snapshot-index*")) {
-      for (Path entry : stream) {
-        Path newFilePath = entry.resolveSibling(entry.getFileName() + "-DELETED");
-        Files.move(entry, newFilePath);
-        Path ledgerLocation = Paths.get(BLOB_STORE_LEDGER_DIR);
-        File filesDeletedLedger = Paths.get(ledgerLocation.toString(), "filesRemoved").toFile();
-        FileUtils.writeStringToFile(filesDeletedLedger, entry + "\n", Charset.defaultCharset(), true);
-      } //TODO is this the right approach? Maybe read checkpoint, deleted blob etc
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    deleteAnyBlobFromLocalBlobStore();
 
     secondRun(
         hostAffinity,
@@ -338,6 +328,43 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
 
       return Pair.of(lastFileAdded, lastSnapshotIndex);
     } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void deleteAnyBlobFromLocalBlobStore() {
+    Path startDir = Paths.get(BLOB_STORE_BASE_DIR + "/myApp/1/Partition 0/regularStore/");
+    String fileSuffix = ".sst";
+    try (Stream<Path> paths = Files.walk(startDir)) {
+      paths.filter(path -> !Files.isDirectory(path)) // only files, not directories
+          .filter(path -> path.getFileName().toString().endsWith(fileSuffix)) // Filter to find .sst files
+          .findFirst() // Get the first .sst file found
+          .ifPresent(path -> {
+            try {
+              Files.delete(path); // Delete the file
+              Path ledgerLocation = Paths.get(BLOB_STORE_LEDGER_DIR);
+              File filesDeletedLedger = Paths.get(ledgerLocation.toString(), "filesRemoved").toFile();
+              FileUtils.writeStringToFile(filesDeletedLedger, path + "\n", Charset.defaultCharset(), true);
+            } catch (IOException e) {
+              throw new RuntimeException("Failed to delete file: " + path, e);
+            }
+          });
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to walk directory: " + startDir, e);
+    }
+  }
+
+  private void deleteASnapshotIndexBlobFromLocalBlobStore() {
+    try (DirectoryStream<Path> stream =
+        Files.newDirectoryStream(Paths.get(BLOB_STORE_BASE_DIR + "/myApp/1/Partition 0/regularStore/"), "snapshot-index*")) {
+      for (Path entry : stream) {
+        Path newFilePath = entry.resolveSibling(entry.getFileName() + "-DELETED");
+        Files.move(entry, newFilePath);
+        Path ledgerLocation = Paths.get(BLOB_STORE_LEDGER_DIR);
+        File filesDeletedLedger = Paths.get(ledgerLocation.toString(), "filesRemoved").toFile();
+        FileUtils.writeStringToFile(filesDeletedLedger, entry + "\n", Charset.defaultCharset(), true);
+      }
+    } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }

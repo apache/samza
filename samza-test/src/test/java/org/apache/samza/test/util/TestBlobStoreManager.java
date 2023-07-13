@@ -50,7 +50,6 @@ public class TestBlobStoreManager implements BlobStoreManager {
   public static final String LEDGER_FILES_TTL_UPDATED = "filesTTLUpdated";
 
   private final String deletedTombstone = "-DELETED";
-
   private final Path stateLocation;
   private final File filesAddedLedger;
   private final File filesReadLedger;
