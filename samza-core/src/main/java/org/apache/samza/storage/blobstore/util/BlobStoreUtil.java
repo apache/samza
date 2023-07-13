@@ -58,7 +58,6 @@ import org.apache.samza.storage.blobstore.BlobStoreManager;
 import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
 import org.apache.samza.storage.blobstore.Metadata;
 import org.apache.samza.storage.blobstore.diff.DirDiff;
-import org.apache.samza.storage.blobstore.exceptions.DeletedException;
 import org.apache.samza.storage.blobstore.exceptions.RetriableException;
 import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.FileBlob;
@@ -214,6 +213,48 @@ public class BlobStoreUtil {
           snapshotMetadata.getStoreName());
       return blobStoreManager.put(inputStream, metadata).toCompletableFuture();
     }, isCauseNonRetriable(), executor, retryPolicyConfig);
+  }
+
+  /**
+   * Cleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs inside the SnapshotIndex
+   * and finally deletes SnapshotIndex blob itself. This is done by getting the SnapshotIndex first.
+   * @param snapshotIndexBlobId Blob if of SnapshotIndex
+   * @param requestMetadata Metadata of the request
+   */
+  public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, Metadata requestMetadata) {
+    return cleanSnapshotIndex(snapshotIndexBlobId, requestMetadata, false);
+  }
+
+  /**
+   * Cleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs inside the SnapshotIndex
+   * and finally deletes SnapshotIndex blob itself. This is done by getting the SnapshotIndex first.
+   * @param snapshotIndexBlobId Blob if of SnapshotIndex
+   * @param requestMetadata Metadata of the request
+   * @param getDeletedBlob Gets SnapshotIndex with getDeleted flag set
+   */
+  public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, Metadata requestMetadata, Boolean getDeletedBlob) {
+    Metadata getSnapshotRequest = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), requestMetadata.getJobName(),
+        requestMetadata.getJobId(), requestMetadata.getTaskName(), requestMetadata.getStoreName());
+    SnapshotIndex snapshotIndex = getSnapshotIndex(snapshotIndexBlobId, getSnapshotRequest, getDeletedBlob).join();
+    return cleanSnapshotIndex(snapshotIndexBlobId, snapshotIndex, requestMetadata);
+  }
+
+  /**
+   * Cleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs inside the SnapshotIndex
+   * and finally deletes SnapshotIndex blob itself.
+   * @param snapshotIndexBlobId Blob if of SnapshotIndex
+   * @param snapshotIndex SnapshotIndex to delete
+   * @param requestMetadata Metadata of the request
+   */
+  public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, SnapshotIndex snapshotIndex, Metadata requestMetadata) {
+    DirIndex dirIndex = snapshotIndex.getDirIndex();
+    CompletionStage<Void> storeDeletionFuture =
+        //TODO shesharm do not fail if delete fails with DeletedException
+        cleanUpDir(dirIndex, requestMetadata) // delete files and sub-dirs previously marked for removal
+            .thenComposeAsync(v ->
+                deleteDir(dirIndex, requestMetadata), executor) // deleted files and dirs still present
+            .thenComposeAsync(v -> deleteSnapshotIndexBlob(snapshotIndexBlobId, requestMetadata), executor); // delete the snapshot index blob
+    return storeDeletionFuture;
   }
 
   /**

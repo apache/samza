@@ -191,18 +191,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       if (!storesToBackup.contains(storeName) && !storesToRestore.contains(storeName)) {
         LOG.info("Removing task: {} store: {} from blob store. It is either no longer used, " +
             "or is no longer configured to be backed up or restored with blob store.", taskName, storeName);
-        DirIndex dirIndex = scmAndSnapshotIndex.getRight().getDirIndex();
         Metadata requestMetadata =
             new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
-        CompletionStage<Void> storeDeletionFuture =
-            //TODO shesharm do not fail if delete file/dir fail with DeletedException
-            blobStoreUtil.cleanUpDir(dirIndex, requestMetadata) // delete files and sub-dirs previously marked for removal
-                .thenComposeAsync(v ->
-                    blobStoreUtil.deleteDir(dirIndex, requestMetadata), executor) // deleted files and dirs still present
-                .thenComposeAsync(v -> blobStoreUtil.deleteSnapshotIndexBlob(
-                    scmAndSnapshotIndex.getLeft(), requestMetadata),
-                    executor); // delete the snapshot index blob
-        storeDeletionFutures.add(storeDeletionFuture);
+        storeDeletionFutures.add(blobStoreUtil.cleanSnapshotIndex(scmAndSnapshotIndex.getLeft(), scmAndSnapshotIndex.getRight(), requestMetadata));
       }
     });
 

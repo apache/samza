@@ -65,6 +65,7 @@ import org.apache.samza.storage.blobstore.BlobStoreManager;
 import org.apache.samza.storage.blobstore.BlobStoreManagerFactory;
 import org.apache.samza.storage.blobstore.BlobStoreRestoreManager;
 import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
+import org.apache.samza.storage.blobstore.Metadata;
 import org.apache.samza.storage.blobstore.exceptions.DeletedException;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
@@ -619,6 +620,7 @@ public class ContainerStorageManagerUtil {
       TaskName taskName, Config config, ExecutorService executor,
       Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, Checkpoint oldCheckpoint) {
 
+    JobConfig jobConfig = new JobConfig(config);
     BlobStoreManager blobStoreManager = getBlobStoreManager(config, executor);
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(blobStoreManager, executor, new BlobStoreConfig(config), null,
@@ -628,7 +630,7 @@ public class ContainerStorageManagerUtil {
     // NOTE: A deleted SnapshotIndex could mean all the associated files/subdirs are marked for deletion too. However,
     // we will not attempt to recreate them here. Restore (followed by the init) should take care of recreating them.
     Map<String, Pair<String, SnapshotIndex>> storeSnapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes(new JobConfig(config).getName().get(), new JobConfig(config).getJobId(),
+        blobStoreUtil.getStoreSnapshotIndexes(jobConfig.getName().get(), jobConfig.getJobId(),
             taskName.getTaskName(), oldCheckpoint, ImmutableSet.copyOf(
                 new StorageConfig(config).getPersistentStoresWithBackupFactory(
                     BlobStoreStateBackendFactory.class.getName())), true);
@@ -638,21 +640,25 @@ public class ContainerStorageManagerUtil {
     // Put the SnapshotIndex in Blob Store and remove TTL from the new blob
     storeSnapshotIndexes.forEach((store, blobIdSnapshotIndexPair) -> {
       SnapshotIndex snapshotIndex = blobIdSnapshotIndexPair.getRight();
+      Metadata metadata = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(),
+          jobConfig.getName().get(), jobConfig.getJobId(), taskName.getTaskName(), store);
       storeNameSnapshotIndexFuture.put(store,
           blobStoreUtil.putSnapshotIndex(snapshotIndex)
-          .thenCompose(blobId -> blobStoreManager.removeTTL(blobId, null) //TODO shesharm create request metadata
+          .thenCompose(blobId -> blobStoreManager.removeTTL(blobId, metadata)
               .thenApply(v -> blobId)));
     });
     CompletableFuture<Map<String, String>> storeNameSnapshotIndexIdsFuture =
         FutureUtil.toFutureOfMap(storeNameSnapshotIndexFuture);
 
-    // Clean the old SnapshotIndex to avoid leaving garbage in the Blobstore
+    // Clean the old SnapshotIndex and all associated blobs to avoid leaving garbage in the Blobstore
     Map<String, CompletableFuture<Void>> storeNameOldSnapshotIndexDeleteFuture = new HashMap<>();
     CheckpointV2 toDeleteCheckpoint = (CheckpointV2) oldCheckpoint;
     toDeleteCheckpoint.getStateCheckpointMarkers().get(BlobStoreStateBackendFactory.class.getName())
         .forEach((store, blobId) -> {
+          Metadata metadata = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(),
+              jobConfig.getName().get(), jobConfig.getJobId(), taskName.getTaskName(), store);
           storeNameOldSnapshotIndexDeleteFuture.put(store,
-              blobStoreUtil.deleteSnapshotIndexBlob(blobId, null).toCompletableFuture()); //TODO shesharm create request metadata
+              blobStoreUtil.cleanSnapshotIndex(blobId, metadata, true).toCompletableFuture());
         });
     CompletableFuture<Void> oldCheckpointsDeleteFuture =
         CompletableFuture.allOf(storeNameOldSnapshotIndexDeleteFuture.values().toArray(new CompletableFuture[0]));
@@ -660,7 +666,6 @@ public class ContainerStorageManagerUtil {
     CompletableFuture.allOf(storeNameSnapshotIndexIdsFuture, oldCheckpointsDeleteFuture).join();
 
     return storeNameSnapshotIndexIdsFuture.join();
-
   }
 
   private static Checkpoint writeNewCheckpoint(TaskName taskName, CheckpointId checkpointId,

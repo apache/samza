@@ -152,7 +152,7 @@ public class TestBlobStoreManager implements BlobStoreManager {
       FileUtils.writeStringToFile(filesDeletedLedger, id + "\n", Charset.defaultCharset(), true);
       // Suffix with 'DELETED' do not actually delete.
       Files.move(Paths.get(id), Paths.get(id + deletedTombstone));
-    } catch (NoSuchFileException ex){
+    } catch (NoSuchFileException ex) {
       LOG.warn("File might already be deleted. id: " + id);
     } catch (IOException e) {
       throw new RuntimeException("Error deleting file for id " + id, e);
